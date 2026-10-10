@@ -18,6 +18,16 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 ordered route list editors (C4 M4, installed-unobserved)
+
+NND `20261010-7` replaces the blind JSON textarea for the route arrays with
+ordered chip editors on the routes page: `required_capabilities` appends from
+the six served capability names (cap 6, unique) and `fallbacks` from the four
+role names (cap 4, unique, order = trial order), both reviewers and vision.
+Cycle checks stay engine-side and an empty list stays legal, exactly as NNA's
+route family accepts. Evidence in-session: tsc exit 0, routes suite green
+(11 tests), full UI suite green, gates green for 863 files.
+
 ## 2026-10-10 recovery wall clock and ordered ladder (C4 M1, installed-unobserved)
 
 NND `20261010-6` completes the typed recovery set: `turn_wall_clock_ms` joins

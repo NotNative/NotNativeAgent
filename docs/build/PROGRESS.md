@@ -3,6 +3,14 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Ordered route list editors · NND 20261010-7 / NNA 20261009-5
+
+Route `required_capabilities` and `fallbacks` for the two editable roles now
+edit as ordered unique chips fed by the exact served item sets, with the
+engine caps mirrored before the preview wire; empty lists stay legal and
+cycle checks stay engine-side. Routes suite 11/11, full UI suite green
+in-session, gates green against live NNA.
+
 ## 2026-10-10 · Recovery wall clock + ordered ladder · NND 20261010-6 / NNA 20261009-5
 
 `turn_wall_clock_ms` joined the typed recovery budgets with zero-as-unset

@@ -128,6 +128,8 @@ export const enNativeConfiguration = {
   'settings.nativeRoutes.noUserProviders': 'No provider in the selected user manifest is available for binding.',
   'settings.nativeRoutes.choose': 'Reviewer or vision setting',
   'settings.nativeRoutes.unavailable': 'This NNA service does not offer editable reviewer or vision scalar route settings.',
+  'settings.nativeRoutes.arrayHint': 'Order the entries: fallback roles are tried in the listed order. NNA checks the names, uniqueness, and limits, and refuses fallback cycles itself; an empty list is legal.',
+  'settings.nativeRoutes.removeEntry': 'Remove entry',
   'settings.nativeRoutes.sourceMissing': 'Repair the selected user manifest in NNA configuration before editing route settings.',
   'settings.nativeTui.description': 'Change NNA terminal colors, motion, and key bindings in the selected user manifest. NNA validates each change; saved values apply to a new terminal invocation.',
   'settings.nativeTui.choose': 'Terminal setting',

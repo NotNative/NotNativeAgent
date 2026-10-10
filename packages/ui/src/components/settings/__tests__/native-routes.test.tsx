@@ -21,7 +21,7 @@ vi.mock('../../../lib/nnd/configuration-mutation.ts', () => ({ requestNativeConf
   saveNativeConfiguration: vi.fn(), lookupNativeConfigurationOperation: vi.fn() }));
 
 const revision = 'a'.repeat(64), resolution = 'b'.repeat(64);
-const row = (path: string, value: string | number | boolean) => ({ path, catalog_path: path, explicit: { present: true as const, value },
+const row = (path: string, value: string | number | boolean | string[]) => ({ path, catalog_path: path, explicit: { present: true as const, value },
   effective: { present: true as const, value, source: 'user' }, application: 'not_applied' as const });
 const view: NativeConfigurationView = { schema_version: '1.0', installation_id: 'nna_test', data_id: 'data_test',
   scope: 'user', source_state: 'present', source_revision: revision, resolution_revision: resolution,
@@ -287,6 +287,67 @@ it('types boolean and enum route scalars from the catalog and gates bad numbers'
   expect(preview().disabled).toBe(false);
   await act(async () => preview().click());
   expect(nativeChange).toHaveBeenCalledWith(liveView, expect.objectContaining({ path: 'routes.reviewer.deadline_ms' }), 'set', '0');
+});
+
+it('edits reviewer capability and fallback lists as ordered unique chips', async () => {
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    { path: 'routes.reviewer.required_capabilities', type: 'array' as const,
+      editability: { available: true as const, scope: 'user' as const, required_permission: 'nnd.configuration.manage' as const } },
+    { path: 'routes.reviewer.fallbacks', type: 'array' as const,
+      editability: { available: true as const, scope: 'user' as const, required_permission: 'nnd.configuration.manage' as const } },
+    editable('routes.reviewer.provider_id', 'string')], routeBindings: ['reviewer', 'vision'] });
+  const arrayView = { ...view, fields: [...view.fields,
+    row('routes.reviewer.required_capabilities', ['tools']), row('routes.reviewer.fallbacks', ['vision'])] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(arrayView);
+  act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>)); await act(async () => {});
+  const tuning = container.querySelector('[data-settings-item="native-routes.tuning"]')!;
+  const chooser = tuning.querySelector('select') as HTMLSelectElement;
+  const preview = () => [...tuning.querySelectorAll('button')].find(item => item.textContent?.includes('Preview change')) as HTMLButtonElement;
+  const pick = async (path: string) => { await act(async () => { chooser.value = path;
+    chooser.dispatchEvent(new Event('change', { bubbles: true })); }); };
+  const add = (label: string) => [...tuning.querySelectorAll('button')]
+    .find(item => item.textContent === `Add ${label}`) as HTMLButtonElement;
+  await pick('routes.reviewer.fallbacks');
+  expect(preview().disabled).toBe(false);
+  await act(async () => { add('primary').click(); });
+  expect(preview().disabled).toBe(false);
+  // Order is the point: move the appended role to the front and preview it.
+  const chipButton = (label: string, at: number) => [...tuning.querySelectorAll('button')]
+    .filter(item => item.getAttribute('aria-label') === label)[at] as HTMLButtonElement;
+  expect(chipButton('Move up', 0).disabled).toBe(true);
+  await act(async () => { chipButton('Move up', 1).click(); });
+  vi.mocked(nativeChange).mockImplementation((_view, field, mode, draft) => ({
+    installation_id: view.installation_id, data_id: view.data_id, scope: 'user' as const,
+    expected_revision: revision, expected_resolution_revision: resolution,
+    operations: [{ op: 'set' as const, field: field.path, value: JSON.parse(draft) }] }));
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: revision,
+    resolution_revision: resolution, application: 'not_applied', view });
+  await act(async () => preview().click());
+  expect(nativeChange).toHaveBeenCalledWith(arrayView, expect.objectContaining({ path: 'routes.reviewer.fallbacks' }),
+    'set', '["primary","vision"]');
+  // Uniqueness: an already-present entry cannot be appended again.
+  expect(add('primary').disabled).toBe(true);
+  expect(add('vision').disabled).toBe(true);
+  await act(async () => { add('reviewer').click(); });
+  const addSubagent = [...tuning.querySelectorAll('button')].find(item => item.textContent === 'Add subagent') as HTMLButtonElement;
+  await act(async () => { addSubagent.click(); });
+  // Four fallback roles fill the cap.
+  expect(add('primary').disabled).toBe(true);
+  expect(preview().disabled).toBe(false);
+  const removeEntry = () => [...tuning.querySelectorAll('button')]
+    .find(item => item.getAttribute('aria-label') === 'Remove entry') as HTMLButtonElement;
+  for (let at = 0; at < 4; at++) await act(async () => { removeEntry().click(); });
+  // An empty fallback list is legal.
+  expect(preview().disabled).toBe(false);
+  await pick('routes.reviewer.required_capabilities');
+  const addTools = [...tuning.querySelectorAll('button')].find(item => item.textContent === 'Add tools') as HTMLButtonElement;
+  await act(async () => { addTools.click(); });
+  const addImages = [...tuning.querySelectorAll('button')].find(item => item.textContent === 'Add images') as HTMLButtonElement;
+  await act(async () => { addImages.click(); });
+  expect(preview().disabled).toBe(false);
+  // Only the served capability list offers add buttons.
+  expect([...tuning.querySelectorAll('button')].some(item => item.textContent === 'Add streaming')).toBe(true);
+  expect([...tuning.querySelectorAll('button')].some(item => item.textContent === 'Add nudge')).toBe(false);
 });
 
 it('discards a late route view from the old runtime after switching NNA', async () => {

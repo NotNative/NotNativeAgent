@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f80fb7b0ce1ffd9f35dc8ac086401e51e2bdad9d40f2dd8842466ea2246e0927",
+  "source_digest": "sha256:b552438dbca7a7a1572bddbcc2e075f3cff8325f3be8afc0a5c816818253ba79",
   "counts": {
-    "modules": 862,
+    "modules": 863,
     "component_edges": 17
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 216
+      "module_count": 217
     },
     {
       "id": "web-server",
@@ -117,8 +117,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 133,
-      "module_count": 94
+      "import_count": 134,
+      "module_count": 95
     },
     {
       "from": "ui-shell",
@@ -2103,6 +2103,16 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/settings/pages/native-route-array-editor.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
+        "packages/ui/src/lib/nnd/configuration-mutation.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/settings/pages/native-route-binding-form.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -2122,6 +2132,7 @@
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/pages/native-configuration-controls-actions.ts",
         "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
+        "packages/ui/src/components/settings/pages/native-route-array-editor.tsx",
         "packages/ui/src/lib/nnd/configuration-mutation.ts",
         "packages/ui/src/lib/nnd/configuration.ts"
       ]

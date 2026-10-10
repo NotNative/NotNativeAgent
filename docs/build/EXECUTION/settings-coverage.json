@@ -4637,7 +4637,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-array-editor.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -4654,7 +4654,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: required capabilities for the reviewer route is an inherited list, empty by default with no attributable layer; the catalog-gated field chooser on the native configuration page, where the raw list is edited. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: required capabilities for the reviewer route is an inherited list, empty by default with no attributable layer; the catalog-gated field chooser on the native configuration page, where the raw list is edited. The class follows NNA catalog metadata (engine_boundary). 20261010-7: the list edits through the ordered chip editor on the routes page (append from the served item set, reorder, remove; uniqueness and the engine caps mirrored before the wire; fallback order is the trial order and cycle checks stay engine-side; an empty list stays legal) instead of the generic JSON textarea. The engine revalidates on save."
   },
   {
    "id": "manifest_route:routes.reviewer.temperature",
@@ -4821,7 +4821,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-array-editor.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -4838,7 +4838,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: fallbacks for the reviewer route is an inherited list, empty by default with no attributable layer; the catalog-gated field chooser on the native configuration page, where the raw list is edited. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: fallbacks for the reviewer route is an inherited list, empty by default with no attributable layer; the catalog-gated field chooser on the native configuration page, where the raw list is edited. The class follows NNA catalog metadata (engine_boundary). 20261010-7: the list edits through the ordered chip editor on the routes page (append from the served item set, reorder, remove; uniqueness and the engine caps mirrored before the wire; fallback order is the trial order and cycle checks stay engine-side; an empty list stays legal) instead of the generic JSON textarea. The engine revalidates on save."
   },
   {
    "id": "manifest_route:routes.reviewer.deadline_ms",
@@ -5651,7 +5651,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-array-editor.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -5668,7 +5668,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: required capabilities for the vision route is an inherited list, empty by default with no attributable layer; the catalog-gated field chooser on the native configuration page, where the raw list is edited. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: required capabilities for the vision route is an inherited list, empty by default with no attributable layer; the catalog-gated field chooser on the native configuration page, where the raw list is edited. The class follows NNA catalog metadata (engine_boundary). 20261010-7: the list edits through the ordered chip editor on the routes page (append from the served item set, reorder, remove; uniqueness and the engine caps mirrored before the wire; fallback order is the trial order and cycle checks stay engine-side; an empty list stays legal) instead of the generic JSON textarea. The engine revalidates on save."
   },
   {
    "id": "manifest_route:routes.vision.temperature",
@@ -5835,7 +5835,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-array-editor.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -5852,7 +5852,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: fallbacks for the vision route is an inherited list, empty by default with no attributable layer; the catalog-gated field chooser on the native configuration page, where the raw list is edited. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: fallbacks for the vision route is an inherited list, empty by default with no attributable layer; the catalog-gated field chooser on the native configuration page, where the raw list is edited. The class follows NNA catalog metadata (engine_boundary). 20261010-7: the list edits through the ordered chip editor on the routes page (append from the served item set, reorder, remove; uniqueness and the engine caps mirrored before the wire; fallback order is the trial order and cycle checks stay engine-side; an empty list stays legal) instead of the generic JSON textarea. The engine revalidates on save."
   },
   {
    "id": "manifest_route:routes.vision.deadline_ms",

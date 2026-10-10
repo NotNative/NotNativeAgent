@@ -5,8 +5,10 @@ import type { NativeEditableField } from '../../../lib/nnd/configuration-mutatio
 import { useI18n } from '../../I18nProvider.tsx';
 import { chooseNativeField, previewNativeField, publishNativeField } from './native-configuration-controls-actions.ts';
 import { invalidateNativePreview, type ControlsModel } from './native-configuration-controls-model.ts';
+import { RouteArrayInput, routeArrayValid } from './native-route-array-editor.tsx';
 
 const ROUTE_SCALAR = /^routes\.(?:reviewer|vision)\.(?:budget|context_limit_bytes|deadline_ms|enable_thinking|max_output_tokens|reasoning_effort|temperature)$/u;
+const ROUTE_ARRAY = /^routes\.(?:reviewer|vision)\.(?:required_capabilities|fallbacks)$/u;
 const NUMERIC_DRAFT = /^\d+(?:\.\d+)?$/u;
 // Loose enough to let a decimal be typed ("0." mid-keystroke); the strict
 // gate that blocks the preview stays NUMERIC_DRAFT.
@@ -80,7 +82,8 @@ function ScalarInput({ field, model }: { field: NativeEditableField; model: Cont
 
 export function NativeRouteEditForm({ model, view }: { model: ControlsModel; view: NativeConfigurationView }): ReactNode {
   const { t } = useI18n();
-  const fields = model.fields.filter(field => ROUTE_SCALAR.test(field.path) && field.type !== 'array');
+  const fields = model.fields.filter(field => (ROUTE_SCALAR.test(field.path) && field.type !== 'array')
+    || (ROUTE_ARRAY.test(field.path) && field.type === 'array'));
   const selected = fields.find(field => field.path === model.fieldPath);
   const row = view.fields.find(field => field.path === selected?.path);
   const scalarPreview = model.preview?.request.operations[0]?.op !== 'bind_route' ? model.preview : null;
@@ -106,9 +109,11 @@ export function NativeRouteEditForm({ model, view }: { model: ControlsModel; vie
           <option value="reset">{t('settings.nativeConfiguration.reset')}</option>
         </select>
       </label>
-      {model.mode === 'set' ? <ScalarInput field={selected} model={model} /> : null}
+      {model.mode === 'set' ? (selected.type === 'array'
+        ? <RouteArrayInput field={selected} model={model} /> : <ScalarInput field={selected} model={model} />) : null}
       <button type="button" disabled={model.busy || Boolean(model.pendingOperation)
-        || (model.mode === 'set' && !routeScalarValid(selected, model.draft))}
+        || (model.mode === 'set' && !(selected.type === 'array'
+          ? routeArrayValid(selected, model.draft) : routeScalarValid(selected, model.draft)))}
         onClick={() => previewNativeField(model, view)}>{t('settings.nativeConfiguration.preview')}</button>
       {scalarPreview ? <div role="status">
         <p>{t('settings.nativeConfiguration.previewReady')}</p>

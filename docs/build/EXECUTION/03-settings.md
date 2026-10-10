@@ -449,6 +449,12 @@ engine applies before slicing the list. The length rule reads the local limit
 from the view because a ladder preview is a single-field operation; when the
 operator changes the limit itself, the next ladder preview re-reads it.
 
+The route lists left the blind JSON textarea at `20261010-7`: capabilities and
+fallbacks for the two editable roles now edit as ordered chips — append from
+the exact item sets the engine serves, reorder, remove — with uniqueness and
+the six/four caps mirrored before the wire. Fallback order is the trial order,
+cycle checking stays engine-side, and an empty list stays legal for both.
+
 ### A family page is not a surface for every field in the family
 
 `20261007-34` took eight rows apart and the headline went up by eight, because the rows
