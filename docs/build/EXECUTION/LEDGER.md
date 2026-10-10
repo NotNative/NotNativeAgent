@@ -18,6 +18,27 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Source-side MVP wrap-up (session close-out)
+
+Final coherence sweep: the settings census is fully closed (429 rows,
+remaining 0, gate mechanically enforcing the classified set; 8 recorded
+known-mismatches notes); every gap from the audit maps is either built and
+committed, classified as NNA-blocked in the census, or collected as an
+explicit checkbox in [DEFERRED-VERIFICATION](../DEFERRED-VERIFICATION.md)
+(installed acceptance journeys, the F7 browser-only gate, two-door
+notification/shortcut passes, V1–V6 release gates, and the release-gates
+run). The suspected F10 notification/shortcut and F7 browser-only gaps
+verified as already built during the sweep. 24 slices committed since the
+overnight baseline (`86d8e70b` → `20261010-33`), each with focused tests,
+adversarial review or parent-performed verification noted in its ledger
+entry, version bump, and green gates. Remaining NNA-side work (skills
+lifecycle, MCP OAuth/import, trust-zone writes, telemetry exporter, native
+fork/revert, NNO activation surface, and the L2 ADR series) is recorded as
+blocked-by-design in the census and gap notes — this session builds no
+competing surface for it. Status vocabulary holds: everything this session
+built is implemented-unverified until the operator's daytime verification
+pass observes it. Nothing is pushed.
+
 ## 2026-10-10 Commit-graph visualization in history (F6, implemented-unverified)
 
 NND `20261010-33` closes the last open F-package source gap from the audit:
