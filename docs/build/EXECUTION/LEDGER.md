@@ -20,7 +20,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 
 ## 2026-10-10 F6.3 stash lifecycle (F6, implemented-unverified)
 
-NND `20261010-29` closes the F6.3 stash gap: new server routes list stashes
+NND `20261010-30` closes the F6.3 stash gap: new server routes list stashes
 (`stash list` with subjects), create one (`stash push -m`, tracked changes,
 200 empty-state when git reports nothing to save), and apply or drop a
 validated `stash@{n}` ref (regex-checked, `execFileSync` array args, 200-
