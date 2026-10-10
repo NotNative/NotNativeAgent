@@ -18,6 +18,34 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 installed deep-link ingress probe (A5, implemented-unverified)
+
+NND `20261009-13` wires the direct installed deep-link ingress proof into
+the desktop leg of `installed-source-acceptance.mjs`. Each desktop attach
+now launches the installed binary twice more through the real
+`second-instance` path: a host link and a well-formed `connect?v=2` pairing
+offer must leave the host catalog, saved-host selection, dialog set, window
+set and boot target byte-identical, while a session link must arrive at the
+renderer as an `openchamber:open-session` event. Child instances exit at
+`requestSingleInstanceLock` (main.mjs:169) before creating a window, so the
+probe cannot recurse. The `open-url` handler relies on the
+`nativeAlphaDeepLinkAllowed` guard inside `receiveDeepLink`
+(main.mjs:93).
+
+Local evidence: `deep-links.test.mjs` 9/9 and `ipc-face.test.mjs` 25/25
+passed; `tsc --noEmit` passed on UI plus both web projects; syntax checks
+and `repository-graph --check` (857 modules) passed. Two electron test
+files and most scripts suites spawn children and are inconclusive under
+this sandbox — rerun on the daytime console. The installed acceptance run
+is explicitly deferred (operator instruction: no installed fixture while
+unattended). A5 therefore remains in-progress; this slice is
+implemented-unverified. A daytime rerun must execute
+`node scripts/installed-source-acceptance.mjs D:\ProjectRepo\NotNativeAgent
+--native-attachments` (or the setup journey) and confirm the
+`native_host_link_refused`, `native_pairing_link_refused` and
+`native_deep_link_ingress_verified` phases in the desktop phase log before
+A5 closes.
+
 ## 2026-10-09 native alpha desktop read boundary
 
 NND `20261009-12` closes legacy Electron IPC reads of arbitrary local files,

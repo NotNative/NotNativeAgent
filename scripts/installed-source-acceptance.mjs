@@ -98,7 +98,8 @@ export async function selectedPackage(fixture) {
 }
 function chromiumScript(origin, mode, mainUrl, browserProbeExpression, browserScenarioModule, browserProbeTimeoutMs) {
   return `import {app,BrowserWindow,dialog} from 'electron';
-import {appendFileSync} from 'node:fs';
+import {spawn} from 'node:child_process';
+import {appendFileSync,readFileSync} from 'node:fs';
 const phase=value=>appendFileSync(${JSON.stringify(mainUrl.debugPath)},value+'\\n');
 phase('module_loaded');
 dialog.showErrorBox=(_title,message)=>{phase('startup_error:'+String(message).slice(0,160))};
@@ -152,6 +153,7 @@ if(result.status!==200||result.authenticated!==true||result.token||Object.keys(r
 const ipc=await win.webContents.executeJavaScript('(async()=>{const invoke=window.__NOTNATIVE_DESKTOP_INVOKE__;const commands=["desktop_read_file","desktop_hosts_get","desktop_ssh_instances_get","desktopSshConfig","desktopSshReadConfig","desktopSshRefreshStatuses","desktop_open_mini_chat","desktop_local_client_token_get"];const results=[];for(const command of commands){const reply=await invoke(command,command==="desktop_read_file"?{path:"outside.txt"}:undefined);results.push({command,ok:reply.ok,error:reply.error})}return results})()');
 if(ipc.some(item=>item.ok!==false||item.error!=='native-alpha-desktop-action-unavailable'))throw Error('Native alpha desktop IPC exposed legacy local reads '+JSON.stringify(ipc));
 phase('native_ipc_reads_refused');
+${nativeDeepLinkIngressProbe()}
 ${browserProbeExpression ? `phase('desktop_probe_start');const probe=await win.webContents.executeJavaScript(${JSON.stringify(browserProbeExpression)});phase('desktop_probe_complete');process.stdout.write('NND_DESKTOP_PROBE='+JSON.stringify(probe)+'\\n');` : ''}
 finish(true)}catch(e){process.stderr.write(String(e));finish(false)}})});
 phase('import_start');await import(${JSON.stringify(mainUrl.main)});phase('import_returned');`}
@@ -195,6 +197,38 @@ export async function shell(fixture, mode, origin, ticket, extraArgs = [], brows
     assert.ok(match, `Authenticated ${mode} probe result is missing`);
     return JSON.parse(match[1]);
   }
+}
+function nativeDeepLinkIngressProbe() {
+  return `const prefPath=app.getPath('userData')+'/nnd-shell-prefs.json';
+const hostState=()=>{let prefs={};try{prefs=JSON.parse(readFileSync(prefPath,'utf8'))}catch{}return JSON.stringify({
+  hosts:prefs.desktopHosts??[],defaultHostId:prefs.desktopDefaultHostId??null})};
+const beforeHosts=hostState(),beforeUrl=win.webContents.getURL(),beforeWindows=BrowserWindow.getAllWindows().length;
+const bootBefore=await win.webContents.executeJavaScript('window.__NOTNATIVE_DESKTOP_INVOKE__("desktop_boot_config_get")');
+await win.webContents.executeJavaScript('window.__nndIngressSessions=[];window.__NOTNATIVE_DESKTOP_EVENTS__.onOpenSession(x=>window.__nndIngressSessions.push(x.sessionId));true');
+let dialogs=0;const originalDialog=dialog.showMessageBox;
+dialog.showMessageBox=(...args)=>{dialogs++;return Promise.resolve({response:1,canceled:true})};
+const launch=async(link)=>{const arrived=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('second-instance event absent')),15000);
+  app.once('second-instance',(_event,argv)=>{clearTimeout(timer);resolve(argv)})});
+  const child=spawn(process.execPath,[process.argv[1],'--hidden',link],{env:process.env,windowsHide:true,stdio:'ignore'});
+  const exited=new Promise((resolve,reject)=>{const timer=setTimeout(()=>{child.kill();reject(Error('deep-link child timeout'))},15000);
+    child.once('error',error=>{clearTimeout(timer);reject(error)});
+    child.once('exit',code=>{clearTimeout(timer);code===0?resolve():reject(Error('deep-link child exited '+code))})});
+  const argv=await arrived;await exited;if(!argv.includes(link))throw Error('second-instance URL missing '+link)};
+try{const payload={v:2,pairingId:'alpha-probe',secret:'probe',expiresAt:new Date(Date.now()+60000).toISOString(),
+  candidates:[{type:'lan',url:'https://example.invalid'}]};
+  const pairing='openchamber://connect?v=2&p='+Buffer.from(JSON.stringify(payload)).toString('base64url');
+  await launch('openchamber://host/alpha-probe');phase('native_host_link_refused');
+  await launch(pairing);phase('native_pairing_link_refused');
+  const sessionId='nnd-alpha-ingress-'+Date.now();await launch('openchamber://session/'+sessionId);
+  let seen=false;for(let i=0;i<50;i++){seen=await win.webContents.executeJavaScript(
+    'window.__nndIngressSessions?.includes('+JSON.stringify(sessionId)+')');if(seen)break;await new Promise(r=>setTimeout(r,100))}
+  if(!seen)throw Error('allowed session deep link did not reach renderer');
+  if(dialogs||hostState()!==beforeHosts||win.webContents.getURL()!==beforeUrl
+    ||BrowserWindow.getAllWindows().length!==beforeWindows)throw Error('native deep link changed legacy shell state');
+  const bootAfter=await win.webContents.executeJavaScript('window.__NOTNATIVE_DESKTOP_INVOKE__("desktop_boot_config_get")');
+  if(JSON.stringify(bootAfter)!==JSON.stringify(bootBefore))throw Error('native deep link changed boot target');
+  phase('native_deep_link_ingress_verified');
+}finally{dialog.showMessageBox=originalDialog}`;
 }
 export async function prepare(nnaSource, root) {
   const nna = join(root, 'NNA'), data = join(root, 'data'), nnd = join(root, 'NND');

@@ -3,6 +3,37 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Deep-link ingress probe wired · NND 20261009-13 / NNA 20261009-5 (installed run deferred)
+
+The native-alpha deep-link surface now has a direct ingress proof in the
+source-installed acceptance harness. Each desktop leg drives the real
+installed Electron renderer: it snapshots host state, session events and
+window set, suppresses dialogs, then re-launches the running binary with
+three link shapes (`host/`, a `connect?v=2` pairing offer and a `session/`
+link). Host and pairing offers must be refused — no host is imported, no
+saved host becomes default, no confirmation dialog appears and no second
+window opens; the session link must reach the renderer as an
+`openchamber:open-session` event, and the boot target must stay unchanged.
+
+Review confirmed the three ingress points already refuse legacy host links:
+launch argv at boot and the `second-instance` handler run
+`extractNativeAlphaDeepLinks`, and `receiveDeepLink` itself re-checks
+`nativeAlphaDeepLinkAllowed`, so every path applies the native-alpha
+allowlist before host state can change. The probe exercises all of them
+without changing shell code.
+
+Verification so far is static plus pure unit: syntax checks pass, `tsc
+--noEmit` is green on UI and both web projects, `deep-links.test.mjs` passes
+9/9 and `ipc-face.test.mjs` 25/25, and the repository graph is current for
+857 modules. The remaining packages/electron tests were started but two of
+them (native-service-client, ssh-managed-bundle) spawn child processes that
+this environment denies, and the scripts suites fail the same way, so those
+results are inconclusive here rather than failing on the change.
+
+The installed acceptance run that would close A5 is deferred to a daytime
+window, so this version is recorded as implemented-unverified: no installed
+journey has been observed on this pair yet.
+
 ## 2026-10-09 · Desktop setup probe timing · NND 20261009-3 / NNA 20261008-8
 
 The first desktop pre-configuration probe in `20261009-2` attached and read
