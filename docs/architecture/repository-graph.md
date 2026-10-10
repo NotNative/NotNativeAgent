@@ -41,7 +41,7 @@ graph LR
 | UI shell | 219 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
 | Web server | 233 | Client sync and state engine, Harness SDK facade | Quality gates, Web entrypoints |
 | Web entrypoints | 13 | Web server | — |
-| Quality gates | 85 | Client sync and state engine, Runtime adaptation, Web server | — |
+| Quality gates | 86 | Client sync and state engine, Runtime adaptation, Web server | — |
 | Product foundation | 0 | — | — |
 
 ## Strongest observed component dependencies
@@ -73,4 +73,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:2f291eb7163f74c991b03184681a0d0c544b937f6cff83a457b0f84bad06d7aa`.
+Source fingerprint: `sha256:f7601a79eb4c907bb593d120d56331bd3e5cdc025d36cb496fd0d69567bc9fe1`.

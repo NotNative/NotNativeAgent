@@ -3,6 +3,14 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Secret schema classified; /api fetch fix (C5 + audit) · NND 20261010-20 / NNA 20261009-5
+
+Seven evidenced secret-schema rows close the remaining census item (421
+rows, remaining 4); the cross-check audit's dead `/api` fetch paths in
+environment/update-state clients are fixed with regression tests, and the
+stale `nnd.configuration.write` census tokens are corrected. Gates green
+for 873 files.
+
 ## 2026-10-10 · Skills formats classified (C5) · NND 20261010-19 / NNA 20261009-5
 
 On-disk skill format gets a census row bound to the rendered inventory; the

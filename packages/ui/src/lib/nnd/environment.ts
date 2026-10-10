@@ -9,7 +9,7 @@
 import { runtimeFetch } from '../runtime-fetch.ts';
 import { authorityState } from '../../sync/authority-sync.ts';
 
-const API_BASE = '/v1/nnd/configuration/environment';
+const API_BASE = '/api/v1/nnd/configuration/environment';
 const NAMES = ['NNA_HOME', 'NNA_PROVIDER_ENDPOINT', 'NNA_MODEL', 'NNA_REDUCED_MOTION', 'NO_COLOR',
   'NNA_TELEGRAM_BOT_TOKEN', 'OPENCODE_SERVER_PASSWORD'];
 const SECRETS = new Set(['NNA_TELEGRAM_BOT_TOKEN', 'OPENCODE_SERVER_PASSWORD']);

@@ -18,6 +18,30 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Secret schema classified; dead /api fetch paths fixed (C5 + audit, installed-unobserved)
+
+NND `20261010-20` closes the remaining secret-schema census item with seven
+evidenced rows (421 rows total, remaining 4 items): the field/metadata/
+scope/label grammars and the use-request envelope as NNA-enforced
+invariants, the derived reference scan (`secretReferences` over
+providerProfiles/mcpServers/headerCredentials — there is no stored refs
+field) and the `secret_in_use` delete guard. All are owed:false
+dispositions: no NND route accepts a secret payload (the console client is
+proxied verbatim) and the binding grammar is already client-mirrored in the
+provider profile editor, so none of this needs a new control. The same
+slice applies the cross-check audit's findings: `environment.ts` and
+`update-state.ts` fetched `/v1/nnd/...` without the `/api` prefix that
+every sibling client uses, so both settings pages missed the server proxy
+and hit the SPA fallback — both now target `/api/v1/nnd/...` with a
+fetch-path regression test (the audit's parser-only tests had zero fetch
+assertions); the two census rows still naming the retired
+`nnd.configuration.write` token were corrected to
+`nnd.configuration.manage` with a dated note. The audit's third finding
+(an ALPHA.md evidence command pointing outside the tree) was disproven on
+verification: `scripts/installed-source-acceptance.mjs` exists in the tree,
+so no change was made. Evidence: full UI suite green in-session, tsc clean,
+gate tests 17/17, real gate run passes, gates green for 873 files.
+
 ## 2026-10-10 Skill formats classified; write actions dispositioned (C5, installed-unobserved)
 
 NND `20261010-19` classifies the last skills census item: the on-disk

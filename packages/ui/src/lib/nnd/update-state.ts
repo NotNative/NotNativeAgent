@@ -9,7 +9,7 @@
 import { runtimeFetch } from '../runtime-fetch.ts';
 import { authorityState } from '../../sync/authority-sync.ts';
 
-const API_BASE = '/v1/nnd/configuration/update-state';
+const API_BASE = '/api/v1/nnd/configuration/update-state';
 const CODE = /^[a-z0-9_]{1,64}$/u;
 const ID = /^[A-Za-z0-9_-]{1,128}$/u;
 const PATHS = ['format', 'checked_at', 'status', 'latest_version', 'latest_ref', 'latest_tag',

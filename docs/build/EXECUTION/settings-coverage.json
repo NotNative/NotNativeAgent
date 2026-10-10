@@ -23,8 +23,7 @@
   "classification": "Manifest-family kind values must equal the NNA classified catalog classification for the same structural path; invocation rows describe accepted CLI option literals from the two NNA option modules. scripts/settings-coverage-gate.mjs enforces both directions and rejects unclassified additions."
  },
  "remaining_census": [
-  "All repository environment reads, dynamic credentials, CLI positional subcommands and TUI commands.",
-  "Full secret create/update/scope schema and per-field validation, references and binding lifecycle.",
+  "Dynamic credentials and TUI command vocabulary (repository environment reads and CLI positional subcommands are enforced by the gate).",
   "Nested telemetry retention, route budgets/fallbacks, MCP effects; per-field bounds/default/null/reset/apply consumers.",
   "NNO activation, full installation/startup/discovery schemas and evolving L2 contracts.",
   "Cross-check operator docs, endpoint permissions, UI controls and tests."
@@ -212,7 +211,7 @@
     "evidence": "src/runtime-config.js:assertRuntimeConfigurationCompatible refuses a mid-session change to this scope, and a new session constructs from the published configuration."
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every manifest root row, including the ones it refuses to edit)",
-   "native_permission": "nnd.configuration.write (preview and compare-and-save through the generic editor)",
+   "native_permission": "nnd.configuration.manage (preview and compare-and-save through the generic editor)",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-configuration-prompt.tsx",
@@ -232,7 +231,7 @@
      "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
     ]
    },
-   "notes": "Pinned 20261007-14: durable unless the operator chooses ephemeral, and it is one of the two root rows the contract offers for editing; a live session refuses the change with configuration_scope_change because persistence is fixed for the session. Editable through the generic editor with preview and compare-and-save. The class follows NNA catalog metadata (new_session). 20261010-5: the field edits through the typed session-behavior block (catalog-fed durable/ephemeral select, or a free prompt textarea) instead of the generic JSON textarea; the mirror keeps malformed drafts from the preview wire and the engine revalidates on save. The manifest family application class stays NNA's own unverified declaration."
+   "notes": "Pinned 20261007-14: durable unless the operator chooses ephemeral, and it is one of the two root rows the contract offers for editing; a live session refuses the change with configuration_scope_change because persistence is fixed for the session. Editable through the generic editor with preview and compare-and-save. The class follows NNA catalog metadata (new_session). 20261010-5: the field edits through the typed session-behavior block (catalog-fed durable/ephemeral select, or a free prompt textarea) instead of the generic JSON textarea; the mirror keeps malformed drafts from the preview wire and the engine revalidates on save. The manifest family application class stays NNA's own unverified declaration. [20261010-20: permission token corrected from the retired nnd.configuration.write; the settled pair is nnd.configuration.read / nnd.configuration.manage.]"
   },
   {
    "id": "manifest:provider",
@@ -397,7 +396,7 @@
     "evidence": "src/runtime-config.js:applyConfiguration replaces engine.config and rebuilds engine.router as a new ModelRouter over it, so the next request uses the published value."
    },
    "native_endpoint": "GET /v1/nnd/configuration (the configuration view serves every manifest root row, including the ones it refuses to edit)",
-   "native_permission": "nnd.configuration.write (preview and compare-and-save through the generic editor)",
+   "native_permission": "nnd.configuration.manage (preview and compare-and-save through the generic editor)",
    "current_gui": {
     "product": "NND",
     "path": "packages/ui/src/components/settings/pages/native-configuration-prompt.tsx",
@@ -417,7 +416,7 @@
      "NNA test/nnd-configuration-view.test.js proves the manifest root rows: the version stamps as compiled defaults, the two offered edits, the persistence and workspace refusals that name a new session, the alias folding into providers[local], and the honest absence of every authority grant; the NND inventory test proves the page renders values, structure, and absence distinctly"
     ]
    },
-   "notes": "Pinned 20261007-14: empty until the operator writes one, and the other root row offered for editing; the served text is the operator own prompt. Editable through the generic editor with preview and compare-and-save. The class follows NNA catalog metadata (engine_boundary). 20261010-5: the field edits through the typed session-behavior block (catalog-fed durable/ephemeral select, or a free prompt textarea) instead of the generic JSON textarea; the mirror keeps malformed drafts from the preview wire and the engine revalidates on save. The manifest family application class stays NNA's own unverified declaration."
+   "notes": "Pinned 20261007-14: empty until the operator writes one, and the other root row offered for editing; the served text is the operator own prompt. Editable through the generic editor with preview and compare-and-save. The class follows NNA catalog metadata (engine_boundary). 20261010-5: the field edits through the typed session-behavior block (catalog-fed durable/ephemeral select, or a free prompt textarea) instead of the generic JSON textarea; the mirror keeps malformed drafts from the preview wire and the engine revalidates on save. The manifest family application class stays NNA's own unverified declaration. [20261010-20: permission token corrected from the retired nnd.configuration.write; the settled pair is nnd.configuration.read / nnd.configuration.manage.]"
   },
   {
    "id": "manifest:mission",
@@ -19230,6 +19229,223 @@
    "implementation_package": "C5 (20261010-19 skills formats)",
    "state": "open",
    "notes": "Added 20261010-19: honest disposition for the F8.3 write actions; unblocks only when NNA ships the native lifecycle contract (revision/reload reporting)."
+  },
+  {
+   "kind": "internal_invariant",
+   "family": "secrets",
+   "apply": {
+    "class": "unverified",
+    "evidence": "Create/rotate grammar: 1-16 fields, name pattern, value bounds, username_password requirement, rotate-against-kind."
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "secrets/vault.json"
+   },
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/secret-contracts.js:validateSecretFields",
+    "justification": "The field grammar is enforced entirely inside NNA (1-16 entries, name pattern, 20k non-NUL values, username_password completeness, rotate revalidates against the existing kind); the desktop forwards secret payloads verbatim and renders the forwarded errors, so a duplicated editor would not add coverage."
+   },
+   "work_package": "C5",
+   "implementation_package": "C5 (20261010-20 secret schema)",
+   "state": "open",
+   "id": "secrets:validation.fields",
+   "key": "validation.fields",
+   "source": {
+    "product": "NNA",
+    "path": "src/secret-contracts.js",
+    "validator": "validateSecretFields"
+   },
+   "notes": "Added 20261010-20: classifies the create/rotate field grammar behind the already-rowed secrets:fields.{field} projection."
+  },
+  {
+   "kind": "internal_invariant",
+   "family": "secrets",
+   "apply": {
+    "class": "unverified",
+    "evidence": "Metadata bounds: at most 32 entries with the shared name grammar and normalized value shapes."
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "secrets/vault.json"
+   },
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/secret-contracts.js:normalizeSecretMetadata",
+    "justification": "Metadata normalization (32-entry cap, shared name grammar, sorted deduplicated values) is an NNA-internal invariant; the desktop metadata editor renders what NNA returned and never re-implements the bounds, so the classification is documentation, not a missing control."
+   },
+   "work_package": "C5",
+   "implementation_package": "C5 (20261010-20 secret schema)",
+   "state": "open",
+   "id": "secrets:validation.metadata",
+   "key": "validation.metadata",
+   "source": {
+    "product": "NNA",
+    "path": "src/secret-contracts.js",
+    "validator": "normalizeSecretMetadata"
+   },
+   "notes": "Added 20261010-20: classifies the metadata grammar behind secrets:metadata.{name}."
+  },
+  {
+   "kind": "internal_invariant",
+   "family": "secrets",
+   "apply": {
+    "class": "unverified",
+    "evidence": "Scope grammar: five kinds, id bound, null scope only in the local realm; principal scope must cover the requested scope on write."
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "secrets/vault.json"
+   },
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/secret-contracts.js:normalizeSecretScope",
+    "justification": "The scope grammar (deployment/workspace/group/role/user, id bound, local-realm-only null) plus the principal-coverage requirement on writes live in NNA; the secrets:* projection row already shows the applied scope, so the grammar itself needs a classification row, not a second control."
+   },
+   "work_package": "C5",
+   "implementation_package": "C5 (20261010-20 secret schema)",
+   "state": "open",
+   "id": "secrets:validation.scope_grammar",
+   "key": "validation.scope_grammar",
+   "source": {
+    "product": "NNA",
+    "path": "src/secret-contracts.js",
+    "validator": "normalizeSecretScope"
+   },
+   "notes": "Added 20261010-20: distinct from secrets:scope, which rows only the read projection."
+  },
+  {
+   "kind": "internal_invariant",
+   "family": "secrets",
+   "apply": {
+    "class": "unverified",
+    "evidence": "Label bounds (1-96 visible chars, no control characters) and case-folded per-realm uniqueness."
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "secrets/vault.json"
+   },
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/secret-contracts.js:normalizeSecretLabel",
+    "justification": "Label bounds and case-folded per-realm uniqueness are enforced by NNA at create and rename; the desktop editor surfaces the forwarded rejection, so the grammar is recorded as an invariant rather than duplicated as a desktop validation."
+   },
+   "work_package": "C5",
+   "implementation_package": "C5 (20261010-20 secret schema)",
+   "state": "open",
+   "id": "secrets:validation.label_grammar",
+   "key": "validation.label_grammar",
+   "source": {
+    "product": "NNA",
+    "path": "src/secret-contracts.js",
+    "validator": "normalizeSecretLabel"
+   },
+   "notes": "Added 20261010-20: grammar companion to the secrets:label projection row."
+  },
+  {
+   "kind": "internal_invariant",
+   "family": "secrets",
+   "apply": {
+    "class": "unverified",
+    "evidence": "Use requests require a four-field envelope (consumer/destination/purpose/reviewerDecisionId) of non-empty strings."
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "secrets/vault.json"
+   },
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/secret-broker.js:requireUseRequest",
+    "justification": "The use-request envelope is an audit-oriented NNA invariant on POST /v1/secrets/:id/use; the desktop has no secret-use surface today, so the envelope is classified as engine-internal rather than promised a control it does not have."
+   },
+   "work_package": "C5",
+   "implementation_package": "C5 (20261010-20 secret schema)",
+   "state": "open",
+   "id": "secrets:validation.use_request",
+   "key": "validation.use_request",
+   "source": {
+    "product": "NNA",
+    "path": "src/secret-broker.js",
+    "validator": "requireUseRequest"
+   },
+   "notes": "Added 20261010-20: classifies the consumption-envelope grammar."
+  },
+  {
+   "kind": "internal_invariant",
+   "family": "secrets",
+   "apply": {
+    "class": "unverified",
+    "evidence": "Derived read: scans providerProfiles/mcpServers credentials and headerCredentials for secret-source bindings; no persisted reference field exists."
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "config/opencode.json"
+   },
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/secret-management.js:secretReferences",
+    "justification": "References are computed by scanning the live configuration for secret-source bindings instead of being stored; the desktop console renders no reference projection today, so the honest classification is an owed:false derived read until a reference view is built."
+   },
+   "work_package": "C5",
+   "implementation_package": "C5 (20261010-20 secret schema)",
+   "state": "open",
+   "id": "secrets:references",
+   "key": "references",
+   "source": {
+    "product": "NNA",
+    "path": "src/secret-management.js",
+    "validator": "secretReferences"
+   },
+   "notes": "Added 20261010-20: closes the binding-lifecycle half of the remaining census item; binding grammar itself is covered by the provider/MCP credential rows."
+  },
+  {
+   "kind": "internal_invariant",
+   "family": "secrets",
+   "apply": {
+    "class": "unverified",
+    "evidence": "Delete precondition: secret_in_use when the derived reference scan is non-empty."
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "secrets/vault.json"
+   },
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/secret-management.js:deleteUnreferencedSecret",
+    "justification": "Deletion is guarded inside NNA by the derived reference scan (secret_in_use); the desktop delete action already forwards that rejection through the proxy, so the guard is classified as an invariant rather than given its own control."
+   },
+   "work_package": "C5",
+   "implementation_package": "C5 (20261010-20 secret schema)",
+   "state": "open",
+   "id": "secrets:delete_guard",
+   "key": "delete_guard",
+   "source": {
+    "product": "NNA",
+    "path": "src/secret-management.js",
+    "validator": "deleteUnreferencedSecret"
+   },
+   "notes": "Added 20261010-20: lifecycle guard companion to secret_action:delete."
   }
  ]
 }
