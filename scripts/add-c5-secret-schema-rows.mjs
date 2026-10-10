@@ -91,7 +91,7 @@ const rows = [
     current_gui: {
       product: 'NND', path: null, status: 'unverified', owed: false,
       basis: 'src/secret-management.js:secretReferences',
-      justification: 'References are computed by scanning the live configuration for secret-source bindings instead of being stored; the desktop console renders no reference projection today, so the honest classification is an owed:false derived read until a reference view is built.',
+      justification: 'References are computed by scanning the live configuration for secret-source bindings instead of being stored; the desktop renders secret-binding pointers on the MCP/provider binding surfaces but has no per-secret reverse references view, so the honest classification is an owed:false derived read until that view is built.',
     },
     notes: 'Added 20261010-20: closes the binding-lifecycle half of the remaining census item; binding grammar itself is covered by the provider/MCP credential rows.',
   }),
@@ -102,10 +102,10 @@ const rows = [
     apply: { class: 'unverified', evidence: 'Delete precondition: secret_in_use when the derived reference scan is non-empty.' },
     current_gui: {
       product: 'NND', path: null, status: 'unverified', owed: false,
-      basis: 'src/secret-management.js:deleteUnreferencedSecret',
-      justification: 'Deletion is guarded inside NNA by the derived reference scan (secret_in_use); the desktop delete action already forwards that rejection through the proxy, so the guard is classified as an invariant rather than given its own control.',
+      basis: 'src/experience-engine.js:deleteSecret',
+      justification: 'Deletion is guarded by deleteUnreferencedSecret, but only on NNA\'s primary secret-management path (experience-engine deleteSecret); the broker DELETE route (/v1/secrets/:id) that the desktop console actually calls invokes broker.remove directly with no guard, so the desktop does not forward secret_in_use today and the unguarded route is the recorded gap.',
     },
-    notes: 'Added 20261010-20: lifecycle guard companion to secret_action:delete.',
+    notes: 'Added 20261010-20; corrected 20261010-21: the guard fires on experience-engine deleteSecret only — the broker DELETE route is unguarded and no desktop surface forwards secret_in_use.',
   }),
 ];
 

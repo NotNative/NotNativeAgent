@@ -18,6 +18,22 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Secret-schema review corrections (C5, installed-unobserved)
+
+NND `20261010-21` applies a second reviewer's findings on the secret rows:
+the `secrets:delete_guard` row had claimed the desktop forwards the
+`secret_in_use` rejection, which is false — the console deletes through the
+broker `DELETE /v1/secrets/:id` route, which calls `broker.remove` directly,
+while the guard fires only on NNA's primary `experience-engine deleteSecret`
+path; the row now cites `experience-engine.js:deleteSecret` and records the
+unguarded broker route as the gap. The `secrets:references` wording was
+tightened (the console renders secret-binding pointers on the MCP/provider
+surfaces; what is missing is a per-secret reverse references view). Evidence:
+gate passes against live NNA. The reviewer's other flag (un-prefixed paths
+in `client.ts`) was resolved as a false positive: `request()` prepends
+`DEFAULT_BASE_URL` (`/api`), so only raw-`runtimeFetch` clients needed the
+prefix.
+
 ## 2026-10-10 Secret schema classified; dead /api fetch paths fixed (C5 + audit, installed-unobserved)
 
 NND `20261010-20` closes the remaining secret-schema census item with seven
