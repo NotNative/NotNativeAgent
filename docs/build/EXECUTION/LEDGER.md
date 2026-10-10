@@ -18,6 +18,24 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 F6.3 image diffs in the file preview (F6, implemented-unverified)
+
+NND `20261010-27` closes the F6.3 image-diff gap: when a binary patch
+targets an image file, the working-rail file preview now renders a
+before/after view from the existing `/api/git/file-diff` endpoint (HEAD
+blob vs working-tree data URLs, server-side MIME whitelist and base64
+construction reviewed as injection-safe); a null-sided or failed response
+falls back to the plain binary card. The staged rail intentionally keeps
+the binary card because that endpoint compares HEAD to the working tree,
+not the index — the mismatch is documented in code and pinned by a test.
+Three new i18n keys are propagated to English plus all 11 locale catalogs
+(tsc-enforced key parity) via a tracked generator script. Four focused
+tests cover the working rail, staged exclusion, null-sides fallback, and
+facade parity; git+i18n suites 64/64, tsc clean, gates green for 877
+files. Reviewer verdict SHIP; its cosmetic stale-state note (previous
+file's figures flashing under a new path) was fixed with an explicit
+reset. Not installed-and-observed: implemented-unverified.
+
 ## 2026-10-10 F6.2 rich file previews (F6, implemented-unverified)
 
 NND `20261010-26` closes the F6.2 preview-format gap that remained after the
