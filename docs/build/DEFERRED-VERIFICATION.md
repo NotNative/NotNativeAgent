@@ -39,7 +39,10 @@ binaries and browser-driving runs.
       `installer-prebuilt-uninstall` 0/3 — all abort in "Installer syntax
       failed" PowerShell parse steps, an environment-class failure to triage
       by day, not yet evidence about the installer itself.
-- [ ] `node scripts/release-gates.js`
+- [ ] `node scripts/release-gates.js` (note `20261010-28`: a run before the
+      operator-daytime policy correction spawned smoke session `ses_de2kqnqr`
+      against the installed pair — session left as-is, recorded here for
+      cleanup at the operator's discretion; rerun is daytime-only)
 
 ## Installed acceptance (disposable profiles only, pinned pair — operator daytime)
 
@@ -57,6 +60,26 @@ binaries and browser-driving runs.
 - [ ] V1–V6 release gates (guide 05)
 
 ## C4 rows awaiting installed application evidence
+
+- [ ] F7 browser-only journey (guide 04:148-150): run the required
+      preview/inspection/capture/annotation flow with Electron never
+      launched and deliver the attachment to native execution. Source side
+      is built (`preview/browser-control-broker.ts` +
+      `browser-control-callback.ts`, `chat/browser-annotation-controls.tsx`
+      surface) and stays implemented-unverified until this passes; a
+      desktop handoff does not close the gate.
+- [ ] F10 notification delivery across both doors (browser push + desktop
+      click/deep-link routing, dedup/read-state coherence, no private
+      content in OS notifications) — `lib/browser-push.ts` and the
+      notifications settings page are implemented-unverified pending an
+      installed two-door pass.
+- [ ] F10 shortcut inventory/recorder against the real window (settings
+      shortcuts page + recorder dialog exist; conflicts and recorder
+      behavior need an installed pass).
+- [ ] Stash routes against a real repo state (empty-state locale caveat:
+      the "No local changes to save" detection is English-locale sensitive —
+      verify with a non-English git environment or pin `LC_ALL=C` in the
+      server spawn at the daytime pass).
 
 - [ ] C4 census rows' per-field application evidence (success, rejected, reset,
       conflict, persistence, application) — owned by the C7/C4 verification pass;

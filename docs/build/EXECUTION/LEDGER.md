@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 F-package gap sweep; deferred checklist extended (F7/F10, docs)
+
+A targeted verification sweep over the remaining gap-map items found the
+suspected F10 gaps already built: the notifications settings page and
+`lib/browser-push.ts` browser-push plumbing (subscribed/enable/disable with
+VAPID and service-worker registration, tested) cover the notification
+surface, and the settings shortcuts page plus recorder dialog cover the
+shortcut registry; the F7 browser-only inspection/capture/annotation path
+(`preview/browser-control-broker.ts` + `browser-control-callback.ts`, wired
+in app.ts, with the annotation surface riding the F3 attachment path) is
+also present. These stay implemented-unverified: the F7 browser-only
+journey (Electron never launched) and the two-door notification/shortcut
+passes are added to the deferred checklist rather than claimed closed. The
+only F-side source gap still open from the audit is the commit-graph
+visualization inside the existing history list (cosmetic-depth item) —
+everything else actionable is now installed-run-gated verification or
+NNA-blocked surface work recorded in the census. Also recorded: the
+accidental pre-correction `release-gates.js` run and its smoke session.
+
 ## 2026-10-10 F6.3 stash lifecycle (F6, implemented-unverified)
 
 NND `20261010-30` closes the F6.3 stash gap: new server routes list stashes
