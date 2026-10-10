@@ -20,7 +20,7 @@ Ground rules (from the guides and both repositories' AGENTS/README):
 
 ## 2026-10-10 F6.2 rich file previews (F6, implemented-unverified)
 
-NND `20261010-25` closes the F6.2 preview-format gap that remained after the
+NND `20261010-26` closes the F6.2 preview-format gap that remained after the
 F6 file/git audit: markdown and JSON text files now render a rich preview in
 view mode — markdown through the hardened dependency-free markdown-lite
 pipeline (no raw HTML, scheme-restricted links, shared with the transcript),
