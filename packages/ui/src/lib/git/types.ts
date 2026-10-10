@@ -24,7 +24,7 @@ export interface GitApi {
   fetchGitBranches(directory: string): Promise<GitBranch | null>;
   checkoutLocalBranch(directory: string, branch: string, expectedBranch: string): Promise<{ branch: string; switched: boolean }>;
   createLocalBranch(directory: string, name: string, expectedBranch: string): Promise<{ branch: string; created: boolean }>;
-  fetchGitLog(directory: string, maxCount?: number): Promise<{ isGitRepository?: boolean; commits: { hash: string; subject: string; author: string; date: number }[] } | null>;
+  fetchGitLog(directory: string, maxCount?: number): Promise<{ isGitRepository?: boolean; commits: { hash: string; parents: string[]; subject: string; author: string; date: number }[] } | null>;
   fetchGitDiff(directory: string, path: string, options: { staged: boolean; contextLines: number }): Promise<{ diff: string } | null>;
   fetchGitFileDiff(directory: string, path: string, staged: boolean): Promise<{ original: string | null; modified: string | null; isBinary: boolean } | null>;
   stageGitFiles(directory: string, paths: string[]): Promise<void>;

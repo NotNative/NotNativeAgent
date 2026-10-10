@@ -18,6 +18,24 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Commit-graph visualization in history (F6, implemented-unverified)
+
+NND `20261010-33` closes the last open F-package source gap from the audit:
+the history dialog now draws the branch/merge graph. `/api/git/log` carries
+each commit's parent hashes (%P, with the parse fields re-indexed and the
+existing route tests staying green), and a new pure `computeCommitLanes`
+assigns lanes with first-parent continuity, second-parent allocation,
+curve-back edges into open lanes, a free-lane pool so recurring forks do
+not accumulate dead lanes, and terminal edges to a parent's historical lane
+for clock-skewed ordering. The history rows render an SVG glyph (vertical
+line for same-lane edges, bezier for lane changes, commit dot) built from
+those rows. Six focused lane tests plus the 81-test git/lib suites green;
+both tsc clean; gates green for 882 modules. The first reviewer verdict was
+FIX-FIRST (monotonic lane leak and out-of-order parent handling); both
+findings were fixed and pinned with the reuse and terminal-edge tests.
+Implemented-unverified: the glyph's visual behavior needs an installed look
+before it can be called verified.
+
 ## 2026-10-10 F-package gap sweep; deferred checklist extended (F7/F10, docs)
 
 A targeted verification sweep over the remaining gap-map items found the

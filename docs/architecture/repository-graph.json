@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:2094a27c7ee3fd6ec723df354b44692bee9577a7a9bcf8f02ec4ade5e2c07c7c",
+  "source_digest": "sha256:55f13ce40981da5da6a204af0e7afbec3817e419db4828ae8d255d39ab644752",
   "counts": {
-    "modules": 881,
+    "modules": 882,
     "component_edges": 17
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 234
+      "module_count": 235
     },
     {
       "id": "ui-shell",
@@ -111,7 +111,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 377,
+      "import_count": 378,
       "module_count": 150
     },
     {
@@ -1347,6 +1347,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/git/graph-lanes.ts",
         "packages/ui/src/lib/i18n/context.tsx"
       ]
     },
@@ -3087,6 +3088,12 @@
     },
     {
       "path": "packages/ui/src/lib/git/file-tree-status.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/git/graph-lanes.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []

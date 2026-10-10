@@ -6,11 +6,12 @@
  * local checkout action uses an explicit clean-worktree server preflight;
  * remote tracking, creation, and other branch mutations remain separate.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   applyGitStash, createGitStash, fetchGitBranches, fetchGitLog, fetchGitStashes, type GitBranch,
 } from '../../lib/git/api';
 import { useI18n } from '../../lib/i18n/context.tsx';
+import { computeCommitLanes, type LaneRow } from '../../lib/git/graph-lanes.ts';
 
 type GitLogEntry = NonNullable<Awaited<ReturnType<typeof fetchGitLog>>>['commits'][number];
 
@@ -89,6 +90,8 @@ function GitHistoryDialog({ directory, onClose }: { directory: string; onClose: 
     return undefined;
   }, []);
 
+  const lanes = useMemo(() => computeCommitLanes(commits ?? []), [commits]);
+
   return (
     <DialogShell title={t('gitUi.history.title')} wide onClose={onClose} testid="git-history-dialog">
       <div className="mb-2 flex items-center gap-2" role="group" aria-label={t('gitUi.history.logSize')}>
@@ -112,8 +115,9 @@ function GitHistoryDialog({ directory, onClose }: { directory: string; onClose: 
       {copyFailed ? <div role="alert" className="text-xs text-status-error" data-testid="git-history-copy-failed">{t('gitUi.history.copyFailed')}</div> : null}
       {commits === null && !failed ? <div className="text-xs text-muted-foreground">{t('gitUi.history.loading')}</div> : null}
       <div className="flex flex-col gap-1">
-        {(commits ?? []).map((commit) => (
+        {(commits ?? []).map((commit, at) => (
           <div key={commit.hash} className="flex items-center gap-2 rounded px-2 py-1 text-xs text-foreground hover:bg-interactive-hover/30" data-testid="git-history-row">
+            <HistoryGraphGlyph row={lanes[at]} />
             <span className="font-mono text-[10px] text-muted-foreground">{commit.hash.slice(0, 8)}</span>
             <span className="min-w-0 flex-1 truncate" title={commit.subject}>{commit.subject}</span>
             <span className="text-[10px] text-muted-foreground">{commit.author}</span>
@@ -333,9 +337,28 @@ function StashRow({ stash, busy, onApply }: {
   );
 }
 
+const LANE_W = 12;
+const GLYPH_H = 20;
+
+/** F6.3 commit-graph glyph: one row of the branch/merge lane graph drawn
+ * from computeCommitLanes — vertical/curved edge lines plus the commit dot. */
+function HistoryGraphGlyph({ row }: { row?: LaneRow }): ReactNode {
+  if (!row) return <span className="w-3 shrink-0" />;
+  const center = (lane: number): number => lane * LANE_W + LANE_W / 2;
+  return (
+    <svg width={Math.max(1, row.laneCount) * LANE_W} height={GLYPH_H} className="shrink-0" data-testid="git-history-graph">
+      {row.edges.map((edge, at) => edge.from === edge.to ? (
+        <line key={at} x1={center(edge.from)} y1={0} x2={center(edge.to)} y2={GLYPH_H} stroke="currentColor" strokeWidth={1} className="text-border" />
+      ) : (
+        <path key={at} d={`M ${center(edge.from)} 0 C ${center(edge.from)} ${GLYPH_H / 2}, ${center(edge.to)} ${GLYPH_H / 2}, ${center(edge.to)} ${GLYPH_H}`} fill="none" stroke="currentColor" strokeWidth={1} className="text-border" />
+      ))}
+      <circle cx={center(row.lane)} cy={GLYPH_H / 2} r={3} className="fill-primary" data-testid="git-history-node" />
+    </svg>
+  );
+}
+
 function DialogShell({ title, onClose, wide, children, testid }: {
-  title: string;
-  onClose: () => void;
+  title: string;  onClose: () => void;
   wide?: boolean;
   children: ReactNode;
   testid?: string;

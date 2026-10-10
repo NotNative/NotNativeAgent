@@ -349,7 +349,7 @@ function git(args: string[], cwd: string): { status: number; stdout: string; std
   }
 }
 
-export interface GitLogEntry { hash: string; author: string; date: number; subject: string; files: number; additions: number; deletions: number }
+export interface GitLogEntry { hash: string; parents: string[]; author: string; date: number; subject: string; files: number; additions: number; deletions: number }
 
 function gitLog(query: { directory?: string; maxCount?: string }): Response {
   const repository = query.directory;
@@ -358,7 +358,7 @@ function gitLog(query: { directory?: string; maxCount?: string }): Response {
   // %x01 sentinel: stat-less commits (merges, empty) join headers with a
   // single \n, so block boundaries need a prefix numstat can't emit (P1).
   const sentinel = '\u0001';
-  const result = git(['log', `--max-count=${maxCount}`, '--pretty=format:%x01%H%x00%an%x00%ct%x00%s', '--numstat'], repository);
+  const result = git(['log', `--max-count=${maxCount}`, '--pretty=format:%x01%H%x00%P%x00%an%x00%ct%x00%s', '--numstat'], repository);
   if (result.status !== 0 && !isNotRepo(result.stderr)) {
     return Response.json({ error: result.stderr || 'git log failed' }, { status: 500 });
   }
@@ -401,7 +401,8 @@ function parseLog(stdout: string, sentinel: string, maxCount: number): GitLogEnt
         deletions += Number(parts[1] || 0) || 0;
       }
     }
-    commits.push({ hash, author: fields[1] ?? '', date: Number(fields[2]) * 1000 || 0, subject: fields.slice(3).join(' '), files, additions, deletions });
+    // format: %H %x00 %P %x00 %an %x00 %ct %x00 %s → fields[0..4]
+    commits.push({ hash, parents: (fields[1] ?? '').split(' ').filter((entry) => entry.length > 0), author: fields[2] ?? '', date: Number(fields[3]) * 1000 || 0, subject: fields.slice(4).join(' '), files, additions, deletions });
   }
   return commits;
 }
