@@ -4591,7 +4591,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -4608,7 +4608,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: context limit bytes for the reviewer route is bounded 65536 to 16777216, falling back to the bound provider profile ceiling; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: context limit bytes for the reviewer route is bounded 65536 to 16777216, falling back to the bound provider profile ceiling; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.reviewer.required_capabilities",
@@ -4683,7 +4683,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -4700,7 +4700,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: temperature for the reviewer route is bounded 0 to 2 with null left unset; an explicit zero stays unset on resolution; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: temperature for the reviewer route is bounded 0 to 2 with null left unset; an explicit zero stays unset on resolution; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.reviewer.max_output_tokens",
@@ -4729,7 +4729,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -4746,7 +4746,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: max output tokens for the reviewer route is bounded 1 to 1048576 with null unset and a saved zero meaning unset; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: max output tokens for the reviewer route is bounded 1 to 1048576 with null unset and a saved zero meaning unset; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.reviewer.budget",
@@ -4775,7 +4775,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -4792,7 +4792,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: budget for the reviewer route is bounded 1 to 64 with null unset and a saved zero meaning unset; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: budget for the reviewer route is bounded 1 to 64 with null unset and a saved zero meaning unset; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.reviewer.fallbacks",
@@ -4867,7 +4867,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -4884,7 +4884,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: deadline ms for the reviewer route is bounded 100 to 86400000; zero is canonical and disables the deadline, so a saved zero keeps explicit 0 with an effective null, and the unset default follows the provider timeout; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: deadline ms for the reviewer route is bounded 100 to 86400000; zero is canonical and disables the deadline, so a saved zero keeps explicit 0 with an effective null, and the unset default follows the provider timeout; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.reviewer.reasoning_effort",
@@ -4913,7 +4913,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -4930,7 +4930,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: reasoning effort for the reviewer route is an enumeration left unset unless the operator sets it; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: reasoning effort for the reviewer route is an enumeration left unset unless the operator sets it; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.reviewer.enable_thinking",
@@ -4959,7 +4959,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -4976,7 +4976,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: enable thinking for the reviewer route is a three-state boolean that stays unset unless the operator chooses; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: enable thinking for the reviewer route is a three-state boolean that stays unset unless the operator chooses; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.subagent.provider_id",
@@ -5605,7 +5605,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -5622,7 +5622,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: context limit bytes for the vision route is bounded 65536 to 16777216, falling back to the bound provider profile ceiling; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: context limit bytes for the vision route is bounded 65536 to 16777216, falling back to the bound provider profile ceiling; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.vision.required_capabilities",
@@ -5697,7 +5697,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -5714,7 +5714,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: temperature for the vision route is bounded 0 to 2 with null left unset; an explicit zero stays unset on resolution; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: temperature for the vision route is bounded 0 to 2 with null left unset; an explicit zero stays unset on resolution; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.vision.max_output_tokens",
@@ -5743,7 +5743,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -5760,7 +5760,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: max output tokens for the vision route is bounded 1 to 1048576 with null unset and a saved zero meaning unset; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: max output tokens for the vision route is bounded 1 to 1048576 with null unset and a saved zero meaning unset; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.vision.budget",
@@ -5789,7 +5789,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -5806,7 +5806,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: budget for the vision route is bounded 1 to 64 with null unset and a saved zero meaning unset; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: budget for the vision route is bounded 1 to 64 with null unset and a saved zero meaning unset; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.vision.fallbacks",
@@ -5881,7 +5881,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -5898,7 +5898,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: deadline ms for the vision route is bounded 100 to 86400000; zero is canonical and disables the deadline, so a saved zero keeps explicit 0 with an effective null, and the unset default follows the provider timeout; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: deadline ms for the vision route is bounded 100 to 86400000; zero is canonical and disables the deadline, so a saved zero keeps explicit 0 with an effective null, and the unset default follows the provider timeout; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.vision.reasoning_effort",
@@ -5927,7 +5927,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -5944,7 +5944,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: reasoning effort for the vision route is an enumeration left unset unless the operator sets it; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: reasoning effort for the vision route is an enumeration left unset unless the operator sets it; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_route:routes.vision.enable_thinking",
@@ -5973,7 +5973,7 @@
    "native_permission": "nnd.configuration.read (preview and save require nnd.configuration.manage)",
    "current_gui": {
     "product": "NND",
-    "path": "packages/ui/src/components/settings/pages/native-routes.tsx",
+    "path": "packages/ui/src/components/settings/pages/native-route-edit-form.tsx",
     "status": "verified"
    },
    "sensitivity": "unverified",
@@ -5990,7 +5990,7 @@
      "NNA test/nnd-configuration-view.test.js proves the route rows serve inherited provenance, canonical zeros that keep explicit 0 with an effective null, out-of-range refusal, and NNA own offer of 36 typed scalars plus the reviewer and vision binding pair; the NND route page test proves only those rows are offered and that the binding form is limited to reviewer and vision"
     ]
    },
-   "notes": "Pinned 20261007-12: enable thinking for the vision route is a three-state boolean that stays unset unless the operator chooses; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary)."
+   "notes": "Pinned 20261007-12: enable thinking for the vision route is a three-state boolean that stays unset unless the operator chooses; the reviewer or vision setting chooser on the native routes page. The class follows NNA catalog metadata (engine_boundary). 20261010-3: the routes-page tuning editor takes this scalar through a typed control instead of the raw JSON textarea (number with a client-mirrored bound gate from configuration-rules.js, boolean checkbox, or enum select from the served catalog); out-of-range and non-enum drafts are refused before the wire and the zero deadline still means disabled."
   },
   {
    "id": "manifest_attachments:attachments.enabled",

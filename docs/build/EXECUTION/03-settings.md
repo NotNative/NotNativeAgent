@@ -414,6 +414,15 @@ operator-chosen text the page must not echo. A blank limit box keeps the stored
 limit only while the model stays the same, and the editor says so on the form,
 because NNA drops the limit for a model change that does not resend it.
 
+The routes page tunes its seven reviewer and vision scalars through typed
+controls from `20261010-3`, not a raw JSON textarea: a number input gated by a
+client mirror of `configuration-rules.js` bounds, a checkbox for thinking mode,
+and an effort select fed by the served catalog's own enum list. An
+out-of-range or non-enum draft is refused before the preview wire, and a zero
+deadline still means disabled, exactly as the engine reads it. The mirror is
+declared a convenience, not authority: the engine revalidates on save, and the
+catalog, not the form, decides what is offered.
+
 ### A family page is not a surface for every field in the family
 
 `20261007-34` took eight rows apart and the headline went up by eight, because the rows

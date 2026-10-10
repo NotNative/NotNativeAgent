@@ -21,7 +21,7 @@ vi.mock('../../../lib/nnd/configuration-mutation.ts', () => ({ requestNativeConf
   saveNativeConfiguration: vi.fn(), lookupNativeConfigurationOperation: vi.fn() }));
 
 const revision = 'a'.repeat(64), resolution = 'b'.repeat(64);
-const row = (path: string, value: string | number) => ({ path, catalog_path: path, explicit: { present: true as const, value },
+const row = (path: string, value: string | number | boolean) => ({ path, catalog_path: path, explicit: { present: true as const, value },
   effective: { present: true as const, value, source: 'user' }, application: 'not_applied' as const });
 const view: NativeConfigurationView = { schema_version: '1.0', installation_id: 'nna_test', data_id: 'data_test',
   scope: 'user', source_state: 'present', source_revision: revision, resolution_revision: resolution,
@@ -33,7 +33,7 @@ const view: NativeConfigurationView = { schema_version: '1.0', installation_id: 
     row('routes.vision.temperature', 0.2), row('memory.enabled', 'true'),
     row('providers[local].id', 'local'), row('providers[local].model', 'base'),
     row('providers[visual].id', 'visual'), row('providers[visual].model', 'image-base')] };
-const editable = (path: string, type: 'number' | 'string') => ({ path, type,
+const editable = (path: string, type: 'number' | 'string' | 'boolean' | 'enum' | 'integer') => ({ path, type,
   editability: { available: true as const, scope: 'user' as const, required_permission: 'nnd.configuration.manage' as const } });
 let root: Root; let container: HTMLDivElement;
 function button(label: string) {
@@ -216,14 +216,77 @@ it('uses native preview and save for reviewer scalar with selected CAS identity'
   act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>)); await act(async () => {});
   await act(async () => { const select = container.querySelector('select')!; select.value = 'routes.reviewer.temperature';
     select.dispatchEvent(new Event('change', { bubbles: true })); });
-  await act(async () => { const area = container.querySelector('textarea')!;
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(area, '0.5');
+  await act(async () => { const area = container.querySelector('input[type="number"]')!;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(area, '0.5');
     area.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => button('Preview change').click());
   expect(nativeChange).toHaveBeenCalledWith(view, expect.objectContaining({ path: 'routes.reviewer.temperature' }), 'set', '0.5');
   await act(async () => button('Save to NNA').click());
   expect(saveNativeConfiguration).toHaveBeenCalledWith(request, 'operation_1', expect.any(AbortSignal));
   expect(container.textContent).toContain('saved');
+});
+
+it('types boolean and enum route scalars from the catalog and gates bad numbers', async () => {
+  const enumField = { path: 'routes.vision.reasoning_effort', type: 'enum' as const,
+    enum: ['minimal', 'low', 'medium', 'high'],
+    editability: { available: true as const, scope: 'user' as const, required_permission: 'nnd.configuration.manage' as const } };
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    editable('routes.reviewer.enable_thinking', 'boolean'), enumField, editable('routes.reviewer.budget', 'integer'),
+    editable('routes.reviewer.deadline_ms', 'integer'), editable('routes.reviewer.provider_id', 'string')],
+    routeBindings: ['reviewer', 'vision'] });
+  const liveView = { ...view, fields: [...view.fields,
+    row('routes.reviewer.enable_thinking', true), row('routes.vision.reasoning_effort', 'medium'),
+    row('routes.reviewer.budget', 4), row('routes.reviewer.deadline_ms', 0)] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(liveView);
+  vi.mocked(nativeChange).mockImplementation((_view, field, mode, draft) => ({
+    installation_id: view.installation_id, data_id: view.data_id, scope: 'user' as const,
+    expected_revision: revision, expected_resolution_revision: resolution,
+    operations: [{ op: mode === 'reset' ? 'reset' : 'set', field: field.path,
+      ...(mode === 'set' ? { value: JSON.parse(draft) } : {}) }] }));
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: revision,
+    resolution_revision: resolution, application: 'not_applied', view });
+  act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>)); await act(async () => {});
+  const tuning = container.querySelector('[data-settings-item="native-routes.tuning"]')!;
+  const chooser = tuning.querySelector('select') as HTMLSelectElement;
+  const preview = () => [...tuning.querySelectorAll('button')].find(item => item.textContent?.includes('Preview change')) as HTMLButtonElement;
+  const pick = async (path: string) => { await act(async () => { chooser.value = path;
+    chooser.dispatchEvent(new Event('change', { bubbles: true })); }); };
+  await pick('routes.reviewer.enable_thinking');
+  const checkbox = tuning.querySelector('input[type="checkbox"]') as HTMLInputElement;
+  // The stored value is true, so the control renders checked: the seed comes
+  // from the row, not from a blank.
+  expect(checkbox.checked).toBe(true);
+  await act(async () => { checkbox.click(); });
+  expect(checkbox.checked).toBe(false);
+  await act(async () => preview().click());
+  expect(nativeChange).toHaveBeenCalledWith(liveView, expect.objectContaining({ path: 'routes.reviewer.enable_thinking' }), 'set', 'false');
+  await pick('routes.vision.reasoning_effort');
+  const enumSelect = [...tuning.querySelectorAll('select')]
+    .find(select => [...select.querySelectorAll('option')].some(option => option.value === 'minimal')) as HTMLSelectElement;
+  expect([...enumSelect.querySelectorAll('option')].map(option => option.value).filter(Boolean))
+    .toEqual(['minimal', 'low', 'medium', 'high']);
+  await act(async () => { enumSelect.value = 'low'; enumSelect.dispatchEvent(new Event('change', { bubbles: true })); });
+  await act(async () => preview().click());
+  expect(nativeChange).toHaveBeenCalledWith(liveView, expect.objectContaining({ path: 'routes.vision.reasoning_effort' }), 'set', '"low"');
+  await pick('routes.reviewer.budget');
+  const numberInput = tuning.querySelector('input[type="number"]') as HTMLInputElement;
+  const type = async (value: string) => { await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(numberInput, value);
+    numberInput.dispatchEvent(new Event('input', { bubbles: true })); }); };
+  await type('999');
+  expect(preview().disabled).toBe(true);
+  expect(nativeChange).not.toHaveBeenCalledWith(liveView, expect.objectContaining({ path: 'routes.reviewer.budget' }), expect.anything(), '999');
+  await type('8');
+  expect(preview().disabled).toBe(false);
+  await act(async () => preview().click());
+  expect(nativeChange).toHaveBeenCalledWith(liveView, expect.objectContaining({ path: 'routes.reviewer.budget' }), 'set', '8');
+  await type('4.5');
+  expect(preview().disabled).toBe(true);
+  await pick('routes.reviewer.deadline_ms');
+  await type('0');
+  expect(preview().disabled).toBe(false);
+  await act(async () => preview().click());
+  expect(nativeChange).toHaveBeenCalledWith(liveView, expect.objectContaining({ path: 'routes.reviewer.deadline_ms' }), 'set', '0');
 });
 
 it('discards a late route view from the old runtime after switching NNA', async () => {

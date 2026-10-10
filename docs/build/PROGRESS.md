@@ -3,6 +3,19 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-10 · Typed route-scalar tuning · NND 20261010-3 / NNA 20261009-5
+
+The routes page's seven reviewer and vision scalars now edit through typed
+controls — bounded number, boolean checkbox, catalog-fed enum select — instead
+of a raw JSON textarea, with out-of-range and non-enum drafts refused before
+the preview wire and the engine's zero rules honored (deadline zero disables,
+temperature zero is a value). Adversarial review caught a decimal-typing bug
+jsdom could not see and a temperature-zero over-refusal, both fixed before the
+commit; every bound was verified against `configuration-rules.js`. Full UI
+suite green in-session (268 files); quality and coverage gates green against
+live NNA. Primary/subagent scalars stay on the generic configuration chooser
+as documented; their typed treatment and stored-null options are deferred.
+
 ## 2026-10-10 · Provider profile binding + limit writes · NND 20261010-2 / NNA 20261009-5
 
 The profile editor now writes the whole credential-binding family (keep /

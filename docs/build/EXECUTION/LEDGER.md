@@ -18,6 +18,29 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 typed route-scalar tuning (C4 S3, installed-unobserved)
+
+NND `20261010-3` replaces the raw JSON textarea on the routes-page tuning
+editor with typed controls for the seven reviewer and vision route scalars: a
+number input mirrored from `configuration-rules.js` bounds, a checkbox for
+thinking mode, and an effort select fed by the served catalog's own enum list.
+Out-of-range, fractional-integer, and non-enum drafts are refused before the
+preview wire; a zero deadline still means disabled and a zero temperature is a
+real stored value, both per the engine's own zero rules. The mirror is a
+convenience — the engine revalidates on save and the catalog decides the
+offer. S2 resolved without code: the primary and subagent scalars ride the
+generic configuration chooser exactly as guide 03 records, so the routes-page
+role gate stays as pinned. Adversarial review (subagent 99fa2f15) forced two
+fixes before shipping: a decimal can now actually be typed (the display
+pattern accepts the "0." keystroke while the strict gate keeps blocking
+premature previews), and temperature zero was unblocked after the reviewer
+checked `zero: 'value'` in the engine rule; it also verified every bound
+against `configuration-rules.js` line by line. Deferred: a stored-null option
+for effort and thinking (reset mode already covers unsetting), and the same
+typed treatment for primary/subagent scalars on the generic page. Evidence
+in-session: tsc exit 0, full UI suite green (268 files), quality and
+settings-coverage gates green against live NNA.
+
 ## 2026-10-10 provider profile binding and limit writes (C4, installed-unobserved)
 
 NND `20261010-2` completes the provider-profile write surface in

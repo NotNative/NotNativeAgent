@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:bb20afd3afa91443d56d225da48aa54ee87c04a52dbf268f9a6028467e741a08",
+  "source_digest": "sha256:100797025e1851e6c88b5751a4ffb1dcb2b4c6dcd4573ab8332778210e698fad",
   "counts": {
     "modules": 858,
     "component_edges": 17
@@ -117,7 +117,7 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 127,
+      "import_count": 128,
       "module_count": 91
     },
     {
@@ -2078,6 +2078,7 @@
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/pages/native-configuration-controls-actions.ts",
         "packages/ui/src/components/settings/pages/native-configuration-controls-model.ts",
+        "packages/ui/src/lib/nnd/configuration-mutation.ts",
         "packages/ui/src/lib/nnd/configuration.ts"
       ]
     },
