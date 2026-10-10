@@ -38,7 +38,14 @@ native-service-client re-verified 13/13). Evidence: gate tests 17/17
 session-org/knowledge suites 14/14, tsc clean, gates green. Open: the NNA
 anchor is stable but unpromised — a product.js refactor fails the gate
 loudly by design. Remaining census: 6 items (secret schema, skills,
-telemetry, NNO activation, docs cross-check, CLI/TUI commands).
+telemetry, NNO activation, docs cross-check, CLI/TUI commands). The
+reviewer's fix-first findings are applied: the two secret rows now cite the
+real owners (`src/secret-vault.js:decodeMasterKey` for the master key,
+`src/secret-broker.js:auditEvents` for the audit journal), the receipts row
+cites the `NnmGovernanceReceipts` class, the store rule distinguishes a
+missing `userDataPaths` entry from a shape-drifted one, and the session-org
+cache key includes the store file path so a data-directory swap cannot serve
+another directory's store.
 
 ## 2026-10-10 Steering capability reconciles at reconnect time (F10 S, installed-unobserved)
 
