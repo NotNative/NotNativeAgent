@@ -10,6 +10,7 @@ import { DesktopRelayRuntimeRestore } from './components/desktop/DesktopRelayRun
 import { readMiniChatLaunch } from './lib/miniChatLaunch.ts';
 import { useSessionViewStore } from './sync/view-store.ts';
 import { getRuntimeKey } from './lib/runtime-switch.ts';
+import { prepaintTheme } from './lib/theme/prepaint.ts';
 import type { LoginRequestBody, PasswordLoginResult } from './lib/sessionAuthGateState.ts';
 
 // Doc 01 §4.3 provider tree, NND shape (E-08-50: this repo builds no
@@ -17,6 +18,7 @@ import type { LoginRequestBody, PasswordLoginResult } from './lib/sessionAuthGat
 // — the gate renders App only after `/auth/session` says the session is live,
 // so boot never races a lock (§6.6).
 export function renderMainApp(element: HTMLElement): void {
+  prepaintTheme(); // W-02: first paint already wears the persisted theme.
   const launch = readMiniChatLaunch(window.location.search);
   if (launch.enabled) {
     useSessionViewStore.setState({

@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Theme prepaint (W-02.theme-prepaint, implemented-unverified)
+
+The renderer boot now applies the persisted theme synchronously BEFORE React
+mounts: `renderMainApp` calls `prepaintTheme()` first, which reads the same
+runtimeKey-scoped localStorage the ThemeProvider persists, resolves the
+variant (`system` follows `prefers-color-scheme`; explicit modes win),
+applies the resolved built-in theme through the same single
+`CSSVariableGenerator` style-element swap (which also toggles the `dark`/
+`light` classes, `data-theme`, and `colorScheme`), and sets the body
+background — so the first paint already wears the operator's theme instead of
+flashing the default. Custom themes load asynchronously, so an unknown stored
+id falls back to the default built-in of the resolved variant, exactly like
+the provider's pre-load fallback; the provider's post-mount effect re-applies
+idempotently through the same element id. Focused tests pin the default
+(system-variant) application, explicit mode over system preference, the
+unknown-id fallback, and idempotence with the provider path (one style
+element after re-apply). W-02 moves to implemented-unverified across all
+subfeatures.
+
 ## 2026-10-11 Command palette (W-05.command-palette, implemented-unverified)
 
 The declared-but-dead `open_command_palette` shortcut (mod+p) now opens a real

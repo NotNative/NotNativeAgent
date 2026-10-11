@@ -1804,6 +1804,10 @@
     {
       "version": "20261011-38",
       "content_sha256": "3a09a334d977081749f528d0269e662cd25c9a28885a3d6a41f5fe9532237535"
+    },
+    {
+      "version": "20261011-39",
+      "content_sha256": "3e61f6adbb2b6ecf9e0f58259f3606776d3bfa650c20c98e8d61c3fa3d7e6a2a"
     }
   ]
 }

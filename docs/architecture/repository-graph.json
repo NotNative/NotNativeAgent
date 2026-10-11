@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:959545fbbad95003314b8905be274b540435f7287da289f4757b979e42c6fdda",
+  "source_digest": "sha256:664fe9513b6106289cf70c0259722708518d48ea0705cfa8904c24ffcdcafcc7",
   "counts": {
-    "modules": 888,
+    "modules": 889,
     "component_edges": 17
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 235
+      "module_count": 236
     },
     {
       "id": "ui-shell",
@@ -111,7 +111,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 379,
+      "import_count": 380,
       "module_count": 151
     },
     {
@@ -4854,6 +4854,16 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/theme/prepaint.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/css-generator.ts",
+        "packages/ui/src/lib/theme/storage.ts",
+        "packages/ui/src/lib/theme/themes.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/theme/presets/aura.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -5063,6 +5073,7 @@
         "packages/ui/src/lib/miniChatLaunch.ts",
         "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/lib/sessionAuthGateState.ts",
+        "packages/ui/src/lib/theme/prepaint.ts",
         "packages/ui/src/sync/view-store.ts"
       ]
     },

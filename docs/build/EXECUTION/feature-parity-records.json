@@ -27,7 +27,7 @@
       "id": "W-02",
       "work_packages": "L, F10",
       "disposition": "MVP cold boot, bounded retry, manual recovery, theme prepaint.",
-      "status": "pending",
+      "status": "implemented-unverified",
       "subfeatures": [
         {
           "id": "W-02.cold-boot",
@@ -56,9 +56,25 @@
         },
         {
           "id": "W-02.theme-prepaint",
-          "status": "pending",
-          "note": "no theme-prepaint implementation exists anywhere in packages/ (prepaint/FOUC/no-flash/first-paint greps all empty)."
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/theme/prepaint.ts",
+            "../NotNativeDesktop/packages/ui/src/main.tsx (prepaintTheme before createRoot)",
+            "../NotNativeDesktop/packages/ui/src/lib/theme/__tests__/prepaint.test.ts"
+          ]
         }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/desktop-boot.mjs",
+        "../NotNativeDesktop/packages/electron/desktop-boot.test.mjs",
+        "../NotNativeDesktop/packages/electron/main.mjs (boot-failure page + retryServerFromFailurePage)",
+        "../NotNativeDesktop/packages/electron/ipc-face.mjs (desktop_retry_server)",
+        "../NotNativeDesktop/packages/electron/desktop-boot.test.mjs",
+        "../NotNativeDesktop/packages/electron/renderer-recovery.mjs",
+        "../NotNativeDesktop/packages/electron/renderer-recovery.test.mjs (bounded budget, window aging, non-recoverable reasons, dispose)",
+        "../NotNativeDesktop/packages/ui/src/lib/theme/prepaint.ts",
+        "../NotNativeDesktop/packages/ui/src/main.tsx (prepaintTheme before createRoot)",
+        "../NotNativeDesktop/packages/ui/src/lib/theme/__tests__/prepaint.test.ts"
       ]
     },
     {
