@@ -18,6 +18,31 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Bounded stores and enforced sync invariants (W-36, W-37, implemented-unverified)
+
+W-36's two legs exist with pinned behavior. Bounded stores: the child-store
+layer soft-caps directory stores with an eviction grace (recently touched
+directories never overflow-evict), an idle TTL that bounds disposal for
+untouched directories, and a synchronous eviction pass on unpin — pinned by
+the §F.5 child-store tests alongside the selected/visible/background demand
+scheduler. Tails and visible-demand fetching: the session-message loader
+pages by cursor, keeps a small-window tail refresh whose cursor never
+replaces coverage state, and the transcript consumes both through load-older
+plus the turn window (10 loader tests).
+
+W-37's invariants are mechanically enforced rather than documented:
+`p8-8-invariants-sweep` runs 12 source/behavior sweeps (secret-bearing store
+writes carry mode 0o600 with the host-lock exception, every client-auth
+answer flows through the single no-store json() helper, run tokens never
+surface in tunnel bodies or fail channels, the ui runtime/relay files carry
+no persistence APIs, duplicate client announcements collapse to one
+host-data leg); the scope-separation runtime guard refuses cross-scope
+patches; the shortcut registry throws on undeclared actions; quality gates
+mechanically enforce line caps, tsc, and graph staleness; release gates
+enforce manifest hashes and the ledger audit; and the status poll is
+monotonic (never lowers a live entry), pinned by the actions-recovery tests.
+All implemented-unverified pending the installed V-gates.
+
 ## 2026-10-11 Stream + native revert representation disposition (W-35, implemented-unverified)
 
 W-35's two legs landed with the F4/F9 native work. Native revert: NNA

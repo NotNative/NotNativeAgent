@@ -1036,15 +1036,61 @@
       "id": "W-36",
       "work_packages": "F2, F10",
       "disposition": "MVP bounded stores/tails and visible-demand fetching.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-36.bounded-stores",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/child-store.ts (soft-cap eviction with grace + idle TTL, §F.5)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/child-store.test.ts (8 tests: priority scheduler, grace-beats-burst, idle TTL bound, unpin eviction)"
+          ]
+        },
+        {
+          "id": "W-36.tails-demand",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/session-message-loader.ts (cursor paging + small-window tail refresh that never replaces coverage state)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/session-message-loader.test.ts (10 tests)",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (load-older demand + turn window)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/sync/child-store.ts (soft-cap eviction with grace + idle TTL, §F.5)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/child-store.test.ts (8 tests: priority scheduler, grace-beats-burst, idle TTL bound, unpin eviction)",
+        "../NotNativeDesktop/packages/ui/src/sync/session-message-loader.ts (cursor paging + small-window tail refresh that never replaces coverage state)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/session-message-loader.test.ts (10 tests)",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (load-older demand + turn window)"
+      ]
     },
     {
       "id": "W-37",
       "work_packages": "F2, V",
       "disposition": "MVP mechanically enforced sync invariants.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-37.enforced-invariants",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (12 mechanical invariant tests: secret-mode 0o600 sweeps, no-store json helper, token containment, no persistence in ui runtime/relay, structural-only fail channel)",
+            "../NotNativeDesktop/packages/ui/src/sync/scope-separation.ts (runtime guard: scopes never merge)",
+            "../NotNativeDesktop/packages/ui/src/lib/shortcuts/registry.ts (undeclared action throw)",
+            "../NotNativeDesktop/scripts/quality-gates.js (line caps, tsc, graph staleness)",
+            "../NotNativeDesktop/scripts/release-gates.js (manifest hashes + ledger audit)",
+            "../NotNativeDesktop/packages/ui/src/sync/engine-message-poll.ts (monotonic status, never clobbers live state; actions-recovery.test.ts pins monotonic vs authoritative)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (12 mechanical invariant tests: secret-mode 0o600 sweeps, no-store json helper, token containment, no persistence in ui runtime/relay, structural-only fail channel)",
+        "../NotNativeDesktop/packages/ui/src/sync/scope-separation.ts (runtime guard: scopes never merge)",
+        "../NotNativeDesktop/packages/ui/src/lib/shortcuts/registry.ts (undeclared action throw)",
+        "../NotNativeDesktop/scripts/quality-gates.js (line caps, tsc, graph staleness)",
+        "../NotNativeDesktop/scripts/release-gates.js (manifest hashes + ledger audit)",
+        "../NotNativeDesktop/packages/ui/src/sync/engine-message-poll.ts (monotonic status, never clobbers live state; actions-recovery.test.ts pins monotonic vs authoritative)"
+      ]
     },
     {
       "id": "W-38",
