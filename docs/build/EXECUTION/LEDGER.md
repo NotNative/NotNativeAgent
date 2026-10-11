@@ -18,6 +18,22 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Terminal family (W-56..W-59, W-61..W-63, implemented-unverified)
+
+W-56: the local terminal v3 protocol and command plane (16 protocol + 47
+runtime tests). W-57: Windows ConPTY lifecycle through the node-pty backend
+with the force-kill (SIGKILL) contract pinned; POSIX branches excluded.
+W-58: the renderer/input surface with design-system fonts/theme tokens (8
+view tests). W-59: live transport, keepalive ownership, tabs/panel with the
+close-guarded tab close versus detached session. W-61: workspace trust via
+native-workspace-admission with project actions and local preview opening
+(operator tests). W-62: the terminal access-isolation fence plus the §12
+invariant sweeps and bounded IO. W-63: terminal selection rides Flow 5 into
+the composer context (AttachSelectionButton + composer-append tests).
+W-60 (desktop/browser mirroring and reattach) stays pending — no complete
+mirroring implementation was found. All implemented-unverified pending the
+installed V-gates.
+
 ## 2026-10-11 Local preview family (W-91..W-95, implemented-unverified)
 
 W-91: Windows local dev-server discovery/probe (p11-dev-servers 5 tests,

@@ -1354,29 +1354,87 @@
       "id": "W-56",
       "work_packages": "F7",
       "disposition": "MVP local terminal v3 protocol and command plane.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-56.terminal-protocol",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-protocol.test.ts (16 v3 protocol tests)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-runtime.test.ts (47 runtime/command-plane tests)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-protocol.test.ts (16 v3 protocol tests)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-runtime.test.ts (47 runtime/command-plane tests)"
+      ]
     },
     {
       "id": "W-57",
       "work_packages": "F7, L",
       "disposition": "MVP Windows ConPTY lifecycle; POSIX platform branches excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-57.conpty",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/terminal/pty-backend.ts (Windows ConPTY via node-pty win32-x64 prebuilds)",
+            "../NotNativeDesktop/packages/web/src/server/terminal/bootstrap.ts",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-runtime.test.ts (lifecycle incl. SIGKILL force-kill contract); POSIX branches excluded"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/terminal/pty-backend.ts (Windows ConPTY via node-pty win32-x64 prebuilds)",
+        "../NotNativeDesktop/packages/web/src/server/terminal/bootstrap.ts",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-runtime.test.ts (lifecycle incl. SIGKILL force-kill contract); POSIX branches excluded"
+      ]
     },
     {
       "id": "W-58",
       "work_packages": "F7, C",
       "disposition": "MVP equivalent terminal renderer/input/fonts/theme.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-58.renderer",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalView.tsx (renderer/input)",
+            "../NotNativeDesktop/packages/ui/src/components/terminal/__tests__/terminal-view.test.tsx (8 tests)",
+            "../NotNativeDesktop/packages/ui/src/styles/design-system.css (fonts/theme tokens)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalView.tsx (renderer/input)",
+        "../NotNativeDesktop/packages/ui/src/components/terminal/__tests__/terminal-view.test.tsx (8 tests)",
+        "../NotNativeDesktop/packages/ui/src/styles/design-system.css (fonts/theme tokens)"
+      ]
     },
     {
       "id": "W-59",
       "work_packages": "F7",
       "disposition": "MVP terminal transport/store/panel/detach versus close.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-59.transport-panel",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-live.test.ts (live transport)",
+            "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalKeepaliveOwner.tsx (keepalive)",
+            "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalView.tsx (tabs/panel, close-guarded tab close vs detached session)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-live.test.ts (live transport)",
+        "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalKeepaliveOwner.tsx (keepalive)",
+        "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalView.tsx (tabs/panel, close-guarded tab close vs detached session)"
+      ]
     },
     {
       "id": "W-60",
@@ -1389,22 +1447,63 @@
       "id": "W-61",
       "work_packages": "F7",
       "disposition": "MVP project actions/trust/exit evidence/local preview opening.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-61.project-actions-trust",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/native-workspace-admission.ts (workspace trust)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-route.test.tsx + operator-rail.test.tsx (project actions/local preview opening)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/native-workspace-admission.ts (workspace trust)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-route.test.tsx + operator-rail.test.tsx (project actions/local preview opening)"
+      ]
     },
     {
       "id": "W-62",
       "work_packages": "F7, V",
       "disposition": "MVP bounded terminal input/output and access isolation.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-62.bounded-terminal",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/native-terminal-fence.test.ts (access isolation fence)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (§12 isolation sweeps)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-runtime.test.ts (bounded IO)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/native-terminal-fence.test.ts (access isolation fence)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (§12 isolation sweeps)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-runtime.test.ts (bounded IO)"
+      ]
     },
     {
       "id": "W-63",
       "work_packages": "F3, F7",
       "disposition": "MVP terminal selection to context/comments.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-63.selection-context",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalView.tsx (AttachSelectionButton: selection rides Flow 5 into the composer context)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-append.test.tsx"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalView.tsx (AttachSelectionButton: selection rides Flow 5 into the composer context)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-append.test.tsx"
+      ]
     },
     {
       "id": "W-64",
