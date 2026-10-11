@@ -1984,6 +1984,10 @@
     {
       "version": "20261011-85",
       "content_sha256": "4567ba6443f6179e6eb892d19ba5399e2192545600ea21dba9d90d19eecea506"
+    },
+    {
+      "version": "20261011-87",
+      "content_sha256": "b7608a345129634222bd7a7fb072a86915a5fdb12a9f9ded2e2429eeb60a828a"
     }
   ]
 }
