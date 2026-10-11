@@ -18,6 +18,24 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 GitHub/Linear integration surfaces (W-53, implemented-unverified)
+
+The read-only integration surfaces are built. Server side: connectors over
+the free public APIs — GitHub open-PR list (origin derived from
+`git remote get-url origin`; optional `GITHUB_TOKEN`; rate-limit and
+transport failures are typed and fail closed; 10 s timeout, 2 MB body
+bound, malformed entries dropped) and a Linear issue list (GraphQL,
+requires `LINEAR_API_KEY` and fails closed with `linear-unconfigured`
+until an operator supplies one — account setup stays optional). Routes:
+`GET /api/integrations/github/pulls?directory=…` and
+`GET /api/integrations/linear/issues`. UI side: PullRequestsPanel and
+LinearIssuesPanel render the lists with state/refs/assignee and surface the
+typed failure code with "setup is optional" guidance instead of pretending
+an empty list is healthy; embedded in GitView (visible-gated). Pre-existing
+PR walkthrough source admission composes with these. Four connector tests +
+two panel tests pin the behavior. W-53 is implemented-unverified (live
+GitHub/Linear observation is deferred to the installed V-gates).
+
 ## 2026-10-11 Terminal mirroring + reattach (W-60, implemented-unverified)
 
 The mirroring architecture was already shipped — one server-side

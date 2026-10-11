@@ -1441,8 +1441,29 @@
       "id": "W-53",
       "work_packages": "F6",
       "disposition": "MVP PR/GitHub/Linear surfaces; account setup may be optional, feature implementation is required.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-53.surfaces",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/lib/integrations/connectors.ts (GitHub open-PR list + Linear issue list over the free public APIs; optional GITHUB_TOKEN / required LINEAR_API_KEY; typed fail-closed codes; size+timeout bounded)",
+            "../NotNativeDesktop/packages/web/src/server/routes/integrations.ts + app.ts (GET /api/integrations/github/pulls, /api/integrations/linear/issues)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/w53-integrations.test.ts (origin parsing, draft normalization, malformed-entry drop, fail-closed matrix)",
+            "../NotNativeDesktop/packages/ui/src/components/git/integrations-panel.tsx (PullRequestsPanel + LinearIssuesPanel with fail-closed messaging; embedded in GitView)",
+            "../NotNativeDesktop/packages/ui/src/components/git/__tests__/integrations-panel.test.tsx (lists render, codes surface, unconfigured guidance)",
+            "../NotNativeDesktop/packages/web/src/server/routes/git-walkthrough-sources.ts (pre-existing pr walkthrough source admission)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/lib/integrations/connectors.ts (GitHub open-PR list + Linear issue list over the free public APIs; optional GITHUB_TOKEN / required LINEAR_API_KEY; typed fail-closed codes; size+timeout bounded)",
+        "../NotNativeDesktop/packages/web/src/server/routes/integrations.ts + app.ts (GET /api/integrations/github/pulls, /api/integrations/linear/issues)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/w53-integrations.test.ts (origin parsing, draft normalization, malformed-entry drop, fail-closed matrix)",
+        "../NotNativeDesktop/packages/ui/src/components/git/integrations-panel.tsx (PullRequestsPanel + LinearIssuesPanel with fail-closed messaging; embedded in GitView)",
+        "../NotNativeDesktop/packages/ui/src/components/git/__tests__/integrations-panel.test.tsx (lists render, codes surface, unconfigured guidance)",
+        "../NotNativeDesktop/packages/web/src/server/routes/git-walkthrough-sources.ts (pre-existing pr walkthrough source admission)"
+      ]
     },
     {
       "id": "W-54",

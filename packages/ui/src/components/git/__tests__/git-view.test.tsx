@@ -436,7 +436,7 @@ describe('GitView (doc 06 §6 v1)', () => {
   it('keeps Changes, the selected diff, and commit controls in separate bounded scroll regions', async () => {
     await render(true);
     await settle();
-    expect(document.querySelector('[data-testid="git-view"] > div')?.className).toContain('flex-col');
+    expect(document.querySelector('[data-testid="git-layout"]')?.className).toContain('flex-col');
     const changes = document.querySelector('[data-testid="git-changes-scroll"]') as HTMLElement;
     const review = document.querySelector('[data-testid="git-review-scroll"]') as HTMLElement;
     const commit = document.querySelector('[data-testid="git-commit-dock"]') as HTMLElement;

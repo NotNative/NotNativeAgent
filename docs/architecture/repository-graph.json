@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:3eb719105e4e01c2532b87cf8ffaa512eda395025e731e40afac8c89aec39be5",
+  "source_digest": "sha256:556e1ab8b9273dac93121718ded28ca8ee87548eafbc2d57c48341a2e743e673",
   "counts": {
-    "modules": 895,
+    "modules": 898,
     "component_edges": 17
   },
   "components": [
@@ -30,13 +30,13 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 225
+      "module_count": 226
     },
     {
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 236
+      "module_count": 238
     },
     {
       "id": "web-entry",
@@ -111,8 +111,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 382,
-      "module_count": 152
+      "import_count": 384,
+      "module_count": 153
     },
     {
       "from": "ui-shell",
@@ -1433,12 +1433,22 @@
         "packages/ui/src/components/git/git-empty-state.tsx",
         "packages/ui/src/components/git/git-file-preview.tsx",
         "packages/ui/src/components/git/git-view-chrome.tsx",
+        "packages/ui/src/components/git/integrations-panel.tsx",
         "packages/ui/src/components/git/session-change-evidence.ts",
         "packages/ui/src/components/git/session-changes.tsx",
         "packages/ui/src/lib/files/edit-support.ts",
         "packages/ui/src/lib/git/commit-drafts.ts",
         "packages/ui/src/lib/i18n/context.tsx",
         "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/git/integrations-panel.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/lib/runtime-url.ts"
       ]
     },
     {
@@ -5954,6 +5964,7 @@
         "packages/web/src/server/routes/git-walkthrough-snapshot.ts",
         "packages/web/src/server/routes/git-worktrees.ts",
         "packages/web/src/server/routes/git.ts",
+        "packages/web/src/server/routes/integrations.ts",
         "packages/web/src/server/routes/magic-prompts.ts",
         "packages/web/src/server/routes/markdown-image-grants.ts",
         "packages/web/src/server/routes/mcp-config.ts",
@@ -6450,6 +6461,12 @@
     },
     {
       "path": "packages/web/src/server/lib/http/request-security.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/integrations/connectors.ts",
       "component": "web-server",
       "entrypoint": false,
       "imports": []
@@ -7477,6 +7494,14 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/routes/integrations.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/integrations/connectors.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/routes/magic-prompts.ts",

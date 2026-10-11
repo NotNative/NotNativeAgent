@@ -1940,6 +1940,10 @@
     {
       "version": "20261011-72",
       "content_sha256": "a4e3b4d0d172bfb30ad75e9e9d6d27ccd7268cd712047dfb80265842f2d339d9"
+    },
+    {
+      "version": "20261011-75",
+      "content_sha256": "c8ae1a7606ff9a3f0fb542a0ac6266c119f8635e11eaa31b09497d4f90412cce"
     }
   ]
 }

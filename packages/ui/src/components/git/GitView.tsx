@@ -22,6 +22,7 @@ import { GitDialogHost, type GitDialogKind } from './git-dialogs.tsx';
 import { GitFilePreview } from './git-file-preview.tsx';
 import { BranchTracking, StatusFailure, gitError, symbolColorOf } from './git-view-chrome.tsx';
 import { SessionChanges } from './session-changes.tsx';
+import { IntegrationsStrip } from './integrations-panel.tsx';
 import { repoPathFromWorkspace } from './session-change-evidence.ts';
 import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../../sync/types.ts';
@@ -296,7 +297,8 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
           {onOpenWalkthrough ? <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-walkthrough" onClick={onOpenWalkthrough}>{t('gitUi.walkthrough')}</button> : null}
         </span>
       </header>
-      <div className={`flex min-h-0 flex-1 gap-3 ${compact ? 'flex-col' : ''}`}>
+      {visible ? <IntegrationsStrip directory={directory} /> : null}
+      <div className={`flex min-h-0 flex-1 gap-3 ${compact ? 'flex-col' : ''}`} data-testid="git-layout">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto" data-testid="git-changes-scroll">
           {activityStore ? <SessionChanges store={activityStore} directory={directory} sessionID={sessionID ?? null} visible={visible}
             status={status} stale={statusStale} onOpen={(path, stagedFile) => {
