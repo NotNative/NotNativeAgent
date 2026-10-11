@@ -18,6 +18,27 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 F9 step 1: bounded per-session model routes on session create and fork (implemented-unverified)
+
+The named NNA deliverable for multi-run starts. NNA `20261011-9` accepts an
+optional bounded `{providerID, model}` on session creation and on fork
+(`modelRouteFromBody` in `src/nnd-session-model-route.js` — both fields
+required together, ≤256 chars, control characters refused); the engine
+factory (`createSelectedNndEngine`) validates the provider against the
+active configuration through `withPrimaryRoute` (unknown provider fails
+closed with `provider_missing`) and resolves the session config with that
+primary route. Nothing else (no endpoints, manifests, or factory options)
+crosses the desktop boundary — the injection surface stays provider+model
+only. NND still sends per-prompt selections through the configured session
+route; the desktop orchestration side (passing the per-run selection into
+create/fork bodies) is the next F9 step and stays open in the W-89 record.
+
+Evidence: `test/integration-server.test.js` `per-session model routes ride
+session creation and fork (F9 step 1)` — create/fork carry the validated
+route into the engine options and malformed overrides are refused 400 before
+any session exists; `withPrimaryRoute` behavior is pinned by the existing
+provider route suites. Status: implemented-unverified.
+
 ## 2026-10-11 F4: native timeline fork seeds a durable child session in NNA (implemented-unverified)
 
 The F4 confirmed-gap row's fork half is closed natively. NNA `20261011-8`

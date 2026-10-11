@@ -3,6 +3,28 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-11 · Consolidated rounds 11–19: parity rechecks, native assist seam, provider authority, native fork, per-session routes · NND 20261011-29 / NNA 20261011-9
+
+Confirmed-gaps rechecks struck three stale F rows with recheck evidence (F3
+text-parts, F1 workspace binding, F2 replay gap signaling). F5 landed in
+steps 1–3 (all implemented-unverified): NNA bounded assist seam
+(`POST /v1/nnd/sessions/:id/assist`, engine-owned router, tools disabled,
+bounded prompt/output, 409/503/504 mapping), desktop provider inventory from
+NNA's public provider-profile roster with fail-closed credential semantics
+(no raw key desktop-side), and real-`ses_*` generation riding the native
+seam first with legacy fall-through. F4 landed natively: `POST
+/session/:id/fork` seeds a durable child journal from the parent prefix
+through the child's own hash chain with a `forked_from` provenance record
+(NNA 20261011-8); the desktop orchestration port already speaks that
+contract. F9 step 1 landed (NNA 20261011-9): bounded per-session
+`{providerID, model}` accepted on session create and fork, validated against
+the active provider catalog through `withPrimaryRoute` with nothing else
+crossing the desktop boundary. W-23/W-89 subfeature breakdowns recorded in the parity records
+ledger. Seals advanced 20261011-25 → 20261011-28 (one seal-discipline
+recovery after a post-seal content edit; amend-not-stack enforced).
+Implemented-unverified throughout; installed observations owed in
+DEFERRED-VERIFICATION.
+
 ## 2026-10-10 · Commit graph in history · NND 20261010-33 / NNA 20261009-5
 
 /api/git/log carries parents; pure lane allocator with free-lane reuse and

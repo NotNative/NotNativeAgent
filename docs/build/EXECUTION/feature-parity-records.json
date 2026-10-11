@@ -167,7 +167,31 @@
       "work_packages": "F4",
       "disposition": "MVP timeline search/fork/revert and prompt navigation with native checkpoints.",
       "status": "pending",
-      "subfeatures": []
+      "subfeatures": [
+        {
+          "id": "W-23.timeline-fork",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeAgent/src/persistence/fork-records.js",
+            "../NotNativeAgent/test/nnd-engine-fork.test.js",
+            "../NotNativeAgent/test/integration-server.test.js native fork seeds a new session",
+            "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 F4 entry"
+          ]
+        },
+        {
+          "id": "W-23.timeline-search",
+          "status": "pending"
+        },
+        {
+          "id": "W-23.timeline-revert",
+          "status": "pending",
+          "note": "native /revert and /unrevert unimplemented; OpenCode contract revert {messageID, partID?} documented in app.ts"
+        },
+        {
+          "id": "W-23.prompt-navigation",
+          "status": "pending"
+        }
+      ]
     },
     {
       "id": "W-24",
@@ -629,7 +653,26 @@
       "work_packages": "F4, F9",
       "disposition": "MVP managed-session orchestration through native operations.",
       "status": "pending",
-      "subfeatures": []
+      "subfeatures": [
+        {
+          "id": "W-89.native-fork-operation",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeAgent/src/nnd-session-fork.js",
+            "packages/web/src/server/session-orchestration/session-harness-write-ports.ts",
+            "packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts"
+          ]
+        },
+        {
+          "id": "W-89.native-model-routes",
+          "status": "pending",
+          "note": "NNA 20261011-9 step 1 landed: bounded {providerID, model} accepted on session create/fork and validated through withPrimaryRoute (implemented-unverified); desktop orchestration must still pass per-run selections into create/fork bodies"
+        },
+        {
+          "id": "W-89.orchestration-invariants",
+          "status": "pending"
+        }
+      ]
     },
     {
       "id": "W-90",
