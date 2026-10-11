@@ -1601,15 +1601,45 @@
       "id": "W-80",
       "work_packages": "L",
       "disposition": "MVP Windows NND updater and NNA compatibility checks; other platforms excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-80.updater",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/desktop-updater.mjs + desktop-updater.test.mjs (10 tests: Windows NND updater)",
+            "../NotNativeDesktop/packages/electron/updater-policy.mjs + updater-policy.test.mjs (NNA compatibility checks; other platforms excluded)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/desktop-updater.mjs + desktop-updater.test.mjs (10 tests: Windows NND updater)",
+        "../NotNativeDesktop/packages/electron/updater-policy.mjs + updater-policy.test.mjs (NNA compatibility checks; other platforms excluded)"
+      ]
     },
     {
       "id": "W-81",
       "work_packages": "L, F10",
       "disposition": "MVP Windows tray/menu/notifications/login/resume/native utilities; macOS dock excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-81.windows-shell",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/tray.mjs (Windows tray/menu)",
+            "../NotNativeDesktop/packages/electron/native-notifications.mjs (native notifications)",
+            "../NotNativeDesktop/packages/electron/main.mjs (powerMonitor resume broadcast + login/window lifecycle; macOS dock excluded)",
+            "../NotNativeDesktop/packages/electron/shell-prefs.mjs + shell-prefs.test.mjs (native utilities)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/tray.mjs (Windows tray/menu)",
+        "../NotNativeDesktop/packages/electron/native-notifications.mjs (native notifications)",
+        "../NotNativeDesktop/packages/electron/main.mjs (powerMonitor resume broadcast + login/window lifecycle; macOS dock excluded)",
+        "../NotNativeDesktop/packages/electron/shell-prefs.mjs + shell-prefs.test.mjs (native utilities)"
+      ]
     },
     {
       "id": "W-82",
@@ -1622,15 +1652,43 @@
       "id": "W-83",
       "work_packages": "L, V",
       "disposition": "MVP supported Windows installer architecture matrix; other OS packages excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-83.installer-matrix",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/scripts/installer-structure.test.mjs (supported Windows installer architecture matrix)",
+            "../NotNativeDesktop/scripts/electron-package.mjs (win-x64 subset, node-pty prebuilds)",
+            "../NotNativeDesktop/scripts/installer-nna-preflight.test.mjs + installer-nna-dependency.test.mjs"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/scripts/installer-structure.test.mjs (supported Windows installer architecture matrix)",
+        "../NotNativeDesktop/scripts/electron-package.mjs (win-x64 subset, node-pty prebuilds)",
+        "../NotNativeDesktop/scripts/installer-nna-preflight.test.mjs + installer-nna-dependency.test.mjs"
+      ]
     },
     {
       "id": "W-84",
       "work_packages": "F6, L",
       "disposition": "MVP guarded native file utilities and Windows atomic replacement.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-84.file-utilities",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/file-utilities.mjs + file-utilities.test.mjs (guarded native file utilities)",
+            "../NotNativeDesktop/packages/electron/windows-file-replace.mjs + windows-file-replace.test.mjs (atomic replacement)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/file-utilities.mjs + file-utilities.test.mjs (guarded native file utilities)",
+        "../NotNativeDesktop/packages/electron/windows-file-replace.mjs + windows-file-replace.test.mjs (atomic replacement)"
+      ]
     },
     {
       "id": "W-85",

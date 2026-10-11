@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Windows shell batches (W-80, W-81, W-83, W-84, implemented-unverified)
+
+W-80: the Windows NND updater (10 tests) with updater-policy NNA
+compatibility checks (4 tests); other platforms excluded by contract.
+W-81: Windows shell integration — service-linked tray/menu, native
+notifications, the powerMonitor resume broadcast (the `notnative:*` native
+event consumed by the event pipeline), login/window lifecycle, and
+shell-prefs native utilities (3 tests); macOS dock excluded. W-83: the
+supported Windows installer architecture matrix — installer-structure tests
+plus the win-x64 packaging subset with node-pty prebuilds and NNA
+preflight/dependency checks. W-84: guarded native file utilities (8 tests)
+and Windows atomic file replacement (4 tests). All implemented-unverified
+pending the installed V-gates.
+
 ## 2026-10-11 Shell batches: IPC/preload, window shell, deep links, packaging (W-74..W-77, implemented-unverified)
 
 W-74: sender-gated IPC via the ipc-face contract (25 tests) behind a
