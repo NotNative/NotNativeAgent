@@ -55,6 +55,16 @@ export async function runInstalledService(args = process.argv.slice(2)) {
   }
   process.stdout.write(`${JSON.stringify({ type: 'ready', protocol: '1.0',
     endpoint: `http://127.0.0.1:${configured.port}`, version: configured.version })}\n`);
+  // The tray is permanently linked to the service: whatever starts the
+  // service (CLI, shortcut, login script) also brings up the desktop app
+  // attached to this generation. Electron's single-instance lock makes a
+  // redundant launch a no-op, and a failure here must not fail the service.
+  try {
+    const { launchSelectedDesktop } = await import('./launch-selected-desktop.mjs');
+    await launchSelectedDesktop(configured.root);
+  } catch (error) {
+    console.error(`NND desktop launch failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+  }
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {

@@ -9,7 +9,7 @@
  * dynamically imported (the module reads env at import time).
  */
 import { launchControllerGeneration, launchSelectionFile, readNativeServiceSelection } from './native-service-selection.mjs';
-import { assertSelectedNndPackage, attachNativeService, redeemNativeAttachment } from './native-service-client.mjs';
+import { assertSelectedNndPackage, attachNativeService, redeemNativeAttachment, requestNativeServiceStop } from './native-service-client.mjs';
 import { app, BrowserWindow, Menu, MessageChannelMain, Notification, dialog, ipcMain, net as electronNet, powerMonitor, protocol, screen, session, shell } from 'electron';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -1011,6 +1011,14 @@ function quitFromTray() {
   persistWindowState(mainWindow);
   console.log('[shell] quit requested from tray');
   destroyTray();
+  // The tray manages the service: when this GUI is attached to the supervised
+  // controller, Quit ends the service too. Detached fire-and-forget; the GUI
+  // still quits even if the stop request cannot be delivered.
+  if (nativeControllerGeneration && nativeSelection) {
+    requestNativeServiceStop(nativeSelection)
+      .then(() => console.log('[shell] service stop requested from tray'))
+      .catch((error) => console.error('[shell] service stop failed:', error instanceof Error ? error.message : error));
+  }
   try { serverHandle?.dispose(); } catch (error) { console.error('[shell] server dispose failed:', error); }
   app.quit();
   setTimeout(() => app.exit(0), 8_000); // watchdog: never hang on a stuck handle

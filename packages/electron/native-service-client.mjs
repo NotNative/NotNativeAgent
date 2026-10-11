@@ -133,6 +133,15 @@ export async function probeNativeAttach(selection) {
   return validateNativeAttach(attached, runtime);
 }
 
+/** Tray-facing service stop: the tray manages the running service, so Quit
+ *  ends the supervised service, not only this GUI process. */
+export async function requestNativeServiceStop(selection) {
+  const selectedRoot = typeof selection === 'string' ? selection : selection?.installRoot;
+  const runtime = readSelectedNativeRuntime(selectedRoot);
+  assertPinnedInstallation(selection, runtime);
+  return command(runtime, 'stop');
+}
+
 async function verifyNndCapabilities(runtime) {
   const capabilities = await command(runtime, 'capabilities');
   if (!identityMatches(capabilities, runtime) || capabilities.native_version !== runtime.version

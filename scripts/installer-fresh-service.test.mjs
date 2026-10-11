@@ -175,6 +175,17 @@ test('installer source follows the dumb-copy shape: plan, copy, build, register,
   const startAt = launcher.indexOf('desktop start');
   const guiAt = launcher.indexOf('launch-selected-desktop.mjs');
   assert.ok(startAt > 0 && startAt < guiAt);
+  // The tray is permanently linked to the service: the supervised service
+  // child spawns the desktop app after readiness, and the tray Quit requests
+  // a service stop instead of only closing the GUI.
+  const serve = await readFile(resolve('scripts/serve-installed.mjs'), 'utf8');
+  const ready = serve.indexOf("'ready'");
+  const childGui = serve.indexOf('launchSelectedDesktop(configured.root)');
+  assert.ok(ready > 0 && ready < childGui);
+  const main = await readFile(resolve('packages/electron/main.mjs'), 'utf8');
+  const quit = main.indexOf('function quitFromTray');
+  const stopCall = main.indexOf('requestNativeServiceStop(nativeSelection)');
+  assert.ok(quit > 0 && quit < stopCall);
   // Shortcuts carry NNA branding.
   assert.ok(source.includes('"NotNativeAgent.lnk"'));
   assert.ok(!source.includes('"NotNativeDesktop.lnk"'));

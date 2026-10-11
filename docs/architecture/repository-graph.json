@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:176fe13f7a3419841c32328730e304ff57447ba5c494fc92be986d4d30bab2c7",
+  "source_digest": "sha256:885c0aba5c089b858a62c7bc380ea31385eedab4e3aa697fc7e1b2cba6ef0663",
   "counts": {
     "modules": 882,
     "component_edges": 17
@@ -8567,6 +8567,7 @@
       "component": "gates",
       "entrypoint": false,
       "imports": [
+        "scripts/launch-selected-desktop.mjs",
         "scripts/nnd-manifest-extensions.js",
         "scripts/serve-supervised.mjs"
       ]
