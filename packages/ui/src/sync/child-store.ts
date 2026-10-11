@@ -6,6 +6,7 @@
  */
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
+import { assertDirectoryPatch } from './scope-separation.ts';
 import { INITIAL_STATE, MAX_DIR_STORES, EVICTION_GRACE_MS, DIR_IDLE_TTL_MS } from './types.ts';
 import type { DirectoryStore, SyncState } from './types.ts';
 
@@ -13,7 +14,10 @@ export function createDirectoryStore(seed?: Partial<SyncState>): StoreApi<Direct
   const store = createStore<DirectoryStore>((set, get) => ({
     ...INITIAL_STATE,
     ...seed,
-    patch: (partial) => set(partial),
+    patch: (partial) => {
+      assertDirectoryPatch(partial); // W-28: the two scopes are never merged
+      set(partial);
+    },
     replace: (next) => set(next),
   }));
   return store;

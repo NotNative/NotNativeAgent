@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:1eee286a5c23563c5154ed1523a6c7b72494d0e3ac93065535783d37858b7031",
+  "source_digest": "sha256:181a781ac1c948784eba65201f5f42c1365e3484ad08805c390b0fec0e07818b",
   "counts": {
-    "modules": 890,
+    "modules": 891,
     "component_edges": 17
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "sync-engine",
       "label": "Client sync and state engine",
       "ownership": "Owns the event pipeline, stores, bootstrap, recovery, and materialization (doc 04).",
-      "module_count": 47
+      "module_count": 48
     },
     {
       "id": "harness-facade",
@@ -5292,6 +5292,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/sync/scope-separation.ts",
         "packages/ui/src/sync/types.ts"
       ]
     },
@@ -5619,6 +5620,14 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/scope-separation.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/sync/types.ts"
       ]
     },
     {

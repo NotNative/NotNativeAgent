@@ -655,9 +655,23 @@
       "id": "W-28",
       "work_packages": "F2",
       "disposition": "MVP global/directory state separation and bindings.",
-      "status": "pending",
-      "subfeatures": [],
-      "note": "settings-store implements per-surface (web/desktop) value separation with tests (packages/web/src/server/lib/settings-store.ts, packages/web/src/server/__tests__/p5-3-settings.test.ts > per-surface writes go to fields[key].surfaces[kind]), but the contracted global-vs-directory state separation and bindings were not located as a dedicated, tested capability — that separation layer is the concrete missing piece"
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-28.scope-separation",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/scope-separation.ts",
+            "../NotNativeDesktop/packages/ui/src/sync/child-store.ts (patch guard)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/scope-separation.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/sync/scope-separation.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/child-store.ts (patch guard)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/scope-separation.test.ts"
+      ]
     },
     {
       "id": "W-29",

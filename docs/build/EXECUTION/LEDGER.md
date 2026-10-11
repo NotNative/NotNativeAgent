@@ -18,6 +18,22 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Global/directory scope separation (W-28, implemented-unverified)
+
+The layered-sync scope boundary is now an explicit, enforced capability:
+`sync/scope-separation.ts` catalogs the two scopes — directory child stores
+own transcripts, parts, diffs, todos, permissions/questions, activity and
+per-session revision maps; global sidecar stores own the cross-directory
+session cache (active/archived), status-by-id and load bookkeeping — and
+validates patches against the forbidden side. `createDirectoryStore.patch`
+now hard-asserts that no global-sidecar key leaks into a directory store
+(`session` stays legal in BOTH scopes: the directory's own session list and
+the global cache are distinct uses of the same domain type). Non-throwing
+probes support audits; focused tests pin directory-patch acceptance +
+rejection (with nothing leaking into state), global-patch rejection for
+directory-owned keys, and the real global sidecar carrying the cache without
+directory transcripts. This completes W-28 as implemented-unverified.
+
 ## 2026-10-11 Timeline search + prompt navigation pinned by tests (W-23, implemented-unverified)
 
 The timeline dialog's two remaining subfeatures are now pinned by focused
