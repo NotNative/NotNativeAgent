@@ -317,6 +317,15 @@ settings or make an otherwise valid package installation appear corrupt.
 If activation or health fails, restore the prior version and registration together.
 Schema migrations must be backward-compatible or have a verified backup/restore
 transaction; binary rollback alone cannot undo destructive data migration.
+Transactional refinement (source installer): the previous package stays
+registered through copy/build - deactivation opens the unguarded window only
+immediately before activation, so a copy/build failure leaves the prior
+registration intact. A stage record (`install-transaction.json`: prepared /
+copied / deactivated, with the previous version and root) is retained on
+failure for recovery guidance and removed only after successful activation;
+failure messages distinguish all three stages honestly. Full binary rollback
+of the previous payload belongs to the prebuilt staged-slot path, where the
+replacement is prepared outside the active version.
 Recover predictably after interruption at each transaction stage. Remove stale
 payload only after successful activation and after its processes have released it.
 

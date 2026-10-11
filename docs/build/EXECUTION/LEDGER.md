@@ -18,6 +18,30 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 WP-C step 1: transactional upgrade window in the source installer (implemented-unverified)
+
+L5's rollback contract now has its first real teeth in the source installer
+(Windows and POSIX parity): the previous NND package stays registered through
+copy/build - `Resolve-NndInstallPlan` stops a running service but no longer
+deactivates, and deactivation opens the unguarded window immediately before
+activation. A stage record (`install-transaction.json`: prepared / copied /
+deactivated plus previous version and root, `APPDATA\NotNativeDesktop` on
+Windows, `XDG_STATE_HOME/NotNativeDesktop` on POSIX) is written at each stage,
+retained on failure, and removed only after successful activation. Failure
+messages distinguish the three stages honestly: pre-transaction ("previous
+package registration is intact"), copy/build ("previous package is still
+registered but its files were partially replaced"), and in-transaction
+("previous package was deactivated; recovery evidence retained"). Binary
+rollback of the previous payload remains the prebuilt staged-slot path's job
+(WP-B); the source installer's in-place copy cannot resurrect the previous
+files, so it now minimizes the window instead of lying about it. Verified:
+`installer-transaction` suite 2/2 (function-level plan-deferral proof with a
+fake NNA CLI recording every invocation: status + service status but never
+deactivate; end-to-end activation rejection retains stage `deactivated`
+evidence and honest output), `installer-structure` pins updated to enforce
+the deferred-deactivation ordering on both installers. Implemented-unverified
+until an operator runs a real upgrade/recovery cycle on the installed pair.
+
 ## 2026-10-11 WP-D step 2: renewal endpoint + adapter presentation (implemented-unverified)
 
 The renewable capability now has both halves of the wire contract, tested:

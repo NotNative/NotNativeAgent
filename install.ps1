@@ -373,9 +373,24 @@ function Resolve-NndInstallPlan($SelectedNna, [string]$Root) {
     } else {
         Write-Host "  Existing NND $status.version registration found; the service is not running and will not be started."
     }
-    Invoke-NndRegistration 'deactivate' $status.root $SelectedNna
-    Write-Good "Previous NND package $($status.version) deactivated"
-    return @{ Mode = 'upgrade'; PreviousVersion = $status.version }
+    # Transactional refinement: the previous package stays registered until the
+    # replacement is built and validated, so a copy/build failure leaves the
+    # prior registration active (execution guide 02 L5). The unguarded window
+    # shrinks to deactivate-then-activate immediately before the swap.
+    return @{ Mode = 'upgrade'; PreviousVersion = $status.version; PreviousRoot = $status.root }
+}
+
+# Prepared-transaction evidence for an interrupted upgrade: the previous
+# version/root and how far the run reached, retained on failure for operator
+# recovery and removed only after successful activation.
+function Write-NndTransactionRecord([string]$Stage, $Plan) {
+    if ($Plan.Mode -ne 'upgrade') { return }
+    $script:TransactionStage = $Stage
+    $dir = Join-Path $env:APPDATA 'NotNativeDesktop'
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    Set-Content -Path (Join-Path $dir 'install-transaction.json') -Value (
+        @{ stage = $Stage; previous_version = $Plan.PreviousVersion; previous_root = $Plan.PreviousRoot;
+           recorded_at = (Get-Date).ToString('o') } | ConvertTo-Json -Compress) -NoNewline
 }
 
 
@@ -603,10 +618,12 @@ Invoke-NndRegistration 'status' $targetPath $nna
 # The plan may stop a running service. The copy/build/activate flow owns the
 # rest; the service is started later by the shortcut or `nna nnd start`.
 $installPlan = Resolve-NndInstallPlan $nna $targetPath
+Write-NndTransactionRecord 'prepared' $installPlan
 
 $installationComplete = $false
 try {
 Write-Heading "Copying source"
+Write-NndTransactionRecord 'copied' $installPlan
 $copyExit = Invoke-Native "robocopy" @(
     $Source, $InstallDir, "/E", "/NFL", "/NDL", "/NJH", "/NP", "/R:2", "/W:1",
     "/XD", "node_modules", ".pnpm-store", ".git", ".tmp", ".agents-workspace", ".vite", "coverage", "dist", "dist-server",
@@ -717,6 +734,13 @@ try {
 } finally { Pop-Location }
 
 Write-Heading 'Registering NND package with NNA'
+# The unguarded transaction window opens here: deactivate the previous
+# package only once the replacement is built and validated.
+if ($installPlan.Mode -eq 'upgrade') {
+    Invoke-NndRegistration 'deactivate' $installPlan.PreviousRoot $nna
+    Write-Good "Previous NND package $($installPlan.PreviousVersion) deactivated"
+    Write-NndTransactionRecord 'deactivated' $installPlan
+}
 & $nna.Node (Join-Path $InstallDir 'scripts\installed-service-package.mjs') $InstallDir
 if ($LASTEXITCODE -ne 0) { throw "Installed NND service manifest validation failed (exit $LASTEXITCODE)." }
 Invoke-NndRegistration 'activate' $targetPath $nna
@@ -749,7 +773,21 @@ foreach ($anchor in @($DesktopDir, $StartMenuDir)) {
 
 $installationComplete = $true
 } finally {
-    if (!$installationComplete) { Write-Host '  Installation incomplete; the previous package was already deactivated. Rerun this installer to retry.' -ForegroundColor Yellow }
+    if (!$installationComplete) {
+        if ($installPlan.Mode -eq 'upgrade') {
+            if ($script:TransactionStage -eq 'prepared') {
+                Write-Host '  Installation failed before any change; the previous package registration is intact. Fix the reported problem and rerun.' -ForegroundColor Yellow
+            } elseif ($script:TransactionStage -eq 'copied') {
+                Write-Host '  Installation failed during copy/build; the previous package is still registered but its files were partially replaced. Rerun this installer to retry; it rebuilds in place.' -ForegroundColor Yellow
+            } else {
+                Write-Host '  Installation failed inside the activation transaction: the previous package was deactivated. Rerun this installer to retry; recovery evidence is in %APPDATA%\NotNativeDesktop\install-transaction.json.' -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host '  Installation incomplete; no prior package was replaced. Rerun this installer to retry.' -ForegroundColor Yellow
+        }
+    } else {
+        Remove-Item -LiteralPath (Join-Path $env:APPDATA 'NotNativeDesktop\install-transaction.json') -Force -ErrorAction SilentlyContinue
+    }
 }
 
 # The package is registered but the service is intentionally not started here.

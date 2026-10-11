@@ -166,7 +166,19 @@ echo "   NNA: $NNA_LAUNCHER"
 NNA_ROOT="$(nna_install_root "$NNA_LAUNCHER")" || NNA_ROOT=""
 if [[ -n "$NNA_ROOT" ]]; then "$NNA_LAUNCHER" nnd service stop "$NNA_ROOT" >/dev/null 2>&1 || true; fi
 
+# Transaction record parity with install.ps1: the previous registration stays
+# active through copy/build (activation replaces it), and a stage record is
+# retained for recovery guidance if the run dies inside the transaction.
+TXN_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/NotNativeDesktop"
+TXN="$TXN_DIR/install-transaction.json"
+txn_stage() { mkdir -p "$TXN_DIR" && printf '{"stage":"%s"}' "$1" > "$TXN"; }
+if "$NNA_LAUNCHER" nnd package status >/dev/null 2>&1; then
+  txn_stage prepared
+  trap 'echo "  Upgrade transaction interrupted at stage $(cat "$TXN" 2>/dev/null | sed "s/.*stage\":\"//;s/\".*//"); rerun the installer to retry; evidence: $TXN" >&2' ERR
+fi
+
 echo "== copying source =="
+[[ -n "$TXN" ]] && [[ -f "$TXN" ]] && txn_stage copied
 mkdir -p "$INSTALL_DIR"
 rsync -a "$SOURCE"/ "$INSTALL_DIR"/ \
   --exclude node_modules --exclude .git --exclude .vite --exclude coverage \
@@ -205,7 +217,9 @@ node -e 'const fs=require("fs"), path=require("path");
   fs.writeFileSync(path.join(dir,"integration.json"),JSON.stringify({id:"nnd-local",ownership:"nnd",scope:"local-gui",nna_integration_protocol:"1.0",version}));' "$INSTALL_DIR"
 
 echo "== registering NND package with NNA =="
+[[ -f "$TXN" ]] && txn_stage deactivated
 "$NNA_LAUNCHER" nnd package activate "$INSTALL_DIR"
+[[ -f "$TXN" ]] && rm -f "$TXN"
 
 echo "== desktop entry =="
 mkdir -p "$APP_ENTRIES_DIR"

@@ -23,7 +23,17 @@ test('installer.ps1 follows the dumb-copy shape: plan, copy, build, register, sh
   assert.ok(!source.includes('Invoke-NndInstallVerification'));
   assert.ok(!source.includes('Invoke-NndFreshVerification'));
   assert.ok(source.indexOf('Request-NndServiceStopForUninstall $SelectedNna (Join-Path $Source') > 0);
-  assert.ok(source.indexOf("Invoke-NndRegistration 'deactivate' $status.root $SelectedNna") > 0);
+  // Transactional upgrade: the previous package stays registered through
+  // copy/build; deactivation happens immediately before activation so a
+  // copy/build failure leaves the prior registration intact (guide 02 L5).
+  const copyAt = source.indexOf('Write-Heading "Copying source"');
+  const deactivateAt = source.indexOf("Invoke-NndRegistration 'deactivate' $installPlan.PreviousRoot $nna");
+  const registerAt = source.indexOf('Write-Heading \'Registering NND package with NNA\'');
+  assert.ok(copyAt > 0 && deactivateAt > copyAt && deactivateAt > registerAt
+    && deactivateAt < source.indexOf('Invoke-NndRegistration \'activate\''));
+  assert.ok(source.includes('function Write-NndTransactionRecord'));
+  assert.ok(source.includes('install-transaction.json'));
+  assert.ok(source.includes('the previous package registration is intact'));
   // The shortcut launcher starts the service AND launches the attached GUI.
   const launcher = await readFile(resolve('scripts/launch-selected-desktop.ps1'), 'utf8');
   assert.ok(launcher.includes('desktop start'));
@@ -70,6 +80,12 @@ test('install.sh mirrors the dumb-copy shape with NNA branding and the lifecycle
   // the Windows plan resolver); the stop is best-effort.
   const stop = source.indexOf('nnd service stop "$NNA_ROOT"');
   assert.ok(stop > 0 && stop < copy);
+  // Transaction-record parity: stage evidence is written for a registered
+  // upgrade and removed after activation.
+  assert.ok(source.includes('install-transaction.json'));
+  assert.ok(source.indexOf('txn_stage prepared') > 0 && source.indexOf('txn_stage prepared') < copy);
+  assert.ok(source.indexOf('txn_stage deactivated') > copy
+    && source.indexOf('txn_stage deactivated') < source.indexOf('nnd package activate'));
   // The desktop entry is NNA-branded and resolves the lifecycle at launch.
   assert.ok(source.includes('notnativeagent.desktop'));
   assert.ok(!source.includes('notnativedesktop.desktop'));
