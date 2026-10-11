@@ -150,24 +150,27 @@ test('fresh service verifier refuses a same-version package change after guard r
       /fresh_registration_changed/u);
   });
 
-test('installer source gates copying and success on fresh checks, guard release and native verification', async () => {
+test('installer source follows the dumb-copy shape: plan, copy, build, register, shortcuts', async () => {
   const source = await readFile(resolve('install.ps1'), 'utf8');
   const initial = source.indexOf('function Resolve-NndInstallPlan');
-  const guard = source.indexOf('$installationGuard = Start-NndInstallationGuard $nna');
-  const guarded = source.indexOf('$installPlan = Resolve-NndInstallPlan $nna $targetPath');
+  const resolved = source.indexOf('$installPlan = Resolve-NndInstallPlan $nna $targetPath');
   const copy = source.indexOf('Write-Heading "Copying source"');
-  const release = source.lastIndexOf('Stop-NndInstallationGuard $installationGuard');
-  const verify = source.indexOf('$verified = Invoke-NndInstallVerification $nna $targetPath');
-  const success = source.indexOf('Write-Heading "Fresh NND service verified"');
-  assert.ok(initial > 0 && initial < guarded && guarded < guard && guard < copy
-    && copy < release && release < verify && verify < success);
-  // Upgrade shapes live in the same flow: the plan resolver may stop the old
-  // service and deactivate it, and a stopped prior service must verify with
-  // the stopped-service helper, never the service-starting one.
-  assert.ok(source.indexOf("Resolve-NndInstallPlan") < source.indexOf('Request-NndServiceStopForUninstall $SelectedNna (Join-Path $Source'));
+  const register = source.indexOf("Write-Heading 'Registering NND package with NNA'");
+  const shortcuts = source.indexOf('Write-Heading "Creating shortcuts"');
+  const success = source.indexOf('Write-Heading "NotNativeDesktop installed"');
+  assert.ok(initial > 0 && initial < resolved && resolved < copy && copy < register
+    && register < shortcuts && shortcuts < success);
+  // The install path owns no native guard and never starts the service; the
+  // desktop shortcut and `nna nnd start` own the lifecycle.
+  assert.ok(!source.includes('$installationGuard = Start-NndInstallationGuard $nna'));
+  assert.ok(!source.includes('Invoke-NndInstallVerification'));
+  assert.ok(!source.includes('Invoke-NndFreshVerification'));
+  assert.ok(source.indexOf('Request-NndServiceStopForUninstall $SelectedNna (Join-Path $Source') > 0);
   assert.ok(source.indexOf("Invoke-NndRegistration 'deactivate' $status.root $SelectedNna") > 0);
-  const stoppedVerify = source.indexOf("if ($StartService) { 'verify' } else { 'verify-stopped' }");
-  assert.ok(stoppedVerify > 0 && stoppedVerify < verify);
+  // The shortcut launcher starts the service through the NNA lifecycle surface.
+  const launcher = await readFile(resolve('scripts/launch-selected-desktop.ps1'), 'utf8');
+  assert.ok(launcher.includes('nnd start'));
+  assert.ok(!launcher.includes('launch-selected-desktop.mjs'));
 });
 
 test('a stale controller discovery record is recovered through foreground takeover',

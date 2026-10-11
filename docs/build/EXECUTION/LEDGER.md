@@ -18,6 +18,26 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Installer reshape to the dumb-copy shape (operator request, implemented-unverified)
+
+install.ps1 no longer runs the native installation guard on the install path
+and never starts the NND service. Flow: resolve the plan from the registry
+(fresh target must be absent; an existing registration is stopped if running,
+then deactivated), copy, pnpm + build, register, write the selection, and
+create shortcuts. The desktop shortcut launcher now resolves the selected NNA
+and runs `nnd start` through the NNA lifecycle surface — idempotent (a
+running service resolves to its live status), and the supervised child is the
+service + tray + UI. The post-install ceremony (guard, fresh service
+verification with browser bootstrap) is gone; the operator starts NND with
+the shortcut or `nna nnd start/stop/enable/disable/status`. The
+fresh/upgrade service verification helpers remain in
+scripts/installer-fresh-service.mjs for the deferred acceptance pass.
+Structure tests pin the new shape (21/21 across the touched installer
+suites); both PowerShell files parse clean; gates green for 882 modules.
+Implemented-unverified: the dumb-copy install journey needs an installed
+observation; release-content and prebuilt-anchor suites still match their
+baselines.
+
 ## 2026-10-10 Operator install observation: upgrade verified + stale-owner recovery (verified)
 
 The operator ran the new installer end to end on the real machine. The
