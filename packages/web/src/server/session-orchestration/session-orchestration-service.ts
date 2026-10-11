@@ -58,7 +58,9 @@ export async function createSession(deps: OrchestratorDeps, input: CreateInput):
   const prepared = await prepareWorktree(deps, directoryResult, input.worktree);
   if ('ok' in prepared) return prepared as SessionOrchestrationResponse;
   const directory = prepared.directory;
-  const session = await harnessSession(deps.harness, directory, input.title ?? 'New session');
+  const session = await harnessSession(deps.harness, directory, input.title ?? 'New session',
+    prompt === undefined || selection.providerID === '' || selection.modelID === ''
+      ? undefined : { providerID: selection.providerID, model: selection.modelID });
   if ('ok' in session) return session as SessionOrchestrationResponse;
   if (prompt === undefined) {
     const body = responseOf({
@@ -120,6 +122,8 @@ export async function sendSession(deps: OrchestratorDeps, sessionId: string, inp
   try {
     forked = await deps.harness.forkSession(sessionId, directoryResult, {
       ...(input.boundary === undefined ? {} : { messageID: input.boundary }),
+      ...(selection.providerID === '' || selection.modelID === '' ? {}
+        : { providerID: selection.providerID, model: selection.modelID }),
     });
   } catch (error) {
     return fail(502, messageOf(error), { sessionId, directory: directoryResult });

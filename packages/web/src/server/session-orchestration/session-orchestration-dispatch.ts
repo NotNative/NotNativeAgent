@@ -197,9 +197,9 @@ export function responseOf(input: {
 }
 
 export async function harnessSession(harness: SessionHarnessPorts, directory: string,
-  title: string): Promise<{ sessionId: string; title: string } | SessionOrchestrationResponse> {
+  title: string, route?: { providerID: string; model: string }): Promise<{ sessionId: string; title: string } | SessionOrchestrationResponse> {
   try {
-    const record = await harness.createSession(directory, title);
+    const record = await harness.createSession(directory, title, route);
     const sessionId = textOf(record.id ?? record.sessionID ?? record.sessionId).trim();
     return sessionId === ''
       ? fail(500, 'Session create did not provide an id')

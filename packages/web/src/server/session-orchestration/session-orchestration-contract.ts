@@ -34,7 +34,8 @@ export interface SessionHarnessPorts {
   agents: (directory: string) => Promise<readonly AgentInfo[]>;
   config: (directory: string) => Promise<RecordObject>;
   commands: (directory: string) => Promise<readonly CommandInfo[]>;
-  createSession: (directory: string, title: string) => Promise<RecordObject>;
+  createSession: (directory: string, title: string,
+    route?: { providerID: string; model: string }) => Promise<RecordObject>;
   readSession: (sessionId: string, directory: string) => Promise<RecordObject>;
   readMessages: (sessionId: string, directory: string, limit: number) => Promise<unknown[]>;
   sendPrompt: (sessionId: string, directory: string, body: RecordObject) => Promise<{ ok: boolean; status: number }>;

@@ -41,11 +41,12 @@ function createSessionRecordReadPorts(): {
   readMessages: (sessionId: string, directory: string, limit: number) => Promise<unknown[]>;
 } {
   return {
-    createSession: async (directory, title) => {
+    createSession: async (directory: string, title: string,
+      route?: { providerID: string; model: string }) => {
       const response = await callHarness(harnessRequest('/session', directory, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ directory, title }),
+        body: JSON.stringify({ directory, title, ...(route ?? {}) }),
         signal: AbortSignal.timeout(CREATE_TIMEOUT_MS),
       }));
       if (!response.ok) throw new Error(`session create rejected with ${response.status}`);

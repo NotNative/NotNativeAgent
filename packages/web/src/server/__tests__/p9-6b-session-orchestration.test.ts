@@ -130,6 +130,39 @@ describe('P9-6b session orchestration', () => {
     expect(state.sent[0]?.agent).toBe('build');
   });
 
+  it('carries the per-run selection into the per-session route on create and fork', async () => {
+    const deps = harness();
+    const createRoutes: unknown[] = [];
+    const forkBodies: Record<string, unknown>[] = [];
+    const previousCreate = deps.harness.createSession;
+    deps.harness.createSession = async (directory, title, route) => {
+      createRoutes.push(route);
+      return previousCreate(directory, title, route);
+    };
+    const previousFork = deps.harness.forkSession;
+    deps.harness.forkSession = async (sessionId, directory, body) => {
+      forkBodies.push(body ?? {});
+      return previousFork(sessionId, directory, body);
+    };
+    const created = await createSession(deps, {
+      scope: { directory: 'C:/repo' }, prompt: 'run', selection: { model: 'nna/test-model' },
+    });
+    expect(created.ok).toBe(true);
+    expect(createRoutes.at(-1)).toEqual({ providerID: 'nna', model: 'test-model' });
+    const forked = await sendSession(deps, 's1', {
+      scope: { directory: 'C:/repo' }, prompt: 'again', selection: { model: 'nna/validator' },
+    }, true);
+    expect(forked.ok).toBe(true);
+    expect(forkBodies.at(-1)).toEqual({ providerID: 'nna', model: 'validator' });
+    // No explicit selection: the fork inherits the latest selected model
+    // (selectedOf scans the newest user row, which the fork dispatch wrote).
+    const plain = await sendSession(deps, 's1', {
+      scope: { directory: 'C:/repo' }, prompt: 'plain', selection: {},
+    }, true);
+    expect(plain.ok).toBe(true);
+    expect(forkBodies.at(-1)).toEqual({ providerID: 'nna', model: 'validator' });
+  });
+
   it('validates an explicit selection before creating a worktree', async () => {
     const deps = harness({
       createWorktree: async () => {

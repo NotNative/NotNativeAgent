@@ -666,7 +666,7 @@
         {
           "id": "W-89.native-model-routes",
           "status": "pending",
-          "note": "NNA 20261011-9 step 1 landed: bounded {providerID, model} accepted on session create/fork and validated through withPrimaryRoute (implemented-unverified); desktop orchestration must still pass per-run selections into create/fork bodies"
+          "note": "Steps 1-2 landed (implemented-unverified): NNA 20261011-9 accepts bounded {providerID, model} on session create/fork (withPrimaryRoute validation); the desktop orchestration carries the resolved per-run selection into create and fork bodies (p9-6b suite). Remaining: installed multi-run comparison journey (V-gate)"
         },
         {
           "id": "W-89.orchestration-invariants",

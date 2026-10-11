@@ -18,6 +18,26 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 F9 step 2: multi-run rides per-session routes on create and fork (implemented-unverified)
+
+The desktop orchestration now carries the resolved per-run selection into the
+per-session route that NNA `20261011-9` accepts. `harnessSession` passes an
+optional route to the session-create port (`POST /session` body gains
+`providerID`/`model`), `createSession` sends the route whenever a prompt with
+a resolvable selection is dispatched, and `sendSession(fork)` sends it in the
+fork body — so every multi-run leg runs on its own session with its own
+configured primary route, and the per-prompt `model` fields it dispatches
+then match the session route that `assertConfiguredSelection` enforces. A
+fork without an explicit selection inherits the latest selected model
+(`selectedOf`), matching the previous single-run semantics.
+
+Evidence: `p9-6b-session-orchestration.test.ts` gains `carries the per-run
+selection into the per-session route on create and fork` (create route
+passthrough, explicit fork override `{providerID: 'nna', model:
+'validator'}`, inherited-selection fork) — 16/16 in the file; web `tsc`
+clean; full web suite re-run for the seal. The installed multi-run
+comparison journey stays in DEFERRED-VERIFICATION as the V-gate.
+
 ## 2026-10-11 F9 step 1: bounded per-session model routes on session create and fork (implemented-unverified)
 
 The named NNA deliverable for multi-run starts. NNA `20261011-9` accepts an

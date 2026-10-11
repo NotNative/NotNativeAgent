@@ -19,6 +19,7 @@ const gitApi = vi.hoisted(() => ({
   createLocalBranch: vi.fn(), fetchGitLog: vi.fn(), fetchGitDiff: vi.fn(),
   fetchGitFileDiff: vi.fn(), stageGitFiles: vi.fn(), unstageGitFiles: vi.fn(),
   discardGitFiles: vi.fn(), applyGitHunk: vi.fn(), commitChanges: vi.fn(), syncGitBranch: vi.fn(),
+  fetchGitStashes: vi.fn(), createGitStash: vi.fn(), applyGitStash: vi.fn(),
 }));
 vi.mock('@notnative/ui/lib/git/server-api.ts', () => gitApi);
 
