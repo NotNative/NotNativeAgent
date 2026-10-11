@@ -18,6 +18,23 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Presentation tail: tokens/themes/registry/shortcuts (W-98, W-101, W-102, W-104, implemented-unverified)
+
+W-98: the §B.1 token seed and §B.2 radius/fonts/motion live in
+design-system.css with the theme CSS generator and validation pinning the
+generated output (9 + 8 tests). W-101: built-in and custom themes with the
+preset catalog (12 tests), storage round-trip, desktop prepaint (5 tests),
+and the propagation seed. W-102: the typed NND settings registry carries the
+configurable NNA settings with release-gated coverage (the gate, not a key
+count, is the completeness test). W-104: the shortcut system —
+registry/schema/dispatcher with undeclared-action throws (context
+ownership), 13 binding tests, the settings inventory page with per-row reset
+and persisted overrides, and the ShortcutRecordingDialog recorder.
+W-96 (celebration affordance), W-99 (accessible primitive inventory), and
+W-100 (icon system) and W-103 (twelve-locale coverage) stay pending — no
+complete implementation or inventory was found for them. All dispositions
+implemented-unverified pending the installed V-gates.
+
 ## 2026-10-11 Knowledge/memory/context/skills/MCP family (W-106..W-112, implemented-unverified)
 
 The F8 family is native and covered: W-106 knowledge assembly/delivery/

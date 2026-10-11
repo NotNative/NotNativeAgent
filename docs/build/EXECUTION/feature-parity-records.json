@@ -1851,8 +1851,23 @@
       "id": "W-98",
       "work_packages": "C, F10",
       "disposition": "MVP tokens/fonts/type/motion and coherent workspace presentation.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-98.tokens-presentation",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/styles/design-system.css (§B.1 token seed, §B.2 radius/fonts/motion)",
+            "../NotNativeDesktop/packages/ui/src/lib/theme/css-generator.ts + css-blocks.ts + validation.ts",
+            "../NotNativeDesktop/packages/ui/src/lib/theme/__tests__/css-generator.test.ts (9) + validation.test.ts (8)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/styles/design-system.css (§B.1 token seed, §B.2 radius/fonts/motion)",
+        "../NotNativeDesktop/packages/ui/src/lib/theme/css-generator.ts + css-blocks.ts + validation.ts",
+        "../NotNativeDesktop/packages/ui/src/lib/theme/__tests__/css-generator.test.ts (9) + validation.test.ts (8)"
+      ]
     },
     {
       "id": "W-99",
@@ -1872,15 +1887,45 @@
       "id": "W-101",
       "work_packages": "C, F10",
       "disposition": "MVP built-ins/custom themes and browser/desktop/embedded propagation.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-101.themes",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/theme/presets/core.ts (built-in themes) + custom.ts (custom themes) + preset-catalog.test.ts (12)",
+            "../NotNativeDesktop/packages/ui/src/lib/theme/prepaint.ts (desktop prepaint) + prepaint.test.ts (5) + storage.ts + storage.test.ts",
+            "../NotNativeDesktop/packages/ui/src/lib/theme/seed.ts (propagation seed)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/lib/theme/presets/core.ts (built-in themes) + custom.ts (custom themes) + preset-catalog.test.ts (12)",
+        "../NotNativeDesktop/packages/ui/src/lib/theme/prepaint.ts (desktop prepaint) + prepaint.test.ts (5) + storage.ts + storage.test.ts",
+        "../NotNativeDesktop/packages/ui/src/lib/theme/seed.ts (propagation seed)"
+      ]
     },
     {
       "id": "W-102",
       "work_packages": "C",
       "disposition": "MVP NND registry plus all configurable NNA settings; historical ~160-key count is not the completeness test.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-102.settings-registry",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/lib/settings-registry.json (typed NND registry incl. configurable NNA settings)",
+            "../NotNativeDesktop/scripts/settings-coverage-gate.mjs + .test.mjs (release-gated completeness)",
+            "../NotNativeDesktop/packages/ui/src/lib/settings/__tests__/registry.test.ts (10 tests)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/lib/settings-registry.json (typed NND registry incl. configurable NNA settings)",
+        "../NotNativeDesktop/scripts/settings-coverage-gate.mjs + .test.mjs (release-gated completeness)",
+        "../NotNativeDesktop/packages/ui/src/lib/settings/__tests__/registry.test.ts (10 tests)"
+      ]
     },
     {
       "id": "W-103",
@@ -1893,8 +1938,25 @@
       "id": "W-104",
       "work_packages": "C, F10",
       "disposition": "MVP shortcut inventory/conflicts/recorder/context ownership.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-104.shortcuts",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/shortcuts/ (registry/schema/dispatcher/config/bindings; undeclared action throws — context ownership)",
+            "../NotNativeDesktop/packages/ui/src/lib/shortcuts/__tests__/bindings.test.ts (13 tests)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/shortcuts.tsx (inventory, per-row Reset, overrides persistence)",
+            "../NotNativeDesktop/packages/ui/src/components/recorder-dialog.tsx (ShortcutRecordingDialog recorder)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/lib/shortcuts/ (registry/schema/dispatcher/config/bindings; undeclared action throws — context ownership)",
+        "../NotNativeDesktop/packages/ui/src/lib/shortcuts/__tests__/bindings.test.ts (13 tests)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/shortcuts.tsx (inventory, per-row Reset, overrides persistence)",
+        "../NotNativeDesktop/packages/ui/src/components/recorder-dialog.tsx (ShortcutRecordingDialog recorder)"
+      ]
     },
     {
       "id": "W-105",
