@@ -26,6 +26,7 @@ import { clearKnownSessionTreePins } from './session-pin-cleanup.ts';
 import { expandedParentIds, useSessionExpansionStore } from '../stores/useSessionExpansionStore.ts';
 import { fusionIdentityFromSession } from '../lib/multirun/fusion.ts';
 import { filterSessions, orderSessionsByLifecycleWrap, sessionDepths, shortDirectory } from './session-sidebar-utils.ts';
+import { suggestAndApplyRename } from './suggest-name.ts';
 
 const AVATAR_LIMIT = 50;
 
@@ -436,10 +437,11 @@ function SidebarRow({ session, status, currentSessionId, actions, pinned, folder
       {!selecting ? <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
         <button type="button" aria-label={`${pinned ? 'Unpin' : 'Pin'} ${session.title || 'session'}`} className="hover:text-amber-300" onClick={() => useSessionPinnedStore.getState().toggle(session.directory ?? 'global', session.id)}>{pinned ? '◆' : '◇'}</button>
         {!session.parentID ? <>
-        <button type="button" aria-label={`Rename ${session.title || 'session'}`} className="hover:text-neutral-200" onClick={() => {
+        <button type="button" aria-label={`Rename ${session.title || 'session'}`} data-testid="session-rename" className="hover:text-neutral-200" onClick={() => {
           const title = prompt('Rename session', session.title ?? ''); // eslint-disable-line no-alert
           if (title !== null) void actions.rename(session.id, title);
         }}>✎</button>
+        <button type="button" aria-label={`Suggest a name for ${session.title || 'session'}`} data-testid="session-suggest-name" className="hover:text-sky-300" onClick={() => suggestAndApplyRename(session.id, session.directory ?? '', actions.rename)}>✶</button>
         <button type="button" aria-label={`Archive ${session.title || 'session'}`} className="hover:text-neutral-200" onClick={() => void actions.archive(session.id, session.directory ?? '').catch(() => toast.error('Failed to archive the session'))}>🗄</button>
         {fusionTarget(session) ? <button type="button" aria-label={`Run fusion on ${session.title || 'session'}`} data-testid="run-fusion" className="hover:text-sky-300" onClick={() => onRunFusion?.(session)}>⨁</button> : null}
         <button type="button" aria-label={`File ${session.title || 'session'} into a folder`} data-testid="session-file-into" className="hover:text-neutral-200" onClick={() => {

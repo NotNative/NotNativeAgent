@@ -31,6 +31,7 @@ import { registerSmallModelRoutes } from './routes/small-model.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
 import { registerSessionOrgRoutes } from './routes/session-org.ts';
+import { registerSessionSuggestNameRoute } from './routes/session-suggest-name.ts';
 import { registerNativeWorkspaceAdmissionRoute } from './routes/native-workspace-admission.ts';
 import { registerNativeLocalScope } from './routes/native-local-scope.ts';
 import { callHarness } from './queue/queue-adapter-calls.ts';
@@ -409,4 +410,8 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   registerFsWriteRoutes(app);
   registerSessionFoldersRoutes(app);
   registerSessionOrgRoutes(app);
+  // AI rename suggestion (W-24): Small Model seam, never auto-applies.
+  registerSessionSuggestNameRoute(app, {
+    settings: async () => readMergedSettings('web'),
+  });
 }

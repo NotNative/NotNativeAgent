@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:21f53994abb99bc1f9fcf6cbca32c7e36c0d7d48abc6206e112fcf57bdc01c4b",
+  "source_digest": "sha256:c89e962b7a13e8d713e86c60ef8677f9e35121fa3274ea7514d675366f14dd5e",
   "counts": {
-    "modules": 885,
+    "modules": 887,
     "component_edges": 17
   },
   "components": [
@@ -30,13 +30,13 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 220
+      "module_count": 221
     },
     {
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 234
+      "module_count": 235
     },
     {
       "id": "web-entry",
@@ -111,8 +111,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 378,
-      "module_count": 150
+      "import_count": 379,
+      "module_count": 151
     },
     {
       "from": "ui-shell",
@@ -917,6 +917,7 @@
         "packages/ui/src/chat/session-row-evidence.ts",
         "packages/ui/src/chat/session-sidebar-hierarchy.ts",
         "packages/ui/src/chat/session-sidebar-utils.ts",
+        "packages/ui/src/chat/suggest-name.ts",
         "packages/ui/src/chat/time-format.ts",
         "packages/ui/src/chat/workspace-recovery-controls.tsx",
         "packages/ui/src/lib/multirun/fusion.ts",
@@ -951,6 +952,14 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/suggest-name.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
       ]
     },
     {
@@ -5891,6 +5900,7 @@
         "packages/web/src/server/routes/scheduled-tasks.ts",
         "packages/web/src/server/routes/session-folders.ts",
         "packages/web/src/server/routes/session-org.ts",
+        "packages/web/src/server/routes/session-suggest-name.ts",
         "packages/web/src/server/routes/skills.ts",
         "packages/web/src/server/routes/small-model.ts",
         "packages/web/src/server/routes/snippets.ts",
@@ -7524,6 +7534,16 @@
       "imports": [
         "packages/web/src/server/env.ts",
         "packages/web/src/server/session-knowledge/metadata.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/session-suggest-name.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/small-model/service.ts",
+        "packages/web/src/server/routes/small-model.ts",
+        "packages/web/src/server/session-orchestration/session-harness-read-ports.ts"
       ]
     },
     {

@@ -18,6 +18,26 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 AI rename suggestion (W-24.ai-rename, implemented-unverified)
+
+The sidebar gains a suggest-name action: the web server exposes
+`POST /api/sessions/:id/suggest-name?directory=…`, which reads a bounded
+40-message window through the harness read ports, reduces it to role-tagged
+text lines under a hard 6 000-character budget (synthetic and non-text parts
+excluded), and asks the Small Model seam for a 3–60 character title
+(`{"name": string}` JSON contract, 64 output tokens). The suggestion is
+NEVER applied automatically — the route returns it, the sidebar shows it in
+the rename prompt, and only an operator confirmation rides the existing
+`PATCH {title}` rename path, so the suggestion cannot silently rewrite
+operator-visible state. Statuses are honest: unknown/empty session 404, no
+text 409, unusable generation 502, Small Model unavailable 503; nothing is
+written server-side. Focused coverage pins the route contract (success,
+unusable/failed generation, empty session, 503, transcript budget/role
+filtering) and the sidebar wiring (suggestion applied via rename only after
+the prompt; failure surfaces without prompting). Implemented-unverified;
+installed observation joins the W-24 deferred items. W-24 is now
+implemented-unverified across all subfeatures.
+
 ## 2026-10-11 Session transcript export (W-24.export, implemented-unverified)
 
 The timeline dialog gains a transcript export: `session-export.ts` composes

@@ -445,7 +445,7 @@
       "id": "W-24",
       "work_packages": "F4, F5, F10",
       "disposition": "MVP AI rename, pins, notifications, bulk actions, archive and export.",
-      "status": "pending",
+      "status": "implemented-unverified",
       "subfeatures": [
         {
           "id": "W-24.notifications",
@@ -490,8 +490,14 @@
         },
         {
           "id": "W-24.ai-rename",
-          "status": "pending",
-          "note": "no AI/session-rename implementation found (grep aiRename|suggestName|renameSession across packages/web/src and NNA src: zero hits)"
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/session-suggest-name.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/suggest-name.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/session-sidebar.tsx (session-suggest-name action, applies via rename only after operator confirmation)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/session-suggest-name.test.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-suggest-name.test.tsx"
+          ]
         },
         {
           "id": "W-24.export",
@@ -503,6 +509,18 @@
             "../NotNativeDesktop/packages/ui/src/chat/__tests__/timeline-export.test.tsx"
           ]
         }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/notifications/routes.ts",
+        "../NotNativeDesktop/packages/web/src/server/push/runtime.ts",
+        "../NotNativeDesktop/packages/electron/native-notifications.mjs",
+        "packages/web/src/server/__tests__/notification-routes.test.ts > streams notifications with an opaque owner, heartbeats, cancellation and credential revocation",
+        "packages/web/src/server/__tests__/push-runtime.test.ts",
+        "packages/web/src/server/__tests__/p12-native-notifications.test.js > native desktop notifications",
+        "../NotNativeDesktop/packages/web/src/server/routes/session-org.ts",
+        "../NotNativeDesktop/packages/web/src/server/session-knowledge/knowledge-runtime.ts",
+        "packages/web/src/server/__tests__/p4-7-session-org.test.ts > bounds message pins at the newest 64 and clears on empty",
+        "packages/web/src/server/__tests__/p10-session-knowledge.test.ts > assembles pins and memory in contract order and signs every content identity"
       ]
     },
     {
