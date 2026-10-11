@@ -72,6 +72,59 @@ function timelineForkRevertProbe() {
     + '})()';
 }
 
+// F9 installed leg: the same prompt in two sessions with different
+// per-session model selections, judged through the installed shell. The
+// secondary provider ships in the setup configuration document (the engine
+// validates per-session routes against the boot-time configuration).
+// F9 installed leg, phase 1: create the secondary provider profile through
+// the installed shell's provider-profile surface (the settings editor's POST
+// path). The engine validates per-session routes against the boot-time
+// configuration, so the phase-2 leg runs after a canonical service restart.
+function multirunProfileProbe(providerEndpoint) {
+  return '(async()=>{'
+    + "const post=async(p,b)=>fetch(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});"
+    + "const profile=await post('/api/v1/provider-profiles',{profile_id:'secondary',display_name:'F9 secondary',"
+    + 'endpoint:' + JSON.stringify(providerEndpoint) + ",model:'test-alt'});"
+    + 'if(profile.status!==201)throw Error(\'profile create \'+profile.status+\': \'+await profile.text());'
+    + 'const made=(await profile.json()).profile;'
+    + 'if(!made||made.profile_id!==\'secondary\'||made.model!==\'test-alt\')'
+    + 'throw Error(\'profile receipt \'+JSON.stringify(made));'
+    + 'return {created:\'secondary\'};'
+    + '})()';
+}
+
+function timelineMultirunProbe() {
+  return '(async()=>{'
+    + "const post=async(p,b)=>fetch(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});"
+    + "const delay=ms=>new Promise(r=>setTimeout(r,ms));"
+    + "const getMessages=async id=>{const r=await fetch('/api/session/'+id+'/message');"
+    + "if(r.status!==200)throw Error('message read '+r.status);return r.json();};"
+    + "const waitCount=async(id,n)=>{for(let i=0;i<300;i++){const list=await getMessages(id);"
+    + 'if(list.length>=n)return list;await delay(200);}'
+    + "throw Error('timeline did not settle: '+id);};"
+    + "const submit=async(id,promptId,body)=>{const r=await post('/api/session/'+id+'/prompt_async',"
+    + "Object.assign({messageID:promptId,agent:'nna',parts:[{type:'text',text:'F9 route observation prompt.'}]},body||{}));"
+    + "if(r.status!==204)throw Error('submit '+promptId+' '+r.status+' '+await r.text());};"
+    + "const madeA=await post('/api/session',{title:'F9 installed route A'});if(madeA.status!==201)throw Error('A '+madeA.status);"
+    + 'const madeB=await post(\'/api/session\',{title:\'F9 installed route B\',providerID:\'secondary\',model:\'test-alt\'});'
+    + "if(madeB.status!==201)throw Error('B '+madeB.status+' '+await madeB.text());"
+    + 'const recordA=await madeA.json();const recordB=await madeB.json();'
+    + 'const a=recordA.id;const b=recordB.id;'
+    + 'const configuredB=recordB.metadata.nnd.configuredModel;'
+    + 'if(JSON.stringify(configuredB)!==JSON.stringify({providerID:\'secondary\',modelID:\'test-alt\'}))'
+    + 'throw Error(\'session B route \'+JSON.stringify(configuredB));'
+    + "await submit(a,'f9a',{});await submit(b,'f9b',{});"
+    + 'await waitCount(a,2);await waitCount(b,2);'
+    + 'const override=await post(\'/api/session/\'+a+\'/prompt_async\',{messageID:\'f9x\',agent:\'nna\','
+    + "parts:[{type:'text',text:'F9 route observation prompt.'}],model:{providerID:'secondary',modelID:'test-alt'}});"
+    + 'if(override.status!==400)throw Error(\'override not refused: \'+override.status);'
+    + 'const overrideBody=await override.json();'
+    + 'if(overrideBody.error.code!==\'nnd_model_override_unsupported\')'
+    + 'throw Error(\'override code \'+overrideBody.error.code);'
+    + 'return {sessionA:a,sessionB:b,configuredB};'
+    + '})()';
+}
+
 async function installFixture(fixture, label) {
   return run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
     join(source, 'install.ps1'), '-InstallDir', fixture.nnd, '-NnaInstallRoot', fixture.nna,
@@ -103,6 +156,22 @@ async function runJourney(fixture, packageVersion, provider) {
   assert.equal(result.inherited, 4, 'child did not render the inherited history');
   assert.ok(result.restored >= 6, 'unrevert did not restore the hidden history');
   assert.ok(result.rows >= 2, 'forked child did not render as a session row');
+  const profile = await shell(fixture, 'browser', status.endpoint, (await cli(fixture, 'ui-ticket')).ticket, [],
+    multirunProfileProbe('http://127.0.0.1:' + provider.port + '/v1'));
+  assert.equal(profile.created, 'secondary', 'provider profile did not persist through the installed surface');
+  await cli(fixture, 'stop');
+  await waitStopped(fixture);
+  await cli(fixture, 'start');
+  const restarted = await cli(fixture, 'status');
+  assert.equal(restarted.service_state, 'ready', 'restart after profile create did not reach ready');
+  const multirun = await shell(fixture, 'browser', restarted.endpoint, (await cli(fixture, 'ui-ticket')).ticket, [],
+    timelineMultirunProbe());
+  assert.equal(typeof multirun.sessionA, 'string', 'multi-run journey lacked session A');
+  assert.deepEqual(multirun.configuredB, { providerID: 'secondary', modelID: 'test-alt' },
+    'installed session B did not hold its per-session route');
+  const wiredModels = provider.requests.map((request) => request.model);
+  assert.deepEqual(wiredModels.slice(-2), ['test', 'test-alt'],
+    'the two installed same-prompt runs did not ride their per-session routes on the wire');
 }
 
 async function main(nnaSource) {
@@ -127,7 +196,9 @@ async function main(nnaSource) {
     accepted = true;
     process.stdout.write('Installed timeline journey passed: real source install, settings-UI setup with first turn, '
       + 'fork renders inherited history and continues independently, revert hides and unrevert restores '
-      + 'across the installed shell, parent immovable, child rendered as its own session row.\n');
+      + 'across the installed shell, parent immovable, child rendered as its own session row, and the F9 '
+      + 'same-prompt runs rode their per-session routes (primary/test vs secondary/test-alt) on the wire '
+      + 'with the mismatched per-prompt override refused.\n');
   } finally {
     if (!serviceStopped) {
       try { await cli(fixture, 'stop'); await waitStopped(fixture); serviceStopped = true; }

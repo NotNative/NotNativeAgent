@@ -143,7 +143,7 @@ NNA `20261011-10`, disposable fixtures only):
       — Same in-session installed journey: revert hid the boundary turn from
       the installed shell's timeline and unrevert restored it, all judged
       through the installed shell's own `/api/*` connection.
-- [ ] Installed multi-run comparison journey (F9): run the same prompt in two
+- [x] Installed multi-run comparison journey (F9): run the same prompt in two
       separate sessions with different model selections against the installed
       pinned pair and confirm each run's per-session route holds
       (`assertConfiguredSelection` path, NND `20261011-30` orchestration,
@@ -156,8 +156,16 @@ NNA `20261011-10`, disposable fixtures only):
       `{providerID, model}` route; the same prompt rode each session's own
       route on the wire (provider saw `model: test` then `model: test-alt`),
       and a prompt naming a model different from the session's configured
-      selection was refused through `assertConfiguredSelection`. Remaining:
-      the installed-pair leg through the installed shell UI.
+      selection was refused through `assertConfiguredSelection`.
+      EXECUTED in-session 2026-10-11 by `scripts/installed-timeline-journey.mjs`
+      (installed-pair leg): the secondary provider profile was created through
+      the installed shell's provider-profile surface, the service restarted
+      canonically (per-session routes validate against the boot-time
+      configuration), then the same prompt ran in two installed-shell
+      sessions — the provider saw `model: test` then `model: test-alt` on the
+      wire, session B reported its per-session route in the creation receipt,
+      and the mismatched per-prompt override was refused 400
+      `nnd_model_override_unsupported` inside the installed shell.
 
 ## C4 rows awaiting installed application evidence
 

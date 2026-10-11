@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 (20261011-90) Installed F9 multi-run leg executed in-session
+
+- `scripts/installed-timeline-journey.mjs` extended: after the fork/revert
+  legs, the secondary provider profile is created through the installed
+  shell's provider-profile surface, the native service restarts canonically
+  (per-session routes validate against the boot-time configuration — an
+  API-created profile does not hot-join a booted engine), then the same
+  prompt runs in two installed-shell sessions: session B held its bounded
+  per-session override (secondary/test-alt) in the creation receipt, the
+  provider stub saw `model: test` then `model: test-alt` on the wire, and
+  the mismatched per-prompt override was refused 400
+  `nnd_model_override_unsupported` inside the installed shell.
+- Two transient mid-run flakes documented honestly: one setup composer turn
+  that did not settle (passed unchanged on retry), and a probe reading the
+  same response body twice. Fixture drained and removed after the run.
+- DEFERRED-VERIFICATION installed F9 multi-run item CLOSED. Remaining
+  deferred rows: F7 browser-only journey, guide-05 V1-V6 release gates, NNA
+  platform-conformance reseal.
+
 ## 2026-10-11 (20261011-89) Installed timeline fork/revert journey executed in-session
 
 - New `scripts/installed-timeline-journey.mjs` on the installed acceptance

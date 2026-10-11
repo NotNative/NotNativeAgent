@@ -1996,6 +1996,10 @@
     {
       "version": "20261011-89",
       "content_sha256": "27c00bb5b790efe16b4b39b4e276cbd06a13a6c5b519157ab3d438cf0252f5c7"
+    },
+    {
+      "version": "20261011-90",
+      "content_sha256": "9994122788e2d57ed38f0e3abca3705463feedb6c1830d67f86a658d71ac74ca"
     }
   ]
 }

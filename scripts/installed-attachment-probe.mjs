@@ -142,7 +142,14 @@ export function attachmentBrowserProbe() {
   })()`;
 }
 
-export function setupBrowserProbe(workspaceRoot, providerPort, expectedSource = 'missing') {
+export function setupBrowserProbe(workspaceRoot, providerPort, expectedSource = 'missing', extraProviders = null) {
+  const providerEndpoint = `http://127.0.0.1:${providerPort}/v1`;
+  const primaryProvider = { id: 'smoke', endpoint: providerEndpoint, model: 'test', trust_zone: 'loopback' };
+  const document = extraProviders
+    ? { workspace_root: workspaceRoot, providers: [primaryProvider, ...extraProviders],
+        routes: { primary: { provider_id: 'smoke', model: 'test' } } }
+    : { workspace_root: workspaceRoot, provider: primaryProvider };
+  const documentLiteral = JSON.stringify(document);
   return `(async()=>{
     const post=async(path,body)=>fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
     const before=await fetch('/api/v1/nnd/setup/status');
@@ -159,8 +166,7 @@ export function setupBrowserProbe(workspaceRoot, providerPort, expectedSource = 
       || ${JSON.stringify(expectedSource)}==='missing'&&view.source_revision!=='absent'
       || ${JSON.stringify(expectedSource)}==='invalid'&&(!view.source_revision||view.source_revision==='absent'))
       throw Error('configuration source did not match expected state '+JSON.stringify({state:view.source_state,revision:view.source_revision}));
-    const configurationDocument={workspace_root:${JSON.stringify(workspaceRoot)},provider:{id:'smoke',
-      endpoint:${JSON.stringify(`http://127.0.0.1:${providerPort}/v1`)},model:'test',trust_zone:'loopback'}};
+    const configurationDocument=${documentLiteral};
     const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     const gear=document.querySelector('[data-testid="settings-gear"]');
     if(!gear)throw Error('installed settings control missing');gear.click();
