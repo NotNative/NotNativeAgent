@@ -132,8 +132,8 @@ function failureStatus(code) {
   if (code === 'nnd_trial_mutation_denied') return 403;
   if (code === 'nnd_trial_admission_invalid' || code === 'nnd_configuration_unavailable') return 503;
   // Failed installation verification closes its read surface.
-  if (code === 'nnd_install_descriptor_unavailable' || code === 'nnd_install_descriptor_invalid'
-    || code === 'nnd_install_runtime_unavailable' || code === 'nnd_skills_catalog_unavailable') return 503;
+  if (['nnd_install_descriptor_unavailable', 'nnd_install_descriptor_invalid',
+    'nnd_install_runtime_unavailable', 'nnd_skills_catalog_unavailable'].includes(code)) return 503;
   if (code === 'nnd_setup_activation_timeout' || code === 'nnd_setup_shutdown_timeout') return 504;
   if (code === 'nnd_setup_required' || code === 'nnd_setup_stopped' || code === 'nnd_setup_cleanup_failed') return 503;
   if (code === 'nnd_setup_busy') return 409;
@@ -143,25 +143,25 @@ function failureStatus(code) {
   if (['nnd_configuration_resolution_conflict', 'nnd_configuration_repair_unnecessary',
     'configuration_source_shadowed', 'manifest_revision_conflict', 'manifest_operation_conflict'].includes(code)) return 409;
   if (['principal_required', 'principal_invalid', 'principal_stale'].includes(code)) return 401;
+  // Renewable-capability failures are authentication failures, never 500s.
+  if (code.startsWith('capability_')) return 401;
   if (code.includes('permission') || code.includes('forbidden')) return 403;
   if (code.includes('not_found') || ['provider_missing', 'nnd_session_unavailable', 'question_unknown'].includes(code)) return 404;
   if (['nnd_goal_conflict', 'nnd_goal_audit_conflict', 'nnd_goal_audit_busy', 'nnd_walkthrough_busy'].includes(code)) return 409;
-  if (['nnd_goal_audit_unavailable', 'nnd_pending_unavailable', 'nnd_activity_tombstones_unavailable',
-    'nnd_walkthrough_unavailable'].includes(code)) return 503;
+  if (['nnd_goal_audit_unavailable', 'nnd_pending_unavailable',
+    'nnd_activity_tombstones_unavailable', 'nnd_walkthrough_unavailable'].includes(code)) return 503;
   if (['nnd_goal_audit_timeout', 'nnd_walkthrough_timeout'].includes(code)) return 504;
   if (code.startsWith('nnd_goal_audit_output_') || code === 'nnd_goal_audit_tool_violation') return 502;
   if (code.startsWith('nnd_walkthrough_output_') || code === 'nnd_walkthrough_tool_violation') return 502;
   if (['nnd_walkthrough_context_large', 'nnd_environment_value_too_large',
     'nnd_skills_catalog_too_large'].includes(code)) return 413;
   if (code === 'nnd_activity_tombstones_invalid') return 500;
-  // Trust rows must never degrade to an empty list; repairs are retried after the
-  // honest failure surfaces.
-  if (code === 'workspace_trust_target_missing') return 404;
-  // F1 admission family: conflicts 409, missing target 404, unavailable 503, grammar 400.
-  if (['nnd_workspace_admission_root_conflict', 'nnd_workspace_admission_secondary_clear', 'nnd_workspace_in_use'].includes(code)) return 409;
-  if (['nnd_workspace_admission_target_missing'].includes(code)) return 404;
+  // Trust rows must never degrade to an empty list; repairs retry after the honest failure surfaces.
+  // F1 admission: conflicts 409, missing 404, unavailable 503, grammar 400.
+  if (['nnd_workspace_admission_root_conflict', 'nnd_workspace_admission_secondary_clear', 'nnd_workspace_in_use',
+    'workspace_trust_busy'].includes(code)) return 409;
+  if (code === 'workspace_trust_target_missing' || code === 'nnd_workspace_admission_target_missing') return 404;
   if (['nnd_workspace_admission_unavailable'].includes(code)) return 503;
-  if (code === 'workspace_trust_busy') return 409;
   // Broken server builds (projection drift) are 500s, not client errors.
   if (['nnd_compatibility_projection_invalid', 'nnd_secrets_projection_invalid',
     'nnd_hooks_projection_invalid', 'nnd_update_projection_invalid',

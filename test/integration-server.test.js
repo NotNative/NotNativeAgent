@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 import { SecretBroker } from '../src/secret-broker.js';
@@ -13,6 +13,7 @@ import { resolveManifest } from '../src/config.js';
 import { nndMcpInventory } from '../src/nnd-mcp-inventory.js';
 import { nndAgentInventory } from '../src/nnd-agent-inventory.js';
 import { ContractError } from '../src/ids.js';
+import { createCapabilityAuthority } from '../src/integration-capability.js';
 
 const TOKEN = 'ephemeral-integration-token-with-at-least-32-characters';
 
@@ -767,6 +768,66 @@ test('notification text requires its dedicated grant and forwards authenticated 
     host.generateNotification = async () => { throw new ContractError('nnd_notification_unavailable', 'missing route'); };
     assert.equal((await request(base, path, principal(['nnd.notification.generate']), { method: 'POST', body })).status, 503);
   } finally { await service.close(); }
+});
+
+test('capability renewal endpoint renews within grace and fails closed', async () => {
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
+  let tick = 1_000_000;
+  const authority = createCapabilityAuthority({
+    generation: 'gen_supervised',
+    principal: { subject_id: 'nnd-service:nna_test', platform_role: 'service',
+      permissions: ['harness.proxy'], workspace_ids: [], group_ids: [] },
+    ttlMs: 600_000, graceMs: 60_000, skewMs: 30_000, now: () => tick,
+  });
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', port: 0,
+    capabilityAuthority: authority,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  const renew = async (capability, method = 'POST') => {
+    const response = await fetch(`${base}/v1/nnd/capability/renew`, {
+      method, redirect: 'error', headers: { authorization: `Bearer ${TOKEN}`,
+        'x-nna-principal': Buffer.from(JSON.stringify(principal(['harness.proxy']))).toString('base64url'),
+        ...(method === 'POST' ? { 'content-type': 'application/json' } : {}) },
+      body: method === 'POST' ? JSON.stringify({ capability }) : undefined,
+    });
+    const text = await response.text();
+    return { status: response.status, value: text ? JSON.parse(text) : undefined };
+  };
+  try {
+    const fresh = authority.issue();
+    const renewed = await renew(fresh);
+    assert.equal(renewed.status, 200);
+    assert.equal(authority.verify(renewed.value.capability).subject_id, 'nnd-service:nna_test');
+    // The endpoint never accepts caller-shaped authority: a tampered token fails closed.
+    const [payload, signature] = fresh.split('.');
+    const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(payload, 'base64url')), permissions: ['*'] }))
+      .toString('base64url');
+    assert.equal((await renew(`${forged}.${signature}`)).status, 401);
+    // GET is not renewal.
+    assert.equal((await renew(fresh, 'GET')).status, 405);
+    // Beyond grace the service must fail closed instead of extending authority.
+    tick += 700_000;
+    const expired = await renew(fresh);
+    assert.equal(expired.status, 401);
+    assert.equal(expired.value.error.code, 'capability_expired');
+  } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('the renewal endpoint is absent without a configured authority', async () => {
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    const response = await fetch(`${base}/v1/nnd/capability/renew`, {
+      method: 'POST', redirect: 'error', headers: { authorization: `Bearer ${TOKEN}`,
+        'x-nna-principal': Buffer.from(JSON.stringify(principal(['harness.proxy']))).toString('base64url'),
+        'content-type': 'application/json' }, body: JSON.stringify({ capability: 'x.y' }),
+    });
+    assert.equal(response.status, 404);
+  } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
 });
 
 async function request(base, path, actor, options = {}) {

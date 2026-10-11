@@ -14,6 +14,7 @@ import { dispatchNndConfigurationRequest } from './nnd-configuration-routes.js';
 import { dispatchNndWorkspaceGrantRequest } from './nnd-workspace-grant-routes.js';
 import { dispatchNndWorkspaceAdmissionRequest } from './nnd-workspace-admission-routes.js';
 import { dispatchNndAttachmentUploadRequest } from './nnd-attachment-upload-routes.js';
+import { dispatchNndCapabilityRequest } from './nnd-capability-routes.js';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 const PROVIDER_ROUTE = /^\/v1\/provider-profiles(?:\/([^/]+))?(?:\/(discover|test))?$/u;
@@ -103,6 +104,7 @@ async function dispatch(request, response, context) {
   if (await dispatchNndHarnessRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchNndOperatorRequest(request, response, { ...context, principal, url,
     nndSessionResolver: context.nndSessionResolver ?? context.nndEngineHost?.resolveChildSession?.bind(context.nndEngineHost) })) return;
+  if (await dispatchNndCapabilityRequest(request, response, { ...context, url })) return;
   if (await dispatchSecretBrokerRequest(request, response, { ...context, principal, url })) return;
   return send(response, 404, failure('not_found', 'integration endpoint not found'));
 }
