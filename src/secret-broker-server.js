@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { ContractError } from './ids.js';
 import { SecretBroker } from './secret-broker.js';
 import { assertNnoIntegrationActivation } from './nno-integration-activation.js';
+import { secretReferences } from './secret-management.js';
 import {
   authenticateIntegrationRequest, canAccessSecretScope, readIntegrationPrincipal,
   requireIntegrationPermission, requireToken,
@@ -70,7 +71,10 @@ export async function dispatchSecretBrokerRequest(request, response, context) {
     return send(response, 200, { secret: await broker.setEnabled(id, body.enabled, authorizeSecret(principal)) });
   }
   if (request.method === 'DELETE' && id && !subresource) {
+    // Delete guard (census secrets:delete_guard): never delete a secret
+    // still bound in provider or MCP configuration.
     requireIntegrationPermission(principal, 'secret.manage');
+    await refuseIfReferenced(context, id);
     await broker.remove(id, authorizeSecret(principal));
     return send(response, 200, { ok: true });
   }
@@ -116,8 +120,14 @@ async function visible(broker, principal, id) {
   const secret = await broker.get(id);
   return secret && canAccessSecretScope(principal, secret.scope) ? secret : null;
 }
-function authorizeSecret(principal) {
-  return (secret) => {
+async function refuseIfReferenced(context, id) {
+  if (typeof context.secretReferences !== 'function') return;
+  const bound = secretReferences(await context.secretReferences(), id);
+  if (bound.length > 0) throw new ContractError('secret_in_use',
+    `Secret is used by ${bound.map((item) => item.label).join(', ')}. Remove those bindings first.`);
+}
+
+function authorizeSecret(principal) {  return (secret) => {
     if (!canAccessSecretScope(principal, secret.scope)) throw new ContractError('secret_not_found', 'secret not found');
   };
 }
@@ -136,7 +146,7 @@ function failureStatus(code) {
     'nnd_install_runtime_unavailable', 'nnd_skills_catalog_unavailable'].includes(code)) return 503;
   if (code === 'nnd_setup_activation_timeout' || code === 'nnd_setup_shutdown_timeout') return 504;
   if (code === 'nnd_setup_required' || code === 'nnd_setup_stopped' || code === 'nnd_setup_cleanup_failed') return 503;
-  if (code === 'nnd_setup_busy') return 409;
+  if (code === 'nnd_setup_busy' || code === 'secret_in_use') return 409;
   // The manifest may already have been published. The caller must inspect its
   // original operation ID before deciding whether any retry is safe.
   if (['manifest_publication_unknown', 'manifest_publication_failed', 'manifest_cleanup_failed'].includes(code)) return 503;

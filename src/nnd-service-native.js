@@ -8,6 +8,7 @@ import { LOCAL_SECRET_REALM } from './secret-contracts.js';
 import { ProviderProfileStore } from './provider/profile-store.js';
 import { readNndSetupConfiguration } from './nnd-setup-config.js';
 import { createNndConfigurationService } from './nnd-configuration-service.js';
+import { readNndConfigurationSources } from './nnd-configuration-sources.js';
 import { createNndGatewaySettingsTransaction } from './nnd-gateway-timeout-transaction.js';
 import { createNndWebFetchSettingsTransaction } from './nnd-web-fetch-transaction.js';
 import { createNndWebSearchSettingsTransaction } from './nnd-web-search-transaction.js';
@@ -64,6 +65,9 @@ export function nativeNndTrialPrincipal(workspaceRoot) {
  * them into the HTTP context verbatim), so the key list is locked by test. */
 export function createNativeNndSettingsServices(paths, identity, environment) {
   return {
+    // Derived-reference scan for the secret delete guard (census
+    // secrets:delete_guard): resolved sources give providerProfiles/mcpServers.
+    secretReferences: async () => (await readNndConfigurationSources(paths)).config,
     nndConfigurationService: createNndConfigurationService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),
     nndGatewayTimeoutService: createNndGatewaySettingsTransaction({ path: paths.gatewayConfig,

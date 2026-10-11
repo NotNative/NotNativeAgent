@@ -819,6 +819,35 @@ test('capability renewal endpoint renews within grace and fails closed', async (
   } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
 });
 
+test('the secret delete route honors the derived-reference delete guard', async () => {
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
+  const manager = principal(['secret.read', 'secret.manage']);
+  let config = { providerProfiles: {}, mcpServers: [] };
+  const broker = new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') });
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', port: 0, broker,
+    secretReferences: async () => config,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    const created = await request(base, '/v1/secrets', manager, {
+      method: 'POST', body: { label: 'guarded', kind: 'token', scope: { kind: 'user', id: 'u_test' }, fields: { token: 'v' } } });
+    assert.equal(created.status, 201, JSON.stringify(created.value));
+    const id = created.value.secret.id;
+    // A referenced secret is never deleted through the broker route.
+    config = { providerProfiles: { p1: { displayName: 'One', credential: { source: 'secret', secretId: id } } }, mcpServers: [] };
+    const refused = await request(base, `/v1/secrets/${id}`, manager, { method: 'DELETE' });
+    assert.equal(refused.status, 409);
+    assert.equal(refused.value.error.code, 'secret_in_use');
+    assert.match(refused.value.error.message, /Provider One/u);
+    // After the binding is removed the same delete succeeds.
+    config = { providerProfiles: {}, mcpServers: [] };
+    const removed = await request(base, `/v1/secrets/${id}`, manager, { method: 'DELETE' });
+    assert.equal(removed.status, 200);
+    assert.deepEqual(removed.value, { ok: true });
+  } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
+});
+
 test('the renewal endpoint is absent without a configured authority', async () => {
   const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
   const service = await startIntegrationServer({
