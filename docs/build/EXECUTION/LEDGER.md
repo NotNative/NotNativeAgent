@@ -18,6 +18,24 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 F3 recheck: the text-parts gap is stale (recheck evidence)
+
+The confirmed-gaps table instructed rechecking named targets before acting;
+the F3 row (native `textContent` filters parts to text, so file/image prompts
+submit while the engine sees only text) was rechecked against NNA
+`20261011-5` and is stale. The current `promptParts` fails closed for unknown
+part shapes (`nnd_prompt_part_unsupported`), and uploaded file parts resolve
+through the authenticated attachment-admission route into engine-bound
+attachments. The recheck added the one missing assertion - a mixed text plus
+uploaded-file prompt delivers both the text content and the resolved
+attachment to the engine (NNA integration suite 19/19) - and struck the row
+in the 04 table with the recheck outcome. The installed image/file journey
+(04:86 acceptance) remains the F3 residual and stays with the operator
+observations. Also checked this round: the F4 fork/revert row was rechecked
+and remains a genuine native gap - the NNA engine exposes no fork/revert
+operations at all (W-23 native checkpointing), so that is implementation
+work, not stale documentation.
+
 ## 2026-10-11 WP-F/V4 scaffold: the machine-checkable W acceptance ledger (scaffolding, not evidence)
 
 V4 requires "the W-id subfeature ledger" and guide 04's evidence protocol
