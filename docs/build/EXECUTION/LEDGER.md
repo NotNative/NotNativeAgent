@@ -40,6 +40,13 @@ Diagnosis notes from the operator's machine: a hung `nna desktop start`
 wrong-branch GUI spawn; recovery ran the service in the foreground to observe
 the real child path (`--supervised`), which exposed the miss.
 
+**Verified on the operator machine (2026-10-11)**: after installing
+20261011-5 and running `nna desktop start`, the tray icon and desktop app
+appeared from the supervised child's launch — the service ⇄ tray linkage is
+verified, not just implemented. Remaining unverified in this arc: tray Quit
+stopping the service, `enable` logon auto-start with tray, and the
+shortcut-only path on a service that is already running.
+
 ## 2026-10-10 Rebrand the operator surface to `nna desktop` (operator request, implemented-unverified)
 
 The desktop plugin lifecycle is now `nna desktop start|stop|enable|disable|status`
