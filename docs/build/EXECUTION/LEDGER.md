@@ -18,6 +18,23 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Accessibility inventory + icon system (W-99, W-100, implemented-unverified)
+
+W-99: the complete accessible primitive inventory is authored at
+`docs/build/EXECUTION/accessibility-inventory.md` — 14 primitive rows (live
+regions, alerts, focus-trapped dialogs, listboxes, labelled rails with
+focus return, trees, tabs, toggles, labelled inputs, status summaries,
+focus management, reduced motion, icon-only button labels, landmark
+structure), each with its ARIA/keyboard contract and the test that pins it,
+plus the keyboard baseline (Tab reachability, Enter/Space activation,
+arrow navigation in palette/timeline, no hover-only interactions).
+W-100: the icon system — the nine original outline surface glyphs in
+operator-icons (aria-hidden decorative), the dependency-free tray state
+icon generator (running/stopped rings) with its assets consumed by the
+service-linked tray, and the installer-asserted notnative-agent.ico app
+icon. All implemented-unverified pending the installed V-gates (the
+assistive-technology pass is part of them).
+
 ## 2026-10-11 Unified setup wizard (W-14, implemented-unverified)
 
 The guided wizard is built: one flow orchestrating the previously separate

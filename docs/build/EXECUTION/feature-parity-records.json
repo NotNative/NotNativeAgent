@@ -2392,15 +2392,47 @@
       "id": "W-99",
       "work_packages": "C, F10",
       "disposition": "MVP complete accessible primitive inventory.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-99.a11y-inventory",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/docs/build/EXECUTION/accessibility-inventory.md (14 primitive rows with ARIA/keyboard contracts + pinning tests)",
+            "../NotNativeDesktop/packages/ui/src/chat/operator-rail.tsx + compact-operator-layout.test.tsx (focus-return/reveal contract)",
+            "../NotNativeDesktop/packages/ui/src/chat/command-palette.test.tsx + timeline-search.test.tsx (arrow navigation)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/docs/build/EXECUTION/accessibility-inventory.md (14 primitive rows with ARIA/keyboard contracts + pinning tests)",
+        "../NotNativeDesktop/packages/ui/src/chat/operator-rail.tsx + compact-operator-layout.test.tsx (focus-return/reveal contract)",
+        "../NotNativeDesktop/packages/ui/src/chat/command-palette.test.tsx + timeline-search.test.tsx (arrow navigation)"
+      ]
     },
     {
       "id": "W-100",
       "work_packages": "C, F10",
       "disposition": "MVP app/file icon system.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-100.icons",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/operator-icons.tsx (9 original outline surface glyphs, aria-hidden decorative)",
+            "../NotNativeDesktop/scripts/electron-tray-icon.mjs (dependency-free tray state icons: running/stopped rings, idempotent generator)",
+            "../NotNativeDesktop/packages/electron/assets/tray-running.png + tray-stopped.png + tray.mjs consumption",
+            "../NotNativeDesktop/scripts/installer-structure.test.mjs (notnative-agent.ico app icon asserted in the installer structure)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/operator-icons.tsx (9 original outline surface glyphs, aria-hidden decorative)",
+        "../NotNativeDesktop/scripts/electron-tray-icon.mjs (dependency-free tray state icons: running/stopped rings, idempotent generator)",
+        "../NotNativeDesktop/packages/electron/assets/tray-running.png + tray-stopped.png + tray.mjs consumption",
+        "../NotNativeDesktop/scripts/installer-structure.test.mjs (notnative-agent.ico app icon asserted in the installer structure)"
+      ]
     },
     {
       "id": "W-101",

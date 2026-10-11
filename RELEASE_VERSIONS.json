@@ -1924,6 +1924,10 @@
     {
       "version": "20261011-68",
       "content_sha256": "2737704d89a246a8a2585636fec7fbe2099858cf7bde53753ce9287870dc08b3"
+    },
+    {
+      "version": "20261011-69",
+      "content_sha256": "5a4009b125e932cbb2ce3bb01604318d3472694680d1b92cde01d346011b7c7b"
     }
   ]
 }
