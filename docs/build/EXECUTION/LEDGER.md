@@ -18,6 +18,19 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 (20261011-88) Live-NNA multi-run (F9) observation executed in-session
+
+- New `scripts/nna-multirun-observation.mjs` (disposable fixture, shared
+  scratch root, self-cleaning): same prompt in two sessions with different
+  per-session model selections against NNA `20261011-12`. Verified: session
+  A inherits the configured primary route; session B holds the bounded
+  per-session `{providerID, model}` creation-body override (F9 step 1,
+  NND 20261011-30); each run rode its own route on the wire (provider saw
+  `model: test` then `model: test-alt`); a mismatched per-prompt model was
+  refused through the `assertConfiguredSelection` path.
+- DEFERRED-VERIFICATION F9 item updated: NNA behavior leg verified; the
+  installed-pair shell-UI leg remains open.
+
 ## 2026-10-11 (20261011-86) Live-NNA timeline fork/revert observation executed in-session
 
 - New `scripts/nna-timeline-observation.mjs` (disposable fixture, shared

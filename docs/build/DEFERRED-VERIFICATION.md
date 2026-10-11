@@ -152,6 +152,16 @@ NNA `20261011-10`, disposable fixtures only):
       pinned pair and confirm each run's per-session route holds
       (`assertConfiguredSelection` path, NND `20261011-30` orchestration,
       implemented-unverified)
+      — NNA behavior leg VERIFIED live in-session 2026-10-11 by
+      `scripts/nna-multirun-observation.mjs` (same `/api/*` harness-proxy
+      path the timeline UI uses, NNA `20261011-12`): session A inherited the
+      configured primary route (primary/test), session B held its bounded
+      per-session override (secondary/test-alt) via the creation-body
+      `{providerID, model}` route; the same prompt rode each session's own
+      route on the wire (provider saw `model: test` then `model: test-alt`),
+      and a prompt naming a model different from the session's configured
+      selection was refused through `assertConfiguredSelection`. Remaining:
+      the installed-pair leg through the installed shell UI.
 
 ## C4 rows awaiting installed application evidence
 
