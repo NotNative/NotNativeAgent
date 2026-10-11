@@ -2135,22 +2135,69 @@
       "id": "W-115",
       "work_packages": "F10, L",
       "disposition": "MVP attention/status/native and browser notification delivery; mobile push excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-115.notification-delivery",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/notification-model.test.ts + notification-pending.test.ts + notification-native-text.test.ts + notification-routes.test.ts + p12-native-notifications.test.js",
+            "../NotNativeDesktop/packages/electron/native-notifications.mjs (native delivery)",
+            "../NotNativeDesktop/packages/ui/src/notifications/delivery-receipt.ts (hash-chained receipts; mobile push excluded by contract)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/notification-model.test.ts + notification-pending.test.ts + notification-native-text.test.ts + notification-routes.test.ts + p12-native-notifications.test.js",
+        "../NotNativeDesktop/packages/electron/native-notifications.mjs (native delivery)",
+        "../NotNativeDesktop/packages/ui/src/notifications/delivery-receipt.ts (hash-chained receipts; mobile push excluded by contract)"
+      ]
     },
     {
       "id": "W-116",
       "work_packages": "F2, F6–F8, F10",
       "disposition": "MVP full NNA observability rail, durable evidence, corrections/redaction and sourced notes.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-116.observability",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/work-status-panel.tsx + work-status.ts (observability rail: phases, tools, governance, sourced NNA projections)",
+            "../NotNativeDesktop/packages/ui/src/sync/activity-snapshot.ts + operator-rail.test.tsx (durable activity evidence)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/work-status-panel.tsx + work-status.ts (observability rail: phases, tools, governance, sourced NNA projections)",
+        "../NotNativeDesktop/packages/ui/src/sync/activity-snapshot.ts + operator-rail.test.tsx (durable activity evidence)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts"
+      ]
     },
     {
       "id": "W-117",
       "work_packages": "F2, F3, F10",
       "disposition": "MVP delegated transcripts and currently authorized actions; native steering dependencies remain required.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-117.delegated-transcripts",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/child-session-controls.test.tsx (delegated/child transcript controls)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-sidebar-hierarchy.test.ts (hierarchy)",
+            "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (subagentRows)",
+            "../NotNativeDesktop/packages/ui/src/sync/scope-separation.ts (currently-authorized actions scoping)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/child-session-controls.test.tsx (delegated/child transcript controls)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-sidebar-hierarchy.test.ts (hierarchy)",
+        "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (subagentRows)",
+        "../NotNativeDesktop/packages/ui/src/sync/scope-separation.ts (currently-authorized actions scoping)"
+      ]
     }
   ]
 }

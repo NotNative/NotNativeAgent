@@ -18,6 +18,22 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Notifications / observability rail / delegated transcripts (W-115..W-117, implemented-unverified)
+
+W-115: attention/status delivery across native (electron notifications) and
+browser with the notification model/pending/native-text/routes test set and
+hash-chained delivery receipts; mobile push stays excluded by contract.
+W-116: the NNA observability rail — work-status phases/tools/governance with
+sourced NNA projections, the durable activity snapshot with operator-rail
+tests, and the §G rule that missing data renders absent, never fabricated.
+W-117: delegated transcripts — child-session controls, sidebar hierarchy,
+subagent rows in work status, with the currently-authorized-actions scoping
+enforced by the scope-separation guard. W-113 (verified model-input delivery
+matrix) stays pending — its acceptance is real-harness-gated like the W-32
+legs; W-114 stays pending because no TTS/STT implementation was found (the
+small-model and notification legs exist but the batch is not complete).
+All implemented-unverified pending the installed V-gates.
+
 ## 2026-10-11 Presentation tail: tokens/themes/registry/shortcuts (W-98, W-101, W-102, W-104, implemented-unverified)
 
 W-98: the §B.1 token seed and §B.2 radius/fonts/motion live in
