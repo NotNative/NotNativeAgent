@@ -18,6 +18,21 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Local-auth/exclusion L batches (W-64..W-70, W-79, implemented-unverified)
+
+These records mix a local-required half with an excluded-by-contract half.
+Local-required halves are real and tested: local browser/session/device auth
+(43 auth-ui tests) and passkeys where supported (20 tests) with public/tunnel
+access excluded; the local desktop-to-service authenticated setup (19
+pairing + 9 password-login tests) with remote pairing/QR excluded; safe
+loopback origin/cookie rules (trusted-origin + app.ts loopback Secure
+handling) with public reverse-proxy excluded; Windows local dev-server
+discovery/probe. Excluded halves preserve the code without counting it as
+local acceptance: relay/tunnel/SSH code stays in-tree with its tests
+(ssh-managed-lifecycle..ssh-transport, relay-pairing-bridge, tunnel routes),
+explicitly marked excluded-from-acceptance. All implemented-unverified
+pending the installed V-gates.
+
 ## 2026-10-11 Notifications / observability rail / delegated transcripts (W-115..W-117, implemented-unverified)
 
 W-115: attention/status delivery across native (electron notifications) and

@@ -1410,36 +1410,103 @@
       "id": "W-64",
       "work_packages": "L, C",
       "disposition": "MVP local browser/session/device auth and passkeys where supported; public/tunnel access excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-64.local-auth",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts (43 local browser/session/device auth tests)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-passkeys.test.ts (20 tests, where supported)",
+            "../NotNativeDesktop/packages/electron/desktop-password-login.test.mjs (9 tests); public/tunnel access excluded by contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts (43 local browser/session/device auth tests)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-passkeys.test.ts (20 tests, where supported)",
+        "../NotNativeDesktop/packages/electron/desktop-password-login.test.mjs (9 tests); public/tunnel access excluded by contract"
+      ]
     },
     {
       "id": "W-65",
       "work_packages": "L",
       "disposition": "Remote private relay excluded from MVP; preserve existing code without counting it as local acceptance.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-65.relay-preserved",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/relay.ts + relay dispatcher tests (code preserved)",
+            "../NotNativeDesktop/packages/electron/relay-pairing-bridge.mjs + relay-dev-tunnel.test.mjs (excluded from local MVP acceptance; not counted as local acceptance)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/relay.ts + relay dispatcher tests (code preserved)",
+        "../NotNativeDesktop/packages/electron/relay-pairing-bridge.mjs + relay-dev-tunnel.test.mjs (excluded from local MVP acceptance; not counted as local acceptance)"
+      ]
     },
     {
       "id": "W-66",
       "work_packages": "L",
       "disposition": "Remote tunnel providers excluded from MVP.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-66.tunnels-preserved",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/tunnel.ts + lib/tunnels/ (provider code preserved)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-tunnel.test.ts (tunnel auth excluded from local acceptance)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/tunnel.ts + lib/tunnels/ (provider code preserved)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-tunnel.test.ts (tunnel auth excluded from local acceptance)"
+      ]
     },
     {
       "id": "W-67",
       "work_packages": "L",
       "disposition": "Remote pairing/QR excluded; local desktop-to-service authenticated setup remains required.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-67.local-pairing-setup",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/desktop-pairing.mjs + desktop-pairing.test.mjs (19 tests: local desktop-to-service authenticated setup)",
+            "../NotNativeDesktop/packages/electron/desktop-password-login.test.mjs (9 tests); remote pairing/QR excluded by contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/desktop-pairing.mjs + desktop-pairing.test.mjs (19 tests: local desktop-to-service authenticated setup)",
+        "../NotNativeDesktop/packages/electron/desktop-password-login.test.mjs (9 tests); remote pairing/QR excluded by contract"
+      ]
     },
     {
       "id": "W-68",
       "work_packages": "L",
       "disposition": "SSH remote-machine access excluded from MVP.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-68.ssh-preserved",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/ssh-*.mjs + ssh-managed-lifecycle.test.mjs .. ssh-transport.test.mjs (SSH remote code preserved with tests)",
+            "../NotNativeDesktop/packages/ui/src/lib/desktopSsh.ts (SSH remote-machine access excluded from local MVP acceptance)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/ssh-*.mjs + ssh-managed-lifecycle.test.mjs .. ssh-transport.test.mjs (SSH remote code preserved with tests)",
+        "../NotNativeDesktop/packages/ui/src/lib/desktopSsh.ts (SSH remote-machine access excluded from local MVP acceptance)"
+      ]
     },
     {
       "id": "W-69",
@@ -1452,8 +1519,23 @@
       "id": "W-70",
       "work_packages": "L",
       "disposition": "Public reverse-proxy deployment excluded; safe loopback origin/cookie rules required.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-70.loopback-rules",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/trusted-origin.mjs (safe loopback origin)",
+            "../NotNativeDesktop/packages/web/src/server/app.ts (loopback cookie/Secure rules, configured Electron origin)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts (cookie rules); public reverse-proxy excluded by contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/trusted-origin.mjs (safe loopback origin)",
+        "../NotNativeDesktop/packages/web/src/server/app.ts (loopback cookie/Secure rules, configured Electron origin)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts (cookie rules); public reverse-proxy excluded by contract"
+      ]
     },
     {
       "id": "W-71",
@@ -1594,8 +1676,21 @@
       "id": "W-79",
       "work_packages": "L",
       "disposition": "SSH manager excluded from MVP.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-79.ssh-manager-preserved",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages (SSH manager code preserved, e.g. desktop-ssh settings)",
+            "../NotNativeDesktop/packages/electron/ssh-instances.mjs + ssh-instances.test.mjs; excluded from MVP acceptance per contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages (SSH manager code preserved, e.g. desktop-ssh settings)",
+        "../NotNativeDesktop/packages/electron/ssh-instances.mjs + ssh-instances.test.mjs; excluded from MVP acceptance per contract"
+      ]
     },
     {
       "id": "W-80",
