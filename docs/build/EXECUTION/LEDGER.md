@@ -18,6 +18,21 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Bounded renderer recovery pinned by focused tests (W-02/W-10, implemented-unverified)
+
+The bounded renderer-recovery module (`renderer-recovery.mjs`, doc 09 §12.1)
+now has focused node:test coverage pinning the boot/crash retry budget:
+recoverable renderer exits (`crashed`, `oom`, `abnormal-exit`,
+`memory-eviction`) each schedule one delayed reload up to `MAX_RELOADS = 3`
+inside the 60 s window, a fourth exit inside the window is refused with a
+"budget exhausted" log, attempts age out of the window so a later crash
+recovers again, non-recoverable reasons never reload and are logged as
+"without recovery", and `dispose()` cancels a pending reload and detaches the
+`render-process-gone` listener (a subsequent exit does nothing). This closes
+the two audit-named test debts (W-02.bounded-retry, W-10.crash-recovery);
+W-10 moves to implemented-unverified across all subfeatures, while W-02 stays
+pending on the absent theme-prepaint implementation.
+
 ## 2026-10-11 AI rename suggestion (W-24.ai-rename, implemented-unverified)
 
 The sidebar gains a suggest-name action: the web server exposes

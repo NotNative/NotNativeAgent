@@ -1796,6 +1796,10 @@
     {
       "version": "20261011-35",
       "content_sha256": "2aa5320db8ad73b8887974f4731f042664a83679757f1eb4a4f782ee9002ab49"
+    },
+    {
+      "version": "20261011-36",
+      "content_sha256": "b1e215dddced292fd40f4a4eb7e249c79ca0953ba41318444767d03fee71abf0"
     }
   ]
 }

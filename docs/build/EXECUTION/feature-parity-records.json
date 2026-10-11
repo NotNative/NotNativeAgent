@@ -48,8 +48,11 @@
         },
         {
           "id": "W-02.bounded-retry",
-          "status": "pending",
-          "note": "renderer-recovery.mjs caps reload attempts but has no focused test file; no test pins the boot-retry budget."
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/renderer-recovery.mjs",
+            "../NotNativeDesktop/packages/electron/renderer-recovery.test.mjs (bounded budget, window aging, non-recoverable reasons, dispose)"
+          ]
         },
         {
           "id": "W-02.theme-prepaint",
@@ -190,7 +193,7 @@
       "id": "W-10",
       "work_packages": "L, F10",
       "disposition": "MVP Windows controls, splash, crash recovery and read coalescing.",
-      "status": "pending",
+      "status": "implemented-unverified",
       "subfeatures": [
         {
           "id": "W-10.windows-controls",
@@ -211,8 +214,11 @@
         },
         {
           "id": "W-10.crash-recovery",
-          "status": "pending",
-          "note": "renderer-recovery.mjs implements abnormal-exit/crash reload recovery but ships with no test file."
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/renderer-recovery.mjs",
+            "../NotNativeDesktop/packages/electron/renderer-recovery.test.mjs (bounded budget, window aging, non-recoverable reasons, dispose)"
+          ]
         },
         {
           "id": "W-10.read-coalescing",
@@ -223,6 +229,18 @@
             "../NotNativeDesktop/packages/ui/src/lib/files/__tests__/directory-requests.test.ts > it 'coalesces concurrent callers into one in-flight read'"
           ]
         }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/ipc-face.mjs (desktop_minimize_current_window / desktop_toggle_current_window_maximized)",
+        "../NotNativeDesktop/packages/electron/ipc-face.test.mjs > test 'window controls work in another trusted local BrowserWindow'",
+        "../NotNativeDesktop/packages/electron/ipc-face.test.mjs > test 'window controls reject embedded frames even when their parent is trusted'",
+        "../NotNativeDesktop/packages/electron/window-state.test.mjs",
+        "../NotNativeDesktop/packages/electron/main.mjs (SPLASH_HTML/SPLASH_URL + boot-failure page)",
+        "../NotNativeDesktop/packages/electron/renderer-recovery.mjs",
+        "../NotNativeDesktop/packages/electron/renderer-recovery.test.mjs (bounded budget, window aging, non-recoverable reasons, dispose)",
+        "../NotNativeDesktop/packages/ui/src/lib/runtime-fetch.ts (HP-6 GET coalescing)",
+        "../NotNativeDesktop/packages/ui/src/lib/__tests__/runtime-fetch.test.ts > describe 'shouldCoalesce (HP-6)' > it 'coalesces allowlisted GETs'",
+        "../NotNativeDesktop/packages/ui/src/lib/files/__tests__/directory-requests.test.ts > it 'coalesces concurrent callers into one in-flight read'"
       ]
     },
     {
