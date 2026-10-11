@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 (20261011-89) Installed timeline fork/revert journey executed in-session
+
+- New `scripts/installed-timeline-journey.mjs` on the installed acceptance
+  scaffold (real disposable source install, native code Chromium UI,
+  settings-UI provider configuration with first turn): an in-page probe
+  inside the installed shell forked a session, confirmed the child rendered
+  the inherited history and continued independently with the child
+  rendering as its own session row while the parent stayed at two turns;
+  revert hid the boundary turn and unrevert restored it across the
+  installed shell. Fixture drained and removed after the run (lingering
+  journey Electron processes drained first, matching the removal journey's
+  rule).
+- DEFERRED-VERIFICATION installed fork and installed revert items CLOSED.
+
 ## 2026-10-11 (20261011-88) Live-NNA multi-run (F9) observation executed in-session
 
 - New `scripts/nna-multirun-observation.mjs` (disposable fixture, shared

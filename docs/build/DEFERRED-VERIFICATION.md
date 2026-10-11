@@ -125,28 +125,24 @@ NNA `20261011-10`, disposable fixtures only):
       and several `nnd.*` operator rights vs NNA `nativeNndPrincipal`;
       its permission list now mirrors NNA's installed native principal.
 - [ ] V1–V6 release gates (guide 05)
-- [ ] Installed timeline fork observation: fork a session from the NND timeline
+- [x] Installed timeline fork observation: fork a session from the NND timeline
       against the installed pinned pair and confirm the child session renders
       the inherited history and continues independently (NNA `20261011-8`
       `POST /session/:id/fork`, implemented-unverified)
-      — NNA behavior leg VERIFIED live in-session 2026-10-11 by
-      `scripts/nna-timeline-observation.mjs` (riding the same `/api/*`
-      harness proxy the timeline UI uses, NNA `20261011-12`): fork mints a
-      child that renders the inherited parent history and continues
-      independently while the parent never moves; the child timeline
-      survives a native service restart via journal replay. Remaining:
-      the installed-pair rendering leg through the installed shell UI.
-- [ ] Installed native revert observation: revert a timeline entry on the
+      — EXECUTED in-session 2026-10-11 by `scripts/installed-timeline-journey.mjs`
+      (real disposable source install, native code Chromium UI, settings-UI
+      provider configuration with a first turn, then the in-page timeline
+      probe inside the installed shell): the forked child rendered the
+      inherited history, continued independently, and appeared as its own
+      session row while the parent stayed at its two turns.
+- [x] Installed native revert observation: revert a timeline entry on the
       installed pinned pair, confirm the removed turns disappear and the next
       prompt continues without them, then unrevert and confirm the turns
       return in canonical order (NNA `20261011-10` `POST /session/:id/revert`
       / `/unrevert`, implemented-unverified)
-      — NNA behavior leg VERIFIED live in-session by the same observation:
-      revert hides the boundary turn from the timeline, a fresh turn replays
-      normally on fresh turn ids while the reverted turn stays hidden, and
-      unrevert restores the hidden turn; the whole cycle survives restart.
-      Remaining: the installed-pair rendering leg through the installed
-      shell UI.
+      — Same in-session installed journey: revert hid the boundary turn from
+      the installed shell's timeline and unrevert restored it, all judged
+      through the installed shell's own `/api/*` connection.
 - [ ] Installed multi-run comparison journey (F9): run the same prompt in two
       separate sessions with different model selections against the installed
       pinned pair and confirm each run's per-session route holds

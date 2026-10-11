@@ -1992,6 +1992,10 @@
     {
       "version": "20261011-88",
       "content_sha256": "1d7d7eb499e888656f3c36ecf551402617b621916099112452b754967d9bb773"
+    },
+    {
+      "version": "20261011-89",
+      "content_sha256": "27c00bb5b790efe16b4b39b4e276cbd06a13a6c5b519157ab3d438cf0252f5c7"
     }
   ]
 }
