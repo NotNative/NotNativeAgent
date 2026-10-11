@@ -89,7 +89,7 @@ async function startBackground(identity) {
   throw new ContractError('nnd_start_timeout', 'NND startup did not publish its controller within the time bound');
 }
 
-function nativeEnvironment(identity) {
+export function nativeEnvironment(identity) {
   // Compatibility: native provider/MCP environment credentials remain in the native process only.
   const environment = { ...process.env, ...childEnvironment(identity) };
   for (const key of Object.keys(environment)) {

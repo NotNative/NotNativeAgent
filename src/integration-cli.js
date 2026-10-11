@@ -39,6 +39,10 @@ export async function runIntegrationCommand(args, paths, options = {}) {
 }
 
 export async function runNndIntegrationCommand(args, paths, options = {}) {
+  if (['start', 'stop', 'enable', 'disable', 'status'].includes(args[0])) {
+    const { runNndLifecycleCommand } = await import('./nnd-lifecycle.js');
+    return runNndLifecycleCommand(args, paths);
+  }
   if (args[0] === 'service') {
     const { runNndServiceCommand } = await import('./nnd-service-cli.js');
     return runNndServiceCommand(args.slice(1), options);

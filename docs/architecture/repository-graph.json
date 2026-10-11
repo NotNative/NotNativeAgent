@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:ed3a901ca4652d39c71e0381178bee7c4b0a4c36e60d86a8e17df8aa0a7a3d2e",
+  "source_digest": "sha256:7c52b843e9bb99b8ba059d4158e88579c5e799bbeb6805172b52fc79a0d389f9",
   "counts": {
-    "modules": 559,
+    "modules": 560,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 251
+      "module_count": 252
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 754,
-      "module_count": 225
+      "import_count": 760,
+      "module_count": 226
     },
     {
       "from": "experience-engine",
@@ -138,8 +138,8 @@
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 72,
-      "module_count": 50
+      "import_count": 73,
+      "module_count": 51
     },
     {
       "from": "tools",
@@ -180,7 +180,7 @@
     {
       "from": "integrations",
       "to": "foundation",
-      "import_count": 40,
+      "import_count": 41,
       "module_count": 10
     },
     {
@@ -1921,6 +1921,7 @@
         "src/nnd-engine-host.js",
         "src/nnd-install-marker.js",
         "src/nnd-install-storage.js",
+        "src/nnd-lifecycle.js",
         "src/nnd-mcp-inventory.js",
         "src/nnd-memory-tool.js",
         "src/nnd-migration-storage.js",
@@ -3070,6 +3071,20 @@
       "imports": [
         "src/ids.js",
         "src/nnd-legacy-census.js"
+      ]
+    },
+    {
+      "path": "src/nnd-lifecycle.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-package-registration.js",
+        "src/nnd-service-cli.js",
+        "src/nnd-service-controller.js",
+        "src/nnd-service-discovery.js",
+        "src/nnd-service-identity.js",
+        "src/persistence/atomic-json.js"
       ]
     },
     {
