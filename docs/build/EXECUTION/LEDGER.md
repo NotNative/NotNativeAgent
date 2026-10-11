@@ -18,6 +18,18 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Secrets and install/auth status (W-71, W-72, implemented-unverified)
+
+W-71: secret handling, revocation and failure isolation — the auth layer
+carries password/passkey/pairing/device-token secrets with 0o600 atomic
+stores (pairing sessions: versioned, one-time grants with nothing left to
+revoke), explicit revocation surfaces (ui-auth revoke, client routes), and
+the §12.2(b) 0o600 sweep plus the auth failure-path tests (43) enforcing
+failure isolation mechanically. W-72: the local installation/service/auth
+status UI (native-setup page 6 tests, setup-readiness, host-probe 14
+diagnostics tests); remote host fleet UX excluded by contract. All
+implemented-unverified pending the installed V-gates.
+
 ## 2026-10-11 Worktrees/plans/review disposition (W-51, W-52, W-54, implemented-unverified)
 
 W-51: authorized worktrees with branch-scoped review (worktrees-view 9

@@ -1760,15 +1760,47 @@
       "id": "W-71",
       "work_packages": "L, F1–F10, V",
       "disposition": "MVP secret handling, revocation and failure isolation remain mandatory.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-71.secrets",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/lib/auth/ (password/passkeys/pairing/device-token secrets; revocation via ui-auth revoke + client routes)",
+            "../NotNativeDesktop/packages/web/src/server/lib/auth/pairing-sessions.ts (0o600 atomic secret store; one-time grants)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (§12.2(b) 0o600 sweep + failure-isolation sweeps)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts (43 auth tests incl. failure paths)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/lib/auth/ (password/passkeys/pairing/device-token secrets; revocation via ui-auth revoke + client routes)",
+        "../NotNativeDesktop/packages/web/src/server/lib/auth/pairing-sessions.ts (0o600 atomic secret store; one-time grants)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (§12.2(b) 0o600 sweep + failure-isolation sweeps)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts (43 auth tests incl. failure paths)"
+      ]
     },
     {
       "id": "W-72",
       "work_packages": "L, F10",
       "disposition": "MVP local installation/service/auth status; remote host fleet UX excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-72.install-status",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/native-setup.tsx + __tests__/native-setup.test.tsx (6 tests: local installation/service/auth status)",
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/setup-readiness.ts + __tests__/setup-readiness.test.ts + setup.test.ts",
+            "../NotNativeDesktop/packages/electron/host-probe.test.mjs (14 diagnostics tests); remote host fleet UX excluded by contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/native-setup.tsx + __tests__/native-setup.test.tsx (6 tests: local installation/service/auth status)",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/setup-readiness.ts + __tests__/setup-readiness.test.ts + setup.test.ts",
+        "../NotNativeDesktop/packages/electron/host-probe.test.mjs (14 diagnostics tests); remote host fleet UX excluded by contract"
+      ]
     },
     {
       "id": "W-73",
