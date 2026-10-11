@@ -581,7 +581,20 @@ if ($ActivatePrebuiltSlot) {
     exit 0
 }
 if (Test-InstallRunning $ElectronExe) {
-    throw "NotNativeDesktop appears to be running from $InstallDir - quit it from the tray menu, then re-run the install (robocopy + pnpm would mutate a tree the running process still holds; robocopy /E cannot touch the binary itself since node_modules is excluded, but a lockfile change makes pnpm relink node_modules under it)"
+    # Legacy takeover (execution guide 02 L5): an Electron-owned backend from
+    # this install tree is still a live catalog writer. The new supervised
+    # service must not open the same queue/schedule/session state while it
+    # runs, and we never kill a process by guessed name or port - the
+    # operator drains it and the installer refuses with recovery instructions.
+    throw @"
+A legacy Electron-owned NotNativeDesktop backend is still running from $InstallDir.
+It owns the session/queue/schedule catalogs the new service must take over.
+Recovery instructions:
+  1. Open the running desktop app and quit it from its tray menu (Close window is not enough).
+  2. Verify no electron.exe is running from $InstallDir.
+  3. Re-run this installer. The new service then takes over the existing data root safely.
+The installer killed nothing and changed no files; the legacy backend keeps its state.
+"@
 }
 foreach ($check in @(@("node", "node version"), @("pnpm", "pnpm version"))) {
     # A missing command leaves LASTEXITCODE unchanged in PowerShell, so a

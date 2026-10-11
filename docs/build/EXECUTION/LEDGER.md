@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 WP-C step 2: legacy takeover refusal in the L5 upgrade path (implemented-unverified)
+
+The source installer's pre-mutation running-install guard is now the legacy
+takeover gate the contract demands (guide 02 L5): if an Electron-owned
+backend from the selected install tree is still a live catalog writer, the
+installer refuses before any mutation, states that the new supervised
+service must not open the same session/queue/schedule state while the
+legacy writer runs, gives three recovery steps (tray quit, verify no
+electron.exe from the tree, re-run), and records plainly that it killed
+nothing and changed no files. No process is ever killed by guessed name or
+port; the operator drains the legacy backend. Verified:
+`installer-transaction` gains a function-level guard test (a mocked
+Get-Process proves the guard matches only the exact selected electron path
+and ignores unrelated electron processes), and `installer-structure` pins
+the takeover message and its position before the copy. The queue/schedule
+record reconciliation on actual takeover remains the dispatcher's sync
+contract (04-sync) and is not re-verified here. Implemented-unverified
+until an operator runs a real takeover from an Electron-owned install.
+
 ## 2026-10-11 WP-D step 3: capability enforcement on the supervised listener (implemented-unverified)
 
 The renewable capability is now the enforced authority grant on the live

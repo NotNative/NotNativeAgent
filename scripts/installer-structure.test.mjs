@@ -34,6 +34,12 @@ test('installer.ps1 follows the dumb-copy shape: plan, copy, build, register, sh
   assert.ok(source.includes('function Write-NndTransactionRecord'));
   assert.ok(source.includes('install-transaction.json'));
   assert.ok(source.includes('the previous package registration is intact'));
+  // Legacy takeover: a live Electron-owned backend from the install tree is
+  // refused with recovery instructions before any mutation; nothing is killed.
+  const takeover = source.indexOf('A legacy Electron-owned NotNativeDesktop backend is still running');
+  assert.ok(takeover > 0 && takeover < copyAt);
+  assert.ok(source.includes('It owns the session/queue/schedule catalogs the new service must take over'));
+  assert.ok(source.includes('The installer killed nothing and changed no files'));
   // The shortcut launcher starts the service AND launches the attached GUI.
   const launcher = await readFile(resolve('scripts/launch-selected-desktop.ps1'), 'utf8');
   assert.ok(launcher.includes('desktop start'));

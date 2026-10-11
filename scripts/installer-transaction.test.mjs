@@ -77,6 +77,36 @@ $plan=Resolve-NndInstallPlan $SelectedNna $env:NND_TXN_TARGET;
 
 const readLog = async f => (await readFile(f.log, 'utf8')).split('\n').filter(Boolean).join('\n');
 
+test('the running-install guard matches only the selected install tree and ignores unrelated electron processes',
+  { skip: process.platform !== 'win32' }, async t => {
+    const f = await fixture(t);
+    // Test-InstallRunning first verifies the exe exists, so the fixture
+    // installs a placeholder electron binary in the target tree.
+    const electronExe = join(f.target, 'packages', 'electron', 'node_modules', 'electron', 'dist');
+    await mkdir(electronExe, { recursive: true });
+    await writeFile(join(electronExe, 'electron.exe'), '');
+    const guard = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      '-Command', `$ErrorActionPreference='Stop';
+function Get-Process([string]$Name) {
+  @([pscustomobject]@{ Path = 'C:\\other\\app\\electron.exe' },
+    [pscustomobject]@{ Path = Join-Path $env:NND_TXN_TARGET 'packages\\electron\\node_modules\\electron\\dist\\electron.exe' });
+}
+$tokens=$null; $errors=$null;
+$ast=[Management.Automation.Language.Parser]::ParseFile('${resolve('install.ps1').replaceAll("'", "''")}',[ref]$tokens,[ref]$errors);
+if($errors.Count){ throw 'Installer PowerShell source does not parse' }
+$predicate=[scriptblock]::Create("param(\`$node) \`$node -is [Management.Automation.Language.FunctionDefinitionAst] -and \`$node.Name -eq 'Test-InstallRunning'");
+$fn=$ast.Find($predicate,$true);
+Invoke-Expression $fn.Extent.Text;
+$running = Test-InstallRunning (Join-Path $env:NND_TXN_TARGET 'packages\\electron\\node_modules\\electron\\dist\\electron.exe');
+$quiet = Test-InstallRunning (Join-Path $env:NND_TXN_TARGET 'packages\\electron\\node_modules\\electron\\dist\\missing.exe');
+[Console]::Out.WriteLine("running=$running quiet=$quiet");`], {
+      encoding: 'utf8', windowsHide: true, timeout: 60000,
+      env: { ...process.env, NND_TXN_TARGET: f.target },
+    });
+    assert.equal(guard.status, 0, guard.stderr);
+    assert.match(guard.stdout, /running=True quiet=False/u, guard.stdout);
+  });
+
 test('the upgrade plan defers deactivation: a copy/build failure cannot mutate the registration',
   { skip: process.platform !== 'win32' }, async t => {
     const f = await fixture(t);
