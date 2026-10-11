@@ -451,7 +451,7 @@ if ($Uninstall) {
     if (Test-InstallRunning $runningExe) { throw 'NND started from the selected install during uninstall; removal was stopped.' }
     Invoke-NndRegistration 'deactivate' $uninstallPackageRoot $uninstallNna
     if (Test-InstallRunning $runningExe) { throw 'NND started during deactivation; the anchor and registration evidence were preserved.' }
-    foreach ($name in @("NotNativeDesktop")) {
+    foreach ($name in @("NotNativeAgent", "NotNativeDesktop")) {
         $links = @((Join-Path $DesktopDir "$name.lnk"), (Join-Path $StartMenuDir "$name.lnk"))
         foreach ($link in $links) { if (Test-Path -LiteralPath $link) { Remove-Item -LiteralPath $link -Force; Write-Host "  removed shortcut $link" } }
     }

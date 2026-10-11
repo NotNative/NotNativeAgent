@@ -347,7 +347,16 @@
       "work_packages": "F3, F8",
       "disposition": "MVP full composer/editor/autocomplete/attachments/context/drafts/commands.",
       "status": "implemented-unverified",
-      "subfeatures": [],
+      "subfeatures": [
+        {
+          "id": "W-15.installed-composer-attachments",
+          "status": "verified",
+          "evidence": [
+            "Verified (installed): NND 20261011-78 disposable-fixture installed acceptance against local NNA 20261011-10 (scripts/installed-source-acceptance.mjs): base, --native-setup-turn, --native-attachments, --native-replay-gap, --native-removal all passed (V1/V2 installed surface).",
+            "file-only composer delivery reached the observation provider with image bytes; duplicate rows and ui turn delivered"
+          ]
+        }
+      ],
       "evidence": [
         "../NotNativeDesktop/packages/ui/src/chat/composer.tsx (tokenization, command registry, picker insertion)",
         "../NotNativeDesktop/packages/ui/src/chat/prompt-language.ts (activeTrigger/replaceTriggerToken autocomplete)",
@@ -430,7 +439,16 @@
       "work_packages": "F3, C",
       "disposition": "MVP native questions/review modes; auto-accept/automatic approvals prohibited.",
       "status": "implemented-unverified",
-      "subfeatures": [],
+      "subfeatures": [
+        {
+          "id": "W-20.installed-review",
+          "status": "verified",
+          "evidence": [
+            "Verified (installed): NND 20261011-78 disposable-fixture installed acceptance against local NNA 20261011-10 (scripts/installed-source-acceptance.mjs): base, --native-setup-turn, --native-attachments, --native-replay-gap, --native-removal all passed (V1/V2 installed surface).",
+            "native review completed/failed outcomes rendered in both browser and desktop doors; fixture allow/deny writes received native reviewer decisions"
+          ]
+        }
+      ],
       "evidence": [
         "../NotNativeDesktop/packages/ui/src/chat/blocking-cards.tsx (question cards: tabs, summary, custom answers, submit/deny)",
         "../NotNativeDesktop/packages/ui/src/chat/__tests__/blocking-cards.test.tsx > question card §F.3",
@@ -924,6 +942,14 @@
             "../NotNativeDesktop/packages/ui/src/lib/nnd/__tests__/permission-policy.test.ts",
             "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (supersede path auto-REJECTS only; reply=always refused upstream)"
           ]
+        },
+        {
+          "id": "W-32.installed-recovery",
+          "status": "verified",
+          "evidence": [
+            "Verified (installed): NND 20261011-78 disposable-fixture installed acceptance against local NNA 20261011-10 (scripts/installed-source-acceptance.mjs): base, --native-setup-turn, --native-attachments, --native-replay-gap, --native-removal all passed (V1/V2 installed surface).",
+            "service restart recovery: retried in-flight send got 204 with no provider call and both turns recovered"
+          ]
         }
       ],
       "evidence": [
@@ -1220,6 +1246,14 @@
             "../NotNativeDesktop/packages/electron/host-probe.test.mjs (diagnostics)",
             "../NotNativeDesktop/packages/web/src/server/__tests__/p9-3a-scheduled-storage.test.ts .. p9-3d-scheduled-routes.test.ts (schedule tooling)",
             "../NotNativeDesktop/packages/web/src/server/routes/scheduled-tasks.ts"
+          ]
+        },
+        {
+          "id": "W-42.installed-lifecycle",
+          "status": "verified",
+          "evidence": [
+            "Verified (installed): NND 20261011-78 disposable-fixture installed acceptance against local NNA 20261011-10 (scripts/installed-source-acceptance.mjs): base, --native-setup-turn, --native-attachments, --native-replay-gap, --native-removal all passed (V1/V2 installed surface).",
+            "installer registered/validated the package, service start/stop owned by the nna surface, native-owned removal preserved NNA data and manifest"
           ]
         }
       ],
@@ -1907,6 +1941,14 @@
             "../NotNativeDesktop/packages/electron/native-service-selection.mjs",
             "../NotNativeDesktop/packages/electron/desktop-boot.test.mjs (15 tests)"
           ]
+        },
+        {
+          "id": "W-73.installed-attachment",
+          "status": "verified",
+          "evidence": [
+            "Verified (installed): NND 20261011-78 disposable-fixture installed acceptance against local NNA 20261011-10 (scripts/installed-source-acceptance.mjs): base, --native-setup-turn, --native-attachments, --native-replay-gap, --native-removal all passed (V1/V2 installed surface).",
+            "desktop shell attached to the installed persistent service; desktop exit did not stop or replace the native service"
+          ]
         }
       ],
       "evidence": [
@@ -1975,6 +2017,14 @@
             "../NotNativeDesktop/packages/electron/deep-links.mjs + deep-links.test.mjs (9 local session deep-link tests; remote host/pairing links rejected)",
             "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (#message-<id> anchors + window-aware auto-expansion)",
             "../NotNativeDesktop/packages/ui/src/chat/__tests__/turn-window.test.tsx"
+          ]
+        },
+        {
+          "id": "W-76.installed-ingress",
+          "status": "verified",
+          "evidence": [
+            "Verified (installed): NND 20261011-78 disposable-fixture installed acceptance against local NNA 20261011-10 (scripts/installed-source-acceptance.mjs): base, --native-setup-turn, --native-attachments, --native-replay-gap, --native-removal all passed (V1/V2 installed surface).",
+            "allowed session deep link reached the renderer and routed via the ?session workspace route; host/pairing links refused; boot target and shell state unchanged"
           ]
         }
       ],

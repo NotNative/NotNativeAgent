@@ -223,8 +223,14 @@ try{const payload={v:2,pairingId:'alpha-probe',secret:'probe',expiresAt:new Date
   let seen=false;for(let i=0;i<50;i++){seen=await win.webContents.executeJavaScript(
     'window.__nndIngressSessions?.includes('+JSON.stringify(sessionId)+')');if(seen)break;await new Promise(r=>setTimeout(r,100))}
   if(!seen)throw Error('allowed session deep link did not reach renderer');
-  if(dialogs||hostState()!==beforeHosts||win.webContents.getURL()!==beforeUrl
-    ||BrowserWindow.getAllWindows().length!==beforeWindows)throw Error('native deep link changed legacy shell state');
+  // The session deep link legitimately routes through the workspace route
+  // (the '?session=...' serialization); anything beyond that is shell drift.
+  const strip=side=>{const u=new URL(side);const map={};for(const [k,v] of u.searchParams)if(k!=='session')map[k]=v;
+    return u.origin+u.pathname+JSON.stringify(map)+u.hash};
+  const afterUrl=win.webContents.getURL(),sameShellState=strip(beforeUrl)===strip(afterUrl);
+  if(dialogs||hostState()!==beforeHosts||BrowserWindow.getAllWindows().length!==beforeWindows)
+    throw Error('native deep link changed legacy shell state '+JSON.stringify({dialogs,hostChanged:hostState()!==beforeHosts,windows:BrowserWindow.getAllWindows().length}));
+  if(!sameShellState)throw Error('native deep link navigated beyond the session route '+JSON.stringify({before:beforeUrl,after:afterUrl}));
   const bootAfter=await win.webContents.executeJavaScript('window.__NOTNATIVE_DESKTOP_INVOKE__("desktop_boot_config_get")');
   if(JSON.stringify(bootAfter)!==JSON.stringify(bootBefore))throw Error('native deep link changed boot target');
   phase('native_deep_link_ingress_verified');
@@ -313,6 +319,19 @@ async function restartAttachmentService(fixture, prior, result, requests) {
   return restarted;
 }
 async function runRemovalJourney(fixture) {
+  // A completed desktop shell can leave its Electron child tree alive briefly on
+  // Windows; drain only fixture-rooted processes before the uninstaller deletes
+  // the dist files they would hold.
+  const script = "$root=[Console]::In.ReadToEnd().Trim();"
+    + 'Get-CimInstance Win32_Process -Filter "Name=\'electron.exe\'" | '
+    + 'Where-Object { $_.CommandLine -like ($root + \'*\') } | Select-Object -ExpandProperty ProcessId';
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-Command', script],
+      { input: join(fixture.nnd, ''), encoding: 'utf8', windowsHide: true, timeout: 15000 });
+    const pids = result.status === 0 ? result.stdout.split(/\r?\n/).filter(Boolean).map(Number) : [];
+    if (!pids.length) break; for (const pid of pids) { try { process.kill(pid); } catch { /* gone */ } }
+    await delay(500);
+  }
   const sourceManifest = join(fixture.data, 'config', 'manifest.json');
   const nativeDescriptor = join(fixture.nna, 'install.json');
   const nativeCli = fixture.cli;
@@ -433,7 +452,9 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
     assert.equal((await realpath(registered.root)).toLowerCase(), packageRoot.toLowerCase(),
       'NNA selected a different NND package root');
     assert.equal(registered.version, packageVersion, 'NNA selected a different NND package version');
-    if (malformedSource) {
+    // Canonical 20261011-7 lifecycle: the installer never starts the service;
+    // the nna desktop surface owns start (the malformed branch restarts again).
+    await cli(fixture, 'start');    if (malformedSource) {
       await cli(fixture, 'stop'); await waitStopped(fixture);
       await writeFile(join(fixture.data, 'config', 'manifest.json'), '{malformed native source');
       await cli(fixture, 'start');
@@ -461,7 +482,11 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
       const closed = new Promise((resolve) => attachmentProvider.server.close(resolve));
       attachmentProvider.server.closeAllConnections(); await closed;
     }
-    if (accepted && serviceStopped && !childUncertain) await rm(await checkedFixturePath(root), { recursive: true, force: true, maxRetries: 5 });
+    if (accepted && serviceStopped && !childUncertain) {
+      try { await rm(await checkedFixturePath(root), { recursive: true, force: true, maxRetries: 5 }); }
+      catch (cleanupError) { // stale Windows handle: a cleanup inconvenience, never a failure
+        process.stderr.write(`Acceptance passed; fixture cleanup deferred (${cleanupError?.code ?? cleanupError}): ${root}\n`);
+      }    }
     else process.stderr.write(`Acceptance evidence preserved at ${root}\n`);
   }
 }

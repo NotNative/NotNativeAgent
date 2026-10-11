@@ -56,15 +56,26 @@ binaries and browser-driving runs.
       Remaining gap for full closure: set `NNA_SOURCE_ROOT` to run the
       settings-coverage gate against the pinned NNA pair.
 
-## Installed acceptance (disposable profiles only, pinned pair — operator daytime)
+## Installed acceptance (disposable profiles only, pinned pair)
 
-- [ ] `node scripts/installed-source-acceptance.mjs <NNA root> --native-attachments`
+Executed in-session 2026-10-11 (NND 20261011-78 source install against local
+NNA `20261011-10`, disposable fixtures only):
+
+- [x] `node scripts/installed-source-acceptance.mjs <NNA root> --native-attachments`
       must observe `native_host_link_refused`, `native_pairing_link_refused`,
-      `native_deep_link_ingress_verified` (closes alpha A5 ingress proof)
-- [ ] `--native-setup-turn` full journey (A2–A4 regression on the new pair)
-- [ ] `--native-removal` (A6 uninstall leg)
+      `native_deep_link_ingress_verified` (closes alpha A5 ingress proof) —
+      passed; the base journey carries the same ingress probe
+- [x] `--native-setup-turn` full journey (A2–A4 regression on the new pair)
+- [x] `--native-removal` (A6 uninstall leg)
 - [ ] `node scripts/installed-prebuilt-smoke.mjs <NNA root>` (prebuilt first install)
-- [ ] A5 remaining shell side-effect audit sign-off
+      — STILL OPEN: prebuilt slot activation fails in-session; the retained
+      `nnd service activate-slot` child exits 2 (`nna: internal_failure`)
+      before publishing its readiness frame. Evidence preserved at
+      `C:\Users\Mongrel\p\nnd-accept-c50e32c823`, stage operation
+      `e4541374-82e6-4504-b87e-9f3f75bdf012`; do not retry blindly.
+- [x] A5 remaining shell side-effect audit sign-off (the deep-link probe
+      asserts dialogs, host prefs, boot target, window count and the
+      URL-minus-session unchanged on the installed shell)
 - [ ] Provider-profile PATCH round trip against a live NNA: binding choice,
       secret reference, explicit clear (`credential: null` clears BOTH channels),
       limit resend on model change (new editor surface, `20261010-2`)

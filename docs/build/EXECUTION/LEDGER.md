@@ -18,6 +18,50 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Installed acceptance executed in-session; first verified records (W-42/W-73/W-76/W-20/W-15/W-32 installed legs, verified)
+
+The installed V-gates ran in-session against a disposable local pair: the NND
+source installer + a local NNA `20261011-10` checkout, both confined to
+disposable fixtures under the acceptance base (`installed-accept-*` / `nnd-accept-*`),
+never touching operator-installed NNA data or services. Four
+`installed-source-acceptance.mjs` journeys passed end to end: the base journey
+(real source install, native-code Chromium UI, desktop attach and service
+lifetime), `--native-setup-turn` (fresh native setup + first turn), 
+`--native-attachments` (file-only composer delivery + service restart
+recovery), `--native-replay-gap`, and `--native-removal` (native-owned removal
+with preserved NNA state). The deep-link ingress probe observed
+`native_host_link_refused`, `native_pairing_link_refused`, and
+`native_deep_link_ingress_verified` on the installed pair, closing the A5
+ingress-proof item.
+
+Three real defects surfaced and were fixed on the way:
+
+1. The acceptance script predated the locked 20261011-7 lifecycle: it expected
+   a running service straight after install, but the installer never starts
+   the service (the `nna` surface owns start). The script now starts the
+   service explicitly via the canonical surface before status assertions.
+2. The deep-link guard treated the designed session ingress (the `?session`
+   workspace-route serialization) as legacy shell drift. The probe now
+   compares shell state with the session parameter exempted.
+3. `install.ps1 -Uninstall` still removed only the pre-rebrand
+   `NotNativeDesktop.lnk`; the NNA-branded `NotNativeAgent.lnk` shortcuts
+   survived uninstall. The removal loop now covers both brand names
+   (pinned by `installer-structure.test.mjs`, 2/2 green).
+
+Two robustness fixes: the acceptance drains only fixture-rooted Electron
+processes before uninstalling (a completed desktop shell can leave its child
+tree alive briefly on Windows, locking `default_app.asar`), and post-run
+fixture cleanup failure (stale Windows handle) is reported as deferred
+cleanup instead of masking a passed run. Status: the six ledger records that
+the journeys directly exercised gained `verified` installed-leg subfeatures;
+everything else stays implemented-unverified. The prebuilt first-install
+smoke (`installed-prebuilt-smoke.mjs`) still fails in prebuilt slot
+activation: the retained `nnd service activate-slot` child exits 2 with
+`internal_failure` before publishing its readiness frame — retained evidence
+preserved at `C:\Users\Mongrel\p\nnd-accept-c50e32c823` (stage operation
+`e4541374-82e6-4504-b87e-9f3f75bdf012`); not retried blindly, recorded in
+DEFERRED-VERIFICATION.
+
 ## 2026-10-11 Optimistic echo, failure recovery, delivery matrix (W-32 legs + W-113, implemented-unverified)
 
 Re-inspection of the ledger notes found them stale. The optimistic echo is
