@@ -18,6 +18,28 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 WP-D step 1: renewable scoped capability across the supervised channel (implemented-unverified)
+
+The L3 contract's renewable capability now exists end-to-end on the real
+supervised protocol. NNA `src/integration-capability.js` issues HMAC-bound
+capabilities carrying exactly the issued authority (subject, role, permission,
+workspace/group lists); verification enforces bounded clock skew, a renewal
+grace window, revocation, generation/scope binding, and key rotation on NNA
+restart (old keys fail as `capability_key_unknown`, distinct from revoked).
+Renewal preserves authority by construction - the fresh fields are copied from
+the verified previous token, never caller input. The supervisor issues a
+capability at child bootstrap (generation-bound, subject
+`nnd-service:<installation_id>`), pushes a fresh one every five minutes over
+the private control channel (`apply_capability` → `applied`, validated shape in
+`supervised-protocol.mjs`), and a failed renewal fails the session so
+privileged work never continues on stale authority; the capability dies with
+the supervisor. 17/17 across the capability, child, and supervisor suites;
+serve-supervised 4/4 including capability push and fail-closed malformed
+shape. Implemented-unverified: the capability is stored by the child and the
+static engine token remains the transport credential during transition - the
+follow-up switches harness request authentication to the capability and adds
+the six-minute installed probe (acceptance 02:210-213).
+
 ## 2026-10-11 WP-A: installer-suite triage + release gates green (verified in-session)
 
 The daytime failing list of eight installer suites was environment-class, not

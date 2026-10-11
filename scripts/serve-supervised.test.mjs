@@ -98,3 +98,20 @@ test('the supervised child launches the desktop app after readiness', windows, a
     catch { if (Date.now() >= deadline) throw new Error('desktop launch never ran'); await new Promise(r => setTimeout(r, 100)); }
   }
 });
+
+test('the supervised child accepts and acknowledges supervisor-pushed capabilities', windows, async (t) => {
+  const root = await fixture(t);
+  const run = launch(root); t.after(() => run.child.kill());
+  const boot = await bootstrap(root); run.send(boot);
+  assert.equal((await run.next()).type, 'ready');
+  run.send({ type: 'apply_capability', protocol: '1.0', generation: boot.generation,
+    request_id: 'cap1', capability: 'cap_1.signature_1' });
+  assert.equal((await run.next()).type, 'applied');
+  // The service keeps serving tickets after a capability push.
+  run.send({ type: 'issue_ui_ticket', protocol: '1.0', generation: boot.generation, request_id: 'ticket' });
+  assert.equal((await run.next()).type, 'ui_ticket');
+  // A pushed capability beyond the bounded shape fails the protocol closed.
+  run.send({ type: 'apply_capability', protocol: '1.0', generation: boot.generation,
+    request_id: 'cap2', capability: 'not-a-capability' });
+  assert.equal((await run.next()).type, 'failed');
+});

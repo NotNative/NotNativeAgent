@@ -33,9 +33,14 @@ export async function validateBootstrap(value) {
   return Object.freeze({ ...value, nna_install_root: roots[0], nna_data_root: roots[1], nnd_data_root: roots[2] });
 }
 export function validateControl(value, generation) {
-  if (!exact(value, ['type','protocol','generation','request_id']) || value.protocol !== '1.0'
-    || value.generation !== generation || !['stop','issue_ui_ticket'].includes(value.type)
+  const base = ['type','protocol','generation','request_id'];
+  if (!exact(value, value?.type === 'apply_capability' ? [...base, 'capability'] : base)
+    || value.protocol !== '1.0'
+    || value.generation !== generation
+    || !['stop','issue_ui_ticket','apply_capability'].includes(value.type)
     || typeof value.request_id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/u.test(value.request_id)) fail();
+  if (value.type === 'apply_capability' && (typeof value.capability !== 'string'
+    || value.capability.length > 8192 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u.test(value.capability))) fail();
   return value;
 }
 

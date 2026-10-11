@@ -31,7 +31,7 @@ async function stop(handle) {
   handle.dispose();
   await deadline(handle.closed, 5000);
 }
-async function commands(frames, output, bootstrap, handle) {
+async function commands(frames, output, bootstrap, handle, onCapability) {
   for (;;) {
     const frame = await frames.next();
     if (!frame) return;
@@ -41,6 +41,14 @@ async function commands(frames, output, bootstrap, handle) {
       await stop(handle);
       await reply(output, { type: 'stopped', ...base });
       return;
+    }
+    if (command.type === 'apply_capability') {
+      // The supervisor owns the renewable capability (execution guide 02 L3):
+      // store the fresh capability for privileged harness requests; never
+      // echo it back or write it to diagnostics.
+      onCapability(command.capability);
+      await reply(output, { type: 'applied', ...base });
+      continue;
     }
     let ticket;
     try { ticket = handle.nativeAuth.issueTicket(); }
@@ -96,7 +104,10 @@ export async function runSupervisedService({ input = process.stdin, output = pro
     launch().catch((error) => {
       console.error(`NND desktop launch failed: ${error instanceof Error ? error.message : 'unknown error'}`);
     });
-    await commands(frames, output, bootstrap, handle);
+    // The supervisor pushes fresh capabilities over this private channel; the
+    // latest one is retained in memory only for privileged harness requests.
+    let capability = null;
+    await commands(frames, output, bootstrap, handle, (value) => { capability = value; });
   } catch {
     await reply(output, { type: 'failed', protocol: '1.0', code: 'NND_SUPERVISED_FAILED' }).catch(() => {});
     process.exitCode = 1;
