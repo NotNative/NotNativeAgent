@@ -888,7 +888,7 @@
       "id": "W-32",
       "work_packages": "F2, F3",
       "disposition": "MVP optimistic echo/failure/question recovery; no auto-accept policy.",
-      "status": "pending",
+      "status": "implemented-unverified",
       "subfeatures": [
         {
           "id": "W-32.question-recovery",
@@ -901,13 +901,19 @@
         },
         {
           "id": "W-32.optimistic-echo",
-          "status": "pending",
-          "note": "NND uses optimistic message IDs before prompt_async (LEDGER 2026-10-08 entry), but the echo implementation found (packages/web/src/server/harness/mock/sim.ts) belongs to the mock harness — mock success never closes parity; no real-harness echo tests found"
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (optimisticSend: client-minted ascending messageID, optimistic draft kept through the round-trip, message.updated echo reconciles — the REAL harnessClient.promptAsync path, not the mock sim)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (optimistic-send suite: busy publish, file-only upload, replay-gap refusal)"
+          ]
         },
         {
           "id": "W-32.failure-recovery",
-          "status": "pending",
-          "note": "no focused optimistic-failure recovery path (failed echo rollback/retry) found in packages/web/src queue/runtime code or tests"
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (isAmbiguousSendFailure + confirmSendLanded: definite failures roll back + restore status; ambiguous failures confirm-in-place after a reconnect-bound refetch, never double-send; getSendFailureLog evidence)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (rolls back a DEFINITE failure; CONFIRMS-in-place for ambiguous landing; reconnect-window rollback on absent; pending request retained after failed reply)"
+          ]
         },
         {
           "id": "W-32.no-auto-accept",
@@ -919,6 +925,19 @@
             "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (supersede path auto-REJECTS only; reply=always refused upstream)"
           ]
         }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/notifications/pending-snapshot.ts",
+        "../NotNativeDesktop/packages/web/src/server/notifications/session-projection.ts",
+        "packages/web/src/server/__tests__/notification-pending.test.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (optimisticSend: client-minted ascending messageID, optimistic draft kept through the round-trip, message.updated echo reconciles — the REAL harnessClient.promptAsync path, not the mock sim)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (optimistic-send suite: busy publish, file-only upload, replay-gap refusal)",
+        "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (isAmbiguousSendFailure + confirmSendLanded: definite failures roll back + restore status; ambiguous failures confirm-in-place after a reconnect-bound refetch, never double-send; getSendFailureLog evidence)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (rolls back a DEFINITE failure; CONFIRMS-in-place for ambiguous landing; reconnect-window rollback on absent; pending request retained after failed reply)",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/permission-policy.ts (assertPermissionReply)",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/client.ts (transport-boundary guard)",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/__tests__/permission-policy.test.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (supersede path auto-REJECTS only; reply=always refused upstream)"
       ]
     },
     {
@@ -2759,8 +2778,23 @@
       "id": "W-113",
       "work_packages": "F3, F8, V",
       "disposition": "MVP explicit verified native model-input delivery matrix.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-113.matrix",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/docs/build/EXECUTION/model-input-delivery-matrix.md (10-row explicit delivery matrix: optimistic echo, definite rollback, ambiguous confirmation, text/file/native-upload/knowledge/steer-queue/model-agent/blocking ports; every row implemented-unverified with the verified leg owed to the installed V-gates)",
+            "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts + native-prompt-parts.ts (the delivery implementations the matrix enumerates)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (send/failure/recovery pins)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/docs/build/EXECUTION/model-input-delivery-matrix.md (10-row explicit delivery matrix: optimistic echo, definite rollback, ambiguous confirmation, text/file/native-upload/knowledge/steer-queue/model-agent/blocking ports; every row implemented-unverified with the verified leg owed to the installed V-gates)",
+        "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts + native-prompt-parts.ts (the delivery implementations the matrix enumerates)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (send/failure/recovery pins)"
+      ]
     },
     {
       "id": "W-114",

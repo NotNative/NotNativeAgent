@@ -1948,6 +1948,10 @@
     {
       "version": "20261011-76",
       "content_sha256": "c1dcab9ef52a5edf4f3bbf532945966376b5e7795845b7ab055df6e21b276a0e"
+    },
+    {
+      "version": "20261011-77",
+      "content_sha256": "31cd42ee0927eb7b901afe306f06628e4c8e82d05fdc08a059b22808f4f5300f"
     }
   ]
 }

@@ -18,6 +18,29 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Optimistic echo, failure recovery, delivery matrix (W-32 legs + W-113, implemented-unverified)
+
+Re-inspection of the ledger notes found them stale. The optimistic echo is
+NOT the mock-harness sim: the real client path (`sync/session-actions.ts`
+`optimisticSend`) mints an ascending messageID, keeps the optimistic draft
+through the `prompt_async` round-trip, and lets the `message.updated` echo
+reconcile it — pinned by the actions-recovery suite. The failure-recovery
+path the notes called missing is the same file: definite failures roll back
+the draft and restore status; ambiguous failures (transport-tagged, 5xx,
+timeouts) never blind-rollback — a reconnect-bound confirmation refetch
+(≤3 attempts at 250·2ⁿ⁻¹) confirms-in-place when the send provably landed
+and rolls back only when provably absent; every outcome lands in the
+failure-evidence log. Both legs are implemented-unverified: the real-harness
+observation of echo/recovery behavior is owed to the installed V-gates.
+W-113: the explicit delivery matrix is authored at
+`docs/build/EXECUTION/model-input-delivery-matrix.md` — ten rows covering
+optimistic echo, definite rollback, ambiguous confirmation, text parts,
+native file uploads, non-native file references, session-knowledge
+preflight, steer/queue delivery, model/agent selection, and the blocking
+request ports — each with its wire contract, implementation, pinning test,
+and an explicit unverified/owed `verified` column. W-113 is
+implemented-unverified on the same terms.
+
 ## 2026-10-11 Local speech — TTS/STT (W-114, implemented-unverified)
 
 The missing leg of W-114 is built. TTS: the server drives the local Windows
