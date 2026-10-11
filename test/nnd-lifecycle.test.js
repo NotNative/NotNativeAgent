@@ -13,6 +13,7 @@ async function harness(overrides = {}) {
   const dependencies = {
     join: (...parts) => parts.join('/'),
     dirname: value => value.replace(/\/[^/]+$/u, ''),
+    resolve: value => value,
     spawn: overrides.spawn ?? (() => { trace.push('spawn'); return { on() {}, unref() {} }; }),
     existsSync: value => Boolean(state.files[value]),
     readFile: async path => {
@@ -33,10 +34,20 @@ async function harness(overrides = {}) {
     }),
     nativeEnvironment: () => ({}),
     persistAtomicJson: async (path, value) => { state.files[path] = JSON.stringify(value); trace.push(`persist:${path}`); },
+    unlink: async path => {
+      if (!(path in state.files)) { const error = new Error('missing'); error.code = 'ENOENT'; throw error; }
+      delete state.files[path];
+    },
   };
   const api = Function('process', ...Object.keys(dependencies), `${executable}\nreturn { runNndLifecycleCommand };`)
     ({ argv: ['/node', overrides.cliPath ?? '/nna/src/cli.js'] }, ...Object.values(dependencies));
-  return { api, trace, state, paths: { config: '/nna/config' } };
+  return { api, trace, state, paths: { config: '/nna/config', root: '/nna' },
+    wiring: { platform: 'win32', startupFolder: async () => '/startup',
+      fileWriter: async (destination, bytes) => { state.files[destination] = bytes; },
+      fileRemove: async destination => {
+        if (!(destination in state.files)) { const error = new Error('missing'); error.code = 'ENOENT'; throw error; }
+        delete state.files[destination];
+      } } };
 }
 
 test('start and enable fail gracefully when no NND package is registered', async () => {
@@ -81,8 +92,9 @@ test('start takes over a stale controller record through a foreground supervisor
 
 test('status reports the registered package with runtime and enablement', async () => {
   const f = await harness();
-  const status = await f.api.runNndLifecycleCommand(['status'], f.paths);
+  const status = await f.api.runNndLifecycleCommand(['status'], f.paths, { wiring: f.wiring });
   assert.deepEqual(status, { root: registration.root, version: registration.version, enabled: false,
+    login: { supported: true, installed: false, script_path: '/startup/NotNativeAgent-NND.vbs' },
     running: true, service: { service_state: 'ready' } });
 });
 
@@ -92,13 +104,29 @@ test('stop without a running controller is a quiet no-op', async () => {
   assert.equal(f.trace.length, 0);
 });
 
-test('enable and disable persist the lifecycle flag under the NNA config', async () => {
+test('enable installs login auto-start and disable removes it', async () => {
   const f = await harness();
-  const enabled = await f.api.runNndLifecycleCommand(['enable'], f.paths);
-  assert.deepEqual(enabled, { enabled: true });
+  const enabled = await f.api.runNndLifecycleCommand(['enable'], f.paths, { wiring: f.wiring });
+  assert.deepEqual(enabled, { enabled: true,
+    login: { supported: true, installed: true, script_path: '/startup/NotNativeAgent-NND.vbs' } });
   assert.deepEqual(JSON.parse(f.state.files['/nna/config/nnd-service.json']).enabled, true);
-  assert.deepEqual(await f.api.runNndLifecycleCommand(['disable'], f.paths), { enabled: false });
+  const script = f.state.files['/startup/NotNativeAgent-NND.vbs'].toString('utf16le');
+  assert.match(script, / nnd start/u);
+  assert.match(script, /NNA_HOME/u);
+  assert.match(script, /""node"" --disable-warning=ExperimentalWarning ""\/nna\/cli\.js"" nnd start/u);
+  const disabled = await f.api.runNndLifecycleCommand(['disable'], f.paths, { wiring: f.wiring });
+  assert.deepEqual(disabled, { enabled: false,
+    login: { supported: true, installed: false, script_path: '/startup/NotNativeAgent-NND.vbs' } });
   assert.deepEqual(JSON.parse(f.state.files['/nna/config/nnd-service.json']).enabled, false);
+  assert.equal('/startup/NotNativeAgent-NND.vbs' in f.state.files, false);
+});
+
+test('a failed login wiring install reverts the enabled flag', async () => {
+  const f = await harness();
+  const wiring = { ...f.wiring, startupFolder: async () => { throw new Error('powershell exploded'); } };
+  await assert.rejects(f.api.runNndLifecycleCommand(['enable'], f.paths, { wiring }),
+    { code: 'nnd_startup_folder_unavailable' });
+  assert.equal('/nna/config/nnd-service.json' in f.state.files, false);
 });
 
 test('unknown actions and malformed registrations are rejected without spawning anything', async () => {
