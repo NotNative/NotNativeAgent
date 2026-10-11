@@ -4,7 +4,7 @@
  * a browser tab) attach to the SAME server-side session; PTY output frames
  * reach both viewers (mirroring), input from either surface reaches the PTY,
  * and a churned browser socket re-attaches idempotently with a snapshot
- * replay first. Remote-device access is excluded by contract ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â both sockets
+ * replay first. Remote-device access is excluded by contract: both sockets
  * share one runtime, which is the same-host shape.
  */
 import { describe, expect, it } from 'vitest';

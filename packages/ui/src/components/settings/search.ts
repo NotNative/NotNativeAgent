@@ -58,6 +58,7 @@ export const BUILT_PAGE_SLUGS: readonly SettingsPageSlug[] = [
   'mcp',
   'skills.catalog',
   'skills.installed',
+  'integrations',
 ];
 
 export function isBuiltPage(slug: SettingsPageSlug): boolean {

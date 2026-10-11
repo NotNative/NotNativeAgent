@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Local speech — TTS/STT (W-114, implemented-unverified)
+
+The missing leg of W-114 is built. TTS: the server drives the local Windows
+SAPI `SpeechSynthesizer` through `powershell -EncodedCommand` (UTF-16LE
+base64 — no shell-quoting hazards) with bounded text (≤2000 chars) and rate
+(−10..10), optional voice selection, and a voices enumeration route. STT:
+the local SAPI `SpeechRecognitionEngine` transcribes uploaded WAV audio
+(≤8 MB, temp-file round trip outside any workspace) and fails closed with a
+typed `stt-local-unavailable` when the local engine is absent — no cloud
+fallback exists by contract; the "stop" endpoint answers honestly that
+speak runs are short-lived processes. UI: the previously-landing
+`integrations` settings page is now built and hosts the speech page (speak
+box + voices list + honest STT availability probe using a silent 44-byte
+WAV). Four module tests + two page tests pin construction, parsing, bounds,
+and the fail-closed matrix. The other W-114 legs (local module invariants,
+notifications, small-model, no-auto-accept persistence) were already
+implemented. W-114 is implemented-unverified (live SAPI observation is
+deferred to the installed V-gates).
+
 ## 2026-10-11 GitHub/Linear integration surfaces (W-53, implemented-unverified)
 
 The read-only integration surfaces are built. Server side: connectors over

@@ -19,6 +19,7 @@ import { registerGitDiffRoutes } from './routes/git-diff.ts';
 import { registerGitSyncRoutes } from './routes/git-sync.ts';
 import { registerGitWalkthroughSnapshotRoute } from './routes/git-walkthrough-snapshot.ts';
 import { registerIntegrationRoutes } from './routes/integrations.ts';
+import { registerSpeechRoutes } from './routes/speech.ts';
 import { registerGitWalkthroughGenerateRoute } from './routes/git-walkthrough-generate.ts';
 import { registerGitRoutes } from './routes/git.ts';
 import { registerGitWorktreeRoutes } from './routes/git-worktrees.ts';
@@ -396,6 +397,7 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   registerGitSyncRoutes(app);
   registerGitWalkthroughSnapshotRoute(app);
   registerIntegrationRoutes(app);
+  registerSpeechRoutes(app);
   registerGitWalkthroughGenerateRoute(app);
   registerGitRoutes(app);
   registerGitWorktreeRoutes(app);

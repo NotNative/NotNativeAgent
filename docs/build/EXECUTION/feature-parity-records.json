@@ -2766,8 +2766,29 @@
       "id": "W-114",
       "work_packages": "F1–F10, L, V",
       "disposition": "MVP local module invariants/notifications/TTS-STT/small-model features; no auto-accept persistence; APNs excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-114.tts-stt",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/lib/accessibility/speech.ts (local TTS via SAPI SpeechSynthesizer, voices enumeration, local STT via SAPI SpeechRecognitionEngine from WAV ≤8MB; -EncodedCommand transport; typed fail-closed stt-local-unavailable — no cloud fallback)",
+            "../NotNativeDesktop/packages/web/src/server/routes/speech.ts + app.ts (voices/speak/stop/transcribe routes)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/w114-speech.test.ts (command construction, voice parse incl. NDJSON, bounds, fail-closed matrix)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/speech.tsx (Speech settings page: speak + voices + honest STT availability probe with silent-WAV)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/speech-page.test.tsx (voices render, spoken status, ready/unavailable states)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/window.tsx + search.ts (integrations slug now built, hosting the speech page)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/lib/accessibility/speech.ts (local TTS via SAPI SpeechSynthesizer, voices enumeration, local STT via SAPI SpeechRecognitionEngine from WAV ≤8MB; -EncodedCommand transport; typed fail-closed stt-local-unavailable — no cloud fallback)",
+        "../NotNativeDesktop/packages/web/src/server/routes/speech.ts + app.ts (voices/speak/stop/transcribe routes)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/w114-speech.test.ts (command construction, voice parse incl. NDJSON, bounds, fail-closed matrix)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/speech.tsx (Speech settings page: speak + voices + honest STT availability probe with silent-WAV)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/speech-page.test.tsx (voices render, spoken status, ready/unavailable states)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/window.tsx + search.ts (integrations slug now built, hosting the speech page)"
+      ]
     },
     {
       "id": "W-115",

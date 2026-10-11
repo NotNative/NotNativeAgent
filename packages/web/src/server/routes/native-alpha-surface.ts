@@ -15,6 +15,7 @@ const CLOSED_FAMILIES = [
   '/api/openchamber/update-install',
   '/api/agent-tool',
   '/api/system/probe-url', '/api/browser-control',
+  '/api/accessibility', // W-114 speech: local SAPI runs stay closed in the installed alpha until native review is verified.
 ] as const;
 
 function inFamily(path: string, family: string): boolean {

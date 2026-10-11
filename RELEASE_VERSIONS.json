@@ -1944,6 +1944,10 @@
     {
       "version": "20261011-75",
       "content_sha256": "c8ae1a7606ff9a3f0fb542a0ac6266c119f8635e11eaa31b09497d4f90412cce"
+    },
+    {
+      "version": "20261011-76",
+      "content_sha256": "c1dcab9ef52a5edf4f3bbf532945966376b5e7795845b7ab055df6e21b276a0e"
     }
   ]
 }

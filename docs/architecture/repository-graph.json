@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:556e1ab8b9273dac93121718ded28ca8ee87548eafbc2d57c48341a2e743e673",
+  "source_digest": "sha256:e86d9e81e8c8f878d80fad75189d41d5ab7a2084a55fed7b11aabbab251d69b1",
   "counts": {
-    "modules": 898,
+    "modules": 901,
     "component_edges": 17
   },
   "components": [
@@ -30,13 +30,13 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 226
+      "module_count": 227
     },
     {
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 238
+      "module_count": 240
     },
     {
       "id": "web-entry",
@@ -111,8 +111,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 384,
-      "module_count": 153
+      "import_count": 386,
+      "module_count": 154
     },
     {
       "from": "ui-shell",
@@ -2524,6 +2524,16 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/settings/pages/speech.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/settings/pages/subagent-route-editor.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -2647,6 +2657,7 @@
         "packages/ui/src/components/settings/pages/skills-catalog.tsx",
         "packages/ui/src/components/settings/pages/skills.tsx",
         "packages/ui/src/components/settings/pages/snippets.tsx",
+        "packages/ui/src/components/settings/pages/speech.tsx",
         "packages/ui/src/components/settings/search.ts",
         "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/shortcuts/registry.ts"
@@ -5981,6 +5992,7 @@
         "packages/web/src/server/routes/skills.ts",
         "packages/web/src/server/routes/small-model.ts",
         "packages/web/src/server/routes/snippets.ts",
+        "packages/web/src/server/routes/speech.ts",
         "packages/web/src/server/routes/tunnel.ts",
         "packages/web/src/server/routes/version.ts",
         "packages/web/src/server/session-knowledge/session-knowledge-routes.ts",
@@ -6301,6 +6313,12 @@
         "packages/web/src/server/terminal/bootstrap.ts",
         "packages/web/src/server/terminal/wire.ts"
       ]
+    },
+    {
+      "path": "packages/web/src/server/lib/accessibility/speech.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/web/src/server/lib/auth/jwt.ts",
@@ -7707,6 +7725,14 @@
       "imports": [
         "packages/web/src/server/lib/http/read-bounded.ts",
         "packages/web/src/server/snippets/snippet-store.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/speech.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/accessibility/speech.ts"
       ]
     },
     {

@@ -15,6 +15,7 @@ import { SETTINGS_PAGE_ORDER, isBuiltPage, searchIndex, type SettingsPageSlug } 
 import { AppearancePage } from './pages/appearance.tsx';
 import { ChatPage } from './pages/chat.tsx';
 import { SessionsPage } from './pages/sessions.tsx';
+import { SpeechPage } from './pages/speech.tsx';
 import { NotificationsPage } from './pages/notifications.tsx';
 import { ShortcutsPage } from './pages/shortcuts.tsx';
 import { GeneralPage } from './pages/general.tsx';
@@ -49,6 +50,7 @@ const PAGE_COMPONENTS: Partial<Record<SettingsPageSlug, (navigate: (page: Settin
   'skills.catalog': () => <SkillsCatalogPage />,
   snippets: () => <SnippetsPage />,
   'remote-instances': () => <RemoteInstancesPage />,
+  integrations: () => <SpeechPage />,
 };
 
 const PAGE_TITLE_KEYS: Record<SettingsPageSlug, I18nKey> = {
