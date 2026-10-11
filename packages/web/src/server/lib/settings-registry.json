@@ -246,6 +246,9 @@
     "diffLayoutPreference": {
       "scope": "profile"
     },
+    "celebrationPreference": {
+      "scope": "profile"
+    },
     "diffWrapLines": {
       "scope": "profile"
     },

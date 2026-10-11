@@ -31,6 +31,7 @@ import { useSettingsStore } from '../lib/settings/store.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useContextRoute } from '../components/use-context-route.ts';
+import { CompletionAffordance } from './completion-affordance.tsx';
 
 /** H.2/E.3/E.4 band: recap text and/or suggestion chip; chips only fill. */
 function RecapNote({ pair }: { pair: { recap: string | null; suggestion: string | null } }): ReactNode {
@@ -256,6 +257,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
         </div> : null}
         <div className={`min-h-0 flex-1 overflow-y-auto ${isChildSession ? 'pb-6' : 'pb-40'} ${focusMode || draftLanding ? 'hidden' : ''}`} data-chat-column>
           {!draftLanding ? <Transcript store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} directory={shownRef.directory} /> : null}
+          <CompletionAffordance store={shownRef.store} sessionID={shownRef.sessionID} />
         </div>
         <PromptNavigatorRail store={shownRef.store} sessionID={shownRef.sessionID} />
         {!isChildSession ? <div className={`relative z-10 px-4 ${draftLanding ? 'flex min-h-0 flex-1 overflow-y-auto py-6' : 'border-t border-white/5 bg-neutral-950/80 py-3'}`} data-composer-bound>

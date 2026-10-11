@@ -2321,8 +2321,25 @@
       "id": "W-96",
       "work_packages": "F10, C",
       "disposition": "MVP celebration affordance honoring reduced motion/settings.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-96.celebration",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/completion-affordance.tsx (busy→idle pulse; celebrationPreference pulse/static/off; prefers-reduced-motion forces static)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/completion-affordance.test.tsx (4 tests)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/appearance.tsx (celebration select)",
+            "../NotNativeDesktop/packages/web/src/server/lib/settings-registry.json + packages/ui/src/lib/settings/registry.ts (celebrationPreference profile key)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/completion-affordance.tsx (busy→idle pulse; celebrationPreference pulse/static/off; prefers-reduced-motion forces static)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/completion-affordance.test.tsx (4 tests)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/appearance.tsx (celebration select)",
+        "../NotNativeDesktop/packages/web/src/server/lib/settings-registry.json + packages/ui/src/lib/settings/registry.ts (celebrationPreference profile key)"
+      ]
     },
     {
       "id": "W-97",

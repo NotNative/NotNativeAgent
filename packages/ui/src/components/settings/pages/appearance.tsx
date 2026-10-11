@@ -35,6 +35,7 @@ export function AppearancePage(): ReactNode {
   const editorFontSize = useSettingsField<number>('editorFontSize');
   const terminalFontSize = useSettingsField<number>('terminalFontSize');
   const fileEditorKeymap = useSettingsField<'default' | 'vim'>('fileEditorKeymap');
+  const celebration = useSettingsField<'pulse' | 'static' | 'off'>('celebrationPreference');
 
   const [lightThemes, darkThemes] = useMemo(() => {
     const split: { light: ThemePick[]; dark: ThemePick[] } = { light: [], dark: [] };
@@ -108,6 +109,18 @@ export function AppearancePage(): ReactNode {
               { value: 'auto', label: t('settings.appearance.auto') },
               { value: 'monday', label: t('settings.appearance.monday') },
               { value: 'sunday', label: t('settings.appearance.sunday') },
+            ]}
+          />
+        </SettingsFieldRow>
+        <SettingsFieldRow label={t('settings.search.celebration')} item="appearance.celebration" helper={t('settings.appearance.celebrationHelper')}>
+          <SettingsSelect
+            value={celebration.value ?? 'pulse'}
+            resetValue="pulse"
+            onChange={(value) => celebration.set(value as 'pulse' | 'static' | 'off')}
+            options={[
+              { value: 'pulse', label: t('settings.appearance.celebrationPulse') },
+              { value: 'static', label: t('settings.appearance.celebrationStatic') },
+              { value: 'off', label: t('settings.appearance.celebrationOff') },
             ]}
           />
         </SettingsFieldRow>

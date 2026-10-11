@@ -128,6 +128,7 @@ export const SETTINGS_REGISTRY: SettingsField[] = [
   f('weekStartPreference', 'profile', pOneOf(['auto', 'sunday', 'monday']), { uiField: 'chat', autoSave: true }),
   f('messageStreamTransport', 'profile', pOneOf(['auto', 'ws', 'sse']), { uiField: 'config' }),
   f('diffLayoutPreference', 'profile', pOneOf(['dynamic', 'inline', 'side-by-side']), { uiField: 'chat', autoSave: true }),
+  f('celebrationPreference', 'profile', pOneOf(['pulse', 'static', 'off']), { uiField: 'chat', autoSave: true }),
   f('diffWrapLines', 'profile', pBool(), { uiField: 'chat', autoSave: true }),
   f('gitChangesViewMode', 'profile', pOneOf(['flat', 'tree']), { uiField: 'chat', autoSave: true }),
   f('gitmojiEnabled', 'profile', pBool(), { uiField: 'git' }),

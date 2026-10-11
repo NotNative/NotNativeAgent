@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Completion celebration (W-96, implemented-unverified)
+
+The completion affordance is built: when a session's status settles from
+busy/retry to idle, a brief "Session completed" badge renders under the
+transcript and self-clears after four seconds; a new busy→idle transition
+re-arms it and an idle start never fires. It honors both settings and the
+OS: the new `celebrationPreference` profile setting (pulse / static / off,
+registered in both the server registry and the UI registry with an
+Appearance-page select) gates rendering and animation, and
+prefers-reduced-motion always forces the static badge. Four focused tests
+pin the transition arming, the self-clear, the silent idle start, the off
+and static preferences, and the reduced-motion override. W-96 is
+implemented-unverified.
+
 ## 2026-10-11 Adversarial boundaries, multi-run/orchestration, preview isolation (W-82, W-88..W-90, W-69, W-78, W-97, implemented-unverified)
 
 W-82: the adversarial boundary test net — auth/passkey/relay dispatcher and

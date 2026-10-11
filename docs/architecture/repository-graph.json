@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:b7fc0cb4a3c01cf9bcc00c9a93393764bb45487d3e2b070c5814f1553923a413",
+  "source_digest": "sha256:f50a48e3bafb1a17fc41f1f199d4dbf8d7c0f79f1c8a5afafebbac9ab2082034",
   "counts": {
-    "modules": 892,
+    "modules": 893,
     "component_edges": 17
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 223
+      "module_count": 224
     },
     {
       "id": "web-server",
@@ -117,14 +117,14 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 139,
-      "module_count": 97
+      "import_count": 140,
+      "module_count": 98
     },
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 118,
-      "module_count": 72
+      "import_count": 119,
+      "module_count": 73
     },
     {
       "from": "sync-engine",
@@ -352,6 +352,7 @@
         "packages/ui/src/chat/btw-context.ts",
         "packages/ui/src/chat/btw-panel.tsx",
         "packages/ui/src/chat/child-session-controls.tsx",
+        "packages/ui/src/chat/completion-affordance.tsx",
         "packages/ui/src/chat/composer.tsx",
         "packages/ui/src/chat/model-picker.tsx",
         "packages/ui/src/chat/operator-rail.tsx",
@@ -387,6 +388,16 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/sync/global-stores.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/completion-affordance.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/settings/page-helpers.tsx",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/types.ts"
       ]
     },
     {

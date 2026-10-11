@@ -1912,6 +1912,10 @@
     {
       "version": "20261011-65",
       "content_sha256": "f045a8a965cfaf5f40c331980aa0582b11f8985d5f511d9d93815385d3838567"
+    },
+    {
+      "version": "20261011-66",
+      "content_sha256": "bbb805fcb310a6d35d98296cc71276c27fba9f8375c7f5c69f3f89dd9bc84eb6"
     }
   ]
 }
