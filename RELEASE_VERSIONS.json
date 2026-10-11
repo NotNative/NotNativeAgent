@@ -1960,6 +1960,10 @@
     {
       "version": "20261011-79",
       "content_sha256": "c62e2426bf9cc07db1c5f389a0108ce9c88d3b52d2388d2b8c45b28925e35aad"
+    },
+    {
+      "version": "20261011-80",
+      "content_sha256": "ca4d9029c1b0210b63df1c4d2af54488477086a7066364260bb2adde1a50604a"
     }
   ]
 }

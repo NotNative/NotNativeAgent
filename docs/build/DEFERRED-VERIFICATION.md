@@ -67,12 +67,18 @@ NNA `20261011-10`, disposable fixtures only):
       passed; the base journey carries the same ingress probe
 - [x] `--native-setup-turn` full journey (A2–A4 regression on the new pair)
 - [x] `--native-removal` (A6 uninstall leg)
-- [ ] `node scripts/installed-prebuilt-smoke.mjs <NNA root>` (prebuilt first install)
-      — STILL OPEN: prebuilt slot activation fails in-session; the retained
-      `nnd service activate-slot` child exits 2 (`nna: internal_failure`)
-      before publishing its readiness frame. Evidence preserved at
-      `C:\Users\Mongrel\p\nnd-accept-c50e32c823`, stage operation
-      `e4541374-82e6-4504-b87e-9f3f75bdf012`; do not retry blindly.
+- [x] `node scripts/installed-prebuilt-smoke.mjs <NNA root>` (prebuilt first install)
+      — passed 2026-10-11 at NND `20261011-79` ("staged, activated, attached
+      from Chromium and Electron, and removed on disposable NNA"). The
+      original in-session failure was an NNA defect: the unpublished-trial
+      supervisor path (`startUnpublishedTrial`) never created the renewable
+      capability authority, so `bootstrapCapability` crashed with a TypeError
+      before the readiness frame; fixed in NNA `20261011-11`
+      (`nnd-service-supervisor.js`). A second leg surfaced an NND defect:
+      the prebuilt uninstall binding validator did not accept the
+      `data_schema` anchor key the writer emits; fixed and pinned by
+      `installer-prebuilt-uninstall.test.mjs` (12/12 green). Retained-failure
+      fixtures were removed after validation per operator cleanup policy.
 - [x] A5 remaining shell side-effect audit sign-off (the deep-link probe
       asserts dialogs, host prefs, boot target, window count and the
       URL-minus-session unchanged on the installed shell)

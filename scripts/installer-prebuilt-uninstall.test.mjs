@@ -42,7 +42,7 @@ async function fixture(t) {
 async function writeBinding(value, selected) {
   await writeFile(join(value.anchor, 'nnd-anchor.json'), JSON.stringify({
     schema_version: '1.0', nna_install_root: selected.installRoot,
-    nnd_package_root: value.slot, version: '20261004-4',
+    nnd_package_root: value.slot, version: '20261004-4', data_schema: '1',
     payload_sha256: 'a'.repeat(64), candidate_sha256: 'b'.repeat(64),
     stage_operation_id: value.stage, activation_operation_id: value.activation,
     installation_id: installationId, data_id: dataId,

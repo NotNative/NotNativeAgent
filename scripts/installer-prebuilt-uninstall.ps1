@@ -11,7 +11,7 @@ function Resolve-NndPrebuiltAnchorForUninstall($InstallDirectory, $SelectedNna, 
     $binding = Get-Content -LiteralPath $bindingPath -Raw | ConvertFrom-Json
     $keys = @($binding.PSObject.Properties.Name)
     $expectedKeys = @('schema_version', 'nna_install_root', 'nnd_package_root', 'version',
-        'payload_sha256', 'candidate_sha256', 'stage_operation_id', 'activation_operation_id',
+        'data_schema', 'payload_sha256', 'candidate_sha256', 'stage_operation_id', 'activation_operation_id',
         'installation_id', 'data_id')
     $hasIncarnation = $keys -contains 'incarnation_id'
     $requiredKeys = if ($hasIncarnation) { $expectedKeys + 'incarnation_id' } else { $expectedKeys }
@@ -19,6 +19,7 @@ function Resolve-NndPrebuiltAnchorForUninstall($InstallDirectory, $SelectedNna, 
         ($hasIncarnation -and ($binding.incarnation_id -isnot [string] -or
             $binding.incarnation_id -cnotmatch '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')) -or
         $binding.schema_version -ne '1.0' -or
+        $binding.data_schema -isnot [string] -or $binding.data_schema -cnotmatch '^[a-z0-9._-]{1,64}$' -or
         $binding.nna_install_root -isnot [string] -or $binding.nna_install_root.Length -gt 4096 -or
         $binding.nnd_package_root -isnot [string] -or $binding.nnd_package_root.Length -gt 1024 -or
         ![IO.Path]::IsPathRooted($binding.nnd_package_root) -or
