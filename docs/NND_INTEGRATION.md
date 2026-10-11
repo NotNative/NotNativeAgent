@@ -1,5 +1,21 @@
 # Local NND integration
 
+## Desktop operator surface
+
+The brand-facing operator surface for the registered desktop plugin is
+`nna desktop start|stop|enable|disable|status`. `start` is idempotent: it
+resolves the registered package, starts the supervised service when it is not
+running, and returns the live status when it is. The supervised service child
+launches the attached desktop app after readiness, so the tray is present
+whenever the service runs, regardless of whether it was started by the CLI,
+the desktop shortcut, or the logon auto-start. `enable` persists the enabled
+flag and installs a login auto-start script (reverted if wiring fails);
+`disable` removes the wiring and the flag. When the plugin is not installed,
+`start` and `enable` fail gracefully with `nnd_plugin_not_installed`, while
+`stop`, `disable`, and `status` are silent no-ops. The `nna nnd` namespace
+keeps the pre-rename `service`, `package`, and `serve` surfaces only; the
+lifecycle lives under `nna desktop`.
+
 ## Selected native service
 
 The installed Windows path uses NNA supervision. Invoke the selected installation's
