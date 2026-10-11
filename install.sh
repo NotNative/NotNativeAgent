@@ -68,10 +68,23 @@ find_nna_launcher() {
   printf '%s\n' "$candidate"
 }
 
+# The NNA installation root, derived from the launcher's embedded CLI path.
+nna_install_root() {
+  node -e 'const fs=require("fs"), path=require("path");
+    const source=fs.readFileSync(process.argv[1],"utf8");
+    const match=source.match(/\x27([^\x27\r\n]*\/installed\/src\/cli\.js)\x27/);
+    if (!match) process.exit(1);
+    console.log(path.dirname(path.dirname(path.dirname(match[1]))));' "$1"
+}
+
 if [[ $UNINSTALL -eq 1 ]]; then
   echo "Uninstalling from $INSTALL_DIR (user data kept unless --purge-data)"
   if [[ "$INSTALL_DIR" == "$SOURCE" ]]; then echo "refusing to delete the source repo"; exit 1; fi
   if NNA_LAUNCHER="$(find_nna_launcher)"; then
+    NNA_ROOT="$(nna_install_root "$NNA_LAUNCHER")" || NNA_ROOT=""
+    # Best-effort stop first: a running old-version service would keep serving
+    # from the deleted inode (parity with the Windows uninstall's stop).
+    if [[ -n "$NNA_ROOT" ]]; then "$NNA_LAUNCHER" nnd service stop "$NNA_ROOT" >/dev/null 2>&1 || true; fi
     if ! "$NNA_LAUNCHER" nnd package status >/dev/null; then
       echo "NNA is installed but package status failed; refusing to erase an NND package that NNA may still reference" >&2
       exit 1
@@ -89,7 +102,7 @@ if [[ $UNINSTALL -eq 1 ]]; then
   # the in-memory server keeps serving); no lock refusal is mirrored from
   # install.ps1 because deleting a live tree is safe here.
   rm -rf "$INSTALL_DIR"
-  rm -f "$APP_ENTRIES_DIR/notnativedesktop.desktop"
+  rm -f "$APP_ENTRIES_DIR/notnativeagent.desktop"
   if [[ $PURGE -eq 1 ]]; then
     # Parity with install.ps1 -PurgeData: erase the shared data dir AND the
     # electron userData dirs (logs + port-prefs), not just the data dir.
@@ -148,6 +161,11 @@ if ! "$NNA_LAUNCHER" nnd package status >/dev/null 2>&1; then
 fi
 echo "   NNA: $NNA_LAUNCHER"
 
+# Upgrade parity with install.ps1's plan resolver: stop a running service
+# before replacing its files. Best-effort - a stopped service is already fine.
+NNA_ROOT="$(nna_install_root "$NNA_LAUNCHER")" || NNA_ROOT=""
+if [[ -n "$NNA_ROOT" ]]; then "$NNA_LAUNCHER" nnd service stop "$NNA_ROOT" >/dev/null 2>&1 || true; fi
+
 echo "== copying source =="
 mkdir -p "$INSTALL_DIR"
 rsync -a "$SOURCE"/ "$INSTALL_DIR"/ \
@@ -191,22 +209,28 @@ echo "== registering NND package with NNA =="
 
 echo "== desktop entry =="
 mkdir -p "$APP_ENTRIES_DIR"
-# Exec args are double-quoted per the freedesktop spec; Icon needs a real
-# image file (an ELF binary never renders).
-cat > "$APP_ENTRIES_DIR/notnativedesktop.desktop" <<ENTRY
+# NNA brand icon from the installed NNA (fall back to the tray asset when the
+# installed NNA predates the icon); Exec args are double-quoted per the
+# freedesktop spec and Icon needs a real image file (an ELF binary never renders).
+ENTRY_ICON="$NNA_ROOT/resources/icons/notnative-agent-32.png"
+[[ -f "$ENTRY_ICON" ]] || ENTRY_ICON="$INSTALL_DIR/packages/electron/assets/tray-running.png"
+cat > "$APP_ENTRIES_DIR/notnativeagent.desktop" <<ENTRY
 [Desktop Entry]
 Type=Application
-Name=NotNativeDesktop
+Name=NotNativeAgent
 Exec="$ELECTRON_BIN" "$INSTALL_DIR/packages/electron/main.mjs"
 Path=$INSTALL_DIR
-Icon=$INSTALL_DIR/packages/electron/assets/tray-running.png
-Comment=NotNativeDesktop - local service + tray
+Icon=$ENTRY_ICON
+Comment=NotNativeAgent desktop
 Categories=Development;
 ENTRY
 if command -v update-desktop-database >/dev/null; then update-desktop-database "$APP_ENTRIES_DIR" || true; fi
 
 echo "== done =="
-echo "   start   : your desktop launcher (tray icon appears immediately)"
+echo "   version : $(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).nnd_version)' "$INSTALL_DIR/package.json")"
+echo "   start   : your desktop launcher (tray icon appears immediately), or: nna desktop start"
+echo "   stop    : nna desktop stop;  auto-start at logon: nna desktop enable / disable"
+echo "   status  : nna desktop status"
 echo "   logs    : ~/.config/NotNativeDesktop*/logs/main.log"
 echo "   data    : ~/.notnative-desktop"
 echo "   uninstall: ./install.sh --uninstall [--purge-data]"

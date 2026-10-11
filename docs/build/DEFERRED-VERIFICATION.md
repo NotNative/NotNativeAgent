@@ -29,7 +29,9 @@ binaries and browser-driving runs.
       `nnd-service-contract` 7/7, `installed-service-package` 4/4,
       `release-content` 3/3, `export-prebuilt-payload` 12/12,
       `serve-supervised` 2/2, `supervised-protocol` 4/4,
-      `installer-fresh-service` 7 pass / 1 fail, `resolve-active-nnd-package`
+      `installer-structure` (supersedes the retired `installer-fresh-service`
+      suite; its helpers were removed with the installer reshape),
+      `resolve-active-nnd-package`
       5/5, `settings-coverage-gate` 12/12, `installed-review-provider` 2/2,
       `installer-native-guard` 2 skipped. STILL FAILING in-session (daytime
       list, recorded with observed mode): `installer-removal` 0/3,

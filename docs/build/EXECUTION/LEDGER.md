@@ -18,6 +18,26 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 POSIX parity + helper retirement (operator request, implemented-unverified)
+
+install.sh joins the dumb-copy shape and the NNA brand: an upgrade now stops a
+running service best-effort before replacing files (mirroring the Windows
+plan resolver), the desktop entry is `notnativeagent.desktop` named
+"NotNativeAgent" with the NNA icon (falling back to the tray asset when the
+installed NNA predates it), the uninstall stops the service before
+deactivating, and the final summary cites `nna desktop
+start|stop|enable|disable|status`. The entry still execs the installed
+electron main directly, which self-starts the service through the lifecycle
+attach; the supervised child's GUI launch (single-instance dedup) covers the
+redundant-spawn case. Linux desktop and macOS menubar users get the same
+service+tray shape as Windows. Retired: scripts/installer-fresh-service.mjs
+and its behavioral suite (the fresh/upgrade verification ceremony the
+installer no longer runs) — the structural pins moved to
+scripts/installer-structure.test.mjs (2/2), and the stale manifest entries
+were dropped. bash -n parse-clean. Implemented-unverified: the POSIX journey
+needs a Linux-desktop observation; Windows is verified through
+20261011-5.
+
 ## 2026-10-11 Link the tray permanently to the service (operator request, implemented-unverified)
 
 Operator shape: whenever the service runs — started by the shortcut, `nna
