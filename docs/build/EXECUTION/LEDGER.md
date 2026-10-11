@@ -18,6 +18,26 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 WP-B: schema-unchanged activation gate (implemented-unverified)
+
+The prebuilt payload manifest now carries an optional bounded `data_schema`
+(absent = the historical first schema, validated `^[a-z0-9._-]{1,64}$`), the
+retained anchor records the data schema of the package it binds, and the
+`-ActivatePrebuiltSlot` entry refuses any payload whose declared data schema
+differs from the operator's existing anchor **before any native staging or
+activation call** - the refusal states the L5 rule plainly: a data-schema
+migration must be accompanied by a verified backup/restore transaction;
+binary rollback alone cannot undo migrated operator data, and nothing was
+staged or activated. Verified: `installer-prebuilt-activation` 5/5 (new
+mismatch test proves the refusal happens before the retained owner is ever
+invoked - no candidate marker exists, the anchor keeps its schema, and no
+selection is bound), anchor suite records the default schema, export suite
+unchanged (exports omit `data_schema` = schema 1). The migration execution
+path itself (backup/restore transaction for a future schema change) does
+not exist yet and is honestly deferred: this gate makes a silent schema
+swap impossible rather than making migrations safe. Implemented-unverified
+until the operator's installed upgrade journey observes the gate.
+
 ## 2026-10-11 WP-B: interrupted retained activation preserves the prior world (implemented-unverified)
 
 The WP-B rollback guarantee now has its installer-level acceptance: a

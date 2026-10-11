@@ -22,7 +22,15 @@ async function readBounded(path, limit) {
   } finally { await file.close(); }
 }
 function validateManifest(value) {
-  if (!exact(value, ['schema_version', 'version', 'platform', 'architecture', 'files']) || value.schema_version !== '1.0'
+  const optionalSchema = 'data_schema' in value
+    ? (exact(value, ['schema_version', 'version', 'platform', 'architecture', 'files', 'data_schema'])
+      && typeof value.data_schema === 'string' && /^[a-z0-9._-]{1,64}$/u.test(value.data_schema) ? value.data_schema : null)
+    : false;
+  if (optionalSchema === null) throw new Error('payload-manifest-invalid');
+  const exactKeys = optionalSchema === false
+    ? exact(value, ['schema_version', 'version', 'platform', 'architecture', 'files'])
+    : true;
+  if (!exactKeys || value.schema_version !== '1.0'
     || !/^\d{8}-[1-9]\d{0,5}$/u.test(value.version) || value.platform !== 'win32' || value.architecture !== 'x64'
     || !Array.isArray(value.files) || value.files.length < 1 || value.files.length > PAYLOAD_LIMITS.files) throw new Error('payload-manifest-invalid');
   let total = 0;
@@ -32,10 +40,15 @@ function validateManifest(value) {
   }
   const sorted = validateEntries(value.files);
   if (sorted.some((entry, index) => entry.path !== value.files[index].path)) throw new Error('payload-manifest-order');
+  // The declared data schema gates activation (guide 02 L5): binary rollback
+  // cannot undo a data migration, so a different schema is not silently
+  // swapped over existing operator state.
+  return optionalSchema === false ? '1' : optionalSchema;
 }
 export async function verifyPrebuiltPayload(input) {
   const root = await noLinks(input), bytes = await readBounded(join(root, 'NND_PAYLOAD.json'), 32 * 1024 * 1024);
-  const manifest = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); validateManifest(manifest);
+  const manifest = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+  const dataSchema = validateManifest(manifest);
   const entries = validateEntries((await inventory(root)).filter((entry) => entry.path !== 'NND_PAYLOAD.json'));
   if (entries.length !== manifest.files.length) throw new Error('payload-inventory-mismatch');
   for (const [index, entry] of entries.entries()) {
@@ -48,7 +61,7 @@ export async function verifyPrebuiltPayload(input) {
   const info = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await readBounded(join(root, 'package.json'), 65536)));
   if (info.name !== 'notnative-desktop' || info.type !== 'module' || info.nnd_version !== manifest.version
     || info.version !== manifest.version.replace('-', '.0.') || (await readBounded(join(root, 'VERSION'), 128)).toString('utf8').trim() !== manifest.version) throw new Error('payload-package-identity-invalid');
-  return { root, bytes, manifest, sha256: createHash('sha256').update(bytes).digest('hex') };
+  return { root, bytes, manifest, dataSchema, sha256: createHash('sha256').update(bytes).digest('hex') };
 }
 export async function copyPrebuiltPayload(source, destination) {
   const verified = await verifyPrebuiltPayload(source), target = await noLinks(destination);

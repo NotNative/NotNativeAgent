@@ -234,6 +234,39 @@ test('installer activation mode delegates the selected slot without copying the 
     assert.throws(() => process.kill(marker.pid, 0));
   });
 
+test('a data-schema mismatch is refused before any native staging call',
+  { skip: process.platform !== 'win32' }, async t => {
+    const f = await fixture(t);
+    const target = join(f.base, 'NND target');
+    await mkdir(target, { recursive: true });
+    // An existing anchor declares the operator's current data schema; the
+    // payload declares a different one. Activation must refuse before the
+    // retained owner is ever invoked (no marker file may appear).
+    await writeFile(join(target, 'nnd-anchor.json'), JSON.stringify({
+      schema_version: '1.0', data_schema: '1', installation_id: 'nna_other', data_id: 'data_other' }));
+    const payload = join(f.base, 'payload'); await mkdir(join(payload, 'packages', 'web', 'dist'), { recursive: true });
+    await writeFile(join(payload, 'packages', 'web', 'dist', 'index.html'), '<html>fixture</html>');
+    const manifest = JSON.stringify({ schema_version: '1.0', version: '20261003-12',
+      platform: 'win32', architecture: 'x64', data_schema: '2', files: [] });
+    await writeFile(join(payload, 'NND_PAYLOAD.json'), manifest);
+    const digest = createHash('sha256').update(manifest).digest('hex');
+    const refused = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', resolve('install.ps1'),
+      '-ActivatePrebuiltSlot', '-PrebuiltStageOperation', stageOperation,
+      '-PrebuiltPayloadRoot', payload, '-PrebuiltManifestSha256', digest,
+      '-NnaInstallRoot', f.native, '-InstallDir', target], {
+      encoding: 'utf8', windowsHide: true, timeout: 20000,
+      env: { ...process.env, Path: '', NNACTIV_TEST_PAYLOAD_DIGEST: digest },
+    });
+    assert.notEqual(refused.status, 0);
+    const output = [refused.stdout, refused.stderr].join('\n');
+    assert.match(output, /data schema 2 but the existing NND install uses data schema 1/u, output);
+    assert.match(output, /backup\/restore transaction|Nothing was staged or activated/u, output);
+    assert(!existsSync(f.marker), 'the retained owner must never be invoked on a schema mismatch');
+    const anchor = JSON.parse(await readFile(join(target, 'nnd-anchor.json'), 'utf8'));
+    assert.equal(anchor.data_schema, '1');
+    assert(!existsSync(join(target, 'nna-service-selection.json')));
+  });
+
 test('a failed retained activation leaves no public state and reports the uncertain owner honestly',
   { skip: process.platform !== 'win32' }, async t => {
     const f = await fixture(t);

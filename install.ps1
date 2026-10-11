@@ -545,6 +545,17 @@ if ($ActivatePrebuiltSlot) {
     if (!$nna) { throw 'Selected NNA is not installed; restore it before activating the NND slot.' }
     $capabilities = Assert-NndNnaCapabilities $nna
     Assert-NndSelectedPin $nna $capabilities
+    # Schema-unchanged activation gate (execution guide 02 L5): binary
+    # rollback cannot undo a data migration, so a payload whose declared data
+    # schema differs from the operator's existing anchor is refused before
+    # any native staging, with the migration/backup requirement stated.
+    $existingAnchor = Get-Content -LiteralPath (Join-Path $targetPath 'nnd-anchor.json') -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
+    if ($existingAnchor -and $existingAnchor.PSObject.Properties['data_schema']) {
+        $previousSchema = [string]$existingAnchor.data_schema
+    } elseif ($existingAnchor) { $previousSchema = '1' } else { $previousSchema = $null }
+    if ($previousSchema -and $previousSchema -cne $checkedPayload.DataSchema) {
+        throw "Prebuilt payload declares data schema $($checkedPayload.DataSchema) but the existing NND install uses data schema $previousSchema. Activation is refused: a data-schema migration must be accompanied by a verified backup/restore transaction (execution guide 02 L5); binary rollback alone cannot undo migrated operator data. Nothing was staged or activated."
+    }
     $preflightOperation = [Guid]::NewGuid().ToString()
     $preflight = Invoke-NndPrebuiltActivationPreflight $nna $checkedPayload $capabilities $PrebuiltStageOperation $preflightOperation
     $activated = Invoke-NndPrebuiltActivation $nna $checkedPayload $capabilities $PrebuiltStageOperation $preflight.candidate_sha256
@@ -553,7 +564,7 @@ if ($ActivatePrebuiltSlot) {
     $anchorFresh = -not (Test-Path -LiteralPath $targetPath)
     $anchorCreated = $false
     try {
-        & $nna.Node (Join-Path $Source 'scripts\installer-prebuilt-anchor.mjs') $targetPath $Source $nna.InstallRoot $activated.root $capabilities.installation_id $capabilities.data_id $activated.version $PrebuiltStageOperation $activated.operation_id $checkedPayload.Sha256 $preflight.candidate_sha256
+        & $nna.Node (Join-Path $Source 'scripts\installer-prebuilt-anchor.mjs') $targetPath $Source $nna.InstallRoot $activated.root $capabilities.installation_id $capabilities.data_id $activated.version $PrebuiltStageOperation $activated.operation_id $checkedPayload.Sha256 $preflight.candidate_sha256 $checkedPayload.DataSchema
         if ($LASTEXITCODE -ne 0) { throw "Stable NND launcher anchor could not be created (exit $LASTEXITCODE)." }
         $anchorCreated = $true
         foreach ($shortcutRoot in @($DesktopDir, $StartMenuDir)) {

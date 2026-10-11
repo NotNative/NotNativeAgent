@@ -176,6 +176,11 @@ unconfigured installation reaching setup-required is valid). The shortcuts are
 NNA-branded (`NotNativeAgent.lnk` / `notnativeagent.desktop`, NNA icon assets),
 and a Windows upgrade removes the stale pre-rename `NotNativeDesktop.lnk`.
 
-Binary rollback cannot undo a data-schema migration. Initial slot activation must
-require unchanged supported data schemas. Login startup, installer recovery,
+Binary rollback cannot undo a data-schema migration. The payload manifest may
+declare a bounded `data_schema` (absent = the historical first schema); the
+retained anchor records the schema it binds, and slot activation refuses a
+payload whose declared schema differs from the operator's existing anchor
+before any native staging call, stating the backup/restore requirement. The
+migration execution path itself (a verified backup/restore transaction for a
+future schema change) is not implemented. Login startup, installer recovery,
 uninstall and installed acceptance remain separate required L-series work.

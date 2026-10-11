@@ -48,6 +48,7 @@ test('fresh prebuilt anchor writes stable selection, launcher, and binding', asy
   assert.equal(selection.data_id, f.input.dataId);
   const binding = JSON.parse(await readFile(join(f.anchor, 'nnd-anchor.json'), 'utf8'));
   assert.equal(binding.payload_sha256, f.input.payloadSha256);
+  assert.equal(binding.data_schema, f.input.dataSchema ?? '1');
   assert.ok((await stat(join(f.anchor, 'scripts', 'launch-selected-desktop.ps1'))).isFile());
   assert.ok((await stat(join(f.anchor, 'packages', 'electron', 'native-service-client.mjs'))).isFile());
 });

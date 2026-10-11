@@ -66,7 +66,7 @@ async function remove(path) {
 export async function installPrebuiltAnchor({
   anchor, sourceRoot, nnaRoot, installationId, dataId,
   packageRoot, version, payloadSha256, stageOperationId,
-  activationOperationId, candidateSha256,
+  activationOperationId, candidateSha256, dataSchema = '1',
 }) {
   anchor = absolute(anchor, 'prebuilt_anchor_invalid');
   sourceRoot = absolute(sourceRoot, 'prebuilt_launcher_source_invalid');
@@ -74,7 +74,8 @@ export async function installPrebuiltAnchor({
   packageRoot = absolute(packageRoot, 'prebuilt_package_root_invalid');
   if (!/^nna_[a-f0-9]{64}$/u.test(installationId ?? '') || !/^data_[a-f0-9]{64}$/u.test(dataId ?? '')
     || !VALUES.test(payloadSha256 ?? '') || !VALUES.test(candidateSha256 ?? '')
-    || !OPERATIONS.test(stageOperationId ?? '') || !VERSIONS.test(version ?? '')) {
+    || !OPERATIONS.test(stageOperationId ?? '') || !VERSIONS.test(version ?? '')
+    || typeof dataSchema !== 'string' || !/^[a-z0-9._-]{1,64}$/u.test(dataSchema)) {
     fail('prebuilt_anchor_identity_invalid');
   }
   const nnaIncarnation = readSelectedNativeRuntime(nnaRoot).incarnation_id;
@@ -89,8 +90,7 @@ export async function installPrebuiltAnchor({
   const temporary = join(parent, `.${anchor.split('\\').at(-1)}.${crypto.randomUUID()}.staging`);
   await mkdir(parent, { recursive: true });
   await mkdir(temporary, { recursive: true });
-  try {
-    for (const file of LAUNCHER_FILES) {
+  try {    for (const file of LAUNCHER_FILES) {
       await mkdir(join(temporary, file, '..'), { recursive: true });
       await copyFile(await launcherSource(sourceRoot, file), join(temporary, file));
     }
@@ -98,7 +98,7 @@ export async function installPrebuiltAnchor({
     await writeNnaSelection(temporary, nnaRoot, installationId, dataId);
     await writeFile(join(temporary, 'nnd-anchor.json'), `${JSON.stringify({
       schema_version: '1.0', nna_install_root: nnaRoot, nnd_package_root: packageRoot,
-      version, payload_sha256: payloadSha256, stage_operation_id: stageOperationId,
+      version, data_schema: dataSchema, payload_sha256: payloadSha256, stage_operation_id: stageOperationId,
       activation_operation_id: activationOperationId, candidate_sha256: candidateSha256,
       installation_id: installationId, data_id: dataId,
       ...(nnaIncarnation === null ? {} : { incarnation_id: nnaIncarnation }),
@@ -125,12 +125,12 @@ export async function installPrebuiltAnchor({
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (process.argv.length !== 13) fail('usage: installer-prebuilt-anchor.mjs ANCHOR SOURCE_ROOT NNA_ROOT NND_PACKAGE_ROOT INSTALLATION_ID DATA_ID VERSION STAGE_OPERATION_ID ACTIVATION_OPERATION_ID PAYLOAD_SHA256 CANDIDATE_SHA256');
+  if (process.argv.length !== 14) fail('usage: installer-prebuilt-anchor.mjs ANCHOR SOURCE_ROOT NNA_ROOT NND_PACKAGE_ROOT INSTALLATION_ID DATA_ID VERSION STAGE_OPERATION_ID ACTIVATION_OPERATION_ID PAYLOAD_SHA256 CANDIDATE_SHA256 DATA_SCHEMA');
   const [anchor, sourceRoot, nnaRoot, packageRoot, installationId, dataId, version,
-    stageOperationId, activationOperationId, payloadSha256, candidateSha256] = process.argv.slice(2);
+    stageOperationId, activationOperationId, payloadSha256, candidateSha256, dataSchema] = process.argv.slice(2);
   await installPrebuiltAnchor({ anchor, sourceRoot, nnaRoot, installationId, dataId,
     packageRoot, version, payloadSha256, stageOperationId, activationOperationId,
-    candidateSha256 }).catch(error => {
+    candidateSha256, dataSchema }).catch(error => {
       console.error(error instanceof Error ? error.message : 'unknown prebuilt anchor failure');
       process.exitCode = 1;
     });

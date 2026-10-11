@@ -27,7 +27,14 @@ function Assert-NndPrebuiltPayload([string]$PayloadRoot, [string]$ManifestSha256
     if ($metadata.version -isnot [string] -or $metadata.version -cnotmatch '^\d{8}-[1-9]\d{0,5}$') {
         throw 'Prebuilt payload manifest version is invalid; nothing was staged.'
     }
-    return @{ Root = $payload; Sha256 = $actual.ToLowerInvariant(); Version = $metadata.version }
+    $schemaMember = $metadata.PSObject.Properties['data_schema']
+    if ($null -ne $schemaMember -and ($schemaMember.Value -isnot [string] -or $schemaMember.Value -cnotmatch '^[a-z0-9._-]{1,64}$')) {
+        throw 'Prebuilt payload manifest data schema is invalid; nothing was staged.'
+    }
+    # Absent means the historical first data schema; the anchor records what
+    # the operator's existing package uses.
+    return @{ Root = $payload; Sha256 = $actual.ToLowerInvariant(); Version = $metadata.version;
+        DataSchema = $(if ($null -eq $schemaMember) { '1' } else { $schemaMember.Value }) }
 }
 
 function Invoke-NndPrebuiltStage($SelectedNna, $CheckedPayload) {
