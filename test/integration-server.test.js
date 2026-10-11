@@ -931,6 +931,48 @@ test('native fork seeds a new session from the parent journal prefix', async () 
   } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
 });
 
+test('per-session model routes ride session creation and fork (F9 step 1)', async () => {
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-route-'));
+  const catalogPath = join(root, 'catalog.json');
+  const engineOptions = [];
+  const makeEngine = () => ({
+    config: { workspaceRoot: root, routes: { primary: { providerId: 'one', model: 'one' } } },
+    active: null, store: { readRecords: async () => ({ records: [
+      { type: 'turn_outcome', payload: { turnId: 'turn_1' } },
+    ] }) },
+    transcript: [
+      { type: 'message', role: 'user', content: 'hi', turnId: 'turn_1', requestId: 'r1' },
+      { type: 'message', role: 'assistant', content: 'Answer', turnId: 'turn_1' },
+    ],
+    async initialize() {}, async shutdown() {},
+  });
+  const host = new NndEngineHost({ catalogPath, createEngine: async (options) => {
+    engineOptions.push(options);
+    return makeEngine();
+  } });
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host,
+    nndWorkspaceRoot: root, port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  const owner = principal(['nnd.read', 'nnd.session.create']);
+  try {
+    const created = await request(base, '/session', owner, {
+      method: 'POST', body: { providerID: 'one', model: 'two' } });
+    assert.equal(created.status, 201, JSON.stringify(created.value));
+    assert.deepEqual(engineOptions.at(-1).modelRoute, { providerId: 'one', model: 'two' });
+    const sessionId = created.value.id;
+    const forked = await request(base, `/session/${sessionId}/fork`, owner, {
+      method: 'POST', body: { messageID: `${sessionId}:message:1`, providerID: 'two', model: 'three' } });
+    assert.equal(forked.status, 201, JSON.stringify(forked.value));
+    assert.deepEqual(engineOptions.at(-1).modelRoute, { providerId: 'two', model: 'three' });
+    // Malformed overrides are refused before any session exists.
+    assert.equal((await request(base, '/session', owner, { method: 'POST', body: { model: 'two' } })).status, 400);
+    assert.equal((await request(base, '/session', owner,
+      { method: 'POST', body: { providerID: 'one', model: '' } })).status, 400);
+  } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
+});
+
 test('the renewal endpoint is absent without a configured authority', async () => {
   const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
   const service = await startIntegrationServer({

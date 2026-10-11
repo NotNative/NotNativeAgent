@@ -3,6 +3,7 @@
  *  parent journal prefix, and create the child session that seeds it. */
 import { ContractError, newId } from './ids.js';
 import { titleOf } from './nnd-session-description.js';
+import { modelRouteFromBody } from './nnd-session-model-route.js';
 import { forkPrefixRecords, resolveForkBoundary } from './persistence/fork-records.js';
 
 export async function runNndSessionFork(context, callbacks, body) {
@@ -16,6 +17,7 @@ export async function runNndSessionFork(context, callbacks, body) {
   const childId = newId('ses');
   const options = { directory: context.directory, title: titleOf(context.title) ? `${context.title} (fork)` : 'Forked session',
     ...(context.workspaceBinding ? { workspace_id: context.workspaceBinding.id } : {}),
+    ...(modelRouteFromBody(body) ? { modelRoute: modelRouteFromBody(body) } : {}),
     forkIngest: { records: prefix, sourceSessionId: context.sessionId, boundaryMessageId: messageId },
     reviewMode: context.reviewMode };
   await callbacks.createContext(childId, options);

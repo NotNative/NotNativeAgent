@@ -6,6 +6,7 @@ import { sseOpen } from './opencode/protocol.js';
 import { dispatchNndQuestionRequest } from './nnd-question-routes.js';
 import { dispatchNndNotificationRequest } from './nnd-notification-routes.js';
 import { dispatchNndAssistRequest } from './nnd-assist-routes.js';
+import { modelRouteFromBody } from './nnd-session-model-route.js';
 const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort|fork))?$/u;
 const ACTIVITY_HISTORY_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/activity-history$/u;
 const ACTIVITY_TOMBSTONES_ROUTE = '/v1/nnd/activity-tombstones';
@@ -312,6 +313,8 @@ function createOptions(body) {
     || !/^ws_[a-f0-9]{24}$/u.test(body.workspace_id))) {
     throw new ContractError('request_invalid', 'NND workspace selection is invalid');
   }
+  const modelRoute = modelRouteFromBody(body);
   return { ...(typeof body.title === 'string' ? { title: body.title } : {}),
-    ...(body.workspace_id ? { workspace_id: body.workspace_id } : {}) };
+    ...(body.workspace_id ? { workspace_id: body.workspace_id } : {}),
+    ...(modelRoute ? { modelRoute } : {}) };
 }

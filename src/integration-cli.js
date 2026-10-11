@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { startIntegrationServer } from './integration-server.js';
+import { withPrimaryRoute } from './provider/route-configuration.js';
 import { createNndLocalIntegrationActivation, validateNnoIntegrationActivation } from './nno-integration-activation.js';
 import { ProviderProfileStore } from './provider/profile-store.js';
 import { SecretBroker } from './secret-broker.js';
@@ -221,8 +222,10 @@ async function createSelectedNndEngine(paths, options, startupConfig, activeConf
   const selectedSkillRoots = options.skillRoots ?? runtimeSkillRoots(paths, {
     trusted: selectedTrusted, skillRoot: join(selectedRoot, '.nna', 'skills'),
   });
+  const routed = input.modelRoute
+    ? withPrimaryRoute(activeConfig(), input.modelRoute.providerId, input.modelRoute.model).config : activeConfig();
   return new SessionEngine({
-    config: Object.freeze({ ...activeConfig(), workspaceRoot: selectedRoot }),
+    config: Object.freeze({ ...routed, workspaceRoot: selectedRoot }),
     sessionId: input.sessionId, surface: 'nnd', nndSessionRegistry: input.nndSessionRegistry,
     workspaceBinding: input.workspaceBinding, workspaceBindingResolver: input.workspaceBindingResolver,
     attachmentUploadRead: input.attachmentUploadRead,
@@ -234,7 +237,7 @@ async function createSelectedNndEngine(paths, options, startupConfig, activeConf
     hookRoot: options.hookRoot ?? paths.hooks, hookRoots: options.hookRoots ?? [],
     skillRoots: selectedSkillRoots, emitContextStatus: true, output: input.output,
     nndBrowserCallback: options.nndBrowserCallback,
-    forkIngest: input.forkIngest ?? null,
+    forkIngest: input.forkIngest ?? null, modelRoute: input.modelRoute ?? null,
   });
 }
 
