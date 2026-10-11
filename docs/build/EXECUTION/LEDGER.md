@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Service contract / route inventory / native seam / port audit (W-38..W-41, implemented-unverified)
+
+Four adjacent batches mapped and disposed with verified evidence paths.
+W-38: the persistent service boot contract — app.ts carries the middleware
+chain (UI auth, tunnel auth, static handler, native health proof) behind an
+API-only surface, and installed launches attach to the native-owned
+persistent service (attach/redeem/stop, native-service-selection) while only
+explicit development launches own an in-process server. W-39: the local
+feature route inventory lives in native-alpha-surface.ts's CLOSED_FAMILIES
+accounting (auto-accept removed, remote-only routes excluded) with the
+native-alpha surface tests; remote-only surfaces stay outside the native
+contract. W-40: the native seam and lifecycle — tray-only boot on `--hidden`,
+service-linked tray, renderer recovery, and the event-name rule recorded
+this round in code: `openchamber:*` names are compatibility aliases of the
+`notnative:*` native names (the resume-binding fix). W-41: the P-01–P-24
+port catalog is translated to native contracts in doc 02 and realized in the
+harness adapter and the registered route inventory (P-04..P-09 surfaces).
+All implemented-unverified pending the installed V-gates.
+
 ## 2026-10-11 Bounded stores and enforced sync invariants (W-36, W-37, implemented-unverified)
 
 W-36's two legs exist with pinned behavior. Bounded stores: the child-store

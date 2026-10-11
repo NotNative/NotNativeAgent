@@ -1096,29 +1096,91 @@
       "id": "W-38",
       "work_packages": "L",
       "disposition": "MVP persistent service boot/middleware/auth/static/API-only contract.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-38.service-contract",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/app.ts (middleware/auth/static/API-only contract, native health proof)",
+            "../NotNativeDesktop/packages/electron/main.mjs (installed launches attach to the native-owned persistent service; dev-only in-process server)",
+            "../NotNativeDesktop/packages/electron/native-service-client.mjs + native-service-selection.mjs"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/app.ts (middleware/auth/static/API-only contract, native health proof)",
+        "../NotNativeDesktop/packages/electron/main.mjs (installed launches attach to the native-owned persistent service; dev-only in-process server)",
+        "../NotNativeDesktop/packages/electron/native-service-client.mjs + native-service-selection.mjs"
+      ]
     },
     {
       "id": "W-39",
       "work_packages": "F1–F10, C, L",
       "disposition": "MVP local feature route inventory; auto-accept removed, remote-only routes excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-39.route-inventory",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/native-alpha-surface.ts (CLOSED_FAMILIES inventory; auto-accept removed; remote-only routes excluded)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/native-alpha-surface.test.ts (5 tests)",
+            "../NotNativeDesktop/packages/web/src/server/routes.ts (registered route inventory)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/native-alpha-surface.ts (CLOSED_FAMILIES inventory; auto-accept removed; remote-only routes excluded)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/native-alpha-surface.test.ts (5 tests)",
+        "../NotNativeDesktop/packages/web/src/server/routes.ts (registered route inventory)"
+      ]
     },
     {
       "id": "W-40",
       "work_packages": "F1–F5, L",
       "disposition": "MVP native seam and lifecycle; legacy event names are compatibility only.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-40.native-seam",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/main.mjs (attach/redeem/stop lifecycle, tray-only boot, service-linked tray)",
+            "../NotNativeDesktop/packages/electron/tray.mjs",
+            "../NotNativeDesktop/packages/electron/renderer-recovery.mjs + test",
+            "../NotNativeDesktop/packages/ui/src/sync/event-pipeline.ts (openchamber: event names are compatibility aliases of the notnative: native names)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/main.mjs (attach/redeem/stop lifecycle, tray-only boot, service-linked tray)",
+        "../NotNativeDesktop/packages/electron/tray.mjs",
+        "../NotNativeDesktop/packages/electron/renderer-recovery.mjs + test",
+        "../NotNativeDesktop/packages/ui/src/sync/event-pipeline.ts (openchamber: event names are compatibility aliases of the notnative: native names)"
+      ]
     },
     {
       "id": "W-41",
       "work_packages": "F1–F9, C, V",
       "disposition": "MVP P-01–P-24 port audit translated to native contracts.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-41.port-audit",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/docs/planning/02-opencode-harness-contract.md (P-01–P-24 port catalog translated to native contracts)",
+            "../NotNativeDesktop/packages/web/src/server/harness/adapter.ts (harness contract adapter)",
+            "../NotNativeDesktop/packages/web/src/server/routes.ts (P-04..P-09 surfaces registered)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/docs/planning/02-opencode-harness-contract.md (P-01–P-24 port catalog translated to native contracts)",
+        "../NotNativeDesktop/packages/web/src/server/harness/adapter.ts (harness contract adapter)",
+        "../NotNativeDesktop/packages/web/src/server/routes.ts (P-04..P-09 surfaces registered)"
+      ]
     },
     {
       "id": "W-42",
