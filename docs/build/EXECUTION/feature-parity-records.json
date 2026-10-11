@@ -1284,36 +1284,113 @@
       "id": "W-46",
       "work_packages": "F6",
       "disposition": "MVP full file tree/actions/tabs/grants.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-46.file-tree",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/files/FilesView.tsx (tree/actions/tabs)",
+            "../NotNativeDesktop/packages/ui/src/components/files/__tests__/files-view.test.tsx (17 tests)",
+            "../NotNativeDesktop/packages/web/src/server/routes/fs-read.ts + fs-write.ts + __tests__/p6-1-fs-read.test.ts + fs-git-routes.test.ts (12 grants tests)",
+            "../NotNativeDesktop/packages/web/src/server/routes/markdown-image-grants.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/files/FilesView.tsx (tree/actions/tabs)",
+        "../NotNativeDesktop/packages/ui/src/components/files/__tests__/files-view.test.tsx (17 tests)",
+        "../NotNativeDesktop/packages/web/src/server/routes/fs-read.ts + fs-write.ts + __tests__/p6-1-fs-read.test.ts + fs-git-routes.test.ts (12 grants tests)",
+        "../NotNativeDesktop/packages/web/src/server/routes/markdown-image-grants.ts"
+      ]
     },
     {
       "id": "W-47",
       "work_packages": "F6",
       "disposition": "MVP editor/autosave/position/external-conflict/large-file behavior.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-47.editor",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/files/editor-stage.tsx (editor/autosave/position)",
+            "../NotNativeDesktop/packages/ui/src/components/files/__tests__/files-view.test.tsx (editor behavior)",
+            "../NotNativeDesktop/packages/ui/src/components/git/__tests__/git-file-preview.test.tsx (4 preview tests, large-file behavior)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/files/editor-stage.tsx (editor/autosave/position)",
+        "../NotNativeDesktop/packages/ui/src/components/files/__tests__/files-view.test.tsx (editor behavior)",
+        "../NotNativeDesktop/packages/ui/src/components/git/__tests__/git-file-preview.test.tsx (4 preview tests, large-file behavior)"
+      ]
     },
     {
       "id": "W-48",
       "work_packages": "F6",
       "disposition": "MVP all listed preview types and persisted view modes.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-48.previews",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/git/__tests__/git-file-preview.test.tsx (persisted view modes)",
+            "../NotNativeDesktop/packages/ui/src/components/files/editor-stage.tsx (preview types)",
+            "../NotNativeDesktop/packages/ui/src/chat/markdown-lite.tsx (markdown preview)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/git/__tests__/git-file-preview.test.tsx (persisted view modes)",
+        "../NotNativeDesktop/packages/ui/src/components/files/editor-stage.tsx (preview types)",
+        "../NotNativeDesktop/packages/ui/src/chat/markdown-lite.tsx (markdown preview)"
+      ]
     },
     {
       "id": "W-49",
       "work_packages": "F6",
       "disposition": "MVP complete diff modes/scopes/hunks/binary-image support.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-49.diffs",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/diff/DiffView.tsx + DiffViewer.tsx + diff-view-model.ts (modes/scopes/hunks/binary-image)",
+            "../NotNativeDesktop/packages/ui/src/components/diff/__tests__/diff-view.test.tsx",
+            "../NotNativeDesktop/packages/web/src/server/routes/git-diff.ts + __tests__/p6-2-git-diff.test.ts (6 tests)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/diff/DiffView.tsx + DiffViewer.tsx + diff-view-model.ts (modes/scopes/hunks/binary-image)",
+        "../NotNativeDesktop/packages/ui/src/components/diff/__tests__/diff-view.test.tsx",
+        "../NotNativeDesktop/packages/web/src/server/routes/git-diff.ts + __tests__/p6-2-git-diff.test.ts (6 tests)"
+      ]
     },
     {
       "id": "W-50",
       "work_packages": "F6",
       "disposition": "MVP Git operations/history/graph/stashes/PR visibility.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-50.git-operations",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/git.ts + git-stash.ts + git-sync.ts (operations/history/graph/stashes)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/git-sync.test.ts (111 tests) + git-stash.test.ts (9 tests)",
+            "../NotNativeDesktop/packages/ui/src/components/git/__tests__/git-view.test.tsx (28 UI tests)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/git.ts + git-stash.ts + git-sync.ts (operations/history/graph/stashes)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/git-sync.test.ts (111 tests) + git-stash.test.ts (9 tests)",
+        "../NotNativeDesktop/packages/ui/src/components/git/__tests__/git-view.test.tsx (28 UI tests)"
+      ]
     },
     {
       "id": "W-51",

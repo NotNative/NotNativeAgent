@@ -18,6 +18,18 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Files/editor family (W-46..W-50, implemented-unverified)
+
+W-46: the file tree with actions/tabs and guarded grants (fs-read/fs-write
+routes, 17 FilesView tests, 12 fs-git route tests, markdown-image grants).
+W-47: the editor stage — autosave, position, large-file behavior (git-file-
+preview tests). W-48: preview types with persisted view modes. W-49: the
+diff stack — DiffView/DiffViewer/diff-view-model with modes/scopes/hunks and
+binary-image support, backed by the git-diff route (6 route tests + diff
+view tests). W-50: Git operations/history/graph/stashes — git-sync carries
+111 tests, git-stash 9, git-view 28 UI tests. All implemented-unverified
+pending the installed V-gates.
+
 ## 2026-10-11 Terminal family (W-56..W-59, W-61..W-63, implemented-unverified)
 
 W-56: the local terminal v3 protocol and command plane (16 protocol + 47
