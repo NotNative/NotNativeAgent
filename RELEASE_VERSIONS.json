@@ -1936,6 +1936,10 @@
     {
       "version": "20261011-71",
       "content_sha256": "da6bb86108a7655b85c7edd2be4fdf93f9761c204cceb5c66f5248e16f98aa24"
+    },
+    {
+      "version": "20261011-72",
+      "content_sha256": "a4e3b4d0d172bfb30ad75e9e9d6d27ccd7268cd712047dfb80265842f2d339d9"
     }
   ]
 }

@@ -18,6 +18,23 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Terminal mirroring + reattach (W-60, implemented-unverified)
+
+The mirroring architecture was already shipped — one server-side
+TerminalRuntime shared by every surface: PTY sessions live in the harness
+server, both the desktop shell and a browser tab attach to the same session
+id over the terminal WS (snapshot is always the first frame; attach is
+idempotent; detach/reattach and the SUPERSEDED path re-attach by id), and
+the UI side adopts the other surface's tabs via `reconcileServerSessions`
+with reattach-through-the-observer after reload. The gap was that no test
+proved the cross-surface shape end to end. New focused test
+`w60-terminal-mirror.test.ts`: a desktop socket and a browser socket attach
+to one session, PTY output frames reach both viewers byte-identically,
+browser input reaches the shared PTY, and after a churned browser socket
+re-attaches, the snapshot replay carries the mirrored output. Remote-device
+access stays excluded by contract (same-host runtime only). W-60 is
+implemented-unverified.
+
 ## 2026-10-11 Retained-pane visibility gating (W-55, implemented-unverified)
 
 Cache invalidation was already done (the git store invalidates on scope

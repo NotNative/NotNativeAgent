@@ -1580,8 +1580,25 @@
       "id": "W-60",
       "work_packages": "F7",
       "disposition": "MVP browser/desktop mirroring and reattach; remote-device access excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-60.mirroring",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/w60-terminal-mirror.test.ts (desktop+browser sockets on one shared session: mirrored output frames, either-side input, churn re-attach with snapshot replay)",
+            "../NotNativeDesktop/packages/web/src/server/terminal/session-core.ts (server-side shared sessions; attach barrier snapshot-first; detach/reattach idempotent; SUPERSEDED re-attach)",
+            "../NotNativeDesktop/packages/ui/src/lib/terminal/observer.ts + store.ts (cross-surface tab adoption via reconcileServerSessions; reattach via observer after reload)",
+            "../NotNativeDesktop/packages/ui/src/lib/terminal/__tests__/transport.test.ts (live re-attach on socket churn, idempotent attach)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/w60-terminal-mirror.test.ts (desktop+browser sockets on one shared session: mirrored output frames, either-side input, churn re-attach with snapshot replay)",
+        "../NotNativeDesktop/packages/web/src/server/terminal/session-core.ts (server-side shared sessions; attach barrier snapshot-first; detach/reattach idempotent; SUPERSEDED re-attach)",
+        "../NotNativeDesktop/packages/ui/src/lib/terminal/observer.ts + store.ts (cross-surface tab adoption via reconcileServerSessions; reattach via observer after reload)",
+        "../NotNativeDesktop/packages/ui/src/lib/terminal/__tests__/transport.test.ts (live re-attach on socket churn, idempotent attach)"
+      ]
     },
     {
       "id": "W-61",
