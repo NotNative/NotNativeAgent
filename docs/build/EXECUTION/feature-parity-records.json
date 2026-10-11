@@ -717,9 +717,43 @@
       "id": "W-30",
       "work_packages": "F1, F2",
       "disposition": "MVP bootstrap, enrichment, continuity and resume recovery.",
-      "status": "pending",
-      "subfeatures": [],
-      "note": "NNA has resume/restore/session-broker/continuity modules (src/experience/resume.js, src/experience/restore.js, src/experience/session-broker.js, src/tools/capability-continuity.js, src/reliability/cold-context.js) and repair tests (test/session-repair.test.js, test/high-recovery-history-regressions.test.js), but the ledger's own F2 tracking keeps restart/resume recovery open, and no focused test binding bootstrap + enrichment + continuity + resume recovery end-to-end was found — the enrichment leg and end-to-end resume-recovery coverage are the concrete missing pieces"
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-30.continuity",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/persist-cache.ts (persistLastActiveSession/readLastActiveSession)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts"
+          ]
+        },
+        {
+          "id": "W-30.enrichment",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/bootstrap-enrichment.ts (runPhase2 + signature-guarded blocking merge)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts"
+          ]
+        },
+        {
+          "id": "W-30.resume-recovery",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/event-pipeline.ts (BOTH system-resume aliases interrupt the pipe — desktop notnative: alias was previously unlistened, fixed)",
+            "../NotNativeDesktop/packages/electron/main.mjs (powerMonitor resume broadcast)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/sync/persist-cache.ts (persistLastActiveSession/readLastActiveSession)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/bootstrap-enrichment.ts (runPhase2 + signature-guarded blocking merge)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/event-pipeline.ts (BOTH system-resume aliases interrupt the pipe — desktop notnative: alias was previously unlistened, fixed)",
+        "../NotNativeDesktop/packages/electron/main.mjs (powerMonitor resume broadcast)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts"
+      ]
     },
     {
       "id": "W-31",

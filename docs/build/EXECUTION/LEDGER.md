@@ -18,6 +18,24 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Bootstrap/enrichment/continuity/resume binding (W-30, implemented-unverified)
+
+The missing end-to-end coverage now exists — and writing it found a real bug.
+The event pipeline listened for system resume ONLY on the web/PWA alias
+(`openchamber:system-resume`) while the desktop shell broadcasts
+`notnative:system-resume` from Electron's powerMonitor, so a system wake on
+the desktop runtime silently skipped the immediate reconnect round. The
+pipeline now listens to BOTH aliases (§C.5), and the focused binding test
+proves each alias interrupts the in-flight SSE attempt (the fetch's abort
+signal flips) for the immediate reconnect. The binding also pins the other
+two legs: cold-start continuity (persisted last-active session pointer
+survives restart; draft intent clears it) and the phase-2 enrichment leg
+(commands/mcp/lsp/vcs land in the directory store; the signature-guarded
+blocking merge deletes a settled request only on a stable id-signature and
+preserves a live mid-flight SSE arrival over the stale snapshot — no
+resurrection, no false deletion). W-30 is implemented-unverified across all
+three subfeatures.
+
 ## 2026-10-11 Permission auto-accept prohibition enforced (W-32.no-auto-accept, implemented-unverified)
 
 Remembered permission approvals are now PROHIBITED at the transport boundary:

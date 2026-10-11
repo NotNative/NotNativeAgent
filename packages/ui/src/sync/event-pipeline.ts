@@ -30,7 +30,11 @@ export interface EventPipeline {
   cursor: () => string | null;
 }
 
-const SYSTEM_RESUME_EVENT = 'openchamber:system-resume';
+// §C.5 system resume: the desktop shell broadcasts `notnative:system-resume`
+// (Electron powerMonitor); the web/PWA path uses the openchamber alias. Both
+// names interrupt the pipe for an immediate reconnect round — listening to
+// only one silently drops resume recovery on the other runtime.
+const SYSTEM_RESUME_EVENTS = ['notnative:system-resume', 'openchamber:system-resume'] as const;
 
 interface PipelineState {
   options: PipelineOptions;
@@ -258,8 +262,10 @@ function pipeInstallListeners(state: PipelineState): Array<[string, EventTarget,
     listeners.push([kind, window, handler]);
   }
   const systemResume = (): void => pipeInterrupt(state); // §C.5: immediate reconnect round
-  window.addEventListener(SYSTEM_RESUME_EVENT, systemResume);
-  listeners.push([SYSTEM_RESUME_EVENT, window, systemResume]);
+  for (const name of SYSTEM_RESUME_EVENTS) {
+    window.addEventListener(name, systemResume);
+    listeners.push([name, window, systemResume]);
+  }
   const visibility = (): void => {
     if (pipePageVisible()) state.pendingRetryResolve?.(); // early resume on visible (§D.1)
   };
