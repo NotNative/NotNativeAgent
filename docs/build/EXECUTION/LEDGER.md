@@ -18,6 +18,31 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 F5 step 3: real-session generation rides the native assist seam (implemented-unverified)
+
+`generateRoute` now tries NNA's assist seam first whenever the request
+carries a real `ses_*` session id: the combined system+prompt (bounded to
+the seam's 8192-character input, with the requested output budget passed
+through only when it fits the seam's 256..2048 bound) goes to
+`POST /v1/nnd/sessions/:id/assist` through the harness adapter, and a 200
+response becomes the generation result with `source: 'nna-assist'`.
+Synthetic call-site ids (the walkthrough cache-key ids) never ride the
+seam; oversized inputs skip it instead of failing natively; any harness
+refusal (busy, unavailable, missing grant) falls through to the legacy
+direct-wire path for env-key providers rather than turning into a hard
+failure. The engine's router therefore owns model selection and credential
+handling for session-scoped assist generation, and the desktop never sees
+a secret-backed key. Adversarial catches: the seam call was initially
+wired without importing the harness-call seam at all (the mock-only test
+passed against an unbound symbol reference until the full gates ran), and
+the vitest mock needed `vi.hoisted` because the module factory closed over
+a binding that had not been initialized yet. 41/41 across the touched
+suites; tsc, quality gates, and the release seal pass. Label:
+implemented-unverified. Remaining F5 steps: the installed assist journey
+observation, then deletion of the remaining legacy direct-wire module
+parts (they stay for env-key providers until the installed run proves the
+seam).
+
 ## 2026-10-11 F5 step 2: the provider inventory and credential presence resolve through NNA authority (implemented-unverified)
 
 `provider-ports.ts` no longer reads a desktop-held credential store by

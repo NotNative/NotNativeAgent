@@ -73,4 +73,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:51449c5fb199892ecd38e9e6bc712315c8c9e700edd13d38dc2656759337a8c7`.
+Source fingerprint: `sha256:7ae1e7ba9e48831f6e706990bd2db8ee751b47c58d9825caf672297aa98c7aa4`.

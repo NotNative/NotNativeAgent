@@ -3,6 +3,7 @@
 
 import type { Hono } from 'hono';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
+import { callHarness, harnessRequest } from '../queue/queue-adapter-calls.ts';
 import {
   callSmallModelDirect, directCallWire, outputExhausted, parseSmallModelResponse,
 } from '../lib/small-model/provider-call.ts';
@@ -129,6 +130,14 @@ async function generateRoute(rawRequest: Request, ports: SmallModelPorts, signal
   const preferredModelID = textOf(raw.preferredModelID, 256);
   const restrict = raw.restrictToPreferredProvider === true;
   const requestModelParts = splitModel(requestModel);
+  signal?.throwIfAborted();
+  // F5 step 3: a real NNA session first generates through the native assist
+  // seam — the engine's router owns model selection and credentials. The
+  // direct wire below remains only for injected ports and env-key profiles.
+  if (isRealSessionId(sessionID)) {
+    const native = await nativeAssistGeneration({ directory, sessionID, system, prompt, maxOutputTokens }, signal);
+    if (native !== null) return native;
+  }
   const selected = await resolveRequestedSmallModel({
     directory, requestModelParts, preferredProviderID, preferredModelID, restrict, ports,
   });
@@ -182,6 +191,34 @@ function parseGenerationRequest(raw: Record<string, unknown>): Response | {
 
 function invalidInput(message: string): Response {
   return Response.json({ error: { message } }, { status: 400 });
+}
+
+function isRealSessionId(sessionID: string): boolean {
+  // NNA mints `ses_*` ids; synthetic call-site ids (e.g. walkthrough cache
+  // keys) are not native sessions and must not ride the assist seam.
+  return /^ses_[A-Za-z0-9_-]{1,64}$/u.test(sessionID);
+}
+
+const ASSIST_PROMPT_MAX_CHARS = 8192;
+const ASSIST_OUTPUT_TOKEN_MAX = 2048;
+
+async function nativeAssistGeneration(input: { directory: string; sessionID: string;
+  system: string; prompt: string; maxOutputTokens: number }, signal?: AbortSignal): Promise<Response | null> {
+  const prompt = `${input.system}\n\n${input.prompt}`;
+  if (prompt === '' || prompt.length > ASSIST_PROMPT_MAX_CHARS || input.maxOutputTokens > ASSIST_OUTPUT_TOKEN_MAX) return null;
+  try {
+    const response = await callHarness(harnessRequest(
+      `/v1/nnd/sessions/${encodeURIComponent(input.sessionID)}/assist`, input.directory, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt, ...(input.maxOutputTokens >= 256 ? { max_output_tokens: input.maxOutputTokens } : {}) }),
+        ...(signal ? { signal } : {}),
+      }));
+    if (!response.ok) return null;
+    const value = await response.json().catch(() => null) as { text?: unknown; providerID?: unknown; modelID?: unknown } | null;
+    if (value === null || typeof value.text !== 'string' || typeof value.providerID !== 'string'
+      || typeof value.modelID !== 'string') return null;
+    return Response.json({ text: value.text, providerID: value.providerID, modelID: value.modelID, source: 'nna-assist' });
+  } catch { return null; }
 }
 
 function schemaOf(value: unknown): Record<string, unknown> | null {
