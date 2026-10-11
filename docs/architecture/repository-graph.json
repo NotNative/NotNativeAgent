@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:1127588244de866a4f9c091984ecea47478c03d4c201740cfa6ee3b284e18314",
+  "source_digest": "sha256:f422e626c2d6a63716070aadb4aea77669551bd5e81f8da9bd680510f0156e65",
   "counts": {
-    "modules": 565,
+    "modules": 567,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 256
+      "module_count": 258
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 766,
-      "module_count": 229
+      "import_count": 770,
+      "module_count": 231
     },
     {
       "from": "experience-engine",
@@ -132,8 +132,8 @@
     {
       "from": "foundation",
       "to": "integrations",
-      "import_count": 85,
-      "module_count": 49
+      "import_count": 87,
+      "module_count": 50
     },
     {
       "from": "foundation",
@@ -2566,6 +2566,24 @@
       ]
     },
     {
+      "path": "src/nnd-assist-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
+      "path": "src/nnd-assist.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
       "path": "src/nnd-attachment-upload-routes.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2785,6 +2803,7 @@
         "src/nnd-activity-boundary.js",
         "src/nnd-activity-snapshot.js",
         "src/nnd-activity-tombstones.js",
+        "src/nnd-assist.js",
         "src/nnd-attachment-uploads.js",
         "src/nnd-catalog-admission.js",
         "src/nnd-catalog-transaction.js",
@@ -2888,6 +2907,7 @@
       "imports": [
         "src/ids.js",
         "src/integration-principal.js",
+        "src/nnd-assist-routes.js",
         "src/nnd-notification-routes.js",
         "src/nnd-question-routes.js",
         "src/opencode/protocol.js",

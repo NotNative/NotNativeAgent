@@ -786,6 +786,25 @@ test('notification text requires its dedicated grant and forwards authenticated 
   } finally { await service.close(); }
 });
 
+test('assist generation requires its dedicated grant and forwards authenticated session scope', async () => {
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-assist-route-')); const calls = [];
+  const host = { async generateAssist(sessionId, actor, body) { calls.push({ sessionId, actor, body }); return { text: 'ok', providerID: 'local', modelID: 'small' }; } };
+  const service = await startIntegrationServer({ activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host, port: 0 });
+  const base = `http://127.0.0.1:${service.address.port}`; const path = '/v1/nnd/sessions/session_test/assist';
+  const body = { prompt: 'summarize this' };
+  try {
+    assert.equal((await request(base, path, principal(['nnd.read']), { method: 'POST', body })).status, 403);
+    assert.equal((await request(base, path, principal(['nnd.session.assist']))).status, 405);
+    assert.equal(calls.length, 0);
+    assert.equal((await request(base, path, principal(['nnd.session.assist']), { method: 'POST', body })).status, 200);
+    assert.equal(calls[0].sessionId, 'session_test'); assert.equal(calls[0].actor.subjectId, 'u_test'); assert.deepEqual(calls[0].body, body);
+    host.generateAssist = async () => { throw new ContractError('nnd_assist_unavailable', 'missing route'); };
+    assert.equal((await request(base, path, principal(['nnd.session.assist']), { method: 'POST', body })).status, 503);
+    host.generateAssist = async () => { throw new ContractError('nnd_assist_busy', 'busy'); };
+    assert.equal((await request(base, path, principal(['nnd.session.assist']), { method: 'POST', body })).status, 409);
+  } finally { await service.close(); }
+});
+
 test('capability renewal endpoint renews within grace and fails closed', async () => {
   const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
   let tick = 1_000_000;

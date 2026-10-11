@@ -38,6 +38,7 @@ import { createNndNativePrincipalSelection } from './nnd-native-principal-select
 
 const PERMISSIONS = Object.freeze(['integration.health', 'nnd.read', 'nnd.setup.read', 'nnd.setup.activate',
   'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete',
+  'nnd.session.assist',
   'nnd.goal.manage', 'nnd.steer', 'nnd.walkthrough.generate', 'nnd.notification.generate',
   'nnd.configuration.read', 'nnd.configuration.manage', 'nnd.configuration.repair',
   'nnd.service.manage', 'nnd.update.manage', 'nnd.package.manage',

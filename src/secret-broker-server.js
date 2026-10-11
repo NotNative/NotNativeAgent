@@ -157,12 +157,13 @@ function failureStatus(code) {
   if (code.startsWith('capability_')) return 401;
   if (code.includes('permission') || code.includes('forbidden')) return 403;
   if (code.includes('not_found') || ['provider_missing', 'nnd_session_unavailable', 'question_unknown'].includes(code)) return 404;
-  if (['nnd_goal_conflict', 'nnd_goal_audit_conflict', 'nnd_goal_audit_busy', 'nnd_walkthrough_busy'].includes(code)) return 409;
+  if (['nnd_goal_conflict', 'nnd_goal_audit_conflict', 'nnd_goal_audit_busy', 'nnd_walkthrough_busy', 'nnd_assist_busy'].includes(code)) return 409;
   if (['nnd_goal_audit_unavailable', 'nnd_pending_unavailable',
-    'nnd_activity_tombstones_unavailable', 'nnd_walkthrough_unavailable'].includes(code)) return 503;
-  if (['nnd_goal_audit_timeout', 'nnd_walkthrough_timeout'].includes(code)) return 504;
+    'nnd_activity_tombstones_unavailable', 'nnd_walkthrough_unavailable', 'nnd_assist_unavailable'].includes(code)) return 503;
+  if (['nnd_goal_audit_timeout', 'nnd_walkthrough_timeout', 'nnd_assist_timeout', 'nnd_notification_timeout'].includes(code)) return 504;
   if (code.startsWith('nnd_goal_audit_output_') || code === 'nnd_goal_audit_tool_violation') return 502;
   if (code.startsWith('nnd_walkthrough_output_') || code === 'nnd_walkthrough_tool_violation') return 502;
+  if (code.startsWith('nnd_assist_output_') || code === 'nnd_assist_tool_violation') return 502;
   if (['nnd_walkthrough_context_large', 'nnd_environment_value_too_large',
     'nnd_skills_catalog_too_large'].includes(code)) return 413;
   if (code === 'nnd_activity_tombstones_invalid') return 500;
@@ -193,7 +194,6 @@ function failureStatus(code) {
   if (code === 'workspace_trust_invalid') return 503;
   if (['mcp_credentials_busy', 'mcp_credentials_full', 'nnd_notification_busy'].includes(code)) return 409;
   if (code === 'nnd_notification_unavailable') return 503;
-  if (code === 'nnd_notification_timeout') return 504;
   if (code.startsWith('nnd_notification_output_') || code === 'nnd_notification_tool_violation') return 502;
   return code === 'internal_failure' ? 500 : 400;
 }

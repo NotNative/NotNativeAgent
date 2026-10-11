@@ -24,6 +24,7 @@ import { validatedNndGoal, commitNndGoal } from './nnd-goal.js';
 import { nndGoalContextEvidence, recordNndGoalTurn } from './nnd-goal-evidence.js';
 import { runNndGoalAudit } from './nnd-goal-audit.js';
 import { runNndWalkthrough } from './nnd-walkthrough.js';
+import { runNndAssist } from './nnd-assist.js';
 import { runNndNotification } from './nnd-notification.js';
 import { publishNndProjection } from './nnd-projection.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
@@ -115,8 +116,7 @@ export class NndEngineHost {
       }
       engine = await this.createEngine({ ...options, sessionId, nndSessionRegistry: this.childSessions,
         workspaceBinding: binding, workspaceBindingResolver: this.primaryWorkspaceBinding,
-        attachmentUploadRead: (uploadId, mimeType) => this.#uploads.resolve(sessionId, uploadId, mimeType),
-        output: (record) => this.observeOutput(sessionId, record) });
+        attachmentUploadRead: (uploadId, mimeType) => this.#uploads.resolve(sessionId, uploadId, mimeType), output: (record) => this.observeOutput(sessionId, record) });
       if (!engine || typeof engine.initialize !== 'function') {
         throw new ContractError('nnd_engine_invalid', 'NND engine factory returned an invalid engine');
       }
@@ -132,8 +132,7 @@ export class NndEngineHost {
         goal: restoring && options.goal ? validatedNndGoal(options.goal) : null,
         goalRevision: restoring ? options.goalRevision : 0, goalTurnReceipts: [], goalTurnReceiptsTruncated: false,
         archivedAt: restoring ? options.archivedAt : 0, activity, activityRevision: 0, activityWrite: null,
-        ingress: new CanonicalIngress(engine, { interactive: options.interactive === true, questions: Boolean(engine.questionBroker) }), closing: false, goalArming: 0,
-        reviewMode: options.reviewMode ?? 'default', reviewRevision: options.reviewRevision ?? 0, reviewArming: 0 };
+        ingress: new CanonicalIngress(engine, { interactive: options.interactive === true, questions: Boolean(engine.questionBroker) }), closing: false, goalArming: 0, reviewMode: options.reviewMode ?? 'default', reviewRevision: options.reviewRevision ?? 0, reviewArming: 0 };
       if (restoring) this.#contexts.set(sessionId, context);
       else {
         if (this.#workspaceRevocations.has(binding)) {
@@ -217,6 +216,7 @@ export class NndEngineHost {
   goal(sessionId, principal) { const context = this.#owned(sessionId, principal); return { goal: context.goal, revision: context.goalRevision }; }
   auditGoal(sessionId, principal, body) { return runNndGoalAudit(this.#owned(sessionId, principal), body); }
   generateWalkthrough(sessionId, principal, body) { return runNndWalkthrough(this.#owned(sessionId, principal), body); }
+  generateAssist(sessionId, principal, body) { return runNndAssist(this.#owned(sessionId, principal), body); }
   generateNotification(sessionId, principal, body) { return runNndNotification(this.#owned(sessionId, principal), body); }
   goalEvidence(sessionId, principal) { return nndGoalContextEvidence(this.#owned(sessionId, principal)); }
   async setGoal(sessionId, principal, value, expectedId, expectedRevision) {
