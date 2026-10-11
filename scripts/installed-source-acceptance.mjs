@@ -322,7 +322,7 @@ async function runRemovalJourney(fixture) {
   await writeFile(retainedData, 'NND data stays unless purge is explicit\n');
   const before = await Promise.all([readFile(sourceManifest), readFile(nativeDescriptor), readFile(nativeCli)]);
   for (const location of ['Desktop', 'StartMenu']) {
-    assert.equal((await lstat(join(fixture.shortcuts, location, 'NotNativeDesktop.lnk'))).isFile(), true);
+    assert.equal((await lstat(join(fixture.shortcuts, location, 'NotNativeAgent.lnk'))).isFile(), true);
   }
   await run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
     join(source, 'install.ps1'), '-InstallDir', fixture.nnd, '-NnaInstallRoot', fixture.nna,
@@ -333,7 +333,7 @@ async function runRemovalJourney(fixture) {
   assert.deepEqual(await selectedPackage(fixture), { registered: false });
   await assert.rejects(lstat(fixture.nnd), { code: 'ENOENT' });
   for (const location of ['Desktop', 'StartMenu']) {
-    await assert.rejects(lstat(join(fixture.shortcuts, location, 'NotNativeDesktop.lnk')), { code: 'ENOENT' });
+    await assert.rejects(lstat(join(fixture.shortcuts, location, 'NotNativeAgent.lnk')), { code: 'ENOENT' });
   }
   for (const [index, path] of [sourceManifest, nativeDescriptor, nativeCli].entries()) {
     assert.deepEqual(await readFile(path), before[index], `${path} changed during NND removal`);

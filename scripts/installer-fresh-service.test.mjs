@@ -167,10 +167,14 @@ test('installer source follows the dumb-copy shape: plan, copy, build, register,
   assert.ok(!source.includes('Invoke-NndFreshVerification'));
   assert.ok(source.indexOf('Request-NndServiceStopForUninstall $SelectedNna (Join-Path $Source') > 0);
   assert.ok(source.indexOf("Invoke-NndRegistration 'deactivate' $status.root $SelectedNna") > 0);
-  // The shortcut launcher starts the service through the NNA lifecycle surface.
+  // The shortcut launcher starts the service through the NNA desktop surface.
   const launcher = await readFile(resolve('scripts/launch-selected-desktop.ps1'), 'utf8');
-  assert.ok(launcher.includes('nnd start'));
-  assert.ok(!launcher.includes('launch-selected-desktop.mjs'));
+  assert.ok(launcher.includes('desktop start'));
+  assert.ok(!launcher.includes('nnd start'));
+  // Shortcuts carry NNA branding.
+  assert.ok(source.includes('"NotNativeAgent.lnk"'));
+  assert.ok(!source.includes('"NotNativeDesktop.lnk"'));
+  assert.ok(source.includes('notnative-agent.ico'));
 });
 
 test('a stale controller discovery record is recovered through foreground takeover',

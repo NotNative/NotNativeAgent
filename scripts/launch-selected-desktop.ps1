@@ -21,12 +21,12 @@ $env:NODE_OPTIONS = ''
 $env:ELECTRON_RUN_AS_NODE = ''
 # Start the supervised desktop service (idempotent): the supervisor owns the
 # service + tray + UI child, and an already-running service resolves to its
-# live status. The NNA CLI surface (`nna nnd start`) owns the lifecycle.
+# live status. The NNA CLI surface (`nna desktop start`) owns the lifecycle.
 $cliPath = Join-Path $selection.nna_install_root 'installed\src\cli.js'
 if (!(Test-Path -LiteralPath $cliPath -PathType Leaf)) { $cliPath = Join-Path $selection.nna_install_root 'src\cli.js' }
 if (!(Test-Path -LiteralPath $cliPath -PathType Leaf)) { throw 'Selected NNA CLI is unavailable.' }
-& $descriptor.node $cliPath nnd start
-if ($LASTEXITCODE -ne 0) { throw "NND service start failed (exit $LASTEXITCODE)." }
+& $descriptor.node $cliPath desktop start
+if ($LASTEXITCODE -ne 0) { throw "Desktop service start failed (exit $LASTEXITCODE)." }
 } catch {
     # Shortcut runs with a hidden console; surface a failed launch to the user.
     $message = "NotNativeDesktop could not start.`r`n`r`n$($_.Exception.Message)"

@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Rebrand the operator surface to `nna desktop` (operator request, implemented-unverified)
+
+The desktop plugin lifecycle is now `nna desktop start|stop|enable|disable|status`
+(NNA `20261010-3`): the brand-facing surface is renamed, `nna nnd` keeps only
+the pre-rename service/package/serve surfaces, and internal identities
+(registry, admission, error codes) keep the nnd name for the upcoming fold
+into NNA as a bundled service. The graceful not-installed message is
+unchanged per operator decision. NNA ships a generated brand icon
+(resources/icons/notnative-agent.ico + 32px png, dark rounded square, blue
+accent bar, N monogram). NND `20261010-41`: the desktop/Start Menu shortcuts
+are renamed `NotNativeAgent.lnk` with the NNA icon (electron fallback),
+described as "NotNativeAgent desktop", and the shortcut launcher runs
+`desktop start`. The installer's final hints now cite the `nna desktop`
+commands. Structure tests pin the launcher command and shortcut branding
+(installer suites at their baselines: the two remaining failures are the
+pre-existing PowerShell execution-policy failures, identical before and
+after). Implemented-unverified: the renamed journey needs the operator's
+installed observation after both reinstall.
+
 ## 2026-10-10 Installer reshape to the dumb-copy shape (operator request, implemented-unverified)
 
 install.ps1 no longer runs the native installation guard on the install path

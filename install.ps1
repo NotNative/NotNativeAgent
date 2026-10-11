@@ -513,12 +513,12 @@ if ($StagePrebuiltPayload) {
 }
 function New-NndPrebuiltShortcut($AnchorPath, [string]$IconPath) {
     $shell = New-Object -ComObject WScript.Shell
-    $link = $shell.CreateShortcut((Join-Path $AnchorPath "NotNativeDesktop.lnk"))
+    $link = $shell.CreateShortcut((Join-Path $AnchorPath "NotNativeAgent.lnk"))
     $link.TargetPath = Join-Path $PSHOME 'powershell.exe'
     $link.Arguments = '-NoProfile -NonInteractive -WindowStyle Hidden -File "' + $StableLauncher + '"'
     $link.WorkingDirectory = $AnchorPath
     $link.IconLocation = $IconPath + ',0'
-    $link.Description = 'NotNativeDesktop - local service + tray'
+    $link.Description = 'NotNativeAgent desktop'
     $link.Save()
 }
 if ($ActivatePrebuiltSlot) {
@@ -546,7 +546,7 @@ if ($ActivatePrebuiltSlot) {
                 New-Item -ItemType Directory -Path $shortcutRoot | Out-Null
             }
             New-NndPrebuiltShortcut $shortcutRoot (Join-Path $activated.root 'packages\electron\node_modules\electron\dist\electron.exe')
-            Write-Good "shortcut: $shortcutRoot\NotNativeDesktop.lnk"
+            Write-Good "shortcut: $shortcutRoot\NotNativeAgent.lnk"
         }
     } catch {
         if ($anchorCreated -and $anchorFresh -and (Test-Path -LiteralPath $targetPath)) {
@@ -715,24 +715,27 @@ Invoke-NndRegistration 'activate' $targetPath $nna
 if ($LASTEXITCODE -ne 0) { throw "Installed NNA selection could not be saved (exit $LASTEXITCODE)." }
 
 Write-Heading "Creating shortcuts"
+# Brand shortcut as NotNativeAgent: the NNA installation ships the icon asset.
+$nnaIcon = Join-Path $nna.InstallRoot 'resources\icons\notnative-agent.ico'
+$shortcutIcon = if (Test-Path -LiteralPath $nnaIcon -PathType Leaf) { "$nnaIcon,0" } else { "$ElectronExe,0" }
 foreach ($anchor in @($DesktopDir, $StartMenuDir)) {
     if ($hasShortcutRoot) {
         if (!(Test-Path -LiteralPath $anchor)) { New-Item -ItemType Directory -Path $anchor | Out-Null }
         if (!(Test-Path -LiteralPath $anchor -PathType Container) -or
             (Get-Item -LiteralPath $anchor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint -or
-            ($installPlan.Mode -eq 'fresh' -and (Test-Path -LiteralPath (Join-Path $anchor 'NotNativeDesktop.lnk')))) {
+            ($installPlan.Mode -eq 'fresh' -and (Test-Path -LiteralPath (Join-Path $anchor 'NotNativeAgent.lnk')))) {
             throw 'Disposable shortcut target is not fresh and safe.'
         }
     }
     $shell = New-Object -ComObject WScript.Shell
-    $link = $shell.CreateShortcut((Join-Path $anchor "NotNativeDesktop.lnk"))
+    $link = $shell.CreateShortcut((Join-Path $anchor "NotNativeAgent.lnk"))
     $link.TargetPath = Join-Path $PSHOME 'powershell.exe'
     $link.Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -File `"$StableLauncher`""
     $link.WorkingDirectory = $InstallDir
-    $link.IconLocation = "$ElectronExe,0"
-    $link.Description = "NotNativeDesktop - local service + tray"
+    $link.IconLocation = $shortcutIcon
+    $link.Description = "NotNativeAgent desktop"
     $link.Save()
-    Write-Good "shortcut: $anchor\NotNativeDesktop.lnk"
+    Write-Good "shortcut: $anchor\NotNativeAgent.lnk"
 }
 
 $installationComplete = $true
@@ -743,9 +746,9 @@ $installationComplete = $true
 # The package is registered but the service is intentionally not started here.
 Write-Heading "NotNativeDesktop installed"
 Write-Host "  version   : $((Get-Content -LiteralPath (Join-Path $InstallDir 'VERSION') -Raw).Trim())"
-Write-Host "  start     : desktop or Start Menu shortcut (starts the service + tray), or: nna nnd start"
-Write-Host "  stop      : nna nnd stop;  auto-start at logon: nna nnd enable / disable"
-Write-Host "  status    : nna nnd status"
+Write-Host "  start     : desktop or Start Menu shortcut (starts the service + tray), or: nna desktop start"
+Write-Host "  stop      : nna desktop stop;  auto-start at logon: nna desktop enable / disable"
+Write-Host "  status    : nna desktop status"
 Write-Host "  NNA node  : $($nna.Node)"
 Write-Host "  NNA CLI   : $($nna.Cli)"
 Write-Host "  NNA root  : $($nna.InstallRoot)"

@@ -226,8 +226,8 @@ test('installer activation mode delegates the selected slot without copying the 
     const binding = JSON.parse(await readFile(join(secondTarget, 'nnd-anchor.json'), 'utf8'));
     assert.equal(selection.installation_id, JSON.parse((await readFile(join(secondTarget, 'nna-service-selection.json'), 'utf8'))).installation_id);
     assert.equal(binding.version, '20261003-12');
-    assert(existsSync(join(shortcutRoot, 'desktop', 'NotNativeDesktop.lnk')));
-    assert(existsSync(join(shortcutRoot, 'StartMenu', 'NotNativeDesktop.lnk')));
+    assert(existsSync(join(shortcutRoot, 'desktop', 'NotNativeAgent.lnk')));
+    assert(existsSync(join(shortcutRoot, 'StartMenu', 'NotNativeAgent.lnk')));
     const marker = JSON.parse(await readFile(f.marker, 'utf8'));
     process.kill(marker.pid, 'SIGTERM');
     await new Promise(accept => setTimeout(accept, 50));
