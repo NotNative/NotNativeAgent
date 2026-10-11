@@ -18,6 +18,22 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Config inventory / attached-NNA completeness / service attachment (W-44, W-45, W-73, implemented-unverified)
+
+W-44: the typed supported-environment/configuration inventory is the typed
+NND settings registry plus the settings-coverage gate that runs in the
+release seal (registry tests pin the schema; coverage is a gate, not a
+count). W-45: an attached independent NNA backs the complete local feature
+set through the harness adapter under the P-01–P-24 native contracts, with
+the surface-state catalog pinning truthful missing-data states; attach
+acceptance runs via the NNA-native multi-root and installed multi-root
+acceptance scripts (installed observation still owed). W-73: the
+Electron-owned in-process backend is replaced by persistent-service
+attachment for installed launches — attach/redeem/stop in main.mjs, the
+native service client (17 tests), the selection record, and the desktop
+boot suite (15 tests); only explicit dev launches keep the in-process
+server. All implemented-unverified pending the installed V-gates.
+
 ## 2026-10-11 Install/service/update/schedule tooling + data ownership (W-42, W-43, implemented-unverified)
 
 W-42: the install/service/update/diagnostic and schedule tooling legs are

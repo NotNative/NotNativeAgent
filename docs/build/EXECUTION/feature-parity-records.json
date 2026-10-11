@@ -1238,15 +1238,47 @@
       "id": "W-44",
       "work_packages": "L, C",
       "disposition": "MVP typed supported environment/configuration inventory.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-44.env-config-inventory",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/lib/settings-registry.json (typed NND registry)",
+            "../NotNativeDesktop/packages/ui/src/lib/settings/__tests__/registry.test.ts (10 tests)",
+            "../NotNativeDesktop/scripts/settings-coverage-gate.mjs + .test.mjs (release-gate coverage census)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/lib/settings-registry.json (typed NND registry)",
+        "../NotNativeDesktop/packages/ui/src/lib/settings/__tests__/registry.test.ts (10 tests)",
+        "../NotNativeDesktop/scripts/settings-coverage-gate.mjs + .test.mjs (release-gate coverage census)"
+      ]
     },
     {
       "id": "W-45",
       "work_packages": "L, F1–F10",
       "disposition": "MVP attached independent NNA has complete local features; legacy degraded external mode superseded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-45.attached-nna-completeness",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/harness/adapter.ts (attached independent NNA backs the full local feature set)",
+            "../NotNativeDesktop/docs/planning/02-opencode-harness-contract.md (P-01–P-24 native contracts)",
+            "../NotNativeDesktop/docs/build/EXECUTION/surface-state-catalog.md (feature surfaces + truthful missing-data states)",
+            "../NotNativeDesktop/scripts/nna-native-multi-root-smoke.mjs + installed-multi-root-acceptance.mjs (attach acceptance)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/harness/adapter.ts (attached independent NNA backs the full local feature set)",
+        "../NotNativeDesktop/docs/planning/02-opencode-harness-contract.md (P-01–P-24 native contracts)",
+        "../NotNativeDesktop/docs/build/EXECUTION/surface-state-catalog.md (feature surfaces + truthful missing-data states)",
+        "../NotNativeDesktop/scripts/nna-native-multi-root-smoke.mjs + installed-multi-root-acceptance.mjs (attach acceptance)"
+      ]
     },
     {
       "id": "W-46",
@@ -1441,8 +1473,25 @@
       "id": "W-73",
       "work_packages": "L",
       "disposition": "Replace Electron-owned in-process backend with persistent installed service attachment.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-73.service-attachment",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/main.mjs (installed launches attach to the native-owned persistent service; attachNativeService/redeemNativeAttachment/requestNativeServiceStop)",
+            "../NotNativeDesktop/packages/electron/native-service-client.mjs + .test.mjs (17 tests)",
+            "../NotNativeDesktop/packages/electron/native-service-selection.mjs",
+            "../NotNativeDesktop/packages/electron/desktop-boot.test.mjs (15 tests)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/main.mjs (installed launches attach to the native-owned persistent service; attachNativeService/redeemNativeAttachment/requestNativeServiceStop)",
+        "../NotNativeDesktop/packages/electron/native-service-client.mjs + .test.mjs (17 tests)",
+        "../NotNativeDesktop/packages/electron/native-service-selection.mjs",
+        "../NotNativeDesktop/packages/electron/desktop-boot.test.mjs (15 tests)"
+      ]
     },
     {
       "id": "W-74",
