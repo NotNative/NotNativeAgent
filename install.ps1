@@ -633,6 +633,11 @@ Assert-NndSelectedPin $nna $nnaCapabilities
 Write-Good "NNA native NND protocol $($nnaCapabilities.protocol) is compatible"
 Invoke-NndRegistration 'status' $targetPath $nna
 
+# The plan may stop a running service; native guard admission refuses while
+# the NND service runs, so resolution happens before the guard is acquired.
+# Nothing is held if resolution fails - a clean exit is always safe here.
+$installPlan = Resolve-NndInstallPlan $nna $targetPath
+
 $installationGuard = Start-NndInstallationGuard $nna
 $guardMatchesPreflight = $installationGuard.Frame.installation_id -ceq $nnaCapabilities.installation_id -and
     $installationGuard.Frame.data_id -ceq $nnaCapabilities.data_id
@@ -640,8 +645,6 @@ if (!$guardMatchesPreflight) {
     Stop-NndInstallationGuard $installationGuard
     throw 'Selected NNA identity changed between compatibility preflight and installation guard; NND was not installed.'
 }
-try { $installPlan = Resolve-NndInstallPlan $nna $targetPath }
-catch { Stop-NndInstallationGuard $installationGuard; throw }
 $installationComplete = $false
 try {
 Write-Heading "Copying source"

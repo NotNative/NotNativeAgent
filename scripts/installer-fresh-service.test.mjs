@@ -154,7 +154,7 @@ test('installer source gates copying and success on fresh checks, guard release 
   const source = await readFile(resolve('install.ps1'), 'utf8');
   const initial = source.indexOf('function Resolve-NndInstallPlan');
   const guard = source.indexOf('$installationGuard = Start-NndInstallationGuard $nna');
-  const guarded = source.indexOf('try { $installPlan = Resolve-NndInstallPlan $nna $targetPath }');
+  const guarded = source.indexOf('$installPlan = Resolve-NndInstallPlan $nna $targetPath');
   const copy = source.indexOf('Write-Heading "Copying source"');
   const release = source.lastIndexOf('Stop-NndInstallationGuard $installationGuard');
   const verify = source.indexOf('$verified = Invoke-NndInstallVerification $nna $targetPath');
