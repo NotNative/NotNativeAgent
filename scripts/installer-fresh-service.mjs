@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Source-installer fresh path only. Native NNA owns service admission and authority. */
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { lstat, realpath } from 'node:fs/promises';
@@ -82,14 +82,42 @@ async function awaitReadyStatus(runtime, version, initial) {
     status = await command(runtime, ['service', 'status', runtime.root], 20000);
   }
 }
+async function recoverForeground(runtime) {
+  // A dead controller can leave its discovery record behind; `service start`
+  // refuses takeover (nnd_owner_unverified). The native verified recovery is
+  // a detached foreground run: the supervisor takes over the stale record,
+  // publishes fresh discovery, and the status poll confirms admission.
+  const child = spawn(runtime.node, [runtime.cli, 'nnd', 'service', 'run', runtime.root], {
+    cwd: runtime.root, env: installerNativeEnvironment(runtime),
+    detached: true, windowsHide: true, stdio: 'ignore',
+  });
+  child.unref();
+  const deadline = Date.now() + 135000;
+  for (;;) {
+    let status;
+    try { status = await command(runtime, ['service', 'status', runtime.root], 20000); }
+    catch (error) {
+      if (Date.now() >= deadline) throw error;
+      await delay(200); continue;
+    }
+    if (['ready', 'setup_required'].includes(status?.service_state)) return status;
+    if (Date.now() >= deadline) fail('fresh_service_status_invalid');
+    await delay(200);
+  }
+}
 async function startFreshService(runtime) {
   try { return await command(runtime, ['service', 'start', runtime.root], 150000); }
   catch (error) {
     // A cold Windows launch can fail before discovery is published. NNA owns
     // singleton admission; one retry may start only after that failed owner exits.
-    if (error.message !== 'nnd_service_crashed') throw error;
-    await delay(500);
-    return command(runtime, ['service', 'start', runtime.root], 150000);
+    if (error.message === 'nnd_service_crashed') {
+      await delay(500);
+      return command(runtime, ['service', 'start', runtime.root], 150000);
+    }
+    // An interrupted install leaves a dead controller's discovery record;
+    // take over through the native verified-recovery path instead of failing.
+    if (error.message === 'nnd_owner_unverified') return recoverForeground(runtime);
+    throw error;
   }
 }
 async function boundedBody(response, limit = 4096) {

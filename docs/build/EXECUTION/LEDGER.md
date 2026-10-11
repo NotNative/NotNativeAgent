@@ -18,6 +18,35 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-10 Operator install observation: upgrade verified + stale-owner recovery (verified)
+
+The operator ran the new installer end to end on the real machine. The
+in-place upgrade worked: the stale 20261004-8 registration (Codex sandbox
+cache path) was found with its service not running, deactivated, replaced by
+the copy/build/activate flow, and the package registered at the new target as
+20261010-36. Two real defects surfaced and were fixed:
+
+1. The entry path still called the removed fresh-only preflight before the
+   plan resolver, so the first upgrade attempt refused
+   (fresh_registration_exists). Fixed by deleting the stale call and function;
+   the resolver is now the only preflight path (`b41471a8`).
+2. Service verification failed with nnd_owner_unverified /
+   nnd_health_unavailable: the interrupted earlier attempts left a dead
+   controller's discovery record, and `service start` refuses takeover. NNA's
+   documented recovery is a foreground verified run; the installer now
+   performs exactly that — on nnd_owner_unverified it spawns a detached
+   `nnd service run`, polls status to ready, and continues the normal
+   attach/bootstrap verification. Pinned by a fixture test consuming a stale
+   ownership record through takeover (`installer-fresh-service.test.mjs`
+   10/10).
+
+Installed observation after the fixes: foreground recovery brought the
+service to ready on 20261010-36 (endpoint on loopback, package_state ready);
+a graceful stop + detached `nnd service start` handed it a persistent
+controller (new instance, status ready). The upgrade path is now verified by
+installed observation; the fresh path and stopped-service verify remain
+implemented-unverified until observed.
+
 ## 2026-10-10 Installer upgrade-in-place (operator request, implemented-unverified)
 
 The source installer no longer refuses when an NND registration already

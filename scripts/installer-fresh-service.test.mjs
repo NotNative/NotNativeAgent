@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { readFile, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { once } from 'node:events';
@@ -70,6 +71,13 @@ if(namespace==='nnd'&&kind==='package'&&action==='status')value=existsSync(join(
 else if(namespace==='nnd'&&kind==='service'&&action==='start'&&existsSync(join(process.env.NNA_HOME,'fail-start-once'))){
   unlinkSync(join(process.env.NNA_HOME,'fail-start-once'));
   process.stderr.write('(node) startup warning\\n'+'nna: nnd_service_crashed\\n');process.exit(2);
+}
+else if(namespace==='nnd'&&kind==='service'&&action==='start'&&existsSync(join(process.env.NNA_HOME,'owner-stale'))){
+  process.stderr.write('nna: nnd_owner_unverified\\n');process.exit(2);
+}
+else if(namespace==='nnd'&&kind==='service'&&action==='run'&&existsSync(join(process.env.NNA_HOME,'owner-stale'))){
+  unlinkSync(join(process.env.NNA_HOME,'owner-stale'));
+  process.stdout.write(JSON.stringify(row.status)+'\\n');
 }
 else if(namespace==='nnd'&&kind==='service'&&['start','status'].includes(action)){
   if(action==='status'&&existsSync(join(process.env.NNA_HOME,'service-stopped'))){
@@ -161,6 +169,15 @@ test('installer source gates copying and success on fresh checks, guard release 
   const stoppedVerify = source.indexOf("if ($StartService) { 'verify' } else { 'verify-stopped' }");
   assert.ok(stoppedVerify > 0 && stoppedVerify < verify);
 });
+
+test('a stale controller discovery record is recovered through foreground takeover',
+  { skip: process.platform !== 'win32' }, async t => {
+    const f = await fixture(t); await mkdir(f.target); await f.register();
+    await writeFile(join(f.data, 'owner-stale'), 'yes');
+    const result = await verifyFreshSourceService(f.root, f.target, f.installationId, f.dataId);
+    assert.equal(result.state, 'fresh_service_verified');
+    assert.equal(existsSync(join(f.data, 'owner-stale')), false); // takeover consumed the stale record
+  });
 
 test('upgraded registration without a running service verifies stopped and rejects a running one',
   { skip: process.platform !== 'win32' }, async t => {
