@@ -6,7 +6,10 @@ All gates compose in `pnpm run check`.
 Current product direction and migration work are defined by
 [ADR 0020](0020-nna-ecosystem-topology.md) and the [executable build guide](../build/PLAN.md).
 The 2026-10-01 audit records existing graph/release coverage omissions for Electron
-and installers. Passing current gates does not establish installed-product acceptance.
+and installers; the 20261011-6 canonical installer shape (dumb-copy installers pinned
+by `scripts/installer-structure.test.mjs`, `installer-fresh-service.mjs` retired,
+NNA-branded shortcuts, `nna desktop` operator commands) supersedes installer findings.
+Passing current gates does not establish installed-product acceptance.
 
 | Artifact | Purpose | Owner doc |
 |---|---|---|
@@ -20,4 +23,4 @@ and installers. Passing current gates does not establish installed-product accep
 
 Wait-noted: release evidence (`RELEASE_MANIFEST.sha256`, `RELEASE_VERSIONS.json`) belongs to
 `scripts/release-gates.js`; publish-era artifacts (installers, platform conformance) land
-with P12.
+with the L/V release packages per [PLAN](../build/PLAN.md) and the [execution guide](../build/EXECUTION/05-verification.md).

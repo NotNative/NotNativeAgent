@@ -1,15 +1,21 @@
 # GUI planning map
 
-Updated 2026-10-01. The executable build sequence is [PLAN](PLAN.md).
+Updated 2026-10-01; amended for the 20261011-6 canonical installer/lifecycle shape
+(dumb-copy installers, NNA-branded shortcuts, `nna desktop` operator commands,
+service-linked tray). The executable build sequence is [PLAN](PLAN.md), whose
+Product and completion contract pins that shape.
 NND is a separately installed optional GUI product backed by independent NNA.
 The NNA TUI keeps its own identity, tabs and sessions. Browser and Electron are
 interfaces to the installed NND service, whose lifecycle NNA supervises.
+Post-MVP direction: fold the NND repo into NNA as a bundled `src/desktop`
+service; internal identity remains NND/NotNativeDesktop, user-facing surfaces
+are NNA-branded.
 
 ## Current implementation guides
 
 | Guide | Agent responsibility |
 |---|---|
-| [Architecture audit](EXECUTION/01-architecture-audit.md) | Read ownership and confirmed gaps before changing existing code |
+| [Architecture audit](EXECUTION/01-architecture-audit.md) | Read ownership and confirmed gaps before changing existing code; the installer/lifecycle findings are superseded by the 20261011-6 canonical shape — execute installer work from [02](EXECUTION/02-installation-lifecycle.md) as amended |
 | [Installation and lifecycle](EXECUTION/02-installation-lifecycle.md) | Execute L1–L6: native supervision, renewable authority, attach, installer and release identity |
 | [All NNA settings](EXECUTION/03-settings.md) | Execute C1–C7: field inventory, source/effective values, native mutations, GUI controls and coverage |
 | [Chat and visibility parity](EXECUTION/04-feature-parity.md) | Execute F1–F10: native workflows and complete W-01–W-117 mapping |

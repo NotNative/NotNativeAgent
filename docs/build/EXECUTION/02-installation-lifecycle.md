@@ -108,9 +108,11 @@ Prefer an NNA-owned login registration launching an NNA supervisor with a
 supervised NND subprocess; document the exact owned registration and removal rule.
 Do not leave transport or ownership as an indefinite prerequisite.
 
-Proposed control operations are `nna service start|stop|status` and NND module
-activation/deactivation/status operations. Existing `nna nnd package` operations
-are registration only; new behavior must be versioned and documented explicitly.
+The control operations are `nna desktop start|stop|enable|disable|status`
+(start/enable fail gracefully with `nnd_plugin_not_installed` when the plugin is
+not installed; stop/disable/status are silent no-ops); `nna nnd` retains only
+service/package/serve surfaces. New behavior must be versioned and documented
+explicitly.
 Define machine-readable results for absent, incompatible, starting, ready,
 degraded, stopping, stopped, and failed; include stable failure codes.
 Separate NNA runtime health from NND package readiness and provider readiness.
@@ -267,7 +269,11 @@ each staged hash, then runs NNA's installer and rediscovers native capabilities.
 The sibling NNA checkout remains a development fallback. Network retrieval and
 automatic trust-anchor discovery await an immutable published NNA artifact.
 Persist the chosen NNA installation identity and custom roots into the protected
-launch configuration. Test without PATH and with two NNA installations.
+launch configuration. Test without PATH and with two NNA installations. The
+shortcuts the installer creates are NNA-branded - Windows `NotNativeAgent.lnk`
+with the icon from the NNA installation (`resources/icons/notnative-agent.ico`)
+and a POSIX `notnativeagent.desktop` named NotNativeAgent; a Windows upgrade
+removes the stale pre-rename `NotNativeDesktop.lnk`.
 The current NNA `installation_id` and `data_id` derive from canonical install
 and data roots. A launcher pin detects a changed data root or redirected selected
 installation and rechecks native capabilities on each attach. Reinstalling NNA
@@ -294,17 +300,18 @@ under the data-root lease. The stable desktop launcher resolves that record thro
 the selected NNA; do not create a second independently mutable active-version pointer.
 Retain exact previous registration bytes/hash and a protected prepared transaction
 before mutation. Native code owns and awaits slot copy/publication; production
-installation launches no dependency/build writers. Existing source-build guard
-markers cannot establish surviving child-writer quiescence and must remain blocked
-until verified recovery; absence of a PID or port is insufficient evidence.
-Start through NNA,
-and require health plus authenticated GUI/engine probes before reporting success.
-On a fresh unconfigured NNA, successful installation may report `setup-required`
-after authenticated service/configuration probes; it must not report chat readiness
-or roll back solely because no model is configured. Guide the operator through C's
+installation launches no dependency/build writers. The install path runs
+guard-free (dumb copy plus registration); a native installation guard is required
+only on the Windows uninstall path. Registration and activation complete the
+installation; the installer never starts the service or runs a post-install
+verification ceremony - service start and health verification are separate
+operator actions (`nna desktop start`). A fresh unconfigured NNA is reported as
+installed-pending-setup; the operator reaches `setup-required` by starting the
+service themselves with `nna desktop start`. Guide the operator through C's
 native setup and distinguish installation completion from execution readiness.
-After C4 lands, rerun the installer journey through a first governed prompt using
-the deterministic provider/reviewer fixture. A model outage must not hide repair
+After C4 lands, rerun the operator journey (`nna desktop start` → tray+app, tray
+Quit, shortcut start) through a first governed prompt using the deterministic
+provider/reviewer fixture. A model outage must not hide repair
 settings or make an otherwise valid package installation appear corrupt.
 
 If activation or health fails, restore the prior version and registration together.

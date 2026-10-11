@@ -29,7 +29,10 @@ seam between them is NNA's versioned native integration surface. Reference doc 0
 and the P-01…P-24 port catalog inventory consumers; they do not prescribe native
 wire semantics. OpenChamber is inspiration
 for NND's product surface only; it is not an integration target or architectural
-authority.
+authority. Amended 20261011-6: user-facing surfaces are NNA-branded (Windows
+`NotNativeAgent.lnk`, POSIX `notnativeagent.desktop` named NotNativeAgent, NNA
+icon assets) while internal identity remains NND/NotNativeDesktop; post-MVP
+direction: fold NND into the NNA repository as a bundled `src/desktop` service.
 
 ## Product roles
 
@@ -42,9 +45,10 @@ authority.
 
 Installation rule (the keystone): NNA must be installed before its local NND
 package. During source development, the NND installer may first ask to run the
-local sibling NNA installer, or use an explicit unattended opt-in. It then
-validates the installed NNA before copying or downloading the GUI package and
-registers the built package with NNA before declaring success. An
+local sibling NNA installer, or use an explicit unattended opt-in. Thereafter it
+performs the canonical dumb-copy sequence (best-effort service stop and
+deactivation, copy, pnpm+build, register/activate, NNA-branded shortcuts) and
+never starts the service or runs a verification ceremony. An
 NND client can only connect to an NNA instance with the NND web-service package
 installed. GUI access is installed, like NNO — it is not a congenital feature
 of the harness. A separately launched service process is an internal package
@@ -82,10 +86,13 @@ isolated test seams and cannot establish production feature completion.
   lifecycle; no shared resident TUI/NND session collection is required.
 - Delegated contexts run with the acting principal's entitlement (run-as isolation).
   NNA must never see more than the user it acts for.
-- Lifecycle split (confirmed): NNA core owns daemon lifecycle commands
-  (planned service start/stop/status, startup registration and health probes),
-  headless with zero desktop dependencies. NND contributes tray and shell controls
-  for that lifecycle API. The independent TUI keeps its current tab/session model;
+- Lifecycle split (confirmed): NNA core owns the daemon lifecycle commands
+  (`nna desktop start|stop|enable|disable|status` — start/enable fail gracefully
+  with `nnd_plugin_not_installed` when the plugin is not installed; stop/disable/
+  status are silent no-ops), headless with zero desktop dependencies. NND
+  contributes the service-linked tray: the supervised service child launches the
+  attached desktop app after readiness, and tray Quit requests a native service
+  stop. The independent TUI keeps its current tab/session model;
   TUI attachment to a resident engine is not an NND implementation prerequisite.
   The initial Windows service runs under the operator's account, survives GUI exits,
   and follows the explicit sign-in/logoff policy in execution guide 02.

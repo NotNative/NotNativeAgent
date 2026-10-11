@@ -3,6 +3,15 @@
 Date: 2026-10-01. Baseline: NND `e6a99dc` / `20261001-41`;
 NNA `7363ad1c` / `20261001-6`. Read with [PLAN](../PLAN.md).
 
+Supersession (20261011-6): the dated findings below stand as evidence, but
+installer/lifecycle required-work items are superseded by the canonical
+dumb-copy shape pinned in [PLAN](../PLAN.md) and
+[02 — Installation and lifecycle](02-installation-lifecycle.md) — notably A03's
+"staged artifacts / rollback" requirement (the canonical installer accepts
+stop-best-effort → copy → build → register/activate, with failure handling
+limited to a clear not-installed/degraded state resolved by rerunning the
+installer) and any service-start/health-verification ceremony at install time.
+
 This is a planning and architecture audit supported by source inspection. It does
 not certify every runtime path. Prior full-suite results remain dated evidence;
 this documentation revision does not claim to have rerun installed acceptance.

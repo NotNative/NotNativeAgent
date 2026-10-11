@@ -17,27 +17,30 @@ entrypoint `scripts/serve-installed.mjs` as a supervised child. That child serve
 the GUI and companion routes and attaches to the supplied native endpoint.
 Browser and Electron attach to the same GUI service. TUI ownership is unchanged.
 
-Existing `nna nnd serve` is an NNA integration host, not the NND GUI child.
-Existing `serve-installed.mjs` forces managed mode and launches an NNA child.
-L2-L4 must replace that inversion before claiming supervised service operation.
+The supervised service child (scripts/serve-supervised.mjs, entered via
+`serve-installed.mjs --supervised`) serves the GUI/companion routes and attaches
+to the supplied native endpoint; the legacy managed-mode inversion remains only
+as an explicitly separate development path.
 The service path must reject missing/invalid bootstrap and never fall back to
 launching NNA. Legacy development mode remains explicitly separate until migration.
 The current package activation CLI only registers a package; it does not start it.
 
 ## Startup decision
 
-Windows MVP uses an NNA-owned per-user HKCU Run value named
-`NotNativeAgent-<installation_id>`. Its command invokes the installed NNA hidden
-launch helper with the selected absolute installation descriptor, without secrets.
+Windows MVP uses an NNA-owned per-user logon auto-start script in the user's
+Startup folder (a hidden `NotNativeAgent-NND.vbs` launching the installed NNA's
+node + CLI `nnd start`, mirroring the gateway's wiring). Its command invokes the
+installed NNA with the selected absolute installation descriptor, without secrets.
 The helper uses exact executable/argument arrays and hidden Windows processes.
-L2 implements and tests quoting, ownership and startup; this file registers nothing.
+The `nna desktop enable|disable` operations write and remove this script and the
+enabled flag; enable reverts the flag if wiring fails. This file registers nothing.
 
-Only NNA lifecycle operations write/remove that value. NND installer requests
+Only NNA lifecycle operations write/remove that script. NND installer requests
 module enablement through NNA after validated activation. The native owner verifies
-the existing value belongs to this installation before replacing or removing it.
+the existing script belongs to this installation before replacing or removing it.
 A collision is an actionable error, never permission to overwrite another product.
 The NNA supervisor reads enabled module state: NND deactivation stops/disables NND
-without changing TUI data. A shared NNA startup value may remain for other enabled
+without changing TUI data. A shared NNA startup script may remain for other enabled
 modules; NNA uninstall removes its owned value. Upgrade updates the owned target
 transactionally. Disabled or absent NND never causes an endless startup retry.
 
@@ -137,9 +140,11 @@ failed never implies unlimited restart. Provider failure is not package absence.
 
 ## CLI decision and remaining acceptance
 
-Planned commands: `nna nnd service start|stop|status|restart` plus NNA-owned startup
-enable/disable operations. They are not implemented by a constants module.
-Existing `nna nnd package activate ROOT|deactivate ROOT|status` remains registration.
+The lifecycle commands are `nna desktop start|stop|enable|disable|status`
+(start/enable fail with `nnd_plugin_not_installed` when uninstalled;
+stop/disable/status are silent no-ops), implemented in the `nna desktop`
+namespace. Existing `nna nnd package activate ROOT|deactivate ROOT|status`
+remains registration, and `nna nnd` retains only service/package/serve surfaces.
 The service status must never be inferred from that registration result.
 
 L1 validates shape, fail-closed compatibility and paired contract agreement. L2-L5

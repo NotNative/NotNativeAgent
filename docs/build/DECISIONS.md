@@ -14,6 +14,14 @@ mock-first ordering, surface-lifecycle assumptions and incomplete closure claims
 
 ## Product identity
 
+Decision (20261011-6): user-facing surfaces are NNA-branded while the internal
+product identity remains NotNativeDesktop/NND - Windows shortcuts are
+`NotNativeAgent.lnk` with the NNA icon, POSIX desktop entries are
+`notnativeagent.desktop` named NotNativeAgent, and the operator surface is
+`nna desktop start|stop|enable|disable|status`. Post-MVP direction: fold the NND
+repository into NNA as a bundled `src/desktop` service, at which point internal
+NND identifiers disappear with the fold.
+
 Product name **NotNativeDesktop** (short: NotNative). Brand map applied everywhere
 (strings, keys, routes, globals, events). When the doc 02 contract is finalized with NNA,
 harness-facing names may be re-coordinated — they are centralized in

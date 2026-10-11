@@ -71,8 +71,9 @@ the selected package at launch and can validate an immutable slot, but prebuilt
 activation and a native atomic launch/attach generation contract remain open.
 See [stable desktop launcher](nnd-stable-desktop-launcher.md). After native
 activation/recovery passes audit and full tests, the production prebuilt installer
-must preserve that stable entry across slot upgrades and create its shortcut only
-after authenticated installed health. Login startup must use the same entry.
+must preserve that stable entry across slot upgrades and create the NNA-branded
+shortcut (`NotNativeAgent.lnk`) during the dumb-copy install itself, without a
+health-verification gate. Login startup must use the same entry.
 
 Then change the production installer to discover/select NNA, verify capabilities,
 offer an explicit verified NNA dependency installation when none is available,
@@ -80,10 +81,13 @@ stage a prebuilt artifact and invoke native activation/recovery. Reprobe the
 installed dependency rather than trusting the download or installer exit code.
 It must build no dependencies during that transaction. Keep source development
 installation explicit. NNA remains separately usable and independently owned.
-Only authenticated installed health permits the final completion screen.
+The completion screen reports the registered/activated package identity; the
+installer never starts the service or probes a running one - service start and
+health are the operator's first post-install actions (`nna desktop start`).
 
-Acceptance must show browser/desktop access, service survival after installer and
-shell exit, exact selected slot, browser credential isolation, setup-required setup,
+Acceptance must show `nna desktop start` → tray+app, tray Quit stopping the
+service, shortcut start, browser/desktop access, service survival after shell
+exit, exact selected slot, browser credential isolation, setup-required setup,
 failed activation recovery, and independent NNA TUI identity. Follow each logical
 slice with an adversarial audit, required tests, version/report updates and a commit.
 Signing, NSIS distribution, upgrade pruning, uninstall and login startup retain

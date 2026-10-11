@@ -5,6 +5,11 @@
 > [PLAN](../PLAN.md) and the [execution audit](../EXECUTION/01-architecture-audit.md).
 > Old mock-only, auto-accept, lifecycle, and deferral instructions are superseded.
 > A recorded test pass is limited to its stated version and surface.
+> Supersession (20261011-6): the launch-ownership sections below describe the
+> retired NND-owned managed child; canonically NNA supervises the NND service,
+> the operator surface is `nna desktop start|stop|enable|disable|status`, and
+> the launcher runs `desktop start` via the NNA CLI before spawning the
+> attached GUI. The `nna nnd serve` transport contract sections remain valid.
 
 
 ## Current interoperable path

@@ -140,14 +140,12 @@ transactional activation. The source-build path remains separate.
 -PrebuiltPayloadRoot ABSOLUTE_DIRECTORY -PrebuiltManifestSha256 TRUSTED_SHA256`
 is an isolated activation entry. It verifies the same trusted payload and
 selected NNA identity, runs an exact activation preflight, then starts NNA's
-retained `activate-slot` owner detached. The helper reads the bounded
-`public_controller_attached` frame, confirms NNA package ownership, and samples
-the existing public attach proof without starting NND. The helper binds the
-preflight candidate evidence and active registration hash to the reported root
-and version. Success reports the activation operation, slot root, package
-version, controller generation, and loopback endpoint. That attach proof is a
-sample, not durable evidence of continued ownership. Failure or a changing
-proof reports the stage UUID and an uncertain retained owner; do not retry
+retained `activate-slot` owner detached and binds the preflight candidate
+evidence and active registration hash to the reported root and version. Success
+reports the activation operation, slot root, and package version. It performs
+registration/activation only; it does not start the service or sample an attach
+proof - service start and health are operator actions (`nna desktop start`).
+Failure reports the stage UUID and an uncertain retained owner; do not retry
 blindly. The activation mode accepts only its payload, stage operation, NNA
 root, and NND target arguments. This slice still neither copies the active
 target, writes a stable selection anchor, nor creates shortcuts.
@@ -169,12 +167,14 @@ NNA, change package registration, create shortcuts, or mark activation complete.
 An explicit NNA root cannot override an installed NND selection; this also
 protects source upgrades and uninstall from silently switching native owners.
 
-The installer must delegate to native staging, maintain continuous lease ownership
-through trial activation, and compare-and-swap the sole native package registration.
-Previous-registration backups and durable staging evidence already exist; final
-activation/completion evidence and rollback selection remain required.
-Trial service activation and authenticated GUI health must succeed before the final
-installer reports completion; setup-required is valid installation state.
+The installer delegates to native staging and compare-and-swaps the sole native
+package registration, without starting or trialing a live service.
+Previous-registration backups and durable staging evidence already exist.
+The installer reports completion on successful registration/activation; the
+operator verifies service behavior afterwards with `nna desktop start` (a fresh
+unconfigured installation reaching setup-required is valid). The shortcuts are
+NNA-branded (`NotNativeAgent.lnk` / `notnativeagent.desktop`, NNA icon assets),
+and a Windows upgrade removes the stale pre-rename `NotNativeDesktop.lnk`.
 
 Binary rollback cannot undo a data-schema migration. Initial slot activation must
 require unchanged supported data schemas. Login startup, installer recovery,

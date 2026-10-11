@@ -21,6 +21,25 @@ service lifecycle. The installed NND service serves a GUI reachable through a
 browser or Electron. Closing either interface must not stop service-owned work.
 Browser and desktop access the same NND session collection. TUI tabs remain separate.
 
+Canonical installer/lifecycle shape (pinned since `20261011-6`, structural tests in
+`scripts/installer-structure.test.mjs`): both installers are dumb copies (resolve the
+plan from the NND registration registry - a registered target means best-effort
+service stop plus deactivation - then copy, build, register/activate, and create
+shortcuts). The installer never starts the service, runs no post-install
+verification ceremony, and uses no native guard on the install path (guard stays on
+the Windows uninstall path). Shortcuts are NNA-branded: Windows `NotNativeAgent.lnk`
+(NNA icon; upgrades remove the stale pre-rename `NotNativeDesktop.lnk`), POSIX
+`notnativeagent.desktop` named NotNativeAgent. The operator surface is
+`nna desktop start|stop|enable|disable|status` (start/enable fail gracefully with
+`nnd_plugin_not_installed` when uninstalled; stop/disable/status are silent no-ops);
+`nna nnd` retains only service/package/serve. The tray is permanently linked to the
+service: the supervised child (`scripts/serve-supervised.mjs`) launches the attached
+desktop app after readiness, and tray Quit requests a native service stop. The
+launcher (`scripts/launch-selected-desktop.ps1`) runs `desktop start` via the NNA CLI
+before spawning the attached GUI. Internal identity remains NotNativeDesktop/NND;
+user-facing surfaces are NNA-branded; post-MVP direction: fold NND into the NNA
+repository as a bundled `src/desktop` service.
+
 The GUI must expose all supported operator-configurable NNA settings and the
 OpenChamber chat and visibility feature scope, translated into NNA semantics.
 NNA validates configuration, execution authority, review, and observable engine state.
