@@ -41,7 +41,7 @@ import { continueAfterExactToolBoundary } from './engine/tool-recovery.js';
 import { updateToolFailures } from './engine/tool-failures.js';
 import { continueAfterTerminalDeclaration, persistSupervisedResponse } from './engine/terminal-declaration.js';
 import { completionEvidence, completionEvidenceHint } from './engine/completion-evidence.js';
-import { validateSessionLineage } from './session-lineage.js';
+import { validateSessionLineage } from './session-lineage.js'; import { forkIngestContract } from './persistence/fork-records.js';
 import { supportConfiguration } from './support-configuration.js';
 import { carriedReviewerRequestIds, refreshReviewerCompletion, reviewerCompletionHint } from './engine/reviewer-completion.js';
 export class SessionEngine {
@@ -55,7 +55,7 @@ export class SessionEngine {
     this.reviewPosture = options.reviewPosture ?? 'auto-review';
     this.runtimeId = options.runtimeId ?? newId('runtime');
     this.sessionId = options.sessionId ?? newId('session');
-    this.sessionLineage = validateSessionLineage(options.sessionLineage, this.sessionId);
+    this.sessionLineage = validateSessionLineage(options.sessionLineage, this.sessionId); this.forkIngest = forkIngestContract(options.forkIngest);
     this.nndSessionRegistry = options.nndSessionRegistry ?? null; this.dataPaths = options.dataPaths ?? userDataPaths(); this.subagentDepth = options.subagentDepth ?? 0;
     this.subagentOptions = {
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer, secretBroker: options.secretBroker,
@@ -102,6 +102,8 @@ export class SessionEngine {
       repairInterruptedTools: (repairs) => this.#repairInterruptedTools(repairs),
       createSessionRecord: () => this.#createSessionRecord(),
       markInterrupted: (turnId) => this.#markInterrupted(turnId),
+      ingestFork: (ingest) => this.store.append('forked_from', { source_session_id: ingest.sourceSessionId,
+        boundary_message_id: ingest.boundaryMessageId, record_count: ingest.records.length }),
     }, options);
   }
   async submit(command, principal) {

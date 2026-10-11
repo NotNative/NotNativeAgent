@@ -6,7 +6,7 @@ import { sseOpen } from './opencode/protocol.js';
 import { dispatchNndQuestionRequest } from './nnd-question-routes.js';
 import { dispatchNndNotificationRequest } from './nnd-notification-routes.js';
 import { dispatchNndAssistRequest } from './nnd-assist-routes.js';
-const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort))?$/u;
+const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort|fork))?$/u;
 const ACTIVITY_HISTORY_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/activity-history$/u;
 const ACTIVITY_TOMBSTONES_ROUTE = '/v1/nnd/activity-tombstones';
 const MESSAGE_LIMIT_MAX = 200;
@@ -45,19 +45,19 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     const requestId = body?.messageID ?? newId('nnd_prompt');
     await host.assertWorkspaceBound(id, context.principal);
     // Why: a lost acknowledgement can be retried after a completed turn has released its upload bytes.
-    if (host.hasPersistedSubmission?.(id, context.principal, requestId)) {
-      response.writeHead(204); response.end(); return true;
-    }
+    if (host.hasPersistedSubmission?.(id, context.principal, requestId)) { response.writeHead(204); response.end(); return true; }
     const attachments = refs.length > 0 ? host.uploadedAttachments?.(id, context.principal, requestId, refs) : [];
     if (refs.length > 0 && !attachments) throw new ContractError('nnd_attachment_upload_unavailable', 'Native attachment uploads are unavailable');
     const accepted = host.submitAsync(id, { version: '1.0', type: 'submit', request_id: requestId, content, attachments }, context.principal);
-    if (accepted.reason === 'busy') {
-      return send(response, 409, { error: { code: 'session_busy', message: 'NND session already has an active turn' } });
-    }
+    if (accepted.reason === 'busy') return send(response, 409, { error: { code: 'session_busy', message: 'NND session already has an active turn' } });
     response.writeHead(204); response.end(); return true;
   }
   if (request.method === 'PATCH' && id && !match[2]) {
     return updateSession(request, response, context, host, id);
+  }
+  if (request.method === 'POST' && id && match[2] === 'fork') {
+    requireIntegrationPermission(context.principal, 'nnd.session.create');
+    return send(response, 201, await host.fork(id, context.principal, await readJsonBody(request)));
   }
   if (request.method === 'POST' && id && match[2] === 'abort') {
     requireIntegrationPermission(context.principal, 'nnd.session.abort');

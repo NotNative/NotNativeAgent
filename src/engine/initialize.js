@@ -54,7 +54,19 @@ async function restoreDurableEngine(engine, operations) {
   engine.resumeBoundary = { beforeSequence: recovered.records[0]?.sequence ?? null, hasMore: recovered.truncated };
   const interrupted = await operations.restore(recovered.records, recovered.truncated, recovered);
   engine.attachments.restore(recovered.records);
-  if (recovered.records.length === 0) await operations.createSessionRecord();
+  if (recovered.records.length === 0 && engine.forkIngest) {
+    // Native fork: the child journal is seeded with the parent's validated
+    // prefix through its own append path, so the hash chain, provenance, and
+    // any interrupted seed stay self-consistent without cross-session reads.
+    await operations.createSessionRecord();
+    for (const record of engine.forkIngest.records) await engine.store.append(record.type, record.payload);
+    await operations.ingestFork(engine.forkIngest);
+    await operations.restore(engine.forkIngest.records, false, {});
+    engine.attachments.restore(engine.forkIngest.records);
+    await operations.repairInterruptedTools([]);
+  } else if (recovered.records.length === 0) {
+    await operations.createSessionRecord();
+  }
   const interruptedToolRepairs = engine.reliability.interruptedToolRepairs(recovered.records, interrupted);
   await operations.repairInterruptedTools(interruptedToolRepairs);
   for (const turnId of interrupted) await operations.markInterrupted(turnId);

@@ -116,6 +116,8 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_activity_tombstones_request_invalid',
     'nnd_goal_invalid', 'nnd_goal_conflict', 'nnd_goal_audit_invalid', 'nnd_goal_audit_conflict',
     'nnd_walkthrough_invalid', 'nnd_walkthrough_context_large',
+    'nnd_fork_invalid', 'nnd_fork_busy', 'nnd_fork_unavailable',
+    'nnd_fork_boundary_unknown', 'nnd_fork_boundary_unsettled',
     'nnd_assist_invalid', 'nnd_assist_busy', 'nnd_assist_unavailable',
     'nnd_assist_output_invalid', 'nnd_assist_output_large', 'nnd_assist_timeout', 'nnd_assist_tool_violation',
     'nnd_notification_invalid',

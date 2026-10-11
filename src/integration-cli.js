@@ -234,6 +234,7 @@ async function createSelectedNndEngine(paths, options, startupConfig, activeConf
     hookRoot: options.hookRoot ?? paths.hooks, hookRoots: options.hookRoots ?? [],
     skillRoots: selectedSkillRoots, emitContextStatus: true, output: input.output,
     nndBrowserCallback: options.nndBrowserCallback,
+    forkIngest: input.forkIngest ?? null,
   });
 }
 

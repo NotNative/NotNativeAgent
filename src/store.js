@@ -63,6 +63,13 @@ export class JournalStore {
     return this.#enqueue(() => this.#append(type, payload));
   }
 
+  /** Read-only full scan for cross-session operations (native fork prefixes).
+   *  Never touches the open handle or the writer state. */
+  async readRecords() {
+    const recovered = await recoverJournal(this.path);
+    return { records: recovered.records, lastSequence: recovered.lastSequence, lastHash: recovered.lastHash };
+  }
+
   async #append(type, payload) {
     if (!this.#handle) throw new ContractError('store_closed', 'journal is not open');
     if (this.persistenceFailed) throw new ContractError('persistence_unavailable', 'journal persistence is unavailable after a failed flush');

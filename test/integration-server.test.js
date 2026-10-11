@@ -883,6 +883,54 @@ test('the secret delete route honors the derived-reference delete guard', async 
   } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
 });
 
+test('native fork seeds a new session from the parent journal prefix', async () => {
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-fork-'));
+  const catalogPath = join(root, 'catalog.json');
+  const ingests = [];
+  const makeEngine = () => ({
+    config: { workspaceRoot: root, routes: { primary: { providerId: 'one', model: 'one' } } },
+    active: null, store: { readRecords: async () => ({ records: [
+      { type: 'session_created', payload: { sessionId: 'parent' } },
+      { type: 'message', payload: { turnId: 'turn_1', role: 'user', content: 'hi', requestId: 'r1' } },
+      { type: 'turn_outcome', payload: { turnId: 'turn_1' } },
+    ] }) },
+    transcript: [
+      { type: 'message', role: 'user', content: 'hi', turnId: 'turn_1', requestId: 'r1' },
+      { type: 'message', role: 'assistant', content: 'Answer', turnId: 'turn_1' },
+    ],
+    async initialize() {}, async shutdown() {},
+  });
+  const host = new NndEngineHost({ catalogPath, createEngine: async (options) => {
+    ingests.push(options.forkIngest ?? null);
+    return makeEngine();
+  } });
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host,
+    nndWorkspaceRoot: root, port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  const owner = principal(['nnd.read', 'nnd.session.create']);
+  try {
+    const sessionId = (await request(base, '/session', owner, { method: 'POST', body: {} })).value.id;
+    const forked = await request(base, `/session/${sessionId}/fork`, owner,
+      { method: 'POST', body: { messageID: `${sessionId}:message:1` } });
+    assert.equal(forked.status, 201, JSON.stringify(forked.value));
+    assert.notEqual(forked.value.id, sessionId);
+    assert.match(forked.value.title, /fork/u);
+    assert.deepEqual(ingests.at(-1), { records: [
+      { type: 'message', payload: { turnId: 'turn_1', role: 'user', content: 'hi', requestId: 'r1' } },
+      { type: 'turn_outcome', payload: { turnId: 'turn_1' } },
+    ], sourceSessionId: sessionId, boundaryMessageId: `${sessionId}:message:1` });
+    // Boundary rules: unknown message and missing permission are refused.
+    assert.equal((await request(base, `/session/${sessionId}/fork`, owner,
+      { method: 'POST', body: { messageID: `${sessionId}:message:9` } })).status, 404);
+    assert.equal((await request(base, `/session/${sessionId}/fork`, principal(['nnd.read']),
+      { method: 'POST', body: { messageID: `${sessionId}:message:1` } })).status, 403);
+    assert.equal((await request(base, `/session/${sessionId}/fork`, owner,
+      { method: 'POST', body: {} })).status, 400);
+  } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
+});
+
 test('the renewal endpoint is absent without a configured authority', async () => {
   const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
   const service = await startIntegrationServer({

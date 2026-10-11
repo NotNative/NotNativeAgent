@@ -25,6 +25,7 @@ import { nndGoalContextEvidence, recordNndGoalTurn } from './nnd-goal-evidence.j
 import { runNndGoalAudit } from './nnd-goal-audit.js';
 import { runNndWalkthrough } from './nnd-walkthrough.js';
 import { runNndAssist } from './nnd-assist.js';
+import { runNndSessionFork } from './nnd-session-fork.js';
 import { runNndNotification } from './nnd-notification.js';
 import { publishNndProjection } from './nnd-projection.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
@@ -32,8 +33,7 @@ import { ownedPendingRequests } from './nnd-pending-requests.js';
 import { listNndQuestions, settleNndQuestion, observeNndQuestion } from './nnd-questions.js';
 import { requirePrincipal, samePrincipal, scopedPrincipal, validCatalogRecord, restoreNndContexts, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
 import { partitionNndCatalog } from './nnd-catalog-admission.js';
-import { resolveContextBinding, initializeBoundEngine,
-  assertLiveNndWorkspaceBinding } from './nnd-workspace-binding.js';
+import { resolveContextBinding, initializeBoundEngine, assertLiveNndWorkspaceBinding } from './nnd-workspace-binding.js';
 import { NndWorkspaceRevocationGuard } from './nnd-workspace-revocation-guard.js';
 import { listNndSessions, nndSessionStatuses } from './nnd-session-list.js';
 const CATALOG_LIMIT_BYTES = 1_048_576, LIVE_PREVIEW_LIMIT_CHARS = 262_144;
@@ -59,7 +59,7 @@ export class NndEngineHost {
     this.limit = limit;
     this.eventBus = options.eventBus ?? createWireEventBus();
     this.childSessions = options.childSessions ?? new NndSessionRegistry(options.childSessionLimit ?? 256,
-      (type, child, payload) => this.#observeChildEvent(type, child, payload));
+    (type, child, payload) => this.#observeChildEvent(type, child, payload));
     this.catalogPath = options.catalogPath ?? null;
     this.tombstones = new NndActivityTombstones(this.catalogPath, options.persistTombstones);
     this.persistCatalog = options.persistCatalog ?? persistAtomicJson;
@@ -117,9 +117,7 @@ export class NndEngineHost {
       engine = await this.createEngine({ ...options, sessionId, nndSessionRegistry: this.childSessions,
         workspaceBinding: binding, workspaceBindingResolver: this.primaryWorkspaceBinding,
         attachmentUploadRead: (uploadId, mimeType) => this.#uploads.resolve(sessionId, uploadId, mimeType), output: (record) => this.observeOutput(sessionId, record) });
-      if (!engine || typeof engine.initialize !== 'function') {
-        throw new ContractError('nnd_engine_invalid', 'NND engine factory returned an invalid engine');
-      }
+      if (!engine || typeof engine.initialize !== 'function') { throw new ContractError('nnd_engine_invalid', 'NND engine factory returned an invalid engine'); }
       await initializeBoundEngine(engine, this.primaryWorkspaceBinding, binding, principal, options, restoring);
       if (restoring) engine.reviewPosture = options.reviewMode === 'unattended' ? 'unattended' : 'auto-review';
       const createdAt = restoring ? options.createdAt : Date.now();
@@ -138,10 +136,7 @@ export class NndEngineHost {
         if (this.#workspaceRevocations.has(binding)) {
           throw new ContractError('nnd_workspace_in_use', 'Workspace admission is being revoked.');
         }
-        await this.#commitCatalogChange(
-        (contexts) => contexts.set(sessionId, context),
-        () => this.#contexts.set(sessionId, context),
-        );
+        await this.#commitCatalogChange((contexts) => contexts.set(sessionId, context), () => this.#contexts.set(sessionId, context));
       }
       if (!restoring) this.#publish(context, 'session.created', { info: describe(context) }, true);
       return context;
@@ -217,6 +212,10 @@ export class NndEngineHost {
   auditGoal(sessionId, principal, body) { return runNndGoalAudit(this.#owned(sessionId, principal), body); }
   generateWalkthrough(sessionId, principal, body) { return runNndWalkthrough(this.#owned(sessionId, principal), body); }
   generateAssist(sessionId, principal, body) { return runNndAssist(this.#owned(sessionId, principal), body); }
+  fork(sessionId, principal, body) {
+    return runNndSessionFork(this.#owned(sessionId, principal), { createContext: (childId, options) => this.#createContext(childId, principal, options, false),
+      get: (childId) => this.get(childId, principal) }, body);
+  }
   generateNotification(sessionId, principal, body) { return runNndNotification(this.#owned(sessionId, principal), body); }
   goalEvidence(sessionId, principal) { return nndGoalContextEvidence(this.#owned(sessionId, principal)); }
   async setGoal(sessionId, principal, value, expectedId, expectedRevision) {
@@ -263,8 +262,7 @@ export class NndEngineHost {
     const turn = { requestId: command.request_id, activityId: `${sessionId}:turn:${command.request_id}`,
       messageId: `${sessionId}:live:${command.request_id}`, streamedChars: 0, previewLimited: false,
       opened: false, turnId: null, outcome: null, activeTools: new NndActiveTools() };
-    context.liveTurn = turn;
-    let started;
+    context.liveTurn = turn; let started;
     try { started = context.ingress.start(command, scopedPrincipal(context, principal)); }
     catch (error) { context.liveTurn = previousTurn; throw error; }
     if (started.duplicate) { context.liveTurn = previousTurn; return started.result; }

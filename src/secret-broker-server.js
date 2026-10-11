@@ -142,24 +142,24 @@ function failureStatus(code) {
   if (code === 'nnd_trial_mutation_denied') return 403;
   if (code === 'nnd_trial_admission_invalid' || code === 'nnd_configuration_unavailable') return 503;
   // Failed installation verification closes its read surface.
-  if (['nnd_install_descriptor_unavailable', 'nnd_install_descriptor_invalid',
-    'nnd_install_runtime_unavailable', 'nnd_skills_catalog_unavailable'].includes(code)) return 503;
+  if (['nnd_install_descriptor_unavailable', 'nnd_install_descriptor_invalid', 'nnd_install_runtime_unavailable', 'nnd_skills_catalog_unavailable'].includes(code)) return 503;
   if (code === 'nnd_setup_activation_timeout' || code === 'nnd_setup_shutdown_timeout') return 504;
   if (code === 'nnd_setup_required' || code === 'nnd_setup_stopped' || code === 'nnd_setup_cleanup_failed') return 503;
   if (code === 'nnd_setup_busy' || code === 'secret_in_use') return 409;
   // The manifest may already have been published. The caller must inspect its
   // original operation ID before deciding whether any retry is safe.
   if (['manifest_publication_unknown', 'manifest_publication_failed', 'manifest_cleanup_failed'].includes(code)) return 503;
-  if (['nnd_configuration_resolution_conflict', 'nnd_configuration_repair_unnecessary',
-    'configuration_source_shadowed', 'manifest_revision_conflict', 'manifest_operation_conflict'].includes(code)) return 409;
+  if (['nnd_configuration_resolution_conflict', 'nnd_configuration_repair_unnecessary', 'configuration_source_shadowed', 'manifest_revision_conflict', 'manifest_operation_conflict'].includes(code)) return 409;
   if (['principal_required', 'principal_invalid', 'principal_stale'].includes(code)) return 401;
   // Renewable-capability failures are authentication failures, never 500s.
   if (code.startsWith('capability_')) return 401;
   if (code.includes('permission') || code.includes('forbidden')) return 403;
-  if (code.includes('not_found') || ['provider_missing', 'nnd_session_unavailable', 'question_unknown'].includes(code)) return 404;
-  if (['nnd_goal_conflict', 'nnd_goal_audit_conflict', 'nnd_goal_audit_busy', 'nnd_walkthrough_busy', 'nnd_assist_busy'].includes(code)) return 409;
+  if (code.includes('not_found') || ['provider_missing', 'nnd_session_unavailable', 'question_unknown', 'nnd_fork_boundary_unknown'].includes(code)) return 404;
+  if (['nnd_goal_conflict', 'nnd_goal_audit_conflict', 'nnd_goal_audit_busy', 'nnd_walkthrough_busy', 'nnd_assist_busy',
+    'nnd_fork_busy', 'nnd_fork_boundary_unsettled'].includes(code)) return 409;
   if (['nnd_goal_audit_unavailable', 'nnd_pending_unavailable',
-    'nnd_activity_tombstones_unavailable', 'nnd_walkthrough_unavailable', 'nnd_assist_unavailable'].includes(code)) return 503;
+    'nnd_activity_tombstones_unavailable', 'nnd_walkthrough_unavailable', 'nnd_assist_unavailable',
+    'nnd_fork_unavailable'].includes(code)) return 503;
   if (['nnd_goal_audit_timeout', 'nnd_walkthrough_timeout', 'nnd_assist_timeout', 'nnd_notification_timeout'].includes(code)) return 504;
   if (code.startsWith('nnd_goal_audit_output_') || code === 'nnd_goal_audit_tool_violation') return 502;
   if (code.startsWith('nnd_walkthrough_output_') || code === 'nnd_walkthrough_tool_violation') return 502;

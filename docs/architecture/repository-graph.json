@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:f422e626c2d6a63716070aadb4aea77669551bd5e81f8da9bd680510f0156e65",
+  "source_digest": "sha256:9e202b56bcfcdfd9c46f71022dc6bc5f6f8cffc16a7c73d08b69760392d34e20",
   "counts": {
-    "modules": 567,
+    "modules": 569,
     "component_edges": 82
   },
   "components": [
@@ -42,7 +42,7 @@
       "id": "persistence",
       "label": "Persistence",
       "ownership": "Owns durable journals, locks, state, and atomic storage.",
-      "module_count": 15
+      "module_count": 16
     },
     {
       "id": "providers",
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 258
+      "module_count": 259
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 770,
-      "module_count": 231
+      "import_count": 773,
+      "module_count": 232
     },
     {
       "from": "experience-engine",
@@ -138,8 +138,8 @@
     {
       "from": "foundation",
       "to": "persistence",
-      "import_count": 73,
-      "module_count": 51
+      "import_count": 74,
+      "module_count": 52
     },
     {
       "from": "tools",
@@ -208,6 +208,12 @@
       "module_count": 9
     },
     {
+      "from": "persistence",
+      "to": "foundation",
+      "import_count": 15,
+      "module_count": 12
+    },
+    {
       "from": "providers",
       "to": "providers",
       "import_count": 15,
@@ -236,12 +242,6 @@
       "to": "reliability-engine",
       "import_count": 13,
       "module_count": 7
-    },
-    {
-      "from": "persistence",
-      "to": "foundation",
-      "import_count": 13,
-      "module_count": 11
     },
     {
       "from": "agentic-engine",
@@ -2822,6 +2822,7 @@
         "src/nnd-questions.js",
         "src/nnd-review-mode.js",
         "src/nnd-session-description.js",
+        "src/nnd-session-fork.js",
         "src/nnd-session-helpers.js",
         "src/nnd-session-list.js",
         "src/nnd-session-registry.js",
@@ -3726,6 +3727,16 @@
       ]
     },
     {
+      "path": "src/nnd-session-fork.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-session-description.js",
+        "src/persistence/fork-records.js"
+      ]
+    },
+    {
       "path": "src/nnd-session-helpers.js",
       "component": "foundation",
       "entrypoint": false,
@@ -4310,6 +4321,15 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/persistence/fork-records.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/nnd-transcript-identity.js"
       ]
     },
     {
