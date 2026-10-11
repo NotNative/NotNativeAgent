@@ -1,0 +1,831 @@
+{
+  "schema_version": "1.0",
+  "note": "Machine-checkable acceptance records for W-01 through the last table row (04-feature-parity.md). Statuses move forward only with evidence paths; the disposition text is pinned to the authoritative table by scripts/feature-parity-records.test.mjs.",
+  "statuses": [
+    "pending",
+    "implemented-unverified",
+    "verified",
+    "deferred-nna-blocked"
+  ],
+  "records": [
+    {
+      "id": "W-01",
+      "work_packages": "L, F10",
+      "disposition": "MVP browser/PWA and Windows desktop shared UI; CLI service tooling L; VS Code/native mobile excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-02",
+      "work_packages": "L, F10",
+      "disposition": "MVP cold boot, bounded retry, manual recovery, theme prepaint.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-03",
+      "work_packages": "L, F2, F10",
+      "disposition": "MVP PWA/update and disconnected recovery; offline UI never implies offline execution.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-04",
+      "work_packages": "L, F10",
+      "disposition": "MVP authenticated browser/desktop/Mini Chat access and expired-session recovery.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-05",
+      "work_packages": "F10, C",
+      "disposition": "MVP complete shell, settings window, command palette, workspace regions.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-06",
+      "work_packages": "F10",
+      "disposition": "MVP rail registry, widths, ordering, visibility and keep-alive.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-07",
+      "work_packages": "F4, F10",
+      "disposition": "MVP session/surface/settings deep links and URL restoration.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-08",
+      "work_packages": "F2, L",
+      "disposition": "MVP instance-generation reset/reconnect; remote host switching excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-09",
+      "work_packages": "F1, F2, F8, C",
+      "disposition": "MVP explicit authoritative/service/device state ownership.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-10",
+      "work_packages": "L, F10",
+      "disposition": "MVP Windows controls, splash, crash recovery and read coalescing.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-11",
+      "work_packages": "F4, F10, L",
+      "disposition": "MVP desktop Mini Chat and embedded session chat; shared session authority.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-12",
+      "work_packages": "F2, F3, F4",
+      "disposition": "MVP native transcript/message/part schema and identity.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-13",
+      "work_packages": "F4, F10",
+      "disposition": "MVP complete chat composition, status column and session header.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-14",
+      "work_packages": "L, C",
+      "disposition": "MVP local detection/setup/recovery wizard; remote setup excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-15",
+      "work_packages": "F3, F8",
+      "disposition": "MVP full composer/editor/autocomplete/attachments/context/drafts/commands.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-16",
+      "work_packages": "F3, F9",
+      "disposition": "MVP native queue, steer and abort with distinct semantics.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-17",
+      "work_packages": "F2, F4, F6",
+      "disposition": "MVP complete authorized part/evidence rendering and history.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-18",
+      "work_packages": "F1, F4, F10",
+      "disposition": "MVP sidebar/projects/worktrees/folders/search/tabs and actions.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-19",
+      "work_packages": "F2, F5, F10",
+      "disposition": "MVP NNA-authored activity/status, recap, follow-up and errors.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-20",
+      "work_packages": "F3, C",
+      "disposition": "MVP native questions/review modes; auto-accept/automatic approvals prohibited.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-21",
+      "work_packages": "F2, F5, C",
+      "disposition": "MVP usage/quota/limits with native source and truthful missing-data state.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-22",
+      "work_packages": "F3, F8, F10",
+      "disposition": "MVP palette/history/snippets/prompts/starters.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-23",
+      "work_packages": "F4",
+      "disposition": "MVP timeline search/fork/revert and prompt navigation with native checkpoints.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-24",
+      "work_packages": "F4, F5, F10",
+      "disposition": "MVP AI rename, pins, notifications, bulk actions, archive and export.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-25",
+      "work_packages": "F4, F5",
+      "disposition": "MVP native BTW and recap/follow-up assistance.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-26",
+      "work_packages": "F3–F10",
+      "disposition": "MVP full surface-state catalog; author NNA-accurate copy.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-27",
+      "work_packages": "F2, F4",
+      "disposition": "MVP virtualization, history paging and stable message deep links.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-28",
+      "work_packages": "F2",
+      "disposition": "MVP global/directory state separation and bindings.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-29",
+      "work_packages": "F2",
+      "disposition": "MVP native event catalog, envelope validation and immutable receipt.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-30",
+      "work_packages": "F1, F2",
+      "disposition": "MVP bootstrap, enrichment, continuity and resume recovery.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-31",
+      "work_packages": "F2",
+      "disposition": "MVP live transport, ordering, watchdog and explicit gap recovery.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-32",
+      "work_packages": "F2, F3",
+      "disposition": "MVP optimistic echo/failure/question recovery; no auto-accept policy.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-33",
+      "work_packages": "F1, F4",
+      "disposition": "MVP full session lifecycle, retention and sidecars.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-34",
+      "work_packages": "F2, F4, F9",
+      "disposition": "MVP scoped drafts/history/folders/queue/worktree persistence.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-35",
+      "work_packages": "F2, F4",
+      "disposition": "MVP stream and native revert representation.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-36",
+      "work_packages": "F2, F10",
+      "disposition": "MVP bounded stores/tails and visible-demand fetching.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-37",
+      "work_packages": "F2, V",
+      "disposition": "MVP mechanically enforced sync invariants.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-38",
+      "work_packages": "L",
+      "disposition": "MVP persistent service boot/middleware/auth/static/API-only contract.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-39",
+      "work_packages": "F1–F10, C, L",
+      "disposition": "MVP local feature route inventory; auto-accept removed, remote-only routes excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-40",
+      "work_packages": "F1–F5, L",
+      "disposition": "MVP native seam and lifecycle; legacy event names are compatibility only.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-41",
+      "work_packages": "F1–F9, C, V",
+      "disposition": "MVP P-01–P-24 port audit translated to native contracts.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-42",
+      "work_packages": "L, F9",
+      "disposition": "MVP install/service/update/diagnostic and schedule tooling; tunnel commands excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-43",
+      "work_packages": "L, C, F8, F9",
+      "disposition": "MVP data ownership, migrations and strict readers.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-44",
+      "work_packages": "L, C",
+      "disposition": "MVP typed supported environment/configuration inventory.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-45",
+      "work_packages": "L, F1–F10",
+      "disposition": "MVP attached independent NNA has complete local features; legacy degraded external mode superseded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-46",
+      "work_packages": "F6",
+      "disposition": "MVP full file tree/actions/tabs/grants.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-47",
+      "work_packages": "F6",
+      "disposition": "MVP editor/autosave/position/external-conflict/large-file behavior.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-48",
+      "work_packages": "F6",
+      "disposition": "MVP all listed preview types and persisted view modes.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-49",
+      "work_packages": "F6",
+      "disposition": "MVP complete diff modes/scopes/hunks/binary-image support.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-50",
+      "work_packages": "F6",
+      "disposition": "MVP Git operations/history/graph/stashes/PR visibility.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-51",
+      "work_packages": "F1, F6",
+      "disposition": "MVP authorized worktrees and branch-scoped review.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-52",
+      "work_packages": "F6, F8",
+      "disposition": "MVP plans/save queue/improve/implement/walkthrough navigation.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-53",
+      "work_packages": "F6",
+      "disposition": "MVP PR/GitHub/Linear surfaces; account setup may be optional, feature implementation is required.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-54",
+      "work_packages": "F3, F6",
+      "disposition": "MVP inline comments/context/review workflow; review never grants tool permission.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-55",
+      "work_packages": "F6, F10",
+      "disposition": "MVP cache invalidation and retained-pane visibility gating.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-56",
+      "work_packages": "F7",
+      "disposition": "MVP local terminal v3 protocol and command plane.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-57",
+      "work_packages": "F7, L",
+      "disposition": "MVP Windows ConPTY lifecycle; POSIX platform branches excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-58",
+      "work_packages": "F7, C",
+      "disposition": "MVP equivalent terminal renderer/input/fonts/theme.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-59",
+      "work_packages": "F7",
+      "disposition": "MVP terminal transport/store/panel/detach versus close.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-60",
+      "work_packages": "F7",
+      "disposition": "MVP browser/desktop mirroring and reattach; remote-device access excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-61",
+      "work_packages": "F7",
+      "disposition": "MVP project actions/trust/exit evidence/local preview opening.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-62",
+      "work_packages": "F7, V",
+      "disposition": "MVP bounded terminal input/output and access isolation.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-63",
+      "work_packages": "F3, F7",
+      "disposition": "MVP terminal selection to context/comments.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-64",
+      "work_packages": "L, C",
+      "disposition": "MVP local browser/session/device auth and passkeys where supported; public/tunnel access excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-65",
+      "work_packages": "L",
+      "disposition": "Remote private relay excluded from MVP; preserve existing code without counting it as local acceptance.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-66",
+      "work_packages": "L",
+      "disposition": "Remote tunnel providers excluded from MVP.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-67",
+      "work_packages": "L",
+      "disposition": "Remote pairing/QR excluded; local desktop-to-service authenticated setup remains required.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-68",
+      "work_packages": "L",
+      "disposition": "SSH remote-machine access excluded from MVP.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-69",
+      "work_packages": "F7",
+      "disposition": "Local preview required; remote preview tunnel excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-70",
+      "work_packages": "L",
+      "disposition": "Public reverse-proxy deployment excluded; safe loopback origin/cookie rules required.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-71",
+      "work_packages": "L, F1–F10, V",
+      "disposition": "MVP secret handling, revocation and failure isolation remain mandatory.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-72",
+      "work_packages": "L, F10",
+      "disposition": "MVP local installation/service/auth status; remote host fleet UX excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-73",
+      "work_packages": "L",
+      "disposition": "Replace Electron-owned in-process backend with persistent installed service attachment.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-74",
+      "work_packages": "L, F7, F10",
+      "disposition": "MVP bounded sender-gated IPC and least-privilege preload.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-75",
+      "work_packages": "L, F10",
+      "disposition": "MVP window geometry/tray/Mini Chat/navigation guards.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-76",
+      "work_packages": "L, F4",
+      "disposition": "MVP local session deep links; remote host/pairing links excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-77",
+      "work_packages": "L",
+      "disposition": "MVP packaged assets/protocol/SPA/runtime config.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-78",
+      "work_packages": "F7",
+      "disposition": "MVP isolated embedded browser/capture/storage controls.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-79",
+      "work_packages": "L",
+      "disposition": "SSH manager excluded from MVP.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-80",
+      "work_packages": "L",
+      "disposition": "MVP Windows NND updater and NNA compatibility checks; other platforms excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-81",
+      "work_packages": "L, F10",
+      "disposition": "MVP Windows tray/menu/notifications/login/resume/native utilities; macOS dock excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-82",
+      "work_packages": "F7, L, V",
+      "disposition": "MVP adversarial IPC/guest/navigation/secret boundary tests.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-83",
+      "work_packages": "L, V",
+      "disposition": "MVP supported Windows installer architecture matrix; other OS packages excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-84",
+      "work_packages": "F6, L",
+      "disposition": "MVP guarded native file utilities and Windows atomic replacement.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-85",
+      "work_packages": "F9",
+      "disposition": "MVP native goals, audit, limits and management UI.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-86",
+      "work_packages": "F9, C",
+      "disposition": "MVP persistent schedules/timezones/run-as-goal; auto-accept toggle prohibited.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-87",
+      "work_packages": "F3, F9",
+      "disposition": "MVP queue intent/delivery/holds/edit/reorder/clear/context; VS Code auto-send excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-88",
+      "work_packages": "F1, F5, F9",
+      "disposition": "MVP full multi-run, worktree isolation, comparison/adoption/fusion.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-89",
+      "work_packages": "F4, F9",
+      "disposition": "MVP managed-session orchestration through native operations.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-90",
+      "work_packages": "F9, V",
+      "disposition": "MVP stop/recovery/isolation/idempotency invariants.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-91",
+      "work_packages": "F7",
+      "disposition": "MVP Windows local dev-server discovery/probe; POSIX scanners excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-92",
+      "work_packages": "F7",
+      "disposition": "MVP local browser/desktop preview/tabs/readiness/reconnect; tunnel mapping excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-93",
+      "work_packages": "F3, F7",
+      "disposition": "MVP governed inspection/capture/annotation/console callbacks.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-94",
+      "work_packages": "F5, F6, F7",
+      "disposition": "MVP native walkthrough generation, readiness, cache and complete UI.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-95",
+      "work_packages": "L, F7",
+      "disposition": "Remote dev tunnels excluded; local preview delivery still required.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-96",
+      "work_packages": "F10, C",
+      "disposition": "MVP celebration affordance honoring reduced motion/settings.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-97",
+      "work_packages": "F7, V",
+      "disposition": "MVP preview/capture scope and untrusted-page isolation.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-98",
+      "work_packages": "C, F10",
+      "disposition": "MVP tokens/fonts/type/motion and coherent workspace presentation.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-99",
+      "work_packages": "C, F10",
+      "disposition": "MVP complete accessible primitive inventory.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-100",
+      "work_packages": "C, F10",
+      "disposition": "MVP app/file icon system.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-101",
+      "work_packages": "C, F10",
+      "disposition": "MVP built-ins/custom themes and browser/desktop/embedded propagation.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-102",
+      "work_packages": "C",
+      "disposition": "MVP NND registry plus all configurable NNA settings; historical ~160-key count is not the completeness test.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-103",
+      "work_packages": "C, F10",
+      "disposition": "MVP twelve-locale key coverage/fallback and language selection; record authored translation verification.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-104",
+      "work_packages": "C, F10",
+      "disposition": "MVP shortcut inventory/conflicts/recorder/context ownership.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-105",
+      "work_packages": "C, F10",
+      "disposition": "MVP consistent time/money/measurement formatting.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-106",
+      "work_packages": "F3, F8",
+      "disposition": "MVP knowledge assembly/delivery/reading surfaces.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-107",
+      "work_packages": "F8",
+      "disposition": "MVP native-integrated agent memory, scope, edit/forget and provenance.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-108",
+      "work_packages": "F8",
+      "disposition": "MVP project context/notes/plans/todos and migrations.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-109",
+      "work_packages": "F8, C",
+      "disposition": "MVP native skills discovery/CRUD/catalog/install/update/invocation.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-110",
+      "work_packages": "F8, C",
+      "disposition": "MVP native MCP management/runtime/OAuth/import/status.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-111",
+      "work_packages": "F3, F8",
+      "disposition": "MVP pinned/obligatory context/compaction/grants with native authority.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-112",
+      "work_packages": "F3, F8",
+      "disposition": "MVP snippets/starters/prompts/todos/linked issues and review context.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-113",
+      "work_packages": "F3, F8, V",
+      "disposition": "MVP explicit verified native model-input delivery matrix.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-114",
+      "work_packages": "F1–F10, L, V",
+      "disposition": "MVP local module invariants/notifications/TTS-STT/small-model features; no auto-accept persistence; APNs excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-115",
+      "work_packages": "F10, L",
+      "disposition": "MVP attention/status/native and browser notification delivery; mobile push excluded.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-116",
+      "work_packages": "F2, F6–F8, F10",
+      "disposition": "MVP full NNA observability rail, durable evidence, corrections/redaction and sourced notes.",
+      "status": "pending",
+      "subfeatures": []
+    },
+    {
+      "id": "W-117",
+      "work_packages": "F2, F3, F10",
+      "disposition": "MVP delegated transcripts and currently authorized actions; native steering dependencies remain required.",
+      "status": "pending",
+      "subfeatures": []
+    }
+  ]
+}

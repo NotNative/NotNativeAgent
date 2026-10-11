@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 WP-F/V4 scaffold: the machine-checkable W acceptance ledger (scaffolding, not evidence)
+
+V4 requires "the W-id subfeature ledger" and guide 04's evidence protocol
+requires one machine-checkable acceptance record per W item; until this
+round no such artifact existed. `feature-parity-records.json` now holds one
+record per W-01–W-117 whose `work_packages` and `disposition` text are
+pinned verbatim to the authoritative 04 table by
+`scripts/feature-parity-records.mjs` (any drift between the ledger and the
+table fails the suite), with a closed status vocabulary
+(pending / implemented-unverified / verified / deferred-nna-blocked),
+evidence paths required for any non-pending claim, a `verified` claim
+requiring installed/V evidence, and an explicit no-verified-claims rule
+until the installed observation run exists. All 117 records start
+`pending` with empty subfeature lists: this round creates the honest
+contract and the drift gate, not completion evidence - populating
+subfeatures and moving statuses is the F/V work itself, and the full sweep
+(packages 274 files / 1998 ui tests green, scripts suites green) is the
+only new evidence in this entry.
+
 ## 2026-10-11 WP-F: the broker secret delete guard and the live-source census gate (implemented-unverified)
 
 The named NNA deliverable from the settings census (secrets:delete_guard) is
