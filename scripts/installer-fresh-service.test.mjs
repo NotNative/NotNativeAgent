@@ -175,6 +175,8 @@ test('installer source follows the dumb-copy shape: plan, copy, build, register,
   assert.ok(source.includes('"NotNativeAgent.lnk"'));
   assert.ok(!source.includes('"NotNativeDesktop.lnk"'));
   assert.ok(source.includes('notnative-agent.ico'));
+  // Upgrades remove the pre-rename shortcut.
+  assert.ok(source.includes("Remove-Item -LiteralPath $staleShortcut -Force"));
 });
 
 test('a stale controller discovery record is recovered through foreground takeover',

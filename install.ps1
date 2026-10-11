@@ -623,6 +623,15 @@ if ($copyExit -ge 8) {
 }
 Write-Good "source copied"
 
+# Remove the pre-rename shortcut so the stale entry can never start the old way.
+foreach ($anchor in @($DesktopDir, $StartMenuDir)) {
+    $staleShortcut = Join-Path $anchor 'NotNativeDesktop.lnk'
+    if (Test-Path -LiteralPath $staleShortcut -PathType Leaf) {
+        Remove-Item -LiteralPath $staleShortcut -Force
+        Write-Host "  removed stale shortcut: $staleShortcut"
+    }
+}
+
 Push-Location $InstallDir
 try {
     Write-Heading "Installing dependencies (pnpm install --frozen-lockfile)"
