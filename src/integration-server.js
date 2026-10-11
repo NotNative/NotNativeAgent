@@ -64,6 +64,17 @@ async function dispatch(request, response, context) {
   if (!authenticateIntegrationRequest(request, context.token)) {
     return send(response, 401, failure('unauthenticated', 'valid integration credential required'));
   }
+  // Security: a supervised listener enforces the supervisor's renewable
+  // capability on every privileged request; the static bearer token alone is
+  // transport, not authority (execution guide 02 L3).
+  if (context.capabilityAuthority) {
+    try {
+      context.capabilityAuthority.verify(request.headers['x-nna-service-capability']);
+    } catch (error) {
+      if (!(error instanceof ContractError)) throw error;
+      return send(response, 401, failure(error.code, error.message));
+    }
+  }
   // Security: an unpublished native listener denies ordinary mutations even
   // if a later principal resolver returns broader permissions.
   context.assertAdmission?.(request);

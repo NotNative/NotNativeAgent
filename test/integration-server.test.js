@@ -784,10 +784,11 @@ test('capability renewal endpoint renews within grace and fails closed', async (
     capabilityAuthority: authority,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
-  const renew = async (capability, method = 'POST') => {
+  const renew = async (capability, method = 'POST', header = capability) => {
     const response = await fetch(`${base}/v1/nnd/capability/renew`, {
       method, redirect: 'error', headers: { authorization: `Bearer ${TOKEN}`,
         'x-nna-principal': Buffer.from(JSON.stringify(principal(['harness.proxy']))).toString('base64url'),
+        ...(header ? { 'x-nna-service-capability': header } : {}),
         ...(method === 'POST' ? { 'content-type': 'application/json' } : {}) },
       body: method === 'POST' ? JSON.stringify({ capability }) : undefined,
     });
@@ -796,6 +797,10 @@ test('capability renewal endpoint renews within grace and fails closed', async (
   };
   try {
     const fresh = authority.issue();
+    // Enforcement: without a live capability even the bearer token is refused.
+    const unauthenticated = await renew(fresh, 'POST', null);
+    assert.equal(unauthenticated.status, 401);
+    assert.equal(unauthenticated.value.error.code, 'capability_invalid');
     const renewed = await renew(fresh);
     assert.equal(renewed.status, 200);
     assert.equal(authority.verify(renewed.value.capability).subject_id, 'nnd-service:nna_test');

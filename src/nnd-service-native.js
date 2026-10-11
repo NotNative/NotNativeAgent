@@ -141,6 +141,7 @@ export async function startNndNativeService(paths, identity, options = {}) {
   try {
     service = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,
       instanceId: identity.installation_id, broker, providerStore, nndRuntime: lifecycle.runtime,
+      ...(options.capabilityAuthority ? { capabilityAuthority: options.capabilityAuthority } : {}),
       ...settings,
       ...(options.unpublishedTrial ? { assertAdmission: request =>
         assertNndTrialRequestAdmission(options.trialAdmissionGate, identity, request) } : {}),

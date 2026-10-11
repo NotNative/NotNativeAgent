@@ -84,10 +84,16 @@ export async function startNndSupervisor(identity, paths, options = {}) {
     state.package = await admitNndServicePackage(paths, identity);
     await admitFreshNndServiceData(paths, identity, lease);
     const previous = await readNndServiceDiscovery(identity);
-    state.native = await startNndNativeService(paths, identity, { ...options, activationTimeoutMs: SUPERVISED_SETUP_TIMEOUT_MS });
+    // The capability authority exists before the native listener so the
+    // listener enforces the renewable grant; the generation binds once the
+    // discovery record exists.
+    state.capabilityAuthority = createNndServiceCapabilityAuthority(identity);
+    state.native = await startNndNativeService(paths, identity, { ...options,
+      capabilityAuthority: state.capabilityAuthority, activationTimeoutMs: SUPERVISED_SETUP_TIMEOUT_MS });
     state.controller = await startNndController({ getRecord: () => state.published ? state.record : null,
       status: () => status(state), stop, ticket: () => issueSupervisorTicket(state) });
     state.record = await createNndDiscoveryGeneration(identity, lease, { endpoint: state.controller.endpoint });
+    state.capabilityAuthority.bind(state.record.instance_id);
     await startSupervisorChild(session, paths);
     assertHeldNndServiceLease(lease, identity.data_id);
     await publishNndDiscoveryGeneration(identity, lease, state.record.instance_id, previous?.instance_id ?? null);
@@ -364,11 +370,10 @@ async function startSupervisorChild(session, paths) {
   const nndData = join(identity.data_root, 'nnd'); await mkdir(nndData, { recursive: true });
   const ui_origin = await availableUiOrigin();
   state.uiHealthKey = randomBytes(32).toString('base64url');
-  // Renewable scoped capability (execution guide 02 L3): the long-lived
-  // engine token stays the transport credential during the transition, while
-  // the supervisor issues and renews an NNA-bound capability whose authority
-  // never expands and which dies with the supervisor (restart = new key).
-  state.capabilityAuthority = createNndServiceCapabilityAuthority(identity, state.record.instance_id);
+  // Renewable scoped capability (execution guide 02 L3): the supervisor
+  // issues and renews an NNA-bound capability whose authority never expands
+  // and which dies with the supervisor (restart = new key). The native
+  // listener enforces the same grant on every privileged request.
   state.child = launchNndServiceChild(identity, state.package.entrypoint, {
     type: 'bootstrap', protocol: '1.0', installation_id: identity.installation_id, data_id: identity.data_id,
     generation: state.record.instance_id, nna_install_root: identity.install_root, nna_data_root: identity.data_root,

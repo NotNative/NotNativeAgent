@@ -18,7 +18,7 @@ export function encodeCapabilityToken(payload, key) {
 }
 
 export function verifyCapabilityToken(token, context) {
-  const { generation, activeKey, activeKeyId, revoked, now, skewMs, graceMs, allowGrace } = context;
+  const { boundGeneration, activeKey, activeKeyId, revoked, now, skewMs, graceMs, allowGrace } = context;
   if (typeof token !== 'string' || token.length > MAX_TOKEN_CHARACTERS || !token.includes('.')) {
     throw new ContractError('capability_invalid', 'capability token is malformed');
   }
@@ -32,7 +32,7 @@ export function verifyCapabilityToken(token, context) {
   try { value = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')); }
   catch { throw new ContractError('capability_invalid', 'capability payload is not JSON'); }
   if (!value || typeof value !== 'object' || value.v !== PAYLOAD_VERSION
-    || value.scope !== SCOPE || value.generation !== generation
+    || value.scope !== SCOPE || !boundGeneration || value.generation !== boundGeneration
     || typeof value.key_id !== 'string' || !value.key_id) {
     throw new ContractError('capability_invalid', 'capability payload is out of scope for this service');
   }

@@ -21,16 +21,25 @@ export function createCapabilityAuthority({
   keyId = `cap_${randomBytes(8).toString('hex')}`, ttlMs = DEFAULT_TTL_MS,
   graceMs = DEFAULT_GRACE_MS, skewMs = DEFAULT_SKEW_MS, now = () => Date.now(),
 } = {}) {
-  if (typeof generation !== 'string' || !generation.trim()) throw new ContractError('capability_invalid', 'generation required');
+  if (generation !== undefined && (typeof generation !== 'string' || !generation.trim())) {
+    throw new ContractError('capability_invalid', 'generation required');
+  }
   const authority = freezeAuthority(principal);
-  const state = { activeKey: key, activeKeyId: keyId, revoked: new Set() };
-  const context = (allowGrace) => ({ ...state, generation, now, skewMs, graceMs, allowGrace });
+  const state = { activeKey: key, activeKeyId: keyId, revoked: new Set(), boundGeneration: generation };
+  const context = (allowGrace) => ({ ...state, now, skewMs, graceMs, allowGrace });
   const issue = () => encodeCapabilityToken({
     ...authorityFields(authority), issued_at: now(), expires_at: now() + ttlMs,
   }, state.activeKey);
   const verifyToken = (token, allowGrace) => verifyCapabilityToken(token, context(allowGrace));
   return Object.freeze({
     issue,
+    /** Bind-once: the supervisor learns its discovery generation after the
+     *  listener has started, so construction may defer the binding. */
+    bind(value) {
+      if (state.boundGeneration) throw new ContractError('capability_invalid', 'generation already bound');
+      if (typeof value !== 'string' || !value.trim()) throw new ContractError('capability_invalid', 'generation required');
+      state.boundGeneration = value;
+    },
     /** Renewal preserves subject, workspace, surface, and permitted actions by
      *  construction: the fresh authority is copied from the verified previous
      *  capability, never from caller input. Beyond the grace window renewal
@@ -58,8 +67,9 @@ export function createCapabilityAuthority({
   });
 
   function authorityFields(source) {
+    if (!state.boundGeneration) throw new ContractError('capability_invalid', 'generation is not bound');
     return {
-      key_id: state.activeKeyId, generation, scope: 'nnd-service',
+      key_id: state.activeKeyId, generation: state.boundGeneration, scope: 'nnd-service',
       subject_id: source.subject_id, platform_role: source.platform_role,
       permissions: source.permissions, workspace_ids: source.workspace_ids,
       group_ids: source.group_ids,
