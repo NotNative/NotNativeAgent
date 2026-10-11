@@ -1800,6 +1800,10 @@
     {
       "version": "20261011-36",
       "content_sha256": "b1e215dddced292fd40f4a4eb7e249c79ca0953ba41318444767d03fee71abf0"
+    },
+    {
+      "version": "20261011-38",
+      "content_sha256": "3a09a334d977081749f528d0269e662cd25c9a28885a3d6a41f5fe9532237535"
     }
   ]
 }

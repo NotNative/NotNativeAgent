@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:c89e962b7a13e8d713e86c60ef8677f9e35121fa3274ea7514d675366f14dd5e",
+  "source_digest": "sha256:959545fbbad95003314b8905be274b540435f7287da289f4757b979e42c6fdda",
   "counts": {
-    "modules": 887,
+    "modules": 888,
     "component_edges": 17
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 221
+      "module_count": 222
     },
     {
       "id": "web-server",
@@ -123,8 +123,8 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 117,
-      "module_count": 71
+      "import_count": 118,
+      "module_count": 72
     },
     {
       "from": "sync-engine",
@@ -379,6 +379,14 @@
       "imports": [
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/steering-capability.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/command-palette.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/sync/global-stores.ts"
       ]
     },
     {
@@ -1453,6 +1461,7 @@
         "packages/ui/src/chat/app-engine.ts",
         "packages/ui/src/chat/archive-view.tsx",
         "packages/ui/src/chat/chat-view.tsx",
+        "packages/ui/src/chat/command-palette.tsx",
         "packages/ui/src/chat/composer.tsx",
         "packages/ui/src/chat/multirun-fusion-dialog.tsx",
         "packages/ui/src/chat/multirun-launcher.tsx",

@@ -43,6 +43,7 @@ import { WorkspaceIdentity } from './workspace-identity.tsx';
 import type { ComposerServices } from '../chat/composer.tsx';
 import { readMiniChatLaunch } from '../lib/miniChatLaunch.ts';
 import { useKeybind } from '../lib/shortcuts/hooks.ts';
+import { CommandPalette, openCommandPalette } from '../chat/command-palette.tsx';
 import { usePushPresence } from './push-presence.tsx';
 import { mountSessionRoute, notifySessionRouteNavigation } from '../lib/session-route.ts';
 import { useWorkspaceRoute } from './use-workspace-route.ts';
@@ -238,15 +239,10 @@ export function MainLayout(): ReactNode {
         .then(() => { toast.success(t('shell.toast.renamed')); })
         .catch(() => { toast.error(t('shell.toast.renameFailed')); });
     },
-    archive: async (sessionID: string, directory: string) => {
-      await engine.actions.archive(sessionID, directory);
-    },
-    restore: async (sessionID: string, directory: string) => {
-      await engine.actions.restore(sessionID, directory);
-    },
-    deleteSession: async (sessionID: string, directory: string) => {
-      await engine.actions.deleteSession(sessionID, directory);
-    },
+    // engine.actions already gate on fresh authority — alias the pass-throughs.
+    archive: engine.actions.archive,
+    restore: engine.actions.restore,
+    deleteSession: engine.actions.deleteSession,
   } as const;
 
   useEffect(() => window.__NOTNATIVE_DESKTOP_EVENTS__?.onOpenSession(({ sessionId, directory }) => {
@@ -266,6 +262,7 @@ export function MainLayout(): ReactNode {
     });
   };
   useKeybind('new_mini_chat', openMiniChat);
+  useKeybind('open_command_palette', () => { if (!miniChat) openCommandPalette(); });
   const closeMiniChat = (): void => { void window.__NOTNATIVE_DESKTOP_INVOKE__?.('desktop_close_current_window'); };
   const togglePinned = async (): Promise<void> => {
     const invoke = window.__NOTNATIVE_DESKTOP_INVOKE__;
@@ -486,6 +483,8 @@ export function MainLayout(): ReactNode {
           onLaunched={() => setFusionTarget(null)}
         />
       ) : null}
+      {!miniChat ? <CommandPalette actions={actions} currentDirectory={activeDirectory}
+        onOpenArchive={() => setArchiveOpen(true)} onOpenSettings={() => window.dispatchEvent(new Event(settingsOpenEventName))} /> : null}
       <Toaster position="bottom-right" />
     </div>
   );

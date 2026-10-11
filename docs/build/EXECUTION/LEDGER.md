@@ -18,6 +18,24 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Command palette (W-05.command-palette, implemented-unverified)
+
+The declared-but-dead `open_command_palette` shortcut (mod+p) now opens a real
+command palette: a `CommandPalette` overlay mounted in MainLayout (suppressed
+in mini chat) with a typeahead filter over a flat command list — new chat,
+open settings, show archived sessions, and one "Open:" row per active
+session. Commands delegate to the same sidebar actions (draft/session open)
+and shell events (settings/archive), so the palette introduces no second
+authority path. Keyboard contract: input autofocus on open, ArrowUp/Down move
+the selection (clamped), Enter runs the selection and closes, Escape closes
+without running, backdrop click closes, empty query shows everything and a
+no-match state is explicit. `useKeybind` registration is first-bound per the
+registry, so the palette coexists with contextual owners. Focused tests pin
+the command construction (navigation + per-session rows run the right action
+with the right directory), the case-insensitive filter, and the keyboard
+contract (Enter runs + closes, Escape closes without running, click runs).
+W-05 moves to implemented-unverified across all subfeatures.
+
 ## 2026-10-11 Bounded renderer recovery pinned by focused tests (W-02/W-10, implemented-unverified)
 
 The bounded renderer-recovery module (`renderer-recovery.mjs`, doc 09 §12.1)

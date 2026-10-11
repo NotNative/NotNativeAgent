@@ -95,7 +95,7 @@
       "id": "W-05",
       "work_packages": "F10, C",
       "disposition": "MVP complete shell, settings window, command palette, workspace regions.",
-      "status": "pending",
+      "status": "implemented-unverified",
       "subfeatures": [
         {
           "id": "W-05.shell",
@@ -123,9 +123,24 @@
         },
         {
           "id": "W-05.command-palette",
-          "status": "pending",
-          "note": "only the 'open_command_palette' shortcut label (lib/shortcuts/config.ts) and a settings-search row exist; no command-palette component or dispatcher is implemented."
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/command-palette.tsx",
+            "../NotNativeDesktop/packages/ui/src/components/MainLayout.tsx (open_command_palette keybind + palette mount)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/command-palette.test.tsx"
+          ]
         }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/MainLayout.tsx",
+        "../NotNativeDesktop/packages/ui/src/components/auth/__tests__/app-composition.test.tsx",
+        "../NotNativeDesktop/packages/ui/src/components/settings/search.ts",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p5-3-settings.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/operator-rail.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-rail.test.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/command-palette.tsx",
+        "../NotNativeDesktop/packages/ui/src/components/MainLayout.tsx (open_command_palette keybind + palette mount)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/command-palette.test.tsx"
       ]
     },
     {
