@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 WP-E: the managed-child production path is retired (implemented-unverified)
+
+Execution guide 02 L4's retirement clause is now real: `serve-installed.mjs`
+accepts only `--supervised` - NNA's supervision contract (bootstrap frame,
+capability renewal, lifecycle ownership) is the single production entry, and
+any other argument fails closed naming the supervised contract. The
+historical `--port` managed mode had no production caller (NNA always spawns
+`--supervised`; source development stays in `scripts/dev.mjs`), but its mere
+existence kept a second writer for the migrated NND state one argument away.
+The service-package entry contract is unchanged (`serve-installed.mjs`
+remains `service_activation.entrypoint`), so manifest validation, payload
+export, and older-pair upgrade acceptance are untouched. Verified:
+`serve-installed` 2/2 (in-process refusal for every non-supervised argument
+shape; the entry file fails closed with exit 1), structure pins now enforce
+the supervised-only entry, full scripts sweep ALL GREEN. The paired
+upgrade-from-managed-child journey (old NND package still open in Electron
+during an upgrade) remains the L5/L6 installed acceptance case and is
+deferred with the operator observations.
+
 ## 2026-10-11 WP-B: schema-unchanged activation gate (implemented-unverified)
 
 The prebuilt payload manifest now carries an optional bounded `data_schema`

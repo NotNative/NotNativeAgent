@@ -52,9 +52,10 @@ test('installer.ps1 follows the dumb-copy shape: plan, copy, build, register, sh
   // child spawns the desktop app after readiness, and the tray Quit requests
   // a service stop instead of only closing the GUI.
   const serve = await readFile(resolve('scripts/serve-installed.mjs'), 'utf8');
-  const ready = serve.indexOf("'ready'");
-  const childGui = serve.indexOf('launchSelectedDesktop(configured.root)');
-  assert.ok(ready > 0 && ready < childGui);
+  // L4: the managed-child `--port` production path is retired; the installed
+  // entry accepts only NNA supervision.
+  assert.ok(serve.includes("args[0] !== '--supervised'"));
+  assert.ok(!serve.includes('--port'));
   const supervised = await readFile(resolve('scripts/serve-supervised.mjs'), 'utf8');
   const supervisedReady = supervised.indexOf("type: 'ready'");
   const supervisedGui = supervised.indexOf('launchSelectedDesktop(root)');
