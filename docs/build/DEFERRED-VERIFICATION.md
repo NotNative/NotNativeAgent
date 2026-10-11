@@ -85,6 +85,13 @@ NNA `20261011-10`, disposable fixtures only):
       installer runs), so NNA's own release-gates verify remains red until
       the multi-platform conformance rerun and manifest reseal happen —
       an operator multi-platform item, not faked in-session.
+      NNA test-hygiene debt (honest): NNA/NND suites `mkdtemp` scratch dirs
+      directly under the user profile on Windows with inconsistent `t.after`
+      cleanup, leaking hundreds of `nna-*` / `nnd-*` directories per full
+      test run. All leaked dirs were swept by operator request (one dir
+      stays while the operator-installed NNA service holds its lock). A
+      systematic fix — per-suite cleanup or a profile-local scratch root —
+      is an NNA test-hygiene work package, still owed.
 - [x] A5 remaining shell side-effect audit sign-off (the deep-link probe
       asserts dialogs, host prefs, boot target, window count and the
       URL-minus-session unchanged on the installed shell)
