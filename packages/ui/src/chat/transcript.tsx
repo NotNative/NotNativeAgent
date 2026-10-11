@@ -45,6 +45,8 @@ export function Transcript(props: TranscriptProps): ReactNode {
   const [loadState, setLoadState] = useState<{ key: string; state: SessionMessageLoadState } | null>(null);
   const [olderBusyKey, setOlderBusyKey] = useState<string | null>(null);
   const [olderFailedKey, setOlderFailedKey] = useState<string | null>(null);
+  const [hashTick, setHashTick] = useState(0);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const olderAnchor = useRef<{ key: string; store: StoreApi<DirectoryStore>; firstMessageID: string; id: string; top: number; viewport: HTMLElement } | null>(null);
   const loadKey = `${directory}\n${sessionID ?? ''}`;
@@ -62,6 +64,28 @@ export function Transcript(props: TranscriptProps): ReactNode {
     anchor.viewport.scrollTop += node.getBoundingClientRect().top - anchor.top;
     olderAnchor.current = null;
   }, [loadKey, store, snapshot.message]);
+  // Deep links: `#message-<id>` scrolls to and briefly highlights a stable
+  // per-message anchor; the hash survives paging because the id is projected
+  // from session identity, not list position.
+  useEffect(() => {
+    const onHashChange = (): void => setHashTick((tick) => tick + 1);
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+  useEffect(() => {
+    const match = /^#message-(.+)$/u.exec(window.location.hash);
+    const raw = match?.[1];
+    if (!raw || !sessionID) return;
+    const node = transcriptRef.current?.querySelector<HTMLElement>(`[id="message-${decodeURIComponent(raw).replace(/[\\"]/gu, '\\$&')}"]`);
+    if (!node) return;
+    node.scrollIntoView({ block: 'center' });
+    node.classList.add('outline', 'outline-2', 'outline-amber-400/60', 'rounded-lg');
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => {
+      node.classList.remove('outline', 'outline-2', 'outline-amber-400/60', 'rounded-lg');
+    }, 1600);
+    return () => { if (highlightTimer.current) { clearTimeout(highlightTimer.current); highlightTimer.current = null; } };
+  }, [loadKey, sessionID, hashTick, snapshot.message]);
   useEffect(() => {
     if (!sessionID) return;
     let active = true;

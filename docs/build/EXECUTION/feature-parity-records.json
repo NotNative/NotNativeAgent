@@ -551,8 +551,11 @@
         },
         {
           "id": "W-27.message-deep-links",
-          "status": "pending",
-          "note": "app-level deep-link ingress exists (LEDGER 2026-10-09/10 A5 entries), but no stable per-message deep-link/anchor implementation was found"
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (message-<id> anchors + #message-<id> hash navigation, highlight, hashchange follow)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/message-deep-link.test.tsx"
+          ]
         }
       ]
     },

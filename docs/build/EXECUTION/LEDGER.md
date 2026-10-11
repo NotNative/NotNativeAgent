@@ -18,6 +18,28 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 W-ledger disposition batch + per-message deep links (implemented-unverified)
+
+First W-ledger disposition batch: records W-01–W-20 and W-24–W-33 now carry
+audited dispositions with repo-relative evidence paths and named test cases —
+19 of 117 records are `implemented-unverified` (mock success never closes
+parity; installed observation still owed for every one), the rest stay
+`pending` with the concrete missing piece named per record (command palette,
+theme prepaint, bounded-retry and crash-recovery tests, setup wizard, AI
+rename/export, surface-state catalog, virtualization, global/directory
+settings separation, immutable event receipt, end-to-end resume binding,
+transport watchdog, real-harness optimistic echo). The batch was produced by
+three independent evidence audits over both checkouts and spot-verified
+before applying; the ledger audit gate pins the schema. Also landed the first
+named gap: stable per-message deep links (W-27.message-deep-links) — every
+timeline row already renders a projected-identity anchor
+(`#message-<id>`, position-independent across paging), and the transcript now
+consumes `#message-<id>` hashes on mount and on `hashchange`, scrolling the
+row into view with a brief highlight ring; a hash for a message outside the
+loaded pages is ignored until paging brings it in. Focused coverage in
+`message-deep-link.test.tsx` (anchor navigation, hashchange follow, absent-id
+no-op).
+
 ## 2026-10-11 F4 native revert: `/revert` + `/unrevert` ride journal-backed replay (implemented-unverified)
 
 NNA `20261011-10` lands the second F4 native timeline operation. `POST
