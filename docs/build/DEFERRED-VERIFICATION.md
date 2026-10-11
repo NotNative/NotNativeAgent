@@ -89,9 +89,15 @@ NNA `20261011-10`, disposable fixtures only):
       directly under the user profile on Windows with inconsistent `t.after`
       cleanup, leaking hundreds of `nna-*` / `nnd-*` directories per full
       test run. All leaked dirs were swept by operator request (one dir
-      stays while the operator-installed NNA service holds its lock). A
-      systematic fix — per-suite cleanup or a profile-local scratch root —
-      is an NNA test-hygiene work package, still owed.
+      stays while the operator-installed NNA service holds its lock).
+      RESOLVED at NND `20261011-83` / NNA `20261011-12`: every suite temp
+      directory now lands in the single shared root `~/.nna-test-scratch`
+      (NNA `test/scratch.js`, NND `scripts/test-scratch.mjs`) with
+      best-effort process-exit cleanup on top of each suite's own teardown;
+      the NNA full run and both NND smokes left zero spill in the profile
+      root and a self-cleaned scratch root. The one locked legacy directory
+      (`nna-manifest-test-tXdmo5`) clears when the operator-installed NNA
+      service next stops.
 - [x] A5 remaining shell side-effect audit sign-off (the deep-link probe
       asserts dialogs, host prefs, boot target, window count and the
       URL-minus-session unchanged on the installed shell)

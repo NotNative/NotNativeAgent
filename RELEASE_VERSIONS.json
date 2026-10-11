@@ -1976,6 +1976,10 @@
     {
       "version": "20261011-83",
       "content_sha256": "42d43483cf88dfae17ebf8750cfa816771d526fd4e2548268ac8ca60fe2ceea5"
+    },
+    {
+      "version": "20261011-84",
+      "content_sha256": "21959757ee5bbe77e1b27a6f93b66a9a948182230d4b7e4c6ae7768ef68329dc"
     }
   ]
 }
