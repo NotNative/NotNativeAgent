@@ -697,7 +697,7 @@
       "id": "W-27",
       "work_packages": "F2, F4",
       "disposition": "MVP virtualization, history paging and stable message deep links.",
-      "status": "pending",
+      "status": "implemented-unverified",
       "subfeatures": [
         {
           "id": "W-27.history-paging",
@@ -711,8 +711,12 @@
         },
         {
           "id": "W-27.virtualization",
-          "status": "pending",
-          "note": "no virtualized message-list implementation found in packages/web/src or packages/ui"
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/turn-window.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (newest-first window + expander + deep-link auto-expansion)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/turn-window.test.tsx"
+          ]
         },
         {
           "id": "W-27.message-deep-links",
@@ -722,6 +726,17 @@
             "../NotNativeDesktop/packages/ui/src/chat/__tests__/message-deep-link.test.tsx"
           ]
         }
+      ],
+      "evidence": [
+        "../NotNativeAgent/src/nnd-activity-history.js",
+        "../NotNativeAgent/test/nnd-activity-history.test.js",
+        "../NotNativeAgent/test/nnd-activity-history-http.test.js",
+        "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 F2 recheck entry ('activity-history ... authoritative paged history')",
+        "../NotNativeDesktop/packages/ui/src/chat/turn-window.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (newest-first window + expander + deep-link auto-expansion)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/turn-window.test.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (message-<id> anchors + #message-<id> hash navigation, highlight, hashchange follow)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/message-deep-link.test.tsx"
       ]
     },
     {

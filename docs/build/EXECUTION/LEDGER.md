@@ -18,6 +18,24 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Turn-window virtualization (W-27.virtualization, implemented-unverified)
+
+The transcript now renders a NEWEST-FIRST WINDOW of turns (`TURN_WINDOW = 40`)
+instead of every loaded turn, so history paging can grow the store without
+growing the DOM unboundedly. Older loaded turns stay one click away via an
+explicit "Show N older turns" expander (expansion reveals everything loaded;
+expansion resets when the session changes), and the deep-link contract is
+preserved: a `#message-<id>` anchor hidden by the window auto-expands the
+transcript when the target message exists in the loaded store, after which
+the existing consumption effect scrolls to and briefly highlights the anchor
+— the anchor contract from the W-27 deep-link work never breaks. The
+window composes with cursor-based load-older (orthogonal paths); the
+streaming tail and blocking cards always render (window is from the end).
+Focused tests pin the helpers (window bounds, expansion math, turn-owns-
+message) and the DOM behavior (only the newest window renders, the expander
+reveals the rest, a deep link into a hidden turn expands and highlights).
+W-27 is implemented-unverified across all three subfeatures.
+
 ## 2026-10-11 Usage/quota/limits disposition (W-21, implemented-unverified)
 
 W-21's two legs exist with focused coverage — the record was stale. Context

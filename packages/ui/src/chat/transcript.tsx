@@ -20,6 +20,7 @@ import { ToolCard } from './tool-cards.tsx';
 import { BlockingCardsColumn } from './blocking-cards.tsx';
 import { formatDuration, formatRelative, formatRetryCountdown } from './time-format.ts';
 import { filterBtwTailMessages } from './btw-context.ts';
+import { TURN_WINDOW, hiddenTurnCount, turnHoldsMessage, windowStartIndex } from './turn-window.ts';
 import {
   messagePinnedState, setSessionMessagePinned,
 } from './context-message-pins.ts';
@@ -46,6 +47,9 @@ export function Transcript(props: TranscriptProps): ReactNode {
   const [olderBusyKey, setOlderBusyKey] = useState<string | null>(null);
   const [olderFailedKey, setOlderFailedKey] = useState<string | null>(null);
   const [hashTick, setHashTick] = useState(0);
+  // W-27 virtualization expansion lives with the other hooks (rules of hooks).
+  const [expandedTurns, setExpandedTurns] = useState(0);
+  useEffect(() => { setExpandedTurns(0); }, [sessionID]); // fresh window per session
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const olderAnchor = useRef<{ key: string; store: StoreApi<DirectoryStore>; firstMessageID: string; id: string; top: number; viewport: HTMLElement } | null>(null);
@@ -76,8 +80,17 @@ export function Transcript(props: TranscriptProps): ReactNode {
     const match = /^#message-(.+)$/u.exec(window.location.hash);
     const raw = match?.[1];
     if (!raw || !sessionID) return;
-    const node = transcriptRef.current?.querySelector<HTMLElement>(`[id="message-${decodeURIComponent(raw).replace(/[\\"]/gu, '\\$&')}"]`);
-    if (!node) return;
+    const targetID = decodeURIComponent(raw);
+    const node = transcriptRef.current?.querySelector<HTMLElement>(`[id="message-${targetID.replace(/[\\"]/gu, '\\$&')}"]`);
+    if (!node) {
+      // W-27: the anchor may be hidden by the turn window — expand the
+      // window when the target message exists in the loaded transcript, then
+      // this effect re-runs (same hashTick after the state update) and finds it.
+      if ((snapshot.message[sessionID] ?? []).some((message) => message.id === targetID)) {
+        setExpandedTurns(Number.MAX_SAFE_INTEGER);
+      }
+      return;
+    }
     node.scrollIntoView({ block: 'center' });
     node.classList.add('outline', 'outline-2', 'outline-amber-400/60', 'rounded-lg');
     if (highlightTimer.current) clearTimeout(highlightTimer.current);
@@ -85,7 +98,7 @@ export function Transcript(props: TranscriptProps): ReactNode {
       node.classList.remove('outline', 'outline-2', 'outline-amber-400/60', 'rounded-lg');
     }, 1600);
     return () => { if (highlightTimer.current) { clearTimeout(highlightTimer.current); highlightTimer.current = null; } };
-  }, [loadKey, sessionID, hashTick, snapshot.message]);
+  }, [loadKey, sessionID, hashTick, snapshot.message, expandedTurns]);
   useEffect(() => {
     if (!sessionID) return;
     let active = true;
@@ -129,8 +142,12 @@ export function Transcript(props: TranscriptProps): ReactNode {
     btwState.active || btwState.promoted ? btwState.boundaryMessageID : null,
   ) as Parameters<typeof projectTurns>[0];
   const turns = projectTurns(sourceMessages);
+  // W-27 virtualization: render a newest-first window; older loaded turns
+  // stay one click away and a deep link into a hidden turn expands fully.
+  const hiddenCount = hiddenTurnCount(turns.length, expandedTurns);
+  const fromIndex = windowStartIndex(turns.length, expandedTurns);
+  const visibleTurns = hiddenCount > 0 ? turns.slice(fromIndex) : turns;
   const tail = streamingTail(turns);
-  const lastIndex = turns.length - 1;
   const currentLoad = loadState?.key === loadKey ? loadState.state : null;
   const canLoadOlder = !!currentLoad?.cursor && !currentLoad.complete;
   const loadOlder = async (): Promise<void> => {
@@ -170,9 +187,14 @@ export function Transcript(props: TranscriptProps): ReactNode {
           data-testid="load-older-messages">{olderBusyKey === loadKey ? 'Loading older messages…' : 'Load older messages'}</button>
         {olderFailedKey === loadKey ? <span role="alert" className="text-rose-400">Could not load older messages. Retry above.</span> : null}
       </div> : null}
-      {turns.map((turn, index) => {
+      {hiddenCount > 0 ? (
+        <button type="button" onClick={() => setExpandedTurns(Number.MAX_SAFE_INTEGER)}
+          className="mx-auto rounded border border-white/15 px-3 py-1 text-xs text-neutral-300 hover:bg-white/10"
+          data-testid="show-older-turns">Show {hiddenCount} older turns</button>
+      ) : null}
+      {visibleTurns.map((turn, index) => {
         const pin = { store, sessionID, directory };
-        return <TurnRow key={turn.userMessage.id} turn={turn} engine={engine} tailID={index === lastIndex ? tail?.id : undefined} pin={pin} />;
+        return <TurnRow key={turn.userMessage.id} turn={turn} engine={engine} tailID={index === visibleTurns.length - 1 ? tail?.id : undefined} pin={pin} />;
       })}
       {tail ? <StreamingTailRow key={tail.id} parts={(snapshot.part[tail.id] ?? []) as PartLite[]} messageID={tail.id} sessionID={sessionID} directory={directory} /> : null}
       {permissionsOf(snapshot, sessionID).length > 0 || questionsOf(snapshot, sessionID).length > 0

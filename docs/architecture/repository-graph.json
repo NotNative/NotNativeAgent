@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:07c77e41b7c706dcec553db786bd27c57f77e5308bcc2a4b65adc814eaf39272",
+  "source_digest": "sha256:b7fc0cb4a3c01cf9bcc00c9a93393764bb45487d3e2b070c5814f1553923a413",
   "counts": {
-    "modules": 891,
+    "modules": 892,
     "component_edges": 17
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 222
+      "module_count": 223
     },
     {
       "id": "web-server",
@@ -1023,6 +1023,7 @@
         "packages/ui/src/chat/markdown-lite.tsx",
         "packages/ui/src/chat/time-format.ts",
         "packages/ui/src/chat/tool-cards.tsx",
+        "packages/ui/src/chat/turn-window.ts",
         "packages/ui/src/chat/turns.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",
@@ -1033,6 +1034,12 @@
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts"
       ]
+    },
+    {
+      "path": "packages/ui/src/chat/turn-window.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/ui/src/chat/turns.ts",
