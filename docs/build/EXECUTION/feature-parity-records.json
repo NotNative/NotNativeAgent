@@ -2478,8 +2478,23 @@
       "id": "W-105",
       "work_packages": "C, F10",
       "disposition": "MVP consistent time/money/measurement formatting.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-105.formatting",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/format/time.ts (formatTimeForPreference auto/12h/24h viewer-zone, formatDateTime, canonicalizeTimezone legacy IANA, formatMoney §J.2 USD-fixed locale-grouped)",
+            "../NotNativeDesktop/packages/ui/src/lib/format/__tests__/time.test.ts (money/time pins incl. 4-digit sub-cent and non-finite handling)",
+            "../NotNativeDesktop/packages/ui/src/chat/work-status-panel.tsx (all cost rows now route through formatMoney; token counts locale-grouped)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/lib/format/time.ts (formatTimeForPreference auto/12h/24h viewer-zone, formatDateTime, canonicalizeTimezone legacy IANA, formatMoney §J.2 USD-fixed locale-grouped)",
+        "../NotNativeDesktop/packages/ui/src/lib/format/__tests__/time.test.ts (money/time pins incl. 4-digit sub-cent and non-finite handling)",
+        "../NotNativeDesktop/packages/ui/src/chat/work-status-panel.tsx (all cost rows now route through formatMoney; token counts locale-grouped)"
+      ]
     },
     {
       "id": "W-106",

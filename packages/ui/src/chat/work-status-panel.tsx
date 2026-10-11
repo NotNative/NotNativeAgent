@@ -13,6 +13,7 @@ import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import type { SessionStatus } from '../lib/nnd/types.ts';
 import { useCurrentIntlLocale } from '../lib/i18n/intl.ts';
+import { formatMoney } from '../lib/format/time.ts';
 import { contextUsage, nnaActiveTools, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, nnaTurnPhase, nnaWorkSummary, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
 import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
@@ -135,15 +136,15 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
       row('Context', nnaContext.percent === null ? 'Limit unknown' : `${nnaContext.percent.toFixed(1)}% estimated`),
       row('Estimated use', `${nnaContext.estimatedTokens.toLocaleString(intlLocale)} tokens`),
       nnaContext.limitTokens === null ? null : row('Limit', `${nnaContext.limitTokens.toLocaleString(intlLocale)} tokens`),
-      cost > 0 ? row('Cost', `$${cost.toFixed(2)}`) : null] });
+      cost > 0 ? row('Cost', formatMoney(cost)) : null] });
   } else if (context.tokens !== null) {
     sections.push({
       id: 'session',
       label: 'Session',
       rows: [
         turnLabel ? row('Turn', turnLabel) : null,
-        row('Context', context.percent === null ? 'unknown limit' : `${context.percent.toFixed(1)}%` + (context.tokens?.total ? ` · ${context.tokens?.total} tok` : '')),
-        cost > 0 ? row('Cost', `$${cost.toFixed(2)}`) : null,
+        row('Context', context.percent === null ? 'unknown limit' : `${context.percent.toFixed(1)}%` + (context.tokens?.total ? ` · ${context.tokens.total.toLocaleString(intlLocale)} tok` : '')),
+        cost > 0 ? row('Cost', formatMoney(cost)) : null,
       ],
     });
   } else if (context.percent !== null) {
@@ -178,9 +179,9 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
       ? <button key={agent.sessionID} type="button" className="flex w-full items-baseline justify-between gap-2 rounded px-1 py-1 text-left text-[11px] hover:bg-white/5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400"
           aria-label={`Open ${agent.title} subagent transcript`} onClick={() => onOpenSubagent(agent.sessionID)}>
           <span className="min-w-0 truncate text-sky-300">{agent.title}</span>
-          <span className="min-w-0 truncate text-right text-neutral-500">{agent.statusPhrase}{agent.cost ? ` · $${agent.cost.toFixed(2)}` : ''}</span>
+          <span className="min-w-0 truncate text-right text-neutral-500">{agent.statusPhrase}{agent.cost ? ` · ${formatMoney(agent.cost)}` : ''}</span>
         </button>
-      : row(agent.title, `${agent.statusPhrase}${agent.cost ? ` · $${agent.cost.toFixed(2)}` : ''}`)) });
+      : row(agent.title, `${agent.statusPhrase}${agent.cost ? ` · ${formatMoney(agent.cost)}` : ''}`)) });
   }
   if (work?.tasks.length) {
     sections.push({ id: 'tasks', label: 'Tasks', rows: work.tasks.map((task) => row(task.title,
@@ -286,7 +287,7 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
           {messages.length > 0 ? <UsageFact label="Loaded messages" value={messages.length.toLocaleString(intlLocale)} /> : null}
           {messages.length > 0 ? <UsageFact label="Loaded user" value={messages.filter((message) => message.role === 'user').length.toLocaleString(intlLocale)} /> : null}
           {messages.length > 0 ? <UsageFact label="Loaded assistant" value={messages.filter((message) => message.role === 'assistant').length.toLocaleString(intlLocale)} /> : null}
-          {cost > 0 ? <UsageFact label="Recorded cost" value={`$${cost.toFixed(2)}`} /> : null}
+          {cost > 0 ? <UsageFact label="Recorded cost" value={formatMoney(cost)} /> : null}
         </div> : null}
         {expanded && tokenFacts.length > 0 ? <div className="mt-4 border-t border-white/10 pt-3" data-testid="context-last-assistant-usage">
           <h4 className="mb-2 text-[11px] text-neutral-400">Last assistant message · reported tokens</h4>

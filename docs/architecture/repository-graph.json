@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f50a48e3bafb1a17fc41f1f199d4dbf8d7c0f79f1c8a5afafebbac9ab2082034",
+  "source_digest": "sha256:5b114fec42ae67064e4f60940767e737062450c7c02de4dbde39e3b2064609a4",
   "counts": {
     "modules": 893,
     "component_edges": 17
@@ -111,7 +111,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 380,
+      "import_count": 381,
       "module_count": 151
     },
     {
@@ -1100,6 +1100,7 @@
         "packages/ui/src/chat/review-mode-control.tsx",
         "packages/ui/src/chat/session-knowledge-summary.ts",
         "packages/ui/src/chat/work-status.ts",
+        "packages/ui/src/lib/format/time.ts",
         "packages/ui/src/lib/i18n/intl.ts",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/nnd/types.ts",

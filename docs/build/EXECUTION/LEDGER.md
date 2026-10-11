@@ -18,6 +18,17 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Consistent formatting (W-105, implemented-unverified)
+
+The formatting layer already carried the §J.1/§J.2 contract — time
+(auto/12h/24h in the viewer's zone with legacy-IANA canonicalization) and
+money (USD-fixed, locale-grouped, 4 digits below a cent, non-finite → $0.00)
+— pinned by the format tests. The gap was consistency of use: the work-status
+panel hand-formatted five cost sites with raw `toFixed(2)` and one token
+count without locale grouping. All cost rows now route through `formatMoney`
+and the context row groups tokens through the active intl locale. W-105 is
+implemented-unverified.
+
 ## 2026-10-11 Completion celebration (W-96, implemented-unverified)
 
 The completion affordance is built: when a session's status settles from

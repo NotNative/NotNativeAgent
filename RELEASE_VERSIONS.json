@@ -1916,6 +1916,10 @@
     {
       "version": "20261011-66",
       "content_sha256": "bbb805fcb310a6d35d98296cc71276c27fba9f8375c7f5c69f3f89dd9bc84eb6"
+    },
+    {
+      "version": "20261011-67",
+      "content_sha256": "0401cdcf9ff8a96452b5bfbfc59f6bbfb175ead1e328916c6a0fce07c9a7c1f6"
     }
   ]
 }
