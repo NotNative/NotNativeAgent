@@ -19,14 +19,17 @@ if ($descriptor.product -cne 'NotNativeAgent' -or $descriptor.node -isnot [strin
     !(Test-Path -LiteralPath $descriptor.node -PathType Leaf)) { throw 'Selected NNA runtime is invalid.' }
 $env:NODE_OPTIONS = ''
 $env:ELECTRON_RUN_AS_NODE = ''
-# Start the supervised desktop service (idempotent): the supervisor owns the
-# service + tray + UI child, and an already-running service resolves to its
-# live status. The NNA CLI surface (`nna desktop start`) owns the lifecycle.
+# Step 1 - start the supervised desktop service (idempotent). The supervisor
+# owns the server child; the tray + window are a separate GUI process that
+# attaches to the running generation, launched by the resolver in step 2.
 $cliPath = Join-Path $selection.nna_install_root 'installed\src\cli.js'
 if (!(Test-Path -LiteralPath $cliPath -PathType Leaf)) { $cliPath = Join-Path $selection.nna_install_root 'src\cli.js' }
 if (!(Test-Path -LiteralPath $cliPath -PathType Leaf)) { throw 'Selected NNA CLI is unavailable.' }
 & $descriptor.node $cliPath desktop start
 if ($LASTEXITCODE -ne 0) { throw "Desktop service start failed (exit $LASTEXITCODE)." }
+# Step 2 - launch the desktop app (tray icon + window) attached to the service.
+& $descriptor.node (Join-Path $PSScriptRoot 'launch-selected-desktop.mjs')
+if ($LASTEXITCODE -ne 0) { throw "NND desktop launch failed (exit $LASTEXITCODE)." }
 } catch {
     # Shortcut runs with a hidden console; surface a failed launch to the user.
     $message = "NotNativeDesktop could not start.`r`n`r`n$($_.Exception.Message)"

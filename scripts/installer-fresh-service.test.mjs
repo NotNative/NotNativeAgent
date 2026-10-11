@@ -167,10 +167,14 @@ test('installer source follows the dumb-copy shape: plan, copy, build, register,
   assert.ok(!source.includes('Invoke-NndFreshVerification'));
   assert.ok(source.indexOf('Request-NndServiceStopForUninstall $SelectedNna (Join-Path $Source') > 0);
   assert.ok(source.indexOf("Invoke-NndRegistration 'deactivate' $status.root $SelectedNna") > 0);
-  // The shortcut launcher starts the service through the NNA desktop surface.
+  // The shortcut launcher starts the service AND launches the attached GUI.
   const launcher = await readFile(resolve('scripts/launch-selected-desktop.ps1'), 'utf8');
   assert.ok(launcher.includes('desktop start'));
-  assert.ok(!launcher.includes('nnd start'));
+  assert.ok(!launcher.match(/& \$descriptor\.node \$cliPath nnd start/u));
+  assert.ok(launcher.includes('launch-selected-desktop.mjs'));
+  const startAt = launcher.indexOf('desktop start');
+  const guiAt = launcher.indexOf('launch-selected-desktop.mjs');
+  assert.ok(startAt > 0 && startAt < guiAt);
   // Shortcuts carry NNA branding.
   assert.ok(source.includes('"NotNativeAgent.lnk"'));
   assert.ok(!source.includes('"NotNativeDesktop.lnk"'));
