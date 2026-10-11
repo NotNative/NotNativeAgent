@@ -5,6 +5,8 @@ import { open, mkdir, realpath } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from './ids.js';
+import { verifyTrialGuiProof, boundedHealthBody } from './nnd-service-health.js';
+import { createNndServiceCapabilityAuthority, bootstrapCapability, armCapabilityRenewal, clearCapabilityRenewal } from './nnd-service-capability.js';
 import { validateNndPackage } from './nnd-package.js';
 import { acquireNndServiceLock, assertHeldNndServiceLease } from './nnd-service-lock.js';
 import { createNndDiscoveryGeneration, publishNndDiscoveryGeneration, removeNndDiscoveryPointer,
@@ -356,65 +358,28 @@ async function verifyUnpublishedTrial(state, { timeoutMs = 5000, signal, fetchIm
     generation: after.instance_id, version: after.package_version, native_state: after.service_state,
     gui_http_status: response.status });
 }
-async function verifyTrialGuiProof(state, requestSignal, fetchImpl) {
-  // Security: a live child PID does not prove that it still owns its former UI port.
-  if (!/^[A-Za-z0-9_-]{43}$/u.test(state.uiHealthKey ?? '')) {
-    throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI proof key is invalid');
-  }
-  const nonce = randomBytes(32).toString('base64url');
-  const proofUrl = `${state.ui}/__nna/health-proof`;
-  let proofResponse;
-  try {
-    proofResponse = await fetchImpl(proofUrl, { method: 'POST', redirect: 'manual', signal: requestSignal,
-      headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nonce }) });
-  } catch { throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI proof did not respond'); }
-  if (proofResponse.status !== 200 || proofResponse.redirected || proofResponse.url !== proofUrl) {
-    throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI proof response is invalid');
-  }
-  const proof = await boundedHealthBody(proofResponse);
-  if (!proof || Object.keys(proof).sort().join(',') !== 'mac,protocol' || proof.protocol !== '1.0'
-    || typeof proof.mac !== 'string' || !/^[a-f0-9]{64}$/u.test(proof.mac)) {
-    throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI proof body is invalid');
-  }
-  const expected = createHmac('sha256', Buffer.from(state.uiHealthKey, 'base64url'))
-    .update(JSON.stringify(['NND_SUPERVISED_HEALTH_V1', nonce, state.identity.installation_id,
-      state.identity.data_id, state.record.instance_id, state.ui])).digest();
-  if (!timingSafeEqual(Buffer.from(proof.mac, 'hex'), expected)) {
-    throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI proof identity differs');
-  }
-}
-async function boundedHealthBody(response) {
-  let body;
-  try {
-    const reader = response.body.getReader();
-    const chunks = []; let size = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.length;
-      if (size > 4096) { await reader.cancel(); throw new Error('bound'); }
-      chunks.push(value);
-    }
-    body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)));
-  }
-  catch { throw new ContractError('nnd_health_unavailable', 'Unpublished NND GUI health body is invalid'); }
-  return body;
-}
 async function startSupervisorChild(session, paths) {
   const { state } = session, { identity } = state;
   assertHeldNndServiceLease(state.lease, identity.data_id);
   const nndData = join(identity.data_root, 'nnd'); await mkdir(nndData, { recursive: true });
   const ui_origin = await availableUiOrigin();
   state.uiHealthKey = randomBytes(32).toString('base64url');
+  // Renewable scoped capability (execution guide 02 L3): the long-lived
+  // engine token stays the transport credential during the transition, while
+  // the supervisor issues and renews an NNA-bound capability whose authority
+  // never expands and which dies with the supervisor (restart = new key).
+  state.capabilityAuthority = createNndServiceCapabilityAuthority(identity, state.record.instance_id);
   state.child = launchNndServiceChild(identity, state.package.entrypoint, {
     type: 'bootstrap', protocol: '1.0', installation_id: identity.installation_id, data_id: identity.data_id,
     generation: state.record.instance_id, nna_install_root: identity.install_root, nna_data_root: identity.data_root,
     nnd_data_root: await realpath(nndData), ui_origin, health_key: state.uiHealthKey,
-    engine: { endpoint: state.native.endpoint, token: state.native.token },
+    engine: { endpoint: state.native.endpoint, token: state.native.token,
+      capability: bootstrapCapability(state) },
   }, { version: state.package.version });
   await state.child.ready;
   assertHeldNndServiceLease(state.lease, identity.data_id);
   state.ui = ui_origin;
+  armCapabilityRenewal(state, { stop: session.stop });
 }
 async function issueSupervisorTicket(state) {
   if (!state.published || !state.child || state.stopping) {
@@ -437,6 +402,7 @@ async function failSupervisorStart(session, error) {
 async function closeSupervisor(state) {
   state.stopping = true;
   state.retainedLeaseArmed = false;
+  clearCapabilityRenewal(state);
   // Controller creation can outlive the call that initiated stop. Wait for
   // its registered task so shutdown cannot leave a late listener behind.
   if (state.unpublishedTrial && state.discoveryTask) await Promise.allSettled([state.discoveryTask]);
@@ -498,3 +464,4 @@ function status(state) {
     package_state: state.package ? 'ready' : 'absent', provider_state: 'unknown',
     setup_guidance: failure_code ? 'Repair native NNA configuration, then activate the setup runtime.' : null };
 }
+

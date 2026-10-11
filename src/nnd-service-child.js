@@ -51,7 +51,7 @@ class NndChild {
       this.sawReady = true; clearTimeout(this.timer); this.resolveReady(value); return;
     }
     const waiter = this.pending.get(value.request_id);
-    if (!waiter || !['ui_ticket', 'stopped', 'error'].includes(value.type)) return this.fail('nnd_service_protocol_invalid');
+    if (!waiter || !['ui_ticket', 'stopped', 'error', 'applied'].includes(value.type)) return this.fail('nnd_service_protocol_invalid');
     this.pending.delete(value.request_id); waiter.resolve(value);
   }
   consume(chunk) {
@@ -64,7 +64,7 @@ class NndChild {
       try { this.frame(JSON.parse(line.toString('utf8'))); } catch { this.fail('nnd_service_protocol_invalid'); }
     }
   }
-  async command(type) {
+  async command(type, extra = {}) {
     if (this.failed || this.pending.size >= 16) throw new ContractError('nnd_service_crashed', 'NND child is unavailable');
     const request_id = randomUUID();
     let timeout;
@@ -72,7 +72,7 @@ class NndChild {
       this.pending.set(request_id, { resolve, reject });
       timeout = setTimeout(() => { this.pending.delete(request_id); reject(new ContractError('nnd_stop_timeout', 'NND child command timed out')); }, 5000);
     });
-    this.child.stdin.write(`${JSON.stringify({ type, protocol: '1.0', generation: this.bootstrap.generation, request_id })}\n`);
+    this.child.stdin.write(`${JSON.stringify({ type, protocol: '1.0', generation: this.bootstrap.generation, request_id, ...extra })}\n`);
     try { return await response; } finally { clearTimeout(timeout); }
   }
   close() { return this.closing ??= this.stop(); }

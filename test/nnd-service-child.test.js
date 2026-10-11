@@ -67,3 +67,17 @@ process.stdin.once('data', bytes => {
     await child.close();
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('apply_capability pushes deliver the fresh capability and acknowledge applied', async () => {
+  const f = fixture(); f.emit(f.ready); await f.child.ready;
+  const lines = [];
+  f.process.stdin.on('data', (chunk) => lines.push(...String(chunk).split('\n').filter(Boolean).map((l) => JSON.parse(l))));
+  await new Promise((resolve) => f.process.stdin.write('', resolve));
+  const applied = f.child.command('apply_capability', { capability: 'cap_1.sig_1' });
+  const request = lines.find((frame) => frame.type === 'apply_capability');
+  assert.equal(request.capability, 'cap_1.sig_1');
+  f.emit({ type: 'applied', protocol: '1.0', generation: 'generation', request_id: request.request_id });
+  await applied;
+  f.process.emit('exit', 0); await f.child.close();
+});
+

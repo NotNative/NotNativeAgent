@@ -16,6 +16,16 @@ flag and installs a login auto-start script (reverted if wiring fails);
 keeps the pre-rename `service`, `package`, and `serve` surfaces only; the
 lifecycle lives under `nna desktop`.
 
+The supervised service child additionally receives an NNA-issued renewable
+scoped capability (`src/integration-capability.js`): an HMAC-bound token
+carrying exactly the issued subject, role, permissions, and workspace/group
+lists, with bounded clock skew, a renewal grace window, explicit revocation,
+and key rotation on NNA restart (old keys fail closed as `capability_key_unknown`).
+The supervisor pushes a fresh capability to the child over the private control
+channel (`apply_capability` → `applied`) every five minutes, before expiry;
+renewal preserves authority by construction and a failed renewal fails the
+service session rather than leaving privileged work on stale authority.
+
 ## Selected native service
 
 The installed Windows path uses NNA supervision. Invoke the selected installation's
