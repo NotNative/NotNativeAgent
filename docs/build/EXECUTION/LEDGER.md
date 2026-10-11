@@ -18,6 +18,29 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 F4 native revert: `/revert` + `/unrevert` ride journal-backed replay (implemented-unverified)
+
+NNA `20261011-10` lands the second F4 native timeline operation. `POST
+/session/:id/revert` with `{messageID, partID?}` resolves the boundary through
+the same projected-id mapping the fork uses (`session:message:index` or a
+submitted user request id), appends a non-destructive `revert_point` journal
+record naming the boundary turn plus every later turn (`reverted_turn_ids`),
+and cuts those turns' transcript and turn state from the live engine. Replay
+pre-scans the journal for active revert points, so a restart reproduces the
+cut in canonical order and a turn submitted after a revert (fresh turn id)
+replays normally without unrevert. `POST /session/:id/unrevert` appends a
+`revert_cleared` marker and resynchronizes the live transcript to journal
+replay order, restoring the hidden turns in canonical position even around
+later turns. The cut is turn-wide (native checkpoints are turn-grained);
+`partID` is accepted, length-checked, and recorded but does not narrow the
+cut. Errors: `nnd_revert_busy` 409 while a turn is live, `nnd_revert_none`
+409 when unrevert has no active point; requires the `nnd.session.submit`
+grant. Real-engine coverage (cut, restart, new turn after revert, unrevert
+restore, restart mid-revert) and host/integration coverage (routes,
+permissions, statuses) are green; installed observation is deferred. NND
+needs no adapter change — the harness forwards the session routes
+transparently, and the mock already models the same session-shape contract.
+
 ## 2026-10-11 F9 step 2: multi-run rides per-session routes on create and fork (implemented-unverified)
 
 The desktop orchestration now carries the resolved per-run selection into the

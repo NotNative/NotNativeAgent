@@ -184,8 +184,15 @@
         },
         {
           "id": "W-23.timeline-revert",
-          "status": "pending",
-          "note": "native /revert and /unrevert unimplemented; OpenCode contract revert {messageID, partID?} documented in app.ts"
+          "status": "implemented-unverified",
+          "note": "turn-level boundary (native checkpoints); partID accepted and recorded, cut is message-turn-wide",
+          "evidence": [
+            "../NotNativeAgent/src/nnd-session-revert.js",
+            "../NotNativeAgent/src/persistence/session-history.js",
+            "../NotNativeAgent/test/nnd-session-revert.test.js",
+            "../NotNativeAgent/test/integration-server.test.js native revert and unrevert ride the harness routes",
+            "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 F4 revert entry"
+          ]
         },
         {
           "id": "W-23.prompt-navigation",

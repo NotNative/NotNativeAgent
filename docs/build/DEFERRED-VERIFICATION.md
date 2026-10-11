@@ -74,6 +74,16 @@ binaries and browser-driving runs.
       against the installed pinned pair and confirm the child session renders
       the inherited history and continues independently (NNA `20261011-8`
       `POST /session/:id/fork`, implemented-unverified)
+- [ ] Installed native revert observation: revert a timeline entry on the
+      installed pinned pair, confirm the removed turns disappear and the next
+      prompt continues without them, then unrevert and confirm the turns
+      return in canonical order (NNA `20261011-10` `POST /session/:id/revert`
+      / `/unrevert`, implemented-unverified)
+- [ ] Installed multi-run comparison journey (F9): run the same prompt in two
+      separate sessions with different model selections against the installed
+      pinned pair and confirm each run's per-session route holds
+      (`assertConfiguredSelection` path, NND `20261011-30` orchestration,
+      implemented-unverified)
 
 ## C4 rows awaiting installed application evidence
 
