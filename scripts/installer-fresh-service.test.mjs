@@ -159,7 +159,7 @@ test('installer source gates copying and success on fresh checks, guard release 
   const release = source.lastIndexOf('Stop-NndInstallationGuard $installationGuard');
   const verify = source.indexOf('$verified = Invoke-NndInstallVerification $nna $targetPath');
   const success = source.indexOf('Write-Heading "Fresh NND service verified"');
-  assert.ok(initial > 0 && initial < guard && guard < guarded && guarded < copy
+  assert.ok(initial > 0 && initial < guarded && guarded < guard && guard < copy
     && copy < release && release < verify && verify < success);
   // Upgrade shapes live in the same flow: the plan resolver may stop the old
   // service and deactivate it, and a stopped prior service must verify with
