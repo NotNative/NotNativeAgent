@@ -18,6 +18,19 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Twelve-locale i18n (W-103, implemented-unverified)
+
+The record was stale against the shipped design: the roster is exactly
+twelve locales (en + de, fr, zh-CN, zh-TW, uk, es, pt-BR, ko, pl, ja, tr)
+with native labels and tag normalization; the 11 non-en catalogs are typed
+subsets of the closed English key set (impossible keys are compile errors)
+resolved per key with en fallback (pinned: an untranslated de key renders
+the en string); language selection lives on the Appearance page. The
+authored-translation verification is now mechanical: a coverage census test
+rosters the twelve locales, proves every catalog key exists in en, and
+asserts each locale authors a meaningful slice (>40 keys). W-103 is
+implemented-unverified.
+
 ## 2026-10-11 Accessibility inventory + icon system (W-99, W-100, implemented-unverified)
 
 W-99: the complete accessible primitive inventory is authored at

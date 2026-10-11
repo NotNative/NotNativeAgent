@@ -2482,8 +2482,25 @@
       "id": "W-103",
       "work_packages": "C, F10",
       "disposition": "MVP twelve-locale key coverage/fallback and language selection; record authored translation verification.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-103.locales",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/i18n/runtime.ts (twelve-locale roster + native labels + tag normalization)",
+            "../NotNativeDesktop/packages/ui/src/lib/i18n/__tests__/locale-coverage.test.ts (roster census: 12 locales, typed-subset catalogs, per-locale authored coverage > 40 keys)",
+            "../NotNativeDesktop/packages/ui/src/lib/i18n/__tests__/store.test.ts (en per-key fallback pinned: untranslated de key renders en)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/appearance.tsx (language select with native labels)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/lib/i18n/runtime.ts (twelve-locale roster + native labels + tag normalization)",
+        "../NotNativeDesktop/packages/ui/src/lib/i18n/__tests__/locale-coverage.test.ts (roster census: 12 locales, typed-subset catalogs, per-locale authored coverage > 40 keys)",
+        "../NotNativeDesktop/packages/ui/src/lib/i18n/__tests__/store.test.ts (en per-key fallback pinned: untranslated de key renders en)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/appearance.tsx (language select with native labels)"
+      ]
     },
     {
       "id": "W-104",
