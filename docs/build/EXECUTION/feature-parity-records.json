@@ -1897,36 +1897,109 @@
       "id": "W-91",
       "work_packages": "F7",
       "disposition": "MVP Windows local dev-server discovery/probe; POSIX scanners excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-91.dev-server-probe",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-dev-servers.test.ts (5 Windows local dev-server discovery tests)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-probe-url.test.ts (3 probe-url tests)",
+            "../NotNativeDesktop/packages/electron/host-probe.test.mjs (14 tests); POSIX scanners excluded by contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-dev-servers.test.ts (5 Windows local dev-server discovery tests)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-probe-url.test.ts (3 probe-url tests)",
+        "../NotNativeDesktop/packages/electron/host-probe.test.mjs (14 tests); POSIX scanners excluded by contract"
+      ]
     },
     {
       "id": "W-92",
       "work_packages": "F7",
       "disposition": "MVP local browser/desktop preview/tabs/readiness/reconnect; tunnel mapping excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-92.local-preview",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/preview-frame-guard.test.ts (local preview frame guard)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/browser-surface.test.tsx (desktop preview surface, tabs, reconnect)",
+            "../NotNativeDesktop/packages/electron/main.mjs (guest window guards); tunnel mapping excluded by contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/preview-frame-guard.test.ts (local preview frame guard)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/browser-surface.test.tsx (desktop preview surface, tabs, reconnect)",
+        "../NotNativeDesktop/packages/electron/main.mjs (guest window guards); tunnel mapping excluded by contract"
+      ]
     },
     {
       "id": "W-93",
       "work_packages": "F3, F7",
       "disposition": "MVP governed inspection/capture/annotation/console callbacks.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-93.inspection-capture",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/browser-annotation-controls.tsx (annotation/capture controls)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-callback.test.ts (10 governed console-callback tests)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-control-broker.test.ts + p11-browser-ipc.test.js (governed IPC)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/browser-annotation-controls.tsx (annotation/capture controls)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-callback.test.ts (10 governed console-callback tests)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-control-broker.test.ts + p11-browser-ipc.test.js (governed IPC)"
+      ]
     },
     {
       "id": "W-94",
       "work_packages": "F5, F6, F7",
       "disposition": "MVP native walkthrough generation, readiness, cache and complete UI.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-94.walkthrough",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/git-walkthrough-generate.ts + git-walkthrough-snapshot.ts + git-walkthrough-sources.ts (native generation/readiness/cache)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-walkthrough-generate.test.ts (17) + snapshot/source/cache tests",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/walkthrough-preview.test.tsx (complete UI)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/git-walkthrough-generate.ts + git-walkthrough-snapshot.ts + git-walkthrough-sources.ts (native generation/readiness/cache)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-walkthrough-generate.test.ts (17) + snapshot/source/cache tests",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/walkthrough-preview.test.tsx (complete UI)"
+      ]
     },
     {
       "id": "W-95",
       "work_packages": "L, F7",
       "disposition": "Remote dev tunnels excluded; local preview delivery still required.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-95.local-preview-delivery",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-dev-servers.test.ts + p11-probe-url.test.ts (local preview delivery)",
+            "../NotNativeDesktop/packages/web/src/server/lib/relay/ + tunnels/ (remote dev-tunnel code preserved: p11-dev-tunnel.test.ts, excluded from acceptance)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-dev-servers.test.ts + p11-probe-url.test.ts (local preview delivery)",
+        "../NotNativeDesktop/packages/web/src/server/lib/relay/ + tunnels/ (remote dev-tunnel code preserved: p11-dev-tunnel.test.ts, excluded from acceptance)"
+      ]
     },
     {
       "id": "W-96",

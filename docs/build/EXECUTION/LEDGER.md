@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Local preview family (W-91..W-95, implemented-unverified)
+
+W-91: Windows local dev-server discovery/probe (p11-dev-servers 5 tests,
+p11-probe-url 3 tests, host-probe 14 tests); POSIX scanners excluded.
+W-92: local browser/desktop preview — preview-frame guard, the desktop
+preview surface with tabs/reconnect (browser-surface tests), guest-window
+guards; tunnel mapping excluded. W-93: governed inspection/capture —
+annotation controls, 10 governed console-callback tests, the control broker
+and browser-ipc suites. W-94: native walkthrough generation/readiness/cache
+(generate 17 tests + snapshot/source/cache suites) with the complete UI
+(walkthrough-preview tests). W-95: local preview delivery via the dev-server
+plane; the remote dev-tunnel code stays preserved-unaccepted. All
+implemented-unverified pending the installed V-gates.
+
 ## 2026-10-11 Local-auth/exclusion L batches (W-64..W-70, W-79, implemented-unverified)
 
 These records mix a local-required half with an excluded-by-contract half.
