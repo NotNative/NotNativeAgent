@@ -4,7 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { releaseFiles as collectReleaseFiles } from './release-content.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -23,6 +23,7 @@ async function main() {
   await coherentPackage(version);
   spawnGate('scripts/quality-gates.js', 'quality gates');
   spawnGate('scripts/smoke-test.js', 'smoke test');
+  featureParityGate();
   settingsCoverageGate();
   buildGate();
   const writeRequested = process.argv.includes('--write-hashes');
@@ -102,6 +103,23 @@ function settingsCoverageGate() {
   // evidence when the gate fails, and failureText alone would lose it.
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.status !== 0) errors.push(`settings coverage gate failed: ${failureText(result)}`);
+}
+
+// V4's W acceptance ledger is a self-contained drift gate: the records file
+// must stay pinned to the parity table and honor the evidence rules. A
+// failing ledger blocks the seal, because an unpinned ledger could claim
+// completion without installed evidence.
+function featureParityGate() {
+  const auditUrl = pathToFileURL(join(root, 'scripts', 'feature-parity-records.mjs')).href;
+  const result = spawnSync(process.execPath,
+    ['--input-type=module', '-e',
+      `import { auditRecords } from ${JSON.stringify(auditUrl)};
+       const { problems, expected, recorded } = await auditRecords();
+       if (problems.length) { console.error(problems.join('\\n')); process.exit(1); }
+       console.log('feature parity records complete: ' + recorded + '/' + expected);`],
+    { cwd: root, encoding: 'utf8' });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.status !== 0) errors.push(`feature parity ledger gate failed: ${failureText(result)}`);
 }
 
 // The release gates must compile what ships. The 20260921-2 seal rotted here:

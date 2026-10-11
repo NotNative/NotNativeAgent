@@ -3059,6 +3059,53 @@ configuration import only; live SSH transport is still outstanding.
 
 ## Log
 
+- 2026-10-11 · **WP series: installer transaction, capability enforcement,
+  prebuilt acceptance, managed-child retirement, delete guard, W ledger
+  (20261011-1 through -19).** Consolidated catch-up entry for the
+  2026-10-11 execution series; the detailed per-slice records live in
+  EXECUTION/LEDGER.md (this log fell behind during the series and this
+  entry restores the loop).
+
+  - **WP-A round 1** — installer-suite triage and release gates green
+    (20261011-1).
+  - **WP-D round 2** — capability renewal endpoint on the supervised NNA
+    listener (bearer + principal envelope; `capability_*` → 401) and the
+    NND harness adapter presentation of `x-nna-service-capability`
+    (20261011-7..-9; NNA 20261011-2..-3).
+  - **WP-C round 3** — source installer transactional upgrade window:
+    deferred deactivation + staged `install-transaction.json` evidence with
+    honest three-stage failure messages, POSIX parity, structure pins
+    (20261011-11).
+  - **WP-D round 4** — enforcement: the supervised listener refuses every
+    privileged request without a live capability; supervisor binds the
+    generation after the record exists; the child's bootstrap carries a
+    bounded `engine.capability` and the harness presents/renews it
+    (NNA 20261011-4; 20261011-12/13).
+  - **WP-C round 5** — legacy takeover refusal: an Electron-owned backend
+    from the install tree is refused before mutation with recovery
+    instructions, never killed (20261011-14).
+  - **WP-B round 6** — interrupted retained activation proven to leave no
+    public state (no anchor/selection, evidence preserved, honest
+    "do not retry blindly") through the real installer pipeline
+    (20261011-15).
+  - **WP-B round 7** — schema-unchanged activation gate: bounded manifest
+    `data_schema`, anchor records it, mismatched activation refused before
+    any native call (20261011-16).
+  - **WP-E round 8** — managed-child retirement: `serve-installed.mjs` is
+    supervised-only; the `--port` production path is gone (20261011-17).
+  - **WP-F round 9** — broker secret delete guard enforced on
+    `/v1/secrets/:id` (409 `secret_in_use` with binding labels; NNA
+    20261011-5) with console guidance, plus the C7 census gate's first
+    live-source run against NNA (caught and added the missing
+    `invocation:desktop` row) (20261011-18).
+  - **WP-F/V4 round 10** — machine-checkable W acceptance ledger
+    (117 records pinned to the parity table, closed status vocabulary,
+    evidence rules, no-verified-claims gate) and the full product test
+    sweep (274 files / 1998 UI tests) green (20261011-19).
+
+  All slices carry implemented-unverified labels; operator-installed
+  observations remain registered in DEFERRED-VERIFICATION.md.
+
 - 2026-09-30 · **P12b-38 SSH catalog UI bridge.** The Remote Instances page
   now reads and edits SSH definitions, loads user `~/.ssh/config` host aliases,
   and adds/removes entries through the native local-main-frame bridge. The
