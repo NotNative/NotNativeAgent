@@ -31,7 +31,8 @@ export function forkPrefixRecords(records, turnId) {
     throw new ContractError('nnd_fork_boundary_unsettled', 'NND fork requires a boundary turn that has completed');
   }
   const prefix = records.slice(0, cut + 1)
-    .filter((record) => record.type !== 'session_created' && record.type !== 'session_lineage');
+    .filter((record) => record.type !== 'session_created' && record.type !== 'session_lineage'
+      && record.type !== 'revert_point' && record.type !== 'revert_cleared');
   if (prefix.length === 0) {
     throw new ContractError('nnd_fork_boundary_unknown', 'NND fork boundary has no inheritable records');
   }

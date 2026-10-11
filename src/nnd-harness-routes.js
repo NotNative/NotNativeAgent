@@ -7,7 +7,7 @@ import { dispatchNndQuestionRequest } from './nnd-question-routes.js';
 import { dispatchNndNotificationRequest } from './nnd-notification-routes.js';
 import { dispatchNndAssistRequest } from './nnd-assist-routes.js';
 import { modelRouteFromBody } from './nnd-session-model-route.js';
-const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort|fork))?$/u;
+const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort|fork|revert|unrevert))?$/u;
 const ACTIVITY_HISTORY_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/activity-history$/u;
 const ACTIVITY_TOMBSTONES_ROUTE = '/v1/nnd/activity-tombstones';
 const MESSAGE_LIMIT_MAX = 200;
@@ -22,11 +22,7 @@ export async function dispatchNndHarnessRequest(request, response, context) {
   if (await dispatchBootstrapRequest(request, response, context)) return true;
   const match = ROUTE.exec(context.url.pathname); if (!match) return false;
   const host = context.nndEngineHost; if (!host) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');
-  let id = null;
-  if (match[1]) {
-    try { id = decodeURIComponent(match[1]); requireExternalId(id, 'session_id'); }
-    catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
-  }
+  const id = sessionIdOf(match);
   if (request.method === 'GET' && (!match[2] || match[2] === 'message' || match[2] === 'children' || match[2] === 'activity')) {
     return readSession(response, context, host, id, match[2]);
   }
@@ -60,17 +56,26 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     requireIntegrationPermission(context.principal, 'nnd.session.create');
     return send(response, 201, await host.fork(id, context.principal, await readJsonBody(request)));
   }
+  if (request.method === 'POST' && id && (match[2] === 'revert' || match[2] === 'unrevert')) {
+    requireIntegrationPermission(context.principal, 'nnd.session.submit');
+    const revert = match[2] === 'revert';
+    const made = revert ? await host.revert(id, context.principal, await readJsonBody(request))
+      : await host.unrevert(id, context.principal);
+    return send(response, 200, made);
+  }
   if (request.method === 'POST' && id && match[2] === 'abort') {
-    requireIntegrationPermission(context.principal, 'nnd.session.abort');
-    await host.abort(id, context.principal);
-    return send(response, 200, true);
+    requireIntegrationPermission(context.principal, 'nnd.session.abort'); await host.abort(id, context.principal); return send(response, 200, true);
   }
   if (request.method === 'DELETE' && id && !match[2]) {
-    requireIntegrationPermission(context.principal, 'nnd.session.delete');
-    await host.close(id, context.principal);
-    return send(response, 200, true);
+    requireIntegrationPermission(context.principal, 'nnd.session.delete'); await host.close(id, context.principal); return send(response, 200, true);
   }
   return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+}
+
+function sessionIdOf(match) {
+  if (!match[1]) return null;
+  try { const id = decodeURIComponent(match[1]); requireExternalId(id, 'session_id'); return id; }
+  catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
 }
 
 async function updateSession(request, response, context, host, id) {

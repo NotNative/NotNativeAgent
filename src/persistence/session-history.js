@@ -5,6 +5,7 @@ const MAX_RESTORED_RECORDS = 1_000_000;
 const TRANSCRIPT_RECORD_TYPES = new Set(['message', 'tool_request', 'tool_result', 'compaction', 'attachment_fact']);
 const MISSION_RECORD_TYPES = new Set(['mission_turn_authorized', 'mission_tool_calls_reserved']);
 const AUTHORITY_CONTROL_TYPES = new Set(['authority_intent', 'conversation_cleared', ...MISSION_RECORD_TYPES]);
+const TURN_LINKED_TYPES = new Set([...TRANSCRIPT_RECORD_TYPES, 'turn_accepted', 'turn_outcome', 'turn_interrupted']);
 
 // Security: when the caller supplies a genesis-anchored control stream, authority and
 // mission budgets replay exclusively from it. Tail records then certify transcript
@@ -19,20 +20,21 @@ export function restoreSessionRecords(records, options = {}) {
   const interruptedTurns = new Set();
   const authority = [];
   const missionTurns = [];
+  const hidden = hiddenTurnIds(records);
   let workspaceRoot = null;
   let authorityReset = false;
   for (const record of records.slice(0, maxRecords)) {
     validateRecord(record);
+    if (record.type === 'revert_point' || record.type === 'revert_cleared') continue;
+    const linkedTurnId = record.payload?.turnId ?? record.payload?.turn_id;
+    if (TURN_LINKED_TYPES.has(record.type) && typeof linkedTurnId === 'string' && hidden.has(linkedTurnId)) continue;
     if (TRANSCRIPT_RECORD_TYPES.has(record.type)) {
       transcript.push(record.payload);
     } else if (record.type === 'compaction_snapshot') {
       transcript.splice(0, transcript.length, ...record.payload.records, record.payload.fact);
     } else if (record.type === 'conversation_cleared') {
       transcript.length = 0;
-      if (control === null) {
-        authority.length = 0;
-        authorityReset = true;
-      }
+      if (control === null) { authority.length = 0; authorityReset = true; }
     } else if (record.type === 'authority_intent') {
       if (control === null) authority.push(record.payload);
     } else if (MISSION_RECORD_TYPES.has(record.type)) {
@@ -47,8 +49,9 @@ export function restoreSessionRecords(records, options = {}) {
       activeTurns.delete(turnId);
       interruptedTurns.add(turnId);
     } else if (record.type === 'steering_accepted') {
-      steering.set(record.payload.id, record.payload);
+      if (!hidden.has(record.payload.message?.turnId)) steering.set(record.payload.id, record.payload);
     } else if (record.type === 'steering_consumed') {
+      if (hidden.has(record.payload.message?.turnId)) continue;
       steering.delete(record.payload.id);
       transcript.push(record.payload.message);
     } else if (record.type === 'workspace_changed') {
@@ -126,4 +129,30 @@ function recordTurnId(payload) {
     throw new ContractError('session_history_invalid', 'session history turn record has no valid identity');
   }
   return turnId;
+}
+
+function revertedTurnIds(payload) {
+  const ids = payload?.reverted_turn_ids;
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > 100_000
+    || ids.some((id) => typeof id !== 'string' || id.length === 0)) {
+    throw new ContractError('session_history_invalid', 'session revert point has no valid turn set');
+  }
+  return ids;
+}
+
+// Security: the pre-scan keeps replay order canonical — a turn submitted
+// between a revert point and its clear replays after the restored turns.
+function hiddenTurnIds(records) {
+  const stack = [];
+  const active = new Set();
+  for (const record of Array.isArray(records) ? records : []) {
+    if (record?.type === 'revert_point') {
+      const ids = new Set(revertedTurnIds(record.payload));
+      stack.push(ids);
+      for (const id of ids) active.add(id);
+    } else if (record?.type === 'revert_cleared') {
+      for (const id of stack.pop() ?? []) active.delete(id);
+    }
+  }
+  return active;
 }

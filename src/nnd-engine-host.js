@@ -26,6 +26,7 @@ import { runNndGoalAudit } from './nnd-goal-audit.js';
 import { runNndWalkthrough } from './nnd-walkthrough.js';
 import { runNndAssist } from './nnd-assist.js';
 import { runNndSessionFork } from './nnd-session-fork.js';
+import { runNndSessionRevert, runNndSessionUnrevert } from './nnd-session-revert.js';
 import { runNndNotification } from './nnd-notification.js';
 import { publishNndProjection } from './nnd-projection.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
@@ -217,6 +218,7 @@ export class NndEngineHost {
       get: (childId) => this.get(childId, principal) }, body);
   }
   generateNotification(sessionId, principal, body) { return runNndNotification(this.#owned(sessionId, principal), body); }
+  revert(sessionId, principal, body) { return runNndSessionRevert(this.#owned(sessionId, principal), body); } unrevert(sessionId, principal) { return runNndSessionUnrevert(this.#owned(sessionId, principal)); }
   goalEvidence(sessionId, principal) { return nndGoalContextEvidence(this.#owned(sessionId, principal)); }
   async setGoal(sessionId, principal, value, expectedId, expectedRevision) {
     const goal = validatedNndGoal(value);

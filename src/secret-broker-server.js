@@ -156,7 +156,7 @@ function failureStatus(code) {
   if (code.includes('permission') || code.includes('forbidden')) return 403;
   if (code.includes('not_found') || ['provider_missing', 'nnd_session_unavailable', 'question_unknown', 'nnd_fork_boundary_unknown'].includes(code)) return 404;
   if (['nnd_goal_conflict', 'nnd_goal_audit_conflict', 'nnd_goal_audit_busy', 'nnd_walkthrough_busy', 'nnd_assist_busy',
-    'nnd_fork_busy', 'nnd_fork_boundary_unsettled'].includes(code)) return 409;
+    'nnd_fork_busy', 'nnd_fork_boundary_unsettled', 'nnd_revert_busy', 'nnd_revert_none'].includes(code)) return 409;
   if (['nnd_goal_audit_unavailable', 'nnd_pending_unavailable',
     'nnd_activity_tombstones_unavailable', 'nnd_walkthrough_unavailable', 'nnd_assist_unavailable',
     'nnd_fork_unavailable'].includes(code)) return 503;

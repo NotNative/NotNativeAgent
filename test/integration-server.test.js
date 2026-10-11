@@ -891,8 +891,8 @@ test('native fork seeds a new session from the parent journal prefix', async () 
     config: { workspaceRoot: root, routes: { primary: { providerId: 'one', model: 'one' } } },
     active: null, store: { readRecords: async () => ({ records: [
       { type: 'session_created', payload: { sessionId: 'parent' } },
-      { type: 'message', payload: { turnId: 'turn_1', role: 'user', content: 'hi', requestId: 'r1' } },
-      { type: 'turn_outcome', payload: { turnId: 'turn_1' } },
+      { type: 'message', payload: { type: 'message', turnId: 'turn_1', role: 'user', content: 'hi', requestId: 'r1' } },
+      { type: 'turn_outcome', payload: { type: 'turn_outcome', turnId: 'turn_1' } },
     ] }) },
     transcript: [
       { type: 'message', role: 'user', content: 'hi', turnId: 'turn_1', requestId: 'r1' },
@@ -918,8 +918,8 @@ test('native fork seeds a new session from the parent journal prefix', async () 
     assert.notEqual(forked.value.id, sessionId);
     assert.match(forked.value.title, /fork/u);
     assert.deepEqual(ingests.at(-1), { records: [
-      { type: 'message', payload: { turnId: 'turn_1', role: 'user', content: 'hi', requestId: 'r1' } },
-      { type: 'turn_outcome', payload: { turnId: 'turn_1' } },
+      { type: 'message', payload: { type: 'message', turnId: 'turn_1', role: 'user', content: 'hi', requestId: 'r1' } },
+      { type: 'turn_outcome', payload: { type: 'turn_outcome', turnId: 'turn_1' } },
     ], sourceSessionId: sessionId, boundaryMessageId: `${sessionId}:message:1` });
     // Boundary rules: unknown message and missing permission are refused.
     assert.equal((await request(base, `/session/${sessionId}/fork`, owner,
@@ -938,7 +938,7 @@ test('per-session model routes ride session creation and fork (F9 step 1)', asyn
   const makeEngine = () => ({
     config: { workspaceRoot: root, routes: { primary: { providerId: 'one', model: 'one' } } },
     active: null, store: { readRecords: async () => ({ records: [
-      { type: 'turn_outcome', payload: { turnId: 'turn_1' } },
+      { type: 'turn_outcome', payload: { type: 'turn_outcome', turnId: 'turn_1' } },
     ] }) },
     transcript: [
       { type: 'message', role: 'user', content: 'hi', turnId: 'turn_1', requestId: 'r1' },
@@ -970,6 +970,68 @@ test('per-session model routes ride session creation and fork (F9 step 1)', asyn
     assert.equal((await request(base, '/session', owner, { method: 'POST', body: { model: 'two' } })).status, 400);
     assert.equal((await request(base, '/session', owner,
       { method: 'POST', body: { providerID: 'one', model: '' } })).status, 400);
+  } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('native revert and unrevert ride the harness routes with journal-backed replay', async () => {
+  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-revert-'));
+  const catalogPath = join(root, 'catalog.json');
+  const engines = [];
+  const makeEngine = () => {
+    const engine = {
+      config: { workspaceRoot: root, routes: { primary: { providerId: 'one', model: 'one' } } },
+      active: null,
+      transcript: [
+        { type: 'message', role: 'user', content: 'hi', turnId: 'turn_1', requestId: 'r1' },
+        { type: 'message', role: 'assistant', content: 'Answer', turnId: 'turn_1' },
+        { type: 'message', role: 'user', content: 'more', turnId: 'turn_2', requestId: 'r2' },
+      ],
+      store: { readRecords: async () => ({ records: engine.records }),
+        append: async (type, payload) => { engine.records.push({ type, payload }); } },
+      records: [
+        { type: 'turn_accepted', payload: { type: 'turn_accepted', turnId: 'turn_1' } },
+        { type: 'message', payload: { type: 'message', turnId: 'turn_1', role: 'user', content: 'hi', requestId: 'r1' } },
+        { type: 'message', payload: { type: 'message', turnId: 'turn_1', role: 'assistant', content: 'Answer' } },
+        { type: 'turn_outcome', payload: { type: 'turn_outcome', turnId: 'turn_1' } },
+        { type: 'turn_accepted', payload: { type: 'turn_accepted', turnId: 'turn_2' } },
+        { type: 'message', payload: { type: 'message', turnId: 'turn_2', role: 'user', content: 'more', requestId: 'r2' } },
+        { type: 'turn_outcome', payload: { type: 'turn_outcome', turnId: 'turn_2' } },
+      ],
+      async initialize() {}, async shutdown() {},
+    };
+    return engine;
+  };
+  const host = new NndEngineHost({ catalogPath, createEngine: async (options) => {
+    const engine = makeEngine();
+    engines.push(engine);
+    return engine;
+  } });
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host,
+    nndWorkspaceRoot: root, port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  const owner = principal(['nnd.read', 'nnd.session.create', 'nnd.session.submit']);
+  try {
+    const sessionId = (await request(base, '/session', owner, { method: 'POST', body: {} })).value.id;
+    const reverted = await request(base, `/session/${sessionId}/revert`, owner,
+      { method: 'POST', body: { messageID: `${sessionId}:message:2` } });
+    assert.equal(reverted.status, 200, JSON.stringify(reverted.value));
+    assert.deepEqual(reverted.value.reverted_turn_ids, ['turn_2']);
+    assert.deepEqual(engines.at(-1).transcript.filter((item) => item.type === 'message').map((item) => item.content),
+      ['hi', 'Answer']);
+    assert.deepEqual(engines.at(-1).records.filter((record) => record.type === 'revert_point').at(-1).payload.reverted_turn_ids,
+      ['turn_2']);
+    const restored = await request(base, `/session/${sessionId}/unrevert`, owner, { method: 'POST' });
+    assert.equal(restored.status, 200, JSON.stringify(restored.value));
+    assert.deepEqual(restored.value.restored_turn_ids, ['turn_2']);
+    assert.deepEqual(engines.at(-1).transcript.filter((item) => item.type === 'message').map((item) => item.content),
+      ['hi', 'Answer', 'more']);
+    // Error surfaces: unrevert without a point and missing permission.
+    const fresh = (await request(base, '/session', owner, { method: 'POST', body: {} })).value.id;
+    assert.equal((await request(base, `/session/${fresh}/unrevert`, owner, { method: 'POST' })).status, 409);
+    assert.equal((await request(base, `/session/${fresh}/revert`, principal(['nnd.read']),
+      { method: 'POST', body: { messageID: `${fresh}:message:0` } })).status, 403);
   } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
 });
 
