@@ -44,9 +44,9 @@ the real child path (`--supervised`), which exposed the miss.
 20261011-5 and running `nna desktop start`, the tray icon and desktop app
 appeared from the supervised child's launch — the service ⇄ tray linkage is
 verified, not just implemented. Tray Quit also verified: it stops the service
-and closes the app. Remaining unverified in this arc: `enable` logon
-auto-start with tray, and the shortcut-only path on a service that is already
-running.
+and closes the app. The Start Menu shortcut path is verified too: it starts
+the service and opens the app, and Quit closes both. Deferred by operator:
+the `enable` → reboot logon auto-start observation.
 
 ## 2026-10-10 Rebrand the operator surface to `nna desktop` (operator request, implemented-unverified)
 
