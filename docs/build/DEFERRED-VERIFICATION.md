@@ -101,10 +101,29 @@ NNA `20261011-10`, disposable fixtures only):
 - [x] A5 remaining shell side-effect audit sign-off (the deep-link probe
       asserts dialogs, host prefs, boot target, window count and the
       URL-minus-session unchanged on the installed shell)
-- [ ] Provider-profile PATCH round trip against a live NNA: binding choice,
+- [x] Provider-profile PATCH round trip against a live NNA: binding choice,
       secret reference, explicit clear (`credential: null` clears BOTH channels),
       limit resend on model change (new editor surface, `20261010-2`)
-- [ ] Secret roster picker against a live broker (real `GET /api/v1/secrets` shapes)
+      — executed in-session 2026-10-11 by
+      `scripts/nna-live-settings-observation.mjs` against NNA `20261011-12`
+      (23 proxied `/api/*` harness-proxy calls, all green): environment
+      binding round-trips, a secret reference round-trips by NAME and
+      replaces the environment channel, explicit `credential: null` clears
+      BOTH channels, and a model-only PATCH preserves resent limits.
+      Observed NNA semantics recorded: limit `null` values are ignored by
+      design (limits persist until a new bounded value is sent; there is no
+      broker-supported limit clearing).
+- [x] Secret roster picker against a live broker (real `GET /api/v1/secrets` shapes)
+      — same in-session observation: created a workspace-scoped `api_key`
+      secret through the harness proxy, verified the full `PublicSecret`
+      roster shape (sec_<uuid> id, realm, label, kind, scope, metadata,
+      field NAMES only, enabled, createdAt/updatedAt, null rotatedAt,
+      useCount) and that no secret VALUE ever appears in the create receipt,
+      roster, or provider-profile payload. Also fixed the drift this
+      observation exposed: the web local-harness minted principal
+      (`nna-local.ts mintLocalPrincipal`) was missing `secret.read/manage/audit`
+      and several `nnd.*` operator rights vs NNA `nativeNndPrincipal`;
+      its permission list now mirrors NNA's installed native principal.
 - [ ] V1–V6 release gates (guide 05)
 - [ ] Installed timeline fork observation: fork a session from the NND timeline
       against the installed pinned pair and confirm the child session renders

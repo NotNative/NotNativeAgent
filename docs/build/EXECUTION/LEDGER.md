@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 (20261011-85) Live-NNA settings observation executed in-session
+
+- New `scripts/nna-live-settings-observation.mjs`: disposable-fixture live
+  observation riding the `/api/*` harness proxy (the settings UI wire path)
+  against NNA `20261011-12`. 23 proxied calls green: secret broker create +
+  roster shapes (values never echoed), provider-profile PATCH round trip —
+  environment binding, secret reference replacing the environment channel,
+  explicit `credential: null` clearing BOTH channels, model-only PATCH
+  preserving resent limits, and the observed NNA rule that limit `null` is
+  ignored (no broker-supported limit clearing).
+- Drift fix the observation exposed: `nna-local.ts mintLocalPrincipal`
+  permissions now mirror NNA `nativeNndPrincipal` exactly (adds
+  `integration.health`, `nnd.setup.*`, `nnd.session.assist`,
+  `nnd.configuration.*`, `nnd.service/manage/update/package.*`, and
+  `secret.read/manage/audit`).
+- Verified: web vitest 1499/1499; `nna-source-smoke` green after the
+  principal change; DEFERRED-VERIFICATION provider-profile and secret-roster
+  items checked off with evidence.
+
 ## 2026-10-11 Installed acceptance executed in-session; first verified records (W-42/W-73/W-76/W-20/W-15/W-32 installed legs, verified)
 
 The installed V-gates ran in-session against a disposable local pair: the NND

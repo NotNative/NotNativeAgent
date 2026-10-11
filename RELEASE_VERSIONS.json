@@ -1980,6 +1980,10 @@
     {
       "version": "20261011-84",
       "content_sha256": "21959757ee5bbe77e1b27a6f93b66a9a948182230d4b7e4c6ae7768ef68329dc"
+    },
+    {
+      "version": "20261011-85",
+      "content_sha256": "4567ba6443f6179e6eb892d19ba5399e2192545600ea21dba9d90d19eecea506"
     }
   ]
 }

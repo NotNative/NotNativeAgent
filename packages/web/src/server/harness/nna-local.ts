@@ -286,7 +286,18 @@ function mintLocalPrincipal(workspaceId: string | null): string {
   const now = new Date().toISOString();
   return Buffer.from(JSON.stringify({
     subject_id: 'nnd-local-operator', platform_role: 'operator',
-    permissions: ['nnd.read', 'nnd.workspace.read', 'nnd.workspace.manage', 'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete', 'nnd.goal.manage', 'nnd.steer', 'nnd.walkthrough.generate', 'nnd.notification.generate', 'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate'],
+    // Mirrors NNA src/nnd-service-native.js nativeNndPrincipal PERMISSIONS
+    // exactly (the installed native principal is the authority); drift here
+    // starves the local harness of settings families the operator holds.
+    permissions: ['integration.health', 'nnd.read', 'nnd.setup.read', 'nnd.setup.activate',
+      'nnd.session.create', 'nnd.session.submit', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete',
+      'nnd.session.assist',
+      'nnd.goal.manage', 'nnd.steer', 'nnd.walkthrough.generate', 'nnd.notification.generate',
+      'nnd.configuration.read', 'nnd.configuration.manage', 'nnd.configuration.repair',
+      'nnd.service.manage', 'nnd.update.manage', 'nnd.package.manage',
+      'nnd.workspace.read', 'nnd.workspace.manage',
+      'secret.read', 'secret.manage', 'secret.audit',
+      'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate'],
     workspace_ids: workspaceId ? [workspaceId] : [], group_ids: [], trace_id: randomUUID(), request_id: randomUUID(), issued_at: now,
   }), 'utf8').toString('base64url');
 }
