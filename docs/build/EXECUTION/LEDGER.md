@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Timeline search + prompt navigation pinned by tests (W-23, implemented-unverified)
+
+The timeline dialog's two remaining subfeatures are now pinned by focused
+tests. Search filters prompt rows case-insensitively over the trimmed query,
+an empty/whitespace query shows every turn, and a no-match query renders the
+explicit "No messages found" state. Prompt navigation follows the deep-link
+consumption contract: clicking a prompt row closes the dialog and sets the
+`#message-<id>` hash (idempotent replaceState-then-hash so repeat presses
+re-trigger), while the per-row "Previous turn" arrow jumps to the
+chronologically previous prompt WITHOUT closing the dialog — every row except
+the oldest carries the arrow, newest-first stepping verified down the chain.
+This completes W-23 across all four subfeatures (fork, search, revert,
+prompt-navigation — all implemented-unverified).
+
 ## 2026-10-11 Immutable event-delivery receipt (W-29.immutable-receipt, implemented-unverified)
 
 The notification bus now leaves an immutable, hash-chained delivery receipt

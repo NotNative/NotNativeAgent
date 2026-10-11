@@ -456,7 +456,7 @@
       "id": "W-23",
       "work_packages": "F4",
       "disposition": "MVP timeline search/fork/revert and prompt navigation with native checkpoints.",
-      "status": "pending",
+      "status": "implemented-unverified",
       "subfeatures": [
         {
           "id": "W-23.timeline-fork",
@@ -470,7 +470,11 @@
         },
         {
           "id": "W-23.timeline-search",
-          "status": "pending"
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/timeline-search.test.tsx"
+          ]
         },
         {
           "id": "W-23.timeline-revert",
@@ -486,8 +490,24 @@
         },
         {
           "id": "W-23.prompt-navigation",
-          "status": "pending"
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/timeline-search.test.tsx"
+          ]
         }
+      ],
+      "evidence": [
+        "../NotNativeAgent/src/persistence/fork-records.js",
+        "../NotNativeAgent/test/nnd-engine-fork.test.js",
+        "../NotNativeAgent/test/integration-server.test.js native fork seeds a new session",
+        "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 F4 entry",
+        "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/timeline-search.test.tsx",
+        "../NotNativeAgent/src/nnd-session-revert.js",
+        "../NotNativeAgent/src/persistence/session-history.js",
+        "../NotNativeAgent/test/nnd-session-revert.test.js",
+        "../NotNativeAgent/test/integration-server.test.js native revert and unrevert ride the harness routes"
       ]
     },
     {
