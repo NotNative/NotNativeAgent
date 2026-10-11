@@ -345,16 +345,6 @@ function Invoke-NndRegistration([string]$Action, [string]$Root, $SelectedNna) {
     } finally { $env:NNA_HOME = $previous }
 }
 
-function Invoke-NndFreshPreflight($SelectedNna, [string]$Root) {
-    $helper = Join-Path $Source 'scripts\installer-fresh-service.mjs'
-    $exit = Invoke-Native $SelectedNna.Node @($helper, 'preflight', $SelectedNna.InstallRoot,
-        $Root, $nnaCapabilities.installation_id, $nnaCapabilities.data_id) 'fresh-preflight-errors.log' 'fresh-preflight-out.log'
-    if ($exit -ne 0) {
-        Show-NativeFailures 'fresh-preflight-errors.log' 4
-        throw 'Fresh NND installation refused: the selected package, target, or NNA identity is already in use or unresolved. Existing installs require explicit recovery or upgrade; no files were copied.'
-    }
-}
-
 # One command, two shapes, matching the NNA installer: a clean machine gets a
 # fresh install; an existing registration gets replaced in place - stop the
 # running service first (a stopped one is not restarted later), deactivate the
@@ -642,7 +632,6 @@ $nnaCapabilities = Assert-NndNnaCapabilities $nna
 Assert-NndSelectedPin $nna $nnaCapabilities
 Write-Good "NNA native NND protocol $($nnaCapabilities.protocol) is compatible"
 Invoke-NndRegistration 'status' $targetPath $nna
-Invoke-NndFreshPreflight $nna $targetPath
 
 $installationGuard = Start-NndInstallationGuard $nna
 $guardMatchesPreflight = $installationGuard.Frame.installation_id -ceq $nnaCapabilities.installation_id -and
