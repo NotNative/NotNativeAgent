@@ -79,6 +79,12 @@ NNA `20261011-10`, disposable fixtures only):
       `data_schema` anchor key the writer emits; fixed and pinned by
       `installer-prebuilt-uninstall.test.mjs` (12/12 green). Retained-failure
       fixtures were removed after validation per operator cleanup policy.
+      NNA seal debt (honest): the NNA `20261011-11` fix is committed and
+      proven end-to-end by this smoke, but NNA's platform-conformance
+      evidence still carries release `20261011-10` (windows/linux/macos
+      installer runs), so NNA's own release-gates verify remains red until
+      the multi-platform conformance rerun and manifest reseal happen —
+      an operator multi-platform item, not faked in-session.
 - [x] A5 remaining shell side-effect audit sign-off (the deep-link probe
       asserts dialogs, host prefs, boot target, window count and the
       URL-minus-session unchanged on the installed shell)

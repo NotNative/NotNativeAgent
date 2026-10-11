@@ -1964,6 +1964,10 @@
     {
       "version": "20261011-80",
       "content_sha256": "ca4d9029c1b0210b63df1c4d2af54488477086a7066364260bb2adde1a50604a"
+    },
+    {
+      "version": "20261011-81",
+      "content_sha256": "7b0cbfc54f07ea3dc98f74eaf1022e7f9d350b93c2cb4c19a46737049a9c61ed"
     }
   ]
 }
