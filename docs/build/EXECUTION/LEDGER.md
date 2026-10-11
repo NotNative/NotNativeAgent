@@ -18,6 +18,22 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Unified setup wizard (W-14, implemented-unverified)
+
+The guided wizard is built: one flow orchestrating the previously separate
+surfaces — detection reads the local native setup status and classifies it
+(ready → verify, failed → recovery with the surfaced `nnd_*` failure code,
+setup_required/stopped/unverified → setup), setup activates NNA through the
+same local route, verify waits for the harness to expose the activated NNA
+model before declaring done, and recovery offers explicit "Retry detection"
+and "Retry activation" actions. Remote setup is excluded by contract — the
+wizard only drives `/api/v1/nnd/setup/*` and the local readiness probe. It
+embeds in the native-setup settings page as an opt-in guided flow (the
+advanced manual controls remain), and five focused tests pin the happy
+path, the setup routing, the recovery-with-failure-code path, the
+detection-failure retry, and the guided panel embedding. W-14 is
+implemented-unverified.
+
 ## 2026-10-11 Consistent formatting (W-105, implemented-unverified)
 
 The formatting layer already carried the §J.1/§J.2 contract — time

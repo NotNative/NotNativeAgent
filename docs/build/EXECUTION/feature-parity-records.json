@@ -322,21 +322,24 @@
       "id": "W-14",
       "work_packages": "L, C",
       "disposition": "MVP local detection/setup/recovery wizard; remote setup excluded.",
-      "status": "pending",
+      "status": "implemented-unverified",
       "subfeatures": [
         {
           "id": "W-14.wizard",
-          "status": "pending",
-          "note": "no unified guided wizard component exists — detection, setup, and recovery ship as separate surfaces (native-setup panel, install-ux, recovery controls) rather than one wizard flow"
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/setup/setup-wizard.tsx (unified detect→setup→verify→done flow with recovery retries + failure-code surfacing; local-only routes per contract)",
+            "../NotNativeDesktop/packages/ui/src/components/setup/__tests__/setup-wizard.test.tsx (5 tests incl. guided panel embedding)",
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/setup.ts + setup-readiness.ts (detection/activation/readiness primitives the wizard orchestrates)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/native-setup.tsx (guided opt-in embed)"
+          ]
         }
       ],
       "evidence": [
-        "../NotNativeDesktop/packages/ui/src/components/settings (native setup panel)",
-        "../NotNativeDesktop/packages/ui/src/lib/nnd/__tests__/setup-readiness.test.ts",
-        "../NotNativeDesktop/packages/ui/src/lib/nnd/__tests__/installation.test.ts",
-        "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/native-setup.test.tsx",
-        "../NotNativeDesktop/packages/ui/src/sync/__tests__/authority-recovery.test.ts",
-        "../NotNativeDesktop/packages/web/src/pwa/install-ux.ts"
+        "../NotNativeDesktop/packages/ui/src/components/setup/setup-wizard.tsx (unified detect→setup→verify→done flow with recovery retries + failure-code surfacing; local-only routes per contract)",
+        "../NotNativeDesktop/packages/ui/src/components/setup/__tests__/setup-wizard.test.tsx (5 tests incl. guided panel embedding)",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/setup.ts + setup-readiness.ts (detection/activation/readiness primitives the wizard orchestrates)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/native-setup.tsx (guided opt-in embed)"
       ]
     },
     {

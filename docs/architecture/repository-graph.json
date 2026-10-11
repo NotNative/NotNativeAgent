@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:5b114fec42ae67064e4f60940767e737062450c7c02de4dbde39e3b2064609a4",
+  "source_digest": "sha256:28234a7b53ff00928467110e64af4bda42788a0c3cc75ffb40eef43142ea067e",
   "counts": {
-    "modules": 893,
+    "modules": 894,
     "component_edges": 17
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 224
+      "module_count": 225
     },
     {
       "id": "web-server",
@@ -111,14 +111,14 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 381,
-      "module_count": 151
+      "import_count": 382,
+      "module_count": 152
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 140,
-      "module_count": 98
+      "import_count": 142,
+      "module_count": 99
     },
     {
       "from": "ui-shell",
@@ -2233,6 +2233,7 @@
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/components/setup/setup-wizard.tsx",
         "packages/ui/src/lib/nnd/setup.ts",
         "packages/ui/src/lib/runtime-auth-expiry.ts",
         "packages/ui/src/lib/runtime-switch.ts",
@@ -2639,6 +2640,16 @@
         "packages/ui/src/components/settings/search.ts",
         "packages/ui/src/lib/i18n/messages/en.ts",
         "packages/ui/src/lib/shortcuts/registry.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/setup/setup-wizard.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/setup-readiness.ts",
+        "packages/ui/src/lib/nnd/setup.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts"
       ]
     },
     {

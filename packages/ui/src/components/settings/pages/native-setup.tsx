@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { requestNativeSetup, type NativeSetupStatus } from '../../../lib/nnd/setup.ts';
+import { SetupWizard } from '../../setup/setup-wizard.tsx';
 import { onRuntimeEndpointChanged, getRuntimeKey } from '../../../lib/runtime-switch.ts';
 import { getApiBaseUrl } from '../../../lib/runtime-url.ts';
 import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
 import { useI18n } from '../../I18nProvider.tsx';
 import { SettingsGroupTitle } from '../primitives.tsx';
 
-export function NativeSetupPanel({ onOpenConfiguration, onActivated }: {
-  onOpenConfiguration?: () => void; onActivated?: (signal: AbortSignal) => Promise<void> | void;
+export function NativeSetupPanel({ onOpenConfiguration, onActivated, guided = false }: {
+  onOpenConfiguration?: () => void; onActivated?: (signal: AbortSignal) => Promise<void> | void; guided?: boolean;
 } = {}) {
   const { t } = useI18n();
   const [status, setStatus] = useState<NativeSetupStatus | null>(null);
@@ -47,6 +48,7 @@ export function NativeSetupPanel({ onOpenConfiguration, onActivated }: {
     && !['nnd_setup_activation_timeout','nnd_setup_cleanup_failed'].includes(status.failure_code ?? '');
   return <section className="mb-4 space-y-2 rounded border border-border/60 p-3" aria-label={t('settings.nativeSetup.title')}>
     <SettingsGroupTitle>{t('settings.nativeSetup.title')}</SettingsGroupTitle>
+    {guided ? <SetupWizard /> : null}
     <p className="text-xs text-muted-foreground">{t('settings.nativeSetup.description')}</p>
     <div className="flex gap-2">
       <button type="button" disabled={blocked} onClick={() => { void load(false); }}>{t('settings.nativeSetup.refresh')}</button>
