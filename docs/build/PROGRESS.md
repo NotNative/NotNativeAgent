@@ -3,6 +3,24 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-11 · Rounds 20–22: F9 step 2 multi-run routes, native revert, ledger dispositions · NND 20261011-32 / NNA 20261011-10
+
+F9 step 2 (NND 20261011-30): the desktop orchestration carries the resolved
+per-run selection into the per-session route on session create and fork
+(`harnessSession` route passthrough, create/fork body fields), so multi-run
+legs match `assertConfiguredSelection`; a createWebAPIs mock-drift debt
+(missing git-stash exports, pre-existing on baseline) was repaired; full web
+suite 1482/1482. Native revert (NNA 20261011-10): `POST /session/:id/revert`
+appends a non-destructive `revert_point` journal record (boundary turn +
+later turns), replay pre-scans hidden turns so restarts and post-revert
+turns stay canonical, and `/unrevert` appends `revert_cleared` and
+resynchronizes the live transcript to journal order (NND 20261011-31 docs:
+parity row, ledger, W-23.timeline-revert → implemented-unverified; deferred
+installed revert + multi-run journeys recorded). Rounds 20–22 close with the
+W-ledger disposition batch W-01–W-20 and W-24–W-33 (implemented-unverified
+with evidence paths or pending with named gaps). Implemented-unverified
+throughout; installed observations owed.
+
 ## 2026-10-11 · Consolidated rounds 11–19: parity rechecks, native assist seam, provider authority, native fork, per-session routes · NND 20261011-29 / NNA 20261011-9
 
 Confirmed-gaps rechecks struck three stale F rows with recheck evidence (F3
