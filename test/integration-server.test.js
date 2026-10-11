@@ -631,6 +631,22 @@ test('NND harness session routes bind creation to the complete principal workspa
     });
     assert.equal(unsupportedPart.status, 400);
     assert.equal(unsupportedPart.value.error.code, 'nnd_prompt_part_unsupported');
+    // A mixed text + uploaded-file prompt delivers both: the text content
+    // reaches the engine together with the resolved attachment (the stale
+    // 2026-10-01 "textContent filters parts to text" gap, rechecked).
+    const mixedUpload = await request(base, uploadPath, uploader, { method: 'POST', body: {
+      upload_id: 'upload_mixed', filename: 'notes.txt', mime_type: 'text/plain',
+      data_url: `data:text/plain;base64,${Buffer.from('summarize this').toString('base64')}`,
+    } });
+    assert.equal(mixedUpload.status, 201);
+    const mixedPrompt = await request(base, `/session/${created.value.id}/prompt_async`, uploader, {
+      method: 'POST', body: { messageID: 'msg_mixed', parts: [
+        { type: 'text', text: 'summarize this' }, { type: 'file', upload_id: 'upload_mixed' }] },
+    });
+    assert.equal(mixedPrompt.status, 204);
+    assert.equal(engines[0].lastSubmission.content, 'summarize this');
+    assert.deepEqual(engines[0].lastSubmission.attachments,
+      [{ upload_id: 'upload_mixed', mime_type: 'text/plain', filename: 'notes.txt' }]);
     const wrongModel = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { model: { providerID: 'mock', modelID: 'mock-smart' }, parts: [{ type: 'text', text: 'wrong route' }] },
     });
