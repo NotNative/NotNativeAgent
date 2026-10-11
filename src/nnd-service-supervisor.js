@@ -165,6 +165,11 @@ async function startUnpublishedTrial(identity, paths, lease, admittedPackage, op
   session.state.unpublishedTrial = true;
   session.state.package = admittedPackage;
   session.state.record = Object.freeze({ instance_id: randomUUID() });
+  // The activation trial reaches startSupervisorChild too, so the renewable
+  // capability authority must exist and bind to the trial generation here,
+  // exactly like the supervised path does before its child launch.
+  session.state.capabilityAuthority = createNndServiceCapabilityAuthority(identity);
+  session.state.capabilityAuthority.bind(session.state.record.instance_id);
   if (binding) {
     session.state.activationOperationId = binding.operationId;
     session.state.stageOperationId = binding.stageOperationId;
