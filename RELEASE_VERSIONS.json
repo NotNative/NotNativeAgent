@@ -1748,6 +1748,10 @@
     {
       "version": "20261011-23",
       "content_sha256": "73e4d616783ba4dd0fe99b4e91f1e16c9aaa19a038023ef04a9b0f1924a633c8"
+    },
+    {
+      "version": "20261011-24",
+      "content_sha256": "1db53c4c39cb570249544cd07adb85a81de28b3851ee6ea45e21d2f9801dedc5"
     }
   ]
 }

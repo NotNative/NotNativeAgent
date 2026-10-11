@@ -18,6 +18,30 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 F5 step 2: the provider inventory and credential presence resolve through NNA authority (implemented-unverified)
+
+`provider-ports.ts` no longer reads a desktop-held credential store by
+default and no longer probes the mock-era `/config/providers` path. The
+default inventory is now NNA's public provider-profile roster
+(`/v1/provider-profiles`, served since the provider profile work with
+`provider.read`), mapped one profile to one model with endpoint, limits,
+and a credential *manifest* that carries presence only - a secret-backed
+manifest can never yield a raw value to the desktop (`credentialFor`
+resolves it to null), and an environment reference resolves through the
+service runtime's own environment. The OpenCode `auth.json` default paths
+(`NNA_AUTH_FILE`, `XDG_DATA_HOME`, home-dir fallback) are deleted; a
+credential store is only opened when a test explicitly injects a legacy
+`authFile` path, and `authFile` throws when unconfigured. Adversarial
+catches: the first mapping dropped injected legacy-shaped records and five
+p10/p11 tests failed until the mapper kept both shapes; the no-store test
+had to use a credential-free roster because a secret-backed manifest
+correctly counts as presence evidence regardless of host environment.
+39/39 across the touched vitest suites; full quality gates pass. Label:
+implemented-unverified. Remaining F5 steps: rewire generation itself onto
+NNA's assist seam (secret-backed profiles currently resolve to no key, so
+direct generation honestly fails closed for them), the `/config` default
+read, and the installed assist journey.
+
 ## 2026-10-11 F5 step 1: the native assist-generation seam exists in NNA (implemented-unverified)
 
 The named NNA deliverable from the sharpened F5 row now has step 1: NNA
