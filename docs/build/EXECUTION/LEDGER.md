@@ -18,6 +18,21 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 (20261011-86) Live-NNA timeline fork/revert observation executed in-session
+
+- New `scripts/nna-timeline-observation.mjs` (disposable fixture, shared
+  scratch root, self-cleaning): drives the timeline surface's `/api/*` proxy
+  against NNA `20261011-12`. Verified: fork (`POST /session/:id/fork`)
+  mints a child rendering the inherited parent history; the child continues
+  independently (fresh turn lands only in the child, parent stays at two
+  turns); revert hides the boundary turn, a fresh turn replays normally on
+  fresh turn ids while the reverted turn stays hidden, and unrevert restores
+  the hidden turn; the whole fork + revert + unrevert cycle survives a
+  native service restart via journal replay (assistant projection ids
+  renumber across the fork-marker replay — recorded, compared structurally).
+- DEFERRED-VERIFICATION fork/revert items updated: NNA behavior legs
+  verified; the installed-pair shell-UI rendering legs remain open.
+
 ## 2026-10-11 (20261011-85) Live-NNA settings observation executed in-session
 
 - New `scripts/nna-live-settings-observation.mjs`: disposable-fixture live

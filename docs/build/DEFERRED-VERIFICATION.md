@@ -129,11 +129,24 @@ NNA `20261011-10`, disposable fixtures only):
       against the installed pinned pair and confirm the child session renders
       the inherited history and continues independently (NNA `20261011-8`
       `POST /session/:id/fork`, implemented-unverified)
+      — NNA behavior leg VERIFIED live in-session 2026-10-11 by
+      `scripts/nna-timeline-observation.mjs` (riding the same `/api/*`
+      harness proxy the timeline UI uses, NNA `20261011-12`): fork mints a
+      child that renders the inherited parent history and continues
+      independently while the parent never moves; the child timeline
+      survives a native service restart via journal replay. Remaining:
+      the installed-pair rendering leg through the installed shell UI.
 - [ ] Installed native revert observation: revert a timeline entry on the
       installed pinned pair, confirm the removed turns disappear and the next
       prompt continues without them, then unrevert and confirm the turns
       return in canonical order (NNA `20261011-10` `POST /session/:id/revert`
       / `/unrevert`, implemented-unverified)
+      — NNA behavior leg VERIFIED live in-session by the same observation:
+      revert hides the boundary turn from the timeline, a fresh turn replays
+      normally on fresh turn ids while the reverted turn stays hidden, and
+      unrevert restores the hidden turn; the whole cycle survives restart.
+      Remaining: the installed-pair rendering leg through the installed
+      shell UI.
 - [ ] Installed multi-run comparison journey (F9): run the same prompt in two
       separate sessions with different model selections against the installed
       pinned pair and confirm each run's per-session route holds

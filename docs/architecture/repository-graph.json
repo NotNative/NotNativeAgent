@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f99ec5681cc1793119677b13ceca332086eb8a093013b814697ce97b566735c3",
+  "source_digest": "sha256:e7b490730fcf0e8dd3ae11087601c637e15835509d2669c00ccce4957a3584a2",
   "counts": {
-    "modules": 903,
+    "modules": 904,
     "component_edges": 17
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 96
+      "module_count": 97
     },
     {
       "id": "foundation",
@@ -141,8 +141,8 @@
     {
       "from": "gates",
       "to": "web-server",
-      "import_count": 30,
-      "module_count": 9
+      "import_count": 34,
+      "module_count": 10
     },
     {
       "from": "sync-engine",
@@ -8620,6 +8620,19 @@
       "imports": [
         "scripts/smoke-http.mjs",
         "scripts/supervised-smoke-fixture.mjs"
+      ]
+    },
+    {
+      "path": "scripts/nna-timeline-observation.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/app.ts",
+        "packages/web/src/server/harness/adapter.ts",
+        "packages/web/src/server/harness/nna-local.ts",
+        "packages/web/src/server/harness/nna.ts",
+        "scripts/smoke-http.mjs",
+        "scripts/test-scratch.mjs"
       ]
     },
     {
