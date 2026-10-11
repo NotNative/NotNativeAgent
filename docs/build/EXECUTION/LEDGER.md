@@ -18,6 +18,32 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Stream + native revert representation disposition (W-35, implemented-unverified)
+
+W-35's two legs landed with the F4/F9 native work. Native revert: NNA
+appends non-destructive `revert_point` / `revert_cleared` journal records
+with stacked open-cycle semantics, restart-mid-revert survival, and fork
+prefixes that exclude revert markers — pinned by the four nnd-session-revert
+tests plus the integration route test. Stream representation: the session
+history projector pre-scans hidden turns (stack semantics), hides
+turn-linked and steering records by turn id, and the NND transcript
+re-syncs live on unrevert with the streaming tail intact; the boot/resume
+binding tests exercise the resync path. All implemented-unverified pending
+the installed V-gates (installed revert observation already listed in
+DEFERRED-VERIFICATION.md).
+
+## 2026-10-11 Scoped persistence batch disposition (W-34, implemented-unverified)
+
+W-34's five persistence legs all exist with focused coverage — spot-verified
+test counts before disposing. Drafts persist per directory+session key in
+localStorage (legacy auto-accept field stripped on read), pinned by the
+draft-context-pin and composer-policy tests. History rides the cursor-based
+session-message loader (10 tests) surfaced through load-older plus the turn
+window. Folders persist through the NND session-folders routes with the
+store at 8 tests. The message queue carries 24 focused route tests. Worktree
+persistence/view carries 9 tests. All five subfeatures are
+implemented-unverified pending the installed V-gates.
+
 ## 2026-10-11 Surface-state catalog (W-26, implemented-unverified)
 
 The full surface-state catalog is authored at

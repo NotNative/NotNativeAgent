@@ -939,15 +939,98 @@
       "id": "W-34",
       "work_packages": "F2, F4, F9",
       "disposition": "MVP scoped drafts/history/folders/queue/worktree persistence.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-34.drafts",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/drafts.ts (localStorage per directory+session key, legacy autoAccept stripped)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-draft-context-pins.test.tsx (9 tests)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-policy.test.ts"
+          ]
+        },
+        {
+          "id": "W-34.history",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/session-message-loader.ts (cursor paging)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/session-message-loader.test.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (load-older + window)"
+          ]
+        },
+        {
+          "id": "W-34.folders",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/session-folders.ts",
+            "../NotNativeDesktop/packages/ui/src/stores/useSessionFoldersStore.ts",
+            "../NotNativeDesktop/packages/ui/src/stores/__tests__/useSessionFoldersStore.test.ts (8 tests)"
+          ]
+        },
+        {
+          "id": "W-34.queue",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-1-message-queue.test.ts (24 tests)",
+            "../NotNativeDesktop/packages/web/src/server/queue/"
+          ]
+        },
+        {
+          "id": "W-34.worktrees",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/worktrees/",
+            "../NotNativeDesktop/packages/ui/src/components/worktrees/__tests__/worktrees-view.test.tsx (9 tests)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/drafts.ts (localStorage per directory+session key, legacy autoAccept stripped)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-draft-context-pins.test.tsx (9 tests)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-policy.test.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/session-message-loader.ts (cursor paging)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/session-message-loader.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (load-older + window)",
+        "../NotNativeDesktop/packages/web/src/server/routes/session-folders.ts",
+        "../NotNativeDesktop/packages/ui/src/stores/useSessionFoldersStore.ts",
+        "../NotNativeDesktop/packages/ui/src/stores/__tests__/useSessionFoldersStore.test.ts (8 tests)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-1-message-queue.test.ts (24 tests)"
+      ]
     },
     {
       "id": "W-35",
       "work_packages": "F2, F4",
       "disposition": "MVP stream and native revert representation.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-35.native-revert",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeAgent/src/nnd-session-revert.js (revert_point/revert_cleared journal records, stacked open-cycle semantics)",
+            "../NotNativeAgent/test/nnd-session-revert.test.js (4 tests incl. restart-mid-revert + fork prefix)",
+            "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 native revert entry"
+          ]
+        },
+        {
+          "id": "W-35.stream-representation",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeAgent/src/persistence/session-history.js (hiddenTurnIds pre-scan + steering hidden by turnId)",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (streaming tail + reverted-turn resync on unrevert)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeAgent/src/nnd-session-revert.js (revert_point/revert_cleared journal records, stacked open-cycle semantics)",
+        "../NotNativeAgent/test/nnd-session-revert.test.js (4 tests incl. restart-mid-revert + fork prefix)",
+        "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 native revert entry",
+        "../NotNativeAgent/src/persistence/session-history.js (hiddenTurnIds pre-scan + steering hidden by turnId)",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (streaming tail + reverted-turn resync on unrevert)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts"
+      ]
     },
     {
       "id": "W-36",
