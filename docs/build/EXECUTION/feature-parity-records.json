@@ -1907,50 +1907,153 @@
       "id": "W-106",
       "work_packages": "F3, F8",
       "disposition": "MVP knowledge assembly/delivery/reading surfaces.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-106.knowledge",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-session-knowledge.test.ts + p10-session-knowledge-summary.test.tsx + p10-session-knowledge-panel-pins.test.tsx (assembly/delivery/reading surfaces)",
+            "../NotNativeDesktop/packages/web/src/server/session-assist/session-assist-runtime.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-session-knowledge.test.ts + p10-session-knowledge-summary.test.tsx + p10-session-knowledge-panel-pins.test.tsx (assembly/delivery/reading surfaces)",
+        "../NotNativeDesktop/packages/web/src/server/session-assist/session-assist-runtime.ts"
+      ]
     },
     {
       "id": "W-107",
       "work_packages": "F8",
       "disposition": "MVP native-integrated agent memory, scope, edit/forget and provenance.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-107.agent-memory",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/agent-memory.ts (native memory CRUD with scope, edit/forget, provenance)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p10-agent-memory.test.ts + p10-agent-memory-ownership.test.ts + p10-agent-memory-session.test.ts + p10-agent-memory-tool.test.ts + p10-agent-memory-delivery.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/agent-memory.ts (native memory CRUD with scope, edit/forget, provenance)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p10-agent-memory.test.ts + p10-agent-memory-ownership.test.ts + p10-agent-memory-session.test.ts + p10-agent-memory-tool.test.ts + p10-agent-memory-delivery.test.ts"
+      ]
     },
     {
       "id": "W-108",
       "work_packages": "F8",
       "disposition": "MVP project context/notes/plans/todos and migrations.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-108.project-context",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/project-context/ (context/plan stores + legacy migration)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/context-notes.test.tsx + context-plans.test.tsx + context-todos.test.tsx",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p10-context-store.test.ts + p10-legacy-plan-migration.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/project-context/ (context/plan stores + legacy migration)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/context-notes.test.tsx + context-plans.test.tsx + context-todos.test.tsx",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p10-context-store.test.ts + p10-legacy-plan-migration.test.ts"
+      ]
     },
     {
       "id": "W-109",
       "work_packages": "F8, C",
       "disposition": "MVP native skills discovery/CRUD/catalog/install/update/invocation.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-109.skills",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/skills.ts + skill-catalog-install-route.ts + skill-catalog-common.ts (discovery/CRUD/catalog/install/update/invocation)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p10-skill-scan.test.ts",
+            "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/native-skills.test.tsx + skills-catalog-page.test.tsx",
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/__tests__/skills.test.ts + lib/__tests__/skills-api.test.ts + stores/__tests__/useSkillsCatalogStore.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/skills.ts + skill-catalog-install-route.ts + skill-catalog-common.ts (discovery/CRUD/catalog/install/update/invocation)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p10-skill-scan.test.ts",
+        "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/native-skills.test.tsx + skills-catalog-page.test.tsx",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/__tests__/skills.test.ts + lib/__tests__/skills-api.test.ts + stores/__tests__/useSkillsCatalogStore.test.ts"
+      ]
     },
     {
       "id": "W-110",
       "work_packages": "F8, C",
       "disposition": "MVP native MCP management/runtime/OAuth/import/status.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-110.mcp",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/mcp-config.ts (management/runtime/status)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p10-mcp-config-routes.test.ts + p10-mcp-mock-runtime.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/mcp-config.ts (management/runtime/status)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p10-mcp-config-routes.test.ts + p10-mcp-mock-runtime.test.ts"
+      ]
     },
     {
       "id": "W-111",
       "work_packages": "F3, F8",
       "disposition": "MVP pinned/obligatory context/compaction/grants with native authority.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-111.pinned-context",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-draft-context-pins.test.tsx + p10-session-knowledge-panel-pins.test.tsx (pinned/obligatory context)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/context-message-ledger.test.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (context pin actions, native authority)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-draft-context-pins.test.tsx + p10-session-knowledge-panel-pins.test.tsx (pinned/obligatory context)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/context-message-ledger.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (context pin actions, native authority)"
+      ]
     },
     {
       "id": "W-112",
       "work_packages": "F3, F8",
       "disposition": "MVP snippets/starters/prompts/todos/linked issues and review context.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-112.review-context",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/starters.ts + __tests__/p3b-catalog.test.ts (starters)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/snippets.tsx + tests (snippets, W-22)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/context-todos.test.tsx (todos)",
+            "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx (review context)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/starters.ts + __tests__/p3b-catalog.test.ts (starters)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/snippets.tsx + tests (snippets, W-22)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/context-todos.test.tsx (todos)",
+        "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx (review context)"
+      ]
     },
     {
       "id": "W-113",

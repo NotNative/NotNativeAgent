@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Knowledge/memory/context/skills/MCP family (W-106..W-112, implemented-unverified)
+
+The F8 family is native and covered: W-106 knowledge assembly/delivery/
+reading (p10-session-knowledge trio + assist runtime); W-107 native agent
+memory with ownership/scope/edit/forget/provenance across five p10-agent-
+memory suites; W-108 project context/notes/plans/todos with the legacy
+migration and context-store tests; W-109 skills discovery/CRUD/catalog/
+install/update/invocation (route layer + five UI/store test files); W-110
+MCP management/runtime/status (config routes + mock runtime tests); W-111
+pinned/obligatory context with native authority (draft pins, knowledge-panel
+pins, context message ledger); W-112 snippets/starters/prompts/todos/review
+context riding the disposed W-22 surfaces plus todos and the timeline review
+context. All implemented-unverified pending the installed V-gates.
+
 ## 2026-10-11 Goals/audit/limits, schedules, queue intent (W-85..W-87, implemented-unverified)
 
 W-85: native goals (session-goal action/controls tests), the audit rail
