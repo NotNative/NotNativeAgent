@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Goals/audit/limits, schedules, queue intent (W-85..W-87, implemented-unverified)
+
+W-85: native goals (session-goal action/controls tests), the audit rail
+(activity snapshot + operator-rail tests), limits via the governance summary
+with the §G missing-data rule, and the management UI on the operator rail.
+W-86: persistent schedules — task schema with timezones, next-run
+computation, loops, and the pipeline; the p9-3a..d suites plus the audit
+repro (20 tests) and cron preview (10 tests) pin behavior; run-as-goal is in
+the execution editor and the auto-accept toggle is absent by the W-32
+prohibition. W-87: the message queue carries intent/delivery/holds/edit/
+reorder/clear/context in 24 focused tests with the queue plane in
+server/queue; VS Code auto-send stays excluded. All implemented-unverified
+pending the installed V-gates.
+
 ## 2026-10-11 Windows shell batches (W-80, W-81, W-83, W-84, implemented-unverified)
 
 W-80: the Windows NND updater (10 tests) with updater-policy NNA

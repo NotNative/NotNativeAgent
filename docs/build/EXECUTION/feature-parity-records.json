@@ -1694,22 +1694,69 @@
       "id": "W-85",
       "work_packages": "F9",
       "disposition": "MVP native goals, audit, limits and management UI.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-85.goals-audit-limits-ui",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-goal-actions.test.ts + session-goal-controls.test.tsx (native session goals)",
+            "../NotNativeDesktop/packages/ui/src/sync/activity-snapshot.ts + operator-rail.test.tsx (audit/activity rail)",
+            "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (nnaGovernanceSummary limits; §G missing-data rule)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-goal-actions.test.ts + session-goal-controls.test.tsx (native session goals)",
+        "../NotNativeDesktop/packages/ui/src/sync/activity-snapshot.ts + operator-rail.test.tsx (audit/activity rail)",
+        "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (nnaGovernanceSummary limits; §G missing-data rule)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts"
+      ]
     },
     {
       "id": "W-86",
       "work_packages": "F9, C",
       "disposition": "MVP persistent schedules/timezones/run-as-goal; auto-accept toggle prohibited.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-86.schedules",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/scheduled/ (task-schema with timezones, next-run, loops, pipeline)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-3a..p9-3d suites + p9-3d-audit-repro.test.ts (20 tests) + p9-4c-cron-preview.test.ts (10 tests)",
+            "../NotNativeDesktop/packages/ui/src/components/scheduled/scheduled-task-execution-editor.tsx (run-as-goal; auto-accept toggle absent by W-32 prohibition)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/scheduled/ (task-schema with timezones, next-run, loops, pipeline)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-3a..p9-3d suites + p9-3d-audit-repro.test.ts (20 tests) + p9-4c-cron-preview.test.ts (10 tests)",
+        "../NotNativeDesktop/packages/ui/src/components/scheduled/scheduled-task-execution-editor.tsx (run-as-goal; auto-accept toggle absent by W-32 prohibition)"
+      ]
     },
     {
       "id": "W-87",
       "work_packages": "F3, F9",
       "disposition": "MVP queue intent/delivery/holds/edit/reorder/clear/context; VS Code auto-send excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-87.queue-intent",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-1-message-queue.test.ts (24 tests: intent/delivery/holds/edit/reorder/clear/context)",
+            "../NotNativeDesktop/packages/web/src/server/queue/ (queue plane)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-policy.test.ts (send planner; VS Code auto-send excluded)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-1-message-queue.test.ts (24 tests: intent/delivery/holds/edit/reorder/clear/context)",
+        "../NotNativeDesktop/packages/web/src/server/queue/ (queue plane)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-policy.test.ts (send planner; VS Code auto-send excluded)"
+      ]
     },
     {
       "id": "W-88",
