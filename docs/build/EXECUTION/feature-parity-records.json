@@ -1396,15 +1396,43 @@
       "id": "W-51",
       "work_packages": "F1, F6",
       "disposition": "MVP authorized worktrees and branch-scoped review.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-51.worktrees-review",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/worktrees/__tests__/worktrees-view.test.tsx (9 tests)",
+            "../NotNativeDesktop/packages/web/src/server/routes/git-worktrees.ts + __tests__/p6-3b-worktree-routes.test.ts (9 tests: authorized worktrees, branch-scoped review)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/worktrees/__tests__/worktrees-view.test.tsx (9 tests)",
+        "../NotNativeDesktop/packages/web/src/server/routes/git-worktrees.ts + __tests__/p6-3b-worktree-routes.test.ts (9 tests: authorized worktrees, branch-scoped review)"
+      ]
     },
     {
       "id": "W-52",
       "work_packages": "F6, F8",
       "disposition": "MVP plans/save queue/improve/implement/walkthrough navigation.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-52.plans-navigation",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/plan/PlanView.tsx + __tests__/plan-view.test.tsx (10 tests: save queue/improve/implement)",
+            "../NotNativeDesktop/packages/web/src/server/project-context/plan-store.ts (plan persistence)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/walkthrough-preview.test.tsx (walkthrough navigation)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/plan/PlanView.tsx + __tests__/plan-view.test.tsx (10 tests: save queue/improve/implement)",
+        "../NotNativeDesktop/packages/web/src/server/project-context/plan-store.ts (plan persistence)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/walkthrough-preview.test.tsx (walkthrough navigation)"
+      ]
     },
     {
       "id": "W-53",
@@ -1417,8 +1445,23 @@
       "id": "W-54",
       "work_packages": "F3, F6",
       "disposition": "MVP inline comments/context/review workflow; review never grants tool permission.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-54.review-workflow",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/comments/InlineComments.tsx + controller.ts + focus-chat.ts (inline comments/context)",
+            "../NotNativeDesktop/packages/ui/src/components/comments/__tests__/controller.test.tsx (7 tests)",
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/permission-policy.ts (review never grants tool permission — W-32 prohibition)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/comments/InlineComments.tsx + controller.ts + focus-chat.ts (inline comments/context)",
+        "../NotNativeDesktop/packages/ui/src/components/comments/__tests__/controller.test.tsx (7 tests)",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/permission-policy.ts (review never grants tool permission — W-32 prohibition)"
+      ]
     },
     {
       "id": "W-55",

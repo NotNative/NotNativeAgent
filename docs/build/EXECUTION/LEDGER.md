@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Worktrees/plans/review disposition (W-51, W-52, W-54, implemented-unverified)
+
+W-51: authorized worktrees with branch-scoped review (worktrees-view 9
+tests, p6-3b worktree routes 9 tests). W-52: plans with the save
+queue/improve/implement flow (PlanView 10 tests) on the plan store, with
+walkthrough navigation riding the preview tests. W-54: the inline
+comments/context/review workflow (comments controller 7 tests,
+InlineComments/focus-chat) under the W-32 prohibition — review never grants
+tool permission. W-53 (PR/GitHub/Linear surfaces) stays pending: only
+optional adapter type stubs exist, no feature implementation. W-55 stays
+pending: cache invalidation is real (git store invalidate/invalidateStatus)
+but the retained-pane visibility gating leg lacks a complete
+implementation. All implemented-unverified pending the installed V-gates.
+
 ## 2026-10-11 Files/editor family (W-46..W-50, implemented-unverified)
 
 W-46: the file tree with actions/tabs and guarded grants (fs-read/fs-write

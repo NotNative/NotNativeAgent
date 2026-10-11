@@ -1900,6 +1900,10 @@
     {
       "version": "20261011-62",
       "content_sha256": "bf41a6c39a758f8bca3f2c25db7084e644bb29255dd38603c11eb5c91f0f8e6d"
+    },
+    {
+      "version": "20261011-63",
+      "content_sha256": "1045488d0b28d27183290828c58ac3c4a3c4e763b8865a672341335fa3552e32"
     }
   ]
 }
