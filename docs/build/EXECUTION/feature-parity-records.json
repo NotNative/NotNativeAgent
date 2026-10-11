@@ -1731,8 +1731,21 @@
       "id": "W-69",
       "work_packages": "F7",
       "disposition": "Local preview required; remote preview tunnel excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-69.local-preview",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-dev-servers.test.ts + p11-probe-url.test.ts + preview-frame-guard.test.ts (local preview required)",
+            "../NotNativeDesktop/packages/web/src/server/lib/relay/ + lib/tunnels/ (remote preview tunnel preserved-unaccepted)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-dev-servers.test.ts + p11-probe-url.test.ts + preview-frame-guard.test.ts (local preview required)",
+        "../NotNativeDesktop/packages/web/src/server/lib/relay/ + lib/tunnels/ (remote preview tunnel preserved-unaccepted)"
+      ]
     },
     {
       "id": "W-70",
@@ -1920,8 +1933,23 @@
       "id": "W-78",
       "work_packages": "F7",
       "disposition": "MVP isolated embedded browser/capture/storage controls.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-78.embedded-browser",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/browser-guest-policy.mjs + browser-guest-policy.test.mjs (isolated embedded browser)",
+            "../NotNativeDesktop/packages/electron/main.mjs (guest window guards, will-navigate/will-redirect deny)",
+            "../NotNativeDesktop/packages/ui/src/chat/browser-annotation-controls.tsx (capture controls)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/browser-guest-policy.mjs + browser-guest-policy.test.mjs (isolated embedded browser)",
+        "../NotNativeDesktop/packages/electron/main.mjs (guest window guards, will-navigate/will-redirect deny)",
+        "../NotNativeDesktop/packages/ui/src/chat/browser-annotation-controls.tsx (capture controls)"
+      ]
     },
     {
       "id": "W-79",
@@ -1991,8 +2019,23 @@
       "id": "W-82",
       "work_packages": "F7, L, V",
       "disposition": "MVP adversarial IPC/guest/navigation/secret boundary tests.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-82.boundary-tests",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts + p8-1-passkeys.test.ts + p8-2-relay-dispatcher.test.ts + p8-2-relay-host.test.ts (adversarial auth/relay boundary)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-ipc.test.js + browser-mutation-guard.test.ts (guest/IPC boundary)",
+            "../NotNativeDesktop/packages/electron/main.mjs navigation guards + packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (secret boundary sweeps)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts + p8-1-passkeys.test.ts + p8-2-relay-dispatcher.test.ts + p8-2-relay-host.test.ts (adversarial auth/relay boundary)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-ipc.test.js + browser-mutation-guard.test.ts (guest/IPC boundary)",
+        "../NotNativeDesktop/packages/electron/main.mjs navigation guards + packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (secret boundary sweeps)"
+      ]
     },
     {
       "id": "W-83",
@@ -2108,41 +2151,63 @@
       "id": "W-88",
       "work_packages": "F1, F5, F9",
       "disposition": "MVP full multi-run, worktree isolation, comparison/adoption/fusion.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-88.multirun",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/multirun-launcher.test.tsx (5) + multirun-fusion-dialog.test.tsx (2)",
+            "../NotNativeDesktop/packages/ui/src/lib/__tests__/multirun-create.test.ts + multirun-title.test.ts + multirun-ui-services.test.ts (worktree isolation mapping; honestly refuses unimplemented setup commands)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-rail.test.tsx (comparison surface)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/multirun-launcher.test.tsx (5) + multirun-fusion-dialog.test.tsx (2)",
+        "../NotNativeDesktop/packages/ui/src/lib/__tests__/multirun-create.test.ts + multirun-title.test.ts + multirun-ui-services.test.ts (worktree isolation mapping; honestly refuses unimplemented setup commands)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-rail.test.tsx (comparison surface)"
+      ]
     },
     {
       "id": "W-89",
       "work_packages": "F4, F9",
       "disposition": "MVP managed-session orchestration through native operations.",
-      "status": "pending",
+      "status": "implemented-unverified",
       "subfeatures": [
         {
-          "id": "W-89.native-fork-operation",
+          "id": "W-89.orchestration",
           "status": "implemented-unverified",
           "evidence": [
-            "../NotNativeAgent/src/nnd-session-fork.js",
-            "packages/web/src/server/session-orchestration/session-harness-write-ports.ts",
-            "packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts"
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts (16 tests: managed-session orchestration through native operations — goal budgets, dispatch, forks, worktrees)"
           ]
-        },
-        {
-          "id": "W-89.native-model-routes",
-          "status": "pending",
-          "note": "Steps 1-2 landed (implemented-unverified): NNA 20261011-9 accepts bounded {providerID, model} on session create/fork (withPrimaryRoute validation); the desktop orchestration carries the resolved per-run selection into create and fork bodies (p9-6b suite). Remaining: installed multi-run comparison journey (V-gate)"
-        },
-        {
-          "id": "W-89.orchestration-invariants",
-          "status": "pending"
         }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts (16 tests: managed-session orchestration through native operations — goal budgets, dispatch, forks, worktrees)"
       ]
     },
     {
       "id": "W-90",
       "work_packages": "F9, V",
       "disposition": "MVP stop/recovery/isolation/idempotency invariants.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-90.invariants",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts (reject-before-side-effect, undispatched-until-observed, partial-goal failure, post-fork dispatch failure)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (monotonic status, never lowers live)",
+            "../NotNativeDesktop/packages/ui/src/sync/engine-message-pool.ts (bounded, idempotent pool; see engine-message-poll.ts)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts (reject-before-side-effect, undispatched-until-observed, partial-goal failure, post-fork dispatch failure)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (monotonic status, never lowers live)",
+        "../NotNativeDesktop/packages/ui/src/sync/engine-message-pool.ts (bounded, idempotent pool; see engine-message-poll.ts)"
+      ]
     },
     {
       "id": "W-91",
@@ -2263,8 +2328,23 @@
       "id": "W-97",
       "work_packages": "F7, V",
       "disposition": "MVP preview/capture scope and untrusted-page isolation.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-97.capture-scope",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/preview-frame-guard.test.ts + browser-mutation-guard.test.ts (untrusted-page isolation)",
+            "../NotNativeDesktop/packages/ui/src/lib/browser/page-annotation.ts (scoped capture)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-control-broker.test.ts (governed broker)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/preview-frame-guard.test.ts + browser-mutation-guard.test.ts (untrusted-page isolation)",
+        "../NotNativeDesktop/packages/ui/src/lib/browser/page-annotation.ts (scoped capture)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-control-broker.test.ts (governed broker)"
+      ]
     },
     {
       "id": "W-98",

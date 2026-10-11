@@ -1908,6 +1908,10 @@
     {
       "version": "20261011-64",
       "content_sha256": "368850e7ea44f6eaf53585dc5f949241c8b581ba324c77717a77000ed9e47bcb"
+    },
+    {
+      "version": "20261011-65",
+      "content_sha256": "f045a8a965cfaf5f40c331980aa0582b11f8985d5f511d9d93815385d3838567"
     }
   ]
 }

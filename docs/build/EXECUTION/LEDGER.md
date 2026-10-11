@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Adversarial boundaries, multi-run/orchestration, preview isolation (W-82, W-88..W-90, W-69, W-78, W-97, implemented-unverified)
+
+W-82: the adversarial boundary test net — auth/passkey/relay dispatcher and
+host suites, browser-ipc and mutation guards, navigation guards, and the §12
+secret-boundary sweeps. W-88: full multi-run with worktree isolation
+(launcher 5, fusion 2, create/title/ui-services suites — the UI honestly
+refuses unimplemented setup commands rather than faking them). W-89:
+managed-session orchestration through native operations (16 tests: goal
+budgets, dispatch observation, forks, worktree bootstrap). W-90: the
+stop/recovery/isolation/idempotency invariants — reject-before-side-effect,
+undispatched-until-observed, partial-goal failure, post-fork failure
+attribution, and the monotonic status rule. W-69: local preview required
+(dev-server plane + frame guard) with the tunnel code preserved-unaccepted.
+W-78: the isolated embedded browser (guest policy + navigation denies +
+capture controls). W-97: capture scope with untrusted-page isolation (frame
+guard, mutation guard, governed broker). W-105 (money/measurement
+formatting) stays pending — only time formatting exists. All
+implemented-unverified pending the installed V-gates.
+
 ## 2026-10-11 Secrets and install/auth status (W-71, W-72, implemented-unverified)
 
 W-71: secret handling, revocation and failure isolation — the auth layer
