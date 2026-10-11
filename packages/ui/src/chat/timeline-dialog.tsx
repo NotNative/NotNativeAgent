@@ -15,6 +15,7 @@ import { useSessionViewStore } from '../sync/view-store.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { projectTurns, type PartLite } from './turns.ts';
 import { formatRelative } from './time-format.ts';
+import { exportSession } from './session-export.ts';
 
 export interface TimelineDialogProps {
   store: StoreApi<DirectoryStore>;
@@ -99,6 +100,9 @@ export function TimelineDialog({ store, engine, sessionID, onClose }: TimelineDi
         <div className="mb-2 flex items-center gap-2">
           <strong className="text-[13px] text-neutral-100">Conversation Timeline</strong>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search messages…" aria-label="Search messages" data-testid="timeline-search" className="ml-auto w-56 rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200 outline-none focus:border-white/25" />
+          <button type="button" aria-label="Export transcript" data-testid="timeline-export"
+            onClick={() => { try { exportSession(store, sessionID); toast.success('Transcript exported as Markdown'); } catch { toast.error('Failed to export the transcript'); } }}
+            className="rounded px-2 py-1 text-[12px] text-neutral-400 hover:text-white">⬇</button>
           <button type="button" aria-label="Close timeline" className="rounded px-2 py-1 text-[12px] text-neutral-400 hover:text-white" onClick={onClose}>×</button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">

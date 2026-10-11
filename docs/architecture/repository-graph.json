@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:b13ae6d24d33c5ffca520acd766280d9755e357f0c9bf9f4d2873a59723ba26b",
+  "source_digest": "sha256:21f53994abb99bc1f9fcf6cbca32c7e36c0d7d48abc6206e112fcf57bdc01c4b",
   "counts": {
-    "modules": 884,
+    "modules": 885,
     "component_edges": 17
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 219
+      "module_count": 220
     },
     {
       "id": "web-server",
@@ -123,8 +123,8 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 116,
-      "module_count": 70
+      "import_count": 117,
+      "module_count": 71
     },
     {
       "from": "sync-engine",
@@ -835,6 +835,16 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/chat/session-export.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/time-format.ts",
+        "packages/ui/src/chat/turns.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/session-goal-actions.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -954,6 +964,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/session-export.ts",
         "packages/ui/src/chat/time-format.ts",
         "packages/ui/src/chat/turns.ts",
         "packages/ui/src/sync/persist-cache.ts",

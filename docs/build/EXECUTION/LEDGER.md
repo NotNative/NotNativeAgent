@@ -18,6 +18,21 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Session transcript export (W-24.export, implemented-unverified)
+
+The timeline dialog gains a transcript export: `session-export.ts` composes
+the loaded turns into a portable Markdown document (chronological prompt/reply
+sections with ISO timestamps, synthetic/ignored parts excluded, tool activity
+summarized as an omitted-count aside, export provenance header) and hands it
+to the browser as a `text/markdown` download with a filename sanitized from
+the session title (falling back to the session id). The dialog exposes it as
+the `timeline-export` action next to search. Focused coverage pins the
+composition (order, placeholders, tool aside), the sanitized download path
+(object URL + revoke), and the dialog wiring (blob type/size). The export
+covers the loaded pages — paging loads more history first, matching the
+timeline's own view of the session. Implemented-unverified; installed
+observation joins the W-24 deferred items.
+
 ## 2026-10-11 W-ledger disposition batch + per-message deep links (implemented-unverified)
 
 First W-ledger disposition batch: records W-01–W-20 and W-24–W-33 now carry

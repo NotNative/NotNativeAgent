@@ -495,8 +495,13 @@
         },
         {
           "id": "W-24.export",
-          "status": "pending",
-          "note": "no session export capability found; the only 'export' code is the unrelated prebuilt-payload installer exporter"
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/session-export.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx (timeline-export action)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-export.test.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/timeline-export.test.tsx"
+          ]
         }
       ]
     },
