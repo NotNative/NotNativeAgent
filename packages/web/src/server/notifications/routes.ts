@@ -32,6 +32,19 @@ export function createNotificationRoutes(input: { sessions: NotificationSessions
     return notificationStream(input.sessions, owner, c.get('notificationActive'), c.req.raw.signal);
   });
   registerNotificationReads(app, input.sessions);
+  // W-29 immutable delivery receipt: continuity probe for stream clients.
+  app.get('/api/notifications/receipt', (c) => {
+    if (!c.get('notificationOwner')) return c.json({ error: 'Notification receipts require a UI session or client credential' }, 401);
+    const after = Number(c.req.query('after'));
+    const { anchored, prefixDigest, records } = input.sessions.delivered.since(Number.isFinite(after) && after >= 0 ? after : 0);
+    return c.json({
+      delivered: input.sessions.delivered.delivered,
+      chainHead: input.sessions.delivered.chainHead,
+      intact: input.sessions.delivered.verify(),
+      anchored, prefixDigest,
+      records: records.map((record) => ({ ...record })),
+    }, 200, { 'cache-control': 'no-store' });
+  });
   for (const action of ['view', 'unview', 'message-sent'] as const) app.post(`/api/sessions/:id/${action}`, async (c) => {
     const owner = c.get('notificationOwner'); if (!owner) return c.json({ error: 'Session receipts require a UI session or client credential' }, 401);
     const id = notificationSessionId(c.req.param('id')); if (!id) return c.json({ error: 'Invalid session id' }, 400);

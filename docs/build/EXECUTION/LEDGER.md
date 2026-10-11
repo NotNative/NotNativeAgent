@@ -18,6 +18,26 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Immutable event-delivery receipt (W-29.immutable-receipt, implemented-unverified)
+
+The notification bus now leaves an immutable, hash-chained delivery receipt
+for every published event: `DeliveryReceiptLedger` appends one frozen record
+per publish (seq, event id, delivered-at, previous hash, SHA-256 chain hash
+from a genesis hash) with NO mutation or deletion API — only append, probe,
+and verify. The chain is windowed for memory: evicted oldest records fold
+into a running `prefixDigest` (sha256 over the evicted hashes in order) and
+the retained window's links stay intact, so `verify()` attests an unbroken
+chain ending at the exposed head, and `since(seq)` reports how many delivered
+events a caller cannot enumerate from the window. `NotificationSessions`
+records one receipt per publish; an authenticated
+`GET /api/notifications/receipt?after=…` exposes the continuity probe
+(delivered count, chain head, `intact` verify flag, anchored count,
+prefix digest, and the records after the probe). Focused tests pin the
+genesis-anchored chain math, window eviction + prefix-digest folding,
+record immutability (frozen), and that tampering breaks `verify`. This
+completes W-29's subfeatures (implemented-unverified; installed observation
+belongs to the deferred V-gates).
+
 ## 2026-10-11 Theme prepaint (W-02.theme-prepaint, implemented-unverified)
 
 The renderer boot now applies the persisted theme synchronously BEFORE React

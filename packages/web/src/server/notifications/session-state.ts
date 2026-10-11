@@ -2,6 +2,7 @@
 import { callHarness, harnessRequest } from '../queue/queue-adapter-calls.ts';
 import type { QueueEnvelope } from '../queue/queue-feed.ts';
 import { SessionReceipts } from './session-receipts.ts';
+import { DeliveryReceiptLedger } from './delivery-receipt.ts';
 import { pendingSnapshot } from './pending-snapshot.ts';
 import { emptyNotificationSession, notificationSessionId, projectNotificationEvent, projectNotificationStatus, projectSessionInfo, type NotificationSession } from './session-projection.ts';
 
@@ -14,11 +15,19 @@ export class NotificationSessions {
   private revision = 0;
   private pendingCoverage: 'complete' | 'live-events-only' = 'live-events-only';
   readonly receipts: SessionReceipts;
+  readonly delivered: DeliveryReceiptLedger;
   constructor(private readonly now: () => number = Date.now, private readonly fetch: (path: string) => Promise<Response> =
-    (path) => callHarness(harnessRequest(path, null, { signal: AbortSignal.timeout(5000) }))) { this.receipts = new SessionReceipts(now); }
+    (path) => callHarness(harnessRequest(path, null, { signal: AbortSignal.timeout(5000) }))) {
+    this.receipts = new SessionReceipts(now);
+    this.delivered = new DeliveryReceiptLedger(now);
+  }
   get(session: string): NotificationSession | undefined { return this.sessions.get(session); }
   subscribe(listener: (event: NotificationEvent) => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
-  publish(event: NotificationEvent): void { for (const listener of this.listeners) { try { listener(event); } catch { /* isolate a closing stream */ } } }
+  publish(event: NotificationEvent): void {
+    // W-29: every publish leaves an immutable hash-chained delivery receipt.
+    this.delivered.record(`${event.type}:${JSON.stringify(event.properties)}`);
+    for (const listener of this.listeners) { try { listener(event); } catch { /* isolate a closing stream */ } }
+  }
   publishStatus(id: string): void {
     const state = this.sessions.get(id); if (!state) return;
     this.publish({ type: 'notnative:session-status', properties: { sessionID: id, status: state.status, timestamp: state.lastUpdateAt,

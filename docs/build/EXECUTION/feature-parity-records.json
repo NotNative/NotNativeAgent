@@ -643,7 +643,7 @@
       "id": "W-29",
       "work_packages": "F2",
       "disposition": "MVP native event catalog, envelope validation and immutable receipt.",
-      "status": "pending",
+      "status": "implemented-unverified",
       "subfeatures": [
         {
           "id": "W-29.event-catalog-envelope",
@@ -658,9 +658,25 @@
         },
         {
           "id": "W-29.immutable-receipt",
-          "status": "pending",
-          "note": "operation/journal receipts exist for configuration flows, but an immutable event-delivery receipt with focused tests was not found"
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/notifications/delivery-receipt.ts",
+            "../NotNativeDesktop/packages/web/src/server/notifications/session-state.ts (publish records a receipt per event)",
+            "../NotNativeDesktop/packages/web/src/server/notifications/routes.ts (GET /api/notifications/receipt continuity probe)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/delivery-receipt.test.ts"
+          ]
         }
+      ],
+      "evidence": [
+        "../NotNativeAgent/src/opencode/wire-events.js",
+        "../NotNativeAgent/src/event-factory.js",
+        "../NotNativeAgent/src/provider/event-shape.js",
+        "../NotNativeAgent/test/opencode-wire-events.test.js",
+        "../NotNativeAgent/test/state-events.test.js",
+        "../NotNativeDesktop/packages/web/src/server/notifications/delivery-receipt.ts",
+        "../NotNativeDesktop/packages/web/src/server/notifications/session-state.ts (publish records a receipt per event)",
+        "../NotNativeDesktop/packages/web/src/server/notifications/routes.ts (GET /api/notifications/receipt continuity probe)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/delivery-receipt.test.ts"
       ]
     },
     {
