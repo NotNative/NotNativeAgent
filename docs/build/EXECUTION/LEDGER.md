@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 WP-B: interrupted retained activation preserves the prior world (implemented-unverified)
+
+The WP-B rollback guarantee now has its installer-level acceptance: a
+retained `activate-slot` owner that exits nonzero after writing durable
+candidate evidence leaves the installer exit nonzero, prints the stage
+operation UUID with the honest "retained owner remains uncertain / do not
+retry blindly" guidance, never prints a public attach, and leaves the NND
+target with neither `nnd-anchor.json` nor the service selection binding —
+no public state exists after a failed activation, and the durable evidence
+the operator needs for `stage-recover` / `-RecoverPrebuiltStageOperation`
+is preserved. Verified: `installer-prebuilt-activation` 4/4 (new
+interruption test drives the real installer `-ActivatePrebuiltSlot` entry
+against the fake native CLI's `exit` mode through the real PowerShell
+pipeline), prebuilt-stage and structure suites green. This is the
+in-session half of upgrade/rollback acceptance; the full operator
+installed upgrade journey (real prior slot, real swap, schema-unchanged
+activation gate) stays in the prebuilt distribution acceptance gate
+(mvp-agent-handoff step 5) and DEFERRED-VERIFICATION.
+
 ## 2026-10-11 WP-C step 2: legacy takeover refusal in the L5 upgrade path (implemented-unverified)
 
 The source installer's pre-mutation running-install guard is now the legacy

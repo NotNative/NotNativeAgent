@@ -233,3 +233,39 @@ test('installer activation mode delegates the selected slot without copying the 
     await new Promise(accept => setTimeout(accept, 50));
     assert.throws(() => process.kill(marker.pid, 0));
   });
+
+test('a failed retained activation leaves no public state and reports the uncertain owner honestly',
+  { skip: process.platform !== 'win32' }, async t => {
+    const f = await fixture(t);
+    const target = join(f.base, 'NND target');
+    await mkdir(target, { recursive: true });
+    await writeFile(join(target, 'keep.txt'), 'unchanged');
+    const payload = join(f.base, 'payload'); await mkdir(join(payload, 'packages', 'web', 'dist'), { recursive: true });
+    await writeFile(join(payload, 'packages', 'web', 'dist', 'index.html'), '<html>fixture</html>');
+    const manifest = JSON.stringify({ schema_version: '1.0', version: '20261003-12',
+      platform: 'win32', architecture: 'x64', files: [] });
+    await writeFile(join(payload, 'NND_PAYLOAD.json'), manifest);
+    const digest = createHash('sha256').update(manifest).digest('hex');
+    // The retained owner exits nonzero after writing durable candidate
+    // evidence: the installer must refuse activation without claiming
+    // success, keep the stage UUID for recovery, and leave the target
+    // without an anchor or selection (no public attach occurred).
+    const failed = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', resolve('install.ps1'),
+      '-ActivatePrebuiltSlot', '-PrebuiltStageOperation', stageOperation,
+      '-PrebuiltPayloadRoot', payload, '-PrebuiltManifestSha256', digest,
+      '-NnaInstallRoot', f.native, '-InstallDir', target], {
+      encoding: 'utf8', windowsHide: true, timeout: 20000,
+      env: { ...process.env, Path: '', NNACTIV_TEST_PAYLOAD_DIGEST: digest, NNACTIV_TEST_ACTIVATION_MODE: 'exit' },
+    });
+    assert.notEqual(failed.status, 0);
+    const output = [failed.stdout, failed.stderr].join('\n');
+    assert.match(output, /do not retry blindly/u, output);
+    assert.match(output, /remains unresolved|remains uncertain/u, output);
+    assert.ok(output.includes(stageOperation), output);
+    assert.doesNotMatch(output, /public controller attached/u);
+    assert(existsSync(f.marker), 'durable candidate evidence must be preserved');
+    assert(!existsSync(join(target, 'nnd-anchor.json')), 'failure must not write the public anchor');
+    assert(!existsSync(join(target, 'nna-service-selection.json')), 'failure must not bind the selection');
+    const recoveryHint = output.includes('stage-recover');
+    if (recoveryHint) assert.match(output, /RecoverPrebuiltStageOperation|stage-recover/u);
+  });
