@@ -18,6 +18,39 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 F4: native timeline fork seeds a durable child session in NNA (implemented-unverified)
+
+The F4 confirmed-gap row's fork half is closed natively. NNA `20261011-8`
+ships `POST /session/:id/fork` with `{messageID}`, where the boundary is the
+same projection the NND timeline renders: a positional id
+(`session:message:index`) or a submitted user request id
+(`resolveForkBoundary` in `src/persistence/fork-records.js`). The parent
+journal prefix is cut at the boundary turn's `turn_outcome` record
+(`forkPrefixRecords`), excluding the parent's `session_created` and lineage
+records; the child `ses_*` session then writes its own `session_created`
+first and seeds the prefix through its own hash-chained `store.append` path
+(`restoreDurableEngine` fork branch in `src/engine/initialize.js`), so the
+child's journal is self-contained — no cross-session reads at restore, and an
+interrupted seed still restores as a valid prefix. A `forked_from` record
+carries `source_session_id`, `boundary_message_id`, and `record_count`.
+
+Failure rules: unknown boundary message → `nnd_fork_boundary_unknown` (404),
+incomplete boundary turn → `nnd_fork_boundary_unsettled` (409), busy or
+closing session → `nnd_fork_busy` (409), non-durable engine →
+`nnd_fork_unavailable` (503), malformed body → `nnd_fork_invalid` (400). The
+fork requires the `nnd.session.create` grant, inherits the parent's workspace
+binding and review mode, and the child context enters the normal catalog.
+
+Evidence: `test/nnd-engine-fork.test.js` (real engines + real journals: the
+child replays the inherited transcript, submits a new turn, and restarts from
+its own journal without the parent running; prefix unit rules pin the
+boundary cut and refusals) and the `native fork seeds a new session` case in
+`test/integration-server.test.js` (route, permission, positional-id boundary,
+error statuses). Status: implemented-unverified — the installed observation
+( fork a session from the NND timeline against the installed service) is the
+V-gate and stays in DEFERRED-VERIFICATION. `/revert` and `/unrevert` remain
+unimplemented natively; the parity row keeps them open.
+
 ## 2026-10-11 F2 recheck: gap signaling and the incomplete-evidence surface already exist (recheck evidence)
 
 The F2 confirmed-gap row claimed bounded in-memory SSE replay shipped

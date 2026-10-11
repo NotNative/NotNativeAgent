@@ -70,6 +70,10 @@ binaries and browser-driving runs.
       limit resend on model change (new editor surface, `20261010-2`)
 - [ ] Secret roster picker against a live broker (real `GET /api/v1/secrets` shapes)
 - [ ] V1–V6 release gates (guide 05)
+- [ ] Installed timeline fork observation: fork a session from the NND timeline
+      against the installed pinned pair and confirm the child session renders
+      the inherited history and continues independently (NNA `20261011-8`
+      `POST /session/:id/fork`, implemented-unverified)
 
 ## C4 rows awaiting installed application evidence
 
