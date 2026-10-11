@@ -4,14 +4,16 @@ import { configureNativeHarness } from '../nna-supervised.ts';
 import { createNnaHarnessAdapter } from '../nna.ts';
 
 describe('supervised native harness', () => {
-  it('cannot select a remote endpoint or restart a stopped generation', () => {
-    expect(() => configureNativeHarness({ endpoint: 'http://example.com', token: 'a'.repeat(32) })).toThrow();
+  const capabilitySupplier = () => 'cap_1abcdef.sig_abcdef12345';
+  it('cannot select a remote endpoint, omit the capability supplier, or restart a stopped generation', () => {
+    expect(() => configureNativeHarness({ endpoint: 'http://example.com', token: 'a'.repeat(32), capabilitySupplier })).toThrow();
+    expect(() => configureNativeHarness({ endpoint: 'http://127.0.0.1:4555', token: 'a'.repeat(32) })).toThrow(/capability supplier/u);
     const controller = new AbortController(); controller.abort();
-    expect(() => configureNativeHarness({ endpoint: 'http://127.0.0.1', token: 'a'.repeat(32), signal: controller.signal })).toThrow();
+    expect(() => configureNativeHarness({ endpoint: 'http://127.0.0.1', token: 'a'.repeat(32), capabilitySupplier, signal: controller.signal })).toThrow();
   });
   it('uses only fixed compatibility envelope and generation lifecycle', () => {
     const controller = new AbortController();
-    const local = configureNativeHarness({ endpoint: 'http://127.0.0.1:4555', token: 'a'.repeat(32), signal: controller.signal });
+    const local = configureNativeHarness({ endpoint: 'http://127.0.0.1:4555', token: 'a'.repeat(32), capabilitySupplier, signal: controller.signal });
     expect(local.principal()).toBe('bm5k'); expect(local.isRunning()).toBe(true);
     controller.abort(); expect(local.isRunning()).toBe(false);
   });

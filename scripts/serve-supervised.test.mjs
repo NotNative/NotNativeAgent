@@ -37,6 +37,7 @@ function launch(root) {
   const runner = new URL('./serve-supervised.mjs', import.meta.url).href;
   const child = spawn(process.execPath, ['--input-type=module', '-e', `import {runSupervisedService} from ${JSON.stringify(runner)}; await runSupervisedService({root:${JSON.stringify(root)}});`],
     { windowsHide: true, stdio: ['pipe','pipe','pipe'], env: { ...process.env, NNA_INTEGRATION_TOKEN: 'inherited-must-clear' } });
+  child.stderr.pipe(process.stderr);
   const lines = createInterface({ input: child.stdout })[Symbol.asyncIterator]();
   const exited = once(child, 'exit');
   return { child, exited, send: (frame) => child.stdin.write(JSON.stringify(frame) + '\n'),
@@ -50,7 +51,7 @@ async function bootstrap(root) {
   return { type:'bootstrap',protocol:'1.0',installation_id:`nna_${hash}`,data_id:`data_${hash}`,generation:'fixture',
     nna_install_root:root,nna_data_root:root,nnd_data_root:root,ui_origin:`http://127.0.0.1:${port}`,
     health_key:Buffer.alloc(32,0x58).toString('base64url'),
-    engine:{endpoint:'http://127.0.0.1:4555',token:'a'.repeat(32)} };
+    engine:{endpoint:'http://127.0.0.1:4555',token:'a'.repeat(32),capability:'cap_1abcdef.sig_abcdef12345'} };
 }
 const windows = { skip: process.platform !== 'win32', timeout: 15000 };
 test('private installed process redeems commands and acknowledges only closed listener', windows, async (t) => {

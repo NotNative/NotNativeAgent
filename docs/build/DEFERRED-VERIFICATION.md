@@ -97,3 +97,10 @@ binaries and browser-driving runs.
       conflict, persistence, application) — owned by the C7/C4 verification pass;
       suite-level evidence landed `20261010-2` (`tool_concurrency` and the four
       provider write rows now record it)
+- [ ] L3 six-minute installed probe (guide 02:210–213): requests and SSE
+      reconnects after renewal, revocation taking effect, forged
+      subject/workspace rejection, NNA restart reacquisition without replay.
+      The capability chain is enforced end-to-end in-session as of
+      `20261011-12` (NNA listener refuses non-live grants; supervised child
+      presents and renews); the probe needs the operator's installed pair
+      and a controllable clock run — rerun after the next NNA reinstall.

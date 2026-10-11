@@ -18,6 +18,29 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 WP-D step 3: capability enforcement on the supervised listener (implemented-unverified)
+
+The renewable capability is now the enforced authority grant on the live
+supervised path. The native integration server, when constructed with the
+supervisor's capability authority, refuses every privileged request that does
+not carry a live `x-nna-service-capability` (expired, revoked, unknown-key,
+unbound-generation, and malformed grants all fail closed as 401 `capability_*`).
+An internal-caller audit found exactly one HTTP consumer: the supervised NND
+web server's harness adapter (the tray stop and desktop lifecycle go through
+the NNA CLI, not HTTP; setup services are in-process), so enforcement breaks
+no internal caller. The supervisor now creates the authority before the
+listener starts and binds the discovery generation to it once the record
+exists (bind-once, fail-closed until bound). The child's bootstrap gains a
+required bounded `engine.capability`; the harness adapter presents the
+current grant on every forwarded request and replaces it on each
+`apply_capability` push. Verified: NNA 36/36 (integration-server enforcement
+incl. missing-header 401, forged/expired/GET absence rules; capability,
+supervisor, child suites), NND serve-supervised 4/4, harness suite 42/42,
+typecheck green. Implemented-unverified until the installed pair runs the
+six-minute probe (renewal across expiry, revocation, NNA restart) - that
+installed observation stays in DEFERRED-VERIFICATION; the in-session
+enforcement evidence is complete.
+
 ## 2026-10-11 WP-C step 1: transactional upgrade window in the source installer (implemented-unverified)
 
 L5's rollback contract now has its first real teeth in the source installer

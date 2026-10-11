@@ -31,7 +31,7 @@ async function stop(handle) {
   handle.dispose();
   await deadline(handle.closed, 5000);
 }
-async function commands(frames, output, bootstrap, handle, onCapability) {
+async function commands(frames, output, bootstrap, handle, setCapability) {
   for (;;) {
     const frame = await frames.next();
     if (!frame) return;
@@ -44,9 +44,9 @@ async function commands(frames, output, bootstrap, handle, onCapability) {
     }
     if (command.type === 'apply_capability') {
       // The supervisor owns the renewable capability (execution guide 02 L3):
-      // store the fresh capability for privileged harness requests; never
-      // echo it back or write it to diagnostics.
-      onCapability(command.capability);
+      // replace the current one for privileged harness requests; never echo
+      // it back or write it to diagnostics.
+      setCapability(command.capability);
       await reply(output, { type: 'applied', ...base });
       continue;
     }
@@ -78,12 +78,17 @@ export async function runSupervisedService({ input = process.stdin, output = pro
     const installed = await validateInstalledNndService(root);
     if (controller.signal.aborted) throw new Error('NND_SUPERVISED_INPUT_CLOSED');
     configureEnvironment(bootstrap, installed);
+    // The renewable capability is the live authority grant (guide 02 L3):
+    // the supervisor owns issuance/renewal; the harness adapter presents the
+    // current one on every privileged request.
+    let capability = bootstrap.engine.capability;
     const { startServer } = await import(pathToFileURL(installed.bundle).href);
     handle = await startServer({ nativeAuth: { installationId: bootstrap.installation_id,
       dataId: bootstrap.data_id, generation: bootstrap.generation, origin: new URL(bootstrap.ui_origin).origin },
     nativeHealthProof: { installationId: bootstrap.installation_id, dataId: bootstrap.data_id,
       generation: bootstrap.generation, origin: new URL(bootstrap.ui_origin).origin, key: bootstrap.health_key },
-    nativeHarness: { ...bootstrap.engine, endpoint: new URL(bootstrap.engine.endpoint).origin, signal: controller.signal } });
+    nativeHarness: { ...bootstrap.engine, endpoint: new URL(bootstrap.engine.endpoint).origin, signal: controller.signal,
+      capabilitySupplier: () => capability } });
     if (controller.signal.aborted) throw new Error('NND_SUPERVISED_INPUT_CLOSED');
     if (handle.port !== Number(new URL(bootstrap.ui_origin).port || 80) || !handle.nativeAuth || !handle.closed) {
       throw new Error('NND_SUPERVISED_START_FAILED');
@@ -106,7 +111,6 @@ export async function runSupervisedService({ input = process.stdin, output = pro
     });
     // The supervisor pushes fresh capabilities over this private channel; the
     // latest one is retained in memory only for privileged harness requests.
-    let capability = null;
     await commands(frames, output, bootstrap, handle, (value) => { capability = value; });
   } catch {
     await reply(output, { type: 'failed', protocol: '1.0', code: 'NND_SUPERVISED_FAILED' }).catch(() => {});
