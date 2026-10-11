@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Shell batches: IPC/preload, window shell, deep links, packaging (W-74..W-77, implemented-unverified)
+
+W-74: sender-gated IPC via the ipc-face contract (25 tests) behind a
+least-privilege frozen contextBridge preload; guest windows deny
+window.open and the host guards will-navigate/will-redirect. W-75: the
+window shell — persisted geometry (5 tests), the service-linked tray, the
+Mini Chat window, navigation guards, and renderer recovery. W-76: local
+session deep links — electron deep-links (9 tests, remote host/pairing links
+rejected) and the `#message-<id>` anchor contract with the window-aware
+auto-expansion pinned this session. W-77: packaging — electron-package and
+build stamp, the static handler's SPA fallback and asset serving, and
+runtime config injected before /api auth. All implemented-unverified pending
+the installed V-gates.
+
 ## 2026-10-11 Config inventory / attached-NNA completeness / service attachment (W-44, W-45, W-73, implemented-unverified)
 
 W-44: the typed supported-environment/configuration inventory is the typed

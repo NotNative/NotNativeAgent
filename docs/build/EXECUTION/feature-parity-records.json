@@ -1497,29 +1497,91 @@
       "id": "W-74",
       "work_packages": "L, F7, F10",
       "disposition": "MVP bounded sender-gated IPC and least-privilege preload.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-74.ipc-preload",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/ipc-face.mjs + ipc-face.test.mjs (25 sender-gated IPC tests)",
+            "../NotNativeDesktop/packages/electron/preload.mjs (least-privilege contextBridge surface, Object.freeze, typed command invoke)",
+            "../NotNativeDesktop/packages/electron/main.mjs (guest window open denied; will-navigate/will-redirect guards)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/ipc-face.mjs + ipc-face.test.mjs (25 sender-gated IPC tests)",
+        "../NotNativeDesktop/packages/electron/preload.mjs (least-privilege contextBridge surface, Object.freeze, typed command invoke)",
+        "../NotNativeDesktop/packages/electron/main.mjs (guest window open denied; will-navigate/will-redirect guards)"
+      ]
     },
     {
       "id": "W-75",
       "work_packages": "L, F10",
       "disposition": "MVP window geometry/tray/Mini Chat/navigation guards.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-75.window-shell",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/window-state.mjs + window-state.test.mjs (5 geometry tests)",
+            "../NotNativeDesktop/packages/electron/tray.mjs (service-linked tray)",
+            "../NotNativeDesktop/packages/electron/main.mjs (Mini Chat window, navigation guards)",
+            "../NotNativeDesktop/packages/electron/renderer-recovery.mjs + test"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/window-state.mjs + window-state.test.mjs (5 geometry tests)",
+        "../NotNativeDesktop/packages/electron/tray.mjs (service-linked tray)",
+        "../NotNativeDesktop/packages/electron/main.mjs (Mini Chat window, navigation guards)",
+        "../NotNativeDesktop/packages/electron/renderer-recovery.mjs + test"
+      ]
     },
     {
       "id": "W-76",
       "work_packages": "L, F4",
       "disposition": "MVP local session deep links; remote host/pairing links excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-76.deep-links",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/deep-links.mjs + deep-links.test.mjs (9 local session deep-link tests; remote host/pairing links rejected)",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (#message-<id> anchors + window-aware auto-expansion)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/turn-window.test.tsx"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/deep-links.mjs + deep-links.test.mjs (9 local session deep-link tests; remote host/pairing links rejected)",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (#message-<id> anchors + window-aware auto-expansion)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/turn-window.test.tsx"
+      ]
     },
     {
       "id": "W-77",
       "work_packages": "L",
       "disposition": "MVP packaged assets/protocol/SPA/runtime config.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-77.packaged-assets",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/scripts/electron-package.mjs + electron-build-stamp.mjs (packaged assets/build stamp)",
+            "../NotNativeDesktop/packages/web/src/server/lib/static.ts (SPA fallback + asset serving)",
+            "../NotNativeDesktop/packages/web/src/server/app.ts (runtime config injected before /api auth)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/scripts/electron-package.mjs + electron-build-stamp.mjs (packaged assets/build stamp)",
+        "../NotNativeDesktop/packages/web/src/server/lib/static.ts (SPA fallback + asset serving)",
+        "../NotNativeDesktop/packages/web/src/server/app.ts (runtime config injected before /api auth)"
+      ]
     },
     {
       "id": "W-78",
