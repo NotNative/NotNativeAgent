@@ -18,6 +18,30 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 F2 recheck: gap signaling and the incomplete-evidence surface already exist (recheck evidence)
+
+The F2 confirmed-gap row claimed bounded in-memory SSE replay shipped
+"without durable history or explicit gap signaling." Rechecked against NNA
+`20261011-7`: stale. The wire event bus returns an explicit
+`fresh`/`complete`/`gap` status on the `server.connected` opener, rejects
+out-of-scope and cross-process cursors as gaps, keeps the retention ring a
+contiguous suffix (an oversized frame clears it rather than bridging), and
+a dedicated suite pins every case including the new-process gap. Durable
+backstops exist beside the ring: durable session events mirror with the
+same id, a `.1` suffix, and a per-session monotonic seq, while
+`activity-history` and `activity-tombstones` provide authoritative paged
+history and deletion/revocation records. On the NND side the event
+pipeline never trusts replay for correctness (authoritative reconnect
+reconciliation), an explicit gap marks the activity-gap record in the
+authority-recovery path, and the Activity rail renders the
+incomplete-evidence state visibly (`activity-history-gap`: transient
+activity during the gap may be missing even after recovery). The recheck
+followed the whole chain - NNA transport semantics, durable mirror,
+NND pipeline distrust, gap marker, visible surface - rather than stopping
+at the first matching name. Residual: the installed disconnect/restart/
+correction journey (04:70) stays with the operator observations. No source
+change was needed; the evidence is the recheck plus the suites it cites.
+
 ## 2026-10-11 F5 step 3: real-session generation rides the native assist seam (implemented-unverified)
 
 `generateRoute` now tries NNA's assist seam first whenever the request
