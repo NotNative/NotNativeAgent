@@ -6,10 +6,11 @@ import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { access, lstat, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { json } from './smoke-http.mjs';
 import { probeRestoredSelectedWorkspace, probeSelectedWorkspace, probeWorktreeWorkspace } from './smoke-multi-root.mjs';
+import { reserveScratch, SCRATCH_ROOT } from './test-scratch.mjs';
 
 const source = process.argv[2] ? resolve(process.argv[2]) : null;
 if (!source) {
@@ -80,7 +81,7 @@ async function provider() {
 
 async function main(nnaSource) {
   await access(join(nnaSource, 'src', 'nnd-service-native.js'));
-  const fixture = await mkdtemp(join(homedir(), 'nnd-native-multi-root-'));
+  const fixture = reserveScratch('nnd-native-multi-root-');
   const primary = join(fixture, 'primary', 'shared');
   const secondary = join(fixture, 'secondary', 'shared');
   const data = join(fixture, 'data');
@@ -155,7 +156,7 @@ async function main(nnaSource) {
       await new Promise(done => fake.server.close(done));
     }
     const canonical = await realpath(fixture);
-    assert.equal(dirname(canonical), await realpath(homedir()), 'refusing to remove fixture outside operator profile');
+    assert.ok(canonical.startsWith(SCRATCH_ROOT + sep), 'refusing to remove fixture outside the shared scratch root');
     assert.match(basename(canonical), /^nnd-native-multi-root-[A-Za-z0-9_-]+$/u);
     assert.equal((await lstat(canonical)).isSymbolicLink(), false);
     if (failed || cleanupFailure) {

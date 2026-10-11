@@ -1972,6 +1972,10 @@
     {
       "version": "20261011-82",
       "content_sha256": "794acaeb56258a9b0adb126ec350aacb12a4d31a19d217487b08c0e5cafb8f34"
+    },
+    {
+      "version": "20261011-83",
+      "content_sha256": "42d43483cf88dfae17ebf8750cfa816771d526fd4e2548268ac8ca60fe2ceea5"
     }
   ]
 }

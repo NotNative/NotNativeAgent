@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:333fe05deed6402c686cea5a2880067339ac05b9d52df823f841c34659196c8b",
+  "source_digest": "sha256:bb21be965d59f059a3b38a7481f3ca6094a872e5214e835e910b5e2d818a8543",
   "counts": {
-    "modules": 901,
+    "modules": 902,
     "component_edges": 17
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 94
+      "module_count": 95
     },
     {
       "id": "foundation",
@@ -8576,7 +8576,8 @@
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/harness/nna.ts",
         "scripts/smoke-http.mjs",
-        "scripts/smoke-multi-root.mjs"
+        "scripts/smoke-multi-root.mjs",
+        "scripts/test-scratch.mjs"
       ]
     },
     {
@@ -8596,7 +8597,8 @@
         "scripts/smoke-provider-route.mjs",
         "scripts/smoke-review-mode.mjs",
         "scripts/smoke-walkthrough.mjs",
-        "scripts/smoke-workspace-identity.mjs"
+        "scripts/smoke-workspace-identity.mjs",
+        "scripts/test-scratch.mjs"
       ]
     },
     {
@@ -8923,6 +8925,12 @@
         "scripts/installed-service-package.mjs",
         "scripts/prebuilt-payload-validation.mjs"
       ]
+    },
+    {
+      "path": "scripts/test-scratch.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "scripts/web-css-gate.mjs",

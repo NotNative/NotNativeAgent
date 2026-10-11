@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal, probeGoalAudit, probeGoalAutonomousLoop } from './smoke-goal.mjs'; import { probeGoalEventRuntime } from './smoke-goal-runtime.mjs'; import { probeAttachment, probeRestoredAttachmentNames } from './smoke-attachment.mjs';
 import { probeWalkthrough, walkthroughProviderReply } from './smoke-walkthrough.mjs';
 import { probeReviewMode, probeRestoredReviewMode } from './smoke-review-mode.mjs';
@@ -16,7 +16,7 @@ import { notificationProviderReply, probeNotificationModel } from './smoke-notif
 import { json, withTimeout, eventReader } from './smoke-http.mjs';
 import { probeNnaProjection, probeRestoredProjection } from './smoke-nna-projection.mjs';
 import { probeWorkspaceIdentity } from './smoke-workspace-identity.mjs';
-const STEP_TIMEOUT_MS = 5_000; const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
+import { reserveScratch, SCRATCH_ROOT } from './test-scratch.mjs'; const STEP_TIMEOUT_MS = 5_000; const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
 const CHILD_TASK = 'Reply with NND_CHILD_REPLY.'; const CHILD_REPLY = 'NND_CHILD_REPLY';
 const CHILD_STEER = 'Include NND_STEER_ACK in your final answer.'; const CHILD_STEER_ACK = 'NND_STEER_ACK';
 const PARENT_REPLY = 'NND_PARENT_REPLY'; const EVENT_TIMEOUT_MS = 30_000;
@@ -410,7 +410,7 @@ async function main(nnaSource) {
   const cli = join(nnaSource, 'src', 'cli.js');
   await access(cli);
   // NNA rejects shared Temp ancestors with other-user Modify rights.
-  const root = await mkdtemp(join(homedir(), 'nnd-nna-source-smoke-'));
+  const root = reserveScratch('nnd-nna-source-smoke-');
   let harness;
   let spawned;
   let provider;
@@ -488,7 +488,7 @@ async function main(nnaSource) {
       provider.server.closeAllConnections();
       await closed;
     }
-    if (!root.startsWith(join(homedir(), 'nnd-nna-source-smoke-'))) throw new Error('refusing to remove unexpected smoke directory');
+    if (!root.startsWith(SCRATCH_ROOT + sep)) throw new Error('refusing to remove unexpected smoke directory');
     try {
       await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     } catch (error) {
