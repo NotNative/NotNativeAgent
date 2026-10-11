@@ -27,7 +27,7 @@ const POWERSHELL_TIMEOUT_MS = 20_000;
 export async function runNndLifecycleCommand(args, paths, options = {}) {
   const [action] = args;
   if (!ACTIONS.includes(action) || args.length !== 1) {
-    throw new ContractError('nnd_command_invalid', `nnd supports ${ACTIONS.join('|')}`);
+    throw new ContractError('nnd_command_invalid', `desktop supports ${ACTIONS.join('|')}`);
   }
   const stored = await readNndPackageRegistration(paths);
   if (!stored) {
