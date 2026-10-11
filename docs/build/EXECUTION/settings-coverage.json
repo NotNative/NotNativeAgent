@@ -19044,6 +19044,50 @@
    "notes": "Added by the C7 gate extension: every positional subcommand in the NNA mode vocabulary requires a row."
   },
   {
+   "id": "invocation:desktop",
+   "kind": "operator_action",
+   "family": "invocation",
+   "key": "desktop",
+   "source": {
+    "product": "NNA",
+    "path": "src/cli-options.js",
+    "validator": "parseCli"
+   },
+   "store": {
+    "owner": "NNA",
+    "path_class": "invocation_arguments"
+   },
+   "scope": [
+    "invocation"
+   ],
+   "apply": {
+    "class": "census_only"
+   },
+   "native_endpoint": "GET /v1/nnd/configuration/invocation (vocabulary read; subcommands remain CLI-owned)",
+   "native_permission": "nnd.configuration.read",
+   "current_gui": {
+    "product": "NND",
+    "path": null,
+    "status": "unverified",
+    "owed": false,
+    "basis": "src/cli-options.js:MODES",
+    "justification": "The desktop subcommand is NNA's own operator surface for launching the desktop door from a terminal (nna desktop start/attach); the desktop application cannot host a control for invoking the command that launches it, so the subcommand remains terminal-owned like the other invocation modes."
+   },
+   "sensitivity": "security",
+   "work_package": "C1",
+   "state": "open",
+   "evidence": {
+    "source_symbols": [
+     "MODES",
+     "parseCli"
+    ],
+    "tests_run": [
+     "NND scripts/settings-coverage-gate.mjs against NNA 20261011-4: the missing desktop subcommand row was the gate's only drift; after this row the gate reports no drift"
+    ]
+   },
+   "notes": "Added by the C7 gate extension run against NNA 20261011-4 (first live-source gate run in this work package): the vocabulary gained the desktop subcommand and the census had no row."
+  },
+  {
    "id": "generated-store:provider/model-dialects.json",
    "kind": "internal_invariant",
    "family": "generated-store",
@@ -19457,8 +19501,8 @@
     "path": null,
     "status": "unverified",
     "owed": false,
-    "basis": "src/experience-engine.js:deleteSecret",
-    "justification": "Deletion is guarded by deleteUnreferencedSecret, but only on NNA's primary secret-management path (experience-engine deleteSecret); the broker DELETE route (/v1/secrets/:id) that the desktop console actually calls invokes broker.remove directly with no guard, so the desktop does not forward secret_in_use today and the unguarded route is the recorded gap."
+    "basis": "src/secret-management.js:deleteUnreferencedSecret",
+    "justification": "The guard now fires on both paths: the broker DELETE route (/v1/secrets/:id) that the desktop console actually calls runs the same derived-reference scan (secretReferences resolver over the resolved configuration sources) and refuses with 409 secret_in_use naming the bound profiles, and the desktop console (packages/ui/src/lib/nnd/secret-actions.ts secretActionErrorText) maps secret_in_use to the remove-bindings-first guidance. The desktop itself still mirrors no scan logic, so no additional surface is owed."
    },
    "work_package": "C5",
    "implementation_package": "C5 (20261010-20 secret schema)",
@@ -19470,7 +19514,7 @@
     "path": "src/secret-management.js",
     "validator": "deleteUnreferencedSecret"
    },
-   "notes": "Added 20261010-20; corrected 20261010-21: the guard fires on experience-engine deleteSecret only — the broker DELETE route is unguarded and no desktop surface forwards secret_in_use."
+   "notes": "Added 20261010-20; corrected 20261010-21 (route unguarded); closed at the route level 20261011: the broker DELETE route now enforces the scan (NNA integration-server test proves 409 secret_in_use with the binding labels and successful delete after unbinding) and the console presents the guidance (implemented-unverified until an installed C7 observation)."
   },
   {
    "kind": "internal_invariant",

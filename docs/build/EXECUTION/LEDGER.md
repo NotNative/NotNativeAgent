@@ -18,6 +18,27 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 WP-F: the broker secret delete guard and the live-source census gate (implemented-unverified)
+
+The named NNA deliverable from the settings census (secrets:delete_guard) is
+now real: NNA's broker DELETE route (/v1/secrets/:id), the route the desktop
+console actually calls, enforces the same derived-reference scan as the
+engine's primary secret-management path and refuses with 409 `secret_in_use`
+naming the bound provider profiles before `broker.remove`. The resolver is
+the resolved NND configuration sources (the same providerProfiles/mcpServers
+shape), wired as a locked settings-service key, and the desktop console maps
+`secret_in_use` to remove-bindings-first guidance (NNA `20261011-5`,
+`ea437266`). Verified: NNA 27/27 across the integration-server (new guard
+test: referenced delete refused with the binding label, delete after
+unbinding succeeds), secret-broker, settings-key-lock, and native suites,
+with quality caps after extracting the guard helper. In the same pass the
+C7 coverage gate ran against the live NNA source for the first time in this
+work package and caught real drift: the NNA `desktop` positional subcommand
+had no census row (added, terminal-owned justification; the gate now passes
+against NNA `20261011-5`). Both sides implemented-unverified until the
+installed C7 observation; the live-source gate run itself is new evidence,
+not an installed run.
+
 ## 2026-10-11 WP-E: the managed-child production path is retired (implemented-unverified)
 
 Execution guide 02 L4's retirement clause is now real: `serve-installed.mjs`

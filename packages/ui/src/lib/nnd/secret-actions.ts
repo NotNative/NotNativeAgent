@@ -186,6 +186,7 @@ async function call(path: string, method: string, body: unknown, signal: AbortSi
 
 export function secretActionErrorText(code: string): string {
   if (code === 'secret_label_duplicate') return 'A secret with that label already exists.';
+  if (code === 'secret_in_use') return 'The secret is still referenced by provider or MCP configuration; remove those bindings before deleting it.';
   if (code === 'secret_scope_forbidden') return 'This identity cannot manage the requested ownership scope.';
   if (code === 'secret_not_found') return 'The secret was not found natively (it may have been removed).';
   if (code === 'secret_fields_invalid' || code === 'secret_field_name_invalid'
