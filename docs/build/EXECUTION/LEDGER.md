@@ -18,6 +18,24 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Surface-state catalog (W-26, implemented-unverified)
+
+The full surface-state catalog is authored at
+`docs/build/EXECUTION/surface-state-catalog.md`: 23 surface rows pinning the
+exact operator-facing copy per state (empty vs loading vs error vs
+recovery), each with the source file and, where one exists, the test that
+pins the string — chat transcript (empty/hydration skeleton/older-page
+failure/window expander), sidebar zones (loading/error+Try again/empty),
+archive, timeline, command palette, scheduled tasks, worktrees, stale Git
+status banner, terminal-unavailable notice, presence-collapsed
+permissions/questions and rate limits (§G: missing data renders as an absent
+section, never a fabricated number), missing assist sections, the AI-rename
+no-small-model toast, the notifications receipt probe (structured, no
+prose), the native-alpha 409 unavailable copy, and the workspace-recovery
+refusals. Catalog rule recorded: every error names its recovery action;
+every empty row says nothing is there rather than implying loading. W-26 is
+implemented-unverified.
+
 ## 2026-10-11 Turn-window virtualization (W-27.virtualization, implemented-unverified)
 
 The transcript now renders a NEWEST-FIRST WINDOW of turns (`TURN_WINDOW = 40`)

@@ -689,9 +689,27 @@
       "id": "W-26",
       "work_packages": "F3–F10",
       "disposition": "MVP full surface-state catalog; author NNA-accurate copy.",
-      "status": "pending",
-      "subfeatures": [],
-      "note": "the closest artifact is the C1 settings census (packages/web/src/server/lib/settings-registry.json per-field 'surfaces' + the settings-coverage gate), but no dedicated full surface-state catalog with focused tests, nor NNA-accurate copy authoring, was located — that catalog is the concrete missing piece"
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-26.catalog",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/docs/build/EXECUTION/surface-state-catalog.md",
+            "../NotNativeDesktop/packages/ui/src/chat/session-sidebar.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/work-status.ts",
+            "../NotNativeDesktop/packages/web/src/server/routes/native-alpha-surface.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/docs/build/EXECUTION/surface-state-catalog.md",
+        "../NotNativeDesktop/packages/ui/src/chat/session-sidebar.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/work-status.ts",
+        "../NotNativeDesktop/packages/web/src/server/routes/native-alpha-surface.ts"
+      ]
     },
     {
       "id": "W-27",
