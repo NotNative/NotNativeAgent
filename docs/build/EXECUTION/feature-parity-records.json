@@ -768,8 +768,13 @@
         },
         {
           "id": "W-32.no-auto-accept",
-          "status": "pending",
-          "note": "no explicit auto-accept prohibition enforcement found in web/src or NNA src/test"
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/permission-policy.ts (assertPermissionReply)",
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/client.ts (transport-boundary guard)",
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/__tests__/permission-policy.test.ts",
+            "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (supersede path auto-REJECTS only; reply=always refused upstream)"
+          ]
         }
       ]
     },

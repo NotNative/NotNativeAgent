@@ -7,6 +7,7 @@
  * methods carry the percent-encoded header (+ `uri` marker when encoded).
  */
 import { runtimeFetch } from '../runtime-fetch.ts';
+import { assertPermissionReply } from './permission-policy.ts';
 import type { ReviewMode, ReviewModeSnapshot } from './review-mode.ts';
 import { getRealtimeBaseUrl } from '../runtime-url.ts';
 import {
@@ -398,6 +399,7 @@ export const harnessClient = {
     return request('listPermissions', '/permission', undefined, undefined, opts?.directory);
   },
   async replyToPermission(requestId: string, reply: 'once' | 'always' | 'reject', message?: string, opts?: DirOption): Promise<HarnessResult<boolean>> {
+    assertPermissionReply(reply); // W-32: "always" is refused at the transport boundary
     return request('replyToPermission', `/permission/${sid(requestId)}/reply`, post({ reply, ...(message ? { message } : {}) }), undefined, opts?.directory);
   },
   async getPermissionV2(sessionId: string, requestId: string, opts?: DirOption): Promise<HarnessResult<unknown>> {

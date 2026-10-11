@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:181a781ac1c948784eba65201f5f42c1365e3484ad08805c390b0fec0e07818b",
+  "source_digest": "sha256:d194cdf50ee703b6565835fb350cb0d2aeea9445aae5cf7521b1b2307bfd7d4a",
   "counts": {
     "modules": 891,
     "component_edges": 17
@@ -3803,6 +3803,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/nnd/constants.ts",
+        "packages/ui/src/lib/nnd/permission-policy.ts",
         "packages/ui/src/lib/nnd/review-mode.ts",
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/runtime-fetch.ts",

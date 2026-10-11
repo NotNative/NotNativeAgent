@@ -1820,6 +1820,10 @@
     {
       "version": "20261011-42",
       "content_sha256": "79a1102a814ce242e6abd6c3e5cc4d697eb835ad8adbf54a89ef4543fd4c7389"
+    },
+    {
+      "version": "20261011-43",
+      "content_sha256": "97f697fd21fa9ea1a7c859c86253cebcd90937ea792e5cb15820c1608b21376a"
     }
   ]
 }

@@ -18,6 +18,20 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Permission auto-accept prohibition enforced (W-32.no-auto-accept, implemented-unverified)
+
+Remembered permission approvals are now PROHIBITED at the transport boundary:
+`assertPermissionReply` refuses `reply: "always"` and `harnessClient.
+replyToPermission` calls it before any request leaves the process, so no
+current or future caller can silently auto-accept a permission — every
+decision is an explicit operator "once" or an explicit rejection. The sync
+layer's own "always" refusal (actions-recovery tests) stays as defense in
+depth; the supersede path auto-REJECTS open requests, which is the safe
+direction and stays. Focused tests pin the policy function and prove the
+boundary issues NO request for "always" while "once" rides the normal
+`/permission/:id/reply` path. W-32 keeps two pending subfeatures
+(optimistic-echo and failure-recovery, both real-harness-gated).
+
 ## 2026-10-11 Global/directory scope separation (W-28, implemented-unverified)
 
 The layered-sync scope boundary is now an explicit, enforced capability:
