@@ -1932,6 +1932,10 @@
     {
       "version": "20261011-70",
       "content_sha256": "90fe188e604f40e4189655c5f7671e1177427992d49631c323d2f6935998c115"
+    },
+    {
+      "version": "20261011-71",
+      "content_sha256": "da6bb86108a7655b85c7edd2be4fdf93f9761c204cceb5c66f5248e16f98aa24"
     }
   ]
 }

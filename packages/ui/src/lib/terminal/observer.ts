@@ -103,9 +103,12 @@ export function observeTerminalSessions(
 }
 
 /** 10-min keepalive touch loop for listed session ids (background tabs
- * hold no WS attachment, so this fights the idle reaper per section 3.6). */
+ * hold no WS attachment, so this fights the idle reaper per section 3.6).
+ * Retained-pane gating (W-55): a hidden window keeps its terminal panes
+ * mounted, but nothing can interact with them — skip ticks while hidden. */
 export function startKeepaliveTouch(getSessionIds: () => string[]): () => void {
   const timer = window.setInterval(() => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     const ids = getSessionIds();
     if (ids.length === 0) return;
     void touchTerminalSessions(ids);

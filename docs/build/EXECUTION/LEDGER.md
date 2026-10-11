@@ -18,6 +18,21 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Retained-pane visibility gating (W-55, implemented-unverified)
+
+Cache invalidation was already done (the git store invalidates on scope
+entry and runtime switch); the missing leg was pane-level visibility
+gating for surfaces that stay mounted while hidden. New primitives in
+`pane-visibility.ts`: a visibility-gated interval (skips ticks while the
+document is hidden, one catch-up tick on return) and an IntersectionObserver
+`usePaneVisible` hook for panes hidden by CSS/clipping. First consumer: the
+terminal keepalive no longer touches idle PTY sessions while the window is
+hidden — the §3.6 idle-reaper fight only matters when something can
+interact with the panes — and resumes on return. These compose with the
+existing document-level gates (event pipeline, file freshness poller,
+terminal wake). Three focused tests pin subscribe/gating/keepalive.
+W-55 is implemented-unverified.
+
 ## 2026-10-11 Twelve-locale i18n (W-103, implemented-unverified)
 
 The record was stale against the shipped design: the roster is exactly

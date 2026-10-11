@@ -1470,8 +1470,25 @@
       "id": "W-55",
       "work_packages": "F6, F10",
       "disposition": "MVP cache invalidation and retained-pane visibility gating.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-55.pane-gating",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/pane-visibility.ts (visibility-gated interval + IntersectionObserver usePaneVisible hook for retained panes)",
+            "../NotNativeDesktop/packages/ui/src/lib/terminal/observer.ts (keepalive skips touches while the window is hidden; §3.6 idle-reaper fight resumes on return)",
+            "../NotNativeDesktop/packages/ui/src/lib/terminal/__tests__/pane-visibility.test.ts (3 tests: visibility subscribe, gated interval suppress/catch-up, keepalive suppress/resume)",
+            "../NotNativeDesktop/packages/ui/src/sync/event-pipeline.ts + packages/ui/src/components/files/FileTree.tsx (pre-existing document-level visibility gates composed with)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/lib/pane-visibility.ts (visibility-gated interval + IntersectionObserver usePaneVisible hook for retained panes)",
+        "../NotNativeDesktop/packages/ui/src/lib/terminal/observer.ts (keepalive skips touches while the window is hidden; §3.6 idle-reaper fight resumes on return)",
+        "../NotNativeDesktop/packages/ui/src/lib/terminal/__tests__/pane-visibility.test.ts (3 tests: visibility subscribe, gated interval suppress/catch-up, keepalive suppress/resume)",
+        "../NotNativeDesktop/packages/ui/src/sync/event-pipeline.ts + packages/ui/src/components/files/FileTree.tsx (pre-existing document-level visibility gates composed with)"
+      ]
     },
     {
       "id": "W-56",
