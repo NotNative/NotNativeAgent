@@ -18,6 +18,26 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 F1 recheck: workspace binding is enforced per session (recheck evidence)
+
+The F1 confirmed-gap row claimed session creation selected one workspace
+while the engine worked in another. Rechecked against NNA `20261011-6`:
+stale. The engine host resolves a per-session binding from the admitted
+workspace, constructs the engine with it, and fails closed whenever the
+engine root is not exactly the binding's `configured_root` - including
+after durable journal replay during initialization. The binding module has
+a dedicated suite (revocation guard, replaced-workspace refusal,
+replay-to-another-directory refusal, restored-child identity) plus
+integration admission coverage, and NND's creation path passes the selected
+workspace through native admission. The browser-directory-header caveat is
+deliberate design and stays. The installed two-project/worktree journey
+remains the F1 residual. The same recheck pass sharpened the F5 row: the
+legacy small-model provider port is still current, and the named NNA
+deliverable is now explicit - a native assist-generation endpoint that
+executes under NNA's provider authority, after which the legacy module is
+deleted rather than gated. No source change was needed this round; the
+evidence is the recheck itself plus the suites it cites.
+
 ## 2026-10-11 F3 recheck: the text-parts gap is stale (recheck evidence)
 
 The confirmed-gaps table instructed rechecking named targets before acting;
