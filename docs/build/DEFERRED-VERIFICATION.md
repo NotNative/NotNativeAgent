@@ -33,18 +33,28 @@ binaries and browser-driving runs.
       suite; its helpers were removed with the installer reshape),
       `resolve-active-nnd-package`
       5/5, `settings-coverage-gate` 12/12, `installed-review-provider` 2/2,
-      `installer-native-guard` 2 skipped. STILL FAILING in-session (daytime
-      list, recorded with observed mode): `installer-removal` 0/3,
-      `installer-nna-preflight` 0/1, `installer-nna-dependency` 0/7,
-      `installer-selection-pin` 0/1, `installer-prebuilt-stage` 0/7,
-      `installer-prebuilt-activation` 0/3, `installer-prebuilt-anchor` 2/2,
-      `installer-prebuilt-uninstall` 0/3 — all abort in "Installer syntax
-      failed" PowerShell parse steps, an environment-class failure to triage
-      by day, not yet evidence about the installer itself.
-- [ ] `node scripts/release-gates.js` (note `20261010-28`: a run before the
-      operator-daytime policy correction spawned smoke session `ses_de2kqnqr`
-      against the installed pair — session left as-is, recorded here for
-      cleanup at the operator's discretion; rerun is daytime-only)
+      `installer-native-guard` 2 skipped. RESOLVED at `20261011-8`: the
+      daytime "Installer syntax failed" list (`installer-removal`,
+      `installer-nna-preflight`, `installer-nna-dependency`,
+      `installer-selection-pin`, `installer-prebuilt-stage`,
+      `installer-prebuilt-activation`, `installer-prebuilt-anchor`,
+      `installer-prebuilt-uninstall`) was environment-class, exactly as
+      suspected — two causes: (1) suites were run from `scripts/` instead of
+      the repository root, so `resolve('install.ps1')` pointed at a missing
+      file and the parse step failed; (2) suites spawning
+      `powershell -File install.ps1` without `-ExecutionPolicy Bypass` were
+      blocked by the operator machine's AllSigned policy
+      (`UnauthorizedAccess`). All `-File` spawn sites now pass Bypass
+      (matching the `install.cmd` operator entry), and a full sweep of every
+      `scripts/*.test.mjs` from the repository root is green.
+- [x] `node scripts/release-gates.js` — GREEN at `20261011-8` (in-session,
+      operator daytime): `release-candidate gates passed` in verify mode
+      after `--write-hashes` resealed the manifest for the post-reshape tree;
+      settings-coverage remains skipped with `NNA_SOURCE_ROOT` unset (the
+      seal documents that gap); smoke sessions spawned and completed inside
+      the gate run (earlier `ses_de2kqnqr` note predates this pass).
+      Remaining gap for full closure: set `NNA_SOURCE_ROOT` to run the
+      settings-coverage gate against the pinned NNA pair.
 
 ## Installed acceptance (disposable profiles only, pinned pair — operator daytime)
 

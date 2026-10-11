@@ -203,7 +203,7 @@ test('installer activation mode delegates the selected slot without copying the 
     await writeFile(join(shortcutRoot, '.nnd-disposable-shortcuts'), 'nnd-disposable-shortcuts-v1');
     await writeFile(join(payload, 'NND_PAYLOAD.json'), manifest);
     const digest = createHash('sha256').update(manifest).digest('hex');
-    const rejected = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', resolve('install.ps1'),
+    const rejected = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', resolve('install.ps1'),
       '-ActivatePrebuiltSlot', '-PrebuiltStageOperation', stageOperation,
       '-PrebuiltPayloadRoot', payload, '-PrebuiltManifestSha256', digest,
       '-InstallNnaIfMissing', '-NnaSourceRoot', f.native, '-InstallDir', firstTarget], {
@@ -212,7 +212,7 @@ test('installer activation mode delegates the selected slot without copying the 
     });
     assert.notEqual(rejected.status, 0);
     assert.doesNotMatch([rejected.stdout, rejected.stderr].join('\n'), /public controller attached/u);
-    const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', resolve('install.ps1'),
+    const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', resolve('install.ps1'),
       '-ActivatePrebuiltSlot', '-PrebuiltStageOperation', stageOperation,
       '-PrebuiltPayloadRoot', payload, '-PrebuiltManifestSha256', digest,
       '-NnaInstallRoot', f.native, '-InstallDir', secondTarget, '-ShortcutRoot', shortcutRoot], {

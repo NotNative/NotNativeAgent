@@ -164,8 +164,8 @@ test('missing dependency digest is rejected by the one-installer entrypoint befo
     const fixture = await releaseFixture(t);
     const target = join(fixture.root, 'NND-target'); await mkdir(target);
     await writeFile(join(target, 'keep.txt'), 'preserved');
-    const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', resolve('install.ps1'),
-      '-InstallDir', target, '-NnaDependencyRoot', fixture.release], {
+    const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      '-File', resolve('install.ps1'), '-InstallDir', target, '-NnaDependencyRoot', fixture.release], {
       encoding: 'utf8', windowsHide: true, timeout: 10000, env: { ...process.env, Path: '' },
     });
     assert.notEqual(result.status, 0);

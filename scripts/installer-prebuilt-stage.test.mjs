@@ -88,7 +88,7 @@ async function fixture(t) {
 }
 
 function stage(f, digest = f.digest, mode = '') {
-  return spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', resolve('install.ps1'),
+  return spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', resolve('install.ps1'),
     '-StagePrebuiltPayload', '-PrebuiltPayloadRoot', f.payload, '-PrebuiltManifestSha256', digest,
     '-NnaInstallRoot', f.native, '-InstallDir', f.target], {
     encoding: 'utf8', windowsHide: true, timeout: 20000,
@@ -98,7 +98,7 @@ function stage(f, digest = f.digest, mode = '') {
 
 const operation = 'b2b728f5-6aca-49b6-8675-c4f9e06c262c';
 function recover(f, mode = '', id = operation) {
-  return spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', resolve('install.ps1'),
+  return spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', resolve('install.ps1'),
     '-RecoverPrebuiltStageOperation', id, '-NnaInstallRoot', f.native, '-InstallDir', f.target], {
     encoding: 'utf8', windowsHide: true, timeout: 20000,
     env: { ...process.env, Path: '', NND_TEST_RECOVER_MARKER: f.recoverMarker, NND_TEST_RECOVER_MODE: mode },
@@ -190,7 +190,7 @@ test('wrong trusted digest rejects before attempting a missing NNA dependency in
   { skip: process.platform !== 'win32' }, async t => {
     const f = await fixture(t);
     const missingNative = join(f.base, 'NNA absent');
-    const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', resolve('install.ps1'),
+    const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', resolve('install.ps1'),
       '-StagePrebuiltPayload', '-PrebuiltPayloadRoot', f.payload,
       '-PrebuiltManifestSha256', '0'.repeat(64), '-NnaInstallRoot', missingNative,
       '-NnaSourceRoot', join(f.base, 'missing source'), '-InstallNnaIfMissing', '-InstallDir', f.target], {
@@ -209,7 +209,7 @@ test('a selected NNA identity change blocks staging before the native command',
     const f = await fixture(t);
     await writeFile(join(f.target, 'nna-service-selection.json'), JSON.stringify({ schema_version: '1.0',
       nna_install_root: f.native, installation_id: 'nna_' + '0'.repeat(64), data_id: 'data_' + '0'.repeat(64) }));
-    const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', resolve('install.ps1'),
+    const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', resolve('install.ps1'),
       '-StagePrebuiltPayload', '-PrebuiltPayloadRoot', f.payload,
       '-PrebuiltManifestSha256', f.digest, '-InstallDir', f.target], {
       encoding: 'utf8', windowsHide: true, timeout: 20000,

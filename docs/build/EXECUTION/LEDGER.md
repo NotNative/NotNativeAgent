@@ -18,6 +18,25 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 WP-A: installer-suite triage + release gates green (verified in-session)
+
+The daytime failing list of eight installer suites was environment-class, not
+product defects: (1) suites were executed from `scripts/` so
+`resolve('install.ps1')` missed the file and the PowerShell parse step failed;
+(2) test spawns of `powershell -File install.ps1` lacked
+`-ExecutionPolicy Bypass` and were blocked by the operator machine's AllSigned
+policy — the same wall the operator hit interactively, fixed the same way as
+the `install.cmd` entry. All three affected suites
+(`installer-nna-dependency`, `installer-prebuilt-stage`,
+`installer-prebuilt-activation`) now pass Bypass; a full sweep of every
+`scripts/*.test.mjs` from the repository root is green. `release-gates.js`
+is green in verify mode after `--write-hashes` resealed
+`RELEASE_MANIFEST.sha256` for the post-reshape tree and sealed
+`RELEASE_VERSIONS.json`; the settings-coverage gate stays skipped with
+`NNA_SOURCE_ROOT` unset (documented seal gap). This unblocks the immutable
+prebuilt payload path: the gates now produce reproducible artifacts with
+current hashes. Verified in-session, not yet installed-product acceptance.
+
 ## 2026-10-11 POSIX parity + helper retirement (operator request, implemented-unverified)
 
 install.sh joins the dumb-copy shape and the NNA brand: an upgrade now stops a
