@@ -26,6 +26,33 @@ describe('NNA harness adapter', () => {
     expect(response.headers.get('x-nna-revision')).toBe('2');
   });
 
+  it('presents the current renewable capability on every forwarded request and fails closed', async () => {
+    const fetch = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => new Response(null, { status: 200 }));
+    let capability: string | null = 'cap_1abcdef.sig_abcdef12345';
+    const adapter = createNnaHarnessAdapter({ endpoint: 'http://127.0.0.1:4100', token, principal, fetch,
+      capabilitySupplier: () => capability });
+    const request = new Request('http://nnd.local/api/session', { method: 'POST' });
+    await adapter.handle(request);
+    expect(new Headers(fetch.mock.calls[0]![1]?.headers).get('x-nna-service-capability')).toBe('cap_1abcdef.sig_abcdef12345');
+    // A renewed capability replaces the previous one on the next request.
+    capability = 'cap_2abcdef.sig_abcdef67890';
+    await adapter.handle(request);
+    expect(new Headers(fetch.mock.calls[1]![1]?.headers).get('x-nna-service-capability')).toBe('cap_2abcdef.sig_abcdef67890');
+    // A supplier failure keeps the request unauthenticated instead of forwarding stale authority.
+    capability = null;
+    await adapter.handle(request);
+    expect(new Headers(fetch.mock.calls[2]![1]?.headers).get('x-nna-service-capability')).toBeNull();
+    // A malformed capability is a harness error, never a forwarded request.
+    capability = 'not-a-capability';
+    const response = await adapter.handle(request);
+    expect(response.status).toBe(502);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    // Without a supplier the header never appears.
+    const plain = createNnaHarnessAdapter({ endpoint: 'http://127.0.0.1:4100', token, principal, fetch });
+    await plain.handle(request);
+    expect(new Headers(fetch.mock.calls[3]![1]?.headers).get('x-nna-service-capability')).toBeNull();
+  });
+
   it('fails closed for malformed configuration and unavailable harnesses', async () => {
     expect(() => createNnaHarnessAdapterFromEnvironment({ NNA_HARNESS_URL: 'http://127.0.0.1:4100/path', NNA_INTEGRATION_TOKEN: token, NNA_PRINCIPAL: principal })).toThrow(/origin/u);
     expect(() => createNnaHarnessAdapterFromEnvironment({ NNA_HARNESS_URL: 'http://127.0.0.1:4100/?target=elsewhere', NNA_INTEGRATION_TOKEN: token, NNA_PRINCIPAL: principal })).toThrow(/origin/u);

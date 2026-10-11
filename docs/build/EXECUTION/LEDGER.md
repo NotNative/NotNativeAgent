@@ -18,6 +18,27 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 WP-D step 2: renewal endpoint + adapter presentation (implemented-unverified)
+
+The renewable capability now has both halves of the wire contract, tested:
+NNA exposes `POST /v1/nnd/capability/renew` on the integration server (bearer
+plus principal envelope still required; the endpoint verifies the presented
+capability within grace and returns a fresh token derived from the verified
+previous one - never caller-shaped authority; tampered tokens, GET, expired,
+and unknown capabilities fail closed with `capability_*` mapped to 401, and
+the route is 404 when no authority is configured). The NND harness adapter
+gained a `capabilitySupplier`: every forwarded request presents the current
+capability as `x-nna-service-capability`; a supplier failure is a 502 harness
+error, never a stale-authority forward; a malformed capability never leaves
+the adapter; without a supplier the header never appears. 18/18
+integration-server tests, 11/11 harness adapter tests, 42/42 harness suite,
+typecheck green. Implemented-unverified: no attach flow issues a capability
+to a desktop client yet and the integration server does not yet enforce the
+header for capability-bound grants (an internal-caller audit is prerequisite:
+the engine host shares the bearer token, so enforcement must distinguish the
+supervised child's grant). The six-minute installed probe stays deferred in
+DEFERRED-VERIFICATION until that enforcement exists.
+
 ## 2026-10-11 WP-D step 1: renewable scoped capability across the supervised channel (implemented-unverified)
 
 The L3 contract's renewable capability now exists end-to-end on the real

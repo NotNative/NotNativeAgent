@@ -22,6 +22,10 @@ export interface NnaHarnessOptions {
   endpoint: string;
   token: string;
   principal: string | (() => string);
+  /** Renewable scoped capability supplier (execution guide 02 L3): when the
+   *  attach grant includes a capability, every forwarded request presents the
+   *  current one; a supplier failure keeps the request unauthenticated. */
+  capabilitySupplier?: () => string | null;
   fetch?: typeof globalThis.fetch;
   signal?: AbortSignal;
 }
@@ -40,7 +44,15 @@ export function createNnaHarnessAdapter(options: NnaHarnessOptions): HarnessAdap
       // internal failure into an unhandled route error or forward credentials.
       return harnessError('NNA harness principal is unavailable', 502);
     }
-    return forward(request, endpoint, token, currentPrincipal, requestFetch, options.signal);
+    let capability: string | null = null;
+    if (options.capabilitySupplier) {
+      try { capability = options.capabilitySupplier(); }
+      catch { return harnessError('NNA harness capability is unavailable', 502); }
+      if (capability !== null && !/^[\w-]{8,16384}\.[\w-]{8,16384}$/u.test(capability)) {
+        return harnessError('NNA harness capability is malformed', 502);
+      }
+    }
+    return forward(request, endpoint, token, currentPrincipal, requestFetch, options.signal, capability);
   } };
 }
 
@@ -51,7 +63,7 @@ export function createNnaHarnessAdapterFromEnvironment(environment: NodeJS.Proce
   });
 }
 
-async function forward(request: Request, endpoint: URL, token: string, principal: string, requestFetch: typeof fetch, generationSignal?: AbortSignal): Promise<Response> {
+async function forward(request: Request, endpoint: URL, token: string, principal: string, requestFetch: typeof fetch, generationSignal?: AbortSignal, capability?: string | null): Promise<Response> {
   const source = new URL(request.url);
   const path = source.pathname.replace(/^\/api(?=\/|$)/u, '') || '/';
   // Do not compose a URL from an untrusted path string: `/api//host` would
@@ -59,7 +71,7 @@ async function forward(request: Request, endpoint: URL, token: string, principal
   const target = new URL(endpoint);
   target.pathname = path;
   target.search = source.search;
-  const headers = forwardedHeaders(request.headers, token, principal);
+  const headers = forwardedHeaders(request.headers, token, principal, capability);
   const controller = new AbortController();
   // The browser may close an SSE stream after the upstream has sent headers.
   // Keep its signal attached to fetch for the stream lifetime so NNA can
@@ -127,7 +139,7 @@ function principalSupplier(value: NnaHarnessOptions['principal']): () => string 
   return () => requirePrincipal(value());
 }
 
-function forwardedHeaders(source: Headers, token: string, principal: string): Headers {
+function forwardedHeaders(source: Headers, token: string, principal: string, capability?: string | null): Headers {
   const headers = new Headers();
   for (const name of ['accept', 'content-type', 'last-event-id', 'x-nnd-directory', 'x-nnd-directory-encoding']) {
     const value = source.get(name);
@@ -135,6 +147,7 @@ function forwardedHeaders(source: Headers, token: string, principal: string): He
   }
   headers.set('authorization', `Bearer ${token}`);
   headers.set('x-nna-principal', principal);
+  if (capability) headers.set('x-nna-service-capability', capability);
   return headers;
 }
 
