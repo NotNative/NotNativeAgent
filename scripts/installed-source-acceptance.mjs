@@ -117,13 +117,11 @@ const win=new BrowserWindow({show:false,webPreferences:{partition:'temp:nnd-acce
 ${browserScenarioModule ? `win.webContents.session.webRequest.onBeforeRequest({urls:['<all_urls>']},(details,callback)=>{let blocked=false;try{blocked=['/api/global/event/ws','/api/event'].includes(new URL(details.url).pathname)}catch{}callback({cancel:blocked})});` : ''}
 win.webContents.on('console-message',(...args)=>{for(const value of args.slice(1)){const message=typeof value==='string'?value:value?.message;if(typeof message==='string'&&message.startsWith('NND_PROBE_STEP:'))phase(message)}});
 await win.loadURL(${JSON.stringify(origin)});
-win.show();win.focus();
+// Browser shells stay invisible: the ticket is injected programmatically
+// (React-safe value setter) instead of focus-dependent keystrokes.
 let inputReady=false;for(let i=0;i<100;i++){inputReady=await win.webContents.executeJavaScript('Boolean(document.getElementById("native-bootstrap-code"))');if(inputReady)break;await new Promise(r=>setTimeout(r,100))}
 if(!inputReady)throw Error('Native code form did not authenticate: input_missing');
-await win.webContents.executeJavaScript('document.getElementById("native-bootstrap-code").focus()');
-for(const key of ticket)win.webContents.sendInputEvent({type:'char',keyCode:key});
-await new Promise(r=>setTimeout(r,100));
-if(await win.webContents.executeJavaScript('document.getElementById("native-bootstrap-code")?.value.length===0'))await win.webContents.insertText(ticket);
+await win.webContents.executeJavaScript('(()=>{const input=document.getElementById("native-bootstrap-code");input.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(input,' + JSON.stringify(ticket) + ');input.dispatchEvent(new Event("input",{bubbles:true}));input.dispatchEvent(new Event("change",{bubbles:true}))})()');
 const accepted=await win.webContents.executeJavaScript('(async()=>{let button;for(let j=0;j<100;j++){button=document.querySelector("[data-testid=gate-native-bootstrap] button");if(button&&!button.disabled)break;await new Promise(r=>setTimeout(r,100))}if(!button||button.disabled){const input=document.getElementById("native-bootstrap-code");return "button_disabled_length_"+(input?.value.length||0)+"_focused_"+(document.activeElement===input)}button.click();let code=0;for(let j=0;j<100;j++){const response=await fetch("/auth/session");code=response.status;const status=await response.json();if(code===200&&status.authenticated===true)return "ok";await new Promise(r=>setTimeout(r,100))}return "session_"+code+"_"+(document.querySelector("[role=alert]")?.textContent||"").slice(0,80)})()');
 if(accepted!=='ok')throw Error('Native code form did not authenticate: '+accepted);
 phase('auth_accepted');

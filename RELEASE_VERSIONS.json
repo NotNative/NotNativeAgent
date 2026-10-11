@@ -2000,6 +2000,10 @@
     {
       "version": "20261011-90",
       "content_sha256": "9994122788e2d57ed38f0e3abca3705463feedb6c1830d67f86a658d71ac74ca"
+    },
+    {
+      "version": "20261011-91",
+      "content_sha256": "bae2c0b9399a52b3d955f177bbe9a31850e81304e79b5be3db7f50ec7e03d921"
     }
   ]
 }

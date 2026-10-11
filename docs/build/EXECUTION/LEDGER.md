@@ -18,6 +18,21 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 (20261011-91) Browser acceptance shells decoupled from the visible desktop
+
+- Operator request: service start/stop must not pop windows on the operator's
+  desktop during acceptance runs and refreshes. The service lifecycle was
+  already decoupled (journeys start/stop via the nna CLI surface; desktop
+  attach legs already boot `--hidden` tray-only), but the browser-probe
+  Electron shells explicitly called `win.show(); win.focus()` and typed the
+  bootstrap ticket through focus-dependent keystrokes — one visible window
+  per ui-ticket probe.
+- `scripts/installed-source-acceptance.mjs` browser shells now stay
+  invisible: the ticket is injected through the React-safe native value
+  setter plus input/change events, with no show/focus. Verified by a full
+  base acceptance run (browser attach leg exercised the new hidden
+  authentication path end to end).
+
 ## 2026-10-11 (20261011-90) Installed F9 multi-run leg executed in-session
 
 - `scripts/installed-timeline-journey.mjs` extended: after the fork/revert
