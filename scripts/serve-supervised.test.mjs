@@ -72,3 +72,29 @@ test('duplicate bootstrap fails closed and EOF tears down the listener', windows
     await run.exited; await assert.rejects(fetch(boot.ui_origin));
   }
 });
+
+test('the supervised child launches the desktop app after readiness', windows, async (t) => {
+  const root = await fixture(t);
+  const marker = join(root, 'gui-launched');
+  const runner = new URL('./serve-supervised.mjs', import.meta.url).href;
+  const child = spawn(process.execPath, ['--input-type=module', '-e',
+    `import {runSupervisedService} from ${JSON.stringify(runner)};
+     await runSupervisedService({root:${JSON.stringify(root)}, launchDesktop: async () => {
+       const {writeFile} = await import('node:fs/promises');
+       await writeFile(${JSON.stringify(marker)}, 'launched');
+     }});`], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  t.after(() => child.kill());
+  const lines = createInterface({ input: child.stdout })[Symbol.asyncIterator]();
+  const boot = await bootstrap(root);
+  child.stdin.write(JSON.stringify(boot) + '\n');
+  assert.equal(JSON.parse((await lines.next()).value).type, 'ready');
+  // The launch is fire-and-forget: the command loop answers while it runs.
+  child.stdin.write(JSON.stringify({ type: 'issue_ui_ticket', protocol: '1.0', generation: boot.generation, request_id: 't1' }) + '\n');
+  assert.equal(JSON.parse((await lines.next()).value).type, 'ui_ticket');
+  const { access, constants } = await import('node:fs/promises');
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    try { await access(marker, constants.F_OK); break; }
+    catch { if (Date.now() >= deadline) throw new Error('desktop launch never ran'); await new Promise(r => setTimeout(r, 100)); }
+  }
+});

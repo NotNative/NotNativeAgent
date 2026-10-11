@@ -18,6 +18,28 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Link the tray permanently to the service (operator request, implemented-unverified)
+
+Operator shape: whenever the service runs — started by the shortcut, `nna
+desktop start`, or the login script — the tray must be present and manage the
+stack. The supervised service child (scripts/serve-supervised.mjs, the real
+entry behind the `--supervised` protocol; the earlier attempt landed in the
+unused `--port` branch of serve-installed.mjs) now launches the attached
+desktop app fire-and-forget after its ready frame: a failed launch is logged
+to stderr and never fails the service, Electron's single-instance lock dedups
+the redundant launch the shortcut performs, and stdout stays protocol-only.
+Tray Quit now requests a native service stop (requestNativeServiceStop in
+native-service-client.mjs) instead of only closing the GUI, so the tray
+manages the service it is attached to; `nna desktop stop` leaves an open GUI
+showing the stopped tray. A supervised test proves the launch fires after
+readiness without blocking the command loop. Implemented-unverified: the live
+service-start → tray observation is the operator's next reinstall.
+
+Diagnosis notes from the operator's machine: a hung `nna desktop start`
+(polling a dead discovery record) and a vanished service child masked the
+wrong-branch GUI spawn; recovery ran the service in the foreground to observe
+the real child path (`--supervised`), which exposed the miss.
+
 ## 2026-10-10 Rebrand the operator surface to `nna desktop` (operator request, implemented-unverified)
 
 The desktop plugin lifecycle is now `nna desktop start|stop|enable|disable|status`

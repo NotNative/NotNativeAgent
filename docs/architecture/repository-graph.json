@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:885c0aba5c089b858a62c7bc380ea31385eedab4e3aa697fc7e1b2cba6ef0663",
+  "source_digest": "sha256:011954f39449d85876529def596d5e3969e1f1b7ba8b9a7fa11b5d362dec54ac",
   "counts": {
     "modules": 882,
     "component_edges": 17
@@ -8586,6 +8586,7 @@
       "entrypoint": false,
       "imports": [
         "scripts/installed-service-package.mjs",
+        "scripts/launch-selected-desktop.mjs",
         "scripts/supervised-protocol.mjs"
       ]
     },

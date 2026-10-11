@@ -50,7 +50,7 @@ async function commands(frames, output, bootstrap, handle) {
 }
 
 export async function runSupervisedService({ input = process.stdin, output = process.stdout,
-  root = resolve(dirname(fileURLToPath(import.meta.url)), '..') } = {}) {
+  root = resolve(dirname(fileURLToPath(import.meta.url)), '..'), launchDesktop } = {}) {
   const controller = new AbortController();
   let handle;
   // This standalone attach-only child owns no engine; exit is the final bound
@@ -83,6 +83,19 @@ export async function runSupervisedService({ input = process.stdin, output = pro
     clearTimeout(startupTimer);
     await reply(output, { type: 'ready', protocol: '1.0', installation_id: bootstrap.installation_id,
       data_id: bootstrap.data_id, generation: bootstrap.generation, endpoint: bootstrap.ui_origin, version: installed.version });
+    // The tray is permanently linked to the service: whatever starts the
+    // service (CLI, shortcut, login script) also brings up the desktop app
+    // attached to this generation. Fire-and-forget so a failed launch never
+    // fails the service, and Electron's single-instance lock dedups the
+    // redundant launch the shortcut performs. stdout stays protocol-only;
+    // launch diagnostics go to stderr.
+    const launch = launchDesktop ?? (async () => {
+      const { launchSelectedDesktop } = await import('./launch-selected-desktop.mjs');
+      return launchSelectedDesktop(root);
+    });
+    launch().catch((error) => {
+      console.error(`NND desktop launch failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+    });
     await commands(frames, output, bootstrap, handle);
   } catch {
     await reply(output, { type: 'failed', protocol: '1.0', code: 'NND_SUPERVISED_FAILED' }).catch(() => {});
