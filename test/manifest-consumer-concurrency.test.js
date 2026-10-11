@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
@@ -9,7 +10,7 @@ import { configureInitialProvider } from '../src/provider/bootstrap.js';
 import { ProviderProfileStore } from '../src/provider/profile-store.js';
 
 async function fixture(t) {
-  const root = await fs.mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), '.nna-manifest-consumer-'));
+  const root = createScratchSync('.nna-manifest-consumer-');
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   return { config: root, secretVault: join(root, 'secrets.json'), secretKey: join(root, 'secret.key'),
     secretAudit: join(root, 'secret-audit.jsonl') };

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
@@ -34,7 +35,7 @@ test('gateway shutdown diagnostics expose only a stable code', () => {
 });
 
 test('gateway config is absent-safe, bounded, durable, and redacted', async t => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-gateway-'));
+  const root = createScratchSync('nna-gateway-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'config', 'gateway.json');
   assert.equal((await loadGatewayConfig(path)).enabled, false);
@@ -124,7 +125,7 @@ test('TUI gateway commands exclude secret and foreground actions and enforce ari
 });
 
 test('gateway start failure is reported without publishing a false pid', async t => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-gateway-start-failure-'));
+  const root = createScratchSync('nna-gateway-start-failure-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const paths = {
     root, gateway: join(root, 'gateway'), logs: join(root, 'logs'),
@@ -149,7 +150,7 @@ test('gateway start failure is reported without publishing a false pid', async t
 });
 
 test('gateway foreground startup publishes its process identity before polling', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-gateway-foreground-'));
+  const root = createScratchSync('nna-gateway-foreground-');
   const paths = {
     root, config: join(root, 'config'), gateway: join(root, 'runtime', 'gateway'),
     logs: join(root, 'logs'), gatewayConfig: join(root, 'config', 'gateway.json'),

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -17,7 +18,7 @@ const OPERATOR = { subjectId: 'operator@example.com',
 const CENSUS_FIELDS = ['version', 'workspaces[*].root', 'workspaces[*].trustedAt'];
 
 test('trust service grants, lists, and revokes through the native trust functions', async t => {
-  const root = await mkdtemp(join(homedir(), '.nna-trust-'));
+  const root = createScratchSync('.nna-trust-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'config', 'trusted-workspaces.json');
   await mkdir(dirname(path), { recursive: true });
@@ -59,7 +60,7 @@ test('trust projection refuses factory drift and identity lies', () => {
 });
 
 async function httpFixture(t) {
-  const root = await mkdtemp(join(homedir(), '.nna-trust-http-'));
+  const root = createScratchSync('.nna-trust-http-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'trusted-workspaces.json');
   const principalBox = { value: OPERATOR };

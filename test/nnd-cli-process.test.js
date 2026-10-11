@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -8,7 +9,7 @@ import { homedir } from 'node:os';
 import { nativeNndPrincipal } from '../src/nnd-service-native.js';
 
 test('nnd CLI child serves authenticated bootstrap and session projections', async (t) => {
-  const root = await mkdtemp(join(homedir(), '.nna-nnd-process-'));
+  const root = createScratchSync('.nna-nnd-process-');
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(join(root, 'config'), { recursive: true });
   await writeFile(join(root, 'config', 'manifest.json'), JSON.stringify({

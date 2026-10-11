@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -19,7 +20,7 @@ const recorded = { format: 1, checked_at: '2026-10-06T01:02:03.004Z', status: 'r
   latest_sha: 'a'.repeat(40), error_code: null };
 
 test('update-state store reads the worker file and projects census fields or honest absence', async t => {
-  const root = await mkdtemp(join(homedir(), '.nna-update-state-'));
+  const root = createScratchSync('.nna-update-state-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'update-state.json');
   const store = () => createNndUpdateStateStore({ path, installationId: 'install_test', dataId: 'data_test' });
@@ -67,7 +68,7 @@ test('update-state projection refuses drift but accepts the store validator full
 });
 
 async function httpFixture(t, fileBody) {
-  const root = await mkdtemp(join(homedir(), '.nna-update-state-http-'));
+  const root = createScratchSync('.nna-update-state-http-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'update-state.json');
   if (fileBody !== undefined) await writeFile(path, JSON.stringify(fileBody));

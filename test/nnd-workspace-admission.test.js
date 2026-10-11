@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { lstat, mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
@@ -13,7 +14,7 @@ const principal = { subjectId: 'operator', permissions: ['nnd.workspace.read', '
 const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
 
 async function fixture(t) {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), '.nna-admissions-'));
+  const root = createScratchSync('.nna-admissions-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const config = join(root, 'config'), primary = join(root, 'primary');
   const alpha = join(root, 'alpha'), beta = join(root, 'beta');

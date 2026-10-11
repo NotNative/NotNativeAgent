@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
+import { createScratchSync } from './scratch.js';
 import { existsSync } from 'node:fs';
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
@@ -75,7 +76,7 @@ test('launch options support prompt, host, and config aliases without breaking l
 });
 
 test('CLI bounds manifest reads and direct prompt arguments before parsing or concatenation', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-cli-bounds-'));
+  const root = createScratchSync('nna-cli-bounds-');
   try {
     const oversized = join(root, 'oversized.json');
     await writeFile(oversized, Buffer.alloc(1_048_577, 0x20));
@@ -92,7 +93,7 @@ test('uninstall command rejects conflicting or unknown deletion choices before l
 });
 
 test('first run persists explicit environment configuration and reuses it', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-onboarding-'));
+  const root = createScratchSync('nna-onboarding-');
   const paths = userDataPaths({ home: root, environment: {} });
   await ensureUserDataPaths(paths);
   try {
@@ -110,7 +111,7 @@ test('first run persists explicit environment configuration and reuses it', asyn
 });
 
 test('concurrent first-run manifests publish one complete winner and quarantine malformed JSON', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-onboarding-atomic-'));
+  const root = createScratchSync('nna-onboarding-atomic-');
   const paths = userDataPaths({ home: root, environment: {} });
   await ensureUserDataPaths(paths);
   const environment = (model) => ({ NNA_PROVIDER_ENDPOINT: 'http://127.0.0.1:11434/v1', NNA_MODEL: model });
@@ -136,7 +137,7 @@ test('concurrent first-run manifests publish one complete winner and quarantine 
 });
 
 test('AC-SESS-08 legacy configuration migrates once with backup and future formats fail safely', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-config-migration-'));
+  const root = createScratchSync('nna-config-migration-');
   const paths = userDataPaths({ home: root, environment: {} });
   await ensureUserDataPaths(paths);
   const path = join(paths.config, 'manifest.json');
@@ -162,7 +163,7 @@ test('local discovery selects the first sorted model from the first ready endpoi
 });
 
 test('first run without discovery requires a real terminal', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-onboarding-required-'));
+  const root = createScratchSync('nna-onboarding-required-');
   const paths = userDataPaths({ home: root, environment: {} });
   await ensureUserDataPaths(paths);
   try {
@@ -173,7 +174,7 @@ test('first run without discovery requires a real terminal', async () => {
 });
 
 test('version bump synchronizes canonical, runtime, package, and SBOM versions', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-version-bump-'));
+  const root = createScratchSync('nna-version-bump-');
   try {
     await mkdir(join(root, 'scripts')); await mkdir(join(root, 'src'));
     for (const path of ['VERSION', 'package.json', 'SBOM.spdx.json']) {
@@ -198,7 +199,7 @@ test('version bump synchronizes canonical, runtime, package, and SBOM versions',
 });
 
 test('product data paths are stable, home-scoped, and overrideable only absolutely', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-paths-'));
+  const root = createScratchSync('nna-paths-');
   try {
     const defaults = userDataPaths({ home: root, environment: {} });
     assert.equal(defaults.root, resolve(root, '.nna'));
@@ -330,7 +331,7 @@ test('installer sources declare per-user locations and preserve data by default'
 test('Windows installer rejects an invalid explicit WebSearch endpoint without reporting success', {
   skip: process.platform !== 'win32', timeout: 30_000,
 }, async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-invalid-websearch-install-'));
+  const root = createScratchSync('nna-invalid-websearch-install-');
   const app = join(root, 'app');
   const data = join(root, 'home', '.nna');
   try {
@@ -350,7 +351,7 @@ test('Windows installer rejects an invalid explicit WebSearch endpoint without r
 test('Windows installer rejects a writable existing data root before replacing the application', {
   skip: process.platform !== 'win32', timeout: 30_000,
 }, async () => {
-  const root = await mkdtemp(join(homedir(), 'nna-unsafe-data-install-'));
+  const root = createScratchSync('nna-unsafe-data-install-');
   const app = join(root, 'app');
   const data = join(root, 'home', '.nna');
   try {
@@ -383,7 +384,7 @@ test('Windows installer rejects a writable existing data root before replacing t
 test('Windows installer rejects write access inherited by a newly created data root before replacing the application', {
   skip: process.platform !== 'win32', timeout: 30_000,
 }, async () => {
-  const root = await mkdtemp(join(homedir(), 'nna-inherited-data-install-'));
+  const root = createScratchSync('nna-inherited-data-install-');
   const app = join(root, 'app');
   const home = join(root, 'home');
   const data = join(home, '.nna');
@@ -420,7 +421,7 @@ test('Windows installer rejects write access inherited by a newly created data r
 test('Windows installer rejects an unsafe existing startup manifest before replacing the application', {
   skip: process.platform !== 'win32', timeout: 30_000,
 }, async () => {
-  const root = await mkdtemp(join(homedir(), 'nna-unsafe-manifest-install-'));
+  const root = createScratchSync('nna-unsafe-manifest-install-');
   const app = join(root, 'app');
   const data = join(root, 'home', '.nna');
   const manifest = join(data, 'config', 'manifest.json');
@@ -458,7 +459,7 @@ test('Windows installer rejects an unsafe existing startup manifest before repla
 test('Windows installer rejects unsafe existing startup manifest storage before replacing the application', {
   skip: process.platform !== 'win32', timeout: 30_000,
 }, async () => {
-  const root = await mkdtemp(join(homedir(), 'nna-unsafe-manifest-storage-'));
+  const root = createScratchSync('nna-unsafe-manifest-storage-');
   const app = join(root, 'app');
   const data = join(root, 'home', '.nna');
   const manifest = join(data, 'config', 'manifest.json');
@@ -493,7 +494,7 @@ test('Windows installer rejects unsafe existing startup manifest storage before 
 test('Windows installer retries an unavailable manifest check once before payload staging', {
   skip: process.platform !== 'win32', timeout: 30_000,
 }, async () => {
-  const root = await mkdtemp(join(homedir(), 'nna-manifest-check-retry-'));
+  const root = createScratchSync('nna-manifest-check-retry-');
   const source = join(root, 'source');
   const counter = join(root, 'manifest-check-count');
   const app = join(root, 'app');
@@ -613,7 +614,7 @@ test('npm publication uses an explicit product allowlist', async () => {
 });
 
 test('installed CLI state follows NNA_HOME instead of the launch directory', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-cli-home-'));
+  const root = createScratchSync('nna-cli-home-');
   const launch = join(root, 'launch');
   const data = join(root, 'data');
   await mkdir(launch);
@@ -640,7 +641,7 @@ test('installed CLI state follows NNA_HOME instead of the launch directory', asy
 test('native per-user installer launches the packaged CLI and refuses noninteractive self-removal', {
   skip: !['win32', 'linux', 'darwin'].includes(process.platform), timeout: 30_000,
 }, async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-native-install-'));
+  const root = createScratchSync('nna-native-install-');
   const app = join(root, 'app');
   const data = join(root, 'home', '.nna');
   try {

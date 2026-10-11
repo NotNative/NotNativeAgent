@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
@@ -25,7 +26,7 @@ test('stage CLI refuses missing and surplus arguments before reading an installa
 test('legacy serve preserves unfinished installer evidence and releases its failed-start lease', {
   skip: process.platform !== 'win32',
 }, async t => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-install-barriers-'));
+  const root = createScratchSync('nna-install-barriers-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const runtime = (await ensurePrivateNndRuntimeDirectory(root)).path;
   let writes = 0;

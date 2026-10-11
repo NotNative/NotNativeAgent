@@ -3,6 +3,7 @@
 // this installation and data identity, is a consumed admission receipt. Half
 // pairs, altered pairs, and foreign identities must keep the bar.
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -14,7 +15,7 @@ import { assertNoNndInstallTransaction, hash } from '../src/nnd-install-storage.
 const windows = { skip: process.platform !== 'win32' };
 const uuid = () => randomUUID();
 async function fixture(t) {
-  const root = await mkdtemp(join(homedir(), '.nnd-ev-'));
+  const root = createScratchSync('.nnd-ev-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const data = join(root, 'data');
   await mkdir(join(data, 'runtime', 'nnd', 'install-slots'), { recursive: true });

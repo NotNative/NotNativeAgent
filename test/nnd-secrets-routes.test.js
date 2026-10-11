@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -15,7 +16,7 @@ const token = 'secrets-http-test-token-36-chars';
 const principal = { subjectId: 'operator@example.com', permissions: ['nnd.configuration.read'] };
 
 const fixture = async () => {
-  const root = await mkdtemp(join(homedir(), '.nna-secrets-settings-'));
+  const root = createScratchSync('.nna-secrets-settings-');
   const paths = { secretVault: join(root, 'secrets', 'vault.json'),
     secretKey: join(root, 'secrets', 'master-key.json'),
     secretAudit: join(root, 'secrets', 'audit.jsonl') };

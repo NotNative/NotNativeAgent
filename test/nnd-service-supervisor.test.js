@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { SCRATCH_ROOT, createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, realpath, rm, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -18,8 +19,8 @@ import { acquireNndServiceLock } from '../src/nnd-service-lock.js';
 
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 async function fixture(t) {
-  const root = process.platform === 'win32' ? join(homedir(), `.nna-supervisor-${randomUUID()}`)
-    : await mkdtemp(join(tmpdir(), 'nna-supervisor-'));
+  const parent = createScratchSync('nna-supervisor');
+  const root = join(parent, 'native');
   if (process.platform === 'win32') {
     const result = spawnSync(join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe'),
       ['-NoProfile', '-NonInteractive', '-Command', `$ErrorActionPreference='Stop'; $p=[Console]::In.ReadToEnd();

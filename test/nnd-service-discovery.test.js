@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { SCRATCH_ROOT, createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
@@ -21,7 +22,8 @@ function ps(script, request) {
   assert.equal(result.status, 0, 'Fixture ACL operation failed');
 }
 async function fixture(t) {
-  const root = join(homedir(), `.nna-discovery-test-${randomUUID()}`);
+  const parent = createScratchSync('nna-discovery-test');
+  const root = join(parent, 'data');
   ps(`$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     $acl=[Security.AccessControl.DirectorySecurity]::new()
     $acl.SetSecurityDescriptorSddlForm('O:'+$sid+'D:P(A;OICI;FA;;;'+$sid+')(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)')
@@ -31,8 +33,7 @@ async function fixture(t) {
   const lease = await acquireNndServiceLock({ dataRoot: data });
   t.after(async () => {
     await lease.close();
-    assert.equal(dirname(root), homedir());
-    assert.match(root.slice(homedir().length), /^[\\/]\.nna-discovery-test-[a-f0-9-]+$/u);
+    assert.ok(root.startsWith(SCRATCH_ROOT), 'discovery fixture must live in the single scratch root');
     await rm(root, { recursive: true, force: true });
   });
   return { root, identity, lease, directory: join(root, 'runtime', 'nnd') };

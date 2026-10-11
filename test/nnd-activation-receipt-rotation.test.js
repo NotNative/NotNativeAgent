@@ -5,6 +5,7 @@
 // revision drift, and archive collisions keep the bar with bytes untouched;
 // a half-moved archive is repaired back to the fixed paths before anything.
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { lstat, mkdir, mkdtemp, opendir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -34,7 +35,7 @@ function pairBytes(commit) {
 }
 
 async function fixture(t) {
-  const root = await mkdtemp(join(homedir(), '.nnd-rot-'));
+  const root = createScratchSync('.nnd-rot-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const data = join(root, 'data');
   const slots = join(data, 'runtime', 'nnd', 'install-slots');

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -19,7 +20,7 @@ const server = { id: 'existing', transport: 'stdio', command: 'hidden-command', 
   tool_effects: { write_file: true, shell: false, guess: 'unknown' },
   protocol_version: '2026-07-28', enabled: false, trusted: false };
 async function fixture(t) {
-  const root = await mkdtemp(join(homedir(), '.nna-native-mcp-'));
+  const root = createScratchSync('.nna-native-mcp-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const paths = { config: join(root, 'config'), trustedWorkspaces: join(root, 'trust.json') };
   await mkdir(paths.config); await mkdir(join(root, '.nna'));

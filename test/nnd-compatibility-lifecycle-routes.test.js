@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -16,7 +17,7 @@ const identity = { installation_id: 'install_lc', data_id: 'data_lc' };
 const token = 'compat-lifecycle-test-token-36-chars';
 
 const fixture = async () => {
-  const root = await mkdtemp(join(homedir(), '.nna-lifecycle-'));
+  const root = createScratchSync('.nna-lifecycle-');
   const paths = { opencodeConfig: join(root, 'config', 'opencode.json'),
     opencode: join(root, 'runtime', 'opencode'), logs: join(root, 'logs') };
   await mkdir(paths.opencode, { recursive: true });
@@ -212,7 +213,7 @@ test('http drill: action rights, methods, run refusal, empty-body grammar, and b
     assert.equal((await call('status', { bearer: '' })).status, 401);
   } finally { await server.close(); await rm(f.root, { recursive: true, force: true }); }
   // A read-only principal lacks the lifecycle right: actions refuse closed.
-  const secondRoot = await mkdtemp(join(homedir(), '.nna-lifecycle-'));
+  const secondRoot = createScratchSync('.nna-lifecycle-');
   const paths = { opencodeConfig: join(secondRoot, 'config', 'opencode.json'),
     opencode: join(secondRoot, 'runtime', 'opencode'), logs: join(secondRoot, 'logs') };
   const deniedServer = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,

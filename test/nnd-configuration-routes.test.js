@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
@@ -93,7 +94,7 @@ test('configuration boundary preserves typed failures without private diagnostic
 });
 
 test('real native service read preview save and operation use the same safe HTTP contract', async t => {
-  const root = await mkdtemp(join(homedir(), '.nnd-route-config-'));
+  const root = createScratchSync('.nnd-route-config-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const paths = { config: join(root, 'config') }; await mkdir(paths.config);
   await writeFile(join(paths.config, 'manifest.json'), JSON.stringify({ workspace_root: root,

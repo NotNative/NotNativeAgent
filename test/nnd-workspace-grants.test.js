@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { lstat, mkdtemp, mkdir, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
@@ -13,7 +14,7 @@ const identity = { installation_id: 'nna_grant_test', data_id: 'data_grant_test'
 const principal = { subjectId: 'operator', permissions: ['nnd.workspace.read', 'nnd.workspace.manage'] };
 const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
 async function fixture(t) {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), '.nna-workspaces-'));
+  const root = createScratchSync('.nna-workspaces-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const config = join(root, 'config'), primary = join(root, 'primary'), secondary = join(root, 'secondary');
   await Promise.all([mkdir(config), mkdir(primary), mkdir(secondary)]);

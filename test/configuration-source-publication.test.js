@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { link, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -14,7 +15,7 @@ import { publishWorkspaceConfiguration } from '../src/experience/configuration-p
 
 const provider = { endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
 async function fixture(t, raw = { provider }) {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), '.nna-source-test-'));
+  const root = createScratchSync('.nna-source-test-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'manifest.json'), bytes = JSON.stringify(raw) + '\n';
   await writeFile(path, bytes);

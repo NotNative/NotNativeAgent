@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
 import { fork } from 'node:child_process';
@@ -16,7 +17,7 @@ const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 
 test('owner death inside final held-live window leaves exact journal and admission barrier for recovery',
   { skip: process.platform !== 'win32' }, async t => {
-    const root = join(homedir(), `.nna-final-window-${randomUUID()}`);
+    const root = createScratchSync('nna-final-window');
     const operationId = randomUUID(), stageOperationId = randomUUID();
     const directory = join(root, 'runtime', 'nnd', 'install-slots', 'activations', operationId);
     await mkdir(root, { recursive: true });

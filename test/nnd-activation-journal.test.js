@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
@@ -14,7 +15,7 @@ import { assertNoNndInstallTransaction, json } from '../src/nnd-install-storage.
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const A = sha('external evidence A'), B = sha('external evidence B');
 async function fixture(t) {
-  const root = join(homedir(), `.nna-journal-${randomUUID()}`), operation_id = randomUUID();
+  const root = createScratchSync('nna-journal'), operation_id = randomUUID();
   const directory = join(root, 'runtime', 'nnd', 'install-slots', 'activations', operation_id);
   await mkdir(directory, { recursive: true }); await mkdir(join(root, 'config'));
   t.after(() => rm(root, { recursive: true, force: true }));

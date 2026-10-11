@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp,mkdir,writeFile,readFile,lstat,unlink,rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -9,7 +10,7 @@ import { planInstallSlot } from '../src/nnd-install-storage-provenance.js';
 import { resumeInstallRetirement } from '../src/nnd-install-storage-retention.js';
 import { json,hash } from '../src/nnd-install-storage.js';
 async function fixture(t) {
- const root=await mkdtemp(join(homedir(),'.nna-retirement-test-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const root=createScratchSync('.nna-retirement-test-');t.after(()=>rm(root,{recursive:true,force:true}));
  const transactions=join(root,'transactions'),id=randomUUID(),directory=join(transactions,id);await mkdir(directory,{recursive:true});
  const prepared=Buffer.from('preserved prepared bytes'),payload=Buffer.from('preserved payload bytes');
  await writeFile(join(directory,'prepared.json'),prepared);await writeFile(join(directory,'payload.json'),payload);

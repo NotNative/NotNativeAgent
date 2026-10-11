@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
+import { createScratchSync } from './scratch.js';
 import { mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -1418,7 +1419,7 @@ test('configuration command does not expose engine policy mutations', async () =
 });
 
 test('/workspace opens an isolated conversation with recomputed trusted project scope', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-workspace-command-'));
+  const root = createScratchSync('nna-workspace-command-');
   const target = join(root, 'project');
   const paths = {
     config: join(root, 'config'), trustedWorkspaces: join(root, 'trusted.json'),
@@ -1456,7 +1457,7 @@ test('Escape returns from a menu without changing its selection', async () => {
 });
 
 test('AC-PROV-03 primary routes stay tab-local while Main publishes global specialist routes', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-route-menu-'));
+  const root = createScratchSync('nna-route-menu-');
   const configPath = join(root, 'manifest.json');
   const initial = resolveManifest({
     persistence: 'ephemeral', workspace_root: root,
@@ -1504,7 +1505,7 @@ test('AC-PROV-03 primary routes stay tab-local while Main publishes global speci
 });
 
 test('durable Console launch rotates meaningful Main into Previous Main with its tab-local routes', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-tab-pool-'));
+  const root = createScratchSync('nna-tab-pool-');
   const tabPoolPath = join(root, 'root-tui', 'pool.json');
   const initial = resolveManifest({
     persistence: 'durable', workspace_root: root,

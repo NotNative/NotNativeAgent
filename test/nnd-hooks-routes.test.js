@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -13,7 +14,7 @@ const token = 'hooks-http-test-token-36-chars-test';
 const principal = { subjectId: 'operator@example.com', permissions: ['nnd.configuration.read'] };
 
 const fixture = async () => {
-  const root = await mkdtemp(join(homedir(), '.nna-hooks-settings-'));
+  const root = createScratchSync('.nna-hooks-settings-');
   const hooksPath = join(root, 'hooks');
   const service = createNndHooksSettingsService({ hooksPath,
     installationId: identity.installation_id, dataId: identity.data_id });

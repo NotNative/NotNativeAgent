@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync, reserveScratch } from './scratch.js';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -16,7 +17,7 @@ import { preparationHarness, identityFor } from './support/nnd-activation-prepar
 
 const installRoot = fileURLToPath(new URL('../', import.meta.url));
 async function fixture(t, withPrior = false) {
-  const root = join(homedir(), `.nna-actprep-${randomUUID()}`);
+  const root = reserveScratch('nna-actprep');
   const script = `$ErrorActionPreference='Stop';$p=[Console]::In.ReadToEnd();
     $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;$acl=[Security.AccessControl.DirectorySecurity]::new();
     $acl.SetSecurityDescriptorSddlForm('O:'+$sid+'D:P(A;OICI;FA;;;'+$sid+')(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)');
@@ -135,12 +136,12 @@ test('foreign activation journal entry blocks recovery without deleting evidence
   });
 test('admission refuses an initializer reached through an install-store junction',
   { skip: process.platform !== 'win32' }, async t => {
-    const root = join(homedir(), `.nna-actprep-link-${randomUUID()}`);
-    const external = join(homedir(), `.nna-actprep-external-${randomUUID()}`);
+    const parent = createScratchSync('nna-actprep-link');
+    const root = join(parent, 'root');
+    const external = join(parent, 'external');
     const link = join(root, 'runtime', 'nnd', 'install-slots');
     await mkdir(join(root, 'runtime', 'nnd'), { recursive: true }); await mkdir(external);
-    t.after(async () => { await unlink(link); await rm(root, { recursive: true, force: true });
-      await rm(external, { recursive: true, force: true }); });
+    t.after(async () => { await unlink(link); await rm(parent, { recursive: true, force: true }); });
     await withActivationInitialization(external, async database => database.write('owned intent'));
     await symlink(external, link, 'junction');
     await assert.rejects(hasActivationInitialization(root), { code: 'nnd_activation_preparation_invalid' });

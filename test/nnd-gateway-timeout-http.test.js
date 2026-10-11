@@ -1,5 +1,6 @@
 ﻿// SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -15,7 +16,7 @@ const selected = { installation_id: 'install_test', data_id: 'data_test', scope:
 const token = 'gateway-http-test-token-with-32-characters';
 const secret = 'PRIVATE_GATEWAY_TOKEN_123456';
 async function fixture(t) {
-  const root = await mkdtemp(join(homedir(), '.nna-gateway-http-'));
+  const root = createScratchSync('.nna-gateway-http-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const config = join(root, 'config'); await mkdir(config);
   const path = join(config, 'gateway.json');

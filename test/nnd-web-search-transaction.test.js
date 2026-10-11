@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -12,7 +13,7 @@ const readOnly = { subjectId: 'operator@example.com', permissions: ['nnd.configu
 const identity = { installation_id: 'install_test', data_id: 'data_test', scope: 'user' };
 
 async function fixture(t, init) {
-  const root = await mkdtemp(join(homedir(), '.nna-websearch-tx-'));
+  const root = createScratchSync('.nna-websearch-tx-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'web-search.json');
   if (init) await writeFile(path, JSON.stringify(init));

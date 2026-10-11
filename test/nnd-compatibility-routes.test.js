@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -22,7 +23,7 @@ function candidate(overrides = {}) {
 }
 
 async function fixture(t, init) {
-  const root = await mkdtemp(join(homedir(), '.nna-compat-tx-'));
+  const root = createScratchSync('.nna-compat-tx-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'opencode.json');
   if (init) await writeFile(path, JSON.stringify(init));
@@ -141,7 +142,7 @@ test('CAS receipts replay, persist revisions, and repair demands stay honest for
 function body(request) { return Readable.from([JSON.stringify(request)]); }
 
 async function httpFixture(t) {
-  const root = await mkdtemp(join(homedir(), '.nna-compat-http-'));
+  const root = createScratchSync('.nna-compat-http-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'opencode.json');
   const principalBox = { value: principal };

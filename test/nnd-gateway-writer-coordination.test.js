@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -10,7 +11,7 @@ import { withManifestLock } from '../src/persistence/manifest-transaction.js';
 
 const principal = { subjectId: 'operator', permissions: ['nnd.configuration.read', 'nnd.configuration.manage'] };
 async function fixture(t) {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nnd-gateway-writer-'));
+  const root = createScratchSync('nnd-gateway-writer-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const config = join(root, 'config'); await mkdir(config);
   const path = join(config, 'gateway.json');

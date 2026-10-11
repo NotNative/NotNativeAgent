@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
@@ -19,7 +20,7 @@ function configuration(root) {
 }
 
 test('Main manages durable MCP topology and marks it for new-session activation', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-mcp-config-'));
+  const root = createScratchSync('nna-mcp-config-');
   const configPath = join(root, 'settings.json');
   const transportFactory = () => ({
     protocolVersion: '2026-07-28', async open() {}, async close() {},
@@ -73,7 +74,7 @@ test('MCP overlay exposes configured state and explicit restart semantics', () =
 });
 
 test('MCP connection testing fails truthfully when initialization cannot complete', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-mcp-test-failure-'));
+  const root = createScratchSync('nna-mcp-test-failure-');
   const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: configuration(root), configPath: join(root, 'settings.json'),
     providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
@@ -89,7 +90,7 @@ test('MCP connection testing fails truthfully when initialization cannot complet
 });
 
 test('MCP management uses guided menus for add, edit, and authentication', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-mcp-guided-'));
+  const root = createScratchSync('nna-mcp-guided-');
   const configPath = join(root, 'settings.json');
   const dataPaths = {
     mcpCredentials: join(root, 'mcp-credentials.json'),
@@ -148,7 +149,7 @@ test('MCP names produce stable collision-safe identifiers', () => {
 });
 
 test('MCP HTTP setup stores a new custom-header credential in the Secret Broker', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-mcp-header-'));
+  const root = createScratchSync('nna-mcp-header-');
   const configPath = join(root, 'settings.json');
   const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: configuration(root), configPath,
@@ -181,7 +182,7 @@ test('MCP HTTP setup stores a new custom-header credential in the Secret Broker'
 });
 
 test('referenced secrets expose their consumers and cannot be deleted', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-secret-reference-'));
+  const root = createScratchSync('nna-secret-reference-');
   const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: configuration(root), configPath: join(root, 'settings.json'),
     dataPaths: {
@@ -207,7 +208,7 @@ test('referenced secrets expose their consumers and cannot be deleted', async ()
 });
 
 test('MCP stdio setup parses a quoted launch command and keeps forms single-line', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-mcp-stdio-'));
+  const root = createScratchSync('nna-mcp-stdio-');
   const workspace = new InteractiveWorkspace({ initializeManifest: true,
     config: configuration(root), configPath: join(root, 'settings.json'),
     providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),

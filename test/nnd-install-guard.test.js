@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync, reserveScratch } from './scratch.js';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { rm } from 'node:fs/promises';
@@ -13,7 +14,7 @@ import { assertNoNndInstallMarker } from '../src/nnd-install-marker.js';
 import { startNndSupervisor } from '../src/nnd-service-supervisor.js';
 
 function fixture(t) {
-  const root = join(homedir(), `.nna-install-guard-${randomUUID()}`);
+  const root = reserveScratch('nna-install-guard');
   const result = spawnSync(join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe'),
     ['-NoProfile', '-NonInteractive', '-Command', `$ErrorActionPreference='Stop'; $p=[Console]::In.ReadToEnd();
     $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value; $acl=[Security.AccessControl.DirectorySecurity]::new();

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratch, createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
@@ -12,7 +13,7 @@ import { createNndLocalIntegrationActivation } from '../src/nno-integration-acti
 
 // Manifest transactions fail closed in front of unknown parent ACLs, so the
 // fixtures live in the home directory on Windows exactly like the CLI tests.
-const scratch = () => mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-update-actions-'));
+const scratch = () => createScratch('nna-update-actions-');
 
 const identity = { installation_id: 'install_updates', data_id: 'data_updates', install_root: 'C:\\nna' };
 const token = 'update-package-http-token-36-chars-test';

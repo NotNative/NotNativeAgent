@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, open, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
@@ -11,7 +12,7 @@ import { trustWorkspace, workspaceIsTrusted } from '../src/experience/trust.js';
 const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
 
 async function fixture() {
-  const home = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-effective-config-'));
+  const home = createScratchSync('nna-effective-config-');
   const workspace = join(home, 'project'); await mkdir(join(workspace, '.nna'), { recursive: true });
   const paths = userDataPaths({ home, environment: {} }); await ensureUserDataPaths(paths);
   await writeFile(join(paths.config, 'manifest.json'), `${JSON.stringify({ persistence: 'durable', provider })}\n`);

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
@@ -23,7 +24,7 @@ async function fixture(root, version = VERSION) {
 }
 
 test('registration waits for the shared slot mutex and refuses unresolved installation evidence', async t => {
-  const temp = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-registration-mutex-'));
+  const temp = createScratchSync('nna-registration-mutex-');
   t.after(() => rm(temp, { recursive: true, force: true }));
   const root = join(temp, 'package'), config = join(temp, 'config'), paths = { root: temp, config };
   await mkdir(config); await fixture(root);
@@ -47,7 +48,7 @@ test('registration waits for the shared slot mutex and refuses unresolved instal
 });
 
 test('malformed registration remains a failure rather than appearing unregistered', async t => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-registration-invalid-'));
+  const root = createScratchSync('nna-registration-invalid-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'nnd-package.json');
   await writeFile(path, '{"root":');
@@ -56,7 +57,7 @@ test('malformed registration remains a failure rather than appearing unregistere
 });
 
 test('registers only a complete version-matched NND package and reports drift', async (t) => {
-  const temp = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-package-'));
+  const temp = createScratchSync('nna-nnd-package-');
   t.after(() => rm(temp, { recursive: true, force: true }));
   const root = join(temp, 'nnd');
   const config = join(temp, 'config');
@@ -81,7 +82,7 @@ test('registers only a complete version-matched NND package and reports drift', 
 });
 
 test('installed NND serve rejects an unregistered package before engine startup', async (t) => {
-  const temp = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-package-'));
+  const temp = createScratchSync('nna-nnd-package-');
   t.after(() => rm(temp, { recursive: true, force: true }));
   const config = join(temp, 'config'); await mkdir(config);
   await assert.rejects(runNndIntegrationCommand(['serve'], { config }, {
@@ -90,7 +91,7 @@ test('installed NND serve rejects an unregistered package before engine startup'
 });
 
 test('rejects incompatible metadata, missing assets, and escaping symlink', async (t) => {
-  const temp = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-package-'));
+  const temp = createScratchSync('nna-nnd-package-');
   t.after(() => rm(temp, { recursive: true, force: true }));
   const root = join(temp, 'nnd'); await fixture(root);
   await assert.rejects(validateNndPackage('relative'), { code: 'nnd_package_root_invalid' });
@@ -111,7 +112,7 @@ test('rejects incompatible metadata, missing assets, and escaping symlink', asyn
 });
 
 test('registration validates the package after acquiring the shared writer mutex', async t => {
-  const temp=await mkdtemp(join(process.platform==='win32'?homedir():tmpdir(),'nna-registration-recheck-'));
+  const temp=createScratchSync('nna-registration-recheck-');
   t.after(()=>rm(temp,{recursive:true,force:true}));
   const root=join(temp,'package'),config=join(temp,'config');await mkdir(config);await fixture(root);
   let release,entered;const ready=new Promise(resolve=>{entered=resolve;}),gate=new Promise(resolve=>{release=resolve;});
@@ -127,7 +128,7 @@ test('registration validates the package after acquiring the shared writer mutex
   assert.deepEqual(await runNndPackageCommand(['status'],{config}),{registered:false});
 });
 test('registry version arrays remain malformed rather than being coerced into versions', async t => {
-  const config=await mkdtemp(join(process.platform==='win32'?homedir():tmpdir(),'nna-registry-version-'));
+  const config=createScratchSync('nna-registry-version-');
   t.after(()=>rm(config,{recursive:true,force:true}));
   const path=join(config,'nnd-package.json'),bytes=JSON.stringify({root:config,version:[VERSION],protocol:'1.0'});
   await writeFile(path,bytes);
@@ -135,7 +136,7 @@ test('registry version arrays remain malformed rather than being coerced into ve
   assert.equal(await readFile(path,'utf8'),bytes);
 });
 test('package metadata rejects oversized files and invalid UTF-8 without replacement decoding', async t => {
-  const root=await mkdtemp(join(process.platform==='win32'?homedir():tmpdir(),'nna-package-metadata-'));
+  const root=createScratchSync('nna-package-metadata-');
   t.after(()=>rm(root,{recursive:true,force:true}));await fixture(root);
   const path=join(root,'package.json');await writeFile(path,JSON.stringify({nnd_version:VERSION,padding:'x'.repeat(16384)}));
   await assert.rejects(validateNndPackage(root),{code:'nnd_package_manifest_invalid'});

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { SCRATCH_ROOT, createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -18,7 +19,8 @@ function powershell(script, value) {
   return result.stdout.trim();
 }
 async function fixture(t) {
-  const path = join(homedir(), `.nna-private-test-${randomUUID()}`);
+  const parent = createScratchSync('nna-private-test');
+  const path = join(parent, 'private');
   powershell(`
     $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     $acl=[Security.AccessControl.DirectorySecurity]::new()
@@ -26,8 +28,7 @@ async function fixture(t) {
     [void][IO.Directory]::CreateDirectory($request.path,$acl)
   `, { path });
   t.after(async () => {
-    assert.equal(dirname(path), homedir());
-    assert.match(path.slice(homedir().length), /^[\\/]\.nna-private-test-[a-f0-9-]+$/u);
+    assert.ok(path.startsWith(SCRATCH_ROOT), 'private-storage fixture must live in the single scratch root');
     await rm(path, { recursive: true, force: true });
   });
   return path;

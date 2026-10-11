@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -9,7 +10,7 @@ import { createNndConfigurationService } from '../src/nnd-configuration-service.
 import { startIntegrationServer } from '../src/integration-server.js';
 
 test('native configuration remains authenticated and reachable while setup is required', async (t) => {
-  const root = await mkdtemp(join(homedir(), '.nna-config-http-'));
+  const root = createScratchSync('.nna-config-http-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const paths = { config: join(root, 'config') };
   await mkdir(paths.config);
@@ -60,7 +61,7 @@ test('native configuration remains authenticated and reachable while setup is re
 });
 
 test('configuration preview errors never expose private raw keys over HTTP', async t => {
-  const root = await mkdtemp(join(homedir(), '.nna-config-error-http-'));
+  const root = createScratchSync('.nna-config-error-http-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const paths = { config: join(root, 'config') }; await mkdir(paths.config);
   await writeFile(join(paths.config, 'manifest.json'), JSON.stringify({ workspace_root: root,

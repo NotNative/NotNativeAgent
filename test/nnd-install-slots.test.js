@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
+import { SCRATCH_ROOT, createScratchSync } from './scratch.js';
 import { once } from 'node:events';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,7 +19,7 @@ const hash=value=>createHash('sha256').update(value).digest('hex');
 const host={platform:'win32',architecture:'x64',node_major:24,capabilities:['service_supervision','setup_control_plane'],data_schemas:{nnd_catalog:1,nnd_state:1}};
 async function put(root,path,value) {await mkdir(dirname(join(root,path)),{recursive:true});await writeFile(join(root,path),value);}
 async function fixture(t) {
- const root=join(homedir(),'.ns-'+randomUUID().replaceAll('-','').slice(0,24));await mkdir(root);t.after(()=>rm(root,{recursive:true,force:true}));
+ const root=createScratchSync('ns');
  const data=join(root,'data'),install=join(root,'native'),source=join(root,'payload');
  await mkdir(join(data,'config'),{recursive:true});await mkdir(install);await mkdir(source);
  const identity={install_root:await realpath(install),data_root:await realpath(data),node:process.execPath,

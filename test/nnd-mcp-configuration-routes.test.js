@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -67,7 +68,7 @@ test('uncertain native MCP publication is a service error requiring original ope
 });
 
 test('real native MCP HTTP preview/save preserves private fields and reports unapplied receipt', async t => {
-  const root = await mkdtemp(join(homedir(), '.nna-mcp-http-'));
+  const root = createScratchSync('.nna-mcp-http-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const paths = { config: join(root, 'config') }; await mkdir(paths.config);
   const path = join(paths.config, 'manifest.json');

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -68,7 +69,7 @@ test('admission routes authorize first, keep the grammar exact, and separate rec
 });
 
 test('the admission family serves end-to-end over the integration server', async t => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), '.nna-admissions-http-'));
+  const root = createScratchSync('.nna-admissions-http-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const config = join(root, 'config'), primary = join(root, 'primary'), alpha = join(root, 'alpha');
   await Promise.all([mkdir(config), mkdir(primary), mkdir(alpha)]);

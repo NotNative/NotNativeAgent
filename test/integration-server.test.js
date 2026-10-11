@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -18,7 +19,7 @@ import { createCapabilityAuthority } from '../src/integration-capability.js';
 const TOKEN = 'ephemeral-integration-token-with-at-least-32-characters';
 
 test('integration service authenticates exact principals and manages provider profiles', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
+  const root = createScratchSync('nna-integration-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -127,7 +128,7 @@ test('integration service authenticates exact principals and manages provider pr
 });
 
 test('provider reads remain available through a store without route mutation support', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-legacy-store-'));
+  const root = createScratchSync('nna-provider-legacy-store-');
   const providerStore = {
     inventory: async () => ({ profiles: [], configured_primary_route: { providerID: 'one', modelID: 'one' } }),
     get: async () => null, create: async () => null, update: async () => null,
@@ -148,7 +149,7 @@ test('provider reads remain available through a store without route mutation sup
 });
 
 test('route activation is separately authorized and old sessions keep their model selection', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-activate-'));
+  const root = createScratchSync('nna-provider-activate-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -188,7 +189,7 @@ test('route activation is separately authorized and old sessions keep their mode
 });
 
 test('integration principal rejects stale and role-only authority', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
+  const root = createScratchSync('nna-integration-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -207,7 +208,7 @@ test('integration principal rejects stale and role-only authority', async () => 
 });
 
 test('provider inventory separates configured primary from the running NND route', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-provider-route-drift-'));
+  const root = createScratchSync('nna-provider-route-drift-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   const document = manifest(root);
@@ -237,7 +238,7 @@ test('provider inventory separates configured primary from the running NND route
 });
 
 test('NND capability projection fails closed without a steering grant', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-integration-'));
+  const root = createScratchSync('nna-nnd-integration-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -273,7 +274,7 @@ test('NND capability projection fails closed without a steering grant', async ()
 });
 
 test('NND MCP inventory projects configured state without destinations or credentials', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-mcp-'));
+  const root = createScratchSync('nna-nnd-mcp-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   const input = { ...manifest(root), mcp_servers: [{
@@ -302,7 +303,7 @@ test('NND MCP inventory projects configured state without destinations or creden
 });
 
 test('NND skills inventory is read-only and omits source paths and bodies', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-skills-'));
+  const root = createScratchSync('nna-nnd-skills-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -324,7 +325,7 @@ test('NND skills inventory is read-only and omits source paths and bodies', asyn
 });
 
 test('NND agent inventory exposes built-in roles and the running delegation route without grants', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-agents-'));
+  const root = createScratchSync('nna-nnd-agents-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -348,7 +349,7 @@ test('NND agent inventory exposes built-in roles and the running delegation rout
 });
 
 test('subagent route edits are authorized, durable, and separate from running delegation', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-subagent-route-'));
+  const root = createScratchSync('nna-subagent-route-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -388,7 +389,7 @@ test('subagent route edits are authorized, durable, and separate from running de
 });
 
 test('NND goals persist with id-guarded writes and never grant arbitrary metadata updates', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-goal-'));
+  const root = createScratchSync('nna-nnd-goal-');
   const catalogPath = join(root, 'catalog.json');
   const makeHost = () => new NndEngineHost({ catalogPath, createEngine: async () => ({
     config: { workspaceRoot: root, routes: { primary: { providerId: 'one', model: 'one' } } },
@@ -489,7 +490,7 @@ test('NND goal revision remains unchanged when catalog persistence fails', async
 });
 
 test('NND harness session routes bind creation to the complete principal workspace grant', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-harness-'));
+  const root = createScratchSync('nna-nnd-harness-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -710,7 +711,7 @@ test('NND harness session routes bind creation to the complete principal workspa
 });
 
 test('NND goal audit endpoint requires goal-management permission and forwards a scoped request', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-audit-route-'));
+  const root = createScratchSync('nna-nnd-audit-route-');
   const calls = [];
   const host = { async auditGoal(sessionId, actor, body) {
     calls.push({ sessionId, actor, body });
@@ -741,7 +742,7 @@ test('NND goal audit endpoint requires goal-management permission and forwards a
 });
 
 test('NND walkthrough endpoint requires its own generation permission and forwards a scoped digest', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-walkthrough-route-'));
+  const root = createScratchSync('nna-nnd-walkthrough-route-');
   const calls = [];
   const host = { async generateWalkthrough(sessionId, actor, body) {
     calls.push({ sessionId, actor, body });
@@ -770,7 +771,7 @@ test('NND walkthrough endpoint requires its own generation permission and forwar
 });
 
 test('notification text requires its dedicated grant and forwards authenticated session scope', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-notification-route-')); const calls = [];
+  const root = createScratchSync('nna-nnd-notification-route-'); const calls = [];
   const host = { async generateNotification(sessionId, actor, body) { calls.push({ sessionId, actor, body }); return { text: '{"title":"T","body":"B"}' }; } };
   const service = await startIntegrationServer({ activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host, port: 0 });
   const base = `http://127.0.0.1:${service.address.port}`; const path = '/v1/nnd/sessions/session_test/notification-text';
@@ -787,7 +788,7 @@ test('notification text requires its dedicated grant and forwards authenticated 
 });
 
 test('assist generation requires its dedicated grant and forwards authenticated session scope', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-assist-route-')); const calls = [];
+  const root = createScratchSync('nna-nnd-assist-route-'); const calls = [];
   const host = { async generateAssist(sessionId, actor, body) { calls.push({ sessionId, actor, body }); return { text: 'ok', providerID: 'local', modelID: 'small' }; } };
   const service = await startIntegrationServer({ activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host, port: 0 });
   const base = `http://127.0.0.1:${service.address.port}`; const path = '/v1/nnd/sessions/session_test/assist';
@@ -806,7 +807,7 @@ test('assist generation requires its dedicated grant and forwards authenticated 
 });
 
 test('capability renewal endpoint renews within grace and fails closed', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
+  const root = createScratchSync('nna-integration-');
   let tick = 1_000_000;
   const authority = createCapabilityAuthority({
     generation: 'gen_supervised',
@@ -855,7 +856,7 @@ test('capability renewal endpoint renews within grace and fails closed', async (
 });
 
 test('the secret delete route honors the derived-reference delete guard', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
+  const root = createScratchSync('nna-integration-');
   const manager = principal(['secret.read', 'secret.manage']);
   let config = { providerProfiles: {}, mcpServers: [] };
   const broker = new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') });
@@ -884,7 +885,7 @@ test('the secret delete route honors the derived-reference delete guard', async 
 });
 
 test('native fork seeds a new session from the parent journal prefix', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-fork-'));
+  const root = createScratchSync('nna-nnd-fork-');
   const catalogPath = join(root, 'catalog.json');
   const ingests = [];
   const makeEngine = () => ({
@@ -932,7 +933,7 @@ test('native fork seeds a new session from the parent journal prefix', async () 
 });
 
 test('per-session model routes ride session creation and fork (F9 step 1)', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-route-'));
+  const root = createScratchSync('nna-nnd-route-');
   const catalogPath = join(root, 'catalog.json');
   const engineOptions = [];
   const makeEngine = () => ({
@@ -974,7 +975,7 @@ test('per-session model routes ride session creation and fork (F9 step 1)', asyn
 });
 
 test('native revert and unrevert ride the harness routes with journal-backed replay', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-nnd-revert-'));
+  const root = createScratchSync('nna-nnd-revert-');
   const catalogPath = join(root, 'catalog.json');
   const engines = [];
   const makeEngine = () => {
@@ -1036,7 +1037,7 @@ test('native revert and unrevert ride the harness routes with journal-backed rep
 });
 
 test('the renewal endpoint is absent without a configured authority', async () => {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-integration-'));
+  const root = createScratchSync('nna-integration-');
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test', port: 0,
   });

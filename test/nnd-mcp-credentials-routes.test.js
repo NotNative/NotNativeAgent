@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -16,7 +17,7 @@ const token = 'mcp-credentials-http-test-token-38-chars';
 const SECRET = 's'.repeat(21);
 
 async function fixture(t, init) {
-  const root = await mkdtemp(join(homedir(), '.nna-mcp-tx-'));
+  const root = createScratchSync('.nna-mcp-tx-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const paths = { mcpCredentials: join(root, 'config', 'mcp-credentials.json') };
   if (init) await writeFile(paths.mcpCredentials, JSON.stringify(init));
@@ -102,7 +103,7 @@ test('upsert idempotence and honest deletes: same server id keeps one reference,
 function body(value) { return JSON.stringify(value); }
 
 async function httpFixture(t) {
-  const root = await mkdtemp(join(homedir(), '.nna-mcp-http-'));
+  const root = createScratchSync('.nna-mcp-http-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const paths = { mcpCredentials: join(root, 'config', 'mcp-credentials.json') };
   const principalBox = { value: principal };

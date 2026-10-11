@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -12,7 +13,7 @@ import { initializeInstallTransaction, resumeInstallInitialization } from '../sr
 
 const windows={skip:process.platform!=='win32',timeout:30000};
 test('read-only install store opening never creates missing private directories or a binding',windows,async t=>{
- const root=await mkdtemp(join(homedir(),'.ni-read-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const root=createScratchSync('.ni-read-');t.after(()=>rm(root,{recursive:true,force:true}));
  const data=join(root,'data'),native=join(root,'native');await mkdir(data);await mkdir(native);
  const identity={data_root:await realpath(data),install_root:await realpath(native)};
  identity.data_id='data_'+hash(identity.data_root.toLowerCase());
@@ -25,7 +26,7 @@ test('read-only install store opening never creates missing private directories 
  assert.equal((await openInstallStore(identity,signal,{readOnly:true})).root,store.root);
 });
 async function fixture(t,{registration=true}={}) {
- const root=await mkdtemp(join(homedir(),'.ni-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const root=createScratchSync('.ni-');t.after(()=>rm(root,{recursive:true,force:true}));
  const data=join(root,'data'),native=join(root,'native');await mkdir(join(data,'config'),{recursive:true});await mkdir(native);
  const identity={data_root:await realpath(data),install_root:await realpath(native)};
  identity.data_id='data_'+hash(identity.data_root.toLowerCase());identity.installation_id='nna_'+hash(identity.install_root.toLowerCase());

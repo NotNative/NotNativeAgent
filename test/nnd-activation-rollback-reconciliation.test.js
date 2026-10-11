@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -138,7 +139,7 @@ test('foreign marker, child, journal, pointer, receipt, and current bytes fail c
 
 for (const absent of [false,true]) test(`process death after raw rollback CAS observes ${absent ? 'absence' : 'exact malformed prior'} without writing`,
   { skip: process.platform !== 'win32', timeout: 30000 }, async t => {
-    const root=await mkdtemp(join(homedir(),'nna-rollback-observer-'));
+    const root=createScratchSync('nna-rollback-observer-');
     t.after(() => rm(root,{recursive:true,force:true}));
     await mkdir(join(root,'config'));
     const f=await fixture({root,absent});

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
@@ -10,7 +11,7 @@ import { validateNndPackage, runNndPackageCommand } from '../src/nnd-package.js'
 const HOST = { platform: 'win32', architecture: 'x64', node_major: 24,
   capabilities: ['service_supervision', 'setup_control_plane'], data_schemas: { nnd_catalog: 1, nnd_state: 1 } };
 async function fixture(t) {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-service-package-'));
+  const root = createScratchSync('nna-service-package-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const manifest = { id: 'nnd-local', ownership: 'nnd', scope: 'local-gui',
     nna_integration_protocol: '1.0', version: '20261001-42', service_activation: {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync, reserveScratch } from './scratch.js';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
@@ -14,7 +15,7 @@ import { scanNndLegacyOwners } from '../src/nnd-legacy-census.js';
 
 const windows = { skip: process.platform !== 'win32', timeout: 20000 };
 async function fixture(t) {
-  const root = join(homedir(), `.nna adoption ${randomUUID()}`);
+  const root = reserveScratch('nna adoption');
   const result = spawnSync(join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe'),
     ['-NoProfile', '-NonInteractive', '-Command', `$ErrorActionPreference='Stop'; $p=[Console]::In.ReadToEnd();
     $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value; $acl=[Security.AccessControl.DirectorySecurity]::new();

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -15,7 +16,7 @@ const selected = { installation_id: 'install_test', data_id: 'data_test', scope:
 const token = 'websearch-http-test-token-33-characters-longX';
 
 async function fixture(t) {
-  const root = await mkdtemp(join(homedir(), '.nna-websearch-http-'));
+  const root = createScratchSync('.nna-websearch-http-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const config = join(root, 'config');
   await mkdir(config);
@@ -125,7 +126,7 @@ test('web-search HTTP refuses foreign identity, malformed ops, query, and wrong 
 });
 
 test('web-search HTTP projects an absent file as sticky defaults and bootstraps through save', async t => {
-  const root = await mkdtemp(join(homedir(), '.nna-websearch-http-absent-'));
+  const root = createScratchSync('.nna-websearch-http-absent-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'web-search.json');
   const server = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,

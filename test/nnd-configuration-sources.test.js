@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, open, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
@@ -16,7 +17,7 @@ import { ProviderProfileStore } from '../src/provider/profile-store.js';
 const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 async function fixture(t) {
-  const root = await mkdtemp(join(process.platform === 'win32' ? homedir() : tmpdir(), 'nna-native-config-sources-'));
+  const root = createScratchSync('nna-native-config-sources-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const workspace = join(root, 'workspace');
   const paths = { root, config: join(root, 'config'), trustedWorkspaces: join(root, 'trust.json'),

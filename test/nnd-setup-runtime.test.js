@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { test } from 'node:test';
+import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -10,7 +11,7 @@ import { createIntegrationLifecycle, createIntegrationNndEngineHost, runNndInteg
 import { NndEngineHost } from '../src/nnd-engine-host.js';
 
 async function fixture(t) {
-  const root = await mkdtemp(join(homedir(), '.nna-setup-'));
+  const root = createScratchSync('.nna-setup-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const paths = { root, config: join(root, 'config'), sessions: join(root, 'sessions'),
     reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'),
