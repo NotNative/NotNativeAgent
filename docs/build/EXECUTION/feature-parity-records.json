@@ -442,15 +442,88 @@
       "id": "W-21",
       "work_packages": "F2, F5, C",
       "disposition": "MVP usage/quota/limits with native source and truthful missing-data state.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-21.context-usage",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (contextUsage, nnaContextUsage, resolveContextLimit, sessionCostRollup)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts (percent math, missing-data null, native estimate labeling)"
+          ]
+        },
+        {
+          "id": "W-21.quota-missing-state",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (usageRows §G data rule: presence-collapsed, no borrowed numbers)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts (No rate limits reported row)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (contextUsage, nnaContextUsage, resolveContextLimit, sessionCostRollup)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts (percent math, missing-data null, native estimate labeling)",
+        "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (usageRows §G data rule: presence-collapsed, no borrowed numbers)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts (No rate limits reported row)"
+      ]
     },
     {
       "id": "W-22",
       "work_packages": "F3, F8, F10",
       "disposition": "MVP palette/history/snippets/prompts/starters.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-22.snippets",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/snippets.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-snippets.test.tsx (5 tests)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/settings-snippets-page.test.tsx (10 tests)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-4e-snippet-routes.test.ts (21 tests)"
+          ]
+        },
+        {
+          "id": "W-22.magic-prompts",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/magic-prompts/prompt-store.ts",
+            "../NotNativeDesktop/packages/web/src/server/routes/magic-prompts.ts",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-5d-magic-prompt-routes.test.ts"
+          ]
+        },
+        {
+          "id": "W-22.starters",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/starters.ts (global+project groups, insert rules)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3b-catalog.test.ts"
+          ]
+        },
+        {
+          "id": "W-22.history",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx (prompt history navigation + search, W-23)",
+            "../NotNativeDesktop/packages/ui/src/chat/command-palette.tsx (mod+p palette, W-05)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/timeline-search.test.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/command-palette.test.tsx"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/snippets.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-snippets.test.tsx (5 tests)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/settings-snippets-page.test.tsx (10 tests)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-4e-snippet-routes.test.ts (21 tests)",
+        "../NotNativeDesktop/packages/web/src/server/magic-prompts/prompt-store.ts",
+        "../NotNativeDesktop/packages/web/src/server/routes/magic-prompts.ts",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-5d-magic-prompt-routes.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/starters.ts (global+project groups, insert rules)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3b-catalog.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx (prompt history navigation + search, W-23)"
+      ]
     },
     {
       "id": "W-23",

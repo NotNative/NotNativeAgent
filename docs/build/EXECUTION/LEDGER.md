@@ -18,6 +18,34 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Usage/quota/limits disposition (W-21, implemented-unverified)
+
+W-21's two legs exist with focused coverage — the record was stale. Context
+usage: the work-status panel derives context burn from the latest REPORTING
+assistant message against the resolved model context limit, carries NNA's
+numeric context projection explicitly labeled as an estimate (never provider
+billed), and resolves the limit from the provider catalog — missing values
+hide the metric instead of guessing (pinned by p3c-work-status tests for the
+percent math, the missing-data null, and the estimate labeling). Quota/rate
+limits: §G's data rule is implemented truthfully — the engine exposes no
+quota provider registry, so the section is presence-collapsed and the row
+renders "No rate limits reported" without ever borrowing another provider's
+number (pinned by test). Cost rollup across the session subtree is tested.
+Both subfeatures are implemented-unverified pending the installed V-gates.
+
+## 2026-10-11 Palette/history/snippets/prompts/starters disposition (W-22, implemented-unverified)
+
+W-22's contracted surfaces all exist with focused coverage — the record was
+stale, not the code. Snippets: settings page + composer insertion + local
+store + NND routes (composer 5 tests, settings page 10, snippet routes 21).
+Magic prompts: server prompt-store + routes (p9-5d route tests). Draft
+starters: global/project groups with command/skill insert rules and the
+catalog test. Prompt history: the timeline dialog's search + prompt
+navigation riding the `#message-<id>` deep-link contract (W-23) plus the
+mod+p command palette (W-05). Spot-verified test counts before disposing;
+all four subfeatures are implemented-unverified pending the installed
+V-gates.
+
 ## 2026-10-11 Bootstrap/enrichment/continuity/resume binding (W-30, implemented-unverified)
 
 The missing end-to-end coverage now exists — and writing it found a real bug.
