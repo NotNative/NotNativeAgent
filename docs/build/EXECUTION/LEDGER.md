@@ -18,6 +18,27 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 F5 step 1: the native assist-generation seam exists in NNA (implemented-unverified)
+
+The named NNA deliverable from the sharpened F5 row now has step 1: NNA
+`20261011-7` adds `src/nnd-assist.js` and `src/nnd-assist-routes.js` -
+`POST /v1/nnd/sessions/:id/assist` requires the new `nnd.session.assist`
+grant, validates a bounded visible prompt (1..8192 chars, no control
+characters, optional 256..2048 `max_output_tokens`), refuses while the
+session is busy or an assist is already generating, and executes the
+completion through the engine's router and scheduler with tools disabled
+(`nnd_assist_tool_violation`), a 45-second deadline, and a 64 KiB output
+bound. The desktop never sees credential material; the response carries
+only text plus the resolved provider and model IDs. Coverage: unit suite
+for the seam (route selection, validation-before-call, tool refusal with
+scheduler release, busy/double-generation/race, timeout mapping) and an
+integration route test (403 without the grant, 405 wrong method, scope
+forwarding, 503/409 status mapping) - 29/29 across the touched suites.
+Label: implemented-unverified. Still owed for F5 closure: the NND-side
+rewire of the small-model and walkthrough-generate callers onto this seam
+and deletion of the legacy `provider-ports` module, then the installed
+assist journey observation.
+
 ## 2026-10-11 F1 recheck: workspace binding is enforced per session (recheck evidence)
 
 The F1 confirmed-gap row claimed session creation selected one workspace
