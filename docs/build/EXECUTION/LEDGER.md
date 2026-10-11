@@ -18,6 +18,22 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 Install/service/update/schedule tooling + data ownership (W-42, W-43, implemented-unverified)
+
+W-42: the install/service/update/diagnostic and schedule tooling legs are
+all real — the dumb-copy installer suite (structure, transaction, removal,
+prebuilt uninstall — the locked 20261011-7 shape), the persistent installed
+service package and serve-installed contract, the desktop updater with NNA
+compatibility checks (10 + 4 tests), host-probe diagnostics, and the
+scheduled-tasks tooling across the p9-3a..d storage/runtime/pipeline/loops/
+routes suites with the scheduled-tasks routes. Tunnel commands stay excluded
+from the MVP contract. W-43: data ownership and migrations — plan/context
+stores own their data with legacy-plan migration and durable legacy-context
+tests, writes carry mode 0o600 with exclusive creation flags, and the
+invariants sweep mechanically enforces the 0o600 rule (§12.2(b)); readers
+are strict, per the sweep's structural rules. All implemented-unverified
+pending the installed V-gates.
+
 ## 2026-10-11 Service contract / route inventory / native seam / port audit (W-38..W-41, implemented-unverified)
 
 Four adjacent batches mapped and disposed with verified evidence paths.

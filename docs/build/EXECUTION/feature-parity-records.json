@@ -1186,15 +1186,53 @@
       "id": "W-42",
       "work_packages": "L, F9",
       "disposition": "MVP install/service/update/diagnostic and schedule tooling; tunnel commands excluded.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-42.install-service-update-diag-schedule",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/scripts/installer-structure.test.mjs + installer-transaction.test.mjs + installer-removal.test.mjs + installer-prebuilt-uninstall.test.mjs (dumb-copy installers, 20261011-7 shape)",
+            "../NotNativeDesktop/scripts/installed-service-package.test.mjs + serve-installed.test.mjs (persistent service)",
+            "../NotNativeDesktop/packages/electron/desktop-updater.test.mjs (10 tests) + updater-policy.test.mjs (NNA compatibility checks)",
+            "../NotNativeDesktop/packages/electron/host-probe.test.mjs (diagnostics)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-3a-scheduled-storage.test.ts .. p9-3d-scheduled-routes.test.ts (schedule tooling)",
+            "../NotNativeDesktop/packages/web/src/server/routes/scheduled-tasks.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/scripts/installer-structure.test.mjs + installer-transaction.test.mjs + installer-removal.test.mjs + installer-prebuilt-uninstall.test.mjs (dumb-copy installers, 20261011-7 shape)",
+        "../NotNativeDesktop/scripts/installed-service-package.test.mjs + serve-installed.test.mjs (persistent service)",
+        "../NotNativeDesktop/packages/electron/desktop-updater.test.mjs (10 tests) + updater-policy.test.mjs (NNA compatibility checks)",
+        "../NotNativeDesktop/packages/electron/host-probe.test.mjs (diagnostics)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-3a-scheduled-storage.test.ts .. p9-3d-scheduled-routes.test.ts (schedule tooling)",
+        "../NotNativeDesktop/packages/web/src/server/routes/scheduled-tasks.ts"
+      ]
     },
     {
       "id": "W-43",
       "work_packages": "L, C, F8, F9",
       "disposition": "MVP data ownership, migrations and strict readers.",
-      "status": "pending",
-      "subfeatures": []
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-43.ownership-migrations-strict",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/project-context/legacy-plan-migration.ts + p10-legacy-plan-migration.test.ts + p10-durable-legacy-context.test.ts (migrations)",
+            "../NotNativeDesktop/packages/web/src/server/project-context/plan-store.ts (0o600 exclusive writes; strict reads)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p10-context-store.test.ts (context store ownership)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (0o600 secret-mode sweep, §12.2(b))"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/project-context/legacy-plan-migration.ts + p10-legacy-plan-migration.test.ts + p10-durable-legacy-context.test.ts (migrations)",
+        "../NotNativeDesktop/packages/web/src/server/project-context/plan-store.ts (0o600 exclusive writes; strict reads)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p10-context-store.test.ts (context store ownership)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (0o600 secret-mode sweep, §12.2(b))"
+      ]
     },
     {
       "id": "W-44",
