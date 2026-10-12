@@ -21,7 +21,9 @@ describe('same-origin preview proxy', () => {
     const app = appWith([5173], () => htmlResponse('<p>hello</p>'));
     const ok = await app.request('http://nnd.local/api/preview-proxy/5173/index.html');
     expect(ok.status).toBe(200);
-    expect(await ok.text()).toBe('<p>hello</p>');
+    const body = await ok.text();
+    expect(body.startsWith('<p>hello</p>')).toBe(true);
+    expect(body).toContain('__nndBrowserBridgePerform');
     const refused = await app.request('http://nnd.local/api/preview-proxy/9999/index.html');
     expect(refused.status).toBe(403);
   });

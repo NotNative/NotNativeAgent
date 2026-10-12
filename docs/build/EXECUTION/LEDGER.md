@@ -18,6 +18,13 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-12 (20261011-93/94) F7 bridge hardening + attach-mode browser callback blocker
+
+
+- Browser-only executor reworked to the honest architecture: the preview proxy now injects a postMessage bridge into proxied HTML and the tab executor drives it from the app tab (iframe sandbox allow-scripts/allow-forms, no same-origin privilege for untrusted pages); browser-only raster capture is an explicit refusal (NNA capture contract requires a real JPEG a tab cannot produce). Web suite 1503 green; UI suite 2051 green; quality gates 911 files green; sealed as 20261011-93.
+
+- NEW scripts/installed-browser-only-journey.mjs drives the full nnd_browser chain (open/snapshot/inspect/click/type/capture) against a fixture dev-server page with the desktop surface never launched. BLOCKED at the tool install, not the capability: in attach mode the NNA integration host never installs nnd_browser (catalog lacks it; model tool_call discarded as empty completion; evidence in DEFERRED-VERIFICATION F7 row). NNA-side contract change owed (runtime browser-callback registration or supervisor re-exec with callback env). Journey parked as implemented-unverified; NND-side capability verified by focused tests only.
+
 ## 2026-10-11 (20261011-92) V2 lifetime journey executed; F7 scoped capability built
 
 - New `scripts/installed-v2-lifetime-journey.mjs` (guide 05:39-59), passed

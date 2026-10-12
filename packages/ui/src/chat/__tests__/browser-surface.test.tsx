@@ -797,7 +797,7 @@ describe('BrowserSurface', () => {
     const candidate = [...view.querySelectorAll('button')].find((button) => button.textContent?.includes('localhost:5173'))!;
     act(() => candidate.click());
     await flush();
-    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/');
+    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('/api/preview-proxy/5173');
   });
 
   it('distinguishes discovery failure from an empty list', async () => {
@@ -848,7 +848,7 @@ describe('BrowserSurface', () => {
     enter('localhost:5173');
     await flush();
     const frame = view.querySelector('iframe')!;
-    expect(frame.getAttribute('src')).toBe('http://localhost:5173/');
+    expect(frame.getAttribute('src')).toBe('/api/preview-proxy/5173');
     expect(frame.getAttribute('sandbox')).toBe('allow-scripts allow-forms');
     expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer');
     expect(view.querySelector('a')?.getAttribute('href')).toBe('http://localhost:5173/');
@@ -861,19 +861,19 @@ describe('BrowserSurface', () => {
     await flush();
     enter('localhost:5173/two');
     await flush();
-    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/two');
+    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('/api/preview-proxy/5173/two');
     act(() => (view.querySelector('[aria-label="Preview back"]') as HTMLButtonElement).click());
     await flush();
-    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/one');
+    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('/api/preview-proxy/5173/one');
     act(() => (view.querySelector('[aria-label="Preview forward"]') as HTMLButtonElement).click());
     await flush();
-    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/two');
+    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('/api/preview-proxy/5173/two');
     const frame = view.querySelector('iframe');
     act(() => (view.querySelector('[aria-label="Reload preview"]') as HTMLButtonElement).click());
     await flush();
     expect(view.querySelector('iframe')).not.toBe(frame);
     enter('javascript:alert(1)');
-    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/two');
+    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('/api/preview-proxy/5173/two');
     expect(view.querySelector('[role="alert"]')).not.toBeNull();
   });
 
@@ -922,9 +922,9 @@ describe('BrowserSurface', () => {
     enter('localhost:5173/one');
     enter('localhost:5173/two');
     await flush();
-    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/two');
+    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('/api/preview-proxy/5173/two');
     await act(async () => resolveFirst({ ok: true, json: async () => ({ ok: true, status: 200 }) }));
-    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/two');
+    expect(view.querySelector('iframe')?.getAttribute('src')).toBe('/api/preview-proxy/5173/two');
   });
 
   it('waits through a gateway 5xx until it answers successfully', async () => {
@@ -954,7 +954,7 @@ describe('BrowserSurface', () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(19_999); });
       expect(view.querySelector('iframe')).toBeNull();
       await act(async () => { await vi.advanceTimersByTimeAsync(1); });
-      expect(view.querySelector('iframe')?.getAttribute('src')).toBe('http://localhost:5173/');
+      expect(view.querySelector('iframe')?.getAttribute('src')).toBe('/api/preview-proxy/5173');
       expect(probe).toHaveBeenCalledTimes(11);
     } finally { vi.useRealTimers(); }
   });

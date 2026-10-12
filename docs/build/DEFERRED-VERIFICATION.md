@@ -189,6 +189,35 @@ NNA `20261011-10`, disposable fixtures only):
       false`) so a raster screenshot is never faked; unproxied/cross-origin
       pages are refused. Focused tests pass; the installed browser-only
       journey that closes this row is still owed.
+      — BRIDGE HARDENED (20261011-93): the executor moved inside the proxied
+      page (postMessage bridge injected by the preview proxy; iframe sandbox
+      `allow-scripts allow-forms` without same-origin, so an untrusted page
+      gains no parent authority) and browser-only raster capture is now an
+      explicit honest refusal (the NNA capture contract requires a real JPEG
+      a browser tab cannot produce).
+      — ATTACH-MODE BLOCKER FOUND (20261011-93, journey installed-browser-
+      only-journey.mjs run 6a2b9ce4/849ed7e6 evidence): in the installed
+      attach pairing the NNA integration host never installs `nnd_browser` —
+      the tool catalog sent to the model is `tool_search,fs_list,fs_read,
+      fs_search_text,shell_run,work_plan,work_status,work_task_update,
+      turn_finish,question,git_inspect` (provider-side request log) and the
+      model's `nnd_browser` tool_call is discarded as an empty completion
+      (events.db `provider_attempt` outcome `empty`, then `provider.health`
+      `provider_rejected` loop; turn recovers, never summarizes). Root
+      cause: the NNA integration host receives `nndBrowserCallback` only via
+      `NNA_NND_BROWSER_URL/TOKEN` at `nnd serve` child spawn
+      (`integration-cli.js`), but the installed service attaches to an
+      already-running NNA integration service (NOTNATIVE_NNA_MODE=attach),
+      which is started before NND's UI port exists and has no registration
+      path for a runtime browser callback. `scripts/serve-supervised.mjs`
+      no longer forces `NOTNATIVE_BROWSER_BRIDGE=disabled` (correct and
+      harmless), but closing this row needs the NNA-side contract: either
+      the supervised bootstrap/handshake carries the NND browser-control
+      URL+token and the integration host accepts a runtime
+      `setNndBrowserCallback` (engine sessions created afterwards install
+      the tool), or the NNA supervisor re-execs its integration child with
+      the callback env after NND publishes its UI origin. NNA change
+      required; do not fake around it.
 - [ ] F10 notification delivery across both doors (browser push + desktop
       click/deep-link routing, dedup/read-state coherence, no private
       content in OS notifications) — `lib/browser-push.ts` and the

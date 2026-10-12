@@ -53,8 +53,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const [index, setIndex] = useState(-1);
   const historyRef = useRef(history);
   const indexRef = useRef(index);
-  const guestRef = useRef<HTMLElement | null>(null);
-  const tabFrameRef = useRef<HTMLIFrameElement | null>(null);
+  const guestRef = useRef<HTMLElement | null>(null), tabFrameRef = useRef<HTMLIFrameElement | null>(null);
   const [annotationShieldTarget, setAnnotationShieldTarget] = useState<HTMLDivElement | null>(null);
   const [guestStart, setGuestStart] = useState<string | null>(null);
   const [guestStatus, setGuestStatus] = useState<GuestStatus | null>(null);
@@ -111,14 +110,15 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
 
   // F7 scoped capability: a plain browser tab is itself the executor for same-origin proxied previews; no Electron.
   useEffect(() => {
-    if (desktop || !visible) return;
+    if (desktop) return;
     const handle = connectBrowserTabExecutor(window.location.origin, {
       getFrame: () => tabFrameRef.current,
+      currentUrl: () => historyRef.current[indexRef.current],
       onOpen: (url) => { if (normalizePreviewUrl(url, window.location.origin)) open(url); },
     });
     return () => handle.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [desktop, visible]);
+  }, [desktop]);
 
   useEffect(() => {
     // Hiding destroys the guest. Preserve its latest top-level URL so a later
@@ -484,7 +484,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
       ? <div className="relative min-h-0 flex-1" ref={setAnnotationShieldTarget}>
         <webview key={`${guestStart}|${reload}`} ref={(node) => { guestRef.current = node; }} title="Isolated desktop browser preview" src={guestStart ?? active} partition="nnd-preview" className="h-full w-full border-0 bg-white" />
       </div>
-      : <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={previewProxyUrl(active) ?? active} sandbox="allow-scripts allow-forms allow-same-origin" referrerPolicy="no-referrer" ref={(node) => { tabFrameRef.current = node; }} className="min-h-0 w-full flex-1 border-0 bg-white" /> : !active ?
+      : <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={previewProxyUrl(active) ?? active} sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer" ref={(node) => { tabFrameRef.current = node; }} className="min-h-0 w-full flex-1 border-0 bg-white" /> : !active ?
       <div className="p-3 text-[11px] text-neutral-500">
         <p>{desktop ? 'Enter a local dev-server or HTTPS site to open in an isolated desktop browser. Governed agent inspection and viewport capture require an open page; annotation remains pending.' : 'Enter a local dev-server or website address to preview it. Loopback dev servers load through the same-origin preview proxy, so governed inspection and DOM capture work here without Electron. Other sites that prohibit embedding may not display.'}</p>
         <div className="mt-3 flex items-center gap-2"><span className="text-neutral-300">Listening dev servers</span>

@@ -1054,7 +1054,7 @@ describe('OperatorRail', () => {
     expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).toContain('Applied patch');
     expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).not.toContain('Other session');
     act(() => (document.querySelector('button[aria-label="Browser"]') as HTMLButtonElement).click());
-    expect(document.querySelector('[data-testid="operator-browser"]')!.textContent).toContain('isolated web preview');
+    expect(document.querySelector('[data-testid="operator-browser"]')!.textContent).toContain('same-origin preview proxy');
     expect(document.querySelector('[data-testid="operator-browser"] iframe')).toBeNull();
   });
 

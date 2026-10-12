@@ -2008,6 +2008,10 @@
     {
       "version": "20261011-93",
       "content_sha256": "7df5d08e73011b6f6d7242e2ae9f7b93df8c45dd2eb3ac2cc18d16ca2a5ec295"
+    },
+    {
+      "version": "20261011-94",
+      "content_sha256": "ef16f899875011e8b721d37d9470375b48084b5b23d6bc87899ac8cf36005f97"
     }
   ]
 }

@@ -18,8 +18,9 @@ function configureEnvironment(bootstrap, installed) {
   Object.assign(process.env, { NOTNATIVE_HOST: ui.hostname.replace(/^\[|\]$/gu, ''),
     NOTNATIVE_PORT: ui.port || '80', NOTNATIVE_DATA_DIR: bootstrap.nnd_data_root,
     NOTNATIVE_DIST_DIR: installed.dist, NOTNATIVE_APP_VERSION: installed.packageVersion,
-    NOTNATIVE_RUNTIME: 'service', NOTNATIVE_HARNESS: 'nna', NOTNATIVE_NNA_MODE: 'attach',
-    NOTNATIVE_BROWSER_BRIDGE: 'disabled' });
+    NOTNATIVE_RUNTIME: 'service', NOTNATIVE_HARNESS: 'nna', NOTNATIVE_NNA_MODE: 'attach' });
+  // The attached NNA child keeps the nnd_browser callback (F7): the desktop and
+  // same-origin browser tabs are the capable broker clients; no bridge flag disables it.
 }
 async function reply(output, frame) {
   await deadline(new Promise((resolve, reject) => {
