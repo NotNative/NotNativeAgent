@@ -34,6 +34,7 @@ import { agentMemoryEnabled } from './project-context/agent-memory.ts';
 import { BrowserControlBroker } from './preview/browser-control-broker.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
 import { attachDevTunnelWebsocket, freshDevServerPorts } from './preview/dev-tunnel.ts';
+import { attachBrowserTabExecutor } from './preview/browser-tab-executor.ts';
 import type { Server as HttpServer } from 'node:http';
 import { createPushServices, attachPushNotifications } from './push/runtime.ts';
 
@@ -98,6 +99,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
     push, ...(nativeHealthProof ? { nativeHealthProof } : {}),
     ...(desktopUpdater ? { desktopUpdater } : {}),
     ...(localNna && browserCallbackSecret ? { browserControl, browserCallbackSecret } : {}),
+    previewProxyPorts: freshDevServerPorts,
     ...(agentToolCallbackSecret === undefined ? {} : { agentToolCallbackSecret }) });
   const server = serve({ fetch: app.fetch, hostname: ENV.host, port: ENV.port });
   const closed = new Promise<void>((resolve) => server.once('close', resolve));
@@ -119,6 +121,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
   let tunnelPlane: ReturnType<typeof wireTunnelPlane> | undefined;
   let goalSafety: ReturnType<typeof bootAutomation> | undefined;
   let devTunnelWiring: ReturnType<typeof attachDevTunnelWebsocket> | undefined;
+  let browserTabWiring: ReturnType<typeof attachBrowserTabExecutor> | undefined;
   let stopPush: (() => void) | undefined;
   try {
     // E-07-3 slot: the ui/tunnel composed predicate backs the terminal
@@ -127,6 +130,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
       (url, headers, method) => !nativeServiceTerminalUnavailable()
         && upgradeAllowedForRequest(url, headers, method));
     devTunnelWiring = attachDevTunnelWebsocket(server as HttpServer, { availablePorts: freshDevServerPorts });
+    browserTabWiring = attachBrowserTabExecutor(server as HttpServer, browserControl);
     terminal.startSweep();
     relayService = startRelayHostService();
     // Tunnel plane (doc 08 §4): TTL re-clamp, singleton seeding, §4.7
@@ -157,6 +161,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined, brow
     browserControl.dispose();
     wiring.dispose();
     devTunnelWiring?.dispose();
+    browserTabWiring?.dispose();
     relayService.dispose();
     void tunnelPlane.dispose(); // §4.7: revoke artifacts, stop the provider controller
     goalSafety?.dispose();

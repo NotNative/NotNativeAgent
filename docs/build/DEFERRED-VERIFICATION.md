@@ -176,6 +176,19 @@ NNA `20261011-10`, disposable fixtures only):
       `browser-control-callback.ts`, `chat/browser-annotation-controls.tsx`
       surface) and stays implemented-unverified until this passes; a
       desktop handoff does not close the gate.
+      — SCOPED CAPABILITY BUILT (20261011-92, implemented-unverified): the
+      service now has a browser-only executor path — an authenticated
+      browser tab registers as a browser-control client over
+      `/api/browser-control/ws` (`preview/browser-tab-executor.ts`) and
+      executes snapshot/inspect/click/type/scroll/history against a
+      same-origin dev-server page served by `/api/preview-proxy/:port/*`
+      (`preview/preview-proxy.ts`, admitted dev-server ports only, no
+      operator credentials forwarded); `chat/browser-surface.tsx` hosts the
+      proxied page and connects the executor with Electron never launched.
+      Capture is honest DOM mode (`mime: text/html;mode=dom`, `rendered:
+      false`) so a raster screenshot is never faked; unproxied/cross-origin
+      pages are refused. Focused tests pass; the installed browser-only
+      journey that closes this row is still owed.
 - [ ] F10 notification delivery across both doors (browser push + desktop
       click/deep-link routing, dedup/read-state coherence, no private
       content in OS notifications) — `lib/browser-push.ts` and the

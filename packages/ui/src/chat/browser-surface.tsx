@@ -14,6 +14,7 @@ import { executeDesktopHistory, historyNavigationPending as historyPendingNow, t
 import { BrowserAnnotationControls } from './browser-annotation-controls.tsx';
 import { usePreviewReadiness } from '../lib/browser/preview-readiness.ts';
 import { isDesktopShell } from '../lib/platform.ts';
+import { connectBrowserTabExecutor, previewProxyUrl } from '../lib/browser/browser-tab-executor.ts';
 
 interface DiscoveredServer { port: number; url: string; command: string }
 type Discovery = { kind: 'loading' | 'unavailable'; servers: [] }
@@ -53,6 +54,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const historyRef = useRef(history);
   const indexRef = useRef(index);
   const guestRef = useRef<HTMLElement | null>(null);
+  const tabFrameRef = useRef<HTMLIFrameElement | null>(null);
   const [annotationShieldTarget, setAnnotationShieldTarget] = useState<HTMLDivElement | null>(null);
   const [guestStart, setGuestStart] = useState<string | null>(null);
   const [guestStatus, setGuestStatus] = useState<GuestStatus | null>(null);
@@ -106,6 +108,17 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   }, [visible]);
 
   useEffect(() => () => { inspectionRevision.current += 1; }, []);
+
+  // F7 scoped capability: a plain browser tab is itself the executor for same-origin proxied previews; no Electron.
+  useEffect(() => {
+    if (desktop || !visible) return;
+    const handle = connectBrowserTabExecutor(window.location.origin, {
+      getFrame: () => tabFrameRef.current,
+      onOpen: (url) => { if (normalizePreviewUrl(url, window.location.origin)) open(url); },
+    });
+    return () => handle.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desktop, visible]);
 
   useEffect(() => {
     // Hiding destroys the guest. Preserve its latest top-level URL so a later
@@ -471,9 +484,9 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
       ? <div className="relative min-h-0 flex-1" ref={setAnnotationShieldTarget}>
         <webview key={`${guestStart}|${reload}`} ref={(node) => { guestRef.current = node; }} title="Isolated desktop browser preview" src={guestStart ?? active} partition="nnd-preview" className="h-full w-full border-0 bg-white" />
       </div>
-      : <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={active} sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer" className="min-h-0 w-full flex-1 border-0 bg-white" /> : !active ?
+      : <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={previewProxyUrl(active) ?? active} sandbox="allow-scripts allow-forms allow-same-origin" referrerPolicy="no-referrer" ref={(node) => { tabFrameRef.current = node; }} className="min-h-0 w-full flex-1 border-0 bg-white" /> : !active ?
       <div className="p-3 text-[11px] text-neutral-500">
-        <p>{desktop ? 'Enter a local dev-server or HTTPS site to open in an isolated desktop browser. Governed agent inspection and viewport capture require an open page; annotation remains pending.' : 'Enter a local dev-server or website address to preview it. This isolated web preview cannot inspect, annotate, or capture the page. Sites that prohibit embedding may not display.'}</p>
+        <p>{desktop ? 'Enter a local dev-server or HTTPS site to open in an isolated desktop browser. Governed agent inspection and viewport capture require an open page; annotation remains pending.' : 'Enter a local dev-server or website address to preview it. Loopback dev servers load through the same-origin preview proxy, so governed inspection and DOM capture work here without Electron. Other sites that prohibit embedding may not display.'}</p>
         <div className="mt-3 flex items-center gap-2"><span className="text-neutral-300">Listening dev servers</span>
           {localRuntime ? <button type="button" onClick={() => setScanRevision((value) => value + 1)} className="underline">Refresh</button> : null}</div>
         {!localRuntime ? <p role="status">Server discovery is available only when this browser runs on the server machine. Enter a reachable address manually.</p> : null}

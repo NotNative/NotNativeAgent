@@ -53,6 +53,7 @@ import { readMergedSettings } from './lib/settings-store.ts';
 import { createDevServerScanner, registerDevServerRoutes } from './preview/dev-servers.ts';
 import { registerProbeUrlRoutes } from './preview/probe-url.ts';
 import { registerBrowserControlCallback } from './preview/browser-control-callback.ts';
+import { registerPreviewProxyRoutes } from './preview/preview-proxy.ts';
 import { createVersionRoutes } from './routes/version.ts';
 import { createPushRoutes } from './push/routes.ts';
 import { createPushServices } from './push/runtime.ts';
@@ -196,7 +197,7 @@ async function nativeTerminalGate(c: Context, next: Next): Promise<Response | vo
 export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: number;
   push?: ReturnType<typeof createPushServices>;
   nativeHealthProof?: NativeHealthProofIdentity;
-  browserControl?: BrowserControlBroker; browserCallbackSecret?: string;
+  browserControl?: BrowserControlBroker; browserCallbackSecret?: string; previewProxyPorts?: () => Promise<readonly number[]>;
   agentToolCallbackSecret?: string;
   desktopUpdater?: { check: () => Promise<DesktopUpdateInfo>; download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void } }) {
   const app = new Hono();
@@ -231,6 +232,7 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
   registerApiSurfaces(app, terminal, options?.harnessPort, options?.desktopUpdater, options?.push);
 
   registerHarnessProxy(app);
+  if (options?.previewProxyPorts) registerPreviewProxyRoutes(app, { allowedPorts: options.previewProxyPorts });
 
   // Static UI (production builds; dev is served by Vite)
   const serveStatic = createStaticHandler(DIST_DIR);

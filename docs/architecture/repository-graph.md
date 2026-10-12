@@ -37,18 +37,18 @@ graph LR
 |---|---:|---|---|
 | Client sync and state engine | 48 | Harness SDK facade, Runtime adaptation, UI shell | Harness SDK facade, Quality gates, Runtime adaptation, UI shell, Web server |
 | Harness SDK facade | 42 | Client sync and state engine, Runtime adaptation | Client sync and state engine, Runtime adaptation, UI shell, Web server |
-| Runtime adaptation | 237 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
+| Runtime adaptation | 238 | Client sync and state engine, Harness SDK facade, UI shell | Client sync and state engine, Harness SDK facade, Quality gates, UI shell |
 | UI shell | 227 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
-| Web server | 240 | Client sync and state engine, Harness SDK facade | Quality gates, Web entrypoints |
+| Web server | 242 | Client sync and state engine, Harness SDK facade | Quality gates, Web entrypoints |
 | Web entrypoints | 13 | Web server | — |
-| Quality gates | 99 | Client sync and state engine, Runtime adaptation, Web server | — |
+| Quality gates | 100 | Client sync and state engine, Runtime adaptation, Web server | — |
 | Product foundation | 0 | — | — |
 
 ## Strongest observed component dependencies
 
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
-| UI shell | Runtime adaptation | 386 | 154 |
+| UI shell | Runtime adaptation | 387 | 154 |
 | UI shell | Harness SDK facade | 142 | 99 |
 | UI shell | Client sync and state engine | 119 | 73 |
 | Client sync and state engine | Harness SDK facade | 60 | 42 |
@@ -73,4 +73,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:53bdb274adb020592b8ffcaf3afc171744206e462eb46cd06f7588b8bc47610b`.
+Source fingerprint: `sha256:28c9fb0b0b92ae6153211f5cea51e91fd202dc6d7bc30cf564937adcb081fffc`.

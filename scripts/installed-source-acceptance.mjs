@@ -135,13 +135,13 @@ throw Error('native activation reload was not ready '+JSON.stringify(activation)
 probe.same_tab_turn=await win.webContents.executeJavaScript(${JSON.stringify(setupReloadComposerProbe())});}
 phase('probe_complete');process.stdout.write('NND_BROWSER_PROBE='+JSON.stringify(probe)+'\\n');` : ''}
 ${browserScenarioModule ? `phase('scenario_start');const {runNativeReplayGapBrowser}=await import(${JSON.stringify(pathToFileURL(browserScenarioModule).href)});const replay=await runNativeReplayGapBrowser(win,phase);if(!replay.priorCursorPresent||!replay.nativeGap||!replay.sidebarRecovered||!replay.activityGapVisible||!replay.cursorReset)throw Error('Installed native replay gap evidence missing');phase('scenario_complete');process.stdout.write('NND_INSTALLED_REPLAY_GAP_OK\\n');` : ''}
-const other=new BrowserWindow({show:false,webPreferences:{partition:'temp:nnd-accept-other',nodeIntegration:false,contextIsolation:true,sandbox:true}});
+${mainUrl.skipIsolation ? `phase('isolation_skipped_stop_observation');` : `const other=new BrowserWindow({show:false,webPreferences:{partition:'temp:nnd-accept-other',nodeIntegration:false,contextIsolation:true,sandbox:true}});
 phase('isolation_window_created');
 await other.loadURL(${JSON.stringify(origin)});
 phase('isolation_loaded');
 const isolated=await other.webContents.executeJavaScript('(async()=>{const response=await fetch("/auth/session");const workspace=await fetch("/api/v1/nnd/workspaces/admissions");return {status:response.status,body:await response.json(),workspaceStatus:workspace.status}})()');
 if(isolated.status!==401||isolated.body.authenticated!==false||isolated.workspaceStatus!==401)throw Error('Independent browser partition did not retain the unauthenticated workspace contract');
-phase('isolation_verified');
+phase('isolation_verified');`}
 finish(true);` : `app.on('browser-window-created',(_event,win)=>{phase('window_created');
 win.webContents.on('console-message',(...args)=>{for(const value of args.slice(1)){const message=typeof value==='string'?value:value?.message;if(typeof message==='string'&&message.startsWith('NND_PROBE_STEP:'))phase(message)}});
 win.webContents.on('did-finish-load',async()=>{if(done||!win.webContents.getURL().startsWith(${JSON.stringify(origin)}))return;
@@ -179,8 +179,10 @@ export async function shell(fixture, mode, origin, ticket, extraArgs = [], brows
       const handle = await open(ticketPath, 'wx', 0o600);
       try { await handle.writeFile(ticket); await handle.sync(); } finally { await handle.close(); }
     }
+    // Stop-observation probes judge offline state under a loaded tab; the isolation window needs a live origin.
     await writeFile(wrapper, chromiumScript(origin, mode, { userData: shellData,
-      main: pathToFileURL(join(fixture.nnd, 'packages/electron/main.mjs')).href, ticketPath, debugPath }, browserProbeExpression, browserScenarioModule, browserProbeTimeoutMs));
+      main: pathToFileURL(join(fixture.nnd, 'packages/electron/main.mjs')).href, ticketPath, debugPath, skipIsolation: browserProbeExpression.includes('/*STOP_OBSERVE*/') },
+      browserProbeExpression, browserScenarioModule, browserProbeTimeoutMs));
     // Desktop native attach can consume multiple bounded CLI attempts before
     // the renderer loads; keep the acceptance watchdog outside that budget.
     output = await run(electron, [wrapper, '--hidden', ...extraArgs], { cwd: fixture.root, env,

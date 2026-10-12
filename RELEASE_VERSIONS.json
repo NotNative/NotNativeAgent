@@ -2004,6 +2004,10 @@
     {
       "version": "20261011-91",
       "content_sha256": "bae2c0b9399a52b3d955f177bbe9a31850e81304e79b5be3db7f50ec7e03d921"
+    },
+    {
+      "version": "20261011-93",
+      "content_sha256": "7df5d08e73011b6f6d7242e2ae9f7b93df8c45dd2eb3ac2cc18d16ca2a5ec295"
     }
   ]
 }

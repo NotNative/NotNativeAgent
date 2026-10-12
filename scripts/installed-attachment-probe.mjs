@@ -145,10 +145,8 @@ export function attachmentBrowserProbe() {
 export function setupBrowserProbe(workspaceRoot, providerPort, expectedSource = 'missing', extraProviders = null) {
   const providerEndpoint = `http://127.0.0.1:${providerPort}/v1`;
   const primaryProvider = { id: 'smoke', endpoint: providerEndpoint, model: 'test', trust_zone: 'loopback' };
-  const document = extraProviders
-    ? { workspace_root: workspaceRoot, providers: [primaryProvider, ...extraProviders],
-        routes: { primary: { provider_id: 'smoke', model: 'test' } } }
-    : { workspace_root: workspaceRoot, provider: primaryProvider };
+  const document = extraProviders ? { workspace_root: workspaceRoot, providers: [primaryProvider, ...extraProviders],
+    routes: { primary: { provider_id: 'smoke', model: 'test' } } } : { workspace_root: workspaceRoot, provider: primaryProvider };
   const documentLiteral = JSON.stringify(document);
   return `(async()=>{
     const post=async(path,body)=>fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
@@ -250,6 +248,16 @@ export function desktopSetupProbe() {
   })()`;
 }
 
+function setupSettleFailureDiagnostics() {
+  return `const rows=await(await fetch('/api/session?roots=true')).json();
+    const recent=rows.slice(0,5);
+    const activity=await Promise.all(recent.map(async row=>({id:row.id,status:(await fetch('/api/session/'+encodeURIComponent(row.id)+'/activity')).status})));
+    throw Error('setup text composer turn did not settle '+JSON.stringify({recent:recent.map(row=>({id:row.id,title:row.title})),activity,
+      workspace:document.querySelector('select[aria-label="Workspace"]')?.value??null,blocked:document.querySelector('[data-testid="composer"]')?.getAttribute('data-send-blocked'),
+      draft:document.querySelector('[data-testid="composer-editor"]')?.value,
+      alerts:[...document.querySelectorAll('[role="alert"],[data-sonner-toast]')].map(row=>row.textContent?.slice(0,100)).slice(0,8)}))`;
+}
+
 export function setupReloadComposerProbe() {
   const marker = `Installed setup text turn ${randomUUID()}`;
   return `(async()=>{
@@ -280,6 +288,14 @@ export function setupReloadComposerProbe() {
       alerts:[...document.querySelectorAll('[role="alert"]')].map(row=>row.textContent?.slice(0,100)).slice(0,5)}))}
     send.click();
     console.log('NND_PROBE_STEP:setup_text_sent');
+    // A click can no-op before the synthetic input event reaches React state;
+    // detect non-delivery and re-click instead of dead-waiting.
+    let delivered=false,attempts=0;const hasMarker=async()=>{for(const row of await(await fetch('/api/session?roots=true')).json()){
+      if((await(await fetch('/api/session/'+encodeURIComponent(row.id)+'/message')).json()).some(m=>m.info?.role==='user'&&m.parts?.some(p=>p.text?.includes(${JSON.stringify(marker)}))))return true}return false};
+    while(!delivered&&attempts<5){attempts+=1;const near=Date.now()+10000;
+      while(Date.now()<near&&!delivered){delivered=await hasMarker();if(!delivered)await delay(500)}
+      const again=document.querySelector('[data-testid="composer"] button[aria-label="Send message"]');
+      if(!delivered&&again&&!again.disabled){again.click();console.log('NND_PROBE_STEP:setup_text_reclick')}}
     const deadline=Date.now()+300000;
     while(Date.now()<deadline){
       const rows=await(await fetch('/api/session?roots=true')).json();
@@ -292,16 +308,7 @@ export function setupReloadComposerProbe() {
         const failed=activity.find(item=>item.kind==='turn'&&item.status!=='started');
         if(failed)throw Error('setup text turn '+failed.status+' '+failed.summary)}
       await delay(500)}
-    const rows=await(await fetch('/api/session?roots=true')).json();
-    const recent=rows.slice(0,5);
-    const activity=await Promise.all(recent.map(async row=>({id:row.id,
-      status:(await fetch('/api/session/'+encodeURIComponent(row.id)+'/activity')).status})));
-    throw Error('setup text composer turn did not settle '+JSON.stringify({
-      recent:recent.map(row=>({id:row.id,title:row.title})),activity,
-      workspace:document.querySelector('select[aria-label="Workspace"]')?.value??null,
-      blocked:document.querySelector('[data-testid="composer"]')?.getAttribute('data-send-blocked'),
-      draft:document.querySelector('[data-testid="composer-editor"]')?.value,
-      alerts:[...document.querySelectorAll('[role="alert"],[data-sonner-toast]')].map(row=>row.textContent?.slice(0,100)).slice(0,8)}));
+    ${setupSettleFailureDiagnostics()}
   })()`;
 }
 

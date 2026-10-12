@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:53bdb274adb020592b8ffcaf3afc171744206e462eb46cd06f7588b8bc47610b",
+  "source_digest": "sha256:28c9fb0b0b92ae6153211f5cea51e91fd202dc6d7bc30cf564937adcb081fffc",
   "counts": {
-    "modules": 906,
+    "modules": 910,
     "component_edges": 17
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 237
+      "module_count": 238
     },
     {
       "id": "ui-shell",
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 240
+      "module_count": 242
     },
     {
       "id": "web-entry",
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 99
+      "module_count": 100
     },
     {
       "id": "foundation",
@@ -111,7 +111,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 386,
+      "import_count": 387,
       "module_count": 154
     },
     {
@@ -285,6 +285,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/browser-annotation-controls.tsx",
+        "packages/ui/src/lib/browser/browser-tab-executor.ts",
         "packages/ui/src/lib/browser/desktop-capture-action.ts",
         "packages/ui/src/lib/browser/desktop-history-action.ts",
         "packages/ui/src/lib/browser/desktop-type-action.ts",
@@ -2872,6 +2873,12 @@
         "packages/ui/src/lib/browser/region-annotation.ts",
         "packages/ui/src/lib/browser/stroke-annotation.ts"
       ]
+    },
+    {
+      "path": "packages/ui/src/lib/browser/browser-tab-executor.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/ui/src/lib/browser/desktop-capture-action.ts",
@@ -5956,6 +5963,7 @@
         "packages/web/src/server/preview/browser-control-broker.ts",
         "packages/web/src/server/preview/browser-control-callback.ts",
         "packages/web/src/server/preview/dev-servers.ts",
+        "packages/web/src/server/preview/preview-proxy.ts",
         "packages/web/src/server/preview/probe-url.ts",
         "packages/web/src/server/push/routes.ts",
         "packages/web/src/server/push/runtime.ts",
@@ -6303,6 +6311,7 @@
         "packages/web/src/server/lib/settings-store.ts",
         "packages/web/src/server/lib/tunnels/tunnel-startup.ts",
         "packages/web/src/server/preview/browser-control-broker.ts",
+        "packages/web/src/server/preview/browser-tab-executor.ts",
         "packages/web/src/server/preview/dev-tunnel.ts",
         "packages/web/src/server/project-context/agent-memory.ts",
         "packages/web/src/server/push/runtime.ts",
@@ -7055,6 +7064,16 @@
       ]
     },
     {
+      "path": "packages/web/src/server/preview/browser-tab-executor.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/preview/browser-control-broker.ts",
+        "packages/web/src/server/preview/dev-tunnel.ts",
+        "packages/web/src/server/terminal/wire.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/preview/dev-servers.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -7074,6 +7093,12 @@
         "packages/web/src/server/preview/dev-servers.ts",
         "packages/web/src/server/terminal/wire.ts"
       ]
+    },
+    {
+      "path": "packages/web/src/server/preview/preview-proxy.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/web/src/server/preview/probe-url.ts",
@@ -8469,6 +8494,15 @@
     },
     {
       "path": "scripts/installed-timeline-journey.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "scripts/installed-attachment-probe.mjs",
+        "scripts/installed-source-acceptance.mjs"
+      ]
+    },
+    {
+      "path": "scripts/installed-v2-lifetime-journey.mjs",
       "component": "gates",
       "entrypoint": false,
       "imports": [

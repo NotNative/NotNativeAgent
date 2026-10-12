@@ -18,6 +18,32 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-11 (20261011-92) V2 lifetime journey executed; F7 scoped capability built
+
+- New `scripts/installed-v2-lifetime-journey.mjs` (guide 05:39-59), passed
+  in-session: a real governed turn ran from the browser alone before
+  Electron ever opened; the hidden desktop attach observed the same
+  browser-created session (`connection-pill` ready); an explicit CLI stop
+  under a loaded tab left the browser tab rendered but offline (pill
+  "Reconnecting", status fetch unreachable, isolation-window check skipped
+  via a new `/*STOP_OBSERVE*/` shell option); restart restored the same
+  session with unchanged history under a fresh instance id (bounded poll
+  for the list to re-surface).
+- Acceptance-shell hardening: the setup composer send can no-op when the
+  synthetic input event has not reached React state; the probe now detects
+  non-delivery and re-clicks (bounded) instead of dead-waiting.
+- F7 scoped capability BUILT (implemented-unverified, focused tests green):
+  `preview/browser-tab-executor.ts` (authenticated browser tab registers as
+  a broker client over `/api/browser-control/ws`), `preview/preview-proxy.ts`
+  (same-origin proxy for admitted dev-server ports only; strips operator
+  credentials, hop-by-hop headers, and framing denials; HTML buffered ≤2 MB),
+  `lib/browser/browser-tab-executor.ts` (client executor: snapshot, inspect,
+  click, type, scroll, history, honest DOM-mode capture with
+  `rendered:false`, `browser.open` only through the proxy), and
+  `chat/browser-surface.tsx` integration (browser mode hosts the proxied
+  page and connects the executor; Electron never launched).
+- Web vitest 1503/1503 green including the new proxy + executor tests.
+
 ## 2026-10-11 (20261011-91) Browser acceptance shells decoupled from the visible desktop
 
 - Operator request: service start/stop must not pop windows on the operator's
