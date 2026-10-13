@@ -1,8 +1,10 @@
 # NotNativeDesktop
 
-> **Folded (20261012-2):** this product now lives in the NotNativeAgent repository
-> at `desktop/`. NND development, documentation, and release activity happen there;
-> this checkout is an archive that must not receive further focused development.
+> **Active development home.** This `desktop/` tree is the NotNativeDesktop
+> (NND) product inside the NotNativeAgent repository (fold `20261012-2`); it is
+> the ONLY place NND development happens. The former standalone
+> `D:\ProjectRepo\NotNativeDesktop` checkout is a sealed archive — do not use it.
+> New session? Start at [`docs/planning/INDEX.md`](docs/planning/INDEX.md).
 
 A cleanroom re-implementation of [OpenChamber](https://github.com/openchamber/openchamber)
 — a workspace for running and reviewing AI coding-agent work — built from the
@@ -18,12 +20,27 @@ the planning corpus supplies reference behavior and UX detail.
   NNA is absent, the installer can install a carried NNA release after checking
   its release manifest against a SHA-256 obtained from a trusted source. Pass
   `-NnaDependencyRoot`, `-NnaDependencyManifestSha256`, and
-  `-InstallNnaIfMissing` for unattended setup. The sibling checkout remains a
-  development-only source fallback; unattended runs require explicit opt-in.
+  `-InstallNnaIfMissing` for unattended setup. The enclosing NNA repository
+  (this tree's parent since the fold) is the development source fallback;
+  unattended runs require explicit opt-in.
   A mock harness remains available for isolated development tests.
 - **Surfaces today:** local web GUI and Electron desktop shell. VS Code and
   mobile are long-term deferred.
-- **Start here:** `docs/planning/PLAN.md` · `docs/planning/PROGRESS.md` · `docs/planning/DECISIONS.md`
+## Start here (fresh session)
+
+Working directory: `D:\ProjectRepo\NotNativeAgent`. In order:
+
+1. [`docs/planning/PLAN.md`](docs/planning/PLAN.md) — product and completion contract.
+2. [`docs/planning/EXECUTION/mvp-agent-handoff.md`](docs/planning/EXECUTION/mvp-agent-handoff.md) — dependency graph, lanes, current gates, and the exact baseline commands for a new session.
+3. [`docs/planning/EXECUTION/LEDGER.md`](docs/planning/EXECUTION/LEDGER.md) — newest-first slice record with the latest seals (top section).
+4. [`docs/planning/DEFERRED-VERIFICATION.md`](docs/planning/DEFERRED-VERIFICATION.md) — open verification debt.
+5. Guides 01–05 in [`docs/planning/EXECUTION/`](docs/planning/EXECUTION/01-architecture-audit.md).
+
+The OpenChamber reference corpus (`00–15`) documents the experience to match; the
+guides translate it into NNA semantics. Planning files are local-only (untracked)
+and never deployed.
+
+- **Start here (canonical):** `docs/planning/PLAN.md` · `docs/planning/PROGRESS.md` · `docs/planning/DECISIONS.md`
 
 The target Windows product has a persistent NNA-supervised NND service, reachable
 from browser or desktop, with complete native settings and chat/visibility support.

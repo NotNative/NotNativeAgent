@@ -1,2 +1,8 @@
 packages:
   - packages/*
+# Two known, vetted install scripts (upstream-normal, no network side effects):
+# esbuild validates its platform binary; electron-winstaller prepares NSIS
+# packaging (we build --no-nsis in acceptance, but packaging may use it).
+onlyBuiltDependencies:
+  - esbuild
+  - electron-winstaller

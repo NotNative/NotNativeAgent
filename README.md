@@ -25,8 +25,15 @@ manifest, and build stamp live there and are run from that directory), while
 this repository's `src/`, tests, and release gates are unchanged — `desktop/`
 is deliberately outside their include prefixes. NNA owns the payload contract
 that stages `desktop/` output for installation. All NND development plans,
-execution guides, and progress ledgers live under `desktop/docs/`; development
-must not happen in an archived standalone NND checkout.
+execution guides, and progress ledgers live under `desktop/docs/planning/`
+(local-only, untracked, never deployed); development must not happen in the
+archived standalone NND checkout.
+
+**Starting a development session here?** Begin with
+[`desktop/docs/planning/INDEX.md`](desktop/docs/planning/INDEX.md) — it orders
+the plan, handoff map, ledger, and both suites' baseline commands. NNA's own
+quick commands: `node scripts/quality-gates.js` and `npm test`
+(scoped, serialized `test/*.test.js`).
 
 ## Getting started
 
