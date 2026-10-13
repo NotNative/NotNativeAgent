@@ -1,0 +1,2946 @@
+{
+  "schema_version": "1.0",
+  "note": "Machine-checkable acceptance records for W-01 through the last table row (04-feature-parity.md). Statuses move forward only with evidence paths; the disposition text is pinned to the authoritative table by scripts/feature-parity-records.test.mjs.",
+  "statuses": [
+    "pending",
+    "implemented-unverified",
+    "verified",
+    "deferred-nna-blocked"
+  ],
+  "records": [
+    {
+      "id": "W-01",
+      "work_packages": "L, F10",
+      "disposition": "MVP browser/PWA and Windows desktop shared UI; CLI service tooling L; VS Code/native mobile excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/cli/main.ts",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-5c-connect-url.test.ts > describe 'connect-url CLI gates'",
+        "../NotNativeDesktop/packages/web/src/pwa/__tests__/install-ux.test.ts",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/pwa-manifest.test.ts > describe 'PWA manifest discovery' > it 'serves an installable manifest with bounded query customizations'",
+        "../NotNativeDesktop/packages/electron/main.mjs",
+        "../NotNativeDesktop/packages/electron/ipc-face.test.mjs > test 'Mini Chat creation is available only to the local main frame and validates through its shell owner'"
+      ]
+    },
+    {
+      "id": "W-02",
+      "work_packages": "L, F10",
+      "disposition": "MVP cold boot, bounded retry, manual recovery, theme prepaint.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-02.cold-boot",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/desktop-boot.mjs",
+            "../NotNativeDesktop/packages/electron/desktop-boot.test.mjs"
+          ]
+        },
+        {
+          "id": "W-02.manual-recovery",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/main.mjs (boot-failure page + retryServerFromFailurePage)",
+            "../NotNativeDesktop/packages/electron/ipc-face.mjs (desktop_retry_server)",
+            "../NotNativeDesktop/packages/electron/desktop-boot.test.mjs"
+          ]
+        },
+        {
+          "id": "W-02.bounded-retry",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/renderer-recovery.mjs",
+            "../NotNativeDesktop/packages/electron/renderer-recovery.test.mjs (bounded budget, window aging, non-recoverable reasons, dispose)"
+          ]
+        },
+        {
+          "id": "W-02.theme-prepaint",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/theme/prepaint.ts",
+            "../NotNativeDesktop/packages/ui/src/main.tsx (prepaintTheme before createRoot)",
+            "../NotNativeDesktop/packages/ui/src/lib/theme/__tests__/prepaint.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/desktop-boot.mjs",
+        "../NotNativeDesktop/packages/electron/desktop-boot.test.mjs",
+        "../NotNativeDesktop/packages/electron/main.mjs (boot-failure page + retryServerFromFailurePage)",
+        "../NotNativeDesktop/packages/electron/ipc-face.mjs (desktop_retry_server)",
+        "../NotNativeDesktop/packages/electron/desktop-boot.test.mjs",
+        "../NotNativeDesktop/packages/electron/renderer-recovery.mjs",
+        "../NotNativeDesktop/packages/electron/renderer-recovery.test.mjs (bounded budget, window aging, non-recoverable reasons, dispose)",
+        "../NotNativeDesktop/packages/ui/src/lib/theme/prepaint.ts",
+        "../NotNativeDesktop/packages/ui/src/main.tsx (prepaintTheme before createRoot)",
+        "../NotNativeDesktop/packages/ui/src/lib/theme/__tests__/prepaint.test.ts"
+      ]
+    },
+    {
+      "id": "W-03",
+      "work_packages": "L, F2, F10",
+      "disposition": "MVP PWA/update and disconnected recovery; offline UI never implies offline execution.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/pwa/update-ux.ts",
+        "../NotNativeDesktop/packages/web/src/pwa/__tests__/update-ux.test.ts",
+        "../NotNativeDesktop/packages/web/src/pwa/__tests__/push-worker.test.ts > describe 'shipped push service worker'",
+        "../NotNativeDesktop/packages/electron/desktop-updater.test.mjs",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/f2-reconnect-catalog.test.ts"
+      ]
+    },
+    {
+      "id": "W-04",
+      "work_packages": "L, F10",
+      "disposition": "MVP authenticated browser/desktop/Mini Chat access and expired-session recovery.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-core.test.ts",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-4a-client-auth-routes.test.ts",
+        "../NotNativeDesktop/packages/ui/src/lib/__tests__/runtime-auth-expiry.test.ts > it 'blocks only a confirmed expiry'",
+        "../NotNativeDesktop/packages/ui/src/components/auth/AuthExpiredBanner.tsx",
+        "../NotNativeDesktop/packages/ui/src/components/auth/__tests__/app-composition.test.tsx (auth-expired-banner expiry/recovery assertions)",
+        "../NotNativeDesktop/packages/electron/desktop-password-login.test.mjs",
+        "../NotNativeDesktop/packages/ui/src/components/MainLayout.tsx (Mini Chat shares the SessionAuthGate/expiry store)"
+      ]
+    },
+    {
+      "id": "W-05",
+      "work_packages": "F10, C",
+      "disposition": "MVP complete shell, settings window, command palette, workspace regions.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-05.shell",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/MainLayout.tsx",
+            "../NotNativeDesktop/packages/ui/src/components/auth/__tests__/app-composition.test.tsx"
+          ]
+        },
+        {
+          "id": "W-05.settings-window",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/settings/search.ts",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p5-3-settings.test.ts"
+          ]
+        },
+        {
+          "id": "W-05.workspace-regions",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/operator-rail.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-rail.test.tsx"
+          ]
+        },
+        {
+          "id": "W-05.command-palette",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/command-palette.tsx",
+            "../NotNativeDesktop/packages/ui/src/components/MainLayout.tsx (open_command_palette keybind + palette mount)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/command-palette.test.tsx"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/MainLayout.tsx",
+        "../NotNativeDesktop/packages/ui/src/components/auth/__tests__/app-composition.test.tsx",
+        "../NotNativeDesktop/packages/ui/src/components/settings/search.ts",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p5-3-settings.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/operator-rail.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-rail.test.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/command-palette.tsx",
+        "../NotNativeDesktop/packages/ui/src/components/MainLayout.tsx (open_command_palette keybind + palette mount)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/command-palette.test.tsx"
+      ]
+    },
+    {
+      "id": "W-06",
+      "work_packages": "F10",
+      "disposition": "MVP rail registry, widths, ordering, visibility and keep-alive.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/operator-rail.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/operator-rail-width.ts (clamp/preferred/read + persisted width keys)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-rail.test.tsx > it 'resizes the desktop pane by keyboard and restores width per runtime and surface'",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-rail.test.tsx > it 'restores dock visibility per workspace and runtime without carrying another project's open state'",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-route.test.tsx > it 'keeps a routed Terminal selection when a retained rail moves to the linked directory'",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-rail.test.tsx > it 'keeps an opened terminal mounted but not visible while focus mode suppresses the rail'"
+      ]
+    },
+    {
+      "id": "W-07",
+      "work_packages": "F4, F10",
+      "disposition": "MVP session/surface/settings deep links and URL restoration.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/deep-links.mjs",
+        "../NotNativeDesktop/packages/electron/deep-links.test.mjs > test 'rejects expired, duplicated, oversized, credentialed, and malformed pairing payloads'",
+        "../NotNativeDesktop/packages/ui/src/lib/session-route.ts",
+        "../NotNativeDesktop/packages/ui/src/lib/__tests__/session-route.test.ts > it 'serializes selections and restores popstate without rewriting history'",
+        "../NotNativeDesktop/packages/ui/src/components/__tests__/workspace-route.test.tsx (session/surface/settings query-param deep links)",
+        "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-10 'installed deep-link ingress probe (A5, implemented-unverified)'"
+      ]
+    },
+    {
+      "id": "W-08",
+      "work_packages": "F2, L",
+      "disposition": "MVP instance-generation reset/reconnect; remote host switching excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/native-service-client.mjs (generation-validated attach, 61 s expiry bound)",
+        "../NotNativeDesktop/packages/electron/native-service-client.test.mjs > test 'private CLI attachment uses selected runtime and generation identity'",
+        "../NotNativeDesktop/packages/electron/main.mjs (nativeControllerGeneration attach guard)",
+        "../NotNativeDesktop/packages/web/src/server/index.ts (generation health-proof comparison)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/native-health-proof.test.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/f2-reconnect-catalog.test.ts"
+      ]
+    },
+    {
+      "id": "W-09",
+      "work_packages": "F1, F2, F8, C",
+      "disposition": "MVP explicit authoritative/service/device state ownership.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeDesktop/docs/build/EXECUTION/f8-field-ownership.md",
+        "../NotNativeDesktop/packages/ui/src/sync/engine-recovery.ts (authoritative status resync)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts > it 'authoritative snapshots lower absent candidates; monotonic never lowers'",
+        "../NotNativeDesktop/packages/ui/src/sync/boot-open-readiness.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/parts-boot-open-readiness.test.ts > it 'resolves immediately when the list is already authoritative'",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p10-agent-memory-ownership.test.ts > it 'uses only one authoritative input and prefers project records'",
+        "../NotNativeDesktop/packages/web/src/server/lib/auth/native-ui-auth.ts (device/generation-scoped credentials)"
+      ]
+    },
+    {
+      "id": "W-10",
+      "work_packages": "L, F10",
+      "disposition": "MVP Windows controls, splash, crash recovery and read coalescing.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-10.windows-controls",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/ipc-face.mjs (desktop_minimize_current_window / desktop_toggle_current_window_maximized)",
+            "../NotNativeDesktop/packages/electron/ipc-face.test.mjs > test 'window controls work in another trusted local BrowserWindow'",
+            "../NotNativeDesktop/packages/electron/ipc-face.test.mjs > test 'window controls reject embedded frames even when their parent is trusted'",
+            "../NotNativeDesktop/packages/electron/window-state.test.mjs"
+          ]
+        },
+        {
+          "id": "W-10.splash",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/main.mjs (SPLASH_HTML/SPLASH_URL + boot-failure page)"
+          ]
+        },
+        {
+          "id": "W-10.crash-recovery",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/renderer-recovery.mjs",
+            "../NotNativeDesktop/packages/electron/renderer-recovery.test.mjs (bounded budget, window aging, non-recoverable reasons, dispose)"
+          ]
+        },
+        {
+          "id": "W-10.read-coalescing",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/runtime-fetch.ts (HP-6 GET coalescing)",
+            "../NotNativeDesktop/packages/ui/src/lib/__tests__/runtime-fetch.test.ts > describe 'shouldCoalesce (HP-6)' > it 'coalesces allowlisted GETs'",
+            "../NotNativeDesktop/packages/ui/src/lib/files/__tests__/directory-requests.test.ts > it 'coalesces concurrent callers into one in-flight read'"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/ipc-face.mjs (desktop_minimize_current_window / desktop_toggle_current_window_maximized)",
+        "../NotNativeDesktop/packages/electron/ipc-face.test.mjs > test 'window controls work in another trusted local BrowserWindow'",
+        "../NotNativeDesktop/packages/electron/ipc-face.test.mjs > test 'window controls reject embedded frames even when their parent is trusted'",
+        "../NotNativeDesktop/packages/electron/window-state.test.mjs",
+        "../NotNativeDesktop/packages/electron/main.mjs (SPLASH_HTML/SPLASH_URL + boot-failure page)",
+        "../NotNativeDesktop/packages/electron/renderer-recovery.mjs",
+        "../NotNativeDesktop/packages/electron/renderer-recovery.test.mjs (bounded budget, window aging, non-recoverable reasons, dispose)",
+        "../NotNativeDesktop/packages/ui/src/lib/runtime-fetch.ts (HP-6 GET coalescing)",
+        "../NotNativeDesktop/packages/ui/src/lib/__tests__/runtime-fetch.test.ts > describe 'shouldCoalesce (HP-6)' > it 'coalesces allowlisted GETs'",
+        "../NotNativeDesktop/packages/ui/src/lib/files/__tests__/directory-requests.test.ts > it 'coalesces concurrent callers into one in-flight read'"
+      ]
+    },
+    {
+      "id": "W-11",
+      "work_packages": "F4, F10, L",
+      "disposition": "MVP desktop Mini Chat and embedded session chat; shared session authority.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/lib/miniChatLaunch.ts",
+        "../NotNativeDesktop/packages/ui/src/components/MainLayout.tsx (mini-chat header/open/pin + embedded ChatView, data-testid mini-chat-layout / mini-chat-open)",
+        "../NotNativeDesktop/packages/ui/src/lib/session-route.ts",
+        "../NotNativeDesktop/packages/ui/src/lib/__tests__/mini-chat-launch.test.ts > readMiniChatLaunch",
+        "../NotNativeDesktop/packages/ui/src/lib/__tests__/session-route.test.ts (preserves miniChat=1 / ocPanel=session-chat)",
+        "../NotNativeDesktop/packages/electron/main.mjs (desktop window open/close for mini chat)"
+      ]
+    },
+    {
+      "id": "W-12",
+      "work_packages": "F2, F3, F4",
+      "disposition": "MVP native transcript/message/part schema and identity.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeAgent/src/engine/persistence.js (TRANSCRIPT_RECORDS journal append/restore)",
+        "../NotNativeAgent/src/experience/transcript.js (transcriptEvents/journalEvents with transcript_invalid contract errors)",
+        "../NotNativeAgent/src/nnd-transcript-identity.js (hasPersistedSubmission, reservedProjectedMessageId, messageProjection)",
+        "../NotNativeAgent/src/persistence/session-history.js (journal replay into ordered transcript)",
+        "../NotNativeAgent/test/session-history.test.js",
+        "../NotNativeAgent/test/nnd-service-identity.test.js"
+      ]
+    },
+    {
+      "id": "W-13",
+      "work_packages": "F4, F10",
+      "disposition": "MVP complete chat composition, status column and session header.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/composer.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (status-chip asides: waiting/retry/working)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/status-chip-source.test.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/compact-operator-layout.test.tsx > puts child steering in the transcript header",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-append.test.tsx"
+      ]
+    },
+    {
+      "id": "W-14",
+      "work_packages": "L, C",
+      "disposition": "MVP local detection/setup/recovery wizard; remote setup excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-14.wizard",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/setup/setup-wizard.tsx (unified detect→setup→verify→done flow with recovery retries + failure-code surfacing; local-only routes per contract)",
+            "../NotNativeDesktop/packages/ui/src/components/setup/__tests__/setup-wizard.test.tsx (5 tests incl. guided panel embedding)",
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/setup.ts + setup-readiness.ts (detection/activation/readiness primitives the wizard orchestrates)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/native-setup.tsx (guided opt-in embed)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/setup/setup-wizard.tsx (unified detect→setup→verify→done flow with recovery retries + failure-code surfacing; local-only routes per contract)",
+        "../NotNativeDesktop/packages/ui/src/components/setup/__tests__/setup-wizard.test.tsx (5 tests incl. guided panel embedding)",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/setup.ts + setup-readiness.ts (detection/activation/readiness primitives the wizard orchestrates)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/native-setup.tsx (guided opt-in embed)"
+      ]
+    },
+    {
+      "id": "W-15",
+      "work_packages": "F3, F8",
+      "disposition": "MVP full composer/editor/autocomplete/attachments/context/drafts/commands.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-15.installed-composer-attachments",
+          "status": "verified",
+          "evidence": [
+            "Verified (installed): NND 20261011-78 disposable-fixture installed acceptance against local NNA 20261011-10 (scripts/installed-source-acceptance.mjs): base, --native-setup-turn, --native-attachments, --native-replay-gap, --native-removal all passed (V1/V2 installed surface).",
+            "file-only composer delivery reached the observation provider with image bytes; duplicate rows and ui turn delivered"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/composer.tsx (tokenization, command registry, picker insertion)",
+        "../NotNativeDesktop/packages/ui/src/chat/prompt-language.ts (activeTrigger/replaceTriggerToken autocomplete)",
+        "../NotNativeDesktop/packages/ui/src/chat/composer-attachments.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/drafts.ts + composer-draft-pins.ts (draft persistence, legacy autoAccept stripping)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/prompt-language.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-draft-context-pins.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-snippets.test.tsx"
+      ]
+    },
+    {
+      "id": "W-16",
+      "work_packages": "F3, F9",
+      "disposition": "MVP native queue, steer and abort with distinct semantics.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/queue/queue-runtime.ts (enqueue/abort-hold/quiet-arm semantics)",
+        "../NotNativeDesktop/packages/web/src/server/queue/queue-routes.ts + queue-store.ts",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-1-message-queue-runtime.test.ts (family incl. runtime-2/cross-process variants)",
+        "../NotNativeDesktop/packages/ui/src/chat/send-planner.ts (distinct queue vs steer delivery semantics)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-policy.test.ts > busy + steer returns the deliverable with delivery steer",
+        "../NotNativeAgent/src/engine/attention.js (NNA steering consumption)"
+      ]
+    },
+    {
+      "id": "W-17",
+      "work_packages": "F2, F4, F6",
+      "disposition": "MVP complete authorized part/evidence rendering and history.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (part/message rendering, hydration)",
+        "../NotNativeDesktop/packages/ui/src/chat/tool-cards.tsx (tool part/evidence cards)",
+        "../NotNativeDesktop/packages/ui/src/chat/session-row-evidence.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/transcript-hydration.test.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/tool-cards.test.tsx",
+        "../NotNativeAgent/src/experience/history.js + ../NotNativeAgent/test/session-history-tools.test.js (history replay)"
+      ]
+    },
+    {
+      "id": "W-18",
+      "work_packages": "F1, F4, F10",
+      "disposition": "MVP sidebar/projects/worktrees/folders/search/tabs and actions.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/session-sidebar.tsx (rows, Search sessions input data-testid sidebar-search)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-sidebar-hierarchy.test.ts (folders/hierarchy/search filtering)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-sidebar-workspaces.test.tsx",
+        "../NotNativeDesktop/packages/ui/src/components/worktrees/WorktreesView.tsx",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p6-3b-worktree-routes.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/session-tabs.tsx (SessionTabs tablist)"
+      ]
+    },
+    {
+      "id": "W-19",
+      "work_packages": "F2, F5, F10",
+      "disposition": "MVP NNA-authored activity/status, recap, follow-up and errors.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-19.recap",
+          "status": "implemented-unverified",
+          "note": "recap/suggestion renders from 'openchamber assist' metadata authored through the harness-backed small-model path on the NND web server, not by NNA core itself; NNA-core authorship of recap is unproven"
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (recapFor: quiet window, anchor freshness)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts > recap validity: branded namespace, 60s quiet window, anchor freshness",
+        "../NotNativeDesktop/packages/ui/src/components/operator-activity-surface.tsx + operator-activity-filter.ts",
+        "../NotNativeAgent/test/nnd-activity-history.test.js (+ nnd-activity-tombstones.test.js, nnd-phase-activity.test.js)",
+        "../NotNativeAgent/src/engine/output.js (NNA-authored state_status/stream_delta events)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/native-workspace-error.test.ts (errors surface)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p10-assist-metadata.test.ts (recap/suggestion metadata generation)"
+      ]
+    },
+    {
+      "id": "W-20",
+      "work_packages": "F3, C",
+      "disposition": "MVP native questions/review modes; auto-accept/automatic approvals prohibited.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-20.installed-review",
+          "status": "verified",
+          "evidence": [
+            "Verified (installed): NND 20261011-78 disposable-fixture installed acceptance against local NNA 20261011-10 (scripts/installed-source-acceptance.mjs): base, --native-setup-turn, --native-attachments, --native-replay-gap, --native-removal all passed (V1/V2 installed surface).",
+            "native review completed/failed outcomes rendered in both browser and desktop doors; fixture allow/deny writes received native reviewer decisions"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/blocking-cards.tsx (question cards: tabs, summary, custom answers, submit/deny)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/blocking-cards.test.tsx > question card §F.3",
+        "../NotNativeDesktop/packages/ui/src/chat/review-mode-control.tsx + work-status-review-mode.test.tsx",
+        "../NotNativeAgent/test/nnd-questions.test.js (+ question-broker/question-surface/question-tool.test.js)",
+        "../NotNativeAgent/test/nnd-review-mode.test.js (+ review-posture.test.js)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-nna-model.test.tsx > asserts no 'Enable permission auto-accept' control exists (auto-accept prohibited)",
+        "../NotNativeDesktop/packages/ui/src/lib/settings/__tests__/registry.test.ts (drops legacy NND permission auto-accept settings)"
+      ]
+    },
+    {
+      "id": "W-21",
+      "work_packages": "F2, F5, C",
+      "disposition": "MVP usage/quota/limits with native source and truthful missing-data state.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-21.context-usage",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (contextUsage, nnaContextUsage, resolveContextLimit, sessionCostRollup)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts (percent math, missing-data null, native estimate labeling)"
+          ]
+        },
+        {
+          "id": "W-21.quota-missing-state",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (usageRows §G data rule: presence-collapsed, no borrowed numbers)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts (No rate limits reported row)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (contextUsage, nnaContextUsage, resolveContextLimit, sessionCostRollup)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts (percent math, missing-data null, native estimate labeling)",
+        "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (usageRows §G data rule: presence-collapsed, no borrowed numbers)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts (No rate limits reported row)"
+      ]
+    },
+    {
+      "id": "W-22",
+      "work_packages": "F3, F8, F10",
+      "disposition": "MVP palette/history/snippets/prompts/starters.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-22.snippets",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/snippets.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-snippets.test.tsx (5 tests)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/settings-snippets-page.test.tsx (10 tests)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-4e-snippet-routes.test.ts (21 tests)"
+          ]
+        },
+        {
+          "id": "W-22.magic-prompts",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/magic-prompts/prompt-store.ts",
+            "../NotNativeDesktop/packages/web/src/server/routes/magic-prompts.ts",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-5d-magic-prompt-routes.test.ts"
+          ]
+        },
+        {
+          "id": "W-22.starters",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/starters.ts (global+project groups, insert rules)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3b-catalog.test.ts"
+          ]
+        },
+        {
+          "id": "W-22.history",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx (prompt history navigation + search, W-23)",
+            "../NotNativeDesktop/packages/ui/src/chat/command-palette.tsx (mod+p palette, W-05)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/timeline-search.test.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/command-palette.test.tsx"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/snippets.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-snippets.test.tsx (5 tests)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/settings-snippets-page.test.tsx (10 tests)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-4e-snippet-routes.test.ts (21 tests)",
+        "../NotNativeDesktop/packages/web/src/server/magic-prompts/prompt-store.ts",
+        "../NotNativeDesktop/packages/web/src/server/routes/magic-prompts.ts",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-5d-magic-prompt-routes.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/starters.ts (global+project groups, insert rules)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3b-catalog.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx (prompt history navigation + search, W-23)"
+      ]
+    },
+    {
+      "id": "W-23",
+      "work_packages": "F4",
+      "disposition": "MVP timeline search/fork/revert and prompt navigation with native checkpoints.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-23.timeline-fork",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeAgent/src/persistence/fork-records.js",
+            "../NotNativeAgent/test/nnd-engine-fork.test.js",
+            "../NotNativeAgent/test/integration-server.test.js native fork seeds a new session",
+            "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 F4 entry"
+          ]
+        },
+        {
+          "id": "W-23.timeline-search",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/timeline-search.test.tsx"
+          ]
+        },
+        {
+          "id": "W-23.timeline-revert",
+          "status": "implemented-unverified",
+          "note": "turn-level boundary (native checkpoints); partID accepted and recorded, cut is message-turn-wide",
+          "evidence": [
+            "../NotNativeAgent/src/nnd-session-revert.js",
+            "../NotNativeAgent/src/persistence/session-history.js",
+            "../NotNativeAgent/test/nnd-session-revert.test.js",
+            "../NotNativeAgent/test/integration-server.test.js native revert and unrevert ride the harness routes",
+            "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 F4 revert entry"
+          ]
+        },
+        {
+          "id": "W-23.prompt-navigation",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/timeline-search.test.tsx"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeAgent/src/persistence/fork-records.js",
+        "../NotNativeAgent/test/nnd-engine-fork.test.js",
+        "../NotNativeAgent/test/integration-server.test.js native fork seeds a new session",
+        "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 F4 entry",
+        "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/timeline-search.test.tsx",
+        "../NotNativeAgent/src/nnd-session-revert.js",
+        "../NotNativeAgent/src/persistence/session-history.js",
+        "../NotNativeAgent/test/nnd-session-revert.test.js",
+        "../NotNativeAgent/test/integration-server.test.js native revert and unrevert ride the harness routes"
+      ]
+    },
+    {
+      "id": "W-24",
+      "work_packages": "F4, F5, F10",
+      "disposition": "MVP AI rename, pins, notifications, bulk actions, archive and export.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-24.notifications",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/notifications/routes.ts",
+            "../NotNativeDesktop/packages/web/src/server/push/runtime.ts",
+            "../NotNativeDesktop/packages/electron/native-notifications.mjs",
+            "packages/web/src/server/__tests__/notification-routes.test.ts > streams notifications with an opaque owner, heartbeats, cancellation and credential revocation",
+            "packages/web/src/server/__tests__/push-runtime.test.ts",
+            "packages/web/src/server/__tests__/p12-native-notifications.test.js > native desktop notifications"
+          ]
+        },
+        {
+          "id": "W-24.pins",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/session-org.ts",
+            "../NotNativeDesktop/packages/web/src/server/session-knowledge/knowledge-runtime.ts",
+            "packages/web/src/server/__tests__/p4-7-session-org.test.ts > bounds message pins at the newest 64 and clears on empty",
+            "packages/web/src/server/__tests__/p10-session-knowledge.test.ts > assembles pins and memory in contract order and signs every content identity",
+            "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-10 'Pins and knowledge ride the session-organization store (F4.7)' entry"
+          ]
+        },
+        {
+          "id": "W-24.bulk-actions",
+          "status": "implemented-unverified",
+          "note": "bulk support is evidenced for archive only (archiveSessionIds over a list)",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/session-orchestration/session-orchestration-service.ts",
+            "../NotNativeDesktop/packages/web/src/server/session-orchestration/openchamber-sessions.ts",
+            "packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts > archiveSessionIds over a session list"
+          ]
+        },
+        {
+          "id": "W-24.archive",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/session-orchestration/session-harness-write-ports.ts",
+            "packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts"
+          ]
+        },
+        {
+          "id": "W-24.ai-rename",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/session-suggest-name.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/suggest-name.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/session-sidebar.tsx (session-suggest-name action, applies via rename only after operator confirmation)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/session-suggest-name.test.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-suggest-name.test.tsx"
+          ]
+        },
+        {
+          "id": "W-24.export",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/session-export.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx (timeline-export action)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-export.test.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/timeline-export.test.tsx"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/notifications/routes.ts",
+        "../NotNativeDesktop/packages/web/src/server/push/runtime.ts",
+        "../NotNativeDesktop/packages/electron/native-notifications.mjs",
+        "packages/web/src/server/__tests__/notification-routes.test.ts > streams notifications with an opaque owner, heartbeats, cancellation and credential revocation",
+        "packages/web/src/server/__tests__/push-runtime.test.ts",
+        "packages/web/src/server/__tests__/p12-native-notifications.test.js > native desktop notifications",
+        "../NotNativeDesktop/packages/web/src/server/routes/session-org.ts",
+        "../NotNativeDesktop/packages/web/src/server/session-knowledge/knowledge-runtime.ts",
+        "packages/web/src/server/__tests__/p4-7-session-org.test.ts > bounds message pins at the newest 64 and clears on empty",
+        "packages/web/src/server/__tests__/p10-session-knowledge.test.ts > assembles pins and memory in contract order and signs every content identity"
+      ]
+    },
+    {
+      "id": "W-25",
+      "work_packages": "F4, F5",
+      "disposition": "MVP native BTW and recap/follow-up assistance.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeAgent/src/nnd-assist.js",
+        "../NotNativeAgent/test/nnd-assist.test.js",
+        "../NotNativeDesktop/packages/web/src/server/session-assist/session-assist-runtime.ts",
+        "../NotNativeDesktop/packages/web/src/server/routes/session-org.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/btw-panel.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/session-assist-view.ts",
+        "packages/web/src/server/__tests__/p4-7-session-org.test.ts > answers exists:false cold, then stores a BTW marker with validation",
+        "packages/ui/src/chat/__tests__/p10-btw-panel.test.tsx",
+        "packages/web/src/server/__tests__/p10-assist-metadata.test.ts",
+        "packages/ui/src/chat/__tests__/p10-session-assist-view.test.ts",
+        "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 'F5 step 3: real-session generation rides the native assist seam (implemented-unverified)' entry"
+      ]
+    },
+    {
+      "id": "W-26",
+      "work_packages": "F3–F10",
+      "disposition": "MVP full surface-state catalog; author NNA-accurate copy.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-26.catalog",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/docs/build/EXECUTION/surface-state-catalog.md",
+            "../NotNativeDesktop/packages/ui/src/chat/session-sidebar.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx",
+            "../NotNativeDesktop/packages/ui/src/chat/work-status.ts",
+            "../NotNativeDesktop/packages/web/src/server/routes/native-alpha-surface.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/docs/build/EXECUTION/surface-state-catalog.md",
+        "../NotNativeDesktop/packages/ui/src/chat/session-sidebar.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/work-status.ts",
+        "../NotNativeDesktop/packages/web/src/server/routes/native-alpha-surface.ts"
+      ]
+    },
+    {
+      "id": "W-27",
+      "work_packages": "F2, F4",
+      "disposition": "MVP virtualization, history paging and stable message deep links.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-27.history-paging",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeAgent/src/nnd-activity-history.js",
+            "../NotNativeAgent/test/nnd-activity-history.test.js",
+            "../NotNativeAgent/test/nnd-activity-history-http.test.js",
+            "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 F2 recheck entry ('activity-history ... authoritative paged history')"
+          ]
+        },
+        {
+          "id": "W-27.virtualization",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/turn-window.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (newest-first window + expander + deep-link auto-expansion)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/turn-window.test.tsx"
+          ]
+        },
+        {
+          "id": "W-27.message-deep-links",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (message-<id> anchors + #message-<id> hash navigation, highlight, hashchange follow)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/message-deep-link.test.tsx"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeAgent/src/nnd-activity-history.js",
+        "../NotNativeAgent/test/nnd-activity-history.test.js",
+        "../NotNativeAgent/test/nnd-activity-history-http.test.js",
+        "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 F2 recheck entry ('activity-history ... authoritative paged history')",
+        "../NotNativeDesktop/packages/ui/src/chat/turn-window.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (newest-first window + expander + deep-link auto-expansion)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/turn-window.test.tsx",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (message-<id> anchors + #message-<id> hash navigation, highlight, hashchange follow)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/message-deep-link.test.tsx"
+      ]
+    },
+    {
+      "id": "W-28",
+      "work_packages": "F2",
+      "disposition": "MVP global/directory state separation and bindings.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-28.scope-separation",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/scope-separation.ts",
+            "../NotNativeDesktop/packages/ui/src/sync/child-store.ts (patch guard)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/scope-separation.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/sync/scope-separation.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/child-store.ts (patch guard)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/scope-separation.test.ts"
+      ]
+    },
+    {
+      "id": "W-29",
+      "work_packages": "F2",
+      "disposition": "MVP native event catalog, envelope validation and immutable receipt.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-29.event-catalog-envelope",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeAgent/src/opencode/wire-events.js",
+            "../NotNativeAgent/src/event-factory.js",
+            "../NotNativeAgent/src/provider/event-shape.js",
+            "../NotNativeAgent/test/opencode-wire-events.test.js",
+            "../NotNativeAgent/test/state-events.test.js"
+          ]
+        },
+        {
+          "id": "W-29.immutable-receipt",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/notifications/delivery-receipt.ts",
+            "../NotNativeDesktop/packages/web/src/server/notifications/session-state.ts (publish records a receipt per event)",
+            "../NotNativeDesktop/packages/web/src/server/notifications/routes.ts (GET /api/notifications/receipt continuity probe)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/delivery-receipt.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeAgent/src/opencode/wire-events.js",
+        "../NotNativeAgent/src/event-factory.js",
+        "../NotNativeAgent/src/provider/event-shape.js",
+        "../NotNativeAgent/test/opencode-wire-events.test.js",
+        "../NotNativeAgent/test/state-events.test.js",
+        "../NotNativeDesktop/packages/web/src/server/notifications/delivery-receipt.ts",
+        "../NotNativeDesktop/packages/web/src/server/notifications/session-state.ts (publish records a receipt per event)",
+        "../NotNativeDesktop/packages/web/src/server/notifications/routes.ts (GET /api/notifications/receipt continuity probe)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/delivery-receipt.test.ts"
+      ]
+    },
+    {
+      "id": "W-30",
+      "work_packages": "F1, F2",
+      "disposition": "MVP bootstrap, enrichment, continuity and resume recovery.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-30.continuity",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/persist-cache.ts (persistLastActiveSession/readLastActiveSession)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts"
+          ]
+        },
+        {
+          "id": "W-30.enrichment",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/bootstrap-enrichment.ts (runPhase2 + signature-guarded blocking merge)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts"
+          ]
+        },
+        {
+          "id": "W-30.resume-recovery",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/event-pipeline.ts (BOTH system-resume aliases interrupt the pipe — desktop notnative: alias was previously unlistened, fixed)",
+            "../NotNativeDesktop/packages/electron/main.mjs (powerMonitor resume broadcast)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/sync/persist-cache.ts (persistLastActiveSession/readLastActiveSession)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/bootstrap-enrichment.ts (runPhase2 + signature-guarded blocking merge)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/event-pipeline.ts (BOTH system-resume aliases interrupt the pipe — desktop notnative: alias was previously unlistened, fixed)",
+        "../NotNativeDesktop/packages/electron/main.mjs (powerMonitor resume broadcast)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts"
+      ]
+    },
+    {
+      "id": "W-31",
+      "work_packages": "F2",
+      "disposition": "MVP live transport, ordering, watchdog and explicit gap recovery.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-31.watchdog",
+          "status": "pending",
+          "note": "only a provider idle watchdog exists (../NotNativeAgent/src/provider/runner.js TRUSTED_LOCAL_IDLE_WATCHDOG_MS); no transport-level watchdog with focused tests was found"
+        }
+      ],
+      "evidence": [
+        "../NotNativeAgent/src/opencode/wire-events.js",
+        "../NotNativeAgent/src/nnd-activity-boundary.js",
+        "../NotNativeAgent/test/opencode-wire-events.test.js",
+        "../NotNativeDesktop/packages/web/src/server/lib/sse.ts",
+        "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 F2 recheck entry (fresh/complete/gap opener, NND pipeline distrust, activity-history-gap surface)"
+      ]
+    },
+    {
+      "id": "W-32",
+      "work_packages": "F2, F3",
+      "disposition": "MVP optimistic echo/failure/question recovery; no auto-accept policy.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-32.question-recovery",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/notifications/pending-snapshot.ts",
+            "../NotNativeDesktop/packages/web/src/server/notifications/session-projection.ts",
+            "packages/web/src/server/__tests__/notification-pending.test.ts"
+          ]
+        },
+        {
+          "id": "W-32.optimistic-echo",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (optimisticSend: client-minted ascending messageID, optimistic draft kept through the round-trip, message.updated echo reconciles — the REAL harnessClient.promptAsync path, not the mock sim)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (optimistic-send suite: busy publish, file-only upload, replay-gap refusal)"
+          ]
+        },
+        {
+          "id": "W-32.failure-recovery",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (isAmbiguousSendFailure + confirmSendLanded: definite failures roll back + restore status; ambiguous failures confirm-in-place after a reconnect-bound refetch, never double-send; getSendFailureLog evidence)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (rolls back a DEFINITE failure; CONFIRMS-in-place for ambiguous landing; reconnect-window rollback on absent; pending request retained after failed reply)"
+          ]
+        },
+        {
+          "id": "W-32.no-auto-accept",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/permission-policy.ts (assertPermissionReply)",
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/client.ts (transport-boundary guard)",
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/__tests__/permission-policy.test.ts",
+            "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (supersede path auto-REJECTS only; reply=always refused upstream)"
+          ]
+        },
+        {
+          "id": "W-32.installed-recovery",
+          "status": "verified",
+          "evidence": [
+            "Verified (installed): NND 20261011-78 disposable-fixture installed acceptance against local NNA 20261011-10 (scripts/installed-source-acceptance.mjs): base, --native-setup-turn, --native-attachments, --native-replay-gap, --native-removal all passed (V1/V2 installed surface).",
+            "service restart recovery: retried in-flight send got 204 with no provider call and both turns recovered"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/notifications/pending-snapshot.ts",
+        "../NotNativeDesktop/packages/web/src/server/notifications/session-projection.ts",
+        "packages/web/src/server/__tests__/notification-pending.test.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (optimisticSend: client-minted ascending messageID, optimistic draft kept through the round-trip, message.updated echo reconciles — the REAL harnessClient.promptAsync path, not the mock sim)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (optimistic-send suite: busy publish, file-only upload, replay-gap refusal)",
+        "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (isAmbiguousSendFailure + confirmSendLanded: definite failures roll back + restore status; ambiguous failures confirm-in-place after a reconnect-bound refetch, never double-send; getSendFailureLog evidence)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (rolls back a DEFINITE failure; CONFIRMS-in-place for ambiguous landing; reconnect-window rollback on absent; pending request retained after failed reply)",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/permission-policy.ts (assertPermissionReply)",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/client.ts (transport-boundary guard)",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/__tests__/permission-policy.test.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts (supersede path auto-REJECTS only; reply=always refused upstream)"
+      ]
+    },
+    {
+      "id": "W-33",
+      "work_packages": "F1, F4",
+      "disposition": "MVP full session lifecycle, retention and sidecars.",
+      "status": "implemented-unverified",
+      "subfeatures": [],
+      "evidence": [
+        "../NotNativeAgent/test/nnd-session-registry.test.js",
+        "../NotNativeAgent/src/nnd-activity-tombstones.js",
+        "../NotNativeAgent/test/nnd-activity-tombstones.test.js",
+        "../NotNativeAgent/test/nnd-activity-tombstones-http.test.js",
+        "../NotNativeAgent/test/nnd-parent-child-activity.test.js",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts",
+        "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md NND 20261003-11 'owner-scoped retained deletion receipts' entry"
+      ],
+      "note": "session registry, bounded retention via deletion tombstones, and child/activity sidecars are implemented with tests; legacy sidecars still need explicit migration and the F2 restart/retention matrix stays open — installed observation owed"
+    },
+    {
+      "id": "W-34",
+      "work_packages": "F2, F4, F9",
+      "disposition": "MVP scoped drafts/history/folders/queue/worktree persistence.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-34.drafts",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/drafts.ts (localStorage per directory+session key, legacy autoAccept stripped)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-draft-context-pins.test.tsx (9 tests)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-policy.test.ts"
+          ]
+        },
+        {
+          "id": "W-34.history",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/session-message-loader.ts (cursor paging)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/session-message-loader.test.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (load-older + window)"
+          ]
+        },
+        {
+          "id": "W-34.folders",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/session-folders.ts",
+            "../NotNativeDesktop/packages/ui/src/stores/useSessionFoldersStore.ts",
+            "../NotNativeDesktop/packages/ui/src/stores/__tests__/useSessionFoldersStore.test.ts (8 tests)"
+          ]
+        },
+        {
+          "id": "W-34.queue",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-1-message-queue.test.ts (24 tests)",
+            "../NotNativeDesktop/packages/web/src/server/queue/"
+          ]
+        },
+        {
+          "id": "W-34.worktrees",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/worktrees/",
+            "../NotNativeDesktop/packages/ui/src/components/worktrees/__tests__/worktrees-view.test.tsx (9 tests)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/drafts.ts (localStorage per directory+session key, legacy autoAccept stripped)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-draft-context-pins.test.tsx (9 tests)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-policy.test.ts",
+        "../NotNativeDesktop/packages/ui/src/sync/session-message-loader.ts (cursor paging)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/session-message-loader.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (load-older + window)",
+        "../NotNativeDesktop/packages/web/src/server/routes/session-folders.ts",
+        "../NotNativeDesktop/packages/ui/src/stores/useSessionFoldersStore.ts",
+        "../NotNativeDesktop/packages/ui/src/stores/__tests__/useSessionFoldersStore.test.ts (8 tests)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-1-message-queue.test.ts (24 tests)"
+      ]
+    },
+    {
+      "id": "W-35",
+      "work_packages": "F2, F4",
+      "disposition": "MVP stream and native revert representation.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-35.native-revert",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeAgent/src/nnd-session-revert.js (revert_point/revert_cleared journal records, stacked open-cycle semantics)",
+            "../NotNativeAgent/test/nnd-session-revert.test.js (4 tests incl. restart-mid-revert + fork prefix)",
+            "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 native revert entry"
+          ]
+        },
+        {
+          "id": "W-35.stream-representation",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeAgent/src/persistence/session-history.js (hiddenTurnIds pre-scan + steering hidden by turnId)",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (streaming tail + reverted-turn resync on unrevert)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeAgent/src/nnd-session-revert.js (revert_point/revert_cleared journal records, stacked open-cycle semantics)",
+        "../NotNativeAgent/test/nnd-session-revert.test.js (4 tests incl. restart-mid-revert + fork prefix)",
+        "../NotNativeDesktop/docs/build/EXECUTION/LEDGER.md 2026-10-11 native revert entry",
+        "../NotNativeAgent/src/persistence/session-history.js (hiddenTurnIds pre-scan + steering hidden by turnId)",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (streaming tail + reverted-turn resync on unrevert)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/boot-resume-binding.test.ts"
+      ]
+    },
+    {
+      "id": "W-36",
+      "work_packages": "F2, F10",
+      "disposition": "MVP bounded stores/tails and visible-demand fetching.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-36.bounded-stores",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/child-store.ts (soft-cap eviction with grace + idle TTL, §F.5)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/child-store.test.ts (8 tests: priority scheduler, grace-beats-burst, idle TTL bound, unpin eviction)"
+          ]
+        },
+        {
+          "id": "W-36.tails-demand",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/sync/session-message-loader.ts (cursor paging + small-window tail refresh that never replaces coverage state)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/session-message-loader.test.ts (10 tests)",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (load-older demand + turn window)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/sync/child-store.ts (soft-cap eviction with grace + idle TTL, §F.5)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/child-store.test.ts (8 tests: priority scheduler, grace-beats-burst, idle TTL bound, unpin eviction)",
+        "../NotNativeDesktop/packages/ui/src/sync/session-message-loader.ts (cursor paging + small-window tail refresh that never replaces coverage state)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/session-message-loader.test.ts (10 tests)",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (load-older demand + turn window)"
+      ]
+    },
+    {
+      "id": "W-37",
+      "work_packages": "F2, V",
+      "disposition": "MVP mechanically enforced sync invariants.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-37.enforced-invariants",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (12 mechanical invariant tests: secret-mode 0o600 sweeps, no-store json helper, token containment, no persistence in ui runtime/relay, structural-only fail channel)",
+            "../NotNativeDesktop/packages/ui/src/sync/scope-separation.ts (runtime guard: scopes never merge)",
+            "../NotNativeDesktop/packages/ui/src/lib/shortcuts/registry.ts (undeclared action throw)",
+            "../NotNativeDesktop/scripts/quality-gates.js (line caps, tsc, graph staleness)",
+            "../NotNativeDesktop/scripts/release-gates.js (manifest hashes + ledger audit)",
+            "../NotNativeDesktop/packages/ui/src/sync/engine-message-poll.ts (monotonic status, never clobbers live state; actions-recovery.test.ts pins monotonic vs authoritative)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (12 mechanical invariant tests: secret-mode 0o600 sweeps, no-store json helper, token containment, no persistence in ui runtime/relay, structural-only fail channel)",
+        "../NotNativeDesktop/packages/ui/src/sync/scope-separation.ts (runtime guard: scopes never merge)",
+        "../NotNativeDesktop/packages/ui/src/lib/shortcuts/registry.ts (undeclared action throw)",
+        "../NotNativeDesktop/scripts/quality-gates.js (line caps, tsc, graph staleness)",
+        "../NotNativeDesktop/scripts/release-gates.js (manifest hashes + ledger audit)",
+        "../NotNativeDesktop/packages/ui/src/sync/engine-message-poll.ts (monotonic status, never clobbers live state; actions-recovery.test.ts pins monotonic vs authoritative)"
+      ]
+    },
+    {
+      "id": "W-38",
+      "work_packages": "L",
+      "disposition": "MVP persistent service boot/middleware/auth/static/API-only contract.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-38.service-contract",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/app.ts (middleware/auth/static/API-only contract, native health proof)",
+            "../NotNativeDesktop/packages/electron/main.mjs (installed launches attach to the native-owned persistent service; dev-only in-process server)",
+            "../NotNativeDesktop/packages/electron/native-service-client.mjs + native-service-selection.mjs"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/app.ts (middleware/auth/static/API-only contract, native health proof)",
+        "../NotNativeDesktop/packages/electron/main.mjs (installed launches attach to the native-owned persistent service; dev-only in-process server)",
+        "../NotNativeDesktop/packages/electron/native-service-client.mjs + native-service-selection.mjs"
+      ]
+    },
+    {
+      "id": "W-39",
+      "work_packages": "F1–F10, C, L",
+      "disposition": "MVP local feature route inventory; auto-accept removed, remote-only routes excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-39.route-inventory",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/native-alpha-surface.ts (CLOSED_FAMILIES inventory; auto-accept removed; remote-only routes excluded)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/native-alpha-surface.test.ts (5 tests)",
+            "../NotNativeDesktop/packages/web/src/server/routes.ts (registered route inventory)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/native-alpha-surface.ts (CLOSED_FAMILIES inventory; auto-accept removed; remote-only routes excluded)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/native-alpha-surface.test.ts (5 tests)",
+        "../NotNativeDesktop/packages/web/src/server/routes.ts (registered route inventory)"
+      ]
+    },
+    {
+      "id": "W-40",
+      "work_packages": "F1–F5, L",
+      "disposition": "MVP native seam and lifecycle; legacy event names are compatibility only.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-40.native-seam",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/main.mjs (attach/redeem/stop lifecycle, tray-only boot, service-linked tray)",
+            "../NotNativeDesktop/packages/electron/tray.mjs",
+            "../NotNativeDesktop/packages/electron/renderer-recovery.mjs + test",
+            "../NotNativeDesktop/packages/ui/src/sync/event-pipeline.ts (openchamber: event names are compatibility aliases of the notnative: native names)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/main.mjs (attach/redeem/stop lifecycle, tray-only boot, service-linked tray)",
+        "../NotNativeDesktop/packages/electron/tray.mjs",
+        "../NotNativeDesktop/packages/electron/renderer-recovery.mjs + test",
+        "../NotNativeDesktop/packages/ui/src/sync/event-pipeline.ts (openchamber: event names are compatibility aliases of the notnative: native names)"
+      ]
+    },
+    {
+      "id": "W-41",
+      "work_packages": "F1–F9, C, V",
+      "disposition": "MVP P-01–P-24 port audit translated to native contracts.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-41.port-audit",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/docs/planning/02-opencode-harness-contract.md (P-01–P-24 port catalog translated to native contracts)",
+            "../NotNativeDesktop/packages/web/src/server/harness/adapter.ts (harness contract adapter)",
+            "../NotNativeDesktop/packages/web/src/server/routes.ts (P-04..P-09 surfaces registered)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/docs/planning/02-opencode-harness-contract.md (P-01–P-24 port catalog translated to native contracts)",
+        "../NotNativeDesktop/packages/web/src/server/harness/adapter.ts (harness contract adapter)",
+        "../NotNativeDesktop/packages/web/src/server/routes.ts (P-04..P-09 surfaces registered)"
+      ]
+    },
+    {
+      "id": "W-42",
+      "work_packages": "L, F9",
+      "disposition": "MVP install/service/update/diagnostic and schedule tooling; tunnel commands excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-42.install-service-update-diag-schedule",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/scripts/installer-structure.test.mjs + installer-transaction.test.mjs + installer-removal.test.mjs + installer-prebuilt-uninstall.test.mjs (dumb-copy installers, 20261011-7 shape)",
+            "../NotNativeDesktop/scripts/installed-service-package.test.mjs + serve-installed.test.mjs (persistent service)",
+            "../NotNativeDesktop/packages/electron/desktop-updater.test.mjs (10 tests) + updater-policy.test.mjs (NNA compatibility checks)",
+            "../NotNativeDesktop/packages/electron/host-probe.test.mjs (diagnostics)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-3a-scheduled-storage.test.ts .. p9-3d-scheduled-routes.test.ts (schedule tooling)",
+            "../NotNativeDesktop/packages/web/src/server/routes/scheduled-tasks.ts"
+          ]
+        },
+        {
+          "id": "W-42.installed-lifecycle",
+          "status": "verified",
+          "evidence": [
+            "Verified (installed): NND 20261011-78 disposable-fixture installed acceptance against local NNA 20261011-10 (scripts/installed-source-acceptance.mjs): base, --native-setup-turn, --native-attachments, --native-replay-gap, --native-removal all passed (V1/V2 installed surface).",
+            "installer registered/validated the package, service start/stop owned by the nna surface, native-owned removal preserved NNA data and manifest"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/scripts/installer-structure.test.mjs + installer-transaction.test.mjs + installer-removal.test.mjs + installer-prebuilt-uninstall.test.mjs (dumb-copy installers, 20261011-7 shape)",
+        "../NotNativeDesktop/scripts/installed-service-package.test.mjs + serve-installed.test.mjs (persistent service)",
+        "../NotNativeDesktop/packages/electron/desktop-updater.test.mjs (10 tests) + updater-policy.test.mjs (NNA compatibility checks)",
+        "../NotNativeDesktop/packages/electron/host-probe.test.mjs (diagnostics)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-3a-scheduled-storage.test.ts .. p9-3d-scheduled-routes.test.ts (schedule tooling)",
+        "../NotNativeDesktop/packages/web/src/server/routes/scheduled-tasks.ts"
+      ]
+    },
+    {
+      "id": "W-43",
+      "work_packages": "L, C, F8, F9",
+      "disposition": "MVP data ownership, migrations and strict readers.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-43.ownership-migrations-strict",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/project-context/legacy-plan-migration.ts + p10-legacy-plan-migration.test.ts + p10-durable-legacy-context.test.ts (migrations)",
+            "../NotNativeDesktop/packages/web/src/server/project-context/plan-store.ts (0o600 exclusive writes; strict reads)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p10-context-store.test.ts (context store ownership)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (0o600 secret-mode sweep, §12.2(b))"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/project-context/legacy-plan-migration.ts + p10-legacy-plan-migration.test.ts + p10-durable-legacy-context.test.ts (migrations)",
+        "../NotNativeDesktop/packages/web/src/server/project-context/plan-store.ts (0o600 exclusive writes; strict reads)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p10-context-store.test.ts (context store ownership)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (0o600 secret-mode sweep, §12.2(b))"
+      ]
+    },
+    {
+      "id": "W-44",
+      "work_packages": "L, C",
+      "disposition": "MVP typed supported environment/configuration inventory.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-44.env-config-inventory",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/lib/settings-registry.json (typed NND registry)",
+            "../NotNativeDesktop/packages/ui/src/lib/settings/__tests__/registry.test.ts (10 tests)",
+            "../NotNativeDesktop/scripts/settings-coverage-gate.mjs + .test.mjs (release-gate coverage census)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/lib/settings-registry.json (typed NND registry)",
+        "../NotNativeDesktop/packages/ui/src/lib/settings/__tests__/registry.test.ts (10 tests)",
+        "../NotNativeDesktop/scripts/settings-coverage-gate.mjs + .test.mjs (release-gate coverage census)"
+      ]
+    },
+    {
+      "id": "W-45",
+      "work_packages": "L, F1–F10",
+      "disposition": "MVP attached independent NNA has complete local features; legacy degraded external mode superseded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-45.attached-nna-completeness",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/harness/adapter.ts (attached independent NNA backs the full local feature set)",
+            "../NotNativeDesktop/docs/planning/02-opencode-harness-contract.md (P-01–P-24 native contracts)",
+            "../NotNativeDesktop/docs/build/EXECUTION/surface-state-catalog.md (feature surfaces + truthful missing-data states)",
+            "../NotNativeDesktop/scripts/nna-native-multi-root-smoke.mjs + installed-multi-root-acceptance.mjs (attach acceptance)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/harness/adapter.ts (attached independent NNA backs the full local feature set)",
+        "../NotNativeDesktop/docs/planning/02-opencode-harness-contract.md (P-01–P-24 native contracts)",
+        "../NotNativeDesktop/docs/build/EXECUTION/surface-state-catalog.md (feature surfaces + truthful missing-data states)",
+        "../NotNativeDesktop/scripts/nna-native-multi-root-smoke.mjs + installed-multi-root-acceptance.mjs (attach acceptance)"
+      ]
+    },
+    {
+      "id": "W-46",
+      "work_packages": "F6",
+      "disposition": "MVP full file tree/actions/tabs/grants.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-46.file-tree",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/files/FilesView.tsx (tree/actions/tabs)",
+            "../NotNativeDesktop/packages/ui/src/components/files/__tests__/files-view.test.tsx (17 tests)",
+            "../NotNativeDesktop/packages/web/src/server/routes/fs-read.ts + fs-write.ts + __tests__/p6-1-fs-read.test.ts + fs-git-routes.test.ts (12 grants tests)",
+            "../NotNativeDesktop/packages/web/src/server/routes/markdown-image-grants.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/files/FilesView.tsx (tree/actions/tabs)",
+        "../NotNativeDesktop/packages/ui/src/components/files/__tests__/files-view.test.tsx (17 tests)",
+        "../NotNativeDesktop/packages/web/src/server/routes/fs-read.ts + fs-write.ts + __tests__/p6-1-fs-read.test.ts + fs-git-routes.test.ts (12 grants tests)",
+        "../NotNativeDesktop/packages/web/src/server/routes/markdown-image-grants.ts"
+      ]
+    },
+    {
+      "id": "W-47",
+      "work_packages": "F6",
+      "disposition": "MVP editor/autosave/position/external-conflict/large-file behavior.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-47.editor",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/files/editor-stage.tsx (editor/autosave/position)",
+            "../NotNativeDesktop/packages/ui/src/components/files/__tests__/files-view.test.tsx (editor behavior)",
+            "../NotNativeDesktop/packages/ui/src/components/git/__tests__/git-file-preview.test.tsx (4 preview tests, large-file behavior)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/files/editor-stage.tsx (editor/autosave/position)",
+        "../NotNativeDesktop/packages/ui/src/components/files/__tests__/files-view.test.tsx (editor behavior)",
+        "../NotNativeDesktop/packages/ui/src/components/git/__tests__/git-file-preview.test.tsx (4 preview tests, large-file behavior)"
+      ]
+    },
+    {
+      "id": "W-48",
+      "work_packages": "F6",
+      "disposition": "MVP all listed preview types and persisted view modes.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-48.previews",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/git/__tests__/git-file-preview.test.tsx (persisted view modes)",
+            "../NotNativeDesktop/packages/ui/src/components/files/editor-stage.tsx (preview types)",
+            "../NotNativeDesktop/packages/ui/src/chat/markdown-lite.tsx (markdown preview)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/git/__tests__/git-file-preview.test.tsx (persisted view modes)",
+        "../NotNativeDesktop/packages/ui/src/components/files/editor-stage.tsx (preview types)",
+        "../NotNativeDesktop/packages/ui/src/chat/markdown-lite.tsx (markdown preview)"
+      ]
+    },
+    {
+      "id": "W-49",
+      "work_packages": "F6",
+      "disposition": "MVP complete diff modes/scopes/hunks/binary-image support.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-49.diffs",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/diff/DiffView.tsx + DiffViewer.tsx + diff-view-model.ts (modes/scopes/hunks/binary-image)",
+            "../NotNativeDesktop/packages/ui/src/components/diff/__tests__/diff-view.test.tsx",
+            "../NotNativeDesktop/packages/web/src/server/routes/git-diff.ts + __tests__/p6-2-git-diff.test.ts (6 tests)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/diff/DiffView.tsx + DiffViewer.tsx + diff-view-model.ts (modes/scopes/hunks/binary-image)",
+        "../NotNativeDesktop/packages/ui/src/components/diff/__tests__/diff-view.test.tsx",
+        "../NotNativeDesktop/packages/web/src/server/routes/git-diff.ts + __tests__/p6-2-git-diff.test.ts (6 tests)"
+      ]
+    },
+    {
+      "id": "W-50",
+      "work_packages": "F6",
+      "disposition": "MVP Git operations/history/graph/stashes/PR visibility.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-50.git-operations",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/git.ts + git-stash.ts + git-sync.ts (operations/history/graph/stashes)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/git-sync.test.ts (111 tests) + git-stash.test.ts (9 tests)",
+            "../NotNativeDesktop/packages/ui/src/components/git/__tests__/git-view.test.tsx (28 UI tests)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/git.ts + git-stash.ts + git-sync.ts (operations/history/graph/stashes)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/git-sync.test.ts (111 tests) + git-stash.test.ts (9 tests)",
+        "../NotNativeDesktop/packages/ui/src/components/git/__tests__/git-view.test.tsx (28 UI tests)"
+      ]
+    },
+    {
+      "id": "W-51",
+      "work_packages": "F1, F6",
+      "disposition": "MVP authorized worktrees and branch-scoped review.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-51.worktrees-review",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/worktrees/__tests__/worktrees-view.test.tsx (9 tests)",
+            "../NotNativeDesktop/packages/web/src/server/routes/git-worktrees.ts + __tests__/p6-3b-worktree-routes.test.ts (9 tests: authorized worktrees, branch-scoped review)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/worktrees/__tests__/worktrees-view.test.tsx (9 tests)",
+        "../NotNativeDesktop/packages/web/src/server/routes/git-worktrees.ts + __tests__/p6-3b-worktree-routes.test.ts (9 tests: authorized worktrees, branch-scoped review)"
+      ]
+    },
+    {
+      "id": "W-52",
+      "work_packages": "F6, F8",
+      "disposition": "MVP plans/save queue/improve/implement/walkthrough navigation.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-52.plans-navigation",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/plan/PlanView.tsx + __tests__/plan-view.test.tsx (10 tests: save queue/improve/implement)",
+            "../NotNativeDesktop/packages/web/src/server/project-context/plan-store.ts (plan persistence)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/walkthrough-preview.test.tsx (walkthrough navigation)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/plan/PlanView.tsx + __tests__/plan-view.test.tsx (10 tests: save queue/improve/implement)",
+        "../NotNativeDesktop/packages/web/src/server/project-context/plan-store.ts (plan persistence)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/walkthrough-preview.test.tsx (walkthrough navigation)"
+      ]
+    },
+    {
+      "id": "W-53",
+      "work_packages": "F6",
+      "disposition": "MVP PR/GitHub/Linear surfaces; account setup may be optional, feature implementation is required.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-53.surfaces",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/lib/integrations/connectors.ts (GitHub open-PR list + Linear issue list over the free public APIs; optional GITHUB_TOKEN / required LINEAR_API_KEY; typed fail-closed codes; size+timeout bounded)",
+            "../NotNativeDesktop/packages/web/src/server/routes/integrations.ts + app.ts (GET /api/integrations/github/pulls, /api/integrations/linear/issues)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/w53-integrations.test.ts (origin parsing, draft normalization, malformed-entry drop, fail-closed matrix)",
+            "../NotNativeDesktop/packages/ui/src/components/git/integrations-panel.tsx (PullRequestsPanel + LinearIssuesPanel with fail-closed messaging; embedded in GitView)",
+            "../NotNativeDesktop/packages/ui/src/components/git/__tests__/integrations-panel.test.tsx (lists render, codes surface, unconfigured guidance)",
+            "../NotNativeDesktop/packages/web/src/server/routes/git-walkthrough-sources.ts (pre-existing pr walkthrough source admission)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/lib/integrations/connectors.ts (GitHub open-PR list + Linear issue list over the free public APIs; optional GITHUB_TOKEN / required LINEAR_API_KEY; typed fail-closed codes; size+timeout bounded)",
+        "../NotNativeDesktop/packages/web/src/server/routes/integrations.ts + app.ts (GET /api/integrations/github/pulls, /api/integrations/linear/issues)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/w53-integrations.test.ts (origin parsing, draft normalization, malformed-entry drop, fail-closed matrix)",
+        "../NotNativeDesktop/packages/ui/src/components/git/integrations-panel.tsx (PullRequestsPanel + LinearIssuesPanel with fail-closed messaging; embedded in GitView)",
+        "../NotNativeDesktop/packages/ui/src/components/git/__tests__/integrations-panel.test.tsx (lists render, codes surface, unconfigured guidance)",
+        "../NotNativeDesktop/packages/web/src/server/routes/git-walkthrough-sources.ts (pre-existing pr walkthrough source admission)"
+      ]
+    },
+    {
+      "id": "W-54",
+      "work_packages": "F3, F6",
+      "disposition": "MVP inline comments/context/review workflow; review never grants tool permission.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-54.review-workflow",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/comments/InlineComments.tsx + controller.ts + focus-chat.ts (inline comments/context)",
+            "../NotNativeDesktop/packages/ui/src/components/comments/__tests__/controller.test.tsx (7 tests)",
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/permission-policy.ts (review never grants tool permission — W-32 prohibition)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/comments/InlineComments.tsx + controller.ts + focus-chat.ts (inline comments/context)",
+        "../NotNativeDesktop/packages/ui/src/components/comments/__tests__/controller.test.tsx (7 tests)",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/permission-policy.ts (review never grants tool permission — W-32 prohibition)"
+      ]
+    },
+    {
+      "id": "W-55",
+      "work_packages": "F6, F10",
+      "disposition": "MVP cache invalidation and retained-pane visibility gating.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-55.pane-gating",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/pane-visibility.ts (visibility-gated interval + IntersectionObserver usePaneVisible hook for retained panes)",
+            "../NotNativeDesktop/packages/ui/src/lib/terminal/observer.ts (keepalive skips touches while the window is hidden; §3.6 idle-reaper fight resumes on return)",
+            "../NotNativeDesktop/packages/ui/src/lib/terminal/__tests__/pane-visibility.test.ts (3 tests: visibility subscribe, gated interval suppress/catch-up, keepalive suppress/resume)",
+            "../NotNativeDesktop/packages/ui/src/sync/event-pipeline.ts + packages/ui/src/components/files/FileTree.tsx (pre-existing document-level visibility gates composed with)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/lib/pane-visibility.ts (visibility-gated interval + IntersectionObserver usePaneVisible hook for retained panes)",
+        "../NotNativeDesktop/packages/ui/src/lib/terminal/observer.ts (keepalive skips touches while the window is hidden; §3.6 idle-reaper fight resumes on return)",
+        "../NotNativeDesktop/packages/ui/src/lib/terminal/__tests__/pane-visibility.test.ts (3 tests: visibility subscribe, gated interval suppress/catch-up, keepalive suppress/resume)",
+        "../NotNativeDesktop/packages/ui/src/sync/event-pipeline.ts + packages/ui/src/components/files/FileTree.tsx (pre-existing document-level visibility gates composed with)"
+      ]
+    },
+    {
+      "id": "W-56",
+      "work_packages": "F7",
+      "disposition": "MVP local terminal v3 protocol and command plane.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-56.terminal-protocol",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-protocol.test.ts (16 v3 protocol tests)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-runtime.test.ts (47 runtime/command-plane tests)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-protocol.test.ts (16 v3 protocol tests)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-runtime.test.ts (47 runtime/command-plane tests)"
+      ]
+    },
+    {
+      "id": "W-57",
+      "work_packages": "F7, L",
+      "disposition": "MVP Windows ConPTY lifecycle; POSIX platform branches excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-57.conpty",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/terminal/pty-backend.ts (Windows ConPTY via node-pty win32-x64 prebuilds)",
+            "../NotNativeDesktop/packages/web/src/server/terminal/bootstrap.ts",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-runtime.test.ts (lifecycle incl. SIGKILL force-kill contract); POSIX branches excluded"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/terminal/pty-backend.ts (Windows ConPTY via node-pty win32-x64 prebuilds)",
+        "../NotNativeDesktop/packages/web/src/server/terminal/bootstrap.ts",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-runtime.test.ts (lifecycle incl. SIGKILL force-kill contract); POSIX branches excluded"
+      ]
+    },
+    {
+      "id": "W-58",
+      "work_packages": "F7, C",
+      "disposition": "MVP equivalent terminal renderer/input/fonts/theme.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-58.renderer",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalView.tsx (renderer/input)",
+            "../NotNativeDesktop/packages/ui/src/components/terminal/__tests__/terminal-view.test.tsx (8 tests)",
+            "../NotNativeDesktop/packages/ui/src/styles/design-system.css (fonts/theme tokens)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalView.tsx (renderer/input)",
+        "../NotNativeDesktop/packages/ui/src/components/terminal/__tests__/terminal-view.test.tsx (8 tests)",
+        "../NotNativeDesktop/packages/ui/src/styles/design-system.css (fonts/theme tokens)"
+      ]
+    },
+    {
+      "id": "W-59",
+      "work_packages": "F7",
+      "disposition": "MVP terminal transport/store/panel/detach versus close.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-59.transport-panel",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-live.test.ts (live transport)",
+            "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalKeepaliveOwner.tsx (keepalive)",
+            "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalView.tsx (tabs/panel, close-guarded tab close vs detached session)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-live.test.ts (live transport)",
+        "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalKeepaliveOwner.tsx (keepalive)",
+        "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalView.tsx (tabs/panel, close-guarded tab close vs detached session)"
+      ]
+    },
+    {
+      "id": "W-60",
+      "work_packages": "F7",
+      "disposition": "MVP browser/desktop mirroring and reattach; remote-device access excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-60.mirroring",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/w60-terminal-mirror.test.ts (desktop+browser sockets on one shared session: mirrored output frames, either-side input, churn re-attach with snapshot replay)",
+            "../NotNativeDesktop/packages/web/src/server/terminal/session-core.ts (server-side shared sessions; attach barrier snapshot-first; detach/reattach idempotent; SUPERSEDED re-attach)",
+            "../NotNativeDesktop/packages/ui/src/lib/terminal/observer.ts + store.ts (cross-surface tab adoption via reconcileServerSessions; reattach via observer after reload)",
+            "../NotNativeDesktop/packages/ui/src/lib/terminal/__tests__/transport.test.ts (live re-attach on socket churn, idempotent attach)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/w60-terminal-mirror.test.ts (desktop+browser sockets on one shared session: mirrored output frames, either-side input, churn re-attach with snapshot replay)",
+        "../NotNativeDesktop/packages/web/src/server/terminal/session-core.ts (server-side shared sessions; attach barrier snapshot-first; detach/reattach idempotent; SUPERSEDED re-attach)",
+        "../NotNativeDesktop/packages/ui/src/lib/terminal/observer.ts + store.ts (cross-surface tab adoption via reconcileServerSessions; reattach via observer after reload)",
+        "../NotNativeDesktop/packages/ui/src/lib/terminal/__tests__/transport.test.ts (live re-attach on socket churn, idempotent attach)"
+      ]
+    },
+    {
+      "id": "W-61",
+      "work_packages": "F7",
+      "disposition": "MVP project actions/trust/exit evidence/local preview opening.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-61.project-actions-trust",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/native-workspace-admission.ts (workspace trust)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-route.test.tsx + operator-rail.test.tsx (project actions/local preview opening)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/native-workspace-admission.ts (workspace trust)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-route.test.tsx + operator-rail.test.tsx (project actions/local preview opening)"
+      ]
+    },
+    {
+      "id": "W-62",
+      "work_packages": "F7, V",
+      "disposition": "MVP bounded terminal input/output and access isolation.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-62.bounded-terminal",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/native-terminal-fence.test.ts (access isolation fence)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (§12 isolation sweeps)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-runtime.test.ts (bounded IO)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/native-terminal-fence.test.ts (access isolation fence)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (§12 isolation sweeps)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p7-1-terminal-runtime.test.ts (bounded IO)"
+      ]
+    },
+    {
+      "id": "W-63",
+      "work_packages": "F3, F7",
+      "disposition": "MVP terminal selection to context/comments.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-63.selection-context",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalView.tsx (AttachSelectionButton: selection rides Flow 5 into the composer context)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-append.test.tsx"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/terminal/TerminalView.tsx (AttachSelectionButton: selection rides Flow 5 into the composer context)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-append.test.tsx"
+      ]
+    },
+    {
+      "id": "W-64",
+      "work_packages": "L, C",
+      "disposition": "MVP local browser/session/device auth and passkeys where supported; public/tunnel access excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-64.local-auth",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts (43 local browser/session/device auth tests)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-passkeys.test.ts (20 tests, where supported)",
+            "../NotNativeDesktop/packages/electron/desktop-password-login.test.mjs (9 tests); public/tunnel access excluded by contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts (43 local browser/session/device auth tests)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-passkeys.test.ts (20 tests, where supported)",
+        "../NotNativeDesktop/packages/electron/desktop-password-login.test.mjs (9 tests); public/tunnel access excluded by contract"
+      ]
+    },
+    {
+      "id": "W-65",
+      "work_packages": "L",
+      "disposition": "Remote private relay excluded from MVP; preserve existing code without counting it as local acceptance.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-65.relay-preserved",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/relay.ts + relay dispatcher tests (code preserved)",
+            "../NotNativeDesktop/packages/electron/relay-pairing-bridge.mjs + relay-dev-tunnel.test.mjs (excluded from local MVP acceptance; not counted as local acceptance)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/relay.ts + relay dispatcher tests (code preserved)",
+        "../NotNativeDesktop/packages/electron/relay-pairing-bridge.mjs + relay-dev-tunnel.test.mjs (excluded from local MVP acceptance; not counted as local acceptance)"
+      ]
+    },
+    {
+      "id": "W-66",
+      "work_packages": "L",
+      "disposition": "Remote tunnel providers excluded from MVP.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-66.tunnels-preserved",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/tunnel.ts + lib/tunnels/ (provider code preserved)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-tunnel.test.ts (tunnel auth excluded from local acceptance)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/tunnel.ts + lib/tunnels/ (provider code preserved)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-tunnel.test.ts (tunnel auth excluded from local acceptance)"
+      ]
+    },
+    {
+      "id": "W-67",
+      "work_packages": "L",
+      "disposition": "Remote pairing/QR excluded; local desktop-to-service authenticated setup remains required.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-67.local-pairing-setup",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/desktop-pairing.mjs + desktop-pairing.test.mjs (19 tests: local desktop-to-service authenticated setup)",
+            "../NotNativeDesktop/packages/electron/desktop-password-login.test.mjs (9 tests); remote pairing/QR excluded by contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/desktop-pairing.mjs + desktop-pairing.test.mjs (19 tests: local desktop-to-service authenticated setup)",
+        "../NotNativeDesktop/packages/electron/desktop-password-login.test.mjs (9 tests); remote pairing/QR excluded by contract"
+      ]
+    },
+    {
+      "id": "W-68",
+      "work_packages": "L",
+      "disposition": "SSH remote-machine access excluded from MVP.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-68.ssh-preserved",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/ssh-*.mjs + ssh-managed-lifecycle.test.mjs .. ssh-transport.test.mjs (SSH remote code preserved with tests)",
+            "../NotNativeDesktop/packages/ui/src/lib/desktopSsh.ts (SSH remote-machine access excluded from local MVP acceptance)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/ssh-*.mjs + ssh-managed-lifecycle.test.mjs .. ssh-transport.test.mjs (SSH remote code preserved with tests)",
+        "../NotNativeDesktop/packages/ui/src/lib/desktopSsh.ts (SSH remote-machine access excluded from local MVP acceptance)"
+      ]
+    },
+    {
+      "id": "W-69",
+      "work_packages": "F7",
+      "disposition": "Local preview required; remote preview tunnel excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-69.local-preview",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-dev-servers.test.ts + p11-probe-url.test.ts + preview-frame-guard.test.ts (local preview required)",
+            "../NotNativeDesktop/packages/web/src/server/lib/relay/ + lib/tunnels/ (remote preview tunnel preserved-unaccepted)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-dev-servers.test.ts + p11-probe-url.test.ts + preview-frame-guard.test.ts (local preview required)",
+        "../NotNativeDesktop/packages/web/src/server/lib/relay/ + lib/tunnels/ (remote preview tunnel preserved-unaccepted)"
+      ]
+    },
+    {
+      "id": "W-70",
+      "work_packages": "L",
+      "disposition": "Public reverse-proxy deployment excluded; safe loopback origin/cookie rules required.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-70.loopback-rules",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/trusted-origin.mjs (safe loopback origin)",
+            "../NotNativeDesktop/packages/web/src/server/app.ts (loopback cookie/Secure rules, configured Electron origin)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts (cookie rules); public reverse-proxy excluded by contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/trusted-origin.mjs (safe loopback origin)",
+        "../NotNativeDesktop/packages/web/src/server/app.ts (loopback cookie/Secure rules, configured Electron origin)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts (cookie rules); public reverse-proxy excluded by contract"
+      ]
+    },
+    {
+      "id": "W-71",
+      "work_packages": "L, F1–F10, V",
+      "disposition": "MVP secret handling, revocation and failure isolation remain mandatory.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-71.secrets",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/lib/auth/ (password/passkeys/pairing/device-token secrets; revocation via ui-auth revoke + client routes)",
+            "../NotNativeDesktop/packages/web/src/server/lib/auth/pairing-sessions.ts (0o600 atomic secret store; one-time grants)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (§12.2(b) 0o600 sweep + failure-isolation sweeps)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts (43 auth tests incl. failure paths)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/lib/auth/ (password/passkeys/pairing/device-token secrets; revocation via ui-auth revoke + client routes)",
+        "../NotNativeDesktop/packages/web/src/server/lib/auth/pairing-sessions.ts (0o600 atomic secret store; one-time grants)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (§12.2(b) 0o600 sweep + failure-isolation sweeps)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts (43 auth tests incl. failure paths)"
+      ]
+    },
+    {
+      "id": "W-72",
+      "work_packages": "L, F10",
+      "disposition": "MVP local installation/service/auth status; remote host fleet UX excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-72.install-status",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/native-setup.tsx + __tests__/native-setup.test.tsx (6 tests: local installation/service/auth status)",
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/setup-readiness.ts + __tests__/setup-readiness.test.ts + setup.test.ts",
+            "../NotNativeDesktop/packages/electron/host-probe.test.mjs (14 diagnostics tests); remote host fleet UX excluded by contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/native-setup.tsx + __tests__/native-setup.test.tsx (6 tests: local installation/service/auth status)",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/setup-readiness.ts + __tests__/setup-readiness.test.ts + setup.test.ts",
+        "../NotNativeDesktop/packages/electron/host-probe.test.mjs (14 diagnostics tests); remote host fleet UX excluded by contract"
+      ]
+    },
+    {
+      "id": "W-73",
+      "work_packages": "L",
+      "disposition": "Replace Electron-owned in-process backend with persistent installed service attachment.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-73.service-attachment",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/main.mjs (installed launches attach to the native-owned persistent service; attachNativeService/redeemNativeAttachment/requestNativeServiceStop)",
+            "../NotNativeDesktop/packages/electron/native-service-client.mjs + .test.mjs (17 tests)",
+            "../NotNativeDesktop/packages/electron/native-service-selection.mjs",
+            "../NotNativeDesktop/packages/electron/desktop-boot.test.mjs (15 tests)"
+          ]
+        },
+        {
+          "id": "W-73.installed-attachment",
+          "status": "verified",
+          "evidence": [
+            "Verified (installed): NND 20261011-78 disposable-fixture installed acceptance against local NNA 20261011-10 (scripts/installed-source-acceptance.mjs): base, --native-setup-turn, --native-attachments, --native-replay-gap, --native-removal all passed (V1/V2 installed surface).",
+            "desktop shell attached to the installed persistent service; desktop exit did not stop or replace the native service"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/main.mjs (installed launches attach to the native-owned persistent service; attachNativeService/redeemNativeAttachment/requestNativeServiceStop)",
+        "../NotNativeDesktop/packages/electron/native-service-client.mjs + .test.mjs (17 tests)",
+        "../NotNativeDesktop/packages/electron/native-service-selection.mjs",
+        "../NotNativeDesktop/packages/electron/desktop-boot.test.mjs (15 tests)"
+      ]
+    },
+    {
+      "id": "W-74",
+      "work_packages": "L, F7, F10",
+      "disposition": "MVP bounded sender-gated IPC and least-privilege preload.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-74.ipc-preload",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/ipc-face.mjs + ipc-face.test.mjs (25 sender-gated IPC tests)",
+            "../NotNativeDesktop/packages/electron/preload.mjs (least-privilege contextBridge surface, Object.freeze, typed command invoke)",
+            "../NotNativeDesktop/packages/electron/main.mjs (guest window open denied; will-navigate/will-redirect guards)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/ipc-face.mjs + ipc-face.test.mjs (25 sender-gated IPC tests)",
+        "../NotNativeDesktop/packages/electron/preload.mjs (least-privilege contextBridge surface, Object.freeze, typed command invoke)",
+        "../NotNativeDesktop/packages/electron/main.mjs (guest window open denied; will-navigate/will-redirect guards)"
+      ]
+    },
+    {
+      "id": "W-75",
+      "work_packages": "L, F10",
+      "disposition": "MVP window geometry/tray/Mini Chat/navigation guards.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-75.window-shell",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/window-state.mjs + window-state.test.mjs (5 geometry tests)",
+            "../NotNativeDesktop/packages/electron/tray.mjs (service-linked tray)",
+            "../NotNativeDesktop/packages/electron/main.mjs (Mini Chat window, navigation guards)",
+            "../NotNativeDesktop/packages/electron/renderer-recovery.mjs + test"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/window-state.mjs + window-state.test.mjs (5 geometry tests)",
+        "../NotNativeDesktop/packages/electron/tray.mjs (service-linked tray)",
+        "../NotNativeDesktop/packages/electron/main.mjs (Mini Chat window, navigation guards)",
+        "../NotNativeDesktop/packages/electron/renderer-recovery.mjs + test"
+      ]
+    },
+    {
+      "id": "W-76",
+      "work_packages": "L, F4",
+      "disposition": "MVP local session deep links; remote host/pairing links excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-76.deep-links",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/deep-links.mjs + deep-links.test.mjs (9 local session deep-link tests; remote host/pairing links rejected)",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (#message-<id> anchors + window-aware auto-expansion)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/turn-window.test.tsx"
+          ]
+        },
+        {
+          "id": "W-76.installed-ingress",
+          "status": "verified",
+          "evidence": [
+            "Verified (installed): NND 20261011-78 disposable-fixture installed acceptance against local NNA 20261011-10 (scripts/installed-source-acceptance.mjs): base, --native-setup-turn, --native-attachments, --native-replay-gap, --native-removal all passed (V1/V2 installed surface).",
+            "allowed session deep link reached the renderer and routed via the ?session workspace route; host/pairing links refused; boot target and shell state unchanged"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/deep-links.mjs + deep-links.test.mjs (9 local session deep-link tests; remote host/pairing links rejected)",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (#message-<id> anchors + window-aware auto-expansion)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/turn-window.test.tsx"
+      ]
+    },
+    {
+      "id": "W-77",
+      "work_packages": "L",
+      "disposition": "MVP packaged assets/protocol/SPA/runtime config.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-77.packaged-assets",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/scripts/electron-package.mjs + electron-build-stamp.mjs (packaged assets/build stamp)",
+            "../NotNativeDesktop/packages/web/src/server/lib/static.ts (SPA fallback + asset serving)",
+            "../NotNativeDesktop/packages/web/src/server/app.ts (runtime config injected before /api auth)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/scripts/electron-package.mjs + electron-build-stamp.mjs (packaged assets/build stamp)",
+        "../NotNativeDesktop/packages/web/src/server/lib/static.ts (SPA fallback + asset serving)",
+        "../NotNativeDesktop/packages/web/src/server/app.ts (runtime config injected before /api auth)"
+      ]
+    },
+    {
+      "id": "W-78",
+      "work_packages": "F7",
+      "disposition": "MVP isolated embedded browser/capture/storage controls.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-78.embedded-browser",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/browser-guest-policy.mjs + browser-guest-policy.test.mjs (isolated embedded browser)",
+            "../NotNativeDesktop/packages/electron/main.mjs (guest window guards, will-navigate/will-redirect deny)",
+            "../NotNativeDesktop/packages/ui/src/chat/browser-annotation-controls.tsx (capture controls)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/browser-guest-policy.mjs + browser-guest-policy.test.mjs (isolated embedded browser)",
+        "../NotNativeDesktop/packages/electron/main.mjs (guest window guards, will-navigate/will-redirect deny)",
+        "../NotNativeDesktop/packages/ui/src/chat/browser-annotation-controls.tsx (capture controls)"
+      ]
+    },
+    {
+      "id": "W-79",
+      "work_packages": "L",
+      "disposition": "SSH manager excluded from MVP.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-79.ssh-manager-preserved",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages (SSH manager code preserved, e.g. desktop-ssh settings)",
+            "../NotNativeDesktop/packages/electron/ssh-instances.mjs + ssh-instances.test.mjs; excluded from MVP acceptance per contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages (SSH manager code preserved, e.g. desktop-ssh settings)",
+        "../NotNativeDesktop/packages/electron/ssh-instances.mjs + ssh-instances.test.mjs; excluded from MVP acceptance per contract"
+      ]
+    },
+    {
+      "id": "W-80",
+      "work_packages": "L",
+      "disposition": "MVP Windows NND updater and NNA compatibility checks; other platforms excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-80.updater",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/desktop-updater.mjs + desktop-updater.test.mjs (10 tests: Windows NND updater)",
+            "../NotNativeDesktop/packages/electron/updater-policy.mjs + updater-policy.test.mjs (NNA compatibility checks; other platforms excluded)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/desktop-updater.mjs + desktop-updater.test.mjs (10 tests: Windows NND updater)",
+        "../NotNativeDesktop/packages/electron/updater-policy.mjs + updater-policy.test.mjs (NNA compatibility checks; other platforms excluded)"
+      ]
+    },
+    {
+      "id": "W-81",
+      "work_packages": "L, F10",
+      "disposition": "MVP Windows tray/menu/notifications/login/resume/native utilities; macOS dock excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-81.windows-shell",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/tray.mjs (Windows tray/menu)",
+            "../NotNativeDesktop/packages/electron/native-notifications.mjs (native notifications)",
+            "../NotNativeDesktop/packages/electron/main.mjs (powerMonitor resume broadcast + login/window lifecycle; macOS dock excluded)",
+            "../NotNativeDesktop/packages/electron/shell-prefs.mjs + shell-prefs.test.mjs (native utilities)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/tray.mjs (Windows tray/menu)",
+        "../NotNativeDesktop/packages/electron/native-notifications.mjs (native notifications)",
+        "../NotNativeDesktop/packages/electron/main.mjs (powerMonitor resume broadcast + login/window lifecycle; macOS dock excluded)",
+        "../NotNativeDesktop/packages/electron/shell-prefs.mjs + shell-prefs.test.mjs (native utilities)"
+      ]
+    },
+    {
+      "id": "W-82",
+      "work_packages": "F7, L, V",
+      "disposition": "MVP adversarial IPC/guest/navigation/secret boundary tests.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-82.boundary-tests",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts + p8-1-passkeys.test.ts + p8-2-relay-dispatcher.test.ts + p8-2-relay-host.test.ts (adversarial auth/relay boundary)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-ipc.test.js + browser-mutation-guard.test.ts (guest/IPC boundary)",
+            "../NotNativeDesktop/packages/electron/main.mjs navigation guards + packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (secret boundary sweeps)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p8-1-auth-ui.test.ts + p8-1-passkeys.test.ts + p8-2-relay-dispatcher.test.ts + p8-2-relay-host.test.ts (adversarial auth/relay boundary)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-ipc.test.js + browser-mutation-guard.test.ts (guest/IPC boundary)",
+        "../NotNativeDesktop/packages/electron/main.mjs navigation guards + packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts (secret boundary sweeps)"
+      ]
+    },
+    {
+      "id": "W-83",
+      "work_packages": "L, V",
+      "disposition": "MVP supported Windows installer architecture matrix; other OS packages excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-83.installer-matrix",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/scripts/installer-structure.test.mjs (supported Windows installer architecture matrix)",
+            "../NotNativeDesktop/scripts/electron-package.mjs (win-x64 subset, node-pty prebuilds)",
+            "../NotNativeDesktop/scripts/installer-nna-preflight.test.mjs + installer-nna-dependency.test.mjs"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/scripts/installer-structure.test.mjs (supported Windows installer architecture matrix)",
+        "../NotNativeDesktop/scripts/electron-package.mjs (win-x64 subset, node-pty prebuilds)",
+        "../NotNativeDesktop/scripts/installer-nna-preflight.test.mjs + installer-nna-dependency.test.mjs"
+      ]
+    },
+    {
+      "id": "W-84",
+      "work_packages": "F6, L",
+      "disposition": "MVP guarded native file utilities and Windows atomic replacement.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-84.file-utilities",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/electron/file-utilities.mjs + file-utilities.test.mjs (guarded native file utilities)",
+            "../NotNativeDesktop/packages/electron/windows-file-replace.mjs + windows-file-replace.test.mjs (atomic replacement)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/electron/file-utilities.mjs + file-utilities.test.mjs (guarded native file utilities)",
+        "../NotNativeDesktop/packages/electron/windows-file-replace.mjs + windows-file-replace.test.mjs (atomic replacement)"
+      ]
+    },
+    {
+      "id": "W-85",
+      "work_packages": "F9",
+      "disposition": "MVP native goals, audit, limits and management UI.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-85.goals-audit-limits-ui",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-goal-actions.test.ts + session-goal-controls.test.tsx (native session goals)",
+            "../NotNativeDesktop/packages/ui/src/sync/activity-snapshot.ts + operator-rail.test.tsx (audit/activity rail)",
+            "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (nnaGovernanceSummary limits; §G missing-data rule)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-goal-actions.test.ts + session-goal-controls.test.tsx (native session goals)",
+        "../NotNativeDesktop/packages/ui/src/sync/activity-snapshot.ts + operator-rail.test.tsx (audit/activity rail)",
+        "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (nnaGovernanceSummary limits; §G missing-data rule)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts"
+      ]
+    },
+    {
+      "id": "W-86",
+      "work_packages": "F9, C",
+      "disposition": "MVP persistent schedules/timezones/run-as-goal; auto-accept toggle prohibited.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-86.schedules",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/scheduled/ (task-schema with timezones, next-run, loops, pipeline)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-3a..p9-3d suites + p9-3d-audit-repro.test.ts (20 tests) + p9-4c-cron-preview.test.ts (10 tests)",
+            "../NotNativeDesktop/packages/ui/src/components/scheduled/scheduled-task-execution-editor.tsx (run-as-goal; auto-accept toggle absent by W-32 prohibition)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/scheduled/ (task-schema with timezones, next-run, loops, pipeline)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-3a..p9-3d suites + p9-3d-audit-repro.test.ts (20 tests) + p9-4c-cron-preview.test.ts (10 tests)",
+        "../NotNativeDesktop/packages/ui/src/components/scheduled/scheduled-task-execution-editor.tsx (run-as-goal; auto-accept toggle absent by W-32 prohibition)"
+      ]
+    },
+    {
+      "id": "W-87",
+      "work_packages": "F3, F9",
+      "disposition": "MVP queue intent/delivery/holds/edit/reorder/clear/context; VS Code auto-send excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-87.queue-intent",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-1-message-queue.test.ts (24 tests: intent/delivery/holds/edit/reorder/clear/context)",
+            "../NotNativeDesktop/packages/web/src/server/queue/ (queue plane)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-policy.test.ts (send planner; VS Code auto-send excluded)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-1-message-queue.test.ts (24 tests: intent/delivery/holds/edit/reorder/clear/context)",
+        "../NotNativeDesktop/packages/web/src/server/queue/ (queue plane)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/composer-policy.test.ts (send planner; VS Code auto-send excluded)"
+      ]
+    },
+    {
+      "id": "W-88",
+      "work_packages": "F1, F5, F9",
+      "disposition": "MVP full multi-run, worktree isolation, comparison/adoption/fusion.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-88.multirun",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/multirun-launcher.test.tsx (5) + multirun-fusion-dialog.test.tsx (2)",
+            "../NotNativeDesktop/packages/ui/src/lib/__tests__/multirun-create.test.ts + multirun-title.test.ts + multirun-ui-services.test.ts (worktree isolation mapping; honestly refuses unimplemented setup commands)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-rail.test.tsx (comparison surface)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/multirun-launcher.test.tsx (5) + multirun-fusion-dialog.test.tsx (2)",
+        "../NotNativeDesktop/packages/ui/src/lib/__tests__/multirun-create.test.ts + multirun-title.test.ts + multirun-ui-services.test.ts (worktree isolation mapping; honestly refuses unimplemented setup commands)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/operator-rail.test.tsx (comparison surface)"
+      ]
+    },
+    {
+      "id": "W-89",
+      "work_packages": "F4, F9",
+      "disposition": "MVP managed-session orchestration through native operations.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-89.orchestration",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts (16 tests: managed-session orchestration through native operations — goal budgets, dispatch, forks, worktrees)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts (16 tests: managed-session orchestration through native operations — goal budgets, dispatch, forks, worktrees)"
+      ]
+    },
+    {
+      "id": "W-90",
+      "work_packages": "F9, V",
+      "disposition": "MVP stop/recovery/isolation/idempotency invariants.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-90.invariants",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts (reject-before-side-effect, undispatched-until-observed, partial-goal failure, post-fork dispatch failure)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (monotonic status, never lowers live)",
+            "../NotNativeDesktop/packages/ui/src/sync/engine-message-pool.ts (bounded, idempotent pool; see engine-message-poll.ts)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p9-6b-session-orchestration.test.ts (reject-before-side-effect, undispatched-until-observed, partial-goal failure, post-fork dispatch failure)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (monotonic status, never lowers live)",
+        "../NotNativeDesktop/packages/ui/src/sync/engine-message-pool.ts (bounded, idempotent pool; see engine-message-poll.ts)"
+      ]
+    },
+    {
+      "id": "W-91",
+      "work_packages": "F7",
+      "disposition": "MVP Windows local dev-server discovery/probe; POSIX scanners excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-91.dev-server-probe",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-dev-servers.test.ts (5 Windows local dev-server discovery tests)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-probe-url.test.ts (3 probe-url tests)",
+            "../NotNativeDesktop/packages/electron/host-probe.test.mjs (14 tests); POSIX scanners excluded by contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-dev-servers.test.ts (5 Windows local dev-server discovery tests)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-probe-url.test.ts (3 probe-url tests)",
+        "../NotNativeDesktop/packages/electron/host-probe.test.mjs (14 tests); POSIX scanners excluded by contract"
+      ]
+    },
+    {
+      "id": "W-92",
+      "work_packages": "F7",
+      "disposition": "MVP local browser/desktop preview/tabs/readiness/reconnect; tunnel mapping excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-92.local-preview",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/preview-frame-guard.test.ts (local preview frame guard)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/browser-surface.test.tsx (desktop preview surface, tabs, reconnect)",
+            "../NotNativeDesktop/packages/electron/main.mjs (guest window guards); tunnel mapping excluded by contract"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/preview-frame-guard.test.ts (local preview frame guard)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/browser-surface.test.tsx (desktop preview surface, tabs, reconnect)",
+        "../NotNativeDesktop/packages/electron/main.mjs (guest window guards); tunnel mapping excluded by contract"
+      ]
+    },
+    {
+      "id": "W-93",
+      "work_packages": "F3, F7",
+      "disposition": "MVP governed inspection/capture/annotation/console callbacks.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-93.inspection-capture",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/browser-annotation-controls.tsx (annotation/capture controls)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-callback.test.ts (10 governed console-callback tests)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-control-broker.test.ts + p11-browser-ipc.test.js (governed IPC)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/browser-annotation-controls.tsx (annotation/capture controls)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-callback.test.ts (10 governed console-callback tests)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-control-broker.test.ts + p11-browser-ipc.test.js (governed IPC)"
+      ]
+    },
+    {
+      "id": "W-94",
+      "work_packages": "F5, F6, F7",
+      "disposition": "MVP native walkthrough generation, readiness, cache and complete UI.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-94.walkthrough",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/git-walkthrough-generate.ts + git-walkthrough-snapshot.ts + git-walkthrough-sources.ts (native generation/readiness/cache)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-walkthrough-generate.test.ts (17) + snapshot/source/cache tests",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/walkthrough-preview.test.tsx (complete UI)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/git-walkthrough-generate.ts + git-walkthrough-snapshot.ts + git-walkthrough-sources.ts (native generation/readiness/cache)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-walkthrough-generate.test.ts (17) + snapshot/source/cache tests",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/walkthrough-preview.test.tsx (complete UI)"
+      ]
+    },
+    {
+      "id": "W-95",
+      "work_packages": "L, F7",
+      "disposition": "Remote dev tunnels excluded; local preview delivery still required.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-95.local-preview-delivery",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-dev-servers.test.ts + p11-probe-url.test.ts (local preview delivery)",
+            "../NotNativeDesktop/packages/web/src/server/lib/relay/ + tunnels/ (remote dev-tunnel code preserved: p11-dev-tunnel.test.ts, excluded from acceptance)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-dev-servers.test.ts + p11-probe-url.test.ts (local preview delivery)",
+        "../NotNativeDesktop/packages/web/src/server/lib/relay/ + tunnels/ (remote dev-tunnel code preserved: p11-dev-tunnel.test.ts, excluded from acceptance)"
+      ]
+    },
+    {
+      "id": "W-96",
+      "work_packages": "F10, C",
+      "disposition": "MVP celebration affordance honoring reduced motion/settings.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-96.celebration",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/completion-affordance.tsx (busy→idle pulse; celebrationPreference pulse/static/off; prefers-reduced-motion forces static)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/completion-affordance.test.tsx (4 tests)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/appearance.tsx (celebration select)",
+            "../NotNativeDesktop/packages/web/src/server/lib/settings-registry.json + packages/ui/src/lib/settings/registry.ts (celebrationPreference profile key)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/completion-affordance.tsx (busy→idle pulse; celebrationPreference pulse/static/off; prefers-reduced-motion forces static)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/completion-affordance.test.tsx (4 tests)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/appearance.tsx (celebration select)",
+        "../NotNativeDesktop/packages/web/src/server/lib/settings-registry.json + packages/ui/src/lib/settings/registry.ts (celebrationPreference profile key)"
+      ]
+    },
+    {
+      "id": "W-97",
+      "work_packages": "F7, V",
+      "disposition": "MVP preview/capture scope and untrusted-page isolation.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-97.capture-scope",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/preview-frame-guard.test.ts + browser-mutation-guard.test.ts (untrusted-page isolation)",
+            "../NotNativeDesktop/packages/ui/src/lib/browser/page-annotation.ts (scoped capture)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-control-broker.test.ts (governed broker)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/preview-frame-guard.test.ts + browser-mutation-guard.test.ts (untrusted-page isolation)",
+        "../NotNativeDesktop/packages/ui/src/lib/browser/page-annotation.ts (scoped capture)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p11-browser-control-broker.test.ts (governed broker)"
+      ]
+    },
+    {
+      "id": "W-98",
+      "work_packages": "C, F10",
+      "disposition": "MVP tokens/fonts/type/motion and coherent workspace presentation.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-98.tokens-presentation",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/styles/design-system.css (§B.1 token seed, §B.2 radius/fonts/motion)",
+            "../NotNativeDesktop/packages/ui/src/lib/theme/css-generator.ts + css-blocks.ts + validation.ts",
+            "../NotNativeDesktop/packages/ui/src/lib/theme/__tests__/css-generator.test.ts (9) + validation.test.ts (8)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/styles/design-system.css (§B.1 token seed, §B.2 radius/fonts/motion)",
+        "../NotNativeDesktop/packages/ui/src/lib/theme/css-generator.ts + css-blocks.ts + validation.ts",
+        "../NotNativeDesktop/packages/ui/src/lib/theme/__tests__/css-generator.test.ts (9) + validation.test.ts (8)"
+      ]
+    },
+    {
+      "id": "W-99",
+      "work_packages": "C, F10",
+      "disposition": "MVP complete accessible primitive inventory.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-99.a11y-inventory",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/docs/build/EXECUTION/accessibility-inventory.md (14 primitive rows with ARIA/keyboard contracts + pinning tests)",
+            "../NotNativeDesktop/packages/ui/src/chat/operator-rail.tsx + compact-operator-layout.test.tsx (focus-return/reveal contract)",
+            "../NotNativeDesktop/packages/ui/src/chat/command-palette.test.tsx + timeline-search.test.tsx (arrow navigation)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/docs/build/EXECUTION/accessibility-inventory.md (14 primitive rows with ARIA/keyboard contracts + pinning tests)",
+        "../NotNativeDesktop/packages/ui/src/chat/operator-rail.tsx + compact-operator-layout.test.tsx (focus-return/reveal contract)",
+        "../NotNativeDesktop/packages/ui/src/chat/command-palette.test.tsx + timeline-search.test.tsx (arrow navigation)"
+      ]
+    },
+    {
+      "id": "W-100",
+      "work_packages": "C, F10",
+      "disposition": "MVP app/file icon system.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-100.icons",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/operator-icons.tsx (9 original outline surface glyphs, aria-hidden decorative)",
+            "../NotNativeDesktop/scripts/electron-tray-icon.mjs (dependency-free tray state icons: running/stopped rings, idempotent generator)",
+            "../NotNativeDesktop/packages/electron/assets/tray-running.png + tray-stopped.png + tray.mjs consumption",
+            "../NotNativeDesktop/scripts/installer-structure.test.mjs (notnative-agent.ico app icon asserted in the installer structure)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/operator-icons.tsx (9 original outline surface glyphs, aria-hidden decorative)",
+        "../NotNativeDesktop/scripts/electron-tray-icon.mjs (dependency-free tray state icons: running/stopped rings, idempotent generator)",
+        "../NotNativeDesktop/packages/electron/assets/tray-running.png + tray-stopped.png + tray.mjs consumption",
+        "../NotNativeDesktop/scripts/installer-structure.test.mjs (notnative-agent.ico app icon asserted in the installer structure)"
+      ]
+    },
+    {
+      "id": "W-101",
+      "work_packages": "C, F10",
+      "disposition": "MVP built-ins/custom themes and browser/desktop/embedded propagation.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-101.themes",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/theme/presets/core.ts (built-in themes) + custom.ts (custom themes) + preset-catalog.test.ts (12)",
+            "../NotNativeDesktop/packages/ui/src/lib/theme/prepaint.ts (desktop prepaint) + prepaint.test.ts (5) + storage.ts + storage.test.ts",
+            "../NotNativeDesktop/packages/ui/src/lib/theme/seed.ts (propagation seed)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/lib/theme/presets/core.ts (built-in themes) + custom.ts (custom themes) + preset-catalog.test.ts (12)",
+        "../NotNativeDesktop/packages/ui/src/lib/theme/prepaint.ts (desktop prepaint) + prepaint.test.ts (5) + storage.ts + storage.test.ts",
+        "../NotNativeDesktop/packages/ui/src/lib/theme/seed.ts (propagation seed)"
+      ]
+    },
+    {
+      "id": "W-102",
+      "work_packages": "C",
+      "disposition": "MVP NND registry plus all configurable NNA settings; historical ~160-key count is not the completeness test.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-102.settings-registry",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/lib/settings-registry.json (typed NND registry incl. configurable NNA settings)",
+            "../NotNativeDesktop/scripts/settings-coverage-gate.mjs + .test.mjs (release-gated completeness)",
+            "../NotNativeDesktop/packages/ui/src/lib/settings/__tests__/registry.test.ts (10 tests)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/lib/settings-registry.json (typed NND registry incl. configurable NNA settings)",
+        "../NotNativeDesktop/scripts/settings-coverage-gate.mjs + .test.mjs (release-gated completeness)",
+        "../NotNativeDesktop/packages/ui/src/lib/settings/__tests__/registry.test.ts (10 tests)"
+      ]
+    },
+    {
+      "id": "W-103",
+      "work_packages": "C, F10",
+      "disposition": "MVP twelve-locale key coverage/fallback and language selection; record authored translation verification.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-103.locales",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/i18n/runtime.ts (twelve-locale roster + native labels + tag normalization)",
+            "../NotNativeDesktop/packages/ui/src/lib/i18n/__tests__/locale-coverage.test.ts (roster census: 12 locales, typed-subset catalogs, per-locale authored coverage > 40 keys)",
+            "../NotNativeDesktop/packages/ui/src/lib/i18n/__tests__/store.test.ts (en per-key fallback pinned: untranslated de key renders en)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/appearance.tsx (language select with native labels)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/lib/i18n/runtime.ts (twelve-locale roster + native labels + tag normalization)",
+        "../NotNativeDesktop/packages/ui/src/lib/i18n/__tests__/locale-coverage.test.ts (roster census: 12 locales, typed-subset catalogs, per-locale authored coverage > 40 keys)",
+        "../NotNativeDesktop/packages/ui/src/lib/i18n/__tests__/store.test.ts (en per-key fallback pinned: untranslated de key renders en)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/appearance.tsx (language select with native labels)"
+      ]
+    },
+    {
+      "id": "W-104",
+      "work_packages": "C, F10",
+      "disposition": "MVP shortcut inventory/conflicts/recorder/context ownership.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-104.shortcuts",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/shortcuts/ (registry/schema/dispatcher/config/bindings; undeclared action throws — context ownership)",
+            "../NotNativeDesktop/packages/ui/src/lib/shortcuts/__tests__/bindings.test.ts (13 tests)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/shortcuts.tsx (inventory, per-row Reset, overrides persistence)",
+            "../NotNativeDesktop/packages/ui/src/components/recorder-dialog.tsx (ShortcutRecordingDialog recorder)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/lib/shortcuts/ (registry/schema/dispatcher/config/bindings; undeclared action throws — context ownership)",
+        "../NotNativeDesktop/packages/ui/src/lib/shortcuts/__tests__/bindings.test.ts (13 tests)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/shortcuts.tsx (inventory, per-row Reset, overrides persistence)",
+        "../NotNativeDesktop/packages/ui/src/components/recorder-dialog.tsx (ShortcutRecordingDialog recorder)"
+      ]
+    },
+    {
+      "id": "W-105",
+      "work_packages": "C, F10",
+      "disposition": "MVP consistent time/money/measurement formatting.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-105.formatting",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/lib/format/time.ts (formatTimeForPreference auto/12h/24h viewer-zone, formatDateTime, canonicalizeTimezone legacy IANA, formatMoney §J.2 USD-fixed locale-grouped)",
+            "../NotNativeDesktop/packages/ui/src/lib/format/__tests__/time.test.ts (money/time pins incl. 4-digit sub-cent and non-finite handling)",
+            "../NotNativeDesktop/packages/ui/src/chat/work-status-panel.tsx (all cost rows now route through formatMoney; token counts locale-grouped)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/lib/format/time.ts (formatTimeForPreference auto/12h/24h viewer-zone, formatDateTime, canonicalizeTimezone legacy IANA, formatMoney §J.2 USD-fixed locale-grouped)",
+        "../NotNativeDesktop/packages/ui/src/lib/format/__tests__/time.test.ts (money/time pins incl. 4-digit sub-cent and non-finite handling)",
+        "../NotNativeDesktop/packages/ui/src/chat/work-status-panel.tsx (all cost rows now route through formatMoney; token counts locale-grouped)"
+      ]
+    },
+    {
+      "id": "W-106",
+      "work_packages": "F3, F8",
+      "disposition": "MVP knowledge assembly/delivery/reading surfaces.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-106.knowledge",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-session-knowledge.test.ts + p10-session-knowledge-summary.test.tsx + p10-session-knowledge-panel-pins.test.tsx (assembly/delivery/reading surfaces)",
+            "../NotNativeDesktop/packages/web/src/server/session-assist/session-assist-runtime.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-session-knowledge.test.ts + p10-session-knowledge-summary.test.tsx + p10-session-knowledge-panel-pins.test.tsx (assembly/delivery/reading surfaces)",
+        "../NotNativeDesktop/packages/web/src/server/session-assist/session-assist-runtime.ts"
+      ]
+    },
+    {
+      "id": "W-107",
+      "work_packages": "F8",
+      "disposition": "MVP native-integrated agent memory, scope, edit/forget and provenance.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-107.agent-memory",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/agent-memory.ts (native memory CRUD with scope, edit/forget, provenance)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p10-agent-memory.test.ts + p10-agent-memory-ownership.test.ts + p10-agent-memory-session.test.ts + p10-agent-memory-tool.test.ts + p10-agent-memory-delivery.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/agent-memory.ts (native memory CRUD with scope, edit/forget, provenance)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p10-agent-memory.test.ts + p10-agent-memory-ownership.test.ts + p10-agent-memory-session.test.ts + p10-agent-memory-tool.test.ts + p10-agent-memory-delivery.test.ts"
+      ]
+    },
+    {
+      "id": "W-108",
+      "work_packages": "F8",
+      "disposition": "MVP project context/notes/plans/todos and migrations.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-108.project-context",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/project-context/ (context/plan stores + legacy migration)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/context-notes.test.tsx + context-plans.test.tsx + context-todos.test.tsx",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p10-context-store.test.ts + p10-legacy-plan-migration.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/project-context/ (context/plan stores + legacy migration)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/context-notes.test.tsx + context-plans.test.tsx + context-todos.test.tsx",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p10-context-store.test.ts + p10-legacy-plan-migration.test.ts"
+      ]
+    },
+    {
+      "id": "W-109",
+      "work_packages": "F8, C",
+      "disposition": "MVP native skills discovery/CRUD/catalog/install/update/invocation.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-109.skills",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/skills.ts + skill-catalog-install-route.ts + skill-catalog-common.ts (discovery/CRUD/catalog/install/update/invocation)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p10-skill-scan.test.ts",
+            "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/native-skills.test.tsx + skills-catalog-page.test.tsx",
+            "../NotNativeDesktop/packages/ui/src/lib/nnd/__tests__/skills.test.ts + lib/__tests__/skills-api.test.ts + stores/__tests__/useSkillsCatalogStore.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/skills.ts + skill-catalog-install-route.ts + skill-catalog-common.ts (discovery/CRUD/catalog/install/update/invocation)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p10-skill-scan.test.ts",
+        "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/native-skills.test.tsx + skills-catalog-page.test.tsx",
+        "../NotNativeDesktop/packages/ui/src/lib/nnd/__tests__/skills.test.ts + lib/__tests__/skills-api.test.ts + stores/__tests__/useSkillsCatalogStore.test.ts"
+      ]
+    },
+    {
+      "id": "W-110",
+      "work_packages": "F8, C",
+      "disposition": "MVP native MCP management/runtime/OAuth/import/status.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-110.mcp",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/routes/mcp-config.ts (management/runtime/status)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/p10-mcp-config-routes.test.ts + p10-mcp-mock-runtime.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/routes/mcp-config.ts (management/runtime/status)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/p10-mcp-config-routes.test.ts + p10-mcp-mock-runtime.test.ts"
+      ]
+    },
+    {
+      "id": "W-111",
+      "work_packages": "F3, F8",
+      "disposition": "MVP pinned/obligatory context/compaction/grants with native authority.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-111.pinned-context",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-draft-context-pins.test.tsx + p10-session-knowledge-panel-pins.test.tsx (pinned/obligatory context)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/context-message-ledger.test.ts",
+            "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (context pin actions, native authority)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p10-draft-context-pins.test.tsx + p10-session-knowledge-panel-pins.test.tsx (pinned/obligatory context)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/context-message-ledger.test.ts",
+        "../NotNativeDesktop/packages/ui/src/chat/transcript.tsx (context pin actions, native authority)"
+      ]
+    },
+    {
+      "id": "W-112",
+      "work_packages": "F3, F8",
+      "disposition": "MVP snippets/starters/prompts/todos/linked issues and review context.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-112.review-context",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/starters.ts + __tests__/p3b-catalog.test.ts (starters)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/snippets.tsx + tests (snippets, W-22)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/context-todos.test.tsx (todos)",
+            "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx (review context)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/starters.ts + __tests__/p3b-catalog.test.ts (starters)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/snippets.tsx + tests (snippets, W-22)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/context-todos.test.tsx (todos)",
+        "../NotNativeDesktop/packages/ui/src/chat/timeline-dialog.tsx (review context)"
+      ]
+    },
+    {
+      "id": "W-113",
+      "work_packages": "F3, F8, V",
+      "disposition": "MVP explicit verified native model-input delivery matrix.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-113.matrix",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/docs/build/EXECUTION/model-input-delivery-matrix.md (10-row explicit delivery matrix: optimistic echo, definite rollback, ambiguous confirmation, text/file/native-upload/knowledge/steer-queue/model-agent/blocking ports; every row implemented-unverified with the verified leg owed to the installed V-gates)",
+            "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts + native-prompt-parts.ts (the delivery implementations the matrix enumerates)",
+            "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (send/failure/recovery pins)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/docs/build/EXECUTION/model-input-delivery-matrix.md (10-row explicit delivery matrix: optimistic echo, definite rollback, ambiguous confirmation, text/file/native-upload/knowledge/steer-queue/model-agent/blocking ports; every row implemented-unverified with the verified leg owed to the installed V-gates)",
+        "../NotNativeDesktop/packages/ui/src/sync/session-actions.ts + native-prompt-parts.ts (the delivery implementations the matrix enumerates)",
+        "../NotNativeDesktop/packages/ui/src/sync/__tests__/actions-recovery.test.ts (send/failure/recovery pins)"
+      ]
+    },
+    {
+      "id": "W-114",
+      "work_packages": "F1–F10, L, V",
+      "disposition": "MVP local module invariants/notifications/TTS-STT/small-model features; no auto-accept persistence; APNs excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-114.tts-stt",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/lib/accessibility/speech.ts (local TTS via SAPI SpeechSynthesizer, voices enumeration, local STT via SAPI SpeechRecognitionEngine from WAV ≤8MB; -EncodedCommand transport; typed fail-closed stt-local-unavailable — no cloud fallback)",
+            "../NotNativeDesktop/packages/web/src/server/routes/speech.ts + app.ts (voices/speak/stop/transcribe routes)",
+            "../NotNativeDesktop/packages/web/src/server/__tests__/w114-speech.test.ts (command construction, voice parse incl. NDJSON, bounds, fail-closed matrix)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/pages/speech.tsx (Speech settings page: speak + voices + honest STT availability probe with silent-WAV)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/speech-page.test.tsx (voices render, spoken status, ready/unavailable states)",
+            "../NotNativeDesktop/packages/ui/src/components/settings/window.tsx + search.ts (integrations slug now built, hosting the speech page)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/lib/accessibility/speech.ts (local TTS via SAPI SpeechSynthesizer, voices enumeration, local STT via SAPI SpeechRecognitionEngine from WAV ≤8MB; -EncodedCommand transport; typed fail-closed stt-local-unavailable — no cloud fallback)",
+        "../NotNativeDesktop/packages/web/src/server/routes/speech.ts + app.ts (voices/speak/stop/transcribe routes)",
+        "../NotNativeDesktop/packages/web/src/server/__tests__/w114-speech.test.ts (command construction, voice parse incl. NDJSON, bounds, fail-closed matrix)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/pages/speech.tsx (Speech settings page: speak + voices + honest STT availability probe with silent-WAV)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/__tests__/speech-page.test.tsx (voices render, spoken status, ready/unavailable states)",
+        "../NotNativeDesktop/packages/ui/src/components/settings/window.tsx + search.ts (integrations slug now built, hosting the speech page)"
+      ]
+    },
+    {
+      "id": "W-115",
+      "work_packages": "F10, L",
+      "disposition": "MVP attention/status/native and browser notification delivery; mobile push excluded.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-115.notification-delivery",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/web/src/server/__tests__/notification-model.test.ts + notification-pending.test.ts + notification-native-text.test.ts + notification-routes.test.ts + p12-native-notifications.test.js",
+            "../NotNativeDesktop/packages/electron/native-notifications.mjs (native delivery)",
+            "../NotNativeDesktop/packages/ui/src/notifications/delivery-receipt.ts (hash-chained receipts; mobile push excluded by contract)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/web/src/server/__tests__/notification-model.test.ts + notification-pending.test.ts + notification-native-text.test.ts + notification-routes.test.ts + p12-native-notifications.test.js",
+        "../NotNativeDesktop/packages/electron/native-notifications.mjs (native delivery)",
+        "../NotNativeDesktop/packages/ui/src/notifications/delivery-receipt.ts (hash-chained receipts; mobile push excluded by contract)"
+      ]
+    },
+    {
+      "id": "W-116",
+      "work_packages": "F2, F6–F8, F10",
+      "disposition": "MVP full NNA observability rail, durable evidence, corrections/redaction and sourced notes.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-116.observability",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/work-status-panel.tsx + work-status.ts (observability rail: phases, tools, governance, sourced NNA projections)",
+            "../NotNativeDesktop/packages/ui/src/sync/activity-snapshot.ts + operator-rail.test.tsx (durable activity evidence)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/work-status-panel.tsx + work-status.ts (observability rail: phases, tools, governance, sourced NNA projections)",
+        "../NotNativeDesktop/packages/ui/src/sync/activity-snapshot.ts + operator-rail.test.tsx (durable activity evidence)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/p3c-work-status.test.ts"
+      ]
+    },
+    {
+      "id": "W-117",
+      "work_packages": "F2, F3, F10",
+      "disposition": "MVP delegated transcripts and currently authorized actions; native steering dependencies remain required.",
+      "status": "implemented-unverified",
+      "subfeatures": [
+        {
+          "id": "W-117.delegated-transcripts",
+          "status": "implemented-unverified",
+          "evidence": [
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/child-session-controls.test.tsx (delegated/child transcript controls)",
+            "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-sidebar-hierarchy.test.ts (hierarchy)",
+            "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (subagentRows)",
+            "../NotNativeDesktop/packages/ui/src/sync/scope-separation.ts (currently-authorized actions scoping)"
+          ]
+        }
+      ],
+      "evidence": [
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/child-session-controls.test.tsx (delegated/child transcript controls)",
+        "../NotNativeDesktop/packages/ui/src/chat/__tests__/session-sidebar-hierarchy.test.ts (hierarchy)",
+        "../NotNativeDesktop/packages/ui/src/chat/work-status.ts (subagentRows)",
+        "../NotNativeDesktop/packages/ui/src/sync/scope-separation.ts (currently-authorized actions scoping)"
+      ]
+    }
+  ]
+}

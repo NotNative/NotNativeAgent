@@ -1,0 +1,526 @@
+// SPDX-License-Identifier: Apache-2.0
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { createInvokeFace } from './ipc-face.mjs';
+import { matchesDesktopLocalOrigin, matchesTrustedOrigin } from './trusted-origin.mjs';
+
+test('matches trusted custom and network origins without accepting lookalikes', () => {
+  assert.equal(matchesTrustedOrigin('notnative-ui://app/index.html', 'notnative-ui://app'), true);
+  assert.equal(matchesTrustedOrigin('notnative-ui://app.evil/index.html', 'notnative-ui://app'), false);
+  assert.equal(matchesTrustedOrigin('notnative-ui://user@app/index.html', 'notnative-ui://app'), false);
+  assert.equal(matchesTrustedOrigin('http://127.0.0.1:43123/chat', 'http://127.0.0.1:43123'), true);
+  assert.equal(matchesTrustedOrigin('http://127.0.0.1:43124/chat', 'http://127.0.0.1:43123'), false);
+});
+
+test('desktop-local origin excludes network UI origins and requires the invoking frame itself', () => {
+  const localOrigin = 'http://127.0.0.1:43123';
+  const remoteUiOrigin = 'https://remote.example';
+  const packagedUiOrigin = 'notnative-ui://app';
+  assert.equal(matchesDesktopLocalOrigin('https://remote.example/index.html', localOrigin, remoteUiOrigin), false);
+  assert.equal(matchesDesktopLocalOrigin('http://127.0.0.1:43123/index.html', localOrigin, remoteUiOrigin), true);
+  assert.equal(matchesDesktopLocalOrigin('notnative-ui://app/index.html', localOrigin, packagedUiOrigin), true);
+  // A remote top-level caller stays remote even if event.frames also contains
+  // a trusted local iframe; the IPC policy must pass senderFrame.url, not the
+  // full frame list, to this origin matcher.
+  assert.equal(matchesDesktopLocalOrigin('https://remote.example/index.html', localOrigin, packagedUiOrigin), false);
+});
+
+test('window IPC controls the calling BrowserWindow and validates mutable titles', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const win = {
+    isDestroyed: () => false, isMinimized: () => true, isFullScreen: () => true,
+    isMaximized: () => false, restore: () => calls.push('restore'), show: () => calls.push('show'),
+    focus: () => calls.push('focus'), close: () => calls.push('close'), minimize: () => calls.push('minimize'),
+    maximize: () => { calls.push('maximize'); win.isMaximized = () => true; },
+    unmaximize: () => { calls.push('unmaximize'); win.isMaximized = () => false; },
+    setTitle: (title) => calls.push(['title', title]),
+    __nndMiniChat: true, setAlwaysOnTop: (pinned, level) => calls.push(['pin', pinned, level]),
+    setVisibleOnAllWorkspaces: (visible) => calls.push(['spaces', visible]),
+  };
+  let focusedApp = 0;
+  const invoke = registeredInvoke({ contents, windowForSender: (event) => {
+    assert.equal(event.sender, contents);
+    return win;
+  }, focusApp: () => { focusedApp += 1; }, appVersion: () => '20260930.0.54' });
+  const local = (command, payload) => invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), command, payload);
+  assert.equal((await local('desktop_focus_window')).result, true);
+  assert.equal(focusedApp, 1);
+  assert.deepEqual(calls.splice(0), ['restore', 'show', 'focus']);
+  assert.equal((await local('desktop_is_window_fullscreen')).result, true);
+  assert.deepEqual(await local('desktop_set_window_title', { title: '  Remote Studio  ' }), {
+    seq: 7, ok: true, result: null,
+  });
+  assert.deepEqual(calls.splice(0), [['title', 'Remote Studio']]);
+  for (const title of ['', '   ', 'bad\ntitle', 'x'.repeat(201)]) {
+    const result = await local('desktop_set_window_title', { title });
+    assert.equal(result.error, 'invalid-window-title');
+  }
+  assert.equal((await local('desktop_get_app_version')).result, '20260930.0.54');
+  assert.equal((await local('desktop_minimize_current_window')).ok, true);
+  assert.deepEqual(calls.splice(0), ['minimize']);
+  assert.deepEqual(await local('desktop_toggle_current_window_maximized'), { seq: 7, ok: true, result: { maximized: true, pinned: false } });
+  assert.deepEqual(calls.splice(0), ['maximize']);
+  assert.deepEqual(await local('desktop_toggle_current_window_maximized'), { seq: 7, ok: true, result: { maximized: false, pinned: false } });
+  assert.deepEqual(calls.splice(0), ['unmaximize']);
+  assert.deepEqual(await local('desktop_get_current_window_state'), { seq: 7, ok: true, result: { maximized: false, pinned: false } });
+  const pinInvoke = registeredInvoke({ contents, windowForSender: () => win, platform: () => 'darwin' });
+  assert.deepEqual(await pinInvoke(ipcEvent(contents, 'notnative-ui://app/mini-chat.html'), 'desktop_set_window_pinned', { pinned: true }), {
+    seq: 7, ok: true, result: { pinned: true },
+  });
+  assert.deepEqual(calls.splice(0), [['pin', true, 'floating'], ['spaces', true]]);
+  assert.equal((await local('desktop_close_current_window')).ok, true);
+  assert.deepEqual(calls.splice(0), ['close']);
+});
+
+test('Mini Chat creation is available only to the local main frame and validates through its shell owner', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const miniContents = { mainFrame: { processId: 2, routingId: 1 }, send() {} };
+  const requests = [];
+  const invoke = registeredInvoke({ contents, miniChat: { open: (payload) => { requests.push(payload); return { ok: true, result: { opened: true } }; } } });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_open_mini_chat', { mode: 'session', sessionId: 's1', directory: '/work' });
+  assert.deepEqual(local, { seq: 7, ok: true, result: { opened: true } });
+  assert.deepEqual(requests, [{ mode: 'session', sessionId: 's1', directory: '/work' }]);
+  const secondary = await invoke(ipcEvent(miniContents, 'notnative-ui://app/index.html'), 'desktop_open_mini_chat', { mode: 'draft', directory: '/' });
+  assert.equal(secondary.ok, false);
+  assert.equal(secondary.error, 'desktop-main-frame-required');
+  assert.equal(requests.length, 1);
+});
+
+test('desktop password login is local-main-frame-only and delegates to the native target resolver', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const secondary = { mainFrame: { processId: 2, routingId: 1 }, send() {} };
+  const requests = [];
+  const invoke = registeredInvoke({ contents, remotePasswordLogin: async (payload) => {
+    requests.push(payload);
+    return { ok: true, status: 200, locked: false, tunnelLocked: false, retryAfterSeconds: null, clientToken: 'issued-token' };
+  } });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_remote_password_login', {
+    runtimeKey: 'host:remote-1', password: 'secret', trustDevice: true,
+  });
+  assert.deepEqual(local, { seq: 7, ok: true, result: {
+    ok: true, status: 200, locked: false, tunnelLocked: false, retryAfterSeconds: null, clientToken: 'issued-token',
+  } });
+  assert.deepEqual(requests, [{ runtimeKey: 'host:remote-1', password: 'secret', trustDevice: true }]);
+  const fromSecondary = await invoke(ipcEvent(secondary, 'notnative-ui://app/index.html'), 'desktop_remote_password_login', {
+    runtimeKey: 'host:remote-1', password: 'secret', trustDevice: true,
+  });
+  assert.equal(fromSecondary.error, 'desktop-main-frame-required');
+  assert.equal(requests.length, 1);
+});
+
+test('window controls reject embedded frames even when their parent is trusted', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  let windowActions = 0;
+  const win = {
+    isDestroyed: () => false, isMinimized: () => false, isMaximized: () => false,
+    show: () => { windowActions += 1; }, focus: () => { windowActions += 1; },
+    close: () => { windowActions += 1; }, setTitle: () => { windowActions += 1; },
+  };
+  const invoke = registeredInvoke({ contents, windowForSender: () => win, appVersion: () => '1.0' });
+  const embedded = {
+    ...ipcEvent(contents, 'https://untrusted-frame.example/', [
+      { url: 'notnative-ui://app/index.html' },
+      { url: 'https://untrusted-frame.example/' },
+    ]),
+    senderFrame: { processId: 1, routingId: 2, url: 'https://untrusted-frame.example/' },
+  };
+  for (const command of [
+    'desktop_focus_window', 'desktop_is_window_fullscreen', 'desktop_set_window_title',
+    'desktop_get_app_version', 'desktop_close_current_window', 'desktop_minimize_current_window',
+    'desktop_toggle_current_window_maximized', 'desktop_get_current_window_state',
+  ]) {
+    const result = await invoke(embedded, command, { title: 'Compromised frame' });
+    assert.equal(result.ok, false, command);
+    assert.equal(result.error, 'desktop-main-frame-required', command);
+  }
+  assert.equal(windowActions, 0);
+});
+
+test('window controls work in another trusted local BrowserWindow', async () => {
+  const mainContents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const secondaryContents = { mainFrame: { processId: 2, routingId: 9 }, send() {} };
+  let minimized = 0;
+  const secondaryWindow = { isDestroyed: () => false, minimize: () => { minimized += 1; } };
+  const invoke = registeredInvoke({ contents: mainContents, windowForSender: (event) => {
+    assert.equal(event.sender, secondaryContents);
+    return secondaryWindow;
+  } });
+  const result = await invoke({
+    ...ipcEvent(secondaryContents, 'notnative-ui://app/mini-chat.html'),
+    senderFrame: { processId: 2, routingId: 9, url: 'notnative-ui://app/mini-chat.html' },
+  }, 'desktop_minimize_current_window');
+  assert.equal(result.ok, true);
+  assert.equal(minimized, 1);
+});
+
+function registeredInvoke(input) {
+  let handler;
+  const face = createInvokeFace({
+    origin: () => 'http://127.0.0.1:57123',
+    uiOrigin: () => 'notnative-ui://app',
+    appPathPrefix: () => 'file:///desktop',
+    localOrigin: () => 'http://127.0.0.1:57123',
+    bootInfo: () => ({}),
+    mainContents: () => input.contents,
+    ...input,
+  }, { ipcMain: { on: (_channel, callback) => { handler = callback; } }, shell: { openExternal: async () => {} } });
+  face.register();
+  return async (event, command, payload) => {
+    let reply;
+    event.sender.send = (_channel, value) => { reply = value; };
+    await handler(event, { seq: 7, command, payload });
+    return reply;
+  };
+}
+
+function ipcEvent(contents, url, frames = [{ url }]) {
+  return {
+    sender: contents,
+    senderFrame: { processId: 1, routingId: 1, url },
+    frames,
+    senderFrameId: 1,
+  };
+}
+
+test('native desktop alpha refuses local side effects before their IPC handlers run', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const effects = [];
+  const invoke = registeredInvoke({ contents, nativeAlpha: () => true,
+    hostConfig: { set: () => effects.push('hosts') },
+    sshInstances: { set: () => effects.push('ssh') },
+    loginItem: { set: () => effects.push('login') },
+    updater: { install: () => effects.push('update') },
+    fileUtilities: () => ({ saveMarkdown: () => effects.push('file'), readFile: () => 'attachment' }),
+  });
+  const local = (command, payload) => invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), command, payload);
+  for (const [command, payload] of [
+    ['desktop_hosts_set', { input: { hosts: [] } }],
+    ['desktop_ssh_instances_set', { config: { instances: [] } }],
+    ['desktop_set_launch_at_login', { enabled: true }],
+    ['desktop_updater_install', undefined],
+    ['desktop_save_markdown_file', { defaultFileName: 'notes.md', content: 'unsafe' }],
+    ['desktop_read_file', { path: 'attachment.txt' }],
+    ['desktop_hosts_get', undefined],
+    ['desktop_ssh_instances_get', undefined],
+    ['desktopSshConfig', undefined],
+    ['desktopSshReadConfig', undefined],
+    ['desktopSshRefreshStatuses', undefined],
+    ['desktop_open_mini_chat', { mode: 'draft' }],
+    ['desktop_local_client_token_get', undefined],
+    ['desktop_browser_register', undefined],
+    ['desktop_future_mutation', undefined],
+  ]) {
+    const reply = await local(command, payload);
+    assert.deepEqual({ ok: reply.ok, error: reply.error },
+      { ok: false, error: 'native-alpha-desktop-action-unavailable' }, command);
+  }
+  assert.deepEqual(effects, []);
+  assert.equal((await local('desktop_get_boot_info')).ok, true);
+});
+
+test('updater IPC is restricted to the local main frame and delegates check/download', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const invoke = registeredInvoke({ contents, updater: {
+    check: async () => { calls.push('check'); return { available: true }; },
+    download: async () => { calls.push('download'); return null; },
+    install: async () => { calls.push('install'); return null; },
+  } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_updater_check'), {
+    seq: 7, ok: true, result: { available: true },
+  });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'https://remote.example/index.html'), 'desktop_updater_download'), {
+    seq: 7, ok: false, error: 'sender-not-allowed',
+  });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_updater_download'), {
+    seq: 7, ok: true, result: null,
+  });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_updater_install'), {
+    seq: 7, ok: true, result: null,
+  });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'https://remote.example/index.html'), 'desktop_updater_install'), {
+    seq: 7, ok: false, error: 'sender-not-allowed',
+  });
+  assert.deepEqual(calls, ['check', 'download', 'install']);
+});
+
+test('host config IPC reads and writes only from the desktop local main frame', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  let stored = { hosts: [
+    { id: 'ssh-studio', label: 'SSH studio', url: 'http://127.0.0.1/' },
+    { id: 'direct-studio', label: 'Direct studio', url: 'https://studio.example/' },
+  ], defaultHostId: 'ssh-studio', initialHostChoiceCompleted: false };
+  const invoke = registeredInvoke({ contents, sshInstances: { get: () => [{ id: 'ssh-studio' }] }, hostConfig: {
+    get: () => stored,
+    set: (value) => { stored = value; return value; },
+  } });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_hosts_get');
+  assert.equal(local.ok, true);
+  assert.equal(local.result.localOrigin, 'http://127.0.0.1:57123');
+  assert.deepEqual(local.result.hosts.map((host) => host.id), ['direct-studio']);
+  assert.equal(local.result.defaultHostId, 'local');
+  const write = await invoke(ipcEvent(contents, 'http://127.0.0.1:57123/'), 'desktop_hosts_set', {
+    input: { hosts: [], defaultHostId: 'local', initialHostChoiceCompleted: true },
+  });
+  assert.equal(write.ok, true);
+  assert.equal(stored.defaultHostId, 'local');
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_hosts_get');
+  assert.equal(remote.ok, false);
+  assert.equal(remote.error, 'sender-not-allowed');
+});
+
+test('host config IPC hides persisted SSH placeholders when the SSH catalog is unavailable', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const invoke = registeredInvoke({ contents, sshInstances: { get: () => [] }, hostConfig: {
+    get: () => ({ hosts: [
+      { id: 'ssh-studio', label: 'SSH studio', url: 'http://127.0.0.1/', transport: 'ssh' },
+      { id: 'direct-studio', label: 'Studio', url: 'https://studio.example/' },
+    ], defaultHostId: 'ssh-studio', initialHostChoiceCompleted: true }),
+  } });
+  const result = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_hosts_get');
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.result.hosts.map((host) => host.id), ['direct-studio']);
+  assert.equal(result.result.defaultHostId, 'local');
+});
+
+test('host probe uses only saved host credentials and cannot target an arbitrary URL', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const host = {
+    id: 'saved-studio', url: 'https://studio.example/ui', apiUrl: 'https://studio.example/api',
+    clientToken: 'stored-token', requestHeaders: { 'x-tenant': 'studio' }, serverId: 'server-1',
+  };
+  const invoke = registeredInvoke({ contents,
+    hostConfig: { get: () => ({ hosts: [host] }) },
+    hostProbe: async (options) => { calls.push(options); return { status: 'ok', latencyMs: 12 }; },
+  });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_host_probe', { hostId: 'saved-studio' });
+  assert.deepEqual(local, { seq: 7, ok: true, result: { status: 'ok', latencyMs: 12 } });
+  assert.deepEqual(calls, [{ url: host.apiUrl, clientToken: 'stored-token', requestHeaders: { 'x-tenant': 'studio' }, expectedServerId: 'server-1' }]);
+  const missing = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_host_probe', { hostId: 'attacker-url' });
+  assert.equal(missing.ok, false);
+  assert.equal(missing.error, 'desktop-host-not-found');
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_host_probe', { hostId: 'saved-studio' });
+  assert.equal(remote.ok, false);
+  assert.equal(calls.length, 1);
+});
+
+test('host probe refuses an SSH placeholder until its transport is connected', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const invoke = registeredInvoke({ contents,
+    hostConfig: { get: () => ({ hosts: [{ id: 'ssh-studio', url: 'http://127.0.0.1/', transport: 'ssh' }] }) },
+    hostProbe: async (options) => { calls.push(options); return { status: 'ok' }; },
+  });
+  const result = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_host_probe', { hostId: 'ssh-studio' });
+  assert.equal(result.error, 'desktop-ssh-not-connected');
+  assert.deepEqual(calls, []);
+});
+
+test('host probe uses only the active SSH tunnel URL for an SSH instance', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const invoke = registeredInvoke({ contents,
+    hostConfig: { get: () => ({ hosts: [{ id: 'ssh-studio', url: 'http://127.0.0.1/', transport: 'ssh' }] }) },
+    sshTransport: { getStatus: () => ({ id: 'ssh-studio', phase: 'ready', localUrl: 'http://127.0.0.1:48123' }) },
+    hostProbe: async (options) => { calls.push(options); return { status: 'ok' }; },
+  });
+  const result = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_host_probe', { hostId: 'ssh-studio' });
+  assert.equal(result.result.status, 'ok');
+  assert.deepEqual(calls, [{ url: 'http://127.0.0.1:48123', clientToken: undefined, requestHeaders: undefined, expectedServerId: undefined }]);
+});
+
+test('SSH instance catalog IPC is local-main-frame-only and persists through the injected store', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const invoke = registeredInvoke({ contents, sshInstances: {
+    get: () => [{ id: 'ssh-studio' }],
+    set: (instances) => { calls.push(instances); return { instances }; },
+  } });
+  assert.deepEqual((await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_ssh_instances_get')).result,
+    { instances: [{ id: 'ssh-studio' }] });
+  const set = await invoke(ipcEvent(contents, 'http://127.0.0.1:57123/'), 'desktop_ssh_instances_set', {
+    config: { instances: [{ id: 'ssh-next' }] },
+  });
+  assert.deepEqual(set.result, { instances: [{ id: 'ssh-next' }] });
+  assert.deepEqual(calls, [[{ id: 'ssh-next' }]]);
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_ssh_instances_set', {
+    config: { instances: [{ id: 'ssh-stolen' }] },
+  });
+  assert.equal(remote.error, 'sender-not-allowed');
+  assert.equal(calls.length, 1);
+});
+
+test('SSH catalog CRUD commands preserve local-main-frame authorization and delegate validated payloads', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const transportCalls = [];
+  const invoke = registeredInvoke({ contents, sshInstances: {
+    get: () => [], set: () => ({ instances: [] }),
+    upsert: (instance) => {
+      calls.push(['upsert', instance]);
+      return instance.id === 'invalid'
+        ? { ok: false, error: 'desktop-ssh-instance-invalid' }
+        : { ok: true, result: { saved: true } };
+    },
+    remove: (id) => { calls.push(['remove', id]); return { ok: true, result: { removed: true } }; },
+    createFromCommand: (command, nickname) => { calls.push(['create', command, nickname]); return { ok: true, result: { id: 'ssh-new' } }; },
+  }, sshTransport: {
+    disconnect: (id) => { transportCalls.push(id); return { ok: true }; },
+    forgetStatus: (id) => transportCalls.push(`forget:${id}`),
+  } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshConfig'),
+    { seq: 7, ok: true, result: { instances: [] } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshUpsertInstance', { instance: { id: 'ssh-1' } }),
+    { seq: 7, ok: true, result: { saved: true } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshUpsertInstance', { instance: { id: 'invalid' } }),
+    { seq: 7, ok: false, error: 'desktop-ssh-instance-invalid' });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshCreateFromCommand', { sshCommand: 'ssh host', nickname: 'host' }),
+    { seq: 7, ok: true, result: { id: 'ssh-new' } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshRemoveInstance', { id: 'ssh-1' }),
+    { seq: 7, ok: true, result: { removed: true } });
+  assert.deepEqual(calls, [
+    ['upsert', { id: 'ssh-1' }], ['upsert', { id: 'invalid' }], ['create', 'ssh host', 'host'], ['remove', 'ssh-1'],
+  ]);
+  assert.deepEqual(transportCalls, ['ssh-1', 'ssh-1', 'forget:ssh-1']);
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktopSshCreateFromCommand', { sshCommand: 'ssh stolen' });
+  assert.equal(remote.error, 'sender-not-allowed');
+  assert.equal(calls.length, 4);
+});
+
+test('SSH config reads are local-main-frame-only and return only the injected config text', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  let reads = 0;
+  const invoke = registeredInvoke({ contents, sshInstances: {
+    readSshConfig: () => { reads += 1; return 'Host studio\n'; },
+  } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshReadConfig'), {
+    seq: 7, ok: true, result: 'Host studio\n',
+  });
+  assert.equal((await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktopSshReadConfig')).error, 'sender-not-allowed');
+  assert.equal(reads, 1);
+});
+
+test('SSH transport actions and status snapshots are available only to the local main frame', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const status = { id: 'ssh-1', phase: 'ready', startedByUs: true };
+  const invoke = registeredInvoke({ contents, sshTransport: {
+    connect: async (id, options) => { calls.push(['connect', id, options]); return { ok: true, result: status }; },
+    disconnect: (id) => { calls.push(['disconnect', id]); return { ok: true }; },
+    cancel: (id) => { calls.push(['cancel', id]); return { ok: true }; },
+    getStatuses: () => [status],
+  } });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshConnect', { id: 'ssh-1' }), {
+    seq: 7, ok: true, result: status,
+  });
+  assert.deepEqual(await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshRetry', { id: 'ssh-1' }), {
+    seq: 7, ok: true, result: status,
+  });
+  assert.deepEqual((await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshRefreshStatuses')).result, [status]);
+  await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshDisconnect', { id: 'ssh-1' });
+  await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshCancelConnecting', { id: 'ssh-1' });
+  assert.deepEqual(calls, [
+    ['connect', 'ssh-1', undefined], ['connect', 'ssh-1', { retryAttempt: 1 }],
+    ['disconnect', 'ssh-1'], ['cancel', 'ssh-1'],
+  ]);
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktopSshConnect', { id: 'ssh-1' });
+  assert.equal(remote.error, 'sender-not-allowed');
+  const malformed = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktopSshConnect', { id: 'x'.repeat(129) });
+  assert.equal(malformed.error, 'desktop-ssh-instance-id-invalid');
+});
+
+test('boot runtime configuration is returned only to the desktop local main frame', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const bootConfig = { apiBaseUrl: 'https://remote.example', clientToken: 'active-token', runtimeKey: 'host:remote' };
+  const invoke = registeredInvoke({ contents, bootConfig: () => bootConfig });
+  assert.deepEqual((await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_boot_config_get')).result, bootConfig);
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_boot_config_get');
+  assert.equal(remote.ok, false);
+  assert.equal(remote.error, 'sender-not-allowed');
+});
+
+test('host switching delegates only validated local-main-frame IPC requests', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const selections = [];
+  const invoke = registeredInvoke({ contents, hostSwitch: async (hostId) => {
+    selections.push(hostId);
+    return { ok: true, result: { activeHostId: hostId } };
+  } });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_host_switch', { hostId: 'host-1' });
+  assert.deepEqual(local, { seq: 7, ok: true, result: { activeHostId: 'host-1' } });
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_host_switch', { hostId: 'host-2' });
+  assert.equal(remote.ok, false);
+  assert.equal(remote.error, 'sender-not-allowed');
+  const malformed = await invoke(ipcEvent(contents, 'http://127.0.0.1:57123/'), 'desktop_host_switch', {});
+  assert.deepEqual({ ok: malformed.ok, error: malformed.error }, { ok: false, error: 'desktop-host-switch-unavailable' });
+  assert.deepEqual(selections, ['host-1']);
+});
+
+test('relay default selection is available only to the desktop local main frame', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const selected = [];
+  const expectedHost = { relayUrl: 'wss://relay.example/ws', serverId: 'server-1' };
+  const invoke = registeredInvoke({ contents, relayHostSelect: async (hostId, expected, restoringDefault) => {
+    selected.push([hostId, expected, restoringDefault]);
+    return { ok: true, result: { activeHostId: hostId } };
+  } });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_host_set_relay_default', { hostId: 'relay-1', expectedHost });
+  assert.equal(local.ok, true);
+  assert.deepEqual(selected, [['relay-1', expectedHost, false]]);
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_host_set_relay_default', { hostId: 'relay-2' });
+  assert.equal(remote.ok, false);
+  assert.equal(remote.error, 'sender-not-allowed');
+});
+
+test('host config IPC returns the explicit busy response while pairing reserves the catalog', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const invoke = registeredInvoke({ contents, hostConfig: {
+    get: () => ({ hosts: [] }),
+    set: () => ({ ok: false, error: 'desktop-hosts-busy' }),
+  } });
+  const reply = await invoke(ipcEvent(contents, 'http://127.0.0.1:57123/'), 'desktop_hosts_set', { input: { hosts: [] } });
+  assert.deepEqual({ ok: reply.ok, error: reply.error }, { ok: false, error: 'desktop-hosts-busy' });
+});
+
+test('a remote top-level frame cannot borrow a trusted local child frame for host access', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const invoke = registeredInvoke({ contents, hostConfig: { get: () => ({ hosts: [] }) } });
+  const reply = await invoke(ipcEvent(contents, 'https://remote.example/', [
+    { url: 'https://remote.example/' }, { url: 'notnative-ui://app/iframe' },
+  ]), 'desktop_hosts_get');
+  assert.equal(reply.ok, false);
+  assert.equal(reply.error, 'desktop-main-frame-required');
+});
+
+test('local identity commands expose the saved token and install id only to the local main frame', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const invoke = registeredInvoke({ contents, identity: {
+    getLocalClientToken: () => 'local-secret',
+    getInstallId: () => 'install-id',
+  } });
+  assert.equal((await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_local_client_token_get')).result, 'local-secret');
+  assert.equal((await invoke(ipcEvent(contents, 'http://127.0.0.1:57123/'), 'desktop_install_id_get')).result, 'install-id');
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_local_client_token_get');
+  assert.equal(remote.ok, false);
+  assert.equal(remote.error, 'sender-not-allowed');
+});
+
+test('relay pairing completion accepts responses only from the desktop local main frame', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const invoke = registeredInvoke({ contents, relayPairingBridge: {
+    complete: (requestId, result) => { calls.push({ requestId, result }); return { ok: true, result: { accepted: true } }; },
+  } });
+  const local = await invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_pairing_redeem_relay_complete', {
+    requestId: 'request-1', result: { ok: true, clientToken: 'token' },
+  });
+  assert.deepEqual(local, { seq: 7, ok: true, result: { accepted: true } });
+  const remote = await invoke(ipcEvent(contents, 'https://remote.example/'), 'desktop_pairing_redeem_relay_complete', {
+    requestId: 'request-2', result: { ok: true, clientToken: 'stolen-token' },
+  });
+  assert.equal(remote.ok, false);
+  assert.equal(remote.error, 'sender-not-allowed');
+  assert.deepEqual(calls, [{ requestId: 'request-1', result: { ok: true, clientToken: 'token' } }]);
+});

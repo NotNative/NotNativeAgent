@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: Apache-2.0
+/**
+ * Bounded, safe-to-render activity evidence.  This is intentionally separate
+ * from transcript parts: the harness must explicitly opt into an activity row
+ * and must provide a summary suitable for an operator-facing log.
+ */
+import type { HarnessEvent } from '../lib/nnd/events.ts';
+
+export interface ActivityRecord {
+  id: string;
+  sessionID: string;
+  time: number;
+  kind: 'turn' | 'tool' | 'notice' | 'state' | 'subagent';
+  summary: string;
+  status: 'started' | 'completed' | 'attention' | 'failed' | 'redacted';
+  evidenceMessageID?: string;
+  childSessionID?: string;
+  toolEvidence?: ToolEvidence;
+}
+
+export interface ToolEvidence {
+  turnRequestID?: string;
+  target?: string;
+  reviewPath?: string;
+  reviewDirectory?: string;
+  effect?: string;
+  reasonCode?: string;
+  elapsedMs?: number;
+  exitCode?: number;
+}
+
+export const MAX_ACTIVITY_RECORDS = 500;
+export const MAX_ACTIVITY_SUMMARY_LENGTH = 4_000;
+const MAX_ACTIVITY_ID_LENGTH = 264;
+
+/** Source order is authored order; an uncorrelated latest turn must not fall back to an older one. */
+export function latestTurnRequestID(records: readonly ActivityRecord[], sessionID: string): string | null {
+  return records.filter((record) => record.sessionID === sessionID && record.kind === 'turn')
+    .at(-1)?.evidenceMessageID ?? null;
+}
+
+export function activityRecordFromEvent(event: HarnessEvent): ActivityRecord | null {
+  if (event.type !== 'nnd.activity') return null;
+  const props = event.properties ?? {};
+  const id = stringProp(props, 'id') ?? event.id;
+  const sessionID = stringProp(props, 'sessionID');
+  const summary = stringProp(props, 'summary');
+  const kind = stringProp(props, 'kind');
+  const status = stringProp(props, 'status');
+  // Reducers are replayed during reconnect and bootstrap.  A received frame
+  // must therefore carry its authored timestamp rather than borrowing the
+  // browser clock (which would reorder an otherwise identical replay).
+  const time = numberProp(props, 'time');
+  if (!id || id.length > MAX_ACTIVITY_ID_LENGTH || !sessionID || !summary || summary.length > MAX_ACTIVITY_SUMMARY_LENGTH || !isKind(kind) || !isStatus(status) || time === null || !isRenderableTime(time)) return null;
+  const rawEvidence = props.evidenceMessageID;
+  if (rawEvidence !== undefined && (typeof rawEvidence !== 'string' || rawEvidence.length < 1 || rawEvidence.length > 256
+    || /[\u0000-\u001f\u007f]/u.test(rawEvidence) || kind !== 'turn' && kind !== 'state' && kind !== 'subagent')) return null;
+  const toolEvidence = parseToolEvidence(props.toolEvidence);
+  if (props.toolEvidence !== undefined && (kind !== 'tool' || !toolEvidence)) return null;
+  const childSessionID = props.childSessionID;
+  if (childSessionID !== undefined && (kind !== 'subagent' || typeof childSessionID !== 'string'
+    || childSessionID.length < 1 || childSessionID.length > 128 || /[\u0000-\u001f\u007f]/u.test(childSessionID))) return null;
+  return { id, sessionID, time, kind, summary, status,
+    ...(typeof rawEvidence === 'string' ? { evidenceMessageID: rawEvidence } : {}),
+    ...(toolEvidence ? { toolEvidence } : {}), ...(typeof childSessionID === 'string' ? { childSessionID } : {}) };
+}
+
+/** Upserts corrections/redactions by stable evidence id and remains bounded. */
+export function mergeActivityRecord(records: readonly ActivityRecord[], incoming: ActivityRecord): ActivityRecord[] {
+  const index = records.findIndex((record) => record.id === incoming.id && record.sessionID === incoming.sessionID);
+  // Event streams reconnect and may replay the same evidence frame.  Preserve
+  // the existing reference for an exact replay so it cannot trigger a false UI
+  // update or make a stable reader appear to have unseen activity.
+  if (index !== -1 && sameActivityRecord(records[index]!, incoming)) return records as ActivityRecord[];
+  const next = index === -1 ? [...records, incoming] : records.map((record, i) => i === index ? incoming : record);
+  return next.length > MAX_ACTIVITY_RECORDS ? next.slice(next.length - MAX_ACTIVITY_RECORDS) : next;
+}
+
+function sameActivityRecord(left: ActivityRecord, right: ActivityRecord): boolean {
+  return left.id === right.id
+    && left.sessionID === right.sessionID
+    && left.time === right.time
+    && left.kind === right.kind
+    && left.summary === right.summary
+    && left.status === right.status
+    && left.evidenceMessageID === right.evidenceMessageID
+    && left.childSessionID === right.childSessionID
+    && sameToolEvidence(left.toolEvidence, right.toolEvidence);
+}
+
+export function sameToolEvidence(left?: ToolEvidence, right?: ToolEvidence): boolean {
+  if (!left || !right) return left === right;
+  return left.target === right.target && left.effect === right.effect && left.turnRequestID === right.turnRequestID
+    && left.reviewPath === right.reviewPath && left.reviewDirectory === right.reviewDirectory
+    && left.reasonCode === right.reasonCode && left.elapsedMs === right.elapsedMs && left.exitCode === right.exitCode;
+}
+
+function parseToolEvidence(value: unknown): ToolEvidence | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const source = value as Record<string, unknown>;
+  if (Object.keys(source).some((key) => !['target', 'reviewPath', 'reviewDirectory', 'effect', 'reasonCode', 'elapsedMs', 'exitCode', 'turnRequestID'].includes(key))) return null;
+  const validText = (item: unknown, max: number): boolean => item === undefined
+    || typeof item === 'string' && item.length > 0 && item.length <= max && !/[\u0000-\u001f\u007f]/u.test(item);
+  if (!validText(source.target, 180) || !validReviewPath(source.reviewPath, source.reviewDirectory)
+    || !validText(source.turnRequestID, 256)
+    || !validText(source.effect, 48) || !validText(source.reasonCode, 80)
+    || source.elapsedMs !== undefined && (typeof source.elapsedMs !== 'number' || !Number.isSafeInteger(source.elapsedMs)
+      || source.elapsedMs < 0 || source.elapsedMs > 604_800_000)
+    || source.exitCode !== undefined && (typeof source.exitCode !== 'number' || !Number.isSafeInteger(source.exitCode)
+      || Math.abs(source.exitCode) > 2_147_483_647)) return null;
+  if (Object.keys(source).length === 0) return null;
+  return source as ToolEvidence;
+}
+
+function validReviewPath(value: unknown, directory: unknown): boolean {
+  if (value === undefined && directory === undefined) return true;
+  return typeof value === 'string' && value.length > 0 && value.length <= 300
+    && !/^[a-z]:|^\/|\\|[\u0000-\u001f\u007f]/iu.test(value)
+    && value.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..')
+    && typeof directory === 'string' && directory.length > 0 && directory.length <= 1000
+    && !/[\u0000-\u001f\u007f]/u.test(directory);
+}
+
+function stringProp(props: Record<string, unknown>, key: string): string | null {
+  const value = props[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value : null;
+}
+
+function numberProp(props: Record<string, unknown>, key: string): number | null {
+  const value = props[key];
+  return typeof value === 'number' ? value : null;
+}
+
+function isRenderableTime(value: number): boolean {
+  // ECMAScript Date rejects values outside ±8.64e15.  Rejecting those frames
+  // at the trust boundary prevents an untrusted event from crashing the rail
+  // while it builds the <time> value.
+  return Number.isFinite(value) && Math.abs(value) <= 8.64e15;
+}
+
+function isKind(value: string | null): value is ActivityRecord['kind'] {
+  return value === 'turn' || value === 'tool' || value === 'notice' || value === 'state' || value === 'subagent';
+}
+
+function isStatus(value: string | null): value is ActivityRecord['status'] {
+  return value === 'started' || value === 'completed' || value === 'attention' || value === 'failed' || value === 'redacted';
+}

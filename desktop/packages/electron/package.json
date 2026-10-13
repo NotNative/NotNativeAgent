@@ -1,0 +1,96 @@
+{
+  "name": "@notnative/electron",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "main.mjs",
+  "description": "NotNativeDesktop Electron desktop shell (P12a installable shell).",
+  "scripts": {
+    "package": "node ../../scripts/electron-package.mjs"
+  },
+  "build": {
+    "appId": "dev.notnative.desktop",
+    "productName": "NotNativeDesktop",
+    "directories": {
+      "output": "../../dist-electron"
+    },
+    "files": [
+      "main.mjs",
+      "native-service-selection.mjs",
+      "native-service-client.mjs",
+      "native-notifications.mjs",
+      "ui-protocol.mjs",
+      "file-utilities.mjs",
+      "local-paths.mjs",
+      "windows-file-replace.mjs",
+      "host-config.mjs",
+      "ssh-instances.mjs",
+      "ssh-config-reader.mjs",
+      "ssh-transport.mjs",
+      "ssh-managed-runtime.mjs",
+      "ssh-managed-bundle.mjs",
+      "ssh-managed-transfer.mjs",
+      "ssh-managed-lifecycle.mjs",
+      "ssh-remote-command.mjs",
+      "desktop-identity.mjs",
+      "desktop-password-login.mjs",
+      "updater-policy.mjs",
+      "desktop-updater.mjs",
+      "deep-links.mjs",
+      "desktop-pairing.mjs",
+      "desktop-boot.mjs",
+      "host-probe.mjs",
+      "relay-pairing-bridge.mjs",
+      "relay-dev-tunnel.mjs",
+      "renderer-recovery.mjs",
+      "browser-guest-policy.mjs",
+      "preload.mjs",
+      "ipc-face.mjs",
+      "trusted-origin.mjs",
+      "shell-prefs.mjs",
+      "window-state.mjs",
+      "resources/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/web-dist",
+        "to": "web-dist"
+      },
+      {
+        "from": "dist-server",
+        "to": "dist-server"
+      },
+      {
+        "from": "dist-server/node_modules/node-pty",
+        "to": "dist-server/node_modules/node-pty",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "forceCodeSigning": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "NotNativeDesktop-Setup-${version}-win-x64.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  }
+}

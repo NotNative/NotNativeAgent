@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: Apache-2.0
+/** Private NNA-child callback; UI sessions and URL tokens grant no access. */
+import { timingSafeEqual } from 'node:crypto';
+import type { Context, Hono } from 'hono';
+import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
+import { BrowserControlBroker, BrowserControlError } from './browser-control-broker.ts';
+import { nativeAlphaMutationUnavailable, nativeAlphaUnavailableResponse } from '../routes/native-alpha-surface.ts';
+
+function secretMatches(actual: string | undefined, expected: string): boolean {
+  if (!actual || !expected) return false;
+  const actualBytes = Buffer.from(actual);
+  const expectedBytes = Buffer.from(expected);
+  return actualBytes.length === expectedBytes.length && timingSafeEqual(actualBytes, expectedBytes);
+}
+
+/** Bounded install diagnostics: one line per browser-control outcome, capped
+ *  by rewrite. Lives only in the service's own data-root diagnostics folder. */
+function recordBrowserControlDiagnostic(entry: Record<string, unknown>): void {
+  try {
+    const dataDir = process.env.NOTNATIVE_DATA_DIR;
+    if (!dataDir) return;
+    const line = JSON.stringify({ at: new Date().toISOString(), ...entry }) + '\n';
+    void import('node:fs').then((fs) => {
+      const path = `${dataDir}/diagnostics/browser-control.jsonl`;
+      fs.mkdir(`${dataDir}/diagnostics`, { recursive: true }, () => {
+        fs.appendFile(path, line, () => {
+          fs.stat(path, (statError, stats) => {
+            if (statError || !stats || stats.size < 262_144) return;
+            fs.readFile(path, 'utf8', (readError, text) => {
+              if (readError) return;
+              const tail = text.split('\n').slice(-128).join('\n');
+              fs.writeFile(path, tail, () => { /* bounded rewrite */ });
+            });
+          });
+        });
+      });
+    });
+  } catch { /* diagnostics are best effort */ }
+}
+
+export function registerBrowserControlCallback(app: Hono, broker: BrowserControlBroker, secret: string): void {
+  app.post('/api/browser-control/request', async (c) => {
+    if (!secretMatches(c.req.header('x-nnd-browser-token'), secret)) {
+      recordBrowserControlDiagnostic({ kind: 'request', outcome: 'unauthorized' });
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    if (nativeAlphaMutationUnavailable(c.req.method, c.req.path)) return nativeAlphaUnavailableResponse(c);
+    // A 2,000-character type payload can exceed 4 KiB once JSON/UTF-8 encoded.
+    // The per-field limits below still constrain the accepted action shape.
+    const body = await readJsonBodyBounded(c.req.raw, 32_768);
+    if (!body || !['browser.open', 'browser.snapshot', 'browser.inspect', 'browser.click', 'browser.scroll', 'browser.history', 'browser.type', 'browser.capture'].includes(String(body.action ?? ''))
+      || !body.parameters || typeof body.parameters !== 'object' || Array.isArray(body.parameters))
+      return c.json({ error: 'invalid browser action' }, 400);
+    const parameters = body.parameters as Record<string, unknown>;
+    if (body.action === 'browser.open') {
+      if (Object.keys(parameters).length !== 1 || typeof parameters.url !== 'string' || parameters.url.length > 2048)
+        return c.json({ error: 'invalid browser URL' }, 400);
+    } else if (body.action === 'browser.inspect') {
+      if (Object.keys(parameters).length !== 1 || typeof parameters.selector !== 'string'
+        || !parameters.selector || parameters.selector.length > 500) return c.json({ error: 'invalid CSS selector' }, 400);
+    } else if (body.action === 'browser.click') {
+      if (Object.keys(parameters).length !== 4 || typeof parameters.selector !== 'string' || !parameters.selector
+        || parameters.selector.length > 500 || typeof parameters.expectedUrl !== 'string' || !parameters.expectedUrl
+        || parameters.expectedUrl.length > 2048 || !Number.isSafeInteger(parameters.observationRevision)
+        || (parameters.observationRevision as number) < 0 || typeof parameters.observationId !== 'string'
+        || !/^[0-9a-f-]{36}$/u.test(parameters.observationId)) return c.json({ error: 'invalid click target' }, 400);
+    } else if (body.action === 'browser.scroll') {
+      if (Object.keys(parameters).length !== 4 || !['up', 'down', 'top', 'bottom'].includes(String(parameters.direction))
+        || typeof parameters.expectedUrl !== 'string' || !parameters.expectedUrl || parameters.expectedUrl.length > 2048
+        || !Number.isSafeInteger(parameters.observationRevision) || (parameters.observationRevision as number) < 0
+        || typeof parameters.observationId !== 'string' || !/^[0-9a-f-]{36}$/u.test(parameters.observationId))
+        return c.json({ error: 'invalid scroll target' }, 400);
+    } else if (body.action === 'browser.history') {
+      if (Object.keys(parameters).length !== 4 || !['back', 'forward'].includes(String(parameters.direction))
+        || typeof parameters.expectedUrl !== 'string' || !parameters.expectedUrl || parameters.expectedUrl.length > 2048
+        || !Number.isSafeInteger(parameters.observationRevision) || (parameters.observationRevision as number) < 0
+        || typeof parameters.observationId !== 'string' || !/^[0-9a-f-]{36}$/u.test(parameters.observationId))
+        return c.json({ error: 'invalid history target' }, 400);
+    } else if (body.action === 'browser.type') {
+      if (Object.keys(parameters).length !== 5 || typeof parameters.selector !== 'string' || !parameters.selector
+        || parameters.selector.length > 500 || typeof parameters.expectedUrl !== 'string' || !parameters.expectedUrl
+        || parameters.expectedUrl.length > 2048 || typeof parameters.text !== 'string' || parameters.text.length > 2000
+        || !Number.isSafeInteger(parameters.observationRevision) || (parameters.observationRevision as number) < 0
+        || typeof parameters.observationId !== 'string' || !/^[0-9a-f-]{36}$/u.test(parameters.observationId))
+        return c.json({ error: 'invalid type target' }, 400);
+    } else if (body.action === 'browser.capture') {
+      if (Object.keys(parameters).length !== 3 || typeof parameters.expectedUrl !== 'string'
+        || !parameters.expectedUrl || parameters.expectedUrl.length > 2048
+        || !Number.isSafeInteger(parameters.observationRevision) || (parameters.observationRevision as number) < 0
+        || typeof parameters.observationId !== 'string' || !/^[0-9a-f-]{36}$/u.test(parameters.observationId))
+        return c.json({ error: 'invalid capture target' }, 400);
+    } else if (Object.keys(parameters).length !== 0) return c.json({ error: 'snapshot takes no parameters' }, 400);
+    return dispatchBrowserControl(c, broker, body.action, parameters);
+  });
+}
+
+/** Broker dispatch with bounded install diagnostics around the outcome. */
+async function dispatchBrowserControl(c: Context, broker: BrowserControlBroker, action: unknown,
+  parameters: Record<string, unknown>): Promise<Response> {
+  try {
+    const result = await broker.request(action as 'browser.open' | 'browser.snapshot' | 'browser.inspect' | 'browser.click' | 'browser.scroll' | 'browser.history' | 'browser.type' | 'browser.capture', parameters,
+      { signal: c.req.raw.signal });
+    recordBrowserControlDiagnostic({ kind: 'request', outcome: 'ok', action });
+    return c.json(result);
+  } catch (error) {
+    const detail = error instanceof BrowserControlError ? { error: error.message, status: error.status }
+      : { error: 'browser control failed', status: 500 };
+    recordBrowserControlDiagnostic({ kind: 'request', outcome: 'failed', action, ...detail });
+    if (error instanceof BrowserControlError) return c.json({ error: error.message }, error.status === 499 ? 408 : error.status);
+    return c.json({ error: 'browser control failed' }, 500);
+  }
+}

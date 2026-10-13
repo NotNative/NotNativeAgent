@@ -1,0 +1,128 @@
+{
+  "schema": "nnd.dependency-registry.v1",
+  "policy": {
+    "statement": "Every runtime dependency is inventoried with reason and review date. Adding a dependency without a registry row fails npm run check.",
+    "scope": "runtime dependencies of workspace packages; devDependencies and peerDependencies are outside this registry"
+  },
+  "dependencies": [
+    {
+      "name": "web-push",
+      "packages": ["@notnative/web"],
+      "reason": "RFC 8291 payload encryption and RFC 8292 VAPID signing for browser notifications; network requests use the NND bounded, DNS-pinned HTTPS transport",
+      "license": "MPL-2.0",
+      "reviewed_at": "2026-10-01"
+    },
+    {
+      "name": "ipaddr.js",
+      "packages": ["@notnative/web"],
+      "reason": "Classify public IPv4 and IPv6 destinations before outbound Web Push; reject private, mapped, reserved and transition addresses",
+      "license": "MIT",
+      "reviewed_at": "2026-10-01"
+    },
+    {
+      "name": "hono",
+      "packages": ["@notnative/web"],
+      "reason": "Server routing for the ~253-route surface (doc 03); typed middleware, native Response streaming for SSE",
+      "license": "MIT",
+      "reviewed_at": "2026-09-16"
+    },
+    {
+      "name": "@hono/node-server",
+      "packages": ["@notnative/web"],
+      "reason": "Node adapter for Hono; Electron main process will embed createApp via the same adapter (doc 09)",
+      "license": "MIT",
+      "reviewed_at": "2026-09-16"
+    },
+    {
+      "name": "ws",
+      "packages": ["@notnative/web"],
+      "reason": "Terminal binary WebSocket transport (0x01+JSON frames, 64 KiB cap, protocol v3 per doc 07 section 3); one socket multiplexes every attached terminal",
+      "license": "MIT",
+      "reviewed_at": "2026-09-17"
+    },
+    {
+      "name": "node-pty",
+      "packages": ["@notnative/web"],
+      "reason": "PTY backend for the terminal subsystem (doc 07 section 4): useConpty on Windows, process-group kill on POSIX; doc-named backend when not running under Bun",
+      "license": "MIT",
+      "reviewed_at": "2026-09-17"
+    },
+    {
+      "name": "cron-parser",
+      "packages": ["@notnative/web"],
+      "reason": "Cron occurrence iteration for scheduled tasks (doc 12 C.2): tz-aware next() shared by server dispatch and the future UI preview so preview and schedule agree by construction",
+      "license": "MIT",
+      "reviewed_at": "2026-09-25"
+    },
+    {
+      "name": "@simplewebauthn/server",
+      "packages": ["@notnative/web"],
+      "reason": "Passkey (WebAuthn) ceremony (doc 08 section 2.4): server-side registration/authentication option generation and attestation/assertion verification, wrapped by the WebAuthnCeremony seam",
+      "license": "MIT",
+      "reviewed_at": "2026-09-18"
+    },
+    {
+      "name": "@simplewebauthn/browser",
+      "packages": ["@notnative/ui"],
+      "reason": "Client half of the passkey ceremonies (doc 08 §2.5): startRegistration/startAuthentication + WebAuthnError codes consumed by the session gate and settings page; pairs with @simplewebauthn/server above",
+      "license": "MIT",
+      "reviewed_at": "2026-09-19"
+    },
+    {
+      "name": "qrcode",
+      "packages": ["@notnative/ui"],
+      "reason": "Pairing QR face (doc 08 \u00a75.8): toDataURL of the connection payload for the mobile camera; server never renders the QR",
+      "license": "MIT",
+      "reviewed_at": "2026-09-19"
+    },
+    {
+      "name": "qrcode-terminal",
+      "packages": ["@notnative/web"],
+      "reason": "CLI connect-url --qr render (doc 08 \u00a75.9 / doc 03 \u00a710.1): small QR to the terminal; the printed link is exactly the pairing-v2 link",
+      "license": "MIT",
+      "reviewed_at": "2026-09-20"
+    },
+    {
+      "name": "react",
+      "packages": ["@notnative/ui", "@notnative/web"],
+      "reason": "UI layer (doc 05); useSyncExternalStore binding for the sync engine leaf selectors",
+      "license": "MIT",
+      "reviewed_at": "2026-09-16"
+    },
+    {
+      "name": "react-dom",
+      "packages": ["@notnative/ui", "@notnative/web"],
+      "reason": "Client DOM render; required for the Vite web runtime mount",
+      "license": "MIT",
+      "reviewed_at": "2026-09-16"
+    },
+    {
+      "name": "zustand",
+      "packages": ["@notnative/ui", "@notnative/web"],
+      "reason": "Vanilla StoreApi state for directory stores and global sidecars (doc 04.store semantics)",
+      "license": "MIT",
+      "reviewed_at": "2026-09-16"
+    },
+    {
+      "name": "sonner",
+      "packages": ["@notnative/ui", "@notnative/web"],
+      "reason": "Toast surface for permission/question tasks and send-failure notices (docs 04/05)",
+      "license": "MIT",
+      "reviewed_at": "2026-09-16"
+    },
+    {
+      "name": "yaml",
+      "packages": ["@notnative/web"],
+      "reason": "cloudflared managed-local tunnel configs are .yml/.yaml; the ingress[].hostname extraction parses the file like the reference (doc 08 section 4.3, yaml.parse)",
+      "license": "ISC",
+      "reviewed_at": "2026-09-18"
+    },
+    {
+      "name": "@notnative/ui",
+      "packages": ["@notnative/web"],
+      "reason": "Workspace seam package: the web entry mounts the shared UI and swaps against it",
+      "license": "private",
+      "reviewed_at": "2026-09-16"
+    }
+  ]
+}

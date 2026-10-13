@@ -1,0 +1,282 @@
+// SPDX-License-Identifier: Apache-2.0
+/**
+ * P6-2 git read/write routes (doc 03 §5.13/§5.16 subset): per-file diff
+ * (patch mode with 3-line default context), image/binary file diff (data
+ * URLs), stage/unstage, hunk application (git apply --cached/--reverse),
+ * commit, and revert. All routes REQUIRE ?directory and stay within the
+ * git repo resolution rules P4-1 established (workspace-bound directory).
+ * Exec goes through execFileSync with a 10 s cap; responses are JSON.
+ */
+import { execFileSync } from 'node:child_process';
+import { readFileSync, existsSync, lstatSync, statSync } from 'node:fs';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
+import type { Hono } from 'hono';
+import { realpath, resolveWithin } from './fs.ts';
+
+function runGit(directory: string, args: string[], input?: string): { ok: true; text: string; buffer?: Buffer } | { ok: false; error: string; code: number | null; stdout?: string } {
+  try {
+    const text = execFileSync('git', ['-C', directory, ...args], {
+      encoding: 'utf8', timeout: EXEC_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
+      ...(input !== undefined ? { input } : {}),
+    });
+    return { ok: true, text };
+  } catch (error) {
+    const failure = error as { status?: number; stderr?: string; stdout?: string; message?: string };
+    return { ok: false, error: failure.stderr?.trim() || failure.message || 'git failed', code: failure.status ?? null, stdout: failure.stdout };
+  }
+}
+
+function runGitBuffer(directory: string, args: string[]): { ok: true; buffer: Buffer } | { ok: false; error: string; code: number | null } {
+  try {
+    const buffer = execFileSync('git', ['-C', directory, ...args], {
+      timeout: EXEC_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
+    }) as unknown as Buffer;
+    return { ok: true, buffer };
+  } catch (error) {
+    const failure = error as { status?: number; stderr?: string; message?: string };
+    return { ok: false, error: failure.stderr?.trim() || failure.message || 'git failed', code: failure.status ?? null };
+  }
+}
+
+const DIFF_MAX_BYTES = 2_000_000;
+const EXEC_TIMEOUT_MS = 10_000;
+
+export function registerGitDiffRoutes(app: Hono): void {
+  app.get('/api/git/diff', (c) => diffRoute(c.req.query()));
+  app.get('/api/git/file-diff', (c) => fileDiffRoute(c.req.query()));
+  app.post('/api/git/stage', (c) => stageRoute(c, 'add'));
+  app.post('/api/git/unstage', (c) => stageRoute(c, 'restore'));
+  app.post('/api/git/discard', (c) => discardRoute(c));
+  app.post('/api/git/apply-hunk', (c) => applyHunkRoute(c));
+  app.post('/api/git/commit', (c) => commitRoute(c));
+  app.post('/api/git/revert', (c) => discardRoute(c));
+}
+
+interface GitQuery { directory?: string; path?: string; staged?: string; contextLines?: string }
+
+function denied(): Response {
+  return Response.json({ error: 'Access denied' }, { status: 403 });
+}
+
+function notRepo(): Response {
+  return Response.json({ isGitRepository: false });
+}
+
+
+function repoRoot(directory: string): string | null {
+  const result = runGit(directory, ['rev-parse', '--show-toplevel']);
+  if (!result.ok) return null;
+  return result.text.trim().length > 0 ? result.text.trim() : null;
+}
+
+/** API Git paths are repository-root-relative, while a nested `directory`
+ * remains the caller's authorized workspace. Return a literal cwd-relative
+ * path only after both lexical and realpath containment checks. */
+function workspacePath(root: string, directory: string, path: string): string | null {
+  if (!path || isAbsolute(path)) return null;
+  const rootReal = realpath(root);
+  const workspaceReal = realpath(directory);
+  const candidate = resolve(rootReal, path);
+  if (resolveWithin(rootReal, workspaceReal) === null
+    || resolveWithin(workspaceReal, candidate) === null
+    || resolveWithin(workspaceReal, realpath(candidate)) === null) return null;
+  return relative(workspaceReal, candidate).split(sep).join('/');
+}
+
+/** git diff for one path; `staged` → --cached (index vs HEAD); the
+ * --full-index form is REQUIRED for the §5.10 version-match rule (40/64-hex
+ * blob identity; default 7-hex abbreviations can never verify). */
+function diffRoute(query: GitQuery): Response {
+  const { directory, path, staged, contextLines } = query;
+  if (!directory || !path) return Response.json({ error: 'directory and path are required' }, { status: 400 });
+  const root = repoRoot(directory);
+  if (root === null) return notRepo();
+  const scopedPath = workspacePath(root, directory, path);
+  if (scopedPath === null) return denied();
+  const context = contextNumber(contextLines);
+  const args = ['diff', '--no-color', '--full-index', `--unified=${context}`, '--no-renames', '--', `:(literal)${scopedPath}`];
+  if (staged === 'true') args.splice(1, 0, '--cached');
+  const result = runGit(directory, args);
+  if (!result.ok && result.code !== 0) return Response.json({ error: result.error }, { status: 500 });
+  let diff = result.ok ? result.text : '';
+  if (!diff && staged !== 'true') {
+    const untracked = untrackedDiff(root, path, context);
+    if (untracked instanceof Response) return untracked;
+    if (untracked !== null) diff = untracked;
+  }
+  return Response.json({ diff, path, staged: staged === 'true', contextLines: context });
+}
+
+/** Ordinary `git diff` omits untracked files. Produce their read-only
+ * /dev/null patch without staging, but never follow links or read a file
+ * beyond the preview budget. */
+function untrackedDiff(root: string, path: string, context: number): string | Response | null {
+  const candidate = resolve(root, path);
+  const relativePath = relative(root, candidate).split(sep).join('/');
+  const untracked = runGit(root, ['ls-files', '--others', '--exclude-standard', '--', `:(literal)${relativePath}`]);
+  if (!untracked.ok || !untracked.text) return null;
+  const safe = resolveWithin(realpath(root), realpath(candidate));
+  if (safe === null) return denied();
+  try {
+    const info = lstatSync(candidate);
+    if (!info.isFile()) return null;
+    if (info.size > DIFF_MAX_BYTES) return Response.json({ error: 'Diff exceeds preview limit' }, { status: 413 });
+  } catch { return null; }
+  const patch = runGit(root, ['diff', '--no-index', '--no-color', '--full-index', `--unified=${context}`, '--', '/dev/null', relativePath]);
+  if (patch.ok) return patch.text;
+  if (patch.code === 1 && typeof patch.stdout === 'string') return patch.stdout;
+  return Response.json({ error: patch.error }, { status: 500 });
+}
+
+function contextNumber(value: string | undefined): number {
+  const parsed = Number(value ?? 3);
+  if (!Number.isInteger(parsed) || parsed < 0) return 3;
+  return Math.min(parsed, 1_000_000);
+}
+
+/** §5.11 image/binary: data-URL style content for the two sides. The file
+ * path MUST resolve within the repo root (resolve + realpath double-hop
+ * with the fs.ts discipline) — resolve(root, absolutePath) returns the
+ * absolute path unchanged, so containment is checked explicitly. */
+function fileDiffRoute(query: GitQuery): Response {
+  const { directory, path, staged } = query;
+  if (!directory || !path) return Response.json({ error: 'directory and path are required' }, { status: 400 });
+  const root = repoRoot(directory);
+  if (root === null) return notRepo();
+  if (workspacePath(root, directory, path) === null) return denied();
+  const stagedFlag = staged === 'true';
+  const originalRef = 'HEAD';
+
+  const isBinaryLike = /\.(png|jpe?g|gif|webp|avif|bmp|ico|pdf|zip|gz|woff2?|ttf|otf|wasm)$/iu.test(path);
+  if (!isBinaryLike) return Response.json({ isBinary: false });
+
+  const resolved = resolveWithin(realpath(root), realpath(resolve(root, path)));
+  if (resolved === null) return denied();
+
+  const headSide = runGit(directory, ['show', `${originalRef}:${path}`]);
+  const workSide = readSide(resolved as string);
+  const toDataUrl = (bytes: Buffer | null | undefined): string | null => {
+    if (bytes === null) return null;
+    const mime = /\.(png)$/iu.test(path) ? 'image/png'
+      : /\.(jpe?g)$/iu.test(path) ? 'image/jpeg'
+        : /\.(gif)$/iu.test(path) ? 'image/gif'
+          : /\.(webp)$/iu.test(path) ? 'image/webp'
+            : /\.(pdf)$/iu.test(path) ? 'application/pdf'
+              : 'application/octet-stream';
+    return `data:${mime};base64,${bytes!.toString('base64')}`;
+  };
+  const original = headSide.ok ? toDataUrl(headSide.buffer) ?? null : null;
+  const modified = workSide === null ? null : toDataUrl(workSide);
+  if (original === null && modified === null) {
+    return Response.json({ error: 'Content of this file cannot be viewed.', isBinary: true }, { status: 404 });
+  }
+  return Response.json({ path, staged: stagedFlag, isBinary: true, original, modified });
+}
+
+function readSide(target: string): Buffer | null {
+  if (!existsSync(target) || !statSync(target).isFile()) return null;
+  try {
+    return readFileSync(target);
+  } catch {
+    return null;
+  }
+}
+
+interface StageBody { paths?: string[] }
+
+async function readBody(context: { req: { json: () => Promise<unknown> } }): Promise<Record<string, unknown> | null> {
+  try {
+    const body = await context.req.json() as unknown;
+    return body !== null && typeof body === 'object' && !Array.isArray(body) ? body as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
+/** git add / git restore --staged for a batch of paths (§6.4 queue target). */
+async function stageRoute(context: { req: { json: () => Promise<unknown>; query: () => GitQuery } }, mode: 'add' | 'restore'): Promise<Response> {
+  const directory = context.req.query().directory;
+  const body = await readBody(context);
+  const paths = body?.paths;
+  if (!directory || !Array.isArray(paths) || paths.some((entry) => typeof entry !== 'string')) {
+    return Response.json({ error: 'directory and paths[] are required' }, { status: 400 });
+  }
+  const root = repoRoot(directory);
+  if (root === null) return notRepo();
+  const scopedPaths = (paths as string[]).map((path) => workspacePath(root, directory, path));
+  if (scopedPaths.some((path) => path === null)) return denied();
+  const args = mode === 'add'
+    ? ['add', '--', ...scopedPaths.map((path) => `:(literal)${path}`)]
+    : ['restore', '--staged', '--', ...scopedPaths.map((path) => `:(literal)${path}`)];
+  const result = runGit(directory, args);
+  if (!result.ok) return Response.json({ error: result.error }, { status: 500 });
+  return Response.json({ staged: mode === 'add', paths });
+}
+
+/** Working-tree revert for paths (§6.3 "Revert changes"): checkout-side. */
+async function discardRoute(context: { req: { json: () => Promise<unknown>; query: () => GitQuery } }): Promise<Response> {
+  const directory = context.req.query().directory;
+  const body = await readBody(context);
+  const paths = body?.paths;
+  if (!directory || !Array.isArray(paths) || paths.some((entry) => typeof entry !== 'string')) {
+    return Response.json({ error: 'directory and paths[] are required' }, { status: 400 });
+  }
+  const root = repoRoot(directory);
+  if (root === null) return notRepo();
+  const scopedPaths = (paths as string[]).map((path) => workspacePath(root, directory, path));
+  if (scopedPaths.some((path) => path === null)) return denied();
+  const result = runGit(directory, ['checkout', '--', ...scopedPaths.map((path) => `:(literal)${path}`)]);
+  if (!result.ok) return Response.json({ error: result.error }, { status: 500 });
+  return Response.json({ discarded: paths });
+}
+
+interface HunkBody { path?: string; patch?: string; action?: 'stage' | 'unstage' | 'discard' }
+
+/** §5.6.d apply-hunk: the patch must be exactly ONE 3-line-context hunk
+ * (documented server contract); stage/unstage apply to the index,
+ * discard applies reverse to the worktree. */
+async function applyHunkRoute(context: { req: { json: () => Promise<unknown>; query: () => GitQuery } }): Promise<Response> {
+  const directory = context.req.query().directory;
+  const body = (await readBody(context)) as HunkBody | null;
+  const { path, patch, action } = body ?? {};
+  if (!directory || typeof path !== 'string' || typeof patch !== 'string') {
+    return Response.json({ error: 'directory, path, patch are required' }, { status: 400 });
+  }
+  if (action !== 'stage' && action !== 'unstage' && action !== 'discard') {
+    return Response.json({ error: 'action must be stage|unstage|discard' }, { status: 400 });
+  }
+  const hunkCount = (patch.match(/^@@ /gmu) ?? []).length;
+  if (hunkCount !== 1) {
+    return Response.json({ error: 'patch must contain exactly one hunk' }, { status: 400 });
+  }
+  const root = repoRoot(directory);
+  if (root === null) return notRepo();
+  const args: string[] = ['apply', '--whitespace=nowarn'];
+  if (action === 'stage') args.push('--cached');
+  if (action === 'unstage') args.push('--cached', '--reverse');
+  if (action === 'discard') args.push('--reverse');
+  args.push('-');
+  const result = runGit(directory, args, patch);
+  if (!result.ok) return Response.json({ error: result.error }, { status: 500 });
+  return Response.json({ applied: action, path });
+}
+
+interface CommitBody { message?: string }
+
+async function commitRoute(context: { req: { json: () => Promise<unknown>; query: () => GitQuery } }): Promise<Response> {
+  const directory = context.req.query().directory;
+  const body = (await readBody(context)) as CommitBody | null;
+  const message = body?.message;
+  if (!directory || typeof message !== 'string' || message.trim().length === 0) {
+    return Response.json({ error: 'directory and message are required' }, { status: 400 });
+  }
+  const root = repoRoot(directory);
+  if (root === null) return notRepo();
+  const result = runGit(directory, ['commit', '-m', message]);
+  if (!result.ok) return Response.json({ error: result.error }, { status: 500 });
+  const hash = runGit(directory, ['rev-parse', 'HEAD']);
+  return Response.json({
+    committed: true,
+    hash: hash.ok ? hash.text.trim() : null,
+  });
+}

@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.server.json",
+  "compilerOptions": {
+    "lib": ["es2023", "dom", "dom.iterable"]
+  },
+  "include": [
+    "src/server/__tests__/p8-5b-pairing-route-shape.test.ts",
+    "../ui/src/types/globals.d.ts"
+  ],
+  "exclude": []
+}

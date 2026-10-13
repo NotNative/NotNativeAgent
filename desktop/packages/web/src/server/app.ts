@@ -1,0 +1,429 @@
+// SPDX-License-Identifier: Apache-2.0
+import { Hono } from 'hono';
+import type { Context, Next } from 'hono';
+import { ENV, nativeServiceTerminalUnavailable } from './env.ts';
+import { nativeAlphaSurfaceGate } from './routes/native-alpha-surface.ts';
+import { getUiAuthController, CLEAR_SESSION_COOKIE_HEADER, type AuthOutcome } from './lib/auth/ui-auth.ts';
+import { getTunnelAuthController, TUNNEL_COOKIE_NAME } from './lib/auth/tunnel-auth.ts';
+import { peekRelayServerId } from './lib/relay/identity.ts';
+import { createStaticHandler, DIST_DIR } from './lib/static.ts';
+import { browserMutationAllowed, isTrustedDesktopUiOrigin } from './lib/http/request-security.ts';
+import { createAuthRoutes } from './routes/auth.ts';
+import { createClientAuthPublicRoutes, registerClientAuthRoutes } from './routes/client-auth.ts';
+import { createNotNativeRoutes } from './routes/notnative.ts';
+import { registerRelayRoutes } from './routes/relay.ts';
+import { registerTunnelRoutes } from './routes/tunnel.ts';
+import { registerFsRoutes } from './routes/fs.ts';
+import { registerFsReadRoutes } from './routes/fs-read.ts';
+import { registerGitDiffRoutes } from './routes/git-diff.ts';
+import { registerGitSyncRoutes } from './routes/git-sync.ts';
+import { registerGitWalkthroughSnapshotRoute } from './routes/git-walkthrough-snapshot.ts';
+import { registerIntegrationRoutes } from './routes/integrations.ts';
+import { registerSpeechRoutes } from './routes/speech.ts';
+import { registerGitWalkthroughGenerateRoute } from './routes/git-walkthrough-generate.ts';
+import { registerGitRoutes } from './routes/git.ts';
+import { registerGitWorktreeRoutes } from './routes/git-worktrees.ts';
+import { registerGitStashRoutes } from './routes/git-stash.ts';
+import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
+import { registerAgentMemoryRoutes } from './routes/agent-memory.ts';
+import { registerAgentToolCallback } from './routes/agent-tool.ts';
+import { registerSkillRoutes } from './routes/skills.ts';
+import { registerMcpConfigRoutes } from './routes/mcp-config.ts';
+import { registerSmallModelRoutes } from './routes/small-model.ts';
+import { registerFsWriteRoutes } from './routes/fs-write.ts';
+import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
+import { registerSessionOrgRoutes } from './routes/session-org.ts';
+import { registerSessionSuggestNameRoute } from './routes/session-suggest-name.ts';
+import { registerNativeWorkspaceAdmissionRoute } from './routes/native-workspace-admission.ts';
+import { registerNativeLocalScope } from './routes/native-local-scope.ts';
+import { callHarness } from './queue/queue-adapter-calls.ts';
+import { createNnaSessionHarnessPorts } from './session-orchestration/session-harness-ports.ts';
+import { registerMarkdownImageGrantRoutes } from './routes/markdown-image-grants.ts';
+import { createScheduledTaskRoutes } from './routes/scheduled-tasks.ts';
+import { registerSnippetRoutes } from './routes/snippets.ts';
+import { registerMagicPromptRoutes } from './routes/magic-prompts.ts';
+import { registerSessionKnowledgeRoutes } from './session-knowledge/session-knowledge-routes.ts';
+import { registerMessageQueueRoutes } from './queue/queue-routes.ts';
+import { registerObjectiveRoutes } from './goals/objective-routes.ts';
+import { registerOpenChamberSessionRoutes } from './session-orchestration/openchamber-sessions.ts';
+import { registerTerminalRoutes } from './terminal/routes.ts';
+import { createTerminalRuntime } from './terminal/bootstrap.ts';
+import { createNativeHealthProof, type NativeHealthProofIdentity } from './lib/auth/native-health-proof.ts';
+import { readMergedSettings } from './lib/settings-store.ts';
+import { createDevServerScanner, registerDevServerRoutes } from './preview/dev-servers.ts';
+import { registerProbeUrlRoutes } from './preview/probe-url.ts';
+import { registerBrowserControlCallback } from './preview/browser-control-callback.ts';
+import { registerPreviewProxyRoutes } from './preview/preview-proxy.ts';
+import { createVersionRoutes } from './routes/version.ts';
+import { createPushRoutes } from './push/routes.ts';
+import { createPushServices } from './push/runtime.ts';
+import { createNotificationRoutes } from './notifications/routes.ts';
+import type { BrowserControlBroker } from './preview/browser-control-broker.ts';
+import type { TerminalRuntime } from './terminal/session-core.ts';
+
+/**
+ * Session list sanitation (doc 02 §3.2): server-side keep-list, `summary`
+ * minus `diffs`, `revert` reduced to `{messageID, partID?}`.
+ */
+const SESSION_KEEP = [
+  'id', 'slug', 'projectID', 'workspaceID', 'directory', 'path', 'parentID', 'title',
+  'agent', 'model', 'version', 'time', 'cost', 'tokens', 'share', 'metadata', 'project',
+] as const;
+
+function sanitizeSession(raw: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of SESSION_KEEP) {
+    if (raw[key] !== undefined) out[key] = raw[key];
+  }
+  if (raw.summary && typeof raw.summary === 'object') {
+    const { diffs: _dropped, ...summary } = raw.summary as Record<string, unknown>;
+    void _dropped;
+    out.summary = summary;
+  }
+  if (raw.revert && typeof raw.revert === 'object') {
+    const { messageID, partID } = raw.revert as { messageID?: string; partID?: string };
+    out.revert = partID ? { messageID, partID } : { messageID };
+  }
+  return out;
+}
+
+async function sanitizeSessionList(response: Response): Promise<Response> {
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!response.ok || !contentType.includes('application/json')) return response;
+  try {
+    const body = await response.json();
+    if (!Array.isArray(body)) return response;
+    return new Response(JSON.stringify(body.map((s) => sanitizeSession(s as Record<string, unknown>))), {
+      status: response.status,
+      headers: { 'content-type': 'application/json' },
+    });
+  } catch {
+    return response;
+  }
+}
+
+function clearCookieHeader(name: string, secure: boolean = false): string {
+  const base = `${name}=; Path=/; ${name === TUNNEL_COOKIE_NAME ? 'SameSite=Lax' : 'SameSite=Strict'}; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+  return base + (secure ? '; Secure' : '');
+}
+
+function remoteSocketAddress(env: unknown): string | undefined {
+  const socket = (env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket;
+  const address = socket?.remoteAddress;
+  return typeof address === 'string' ? address : undefined;
+}
+
+/** Global /api gate (doc 08 §2.2 requireAuth + §2.9 scope partitioning): the
+ * scope classifier routes tunnel|unknown-public hostnames to the tunnel
+ * gate; local traffic keeps the cookie/bearer/URL-token ui path. */
+async function apiAuthGate(c: Context, next: Next): Promise<Response | void> {
+  const headers = c.req.raw.headers;
+  const url = new URL(c.req.raw.url);
+  const method = c.req.method;
+  const scope = getTunnelAuthController().classify(headers, url, remoteSocketAddress(c.env));
+  if (scope === 'tunnel' || scope === 'unknown-public') return apiTunnelGate(headers, url, method, next);
+  const outcome: AuthOutcome = getUiAuthController().authenticate(headers, url, method);
+  if (outcome.ok) return next();
+  const responseHeaders = new Headers();
+  for (const [name, value] of Object.entries(outcome.headers)) responseHeaders.set(name, value);
+  if (outcome.clearSessionCookie) responseHeaders.append('set-cookie', CLEAR_SESSION_COOKIE_HEADER);
+  return new Response(JSON.stringify(outcome.body), { status: outcome.status, headers: responseHeaders });
+}
+
+/** Tunnel-scope /api gate (§2.9): device bearer/URL-token credentials pass
+ * at any scope; the anonymous-browser path requires the tunnel session
+ * cookie; tunnel visitors can never reach a ui session here. */
+async function apiTunnelGate(headers: Headers, url: URL, method: string, next: Next): Promise<Response | void> {
+  if (getUiAuthController().credentialGrant(headers, url, method)) return next();
+  const cookieHeader = headers.get('cookie');
+  if (getTunnelAuthController().requireTunnelSession(cookieHeader)) return next();
+  const responseHeaders = new Headers({ 'cache-control': 'no-store', 'content-type': 'application/json' });
+  const hadCookie = typeof cookieHeader === 'string' && cookieHeader.includes(TUNNEL_COOKIE_NAME);
+  if (hadCookie) responseHeaders.append('set-cookie', clearCookieHeader(TUNNEL_COOKIE_NAME));
+  return new Response(JSON.stringify({ error: 'Tunnel authentication required', locked: true, tunnelLocked: true }), { status: 401, headers: responseHeaders });
+}
+
+/** Doc 08 §9 public-instance hygiene (checklist step 14): the whole shell
+ *  stays out of search indexes even behind a proxy — X-Robots-Tag on every
+ *  response plus a disallow-all /robots.txt, both anonymous. Exported seam:
+ *  the streamed-response stamping (Hono clones c.res to add the header on a
+ *  finalized response) is pinned against a real SSE body, not just JSON. */
+export function registerPublicHygiene(app: Hono): void {
+  app.use('*', async (c, next) => {
+    await next();
+    c.header('x-robots-tag', 'noindex, nofollow');
+  });
+  app.get('/robots.txt', (c) =>
+    c.text('User-agent: *\nDisallow: /\n', 200, { 'content-type': 'text/plain; charset=utf-8' }),
+  );
+}
+
+/** Harness proxy: everything under /api goes through the seam (HP-1). */
+function registerHarnessProxy(app: Hono): void {
+  app.all('/api/*', async (c) => {
+    try {
+      const response = await callHarness(c.req.raw);
+      const listPath = /^\/api\/(experimental\/)?session$/.test(new URL(c.req.raw.url).pathname);
+      if (listPath && c.req.method === 'GET') return await sanitizeSessionList(response);
+      return response;
+    } catch (error) {
+      return c.json(
+        { error: { message: `harness request failed: ${String(error)}` } },
+        502,
+      );
+    }
+  });
+}
+
+async function nativeAuthGate(c: Context, next: Next): Promise<Response | void> {
+  const controller = getUiAuthController();
+  const url = new URL(c.req.raw.url);
+  if (!controller.nativeRequestAllowed(c.req.raw.headers, url)) {
+    const denied = controller.sessionStatus(c.req.raw.headers, url, c.req.method);
+    return c.json(denied.body, 401, { 'cache-control': 'no-store' });
+  }
+  return next();
+}
+
+async function nativeTerminalGate(c: Context, next: Next): Promise<Response | void> {
+  if (nativeServiceTerminalUnavailable()) {
+    return c.json({ code: 'native_terminal_unavailable',
+      error: 'Terminal is unavailable until native workspace authorization is supported.' },
+    409, { 'cache-control': 'no-store' });
+  }
+  return next();
+}
+
+export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: number;
+  push?: ReturnType<typeof createPushServices>;
+  nativeHealthProof?: NativeHealthProofIdentity;
+  browserControl?: BrowserControlBroker; browserCallbackSecret?: string; previewProxyPorts?: () => Promise<readonly number[]>;
+  agentToolCallbackSecret?: string;
+  desktopUpdater?: { check: () => Promise<DesktopUpdateInfo>; download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void } }) {
+  const app = new Hono();
+  const terminal = options?.terminal ?? createTerminalRuntime();
+
+  registerPublicHygiene(app);
+
+  app.use('*', nativeAuthGate);
+  app.use('*', desktopUiCors);
+  app.use('*', browserWriteGate);
+
+  registerHealthRoute(app, options?.nativeHealthProof);
+  // Deliberately registered before /api auth: compatibility metadata is a
+  // public, non-sensitive discovery surface used before selecting a host.
+  app.route('/', createVersionRoutes());
+
+  app.route('/', createAuthRoutes());
+  // The anonymous pairing redeem (doc 08 §5.5) rides BEFORE the /api gate:
+  // an unauthenticated device pairs exactly once and the /api gate would
+  // otherwise 401 it before the rate limiter even sees a body.
+  app.route('/', createClientAuthPublicRoutes());
+  // Security: this private NNA-child token is independent of browser UI auth.
+  if (options?.browserControl && options.browserCallbackSecret) registerBrowserControlCallback(app, options.browserControl, options.browserCallbackSecret);
+  if (options?.agentToolCallbackSecret) registerAgentToolCallback(app, options.agentToolCallbackSecret);
+  // Global /api gate (doc 08 §2.2 requireAuth): cookie session, client
+  // bearer, or allowlisted URL token. Registered after the /auth routes so
+  // their bespoke headers (login/reset) run un-wrapped; every later /api
+  // surface + the harness proxy rides behind it.
+  app.use('/api/*', apiAuthGate);
+  app.use('/api/terminal/*', nativeTerminalGate);
+  app.use('/api/*', nativeAlphaSurfaceGate);
+  // The F7 preview proxy must register before the harness catch-all below:
+  // route order decides, and the catch-all would forward preview requests to
+  // NNA, which 404s them ('integration endpoint not found').
+  if (options?.previewProxyPorts) registerPreviewProxyRoutes(app, { allowedPorts: options.previewProxyPorts });
+  registerApiSurfaces(app, terminal, options?.harnessPort, options?.desktopUpdater, options?.push);
+
+  registerHarnessProxy(app);
+
+  registerStaticFallback(app);
+
+  // Hygiene belt for the one path the middleware cannot see: hono's default
+  // 500 replaces c.res AFTER a rejecting compose, so NND mirrors the default
+  // answer and stamps the tag itself (§9 "every response"; every NND route
+  // is try/catch-guarded today, this belt keeps a future unguarded route
+  // from re-opening the hole).
+  app.onError(errorHygiene);
+  return app;
+}
+
+function registerStaticFallback(app: Hono): void {
+  // Static UI (production builds; dev is served by Vite)
+  const serveStatic = createStaticHandler(DIST_DIR);
+  app.all('*', async (c, next) => {
+    const response = await serveStatic(c.req.raw);
+    if (response) return response;
+    return next();
+  });
+  app.notFound((c) =>
+    c.json({ error: { message: `not found: ${new URL(c.req.raw.url).pathname}` } }, 404),
+  );
+}
+
+function registerHealthRoute(app: Hono, nativeHealthProof?: NativeHealthProofIdentity): void {
+  app.get('/health', async (c) =>
+    c.json({
+      ok: true,
+      name: ENV.appName,
+      version: ENV.version,
+      runtime: process.env?.NOTNATIVE_RUNTIME ?? 'web',
+      // HP-9: keep the field name — the UI feature-flag wiring depends on it
+      planModeExperimentalEnabled: ENV.planModeExperimentalEnabled,
+      // E-08-2: serverId greets with the relay identity once the host keys
+      // exist; clients identity-gate learned addresses against it (§3.13)
+      serverId: await peekRelayServerId(),
+    }),
+  );
+  if (nativeHealthProof) {
+    const sign = createNativeHealthProof(nativeHealthProof);
+    app.post('/__nna/health-proof', async (c) => {
+      try {
+        const reader = c.req.raw.body?.getReader();
+        if (!reader) throw new Error('missing challenge');
+        const chunks: Uint8Array[] = []; let size = 0;
+        for (;;) {
+          const item = await reader.read();
+          if (item.done) break;
+          size += item.value.length;
+          if (size > 128) { await reader.cancel(); throw new Error('oversized challenge'); }
+          chunks.push(item.value);
+        }
+        const body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)));
+        if (!body || typeof body !== 'object' || Array.isArray(body)
+          || Object.keys(body).length !== 1 || typeof body.nonce !== 'string') throw new Error('invalid challenge');
+        return c.json({ protocol: '1.0', mac: sign(body.nonce) }, 200, { 'cache-control': 'no-store' });
+      } catch {
+        return c.json({ error: 'Invalid native health challenge' }, 400, { 'cache-control': 'no-store' });
+      }
+    });
+  }
+}
+
+/** A sandboxed preview has an opaque Origin but can still issue simple
+ * cross-origin POSTs. Apply this before auth and all API/proxy routes. */
+async function browserWriteGate(c: Context, next: Next): Promise<Response | void> {
+  const request = c.req.raw;
+  const url = new URL(request.url);
+  const validBearer = url.pathname.startsWith('/api/')
+    && request.headers.has('authorization')
+    && getUiAuthController().credentialGrant(request.headers, url, request.method, false);
+  if (!browserMutationAllowed(request, validBearer, process.env.NOTNATIVE_DESKTOP_UI_ORIGIN))
+    return c.json({ error: 'Cross-origin browser write denied' }, 403);
+  return next();
+}
+
+export function desktopSessionCookieHeader(cookie: string): string {
+  if (!/^oc_ui_session=/i.test(cookie)) return cookie;
+  return cookie.replace(/;\s*SameSite=Strict\b/i, '; SameSite=None')
+    .replace(/;\s*Secure\b/i, '') + '; Secure';
+}
+
+async function desktopUiCors(c: Context, next: Next): Promise<Response | void> {
+  const origin = c.req.header('origin');
+  const configuredOrigin = process.env.NOTNATIVE_DESKTOP_UI_ORIGIN;
+  if (!isTrustedDesktopUiOrigin(origin, configuredOrigin)) return next();
+  c.header('Access-Control-Allow-Origin', origin!);
+  c.header('Access-Control-Allow-Credentials', 'true');
+  c.header('Vary', 'Origin');
+  if (c.req.method === 'OPTIONS') {
+    c.header('Access-Control-Allow-Methods', 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS');
+    const requested = c.req.header('access-control-request-headers') ?? '';
+    const headers = requested.split(',').map((header) => header.trim().toLowerCase())
+      .filter((header) => /^[a-z0-9-]+$/u.test(header));
+    if (headers.length) c.header('Access-Control-Allow-Headers', headers.join(', '));
+    return c.body(null, 204);
+  }
+  await next();
+
+  // The packaged UI has its own secure custom origin, while its API remains
+  // on loopback HTTP. Chromium treats that fetch as cross-site, so Strict
+  // session cookies are omitted. Scope the SameSite=None exception to requests
+  // carrying the exact configured Electron origin; loopback is a secure
+  // context, and Secure is required for SameSite=None. Keep tunnel cookies and
+  // every other origin's cookie policy unchanged.
+  const response = c.res;
+  const cookies = response.headers.getSetCookie();
+  if (!cookies.some((cookie) => /^oc_ui_session=/i.test(cookie))) return;
+  const headers = new Headers(response.headers);
+  headers.delete('set-cookie');
+  for (const cookie of cookies) {
+    headers.append('set-cookie', desktopSessionCookieHeader(cookie));
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+/** The §9 belt answer, exported so the error path is tested through real
+ *  hono machinery (a throwing route + the production handler). */
+export function errorHygiene(error: unknown, c: Context): Response {
+  void error;
+  c.header('x-robots-tag', 'noindex, nofollow');
+  return c.text('Internal Server Error', 500);
+}
+
+/** NND-owned /api surfaces (P4/P6/P7 slices): registered between the auth
+ * gate and the harness-proxy catch-all (Hono matches in registration
+ * order, doc 03 §5.14/§5.13 — nothing may register after the proxy). */
+type DesktopUpdateInfo = { available: boolean; currentVersion: string; version?: string | null; body?: string | null; date?: string | null };
+
+function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?: number,
+  desktopUpdater?: { check: () => Promise<DesktopUpdateInfo>; download: () => Promise<unknown>; install: () => Promise<unknown>; getInstallError?: () => string | null; clearInstallError?: () => void }, push?: ReturnType<typeof createPushServices>): void {
+  app.route('/', createNotNativeRoutes({ desktopUpdater }));
+  const notificationServices = push ?? createPushServices();
+  app.route('/', createPushRoutes(notificationServices));
+  app.route('/', createNotificationRoutes(notificationServices));
+  registerMessageQueueRoutes(app); // §D.3 wiring: BEFORE the harness proxy
+  registerNativeWorkspaceAdmissionRoute(app);
+  registerObjectiveRoutes(app); // §B.1 objective files: auth-gated NND surface
+  // §5.17 session orchestration: server-side create/send/fork/archive.
+  registerOpenChamberSessionRoutes(app);
+  registerMarkdownImageGrantRoutes(app, createNnaSessionHarnessPorts());
+  // §5.16 scheduled-task family (doc 12 C): BEFORE the harness proxy.
+  app.route('/', createScheduledTaskRoutes());
+  // Snippet config-entity family (doc 03 §5.x, NND addition): BEFORE the
+  // harness proxy, riding the same auth posture as its siblings.
+  registerSnippetRoutes(app);
+  // Session-knowledge project pins/memory context (doc 15 §B): before proxy.
+  registerSessionKnowledgeRoutes(app);
+  registerMcpConfigRoutes(app, ENV.harness === 'mock');
+  registerSmallModelRoutes(app, {
+    settings: async () => readMergedSettings('web'),
+  });
+  // Magic-prompt template overrides (doc 03 §5.31): before the proxy.
+  registerMagicPromptRoutes(app);
+  registerRelayRoutes(app);
+  registerClientAuthRoutes(app);
+  registerTunnelRoutes(app);
+  registerNativeLocalScope(app);
+  registerFsRoutes(app);
+  registerFsReadRoutes(app);
+  registerGitDiffRoutes(app);
+  registerGitSyncRoutes(app);
+  registerGitWalkthroughSnapshotRoute(app);
+  registerIntegrationRoutes(app);
+  registerSpeechRoutes(app);
+  registerGitWalkthroughGenerateRoute(app);
+  registerGitRoutes(app);
+  registerGitWorktreeRoutes(app);
+  registerGitStashRoutes(app);
+  registerTerminalRoutes(app, terminal);
+  registerDevServerRoutes(app, harnessPort === undefined ? undefined
+    : createDevServerScanner({ ownPorts: () => [ENV.port, harnessPort] }));
+  registerProbeUrlRoutes(app);
+  registerSettingsRoutes(app);
+  registerAgentMemoryRoutes(app);
+  registerSkillRoutes(app);
+  registerProjectsRoutes(app);
+  registerGitReadRoutes(app);
+  registerFsWriteRoutes(app);
+  registerSessionFoldersRoutes(app);
+  registerSessionOrgRoutes(app);
+  // AI rename suggestion (W-24): Small Model seam, never auto-applies.
+  registerSessionSuggestNameRoute(app, {
+    settings: async () => readMergedSettings('web'),
+  });
+}

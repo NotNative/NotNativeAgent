@@ -1,0 +1,348 @@
+// SPDX-License-Identifier: Apache-2.0
+// @vitest-environment jsdom
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, expect, it, vi } from 'vitest';
+import { I18nProvider } from '../../../lib/i18n/context.tsx';
+import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
+import { requestNativeConfiguration, type NativeConfigurationView, type NativeConfigurationField } from '../../../lib/nnd/configuration.ts';
+import { NativeConfigurationPage } from '../pages/native-configuration.tsx';
+
+const runtime = vi.hoisted(() => ({ key: 'local', callback: () => {} }));
+vi.mock('../../../lib/nnd/configuration.ts', () => ({ requestNativeConfiguration: vi.fn() }));
+vi.mock('../../../lib/runtime-switch.ts', () => ({ getRuntimeKey: () => runtime.key,
+  isTransientRuntimeKey: (key: string) => key === 'url:default' || key === 'mobile-disconnected',
+  onRuntimeEndpointChanged: (callback: () => void) => { runtime.callback = callback; return () => {}; } }));
+
+const view: NativeConfigurationView = {
+  schema_version: '1.0', installation_id: 'nna_one', data_id: 'data_one', scope: 'user',
+  source_state: 'present', source_revision: 'absent', resolution_revision: 'absent', source_revisions: [],
+  application: 'not_applied', fields: [
+    { path: 'provider.credential', catalog_path: 'provider.credential', explicit: { present: true, redacted: true },
+      effective: { present: true, redacted: true, source: 'user' }, application: 'not_applied' },
+    { path: 'streaming', catalog_path: 'streaming', explicit: { present: false },
+      effective: { present: true, value: true, source: 'compiled_default' }, application: 'not_applied' },
+  ],
+};
+let root: Root; let container: HTMLDivElement;
+function mount() {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  container = document.createElement('div'); document.body.append(container); root = createRoot(container);
+  act(() => root.render(<I18nProvider><NativeConfigurationPage /></I18nProvider>));
+}
+afterEach(() => { act(() => root?.unmount()); container?.remove(); vi.resetAllMocks(); runtime.key = 'local';
+  useAuthSessionStore.getState().markOk(); });
+
+it('shows explicit and effective values, provenance, redaction and not-applied without saving', async () => {
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(view); mount(); await act(async () => {});
+  expect(container.textContent).toContain('nna_one');
+  expect(container.textContent).toContain('Not set');
+  expect(container.textContent).toContain('compiled_default');
+  expect(container.textContent).toContain('Redacted');
+  expect(container.textContent).toContain('Application status: not applied');
+  expect(requestNativeConfiguration).toHaveBeenCalledTimes(1);
+  expect(container.querySelector('button')?.textContent).toContain('Refresh');
+});
+it('aborts old runtime read and ignores late completion from the previous installation', async () => {
+  let finish!: (value: NativeConfigurationView) => void;
+  vi.mocked(requestNativeConfiguration).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }))
+    .mockResolvedValue({ ...view, installation_id: 'nna_two' });
+  mount(); const signal = vi.mocked(requestNativeConfiguration).mock.calls[0]![0];
+  await act(async () => { runtime.key = 'remote'; runtime.callback(); });
+  expect(signal.aborted).toBe(true);
+  await act(async () => finish(view));
+  expect(container.textContent).toContain('nna_two');
+  expect(container.textContent).not.toContain('nna_one');
+});
+it('clears private rows on auth expiry and only reloads after reauthentication', async () => {
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(view); mount(); await act(async () => {});
+  expect(container.textContent).toContain('provider.credential');
+  await act(async () => useAuthSessionStore.getState().markExpired());
+  expect(container.textContent).not.toContain('provider.credential');
+  expect(container.textContent).toContain('Reauthenticate');
+  await act(async () => useAuthSessionStore.getState().markOk());
+  expect(requestNativeConfiguration).toHaveBeenCalledTimes(2);
+});
+it('aborts an in-flight read on auth expiry and ignores its late response', async () => {
+  let finish!: (value: NativeConfigurationView) => void;
+  vi.mocked(requestNativeConfiguration).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  mount(); const signal = vi.mocked(requestNativeConfiguration).mock.calls[0]![0];
+  await act(async () => useAuthSessionStore.getState().markExpired());
+  expect(signal.aborted).toBe(true);
+  await act(async () => finish(view));
+  expect(container.textContent).not.toContain('provider.credential');
+  expect(requestNativeConfiguration).toHaveBeenCalledTimes(1);
+});
+it('renders the mission authority rows as honest absence for the desktop principal', async () => {
+  const paths = ['mission', 'mission.id', 'mission.outcome', 'mission.revocation_id',
+    'mission.not_before', 'mission.expires_at', 'mission.resources', 'mission.targets',
+    'mission.side_effects', 'mission.credential_refs', 'mission.bounds', 'mission.termination',
+    'mission.bounds.max_turns', 'mission.bounds.max_tool_calls', 'mission.bounds.max_duration_ms',
+    'mission.termination.suspend_on', 'mission.termination.terminate_on'];
+  const missionView: NativeConfigurationView = {
+    ...view,
+    fields: paths.map((path) => ({
+      path, catalog_path: path,
+      explicit: { present: false },
+      effective: { present: false },
+      application: 'not_applied' as const,
+    })),
+  };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(missionView);
+  mount(); await act(async () => {});
+  for (const path of paths) expect(container.textContent).toContain(path);
+  expect((container.textContent?.match(/Not set/g) ?? []).length).toBeGreaterThanOrEqual(paths.length);
+  expect(container.textContent).not.toContain('mission_authority_forbidden');
+  expect(container.textContent).not.toContain('ship the release');
+});
+
+it('renders the tui keyboard family with merged defaults, provenance and honest container absence', async () => {
+  const binding = (action: string, key: string, explicit: boolean): NativeConfigurationField => ({
+    path: `tui.key_bindings.${action}`, catalog_path: `tui.key_bindings.${action}`,
+    explicit: explicit ? { present: true, value: key } : { present: false },
+    effective: explicit ? { present: true, value: key, source: 'user' }
+      : { present: true, value: key, source_unavailable: true }, application: 'not_applied' });
+  const tuiView: NativeConfigurationView = { ...view, fields: [
+    { path: 'tui.reduced_motion', catalog_path: 'tui.reduced_motion', explicit: { present: true, value: true },
+      effective: { present: true, value: true, source: 'user' }, application: 'not_applied' },
+    { path: 'tui.color', catalog_path: 'tui.color', explicit: { present: false },
+      effective: { present: true, value: true, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'tui.key_bindings', catalog_path: 'tui.key_bindings', explicit: { present: true, value_unavailable: true },
+      effective: { present: true, value_unavailable: true, source_unavailable: true }, application: 'not_applied' },
+    binding('submit', 'ctrl+e', true), binding('cancel', 'ctrl+x', true),
+    binding('newline', 'ctrl+j', false), binding('help', 'ctrl+g', false),
+    binding('allow_once', 'ctrl+y', false), binding('deny', 'ctrl+n', false),
+    binding('reset_keys', 'f12', false), binding('undo', 'ctrl+z', false),
+    binding('toggle_activity', 'ctrl+o', false), binding('new_tab', 'ctrl+t', false),
+    binding('close_tab', 'ctrl+w', false), binding('previous_tab', 'ctrl+pageup', false),
+    binding('next_tab', 'ctrl+pagedown', false), binding('cycle_review', 'shift+tab', false),
+    binding('scroll_page_up', 'pageup', false), binding('scroll_page_down', 'pagedown', false),
+    binding('scroll_bottom', 'end', false),
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(tuiView);
+  mount(); await act(async () => {});
+  expect(container.textContent).toContain('tui.key_bindings.submit');
+  expect(container.textContent).toContain('ctrl+e');
+  expect(container.textContent).toContain('shift+tab');
+  expect(container.textContent).toContain('Value unavailable');
+  expect(container.textContent).toContain('compiled_default');
+  expect(container.textContent).toContain('user');
+  expect(container.textContent).toContain('Application status: not applied');
+});
+it('labels unsupported endpoint separately from a native missing source', async () => {
+  vi.mocked(requestNativeConfiguration).mockRejectedValueOnce(new Error('native-configuration-unsupported'));
+  mount(); await act(async () => {});
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain('does not provide');
+  vi.mocked(requestNativeConfiguration).mockResolvedValueOnce({ ...view, source_state: 'missing', fields: [] });
+  await act(async () => container.querySelector('button')?.click());
+  expect(container.textContent).toContain('missing');
+  expect(container.querySelector('[data-settings-item="native-configuration.inventory"] [role="alert"]')).toBeNull();
+});
+
+it('renders all four recovery census rows with the unset wall clock and the unavailable ladder origin', async () => {
+  const recoveryView: NativeConfigurationView = { ...view, fields: [
+    { path: 'recovery.max_model_steps', catalog_path: 'recovery.max_model_steps', explicit: { present: false },
+      effective: { present: true, value: 1024, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'recovery.local_retry_limit', catalog_path: 'recovery.local_retry_limit', explicit: { present: false },
+      effective: { present: true, value: 3, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'recovery.turn_wall_clock_ms', catalog_path: 'recovery.turn_wall_clock_ms', explicit: { present: false },
+      effective: { present: true, value: null, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'recovery.ladder', catalog_path: 'recovery.ladder', explicit: { present: false },
+      effective: { present: true, value: ['nudge', 'compact'], source_unavailable: true }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(recoveryView);
+  mount(); await act(async () => {});
+  const rowText = (path: string) => Array.from(container.querySelectorAll('.font-mono'))
+    .find(node => node.textContent === path)?.parentElement?.textContent ?? '';
+  expect(rowText('recovery.max_model_steps')).toContain('1024');
+  expect(rowText('recovery.max_model_steps')).toContain('compiled_default');
+  expect(rowText('recovery.local_retry_limit')).toContain('3');
+  expect(rowText('recovery.turn_wall_clock_ms')).toContain('null');
+  expect(rowText('recovery.ladder')).toContain('["nudge","compact"]');
+  expect(rowText('recovery.ladder')).toContain('Unavailable');
+  expect(container.textContent).toContain('Not set');
+});
+
+it('renders the three telemetry census rows with the inert nulls and the user destination', async () => {
+  const telemetryView: NativeConfigurationView = { ...view, fields: [
+    { path: 'telemetry.enabled', catalog_path: 'telemetry.enabled', explicit: { present: true, value: true },
+      effective: { present: true, value: true, source: 'user' }, application: 'not_applied' },
+    { path: 'telemetry.destination', catalog_path: 'telemetry.destination',
+      explicit: { present: true, value: 'https://collector.example/uploads' },
+      effective: { present: true, value: 'https://collector.example/uploads', source: 'user' }, application: 'not_applied' },
+    { path: 'telemetry.retention', catalog_path: 'telemetry.retention', explicit: { present: false },
+      effective: { present: true, value: null, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(telemetryView);
+  mount(); await act(async () => {});
+  const rowText = (path: string) => Array.from(container.querySelectorAll('.font-mono'))
+    .find(node => node.textContent === path)?.parentElement?.textContent ?? '';
+  expect(rowText('telemetry.enabled')).toContain('true');
+  expect(rowText('telemetry.destination')).toContain('https://collector.example/uploads');
+  expect(rowText('telemetry.retention')).toContain('Not set');
+  expect(rowText('telemetry.retention')).toContain('null');
+  expect(rowText('telemetry.retention')).toContain('compiled_default');
+});
+
+it('renders the reviewer-ledger retention row with its default budget', async () => {
+  const ledgerPath = 'reviewer_ledger.retention_entries';
+  const ledgerView: NativeConfigurationView = { ...view, fields: [
+    { path: ledgerPath, catalog_path: ledgerPath, explicit: { present: false },
+      effective: { present: true, value: 10000, source: 'compiled_default' }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(ledgerView);
+  mount(); await act(async () => {});
+  const rowText = (path: string) => Array.from(container.querySelectorAll('.font-mono'))
+    .find(node => node.textContent === path)?.parentElement?.textContent ?? '';
+  expect(rowText(ledgerPath)).toContain('Not set');
+  expect(rowText(ledgerPath)).toContain('10000');
+  expect(rowText(ledgerPath)).toContain('compiled_default');
+});
+
+it('renders provider profile rows with derived values, redaction, and honest absence', async () => {
+  // NNA serves provider profiles read-only: derived limits name no layer,
+  // the capability container has no printable value, and a credential
+  // reference arrives already redacted. The page states each of those
+  // instead of leaving a blank cell that reads like a missing secret.
+  const providerView: NativeConfigurationView = { ...view, fields: [
+    { path: 'providers[local].trust_zone', catalog_path: 'providers[local].trust_zone', explicit: { present: false },
+      effective: { present: true, value: 'loopback', source: 'user' }, application: 'not_applied' },
+    { path: 'providers[local].tool_call_mode', catalog_path: 'providers[local].tool_call_mode',
+      explicit: { present: false }, effective: { present: true, value: 'single', source_unavailable: true },
+      application: 'not_applied' },
+    { path: 'providers[local].capabilities', catalog_path: 'providers[local].capabilities', explicit: { present: false },
+      effective: { present: true, value_unavailable: true, source_unavailable: true }, application: 'not_applied' },
+    { path: 'providers[local].credential', catalog_path: 'providers[local].credential', explicit: { present: false },
+      effective: { present: false }, application: 'not_applied' },
+    { path: 'providers[local].credential_env', catalog_path: 'providers[local].credential_env',
+      explicit: { present: false }, effective: { present: true, redacted: true, source: 'user' },
+      application: 'not_applied' },
+    { path: 'provider.capabilities.tools', catalog_path: 'provider.capabilities.tools', explicit: { present: false },
+      effective: { present: true, value: 'unknown', source_unavailable: true }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(providerView);
+  mount(); await act(async () => {});
+  const rowText = (path: string) => Array.from(container.querySelectorAll('.font-mono'))
+    .find(node => node.textContent === path)?.parentElement?.textContent ?? '';
+  expect(rowText('providers[local].trust_zone')).toContain('loopback');
+  expect(rowText('providers[local].tool_call_mode')).toContain('single');
+  expect(rowText('providers[local].capabilities')).toContain('Value unavailable');
+  expect(rowText('providers[local].credential')).toContain('Not set');
+  expect(rowText('providers[local].credential_env')).toContain('Redacted');
+  expect(rowText('provider.capabilities.tools')).toContain('unknown');
+  expect(container.textContent).not.toContain('undefined');
+});
+
+it('renders the legacy singular-provider alias as the unprintable block beside its resolved mirror', async () => {
+  // NNA's view binds the legacy provider block in place of providers[0]
+  // (nnd-configuration-view.js: the provider.* paths read the raw document on
+  // the explicit side and the resolved profile on the effective side), and its
+  // own test pins the shapes: the root alias row is an unprintable structure
+  // that resolves into providers[local], the mirrored identity members carry
+  // the resolved values, the derived members state that their provenance is
+  // unavailable, credential references arrive redacted, and the contract
+  // offers no provider editing on this surface.
+  const aliasView: NativeConfigurationView = { ...view, fields: [
+    { path: 'provider', catalog_path: 'provider', explicit: { present: true, value_unavailable: true },
+      effective: { present: false }, application: 'not_applied' },
+    { path: 'provider.id', catalog_path: 'provider.id',
+      explicit: { present: true, value: 'local' }, effective: { present: true, value: 'local', source: 'user' },
+      application: 'not_applied' },
+    { path: 'provider.model', catalog_path: 'provider.model',
+      explicit: { present: true, value: 'base' }, effective: { present: true, value: 'base', source: 'user' },
+      application: 'not_applied' },
+    { path: 'provider.trust_zone', catalog_path: 'provider.trust_zone',
+      explicit: { present: true, value: 'loopback' },
+      effective: { present: true, value: 'loopback', source: 'user' }, application: 'not_applied' },
+    { path: 'provider.display_name', catalog_path: 'provider.display_name',
+      explicit: { present: false }, effective: { present: true, value: 'local', source_unavailable: true },
+      application: 'not_applied' },
+    { path: 'provider.capabilities', catalog_path: 'provider.capabilities',
+      explicit: { present: false }, effective: { present: true, value_unavailable: true, source_unavailable: true },
+      application: 'not_applied' },
+    { path: 'provider.credential', catalog_path: 'provider.credential',
+      explicit: { present: true, redacted: true }, effective: { present: true, redacted: true, source: 'user' },
+      application: 'not_applied' },
+    { path: 'provider.credential_env', catalog_path: 'provider.credential_env',
+      explicit: { present: true, redacted: true }, effective: { present: true, redacted: true, source: 'user' },
+      application: 'not_applied' },
+    { path: 'provider.credential.secret_id', catalog_path: 'provider.credential.secret_id',
+      explicit: { present: true, redacted: true }, effective: { present: true, redacted: true, source: 'user' },
+      application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(aliasView);
+  mount(); await act(async () => {});
+  const rowText = (path: string) => Array.from(container.querySelectorAll('.font-mono'))
+    .find(node => node.textContent === path)?.parentElement?.textContent ?? '';
+  // The root alias row: the block is on the manifest (unprintable structure)
+  // and the path itself resolves to nothing canonical — the identity lives on
+  // the mirrored member rows.
+  expect(rowText('provider')).toContain('Value unavailable');
+  expect(rowText('provider')).toContain('Not set');
+  // The mirrored identity members render the resolved profile beside their
+  // own raw declarations, with the raw block as the provenance of the bound
+  // fields.
+  expect(rowText('provider.id')).toContain('local');
+  expect(rowText('provider.model')).toContain('base');
+  expect(rowText('provider.trust_zone')).toContain('loopback');
+  expect(rowText('provider.display_name')).toContain('local');
+  expect(rowText('provider.display_name')).toContain('Unavailable');
+  expect(rowText('provider.capabilities')).toContain('Value unavailable');
+  // Credential references arrive redacted on both sides, and the secret name
+  // never reaches the page text.
+  expect(rowText('provider.credential')).toContain('Redacted');
+  expect(rowText('provider.credential_env')).toContain('Redacted');
+  expect(rowText('provider.credential.secret_id')).toContain('Redacted');
+  expect(container.textContent).not.toContain('SECRET_ENV_NAME');
+  // A manifest written in the canonical array spelling leaves the alias rows
+  // absent on the explicit side — the page then shows that the singular block
+  // was not the spelling the manifest used.
+  const arrayView: NativeConfigurationView = { ...view, fields: [
+    { path: 'provider', catalog_path: 'provider', explicit: { present: false }, effective: { present: false },
+      application: 'not_applied' },
+    { path: 'provider.id', catalog_path: 'provider.id', explicit: { present: false },
+      effective: { present: true, value: 'alpha', source: 'unverified' }, application: 'not_applied' },
+    { path: 'provider.model', catalog_path: 'provider.model', explicit: { present: false },
+      effective: { present: true, value: 'base', source: 'unverified' }, application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(arrayView);
+  act(() => root.unmount());
+  container.remove();
+  mount();
+  await act(async () => {});
+  expect(rowText('provider')).toContain('Not set');
+  expect(rowText('provider.id')).toContain('alpha');
+  expect(rowText('provider.model')).toContain('base');
+});
+
+it('renders manifest root rows as invariants, structure, and honest absence', async () => {
+  // The root block is mostly not operator-editable: version stamps, blocks
+  // that are structure rather than values, and grants the host owns. Each of
+  // those has to read differently from a setting the operator forgot to set.
+  const rootView: NativeConfigurationView = { ...view, fields: [
+    { path: 'format_version', catalog_path: 'format_version', explicit: { present: false },
+      effective: { present: true, value: 1, source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'persistence', catalog_path: 'persistence', explicit: { present: false },
+      effective: { present: true, value: 'durable', source: 'compiled_default' }, application: 'not_applied' },
+    { path: 'workspace_root', catalog_path: 'workspace_root', explicit: { present: true, value: 'C:/work/site' },
+      effective: { present: true, value: 'C:/work/site', source: 'user' }, application: 'not_applied' },
+    { path: 'routes', catalog_path: 'routes', explicit: { present: false },
+      effective: { present: true, value_unavailable: true, source_unavailable: true }, application: 'not_applied' },
+    { path: 'allowed_tools', catalog_path: 'allowed_tools', explicit: { present: false },
+      effective: { present: false }, application: 'not_applied' },
+    { path: 'mission', catalog_path: 'mission', explicit: { present: false }, effective: { present: false },
+      application: 'not_applied' },
+  ] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(rootView);
+  mount(); await act(async () => {});
+  const rowText = (path: string) => Array.from(container.querySelectorAll('.font-mono'))
+    .find(node => node.textContent === path)?.parentElement?.textContent ?? '';
+  expect(rowText('format_version')).toContain('1');
+  expect(rowText('format_version')).toContain('compiled_default');
+  expect(rowText('persistence')).toContain('durable');
+  expect(rowText('workspace_root')).toContain('C:/work/site');
+  expect(rowText('routes')).toContain('Value unavailable');
+  expect(rowText('allowed_tools')).toContain('Not set');
+  expect(rowText('mission')).toContain('Not set');
+  expect(container.textContent).not.toContain('undefined');
+});

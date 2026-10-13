@@ -1,0 +1,39 @@
+{
+  "name": "notnative-desktop",
+  "version": "20261012.0.1",
+  "private": true,
+  "type": "module",
+  "description": "NotNativeDesktop — a cleanroom workspace for running and reviewing agent work.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:server": "node --experimental-transform-types --watch packages/web/src/server/index.ts",
+    "dev:ui": "pnpm --filter @notnative/web dev",
+    "build": "pnpm --filter @notnative/web build",
+    "start": "node --experimental-transform-types packages/web/src/server/index.ts",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @notnative/ui test",
+    "check": "node scripts/quality-gates.js",
+    "graph:build": "node scripts/repository-graph.js",
+    "registry:snapshot": "node scripts/registry-snapshot.mjs",
+    "graph:check": "node scripts/repository-graph.js --check",
+    "language:report": "node scripts/controlled-language-gates.js --write-report",
+    "version:bump": "node scripts/bump-version.js",
+    "version:check": "node scripts/bump-version.js --check",
+    "smoke:test": "node --experimental-transform-types scripts/smoke-test.js",
+    "integration:smoke": "node --experimental-transform-types scripts/nna-source-smoke.mjs",
+    "release:check": "node scripts/release-gates.js"
+  },
+  "nnd_version": "20261012-1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "node-pty"
+    ]
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

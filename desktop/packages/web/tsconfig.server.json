@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "types": ["node"],
+    "lib": ["es2023"]
+  },
+  "include": ["src/server/**/*.ts", "src/cli/**/*.ts", "src/types/**/*.d.ts"],
+  "exclude": ["src/server/__tests__/p8-5b-pairing-route-shape.test.ts"]
+}

@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["vite/client", "node"],
+    "paths": {
+      "@notnative/ui": ["../ui/src/main.tsx"],
+      "@notnative/ui/*": ["../ui/src/*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "../ui/src/types/*.d.ts",
+    "vite.config.ts"
+  ],
+  "exclude": ["src/server"]
+}
