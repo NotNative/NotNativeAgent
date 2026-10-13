@@ -8,8 +8,13 @@ import { spawnSync } from 'node:child_process';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const errors = [];
 const RELEASE_EXCLUDED_PREFIXES = Object.freeze([
-  'docs/planning/', 'node_modules/', '.git/', '.nna/', '.tmp/', '.tmp-npm-cache/', '.npm-cache/',
+  'docs/planning/', 'desktop/', 'docs/benchmarks/',
+  'docs/architecture/repository-graph.json', 'docs/architecture/repository-graph.md',
+  'docs/architecture/controlled-language-report.json',
+  'node_modules/', '.git/', '.nna/', '.tmp/', '.tmp-npm-cache/', '.npm-cache/',
 ]);
+// docs/ ships product documentation only; planning/development artifacts,
+// generated graphs, and benchmark reports stay local (never deployed).
 const RELEASE_INCLUDED_PREFIXES = Object.freeze(['src/', 'resources/', 'docs/', 'scripts/', 'test/']);
 const RELEASE_INCLUDED_ROOT_FILES = new Set([
   'package.json', 'README.md', 'VERSION', 'LICENSE', 'NOTICE', 'SECURITY.md', 'SUPPORT.md',
@@ -60,11 +65,17 @@ for (const required of [
   try { await readFile(join(root, required)); } catch { errors.push(`${required} is missing`); }
 }
 run(process.execPath, ['scripts/quality-gates.js']);
-run(process.execPath, ['--test']);
+// Scoped + serial: the bundled desktop/ subtree has its own vitest suites, and the
+// census tests scan the live process table — parallel runners make them flake.
+run(process.execPath, ['--test', '--test-concurrency=1', 'test/*.test.js']);
 const writeRequested = process.argv.includes('--write-hashes');
 if (errors.length === 0) await verifyVersionLedger(writeRequested);
-if (writeRequested && errors.length === 0) await writeHashes();
-else if (!writeRequested) await verifyReleaseHashes();
+// --write-hashes records the CURRENT content set even when unrelated gates are
+// red (e.g. operator-owned platform conformance awaiting its rerun); writing
+// hashes certifies nothing — this gate still exits 1 below on those errors,
+// and the verify path (no flag) still enforces the recorded hashes.
+if (writeRequested) await writeHashes();
+else await verifyReleaseHashes();
 if (errors.length > 0) {
   process.stderr.write(`${errors.join('\n')}\n`); process.exitCode = 1;
 } else process.stdout.write('automated release-candidate gates passed\n');

@@ -3,8 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const ROOT = process.env.NND_ROOT ?? process.cwd();
-const TABLE = 'docs/build/EXECUTION/04-feature-parity.md';
-const RECORDS = 'docs/build/EXECUTION/feature-parity-records.json';
+const TABLE = 'docs/planning/EXECUTION/04-feature-parity.md';
+const RECORDS = 'docs/planning/EXECUTION/feature-parity-records.json';
 export const STATUSES = ['pending', 'implemented-unverified', 'verified', 'deferred-nna-blocked'];
 
 /** Parse the authoritative W table (04-feature-parity.md) into {id, packages, disposition}. */

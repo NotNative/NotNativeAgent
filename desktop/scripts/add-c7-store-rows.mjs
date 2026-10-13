@@ -99,7 +99,7 @@ const rows = [
   },
 ];
 
-const path = process.argv[2] ?? 'docs/build/EXECUTION/settings-coverage.json';
+const path = process.argv[2] ?? 'docs/planning/EXECUTION/settings-coverage.json';
 const census = JSON.parse(await readFile(path, 'utf8'));
 const existing = new Set(census.rows.map((row) => row.id));
 let added = 0;

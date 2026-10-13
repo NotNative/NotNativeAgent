@@ -11,7 +11,7 @@ import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const CENSUS_PATH = fileURLToPath(new URL('../docs/build/EXECUTION/settings-coverage.json', import.meta.url));
+const CENSUS_PATH = fileURLToPath(new URL('../docs/planning/EXECUTION/settings-coverage.json', import.meta.url));
 const nnaSource = process.argv[2];
 if (!nnaSource) {
   console.error('usage: node scripts/add-c7-subcommand-env-rows.mjs ABSOLUTE_NNA_SOURCE');

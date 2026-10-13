@@ -2019,7 +2019,11 @@
     },
     {
       "version": "20261012-2",
-      "content_sha256": "549c9bd0c5ea97d5d4fd33b4aa55a5858f641d358e9cd2c454f5af62cdaa7900"
+      "content_sha256": "e5890ff1a1ccd1620a1aa3e833cdb49252fb6fc0dbf8dc5d2e7c0345965f9acb"
+    },
+    {
+      "version": "20261013-1",
+      "content_sha256": "c5337c8dd72119cd3b7779a1556e87053b69ddf373720581fa1d8627b19d1a24"
     }
   ]
 }

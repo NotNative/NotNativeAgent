@@ -59,7 +59,7 @@ const rows = [
   }),
 ];
 
-const path = 'docs/build/EXECUTION/settings-coverage.json';
+const path = 'docs/planning/EXECUTION/settings-coverage.json';
 const census = JSON.parse(await readFile(path, 'utf8'));
 const existing = new Set(census.rows.map((entry) => entry.id));
 let added = 0;

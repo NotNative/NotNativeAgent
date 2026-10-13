@@ -1,5 +1,7 @@
 node_modules/
 .pnpm-store/
+# Planning corpus: local-only development artifacts, never deployed.
+/docs/planning/
 dist/
 dist-*/
 .vite/

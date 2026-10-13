@@ -28,6 +28,10 @@
     {
       "version": "20260804-8",
       "content_sha256": "57c46e361d627a26d5b59a0618af3e877db40d2a29ac4c393cd66388683e1b8c"
+    },
+    {
+      "version": "20261013-1",
+      "content_sha256": "327c4d99d5b27165f2e17872cbd2f4fd1d01cbd1bfd53f01b7583f63610eb0b8"
     }
   ]
 }

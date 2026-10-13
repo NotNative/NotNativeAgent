@@ -4,7 +4,7 @@ Enforcement that stands over the code. ADRs 0016/0017 define them; `scripts/` ap
 All gates compose in `pnpm run check`.
 
 Current product direction and migration work are defined by
-[ADR 0020](0020-nna-ecosystem-topology.md) and the [executable build guide](../build/PLAN.md).
+[ADR 0020](0020-nna-ecosystem-topology.md) and the [executable build guide](../planning/PLAN.md).
 The 2026-10-01 audit records existing graph/release coverage omissions for Electron
 and installers; the 20261011-6 canonical installer shape (dumb-copy installers pinned
 by `scripts/installer-structure.test.mjs`, `installer-fresh-service.mjs` retired,
@@ -23,4 +23,4 @@ Passing current gates does not establish installed-product acceptance.
 
 Wait-noted: release evidence (`RELEASE_MANIFEST.sha256`, `RELEASE_VERSIONS.json`) belongs to
 `scripts/release-gates.js`; publish-era artifacts (installers, platform conformance) land
-with the L/V release packages per [PLAN](../build/PLAN.md) and the [execution guide](../build/EXECUTION/05-verification.md).
+with the L/V release packages per [PLAN](../planning/PLAN.md) and the [execution guide](../planning/EXECUTION/05-verification.md).

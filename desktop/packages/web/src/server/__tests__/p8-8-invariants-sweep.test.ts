@@ -13,7 +13,7 @@
  * Runtime pins cover the §12.5 single-tenant row one host-data leg per
  * client connection (duplicate announcements stay ONE dial) and the
  * §12.1 failChannel row (leg failure reasons never carry payload bytes).
- * Full §12 matrix: docs/build/NOTES/08-remote-access-and-security.md §D.
+ * Full §12 matrix: docs/planning/NOTES/08-remote-access-and-security.md §D.
  */
 import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';

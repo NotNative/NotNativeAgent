@@ -123,7 +123,7 @@ const en = {
   'settings.window.searchPlaceholder': 'Search settings…',
   'settings.window.searchNoResults': 'No matching settings',
   'settings.common.landingTitle': 'Page lands with its phase',
-  'settings.common.landingBody': 'This page is registered in the settings tree; its content ships with the phase that owns the surface (see docs/build/PROGRESS).',
+  'settings.common.landingBody': 'This page is registered in the settings tree; its content ships with the phase that owns the surface (see docs/planning/PROGRESS).',
   'settings.search.themeMode': 'Theme mode',
   'settings.search.lightTheme': 'Light theme',
   'settings.search.darkTheme': 'Dark theme',

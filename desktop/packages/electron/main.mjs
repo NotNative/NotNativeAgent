@@ -2,7 +2,7 @@
 /**
  * NotNativeDesktop Electron main process (P12a installable shell v1).
  * Spec: docs/planning/09-electron-desktop-shell.md §1.2/1.3/2.1/2.2/4.1/4.5/
- * 6.1/11.1, governed by docs/build/NOTES/09 deltas D-09-1..12 (v1 subset).
+ * 6.1/11.1, governed by docs/planning/NOTES/09 deltas D-09-1..12 (v1 subset).
  *
  * Installed launches attach to the native-owned service; only explicit development launches own an in-process server.
  * The NOTNATIVE_* environment is fully set BEFORE the server bundle is

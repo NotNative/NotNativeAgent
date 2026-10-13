@@ -8,7 +8,7 @@ A cleanroom re-implementation of [OpenChamber](https://github.com/openchamber/op
 — a workspace for running and reviewing AI coding-agent work — built from the
 static-analysis specifications in [`docs/planning/`](docs/planning/00-INDEX.md).
 OpenChamber implementation code must not be copied into this product. The
-[executable build guide](docs/build/PLAN.md) governs current NNA integration;
+[executable build guide](docs/planning/PLAN.md) governs current NNA integration;
 the planning corpus supplies reference behavior and UX detail.
 
 - **Harness:** [NotNativeAgent](docs/architecture/0020-nna-ecosystem-topology.md)
@@ -23,7 +23,7 @@ the planning corpus supplies reference behavior and UX detail.
   A mock harness remains available for isolated development tests.
 - **Surfaces today:** local web GUI and Electron desktop shell. VS Code and
   mobile are long-term deferred.
-- **Start here:** `docs/build/PLAN.md` · `docs/build/PROGRESS.md` · `docs/build/DECISIONS.md`
+- **Start here:** `docs/planning/PLAN.md` · `docs/planning/PROGRESS.md` · `docs/planning/DECISIONS.md`
 
 The target Windows product has a persistent NNA-supervised NND service, reachable
 from browser or desktop, with complete native settings and chat/visibility support.
@@ -64,6 +64,7 @@ Live browser delivery acceptance remains in progress.
 packages/ui      @notnative/ui   shared React UI: shell, stores, sync engine, runtime adaptation
 packages/web     @notnative/web  server (Node+Hono) + HTML/JS entrypoints + harness adapters
 packages/electron                Electron shell (doc 09)
-docs/planning    cleanroom specification (input)
-docs/build       build-time notes, decisions, progress (our output)
+docs/planning    planning corpus (untracked): OpenChamber reference 00–15, build plan,
+                 execution guides, notes, decisions, progress — never deployed
+docs/architecture ADRs, repository graph, controlled-language audits
 ```

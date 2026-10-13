@@ -565,8 +565,9 @@ test('AC-DEP-01 SBOM and third-party notices retain dependency transparency', as
 
 test('AC-IMPLP-01/AC-IMPLP-02 automated source and implementation safety gates pass', async () => {
   const packageJson = JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8'));
-  // Scoped glob keeps the bare runner inside test/ even with the bundled desktop/ subtree.
-  assert.match(packageJson.scripts.check, /^node scripts\/quality-gates\.js && node --test "test\/\*\.test\.js"$/u);
+  // Scoped + serial glob keeps the bare runner inside test/ even with the bundled
+  // desktop/ subtree, and keeps the process-table census tests deterministic.
+  assert.match(packageJson.scripts.check, /^node scripts\/quality-gates\.js && node --test --test-concurrency=1 "test\/\*\.test\.js"$/u);
   const checked = spawnSync(process.execPath, [join(projectRoot, 'scripts', 'quality-gates.js')], {
     cwd: projectRoot, encoding: 'utf8', timeout: 60_000,
   });

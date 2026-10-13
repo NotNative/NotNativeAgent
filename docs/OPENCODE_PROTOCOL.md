@@ -12,7 +12,7 @@ Research and contract capture date: 2026-10-02.
 - [Official migration guide](https://opencode.ai/v2/docs/migrate-v1)
 - [Official API reference](https://opencode.ai/v2/docs/api)
 - [Published OpenAPI schema](https://opencode.ai/v2/openapi.json)
-- [Official JavaScript client](https://opencode.ai/v2/docs/build/client), tested with
+- [Official JavaScript client](https://opencode.ai/v2/docs/planning/client), tested with
   the published `@opencode/client@2.0.21` package.
 - [OpenChamber v2 announcement](https://openchamber.dev/blog/opencode-v2/), which
   specifies OpenCode 2.0.15 or newer.

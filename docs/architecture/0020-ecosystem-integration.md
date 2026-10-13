@@ -38,7 +38,7 @@ protects ownership across package upgrades and differing NNA installation roots;
 shared catalog paths also require exclusivity. Discovery alone never authorizes
 process termination. TUI tabs, sessions and startup remain independent.
 
-The paired NND `docs/build/EXECUTION/nnd-local-activation-contract.md` records
+The paired NND `docs/planning/EXECUTION/nnd-local-activation-contract.md` records
 startup ownership, separate controller and engine credentials, setup-required
 health, migration gates and remaining installed acceptance. Neither schema tests
 nor package registration prove persistent service operation.

@@ -34,7 +34,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const CENSUS_PATH = fileURLToPath(new URL('../docs/build/EXECUTION/settings-coverage.json', import.meta.url));
+const CENSUS_PATH = fileURLToPath(new URL('../docs/planning/EXECUTION/settings-coverage.json', import.meta.url));
 
 await main(process.argv[2], process.argv[3] ?? CENSUS_PATH).catch((error) => {
   process.stderr.write(`settings coverage gate failed: ${error instanceof Error ? error.message : error}\n`);
@@ -102,7 +102,7 @@ function checkDispositions(violations, census) {
 
 function emit(violations, census, catalog) {
   const report = {
-    census: 'docs/build/EXECUTION/settings-coverage.json',
+    census: 'docs/planning/EXECUTION/settings-coverage.json',
     nna_version: catalog.version,
     catalog_fields: catalog.fields.length,
     census_manifest_rows: census.rows.filter((row) => row.family.startsWith('manifest')).length,

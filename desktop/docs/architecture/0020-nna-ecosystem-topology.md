@@ -4,7 +4,7 @@ Status: accepted; product direction amended 2026-10-01.
 
 ## Current build authority
 
-The [executable build guide](../build/PLAN.md) defines the Windows same-computer
+The [executable build guide](../planning/PLAN.md) defines the Windows same-computer
 release and changes required in the existing repositories. NND remains separately
 installed and optional. Its installer detects compatible NNA and guides missing
 setup. NNA retains its own TUI identity, tabs, sessions and interaction lifecycle.
@@ -12,7 +12,7 @@ NND is not a container for the TUI. Browser and desktop share NND's own collecti
 All supported operator-configurable NNA settings must be available through the GUI
 using native contracts; this does not make engine configuration surface-local.
 The paired NNA ADR records the L1 contract boundary. The
-[activation contract](../build/EXECUTION/nnd-local-activation-contract.md) distinguishes
+[activation contract](../planning/EXECUTION/nnd-local-activation-contract.md) distinguishes
 implemented validators from pending runtime supervision and installed acceptance.
 
 ## Decision
