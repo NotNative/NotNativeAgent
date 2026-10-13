@@ -2024,6 +2024,10 @@
     {
       "version": "20261013-1",
       "content_sha256": "f4d83910ba439b73b6b2e1c8d77f5462b7063ae97b6b76817c4e9860a0810c3e"
+    },
+    {
+      "version": "20261013-2",
+      "content_sha256": "8bee98fcc8383a0c67883778ed84b51ab87d4b73b853b123b971705a16239292"
     }
   ]
 }

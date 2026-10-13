@@ -3,8 +3,8 @@
  *  evidence through NNA's public provider-profile authority, never through a
  *  desktop-read credential store. */
 
-import { describe, expect, it, vi } from 'vitest';
-import { authFile, credentialEvidence, credentialFor, providerList } from './provider-ports.ts';
+import { describe, expect, it } from 'vitest';
+import { credentialEvidence, credentialFor, providerList } from './provider-ports.ts';
 
 const nativeProfiles = [
   { profile_id: 'openai_main', display_name: 'OpenAI', endpoint: 'https://api.openai.com/v1',
@@ -62,29 +62,30 @@ describe('native provider inventory (F5 step 2)', () => {
     process.env.OPENAI_API_KEY = 'k';
     try {
       const mapped = (await providerList({ providers: async () => nativeProfiles }, '/repo'))!;
-      const evidence = await credentialEvidence('/repo', mapped, {});
+      const evidence = credentialEvidence('/repo', mapped, {});
       expect(evidence).toEqual({ openai_main: 'api', anthropic_vault: 'api' });
-      const key = await credentialFor('/repo', 'openai_main', mapped![0]!, {});
+      const key = credentialFor('/repo', 'openai_main', mapped![0]!, {});
       expect(key).toEqual({ key: 'k', kind: 'api' });
       // A secret-backed manifest can never yield a raw value to the desktop.
-      const vault = await credentialFor('/repo', 'anthropic_vault', mapped![1]!, {});
+      const vault = credentialFor('/repo', 'anthropic_vault', mapped![1]!, {});
       expect(vault).toBeNull();
     } finally {
       if (previous === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = previous;
     }
   });
 
-  it('no default authFile exists: the native runtime never opens a credential store', async () => {
+  it('no default credential store exists: the native runtime never opens one', async () => {
     // A roster with no credential manifest, no env reference, and no options key
-    // contributes no evidence regardless of the host environment.
+    // contributes no evidence regardless of the host environment. The legacy
+    // OpenCode auth.json seam was deleted along with the authFile port field,
+    // so no injected path can resuscitate a filesystem credential read.
     const bare = [{ profile_id: 'plain', display_name: 'Plain', endpoint: 'https://api.example.com/v1',
       model: 'plain-small', credential: null, credential_env: null, context_limit_bytes: 8_000,
       output_limit_tokens: 512, tool_call_mode: 'auto', active: false }];
     const mapped = (await providerList({ providers: async () => bare }, '/repo'))!;
-    const evidence = await credentialEvidence('/repo', mapped, {});
+    const evidence = credentialEvidence('/repo', mapped, {});
     expect(evidence).toEqual({});
-    const key = await credentialFor('/repo', 'plain', mapped![0]!, {});
+    const key = credentialFor('/repo', 'plain', mapped![0]!, {});
     expect(key).toBeNull();
-    expect(() => authFile('/repo', {})).toThrow(/authFile is not configured/u);
   });
 });

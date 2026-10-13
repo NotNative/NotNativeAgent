@@ -151,7 +151,7 @@ async function modelSelection(directory: string, requestModel: string | undefine
   modelPorts: SmallModelPorts = {}) {
   const providers = await providerList(modelPorts, directory);
   if (providers === null) throw new WalkthroughGenerateError('Model provider inventory is unavailable.', 502, 'provider-list-failed');
-  const credentials = await credentialEvidence(directory, providers, modelPorts);
+  const credentials = credentialEvidence(directory, providers, modelPorts);
   const config = await readConfig(modelPorts, directory);
   const settings = readMergedSettings('web');
   return walkthroughModelSelection({

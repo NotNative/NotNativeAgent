@@ -26,7 +26,6 @@ function fixture(options: Partial<SmallModelPorts> = {}): Hono {
     providers,
     config: async () => ({ small_model: 'nnd-mock/mock-small' }),
     settings: async () => ({}),
-    authFile: joinPath('auth.json'),
     fetch: vi.fn(async () => new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: '{"answer":1}' }] } }],
     }), { headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch,
@@ -35,22 +34,47 @@ function fixture(options: Partial<SmallModelPorts> = {}): Hono {
   return app;
 }
 
-function joinPath(name: string): string {
-  return 'temp/' + name;
-}
-
 describe('small-model routes', () => {
   it('reports family scan readiness only when the resolved provider can generate', async () => {
     const app = fixture();
     const response = await app.request('/api/small-model?directory=/home/demo');
     expect(response.status).toBe(200);
-    const body = await response.json() as { available: boolean; model: Record<string, unknown>; authenticatedProviders: string[] };
+    const body = await response.json() as { available: boolean; model: Record<string, unknown>; authenticatedProviders: string[]; unavailableReason: string | null };
     expect(body.available).toBe(true);
+    expect(body.unavailableReason).toBeNull();
     expect(body.model).toMatchObject({
       id: 'gemini-flash', providerID: 'google', hasLogin: true, supported: true,
       inputCharBudget: 188_000, contextTokens: 50_000, outputTokens: 3_000,
     });
     expect(body.authenticatedProviders).toContain('google');
+  });
+
+  it('states one actionable secret-free reason when generation is unavailable', async () => {
+    // Inventory unreachable → tell the operator to look at the provider roster.
+    const broken = fixture({ providers: async () => null });
+    const inventory = (await (await broken.request('/api/small-model?directory=/home/demo')).json()) as
+      { available: boolean; model: null; unavailableReason: string };
+    expect(inventory).toMatchObject({ available: false, model: null,
+      unavailableReason: 'provider-inventory-unavailable' });
+
+    // Roster resolvable but no credential anywhere → login first.
+    const credentialless = fixture({
+      providers: async () => (await providers()).map((provider) => ({ ...provider, options: {} })),
+    });
+    const login = (await (await credentialless.request('/api/small-model?directory=/home/demo')).json()) as
+      { available: boolean; unavailableReason: string; authenticatedProviders: string[] };
+    expect(login).toMatchObject({ available: false, unavailableReason: 'no-provider-login' });
+    expect(login.authenticatedProviders).toEqual([]);
+
+    // Explicit request resolves to a profile whose id has no supported wire.
+    const unsupported = fixture({
+      providers: async () => [{ id: 'zen', options: { apiKey: 'zen-key' }, models: {
+        'gemini-flash': { id: 'gemini-flash', api: { url: 'https://zen.example/v1' }, limit: { context: 10_000, output: 1_000 } },
+      } }],
+    });
+    const wire = (await (await unsupported.request('/api/small-model?providerID=zen&modelID=gemini-flash')).json()) as
+      { available: boolean; unavailableReason: string };
+    expect(wire).toMatchObject({ available: false, unavailableReason: 'provider-unsupported' });
   });
 
   it('uses the model endpoint, OpenCode session header, and bounded fields for Google generation', async () => {
@@ -115,7 +139,6 @@ describe('small-model routes', () => {
 
   it('rejects malformed and unauthenticated generation instead of broader 500s', async () => {
     const authless = fixture({
-      authFile: 'missing.json',
       providers: async () => (await providers()).map((provider) => ({ ...provider, options: {} })),
     });
     expect((await authless.request('/api/small-model/generate', {

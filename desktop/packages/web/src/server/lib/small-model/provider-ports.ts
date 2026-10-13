@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Provider catalog, harness config, and credential seams for small models. */
 
-import { readFile } from 'node:fs/promises';
 import { callHarness, harnessRequest } from '../../queue/queue-adapter-calls.ts';
 import { objectOf, textOf } from './service.ts';
 
@@ -10,7 +9,6 @@ export interface SmallModelPorts {
   config?: (directory: string) => Promise<unknown>;
   readMessages?: (sessionId: string, directory: string, limit: number) => Promise<unknown[]>;
   settings?: () => Promise<Record<string, unknown>>;
-  authFile?: string | ((directory: string) => string);
   fetch?: typeof fetch;
   now?: () => number;
 }
@@ -78,15 +76,16 @@ export async function readConfig(ports: SmallModelPorts, directory: string): Pro
   }
 }
 
-export async function credentialEvidence(
+export function credentialEvidence(
   directory: string, providers: readonly ProviderRecord[], ports: SmallModelPorts,
-): Promise<CredentialEvidence> {
+): CredentialEvidence {
+  void directory; void ports;
   const result: CredentialEvidence = {};
   for (const provider of providers) {
     // Native authority (F5 step 2): presence evidence comes from the profile's
     // credential manifest or environment reference in the mapped model record.
-    // The desktop never opens a credential store; only an explicitly injected
-    // legacy authFile (tests) may still contribute evidence.
+    // The desktop never opens a credential store — the OpenCode auth.json
+    // read was deleted, so no path here touches a filesystem credential file.
     for (const model of Object.values(objectOf(provider.models) ?? {})) {
       const shape = objectOf(model);
       const manifest = shape?.credential_manifest;
@@ -99,39 +98,17 @@ export async function credentialEvidence(
     }
     if (result[provider.id] === undefined && configuredApiKeyShape(provider) !== null) result[provider.id] = 'api';
   }
-  if (ports.authFile === undefined) return result;
-  try {
-    const raw = await readFile(authFile(directory, ports), { encoding: 'utf8' });
-    const map = objectOf(JSON.parse(raw)) ?? {};
-    for (const provider of providers) {
-      const entry = objectOf(map[provider.id]);
-      const key = textOf(entry?.key, 8192);
-      const access = textOf(entry?.access, 8192);
-      if (entry?.type === 'api' && key !== '') result[provider.id] = 'api';
-      if (entry?.type === 'oauth' && access !== '') result[provider.id] = 'oauth';
-    }
-  } catch { /* an unreadable legacy store contributes nothing */ }
   return result;
 }
 
-export async function credentialFor(
+export function credentialFor(
   directory: string, providerID: string, provider: ProviderRecord, ports: SmallModelPorts,
-): Promise<{ key: string; kind: 'api' | 'oauth' } | null> {
+): { key: string; kind: 'api' | 'oauth' } | null {
+  void directory; void providerID; void ports;
   // Native authority (F5 step 2): a secret-backed manifest can never yield a
   // raw value to the desktop, so it resolves to null (native generation is the
   // remaining F5 step). An environment reference resolves through the service
-  // runtime's own environment. A legacy authFile is only opened when a test
-  // explicitly injects one; the default paths never touch the filesystem.
-  if (ports.authFile !== undefined) {
-    try {
-      const map = objectOf(JSON.parse(await readFile(authFile(directory, ports), { encoding: 'utf8' })));
-      const entry = objectOf(map?.[providerID]);
-      const key = textOf(entry?.key, 8192);
-      const access = textOf(entry?.access, 8192);
-      if (entry?.type === 'api' && key !== '') return { key, kind: 'api' };
-      if (entry?.type === 'oauth' && access !== '') return { key: access, kind: 'oauth' };
-    } catch { /* missing store is a normal no-login condition */ }
-  }
+  // runtime's own environment. No default path touches the filesystem.
   for (const model of Object.values(objectOf(provider.models) ?? {})) {
     const shape = objectOf(model);
     if (shape?.credential_manifest !== null && shape?.credential_manifest !== undefined) continue;
@@ -155,15 +132,4 @@ export function configuredApiKeyShape(provider: ProviderRecord): string | null {
     return typeof value === 'string' && value !== '' ? value : null;
   }
   return apiKey;
-}
-
-export function authFile(directory: string, ports: SmallModelPorts): string {
-  // Legacy seam for tests only: an explicitly injected path. The native
-  // runtime has no default store — F5 removes the OpenCode auth.json read
-  // from the desktop's default behavior (NNA 20261011-7 assist seam is the
-  // generation authority; secret-backed profiles resolve to no raw value).
-  const explicit = typeof ports.authFile === 'function' ? ports.authFile(directory)
-    : typeof ports.authFile === 'string' ? ports.authFile : null;
-  if (explicit === null) throw new Error('authFile is not configured');
-  return explicit;
 }

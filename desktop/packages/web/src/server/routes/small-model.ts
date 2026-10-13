@@ -3,7 +3,6 @@
 
 import type { Hono } from 'hono';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
-import { callHarness, harnessRequest } from '../queue/queue-adapter-calls.ts';
 import {
   callSmallModelDirect, directCallWire, outputExhausted, parseSmallModelResponse,
 } from '../lib/small-model/provider-call.ts';
@@ -12,9 +11,10 @@ import {
   boundGenerationInput,
 } from '../lib/small-model/service.ts';
 import {
-  authFile, configuredApiKeyShape, credentialEvidence, credentialFor, providerList, readConfig,
+  configuredApiKeyShape, credentialEvidence, credentialFor, providerList, readConfig,
   type CredentialEvidence, type ProviderRecord, type SmallModelPorts,
 } from '../lib/small-model/provider-ports.ts';
+import { isRealSessionId, nativeAssistGeneration } from './small-model-assist.ts';
 
 export type { SmallModelPorts };
 
@@ -49,7 +49,7 @@ async function resolveRequestedSmallModel(input: {
   if (providers === null) return Response.json(genericFailure(), { status: 502 });
   const settings = await (input.ports.settings?.() ?? {});
   const config = await readConfig(input.ports, input.directory);
-  const credentials = await credentialEvidence(input.directory, providers, input.ports);
+  const credentials = credentialEvidence(input.directory, providers, input.ports);
   const resolution = await resolve({
     providers, settings, config, credentials,
     requestModel: input.requestModelParts ? `${input.requestModelParts.providerID}/${input.requestModelParts.modelID}` : null,
@@ -91,22 +91,35 @@ async function inspect(url: string, ports: SmallModelPorts): Promise<unknown> {
   const requestedModelID = textOf(parameters.get('modelID'), 256);
   const providers = await providerList(ports, directory);
   if (providers === null) {
-    return { available: false, model: null, authenticatedProviders: null };
+    return { available: false, model: null, authenticatedProviders: null,
+      unavailableReason: 'provider-inventory-unavailable' };
   }
   const config = await readConfig(ports, directory);
   const settings = await (ports.settings?.() ?? {});
-  const credentials = await credentialEvidence(directory, providers, ports);
+  const credentials = credentialEvidence(directory, providers, ports);
   const requestModel = requestedProviderID !== '' && requestedModelID !== ''
     ? `${requestedProviderID}/${requestedModelID}` : null;
   const resolution = await resolve({ providers, settings, config, credentials, requestModel, request: {}, ports, directory });
   if (resolution === null) {
-    return { available: false, model: null, authenticatedProviders: Object.keys(credentials).sort() };
+    // Reason vocabulary mirrors walkthrough readiness (model-readiness.ts).
+    // A roster with zero credential evidence failed on login first; every
+    // other dead end means no selectable small model.
+    const reason = Object.keys(credentials).length === 0 && providers.length > 0
+      ? 'no-provider-login' : 'no-model';
+    return { available: false, model: null, authenticatedProviders: Object.keys(credentials).sort(),
+      unavailableReason: reason };
   }
   const hasLogin = hasCredential(credentials, resolution.provider.id, resolution.provider);
+  const supported = wireSupported(resolution.provider.id);
+  // F5 step 3: readiness never carries secrets — only the resolved
+  // profile/model identity, limits, a credential-present flag, and one
+  // actionable reason when generation is unavailable.
   return {
-    available: hasLogin && wireSupported(resolution.provider.id),
-    model: modelView(resolution.model, hasLogin, wireSupported(resolution.provider.id)),
+    available: hasLogin && supported,
+    model: modelView(resolution.model, hasLogin, supported),
     authenticatedProviders: Object.keys(credentials).sort(),
+    unavailableReason: !hasLogin ? 'no-provider-login'
+      : !supported ? 'provider-unsupported' : null,
   };
 }
 
@@ -144,7 +157,7 @@ async function generateRoute(rawRequest: Request, ports: SmallModelPorts, signal
   signal?.throwIfAborted();
   if (selected instanceof Response) return selected;
   const resolution = selected;
-  const credential = await credentialFor(directory, resolution.provider.id, resolution.provider, ports);
+  const credential = credentialFor(directory, resolution.provider.id, resolution.provider, ports);
   signal?.throwIfAborted();
   if (resolution.model.id === '') return genericModelFailed();
   if (!wireSupported(resolution.provider.id) || credential === null) {
@@ -191,34 +204,6 @@ function parseGenerationRequest(raw: Record<string, unknown>): Response | {
 
 function invalidInput(message: string): Response {
   return Response.json({ error: { message } }, { status: 400 });
-}
-
-function isRealSessionId(sessionID: string): boolean {
-  // NNA mints `ses_*` ids; synthetic call-site ids (e.g. walkthrough cache
-  // keys) are not native sessions and must not ride the assist seam.
-  return /^ses_[A-Za-z0-9_-]{1,64}$/u.test(sessionID);
-}
-
-const ASSIST_PROMPT_MAX_CHARS = 8192;
-const ASSIST_OUTPUT_TOKEN_MAX = 2048;
-
-async function nativeAssistGeneration(input: { directory: string; sessionID: string;
-  system: string; prompt: string; maxOutputTokens: number }, signal?: AbortSignal): Promise<Response | null> {
-  const prompt = `${input.system}\n\n${input.prompt}`;
-  if (prompt === '' || prompt.length > ASSIST_PROMPT_MAX_CHARS || input.maxOutputTokens > ASSIST_OUTPUT_TOKEN_MAX) return null;
-  try {
-    const response = await callHarness(harnessRequest(
-      `/v1/nnd/sessions/${encodeURIComponent(input.sessionID)}/assist`, input.directory, {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ prompt, ...(input.maxOutputTokens >= 256 ? { max_output_tokens: input.maxOutputTokens } : {}) }),
-        ...(signal ? { signal } : {}),
-      }));
-    if (!response.ok) return null;
-    const value = await response.json().catch(() => null) as { text?: unknown; providerID?: unknown; modelID?: unknown } | null;
-    if (value === null || typeof value.text !== 'string' || typeof value.providerID !== 'string'
-      || typeof value.modelID !== 'string') return null;
-    return Response.json({ text: value.text, providerID: value.providerID, modelID: value.modelID, source: 'nna-assist' });
-  } catch { return null; }
 }
 
 function schemaOf(value: unknown): Record<string, unknown> | null {
