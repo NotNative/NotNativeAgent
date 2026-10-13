@@ -6,8 +6,9 @@ const ROOT_FILES = new Set(['package.json', 'README.md', 'VERSION', 'pnpm-worksp
   'pnpm-lock.yaml', 'tsconfig.base.json', 'install.ps1', 'install.sh']);
 const PREFIXES = ['packages/ui/src/', 'packages/web/src/', 'packages/web/public/',
   'packages/electron/', 'scripts/'];
-// Policy: planning/development docs are local-only and never part of the release
-// manifest; the built payload ships code + runtime assets only (see README rule).
+// Policy: only product code ships in the release set. docs/ (planning,
+// architecture, and any other documentation) is local-only and never part of
+// the manifest or the built payload.
 const PACKAGE_FILES = new Set(['packages/web/package.json', 'packages/ui/package.json',
   'packages/web/index.html', 'packages/web/vite.config.ts', 'packages/web/tsconfig.ui.json',
   'packages/web/tsconfig.server.json', 'packages/ui/tsconfig.json', 'packages/ui/vitest.config.ts']);

@@ -8,13 +8,14 @@ import { spawnSync } from 'node:child_process';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const errors = [];
 const RELEASE_EXCLUDED_PREFIXES = Object.freeze([
-  'docs/planning/', 'desktop/', 'docs/benchmarks/',
-  'docs/architecture/repository-graph.json', 'docs/architecture/repository-graph.md',
-  'docs/architecture/controlled-language-report.json',
+  'docs/planning/', 'desktop/', 'docs/benchmarks/', 'docs/conformance/',
+  'docs/architecture/',
   'node_modules/', '.git/', '.nna/', '.tmp/', '.tmp-npm-cache/', '.npm-cache/',
 ]);
 // docs/ ships product documentation only; planning/development artifacts,
-// generated graphs, and benchmark reports stay local (never deployed).
+// architecture records, generated graphs, benchmark reports, and release
+// evidence are local/operator-owned and stay out of the manifest
+// (the conformance JSON is still read for its required-evidence checks).
 const RELEASE_INCLUDED_PREFIXES = Object.freeze(['src/', 'resources/', 'docs/', 'scripts/', 'test/']);
 const RELEASE_INCLUDED_ROOT_FILES = new Set([
   'package.json', 'README.md', 'VERSION', 'LICENSE', 'NOTICE', 'SECURITY.md', 'SUPPORT.md',

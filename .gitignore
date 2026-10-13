@@ -1,6 +1,14 @@
-# All local development planning artifacts.
+# Git holds only the product code and user-facing docs. Everything below is
+# local-only development/evidence material (gate contracts stay: the two
+# terminology JSONs are re-included by their explicit paths and stay tracked).
 /docs/planning/
 /desktop/docs/planning/
+/docs/architecture/*.md
+/docs/architecture/repository-graph.json
+/docs/architecture/repository-graph.md
+/docs/architecture/controlled-language-report.json
+/docs/benchmarks/
+/docs/conformance/
 # Local research notes and scratch data.
 /.research/
 # Local AI development-team workspace.
