@@ -8,8 +8,6 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { installPrebuiltAnchor } from './installer-prebuilt-anchor.mjs';
 
-const source = resolve('..', 'NotNativeDesktop');
-
 async function fixture(t, { withAnchor = false } = {}) {
   const base = await mkdtemp(join(tmpdir(), 'nnd-prebuilt-anchor-'));
   t.after(() => rm(base, { recursive: true, force: true }));

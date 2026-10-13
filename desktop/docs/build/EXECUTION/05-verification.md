@@ -149,8 +149,12 @@ pnpm typecheck
 $electronTestPaths = @(rg --files packages/electron -g '*.test.mjs')
 if ($electronTestPaths.Count -eq 0) { throw 'No Electron test files discovered' }
 node --test --test-concurrency=4 @electronTestPaths
-pnpm integration:smoke D:/ProjectRepo/NotNativeAgent
+pnpm integration:smoke ../..
 ```
+
+After the 20261012-2 fold into `NotNativeAgent/desktop/`, the NNA source root for
+this and every installed journey is the repository root one level up (`../..`); the
+journeys' default-root assumptions were re-anchored accordingly.
 
 The PowerShell array avoids relying on shell glob expansion. `pnpm test` alone
 covers only UI. NNA implementation slices require

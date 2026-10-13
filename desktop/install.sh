@@ -26,7 +26,7 @@ SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UNINSTALL=0
 PURGE=0
 NNA_BOOTSTRAP=0
-NNA_SOURCE_ROOT="$(dirname "$SOURCE")/NotNativeAgent"
+NNA_SOURCE_ROOT="$(cd "$(dirname "$SOURCE")/.." && pwd)"
 ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in

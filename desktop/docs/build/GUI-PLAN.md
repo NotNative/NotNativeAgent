@@ -7,9 +7,9 @@ Product and completion contract pins that shape.
 NND is a separately installed optional GUI product backed by independent NNA.
 The NNA TUI keeps its own identity, tabs and sessions. Browser and Electron are
 interfaces to the installed NND service, whose lifecycle NNA supervises.
-Post-MVP direction: fold the NND repo into NNA as a bundled `src/desktop`
-service; internal identity remains NND/NotNativeDesktop, user-facing surfaces
-are NNA-branded.
+**Folded 20261012-2:** the NND repository now lives inside the NNA repository at
+`desktop/` (one repo, one version, one gate run, one commit); internal identity
+remains NND/NotNativeDesktop and user-facing surfaces are NNA-branded.
 
 ## Current implementation guides
 

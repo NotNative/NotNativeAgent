@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 // Invariant: a paired build checks actual source, not just coincidentally matching examples.
 const root = fileURLToPath(new URL('..', import.meta.url));
-const nna = resolve(process.argv[2] ?? resolve(root, '../NotNativeAgent'));
+// Folded layout: desktop/ lives inside the NNA repository, so NNA's root is one level up.
+const nna = resolve(process.argv[2] ?? resolve(root, '..'));
 for (const name of ['nnd-service-contract.js', 'nnd-manifest-extensions.js']) {
   const native = (await readFile(resolve(nna, 'src', name), 'utf8')).replaceAll('\r\n', '\n');
   const mirror = (await readFile(resolve(root, 'scripts', name), 'utf8')).replaceAll('\r\n', '\n')

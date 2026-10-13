@@ -292,7 +292,7 @@ function Install-RequiredNna {
         $candidate = if ($NnaDependencyRoot) {
             $stage = Stage-NndNnaDependency $NnaDependencyRoot $NnaDependencyManifestSha256 $targetPath
             $stage
-        } elseif ($NnaSourceRoot) { $NnaSourceRoot } else { Join-Path (Split-Path -Parent $Source) 'NotNativeAgent' }
+        } elseif ($NnaSourceRoot) { $NnaSourceRoot } else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path }
         $installer = Join-Path $candidate 'install.ps1'
         $manifestPath = Join-Path $candidate 'package.json'
         if (!(Test-Path -LiteralPath $installer -PathType Leaf) -or !(Test-Path -LiteralPath $manifestPath -PathType Leaf)) {

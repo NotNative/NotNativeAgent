@@ -2016,6 +2016,10 @@
     {
       "version": "20261012-1",
       "content_sha256": "6eb55bc36e3044259427384fa83fd19af5936e2db4fe9f929750a10e768fa375"
+    },
+    {
+      "version": "20261012-2",
+      "content_sha256": "549c9bd0c5ea97d5d4fd33b4aa55a5858f641d358e9cd2c454f5af62cdaa7900"
     }
   ]
 }

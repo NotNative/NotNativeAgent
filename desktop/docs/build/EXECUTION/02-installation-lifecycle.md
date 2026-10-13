@@ -266,7 +266,8 @@ The source installer currently accepts a carried extracted NNA release only
 with an externally obtained SHA-256 of its `RELEASE_MANIFEST.sha256`. It stages
 the manifest-listed files privately, rejects extras and reparse points, checks
 each staged hash, then runs NNA's installer and rediscovers native capabilities.
-The sibling NNA checkout remains a development fallback. Network retrieval and
+The enclosing NNA repository (this subtree's parent since the 20261012-2 fold)
+remains the development fallback. Network retrieval and
 automatic trust-anchor discovery await an immutable published NNA artifact.
 Persist the chosen NNA installation identity and custom roots into the protected
 launch configuration. Test without PATH and with two NNA installations. The
@@ -283,7 +284,7 @@ that case requires a durable NNA installation-incarnation identifier.
 Stage the complete payload outside the active version, verify hashes/build stamp,
 architecture, runtime and native PTY load, then validate NNA compatibility.
 Production installation consumes built artifacts; it must not depend on a source
-checkout, pnpm, sibling repository, or network build succeeding on the user host.
+checkout, pnpm, or network build succeeding on the user host.
 Record an interrupted transaction before activation and retain a known-good version.
 Quiesce only affected NND work through NNA's lifecycle controls; do not kill by port.
 For the first upgrade from the existing Electron-owned backend, the new singleton

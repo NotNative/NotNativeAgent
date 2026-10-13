@@ -3,6 +3,21 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-12 · Folded into the NNA repository as `desktop/` · NND 20261012-2 / NNA 20261012-2
+
+Repository unification (user decision, fold audit priced it at 3–6 days with
+Option A): NND now lives inside the NotNativeAgent repository at `desktop/` —
+a history-preserving subtree add of the former standalone `main`, so one
+repository, one version stamp, one graph, one gate run, and one commit carry
+both products from here on. NND development outside this subtree is sealed;
+the standalone checkout is an archive (see its README). Rationale: every F4–F10
+slice used to pay two repos, two seals, two bumps, and an `NNA_SOURCE_ROOT`
+crossing — that tax is now gone for the seven remaining open F packages.
+Zero payload-contract changes were needed (all couplings are payload-layout
+relative); only sibling-checkout path defaults and doc pointers changed, both
+product trees resealed at 20261012-2, and NNA's release gates exclude
+`desktop/` by construction. See the LEDGER fold section for the exact fix list.
+
 ## 2026-10-12 · Tray decoupled from the desktop client; service-owned tray; F7 attach chain runtime-registered · NND 20261012-1
 
 Lifecycle ownership contract (sealed in installer-structure assertions): the

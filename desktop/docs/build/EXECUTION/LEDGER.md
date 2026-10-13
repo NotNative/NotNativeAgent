@@ -18,6 +18,33 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-12 (20261012-2) Folded into the NNA repository as `desktop/`
+
+- **Repository topology change (both products at 20261012-2):** NND now lives
+  inside the NotNativeAgent repository at `desktop/` (history-preserving subtree
+  add of the former standalone NND `main` at `e9b5de12`; NNA fold head on top).
+  One repository, one version stamp, one graph, one gate run, one commit from
+  here on; NND development outside this tree is sealed. The standalone NND
+  checkout is an archive (its README says so) and receives no further work.
+- The payload contract needed **zero changes**: every NNA↔NND coupling was
+  payload-layout-relative or a path literal. The only fixes were the
+  sibling-checkout defaults — `check-nna-service-contract.mjs` now resolves
+  NNA as the enclosing root (`..`), `install.ps1` uses `Resolve-Path $PSScriptRoot/..`,
+  `install.sh` uses `cd dirname/..`, and the dead sibling anchor-test line was
+  removed — plus doc re-pointing (PLAN repo map, 05-verification command,
+  guide 02 fallback wording, `nnd-installed-source-acceptance.md`, GUI-PLAN
+  fold note, NNA README + `NND_INTEGRATION.md` fold paragraphs).
+- NNA's release-gate include prefixes (`src/ resources/ docs/ scripts/ test/`
+  at repo root) exclude `desktop/` by construction — no NNA boundary edits were
+  needed; NNA's manifest, SBOM, and deps-empty rules never saw the subtree.
+- Resealed inside the subtree: repository graph (916 modules), quality gates
+  (916 files), electron build stamp (20261012-2), and release gates with
+  `NNA_SOURCE_ROOT='..'` — settings coverage 223/223 and
+  `release-candidate gates passed` at the new location. Payload export and the
+  `../..` journey roots are exercised by the prebuilt smoke and `--stage=all`
+  acceptance recorded below.
+- Status: fold `verified` when the certification matrix below is green.
+
 ## 2026-10-12 (20261012-1) Prebuilt payload smoke verified; release gates resealed
 
 - `scripts/installed-prebuilt-smoke.mjs D:\ProjectRepo\NotNativeAgent` is GREEN:

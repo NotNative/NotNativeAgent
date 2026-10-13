@@ -59,9 +59,12 @@ test count, or hidden unsupported control does not satisfy it.
 | [04 — Feature parity](EXECUTION/04-feature-parity.md) | F work packages: native chat, visibility, workspace, autonomy, all W-id coverage |
 | [05 — Verification and handoff](EXECUTION/05-verification.md) | V gates: installed journeys, failure injection, release evidence, agent completion procedure |
 
-Paths beginning `NND/` refer to this repository. Paths beginning `NNA/` refer to
-the independently checked out NotNativeAgent repository. Never assume matching
-version numbers imply compatible protocols. Record both commits in evidence.
+Paths beginning `NND/` refer to this repository (the `desktop/` subtree since the
+20261012-2 fold). Paths beginning `NNA/` refer to the enclosing NotNativeAgent
+repository — NND is folded into `NotNativeAgent/desktop/`, so NNA sources sit one
+level up (`../src`, historically cited as `../NotNativeAgent/...` in evidence
+strings). Never assume matching version numbers imply compatible protocols. Record
+both version stamps in evidence.
 
 ## Authority and interpretation
 

@@ -121,8 +121,10 @@ server entrypoints. `nna nnd package status` revalidates the record; it reports
 deactivate ROOT` removes only a matching registered root. NND's installers
 require an installed NNA before copying the GUI package, activate it after
 building, and deactivate it before uninstalling when NNA remains available.
-During source development, they can first offer to run a local NNA installer
-from the sibling checkout; unattended bootstrap requires explicit opt-in.
+During source development, they can first offer to run this repository's own
+NNA installer (since the 20261012-2 fold NND lives at `desktop/`, so the NNA
+root is the enclosing repository — no sibling checkout exists); unattended
+bootstrap requires explicit opt-in.
 An NND service process may run separately for NNA supervision, but NND is not
 an independently installed agent runtime.
 

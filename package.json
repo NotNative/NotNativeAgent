@@ -1,7 +1,7 @@
 {
   "name": "not-native-agent",
-  "version": "20261012.0.1",
-  "nna_version": "20261012-1",
+  "version": "20261012.0.2",
+  "nna_version": "20261012-2",
   "description": "Local-first agent runtime and terminal interface",
   "type": "module",
   "license": "Apache-2.0",
@@ -32,8 +32,8 @@
     "RELEASE_VERSIONS.json"
   ],
   "scripts": {
-    "check": "node scripts/quality-gates.js && node --test",
-    "test": "node --test",
+    "check": "node scripts/quality-gates.js && node --test \"test/*.test.js\"",
+    "test": "node --test \"test/*.test.js\"",
     "headless": "node src/cli.js headless",
     "tui": "node src/cli.js tui",
     "platform:test": "node --test test/productization.test.js",

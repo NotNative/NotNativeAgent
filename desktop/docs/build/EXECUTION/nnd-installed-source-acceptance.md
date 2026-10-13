@@ -5,11 +5,15 @@ target and a private, source-composed installed NNA fixture. It does not use a
 mock native service or modify the operator's NNA registration. It tests the
 source installer, not the immutable prebuilt activation or upgrade path.
 
-From the NND repository, with Node 24+, pnpm, and the NNA source checkout:
+From the NNA repository (`desktop/` since the 20261012-2 fold), with Node 24+ and pnpm:
 
 ```powershell
-node scripts/installed-source-acceptance.mjs D:\ProjectRepo\NotNativeAgent
+cd desktop
+node scripts/installed-source-acceptance.mjs ..
 ```
+
+The NNA source root is now the enclosing repository itself (`..` from `desktop/`); a
+positional argument still overrides it for external fixtures.
 
 The harness creates `~/nnd-installed-acceptance-fixtures/installed-accept-<random>`, outside the NND source
 checkout and shared project volume, with a private Windows

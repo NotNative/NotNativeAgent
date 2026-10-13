@@ -15,6 +15,19 @@ one-shot mode, optional durable goal/task progress, and recoverable session-data
 native-platform, and live-server release validation remains pending; see
 [release readiness](docs/RELEASE_READINESS.md).
 
+## Bundled desktop (NND)
+
+Since version `20261012-2` this repository also hosts **NotNativeDesktop (NND)**,
+the optional GUI integration package, as the [`desktop/`](desktop/README.md)
+subtree: one repository, one version stamp, one gate run, one commit. NND keeps
+its own pnpm/vite toolchain inside `desktop/` (its quality gates, release
+manifest, and build stamp live there and are run from that directory), while
+this repository's `src/`, tests, and release gates are unchanged — `desktop/`
+is deliberately outside their include prefixes. NNA owns the payload contract
+that stages `desktop/` output for installation. All NND development plans,
+execution guides, and progress ledgers live under `desktop/docs/`; development
+must not happen in an archived standalone NND checkout.
+
 ## Getting started
 
 Download or clone the repository, open a terminal in its root directory, and run the

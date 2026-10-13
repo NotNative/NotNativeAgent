@@ -1,5 +1,9 @@
 # NotNativeDesktop
 
+> **Folded (20261012-2):** this product now lives in the NotNativeAgent repository
+> at `desktop/`. NND development, documentation, and release activity happen there;
+> this checkout is an archive that must not receive further focused development.
+
 A cleanroom re-implementation of [OpenChamber](https://github.com/openchamber/openchamber)
 — a workspace for running and reviewing AI coding-agent work — built from the
 static-analysis specifications in [`docs/planning/`](docs/planning/00-INDEX.md).
