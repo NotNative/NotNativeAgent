@@ -43,6 +43,8 @@ const PERMISSIONS = Object.freeze(['integration.health', 'nnd.read', 'nnd.setup.
   'nnd.configuration.read', 'nnd.configuration.manage', 'nnd.configuration.repair',
   'nnd.service.manage', 'nnd.update.manage', 'nnd.package.manage',
   'nnd.workspace.read', 'nnd.workspace.manage',
+  // Runtime registration of the desktop browser callback (attach mode).
+  'nnd.browser.manage',
   // Security: management remains scope-filtered and never grants secret.use or raw values.
   'secret.read', 'secret.manage', 'secret.audit',
   'provider.read', 'provider.profile.write', 'provider.discover', 'provider.test', 'provider.route.manage', 'provider.route.activate']);
@@ -147,6 +149,7 @@ export async function startNndNativeService(paths, identity, options = {}) {
     service = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(), token,
       instanceId: identity.installation_id, broker, providerStore, nndRuntime: lifecycle.runtime,
       ...(options.capabilityAuthority ? { capabilityAuthority: options.capabilityAuthority } : {}),
+      nndBrowserCallbackRegistry: lifecycle.nndBrowserCallbackRegistry,
       ...settings,
       ...(options.unpublishedTrial ? { assertAdmission: request =>
         assertNndTrialRequestAdmission(options.trialAdmissionGate, identity, request) } : {}),

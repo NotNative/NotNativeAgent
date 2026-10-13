@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { appendFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { ContractError } from './ids.js';
 
 const LIMIT = 64 * 1024;
@@ -26,8 +27,20 @@ class NndChild {
     });
     this.timer = setTimeout(() => this.fail('nnd_start_timeout'), options.startTimeoutMs ?? 15000);
     this.child.stdout.on('data', (chunk) => this.consume(chunk));
-    // Security: drain diagnostics without retaining or echoing potential child secrets.
-    this.child.stderr.on('data', () => {});
+    // Security: child stderr never reaches logs or consoles unbounded; it is
+    // tee'd into the operator-owned NND diagnostics folder (last 8 KiB kept)
+    // so silent child crashes remain diagnosable on installed machines.
+    this.child.stderr.on('data', (chunk) => {
+      try {
+        const path = `${identity.data_root}/nnd/diagnostics/nnd-service-child.log`;
+        mkdir(`${identity.data_root}/nnd/diagnostics`, { recursive: true }).then(() => appendFile(path, chunk, { flag: 'a' }))
+          .then(() => stat(path)).then((info) => {
+            if (!info || info.size <= 16384) return;
+            return readFile(path, 'utf8').then((text) =>
+              writeFile(path, text.slice(-8192)));
+          }).catch(() => { /* diagnostics are best effort */ });
+      } catch { /* diagnostics are best effort */ }
+    });
     this.child.on('error', () => { this.fail('nnd_service_crashed'); if (!this.child.pid) this.resolveExit(); });
     this.child.on('exit', () => { this.fail('nnd_service_crashed'); this.resolveExit(); });
     this.child.stdin.on('error', () => this.fail('nnd_service_crashed'));

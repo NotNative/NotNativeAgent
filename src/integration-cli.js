@@ -21,6 +21,7 @@ import { SkillRegistry } from './skill-registry.js';
 import { runtimeSkillRoots } from './startup-configuration.js';
 import { workspaceIsTrusted } from './experience/trust.js';
 import { consumeNndBrowserCallbackFromEnvironment } from './nnd-browser-tool.js';
+import { createNndBrowserCallbackRegistry } from './nnd-browser-registration.js';
 import { consumeNndAgentToolCallbackFromEnvironment } from './nnd-memory-tool.js';
 import { assertRegisteredNndPackage, runNndPackageCommand } from './nnd-package.js';
 import { createNndSetupRuntime } from './nnd-setup-runtime.js';
@@ -93,7 +94,8 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
   let service;
   try {
     service = await startIntegrationServer({
-      activation, token, instanceId, broker, providerStore, nndEngineHost, nndRuntime: lifecycle.runtime, nndWorkspaceRoot: nndEngineHost?.workspaceRoot, host: '127.0.0.1', port: 0,
+      activation, token, instanceId, broker, providerStore, nndEngineHost, nndRuntime: lifecycle.runtime, nndWorkspaceRoot: nndEngineHost?.workspaceRoot,
+      nndBrowserCallbackRegistry: lifecycle.nndBrowserCallbackRegistry, host: '127.0.0.1', port: 0,
     });
   } catch (error) {
     try { await lifecycle.close(); }
@@ -146,23 +148,31 @@ function closeNndListener(service) {
 }
 
 export async function createIntegrationLifecycle(paths, options, owner, broker, environment) {
+  // Attach mode: the browser callback may also arrive after startup via the
+  // registration route, so the env callback seeds a replaceable registry and
+  // engines read its current value when they are created.
+  const nndBrowserCallbackRegistry = owner === 'nnd'
+    ? createNndBrowserCallbackRegistry(consumeNndBrowserCallbackFromEnvironment(environment)) : null;
   const hostOptions = {
     ...options,
     // Security: only the local operator shares the TUI secret realm. NNO remains principal scoped.
     secretBroker: owner === 'nnd' ? broker : undefined,
-    nndBrowserCallback: owner === 'nnd' ? consumeNndBrowserCallbackFromEnvironment(environment) : null,
+    // Compat: direct callers may still pass a static callback; engines prefer
+    // the registry's current value when one is present.
+    nndBrowserCallback: options.nndBrowserCallback ?? null,
     nndAgentToolCallback: owner === 'nnd' ? consumeNndAgentToolCallbackFromEnvironment(environment) : null,
+    nndBrowserCallbackRegistry,
   };
   if (owner !== 'nnd') {
     const host = await createIntegrationNndEngineHost(paths, hostOptions);
-    return { getHost: () => host, close: () => host.shutdown(), runtime: undefined };
+    return { getHost: () => host, close: () => host.shutdown(), runtime: undefined, nndBrowserCallbackRegistry };
   }
   const runtime = createNndSetupRuntime({
     ...(options.activationTimeoutMs === undefined ? {} : { activationTimeoutMs: options.activationTimeoutMs }),
     loadConfiguration: (signal) => readNndSetupConfiguration(paths, signal),
     createHost: (preparedConfig, { signal }) => createIntegrationNndEngineHost(paths, { ...hostOptions, preparedConfig, setupSignal: signal }),
   });
-  return { getHost: () => runtime.getHost(), close: () => runtime.close(), runtime };
+  return { getHost: () => runtime.getHost(), close: () => runtime.close(), runtime, nndBrowserCallbackRegistry };
 }
 
 export function integrationSecretRealm(owner, deploymentId) {
@@ -236,7 +246,7 @@ async function createSelectedNndEngine(paths, options, startupConfig, activeConf
     nndAgentToolCallback: options.nndAgentToolCallback,
     hookRoot: options.hookRoot ?? paths.hooks, hookRoots: options.hookRoots ?? [],
     skillRoots: selectedSkillRoots, emitContextStatus: true, output: input.output,
-    nndBrowserCallback: options.nndBrowserCallback,
+    nndBrowserCallback: options.nndBrowserCallbackRegistry?.current?.() ?? options.nndBrowserCallback ?? null,
     forkIngest: input.forkIngest ?? null, modelRoute: input.modelRoute ?? null,
   });
 }

@@ -7,6 +7,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { join } from 'node:path';
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { ContractError } from '../src/ids.js';
+import { verifyTrialGuiProof, boundedHealthBody } from '../src/nnd-service-health.js';
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 const identity={installation_id:'native',data_id:'data',install_root:'C:/native',data_root:'C:/data'};
 const paths={config:'C:/data/config'};
@@ -58,6 +59,13 @@ async function fixture(options={}) {
    if(options.removeResponseLost&&removeCalls===1)throw new Error('response lost');
    return {removed:true};},
   launchNndServiceChild:(_identity,_entrypoint,value)=>{trace.push('child:start');bootstrap=value;return child;},
+  // 20261011-11 made the supervisor own a renewable capability authority;
+  // the fixture injects silent stand-ins (bind only, no timers).
+  createNndServiceCapabilityAuthority:()=>({bind:()=>{}}),
+  bootstrapCapability:()=>({}),
+  armCapabilityRenewal:()=>{},
+  clearCapabilityRenewal:()=>{},
+  verifyTrialGuiProof, boundedHealthBody,
   createServer:()=>{const server=new EventEmitter();server.listen=(_port,_host,ready)=>queueMicrotask(ready);server.address=()=>({port:3000});server.close=callback=>callback();return server;}};
  // Security: only this test harness exposes the private constructor; production exports remain unchanged.
  const source=await readFile(new URL('../src/nnd-service-supervisor.js',import.meta.url),'utf8');

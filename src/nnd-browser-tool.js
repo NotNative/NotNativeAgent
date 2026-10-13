@@ -9,6 +9,16 @@ const CALLBACK_PATH = '/api/browser-control/request';
 const MAX_REPLY_BYTES = 262_144;
 const MAX_CAPTURES_PER_SESSION = 256;
 
+/** Registration-body form of the same contract: an attached NND publishes its
+ * browser callback at runtime instead of through the child environment. The
+ * loopback/path/token rules are identical to the environment path. */
+export function nndBrowserCallbackFromRegistration(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || Object.keys(value).some((key) => !['url', 'token'].includes(key))) throw invalid('NND browser callback registration body is invalid');
+  if (value.url === undefined || value.token === undefined) throw invalid('NND browser callback registration requires url and token');
+  return nndBrowserCallbackFromEnvironment({ NNA_NND_BROWSER_URL: value.url, NNA_NND_BROWSER_TOKEN: value.token });
+}
+
 /** A capability exists only in the NND-owned child, never in standalone NNA. */
 export function nndBrowserCallbackFromEnvironment(environment) {
   const rawUrl = environment.NNA_NND_BROWSER_URL;

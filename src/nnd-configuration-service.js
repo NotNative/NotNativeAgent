@@ -167,9 +167,16 @@ function normalizeRepair(input, identity) {
   assertRequest(input, identity, ['installation_id', 'data_id', 'scope', 'expected_revision', 'operation_id', 'document']);
   if (!operationPattern.test(input.operation_id ?? '') || !record(input.document)) throw invalid();
   const document = structuredClone(input.document);
-  const { provider, workspace_root: workspace, ...rest } = document;
+  // Providers and route tables are structured operator-owned collections; the
+  // flat-field overlay below cannot express them. They stay in the document and
+  // are validated by resolveManifest against the full configuration contract.
+  const { provider, workspace_root: workspace, providers, routes, ...rest } = document;
+  void providers; void routes;
   if (typeof workspace !== 'string' || !isAbsolute(workspace) || workspace.length > 4096 || /[\u0000-\u001f\u007f]/u.test(workspace)
-    || !record(provider) || Object.keys(provider).some((key) => !['id', 'display_name', 'endpoint', 'model', 'trust_zone'].includes(key))) throw invalid();
+    || (provider !== undefined && (!record(provider) || Object.keys(provider).some((key) => !['id', 'display_name', 'endpoint', 'model', 'trust_zone'].includes(key))))
+    // A structured provider collection may replace the singular legacy field;
+    // resolveManifest below validates whichever shape the document carries.
+    || (provider === undefined && !Array.isArray(providers))) throw invalid();
   const pending = Object.entries(rest).map(([field, value]) => ({ field, value })), operations = [];
   while (pending.length) {
     if (pending.length + operations.length > 128) throw invalid();

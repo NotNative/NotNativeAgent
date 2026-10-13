@@ -187,6 +187,18 @@ test('missing and malformed setup is repaired explicitly with exact revision and
   assert.ok((await Promise.all(backups.map((name) => readFile(join(f.paths.config, storage, name), 'utf8')))).includes(malformed));
 });
 
+test('repair accepts structured provider collections and route tables', async (t) => {
+  const f = await fixture(t, false);
+  const document = { workspace_root: f.root, provider,
+    providers: [{ id: provider.id, endpoint: provider.endpoint, model: provider.model, trust_zone: provider.trust_zone }],
+    routes: { primary: { provider_id: provider.id, model: provider.model },
+      reviewer: { provider_id: provider.id, model: provider.model } } };
+  const input = { ...identity, expected_revision: 'absent', operation_id: 'repair_routes', document };
+  assert.equal((await f.service.repair(principal, input)).persistence, 'saved');
+  const saved = JSON.parse(await readFile(f.path, 'utf8'));
+  assert.deepEqual(Object.keys(saved.routes).sort(), ['primary', 'reviewer']);
+  assert.equal(saved.providers[0].id, provider.id);
+});
 test('repair rejects unknown/credential/authority documents and trusted project authority before publication', async (t) => {
   const f = await fixture(t, false);
   const input = { ...identity, expected_revision: 'absent', operation_id: 'repair', document: { workspace_root: f.root, provider } };

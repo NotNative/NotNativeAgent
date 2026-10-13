@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:fc0d1f5850347c1fbb9d788c80fb5f933a03c0b0dbdfb7d1f836cd90436168ce",
+  "source_digest": "sha256:1479c2a9e5baf05393f4fd05284f0b198e979a1634797953a766f54a3d5936aa",
   "counts": {
-    "modules": 571,
+    "modules": 572,
     "component_edges": 82
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 261
+      "module_count": 262
     }
   ],
   "entrypoints": [
@@ -124,16 +124,16 @@
       "module_count": 59
     },
     {
+      "from": "foundation",
+      "to": "integrations",
+      "import_count": 89,
+      "module_count": 51
+    },
+    {
       "from": "experience-engine",
       "to": "foundation",
       "import_count": 87,
       "module_count": 60
-    },
-    {
-      "from": "foundation",
-      "to": "integrations",
-      "import_count": 87,
-      "module_count": 50
     },
     {
       "from": "foundation",
@@ -166,16 +166,16 @@
       "module_count": 18
     },
     {
+      "from": "integrations",
+      "to": "foundation",
+      "import_count": 47,
+      "module_count": 11
+    },
+    {
       "from": "opencode-surface",
       "to": "opencode-surface",
       "import_count": 46,
       "module_count": 19
-    },
-    {
-      "from": "integrations",
-      "to": "foundation",
-      "import_count": 45,
-      "module_count": 11
     },
     {
       "from": "agentic-engine",
@@ -382,6 +382,12 @@
       "module_count": 5
     },
     {
+      "from": "foundation",
+      "to": "tools",
+      "import_count": 4,
+      "module_count": 4
+    },
+    {
       "from": "opencode-surface",
       "to": "persistence",
       "import_count": 4,
@@ -408,12 +414,6 @@
     {
       "from": "foundation",
       "to": "agentic-engine",
-      "import_count": 3,
-      "module_count": 3
-    },
-    {
-      "from": "foundation",
-      "to": "tools",
       "import_count": 3,
       "module_count": 3
     },
@@ -1934,6 +1934,7 @@
         "src/ids.js",
         "src/integration-server.js",
         "src/nnd-agent-inventory.js",
+        "src/nnd-browser-registration.js",
         "src/nnd-browser-tool.js",
         "src/nnd-engine-host.js",
         "src/nnd-install-marker.js",
@@ -1974,6 +1975,7 @@
         "src/ids.js",
         "src/integration-principal.js",
         "src/nnd-attachment-upload-routes.js",
+        "src/nnd-browser-registration.js",
         "src/nnd-capability-routes.js",
         "src/nnd-configuration-routes.js",
         "src/nnd-harness-routes.js",
@@ -2601,6 +2603,16 @@
       "imports": [
         "src/attachments.js",
         "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/nnd-browser-registration.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/integration-principal.js",
+        "src/nnd-browser-tool.js",
+        "src/secret-broker-server.js"
       ]
     },
     {
