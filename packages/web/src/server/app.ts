@@ -229,22 +229,15 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
   app.use('/api/*', apiAuthGate);
   app.use('/api/terminal/*', nativeTerminalGate);
   app.use('/api/*', nativeAlphaSurfaceGate);
+  // The F7 preview proxy must register before the harness catch-all below:
+  // route order decides, and the catch-all would forward preview requests to
+  // NNA, which 404s them ('integration endpoint not found').
+  if (options?.previewProxyPorts) registerPreviewProxyRoutes(app, { allowedPorts: options.previewProxyPorts });
   registerApiSurfaces(app, terminal, options?.harnessPort, options?.desktopUpdater, options?.push);
 
   registerHarnessProxy(app);
-  if (options?.previewProxyPorts) registerPreviewProxyRoutes(app, { allowedPorts: options.previewProxyPorts });
 
-  // Static UI (production builds; dev is served by Vite)
-  const serveStatic = createStaticHandler(DIST_DIR);
-  app.all('*', async (c, next) => {
-    const response = await serveStatic(c.req.raw);
-    if (response) return response;
-    return next();
-  });
-
-  app.notFound((c) =>
-    c.json({ error: { message: `not found: ${new URL(c.req.raw.url).pathname}` } }, 404),
-  );
+  registerStaticFallback(app);
 
   // Hygiene belt for the one path the middleware cannot see: hono's default
   // 500 replaces c.res AFTER a rejecting compose, so NND mirrors the default
@@ -253,6 +246,19 @@ export function createApp(options?: { terminal?: TerminalRuntime; harnessPort?: 
   // from re-opening the hole).
   app.onError(errorHygiene);
   return app;
+}
+
+function registerStaticFallback(app: Hono): void {
+  // Static UI (production builds; dev is served by Vite)
+  const serveStatic = createStaticHandler(DIST_DIR);
+  app.all('*', async (c, next) => {
+    const response = await serveStatic(c.req.raw);
+    if (response) return response;
+    return next();
+  });
+  app.notFound((c) =>
+    c.json({ error: { message: `not found: ${new URL(c.req.raw.url).pathname}` } }, 404),
+  );
 }
 
 function registerHealthRoute(app: Hono, nativeHealthProof?: NativeHealthProofIdentity): void {

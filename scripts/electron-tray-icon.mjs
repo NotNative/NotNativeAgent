@@ -4,7 +4,7 @@
  * ZERO dependencies: a raw PNG encoder (zlib via node:zlib, manual CRC32)
  * drawing a dark disc with a state ring —
  *   running: teal ring          stopped: gray ring
- * Assets land in packages/electron/assets/ and are consumed by tray.mjs.
+ * Assets land in packages/electron/assets/ and are consumed by the service tray host (scripts/nnd-tray-host.ps1).
  * Run: node scripts/electron-tray-icon.mjs  (idempotent)
  */
 import { deflateSync } from 'node:zlib';

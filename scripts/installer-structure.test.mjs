@@ -48,22 +48,21 @@ test('installer.ps1 follows the dumb-copy shape: plan, copy, build, register, sh
   const startAt = launcher.indexOf('desktop start');
   const guiAt = launcher.indexOf('launch-selected-desktop.mjs');
   assert.ok(startAt > 0 && startAt < guiAt);
-  // The tray is permanently linked to the service: the supervised service
-  // child spawns the desktop app after readiness, and the tray Quit requests
-  // a service stop instead of only closing the GUI.
+  // Lifecycle ownership: the tray is coupled to the SERVICE (the supervised
+  // child spawns the lightweight tray host after readiness; its Quit stops the
+  // service), and the service NEVER launches the desktop client. The client is
+  // a plain window whose close only quits the client.
   const serve = await readFile(resolve('scripts/serve-installed.mjs'), 'utf8');
-  // L4: the managed-child `--port` production path is retired; the installed
-  // entry accepts only NNA supervision.
   assert.ok(serve.includes("args[0] !== '--supervised'"));
   assert.ok(!serve.includes('--port'));
   const supervised = await readFile(resolve('scripts/serve-supervised.mjs'), 'utf8');
   const supervisedReady = supervised.indexOf("type: 'ready'");
-  const supervisedGui = supervised.indexOf('launchSelectedDesktop(root)');
-  assert.ok(supervisedReady > 0 && supervisedReady < supervisedGui);
+  const supervisedTray = supervised.indexOf('nnd-tray-host.ps1');
+  assert.ok(supervisedReady > 0 && supervisedReady < supervisedTray);
+  assert.ok(!supervised.includes('launchSelectedDesktop'));
   const main = await readFile(resolve('packages/electron/main.mjs'), 'utf8');
-  const quit = main.indexOf('function quitFromTray');
-  const stopCall = main.indexOf('requestNativeServiceStop(nativeSelection)');
-  assert.ok(quit > 0 && quit < stopCall);
+  assert.ok(!main.includes('createTrayController'));
+  assert.ok(!main.includes('requestNativeServiceStop'));
   // Shortcuts carry NNA branding.
   assert.ok(source.includes('"NotNativeAgent.lnk"'));
   assert.ok(!source.includes('"NotNativeDesktop.lnk"'));

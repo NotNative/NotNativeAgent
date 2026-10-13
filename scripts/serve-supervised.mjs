@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { validateInstalledNndService } from './installed-service-package.mjs';
 import { readPrivateFrames, validateBootstrap, validateControl } from './supervised-protocol.mjs';
@@ -22,6 +22,59 @@ function configureEnvironment(bootstrap, installed) {
   // The attached NNA child keeps the nnd_browser callback (F7): the desktop and
   // same-origin browser tabs are the capable broker clients; no bridge flag disables it.
 }
+function quote(path) {
+  return '"' + path + '"';
+}
+
+/** F7 attach contract: publish the NND browser-callback descriptor to the
+ *  already-running NNA integration host so nnd_browser installs for sessions
+ *  created after registration. Best effort with bounded retries: a failed
+ *  registration degrades to no browser tool, never to a failed service. The
+ *  bounded outcome record lands in the service's own data root diagnostics. */
+async function registerBrowserCallback(bootstrap, browserCallback, capability) {
+  const attempts = [];
+  const record = (outcome) => {
+    try {
+      const payload = JSON.stringify({ recorded_at: new Date().toISOString(), outcome,
+        attempts }) + '\n';
+      import('node:fs/promises').then((fs) => fs.mkdir(
+        join(bootstrap.nnd_data_root, 'diagnostics'), { recursive: true })
+        .then(() => fs.writeFile(join(bootstrap.nnd_data_root,
+          'diagnostics/browser-callback-registration.json'), payload)))
+        .catch(() => { /* diagnostics are best effort; the protocol channel stays clean */ });
+    } catch { /* diagnostics are best effort; the protocol channel stays clean */ }
+  };
+  if (!browserCallback) {
+    record('disabled');
+    return 'disabled';
+  }
+  const endpoint = new URL(bootstrap.engine.endpoint).origin + '/internal/nnd/browser-callback';
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch(endpoint, { method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + bootstrap.engine.token,
+          'x-nna-service-capability': capability },
+        body: JSON.stringify(browserCallback), signal: AbortSignal.timeout(5000) });
+      if (response.ok) {
+        attempts.push({ attempt, status: response.status });
+        record('registered');
+        return 'registered';
+      }
+      const detail = await response.text().catch(() => '');
+      attempts.push({ attempt, status: response.status, detail: detail.slice(0, 200) });
+      console.error('NND browser callback registration attempt ' + attempt + ' failed: status '
+        + response.status + ' ' + detail.slice(0, 200));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown error';
+      attempts.push({ attempt, error: message });
+      console.error('NND browser callback registration attempt ' + attempt + ' failed: ' + message);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  record('unregistered');
+  return 'unregistered';
+}
+
 async function reply(output, frame) {
   await deadline(new Promise((resolve, reject) => {
     output.write(`${JSON.stringify(frame)}\n`, (error) => error ? reject(new Error('NND_SUPERVISED_OUTPUT_FAILED')) : resolve());
@@ -59,7 +112,7 @@ async function commands(frames, output, bootstrap, handle, setCapability) {
 }
 
 export async function runSupervisedService({ input = process.stdin, output = process.stdout,
-  root = resolve(dirname(fileURLToPath(import.meta.url)), '..'), launchDesktop } = {}) {
+  root = resolve(dirname(fileURLToPath(import.meta.url)), '..'), launchTray } = {}) {
   const controller = new AbortController();
   let handle;
   // This standalone attach-only child owns no engine; exit is the final bound
@@ -95,20 +148,38 @@ export async function runSupervisedService({ input = process.stdin, output = pro
       throw new Error('NND_SUPERVISED_START_FAILED');
     }
     clearTimeout(startupTimer);
+    // Register the browser callback before the readiness frame so the first
+    // session already sees nnd_browser (F7 attach contract).
+    const registration = await registerBrowserCallback(bootstrap, handle.browserCallback, capability);
+    if (registration !== 'registered') {
+      console.error('NND browser callback ' + registration + '; the browser tool stays unavailable this generation');
+    }
     await reply(output, { type: 'ready', protocol: '1.0', installation_id: bootstrap.installation_id,
       data_id: bootstrap.data_id, generation: bootstrap.generation, endpoint: bootstrap.ui_origin, version: installed.version });
-    // The tray is permanently linked to the service: whatever starts the
-    // service (CLI, shortcut, login script) also brings up the desktop app
-    // attached to this generation. Fire-and-forget so a failed launch never
-    // fails the service, and Electron's single-instance lock dedups the
-    // redundant launch the shortcut performs. stdout stays protocol-only;
-    // launch diagnostics go to stderr.
-    const launch = launchDesktop ?? (async () => {
-      const { launchSelectedDesktop } = await import('./launch-selected-desktop.mjs');
-      return launchSelectedDesktop(root);
+    // Tray ownership contract: the tray is coupled to the SERVICE, never to
+    // the desktop client. The service child spawns the lightweight tray host
+    // (PowerShell NotifyIcon, no Chromium) after the readiness frame, and the
+    // tray quits with the service. The service never launches the desktop:
+    // a login auto-start (nnd enable) yields a headless service plus tray,
+    // and `nnd start` must not race a Chromium boot against its own
+    // readiness handshake. Fire-and-forget: a failed tray spawn never fails
+    // the service. stdout stays protocol-only; diagnostics go to stderr.
+    const tray = launchTray ?? (async () => {
+      const { spawn } = await import('node:child_process');
+      const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+      const trayHost = join(root, 'scripts', 'nnd-tray-host.ps1');
+      const child = spawn(powershell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', trayHost,
+        '-DataRoot', bootstrap.nnd_data_root, '-InstallRoot', root, '-NodePath', process.execPath],
+        // Neutral CWD: a live process locks its working directory, and the
+        // tray must never pin the install root against cleanup or upgrade.
+        { cwd: process.env.SystemRoot ?? null, detached: true, windowsHide: true, stdio: 'ignore' });
+      child.once('error', (error) => {
+        console.error(`NND tray host launch failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+      });
+      child.unref();
     });
-    launch().catch((error) => {
-      console.error(`NND desktop launch failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+    tray().catch((error) => {
+      console.error(`NND tray launch failed: ${error instanceof Error ? error.message : 'unknown error'}`);
     });
     // The supervisor pushes fresh capabilities over this private channel; the
     // latest one is retained in memory only for privileged harness requests.

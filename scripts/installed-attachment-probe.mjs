@@ -74,8 +74,7 @@ export async function startAttachmentProvider() {
 export function attachmentBrowserProbe() {
   const textData = `data:text/plain;base64,${Buffer.from(TEXT_MARKER).toString('base64')}`;
   const imageData = `data:image/png;base64,${IMAGE.toString('base64')}`;
-  return `(async()=>{
-    const post=async(path,body)=>fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  return `(async()=>{    const post=async(path,body)=>fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
     for(let i=0;i<100&&!document.querySelector('[data-testid="native-alpha-notice"]');i++)
       await new Promise(resolve=>setTimeout(resolve,100));
     if(!document.querySelector('[data-testid="native-alpha-notice"]')
@@ -142,63 +141,6 @@ export function attachmentBrowserProbe() {
   })()`;
 }
 
-export function setupBrowserProbe(workspaceRoot, providerPort, expectedSource = 'missing', extraProviders = null) {
-  const providerEndpoint = `http://127.0.0.1:${providerPort}/v1`;
-  const primaryProvider = { id: 'smoke', endpoint: providerEndpoint, model: 'test', trust_zone: 'loopback' };
-  const document = extraProviders ? { workspace_root: workspaceRoot, providers: [primaryProvider, ...extraProviders],
-    routes: { primary: { provider_id: 'smoke', model: 'test' } } } : { workspace_root: workspaceRoot, provider: primaryProvider };
-  const documentLiteral = JSON.stringify(document);
-  return `(async()=>{
-    const post=async(path,body)=>fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-    const before=await fetch('/api/v1/nnd/setup/status');
-    if(before.status!==200)throw Error('setup status '+before.status);
-    const initial=await before.json();
-    if(initial.service_state!=='setup_required'||initial.execution_state!=='unavailable')
-      throw Error('fresh install did not require setup '+JSON.stringify(initial));
-    const denied=await post('/api/session',{});
-    if(denied.status!==503)throw Error('unconfigured execution was admitted '+denied.status);
-    const read=await fetch('/api/v1/nnd/configuration');
-    if(read.status!==200)throw Error('configuration read '+read.status+' '+await read.text());
-    const view=await read.json();
-    if(view.source_state!==${JSON.stringify(expectedSource)}
-      || ${JSON.stringify(expectedSource)}==='missing'&&view.source_revision!=='absent'
-      || ${JSON.stringify(expectedSource)}==='invalid'&&(!view.source_revision||view.source_revision==='absent'))
-      throw Error('configuration source did not match expected state '+JSON.stringify({state:view.source_state,revision:view.source_revision}));
-    const configurationDocument=${documentLiteral};
-    const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-    const gear=document.querySelector('[data-testid="settings-gear"]');
-    if(!gear)throw Error('installed settings control missing');gear.click();
-    const navigate=async label=>{for(let i=0;i<100;i++){
-      const item=[...document.querySelectorAll('[data-testid="settings-window"] nav button')]
-        .find(button=>button.textContent?.trim()===label);
-      if(item){item.click();return}await delay(100)}throw Error('settings page missing '+label)};
-    await navigate('NNA configuration');
-    let editor,confirm,repair;
-    for(let i=0;i<300;i++){
-      editor=[...document.querySelectorAll('label')].find(label=>label.textContent?.includes('Repair document as JSON'))?.querySelector('textarea');
-      confirm=[...document.querySelectorAll('label')].find(label=>label.textContent?.includes('I understand this replaces'))?.querySelector('input[type="checkbox"]');
-      repair=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==='Repair selected source');
-      if(editor&&confirm&&repair)break;await delay(100)}
-    if(!editor||!confirm||!repair)throw Error('native repair form missing '+JSON.stringify({
-      labels:[...document.querySelectorAll('[data-testid="settings-window"] label')].map(label=>label.textContent?.slice(0,60)).slice(0,20),
-      alerts:[...document.querySelectorAll('[data-testid="settings-window"] [role="alert"]')].map(item=>item.textContent?.slice(0,100)).slice(0,8)}));
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(editor,JSON.stringify(configurationDocument));
-    editor.dispatchEvent(new Event('input',{bubbles:true}));confirm.click();
-    for(let i=0;i<50&&repair.disabled;i++)await delay(100);
-    if(repair.disabled)throw Error('native repair form stayed disabled');repair.click();
-    let saved=false;for(let i=0;i<200;i++){
-      saved=document.querySelector('[data-testid="settings-window"]')?.textContent?.includes('receipt: saved');
-      if(saved)break;await delay(100)}
-    if(!saved)throw Error('native GUI repair did not publish a saved receipt');
-    await navigate('Providers');
-    let activate;for(let i=0;i<100;i++){
-      activate=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==='Activate NNA execution');
-      if(activate&&!activate.disabled)break;await delay(100)}
-    if(!activate||activate.disabled)throw Error('native GUI activation unavailable');
-    activate.click();
-    return {setup_before:initial.service_state,setup_receipt:'saved',ui_activation_started:true};
-  })()`;
-}
 
 export function desktopSetupProbe() {
   return `(async()=>{

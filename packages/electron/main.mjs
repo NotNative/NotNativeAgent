@@ -9,7 +9,7 @@
  * dynamically imported (the module reads env at import time).
  */
 import { launchControllerGeneration, launchSelectionFile, readNativeServiceSelection } from './native-service-selection.mjs';
-import { assertSelectedNndPackage, attachNativeService, redeemNativeAttachment, requestNativeServiceStop } from './native-service-client.mjs';
+import { assertSelectedNndPackage, attachNativeService, redeemNativeAttachment } from './native-service-client.mjs';
 import { app, BrowserWindow, Menu, MessageChannelMain, Notification, dialog, ipcMain, net as electronNet, powerMonitor, protocol, screen, session, shell } from 'electron';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -19,7 +19,6 @@ import path from 'node:path';
 import { createInvokeFace } from './ipc-face.mjs';
 import { createRelayDevTunnelBridge } from './relay-dev-tunnel.mjs';
 import { readShellPrefs, writeShellPrefs } from './shell-prefs.mjs';
-import { createTrayController } from './tray.mjs';
 import { attachRendererRecovery } from './renderer-recovery.mjs';
 import { captureWindowState, restoreWindowState } from './window-state.mjs';
 import { allowedGuestPartition, allowedGuestUrl, hardenGuestPreferences, isOwnAppUrl } from './browser-guest-policy.mjs';
@@ -54,9 +53,8 @@ const USE_UI_PROTOCOL = LEGACY_MODE && ((PACKAGED && process.env.OPENCHAMBER_ELE
   || process.env.OPENCHAMBER_ELECTRON_USE_BUNDLED_UI === '1');
 const UI_SCHEME = 'notnative-ui';
 const UI_ORIGIN = `${UI_SCHEME}://app`;
-// --hidden start (row-bot parity): service boots to tray-only; the FIRST
-// window reveal belongs to the user (tray Open App / ensureMainWindow).
-const HIDDEN_START = process.argv.includes('--hidden');
+// The client is a plain window attached to the running service; the service
+// (and its tray, nnd-tray-host.ps1) is a separate supervised process.
 
 if (USE_UI_PROTOCOL) {
   protocol.registerSchemesAsPrivileged([{ scheme: UI_SCHEME, privileges: {
@@ -79,9 +77,8 @@ let nativeControllerGeneration = null;
 let chosenPort = 0;
 let desktopRuntimeConfig = null;
 let desktopBootOutcome = { target: 'local', status: 'unreachable' };
-let trayController = null;
 let quitting = false;
-let bootFailure = null; // boot-abort message; trayed installs linger and must say why
+let bootFailure = null; // boot-abort message for the failure page
 let windowStateTimer = null;
 let revealPending = false;
 const pendingDeepLinks = LEGACY_MODE ? extractDesktopDeepLinks(process.argv) : extractNativeAlphaDeepLinks(process.argv);
@@ -521,8 +518,8 @@ const SPLASH_HTML = [
 ].join('');
 const SPLASH_URL = `data:text/html,${encodeURIComponent(SPLASH_HTML)}`;
 
-// Boot-failure page (trayed stopped state): the splash spinner must not be the only surface when
-// the server never came up — say why, name the escape hatches (tray Quit + reinstall + log path).
+// Boot-failure page: the splash spinner must not be the only surface when the
+// server never came up — say why, name the escape hatches (retry + log path).
 const FAILURE_PAGE_HTML = [
   '<!doctype html><html><head><meta charset="utf-8">',
   '<style>html,body{margin:0;height:100%;background:#0c0a09;color:#fafaf9;',
@@ -531,8 +528,8 @@ const FAILURE_PAGE_HTML = [
   '<div style="font-size:16px;font-weight:600">NotNativeDesktop could not start</div>',
   '<div id="m" style="margin-top:10px;opacity:.55;max-width:560px;word-break:break-word;white-space:pre-line"></div>',
   '<button id="r" style="margin-top:18px;padding:8px 14px" type="button">Retry server check</button>',
-  '<div id="s" style="margin-top:10px;opacity:.75;font-size:13px">You can also quit from the tray menu and check the log file.</div>',
-  '</div><script>const d=JSON.parse(decodeURIComponent(location.hash.slice(1)));document.getElementById("m").textContent=d.message;const b=document.getElementById("r"),s=document.getElementById("s");b.hidden=!d.retry;b.onclick=async()=>{b.disabled=true;s.textContent="Checking the local server…";const f=window.__NOTNATIVE_DESKTOP_INVOKE__;const x=typeof f==="function"?await f("desktop_retry_server"):null;if(x?.ok){s.textContent="Server is ready. Opening NotNativeDesktop…"}else{s.textContent=x?.error==="server-unavailable"?"This startup failed before a server was available. Quit and restart the app; see the log file for details.":"The server is still unavailable. You can try again or quit from the tray menu.";b.disabled=false}}</script>',
+  '<div id="s" style="margin-top:10px;opacity:.75;font-size:13px">You can also stop the service from its tray menu and check the log file.</div>',
+  '</div><script>const d=JSON.parse(decodeURIComponent(location.hash.slice(1)));document.getElementById("m").textContent=d.message;const b=document.getElementById("r"),s=document.getElementById("s");b.hidden=!d.retry;b.onclick=async()=>{b.disabled=true;s.textContent="Checking the local server…";const f=window.__NOTNATIVE_DESKTOP_INVOKE__;const x=typeof f==="function"?await f("desktop_retry_server"):null;if(x?.ok){s.textContent="Server is ready. Opening NotNativeDesktop…"}else{s.textContent=x?.error==="server-unavailable"?"This startup failed before a server was available. Quit and restart the app; see the log file for details.":"The server is still unavailable. You can try again or stop the service from its tray menu.";b.disabled=false}}</script>',
   '</body></html>',
 ].join('');
 
@@ -695,27 +692,22 @@ function createMainWindow() {
     if (win === mainWindow && win.webContents.getURL() === mainUiUrl()) flushDeepLinks();
   });
   win.once('ready-to-show', () => {
-    // A hidden login launch is only useful when the tray can reveal the app.
-    // If the tray icon cannot be created on this machine, leaving the window
-    // hidden would strand the user with a running but inaccessible process.
-    if (!HIDDEN_START || bootFailure || !trayController?.active) {
-      win.show();
-      win.focus();
-      win.webContents.focus();
-    }
+    // The desktop client is a plain window: the service (and its tray) is a
+    // separate process, so a hidden launch would strand the user with a
+    // running but inaccessible client. Every launch reveals the window.
+    win.show();
+    win.focus();
+    win.webContents.focus();
   });
   win.on('focus', () => {
     if (!win.webContents.isDestroyed() && !win.webContents.isCrashed()) win.webContents.focus();
   });
   attachRendererRecovery(win, { log: (...args) => console.error(...args), label: 'main window' });
-  // Tray mode: the close button hides the window and the service keeps
-  // running (reference launcher semantics); Quit belongs to the tray menu.
+  // Ownership contract: the tray lives with the service (nnd-tray-host), not
+  // with this client. Closing the window quits the client only; the service
+  // keeps running and is stopped via the tray Quit or `nnd stop`.
   win.on('close', (event) => {
     persistWindowState(win);
-    if (trayController?.active && !quitting && !win.webContents.isCrashed()) {
-      event.preventDefault();
-      win.hide();
-    }
   });
   win.on('closed', () => {
     if (windowStateTimer !== null) { clearTimeout(windowStateTimer); windowStateTimer = null; }
@@ -998,27 +990,14 @@ async function selectRelayDesktopHost(hostId, expectedHost, restoringDefault = f
   }
 }
 
-/** Tray Quit: deliberate teardown (dispose → quit → hard watchdog). */
-function destroyTray() {
-  const tray = trayController;
-  trayController = null;
-  try { tray?.destroy(); } catch (error) { console.error('[shell] tray teardown failed:', error); }
-}
-
-function quitFromTray() {
+/** Client quit: teardown of THIS process only. The service is owned by its
+ *  supervisor and its own tray (nnd-tray-host); closing the window or quitting
+ *  the client never stops the service. */
+function quitClient() {
   if (quitting) return;
   quitting = true;
   persistWindowState(mainWindow);
-  console.log('[shell] quit requested from tray');
-  destroyTray();
-  // The tray manages the service: when this GUI is attached to the supervised
-  // controller, Quit ends the service too. Detached fire-and-forget; the GUI
-  // still quits even if the stop request cannot be delivered.
-  if (nativeControllerGeneration && nativeSelection) {
-    requestNativeServiceStop(nativeSelection)
-      .then(() => console.log('[shell] service stop requested from tray'))
-      .catch((error) => console.error('[shell] service stop failed:', error instanceof Error ? error.message : error));
-  }
+  console.log('[shell] client quit requested');
   try { serverHandle?.dispose(); } catch (error) { console.error('[shell] server dispose failed:', error); }
   app.quit();
   setTimeout(() => app.exit(0), 8_000); // watchdog: never hang on a stuck handle
@@ -1166,7 +1145,6 @@ async function retryServerFromFailurePage() {
     if (!await waitForHealth(localOrigin())) return { ok: false, error: 'server-still-unavailable' };
     if (mainWindow && !mainWindow.isDestroyed()) await mainWindow.webContents.loadURL(mainUiUrl());
     bootFailure = null;
-    trayController?.setStatus('running', localOrigin());
     return { ok: true };
   } catch (error) {
     console.error('[shell] retry health check failed:', error);
@@ -1195,10 +1173,8 @@ async function bootNativeService() {
     { label: 'Reconnect to selected NNA', accelerator: 'CmdOrCtrl+Shift+R', click: () => { void reconnectNativeService(); } },
     { role: 'quit' },
   ] }]));
-  trayController = createTrayController({ title: APP_NAME, assetsDir: path.join(selfDir(), 'assets'),
-    origin: localOrigin(), ensureMainWindow, onQuit: quitFromTray });
-  if (!trayController.create()) trayController = null;
-  trayController?.setStatus('running', localOrigin());
+  // Tray ownership: the tray is the service's (nnd-tray-host.ps1, spawned by
+  // the supervised child). This client owns only its windows.
   mainWindow = createMainWindow();
   await mainWindow.webContents.loadURL(mainUiUrl());
   flushDeepLinks();
@@ -1237,7 +1213,6 @@ async function reconnectNativeService() {
     miniChatWindows.clear();
     previous?.destroy();
     await mainWindow.webContents.loadURL(mainUiUrl());
-    trayController?.setStatus('running', localOrigin());
     return { ok: true };
   } catch { return { ok: false, error: 'native-attachment-unavailable' }; }
   finally { retryInProgress = false; }
@@ -1314,20 +1289,8 @@ async function boot() {
   configureMainSessionPermissions();
   configurePreviewSession();
   invokeFace.register();
-  trayController = createTrayController({
-    title: APP_NAME,
-    assetsDir: path.join(selfDir(), 'assets'),
-    origin: localOrigin(),
-    ensureMainWindow,
-    onQuit: quitFromTray,
-  });
-  if (trayController.create()) {
-    console.log('[shell] tray icon active (open web / open desktop / quit)');
-  } else {
-    trayController = null;
-    console.log('[shell] tray assets unavailable — running without tray icon');
-  }
-  trayController?.setStatus('starting');
+  // Tray ownership: the tray is the service's (nnd-tray-host.ps1), never the
+  // client's — even in legacy mode the client is a plain window.
   mainWindow = createMainWindow();
   if (revealPending) {
     revealPending = false;
@@ -1348,23 +1311,20 @@ async function boot() {
   if (desktopBootOutcome.target === 'remote' && desktopBootOutcome.status !== 'ok') {
     console.warn(`[shell] remote boot target unavailable (${desktopBootOutcome.status}); using local runtime`);
   }
-  trayController?.setStatus('running', localOrigin());
   console.log(`[shell] navigating main window to ${localOrigin()}/`);
   await mainWindow.webContents.loadURL(mainUiUrl());
   flushDeepLinks();
 }
 
 app.on('window-all-closed', () => {
-  // With a tray the service intentionally outlives closed/hidden windows;
-  // without one (asset-less fallback) closing the only window is exit.
-  if (trayController?.active) return;
+  // The client is a plain window: closing the last window exits the client.
+  // The service outlives it (owned by its supervisor and its own tray).
   app.quit();
 });
+
 app.on('before-quit', () => {
   // Menu Quit, OS shutdown and app.quit all arrive here before window close.
-  // They must bypass the ordinary close-to-tray behavior, just like tray Quit.
   quitting = true;
-  destroyTray();
   desktopSshTransport.dispose();
   relayPairingBridge.closeAll();
   persistWindowState(mainWindow);
@@ -1374,20 +1334,10 @@ app.on('before-quit', () => {
 app.on('will-quit', () => desktopUpdater?.dispose());
 
 boot().catch((error) => {
-  if (!LEGACY_MODE && !trayController?.active) dialog.showErrorBox('NotNativeDesktop could not connect',
-    `The selected native service could not be opened (${error?.message ?? 'native-attachment-failed'}). No fallback service was started.`);
   console.error('[electron] startup failed:', error);
-  // Reference launcher semantics: with a tray keep the process alive in the stopped state (user
-  // can Quit from the menu; without a tray, exit). The trayed lingering must answer "then what?":
-  // swap the splash spinner for the failure page so the user sees why and what to do next.
-  if (trayController?.active) {
-    trayController.setStatus('stopped');
-    // Message only, never the stack: fixed card; the full trace is already in main.log.
-    bootFailure = error instanceof Error ? error.message : String(error);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.loadURL(bootFailurePageUrl(bootFailure)).catch(() => { /* cosmetic */ });
-    }
-    return;
+  if (!LEGACY_MODE) {
+    dialog.showErrorBox('NotNativeDesktop could not connect',
+      `The selected native service could not be opened (${error?.message ?? 'native-attachment-failed'}). No fallback service was started.`);
   }
   app.exit(1);
 });

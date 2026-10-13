@@ -16,11 +16,12 @@ it('closes NND-owned mutations but leaves native chat, setup, review, and reads 
     '/api/message-queue/sessions/s1/items', '/api/projects/p1/scheduled-tasks/task/run',
     '/api/project-context/p1/notes', '/api/config/skills/install', '/api/openchamber/tunnel/start',
     '/api/notnative/update-install', '/api/openchamber/update-install',
-    '/api/browser-control/request', '/api/agent-tool/callback']) {
+    '/api/agent-tool/callback']) {
     expect(nativeAlphaMutationUnavailable('POST', path), path).toBe(true);
   }
   for (const path of ['/api/session', '/api/session/s1/prompt_async', '/api/file',
-    '/api/permission/p1/reply', '/api/v1/nnd/setup/activate', '/api/v1/nnd/configuration']) {
+    '/api/permission/p1/reply', '/api/v1/nnd/setup/activate', '/api/v1/nnd/configuration',
+    '/api/browser-control/request']) {
     expect(nativeAlphaMutationUnavailable('POST', path), path).toBe(false);
   }
   expect(nativeAlphaMutationUnavailable('GET', '/api/git/status')).toBe(false);
@@ -53,8 +54,10 @@ it('refuses authenticated private callbacks before NND-owned effects in the nati
   const browser = await app.request('/api/browser-control/request', { method: 'POST',
     headers: { 'content-type': 'application/json', 'x-nnd-browser-token': 'browser-secret' },
     body: JSON.stringify({ action: 'browser.open', parameters: { url: 'https://example.org/' } }) });
-  expect(browser.status).toBe(409);
-  expect(await browser.json()).toMatchObject({ code: 'native_alpha_surface_unavailable' });
+  // The token-authenticated desktop browser bridge is governed on the NNA
+  // tool side; the alpha closure no longer blocks its dispatch.
+  expect(browser.status).toBe(503);
+  expect(await browser.json()).toMatchObject({ error: 'No capable desktop browser is connected; nothing was changed.' });
   const memory = await app.request('/api/agent-tool/callback', { method: 'POST',
     headers: { 'content-type': 'application/json', authorization: 'Bearer agent-secret' },
     body: JSON.stringify({ tool: 'openchamber_memory', input: { action: 'memory.save', parameters: {
@@ -78,6 +81,7 @@ it('accounts for every literal NND-owned mutating route in the installed alpha',
     '/api/auth/reset', // Auth route is registered before the API alpha gate.
     '/api/passkeys/:id', // Auth route is registered before the API alpha gate.
     '/api/browser-control/request', // NNA child-secret callback, registered before the API gate.
+    '/api/system/probe-url', // Read-only loopback reachability probe for the browser bridge guest.
     '/api/agent-tool/callback', // NNA child-secret callback, registered before the API gate.
   ]);
   const uncovered: string[] = [];

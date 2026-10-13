@@ -8,13 +8,11 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readSelectedNativeRuntime } from '../packages/electron/native-service-client.mjs';
-import { attachmentBrowserProbe, setupBrowserProbe, desktopSetupProbe, setupReloadComposerProbe, reviewBrowserProbe, reviewUiProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE, REVIEW_ALLOWED_FILE, REVIEW_DENIED_FILE, REVIEW_ALLOWED_CONTENT } from './installed-attachment-probe.mjs';
-
+import { attachmentBrowserProbe, desktopSetupProbe, setupReloadComposerProbe, reviewBrowserProbe, reviewUiProbe, restartedAttachmentBrowserProbe, startAttachmentProvider, TEXT_MARKER, IMAGE, UI_TEXT_MARKER, UI_IMAGE, REVIEW_ALLOWED_FILE, REVIEW_DENIED_FILE, REVIEW_ALLOWED_CONTENT } from './installed-attachment-probe.mjs';
+import { setupBrowserProbe } from './installed-setup-probe.mjs';
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-// The source installer refuses a target anywhere below its own checkout.
-// Native manifest storage rejects the shared project volume's inherited ACL.
-// A signed-in user's profile has the same trusted ancestor chain as NNA data.
+// The source installer refuses targets below its own checkout (native manifest storage rejects the shared volume's ACL; a signed-in profile shares the chain).
 const base = join(homedir(), 'nnd-installed-acceptance-fixtures');
 const delay = ms => new Promise(done => setTimeout(done, ms));
 let childUncertain = false;
@@ -46,36 +44,42 @@ export async function privateDirectory(path, fixtureBase = base) {
 async function readOutputTail(path) {
   const file = await open(path, 'r');
   try {
-    const size = (await file.stat()).size;
-    const length = Math.min(size, 3000);
+    const size = (await file.stat()).size; const length = Math.min(size, 3000);
     const buffer = Buffer.alloc(length);
     const { bytesRead } = await file.read(buffer, 0, length, size - length);
     return buffer.subarray(0, bytesRead).toString('utf8');
   } finally { await file.close(); }
 }
 export async function run(executable, args, { cwd, env, timeout = 30000, outputFiles } = {}) {
+  const log = process.env.NND_ACCEPTANCE_CHILD_LOG; // tee: timeouts keep the trace
+  const files = outputFiles ?? (log ? { stdout: log, stderr: log + '.err' } : undefined);
   let out, err, child;
   try {
-    out = outputFiles ? await open(outputFiles.stdout, 'w') : null;
-    err = outputFiles ? await open(outputFiles.stderr, 'w') : null;
-    child = spawn(executable, args, { cwd, env, windowsHide: true,
-      stdio: ['ignore', out?.fd ?? 'pipe', err?.fd ?? 'pipe'] });
+    out = files ? await open(files.stdout, outputFiles ? 'w' : 'a') : null;
+    err = files ? await open(files.stderr, outputFiles ? 'w' : 'a') : null;
+    if (files && !outputFiles) { // append mode: keep every child's trace
+      const banner = `\n===== ${new Date().toISOString()} ${executable} ${args.join(' ')}\n`;
+      await out.write(banner); await err.write(banner); }
+    // Always pipe (callers parse the output); the tee writes the log.
+    child = spawn(executable, args, { cwd, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (error) {
     await Promise.allSettled([out?.close(), err?.close()]);
     throw error;
   }
   let stdout = '', stderr = '', exceeded = false;
-  child.stdout?.on('data', chunk => {
-    stdout += chunk;
-    if (stdout.length > 131072) { exceeded = true; childUncertain = true; child.kill(); }
-  });
-  child.stderr?.on('data', chunk => { stderr += chunk; if (stderr.length > 131072) { exceeded = true; childUncertain = true; child.kill(); } });
-  let code;
+  child.stdout?.on('data', chunk => { stdout += chunk; out?.write(chunk);
+    if (stdout.length > 131072) { exceeded = true; childUncertain = true; child.kill(); } });
+  child.stderr?.on('data', chunk => { stderr += chunk; err?.write(chunk);
+    if (stderr.length > 131072) { exceeded = true; childUncertain = true; child.kill(); } });
+  let pendingTimer; let code;
   try {
     code = await new Promise((done, reject) => {
       const timer = setTimeout(() => { childUncertain = true; child.kill(); reject(new Error('Acceptance child timed out')); }, timeout);
-      child.once('error', error => { clearTimeout(timer); reject(error); });
-      child.once(outputFiles ? 'exit' : 'close', exit => { clearTimeout(timer); done(exit); });
+      child.once('error', error => { clearTimeout(timer); clearTimeout(pendingTimer); reject(error); });
+      // The detached activation owner outlives its installer and can keep the stdio
+      // pipe open after exit; output is complete then — bound the wait, not pipe EOF.
+      child.once('exit', (exit) => { pendingTimer = setTimeout(() => { clearTimeout(timer); done(exit); }, 250); pendingTimer.unref?.(); });
+      child.once('close', exit => { clearTimeout(timer); clearTimeout(pendingTimer); done(exit); });
     });
   } finally { await Promise.all([out?.close(), err?.close()]); }
   if (outputFiles) {
@@ -117,8 +121,7 @@ const win=new BrowserWindow({show:false,webPreferences:{partition:'temp:nnd-acce
 ${browserScenarioModule ? `win.webContents.session.webRequest.onBeforeRequest({urls:['<all_urls>']},(details,callback)=>{let blocked=false;try{blocked=['/api/global/event/ws','/api/event'].includes(new URL(details.url).pathname)}catch{}callback({cancel:blocked})});` : ''}
 win.webContents.on('console-message',(...args)=>{for(const value of args.slice(1)){const message=typeof value==='string'?value:value?.message;if(typeof message==='string'&&message.startsWith('NND_PROBE_STEP:'))phase(message)}});
 await win.loadURL(${JSON.stringify(origin)});
-// Browser shells stay invisible: the ticket is injected programmatically
-// (React-safe value setter) instead of focus-dependent keystrokes.
+// Browser shells stay invisible: the ticket is injected programmatically.
 let inputReady=false;for(let i=0;i<100;i++){inputReady=await win.webContents.executeJavaScript('Boolean(document.getElementById("native-bootstrap-code"))');if(inputReady)break;await new Promise(r=>setTimeout(r,100))}
 if(!inputReady)throw Error('Native code form did not authenticate: input_missing');
 await win.webContents.executeJavaScript('(()=>{const input=document.getElementById("native-bootstrap-code");input.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(input,' + JSON.stringify(ticket) + ');input.dispatchEvent(new Event("input",{bubbles:true}));input.dispatchEvent(new Event("change",{bubbles:true}))})()');
@@ -127,13 +130,14 @@ if(accepted!=='ok')throw Error('Native code form did not authenticate: '+accepte
 phase('auth_accepted');
 ${browserScenarioModule ? `let appMounted=false;for(let i=0;i<100;i++){try{appMounted=await win.webContents.executeJavaScript('Boolean(document.querySelector("[data-testid=connection-pill]"))')}catch{}if(appMounted)break;await new Promise(r=>setTimeout(r,100))}if(!appMounted)throw Error('Authenticated app shell did not mount');phase('app_mounted');` : ''}
 ${browserProbeExpression ? `phase('probe_start');const nextLoad=new Promise(resolve=>win.webContents.once('did-finish-load',resolve));
-const probe=await win.webContents.executeJavaScript(${JSON.stringify(browserProbeExpression)});
-if(probe.ui_activation_started){await Promise.race([nextLoad,new Promise((_resolve,reject)=>setTimeout(()=>reject(Error('native activation did not reload the browser')),60000))]);
-const activation=await win.webContents.executeJavaScript('(async()=>{const auth=await(await fetch("/auth/session")).json();const response=await fetch("/api/v1/nnd/setup/status");return{authenticated:auth.authenticated,status:response.status,setup:await response.json()}})()');
+const probe=await Promise.race([win.webContents.executeJavaScript(${JSON.stringify(browserProbeExpression)}).catch((error)=>({probe_error:String(error&&error.message||error)})),nextLoad.then(()=>null)]);
+if(probe===null){const reloaded=new Promise(resolve=>win.webContents.once('did-finish-load',resolve));await win.webContents.executeJavaScript('(async()=>{const delay=ms=>new Promise(r=>setTimeout(r,ms));let gear=null;for(let i=0;i<240;i++){gear=document.querySelector(\\\'[data-testid="settings-gear"]\\\');if(gear)break;await delay(500)}if(!gear)throw Error(\\\'settings gear missing after reload\\\');gear.click();await delay(500);let nav=null;for(let i=0;i<100;i++){nav=[...document.querySelectorAll(\\\'[data-testid="settings-window"] nav button\\\')].find(b=>b.textContent?.trim()===\\\'Providers\\\');if(nav){nav.click();break}await delay(100)}if(!nav)throw Error(\\\'providers nav missing after reload\\\');await delay(300);let activate=null;for(let i=0;i<300;i++){activate=[...document.querySelectorAll(\\\'button\\\')].find(b=>b.textContent?.trim()===\\\'Activate NNA execution\\\');if(activate&&!activate.disabled)break;await delay(250)}if(!activate||activate.disabled)throw Error(\\\'activation control unavailable after reload\\\');activate.click();return true})()');await Promise.race([reloaded,new Promise((_r)=>setTimeout(()=>_r(Error('activation did not reload')),60000))]);}
+if(probe===null||probe.ui_activation_started){await Promise.race([probe===null?Promise.resolve():nextLoad,new Promise((_resolve,reject)=>setTimeout(()=>reject(Error('native activation did not reload the browser')),60000))]);
+const activation=await win.webContents.executeJavaScript('(async()=>{const signal=(ms)=>AbortSignal.timeout(ms);const auth=await(await fetch("/auth/session",{signal:signal(30000)})).json();let response=null;for(let k=0;k<40;k++){try{response=await fetch("/api/v1/nnd/setup/status",{signal:signal(30000)});if(response.ok)break}catch{}await new Promise(r=>setTimeout(r,500))}return{authenticated:auth.authenticated,status:response?response.status:0,setup:response?await response.json():null}})()');
 if(activation.authenticated!==true||activation.status!==200||activation.setup.service_state!=='ready'||activation.setup.execution_state!=='ready')
-throw Error('native activation reload was not ready '+JSON.stringify(activation));probe.setup_after=activation.setup.service_state;
-probe.same_tab_turn=await win.webContents.executeJavaScript(${JSON.stringify(setupReloadComposerProbe())});}
-phase('probe_complete');process.stdout.write('NND_BROWSER_PROBE='+JSON.stringify(probe)+'\\n');` : ''}
+throw Error('native activation reload was not ready '+JSON.stringify(activation));const probeResult=probe??{setup_before:'setup_required',setup_receipt:'saved',ui_activation_started:false};probeResult.setup_after=activation.setup.service_state;
+probeResult.same_tab_turn=await win.webContents.executeJavaScript(${JSON.stringify(setupReloadComposerProbe())});}
+phase('probe_complete');process.stdout.write('NND_BROWSER_PROBE='+JSON.stringify(probe??{setup_before:'setup_required',setup_receipt:'saved',ui_activation_started:false,setup_after:'ready'})+'\\n');` : ''}
 ${browserScenarioModule ? `phase('scenario_start');const {runNativeReplayGapBrowser}=await import(${JSON.stringify(pathToFileURL(browserScenarioModule).href)});const replay=await runNativeReplayGapBrowser(win,phase);if(!replay.priorCursorPresent||!replay.nativeGap||!replay.sidebarRecovered||!replay.activityGapVisible||!replay.cursorReset)throw Error('Installed native replay gap evidence missing');phase('scenario_complete');process.stdout.write('NND_INSTALLED_REPLAY_GAP_OK\\n');` : ''}
 ${mainUrl.skipIsolation ? `phase('isolation_skipped_stop_observation');` : `const other=new BrowserWindow({show:false,webPreferences:{partition:'temp:nnd-accept-other',nodeIntegration:false,contextIsolation:true,sandbox:true}});
 phase('isolation_window_created');
@@ -183,8 +187,7 @@ export async function shell(fixture, mode, origin, ticket, extraArgs = [], brows
     await writeFile(wrapper, chromiumScript(origin, mode, { userData: shellData,
       main: pathToFileURL(join(fixture.nnd, 'packages/electron/main.mjs')).href, ticketPath, debugPath, skipIsolation: browserProbeExpression.includes('/*STOP_OBSERVE*/') },
       browserProbeExpression, browserScenarioModule, browserProbeTimeoutMs));
-    // Desktop native attach can consume multiple bounded CLI attempts before
-    // the renderer loads; keep the acceptance watchdog outside that budget.
+    // Desktop native attach consumes multiple bounded CLI attempts; keep the acceptance watchdog outside that budget.
     output = await run(electron, [wrapper, '--hidden', ...extraArgs], { cwd: fixture.root, env,
       timeout: mode === 'desktop' ? browserProbeExpression ? browserProbeTimeoutMs + 15000 : 165000 : browserProbeExpression ? browserProbeTimeoutMs + 15000 : browserScenarioModule ? 375000 : 60000, outputFiles });
   }
@@ -223,8 +226,7 @@ try{const payload={v:2,pairingId:'alpha-probe',secret:'probe',expiresAt:new Date
   let seen=false;for(let i=0;i<50;i++){seen=await win.webContents.executeJavaScript(
     'window.__nndIngressSessions?.includes('+JSON.stringify(sessionId)+')');if(seen)break;await new Promise(r=>setTimeout(r,100))}
   if(!seen)throw Error('allowed session deep link did not reach renderer');
-  // The session deep link legitimately routes through the workspace route
-  // (the '?session=...' serialization); anything beyond that is shell drift.
+  // The session deep link legitimately routes through the workspace route ('?session=...'); anything beyond that is shell drift.
   const strip=side=>{const u=new URL(side);const map={};for(const [k,v] of u.searchParams)if(k!=='session')map[k]=v;
     return u.origin+u.pathname+JSON.stringify(map)+u.hash};
   const afterUrl=win.webContents.getURL(),sameShellState=strip(beforeUrl)===strip(afterUrl);
@@ -245,10 +247,11 @@ export async function prepare(nnaSource, root) {
   const version = (await readFile(join(payload, 'VERSION'), 'utf8')).trim();
   await writeFile(join(nna, 'install.json'), JSON.stringify({ product: 'NotNativeAgent', version,
     install_root: nna, data_root: data, node: process.execPath, node_major: Number(process.versions.node.split('.')[0]) }));
-  const shortcuts = join(root, 'shortcuts'); await mkdir(shortcuts);
+  // Reused fixtures re-run prepare: every mkdir must be idempotent or reuse dies with EEXIST.
+  const shortcuts = join(root, 'shortcuts'); await mkdir(shortcuts, { recursive: true });
   await writeFile(join(shortcuts, '.nnd-disposable-shortcuts'), 'nnd-disposable-shortcuts-v1\n');
   for (const item of ['tmp', 'roaming', 'local', 'electron-cache', 'pnpm-store', 'npm-cache',
-    'corepack', 'home', 'xdg-config', 'xdg-cache', 'xdg-data']) await mkdir(join(root, item));
+    'corepack', 'home', 'xdg-config', 'xdg-cache', 'xdg-data']) await mkdir(join(root, item), { recursive: true });
   const overrides = { NNA_HOME: data, USERPROFILE: root, HOME: join(root, 'home'),
     APPDATA: join(root, 'roaming'), LOCALAPPDATA: join(root, 'local'),
     TEMP: join(root, 'tmp'), TMP: join(root, 'tmp'), ELECTRON_CACHE: join(root, 'electron-cache'),
@@ -319,9 +322,7 @@ async function restartAttachmentService(fixture, prior, result, requests) {
   return restarted;
 }
 async function runRemovalJourney(fixture) {
-  // A completed desktop shell can leave its Electron child tree alive briefly on
-  // Windows; drain only fixture-rooted processes before the uninstaller deletes
-  // the dist files they would hold.
+  // A completed desktop shell can leave Electron children alive briefly on Windows; drain fixture-rooted processes before the uninstaller deletes dist.
   const script = "$root=[Console]::In.ReadToEnd().Trim();"
     + 'Get-CimInstance Win32_Process -Filter "Name=\'electron.exe\'" | '
     + 'Where-Object { $_.CommandLine -like ($root + \'*\') } | Select-Object -ExpandProperty ProcessId';
@@ -452,8 +453,7 @@ async function main(nnaSource, nativeReplayGap = false, nativeAttachments = fals
     assert.equal((await realpath(registered.root)).toLowerCase(), packageRoot.toLowerCase(),
       'NNA selected a different NND package root');
     assert.equal(registered.version, packageVersion, 'NNA selected a different NND package version');
-    // Canonical 20261011-7 lifecycle: the installer never starts the service;
-    // the nna desktop surface owns start (the malformed branch restarts again).
+    // Canonical 20261011-7 lifecycle: the installer never starts the service.
     await cli(fixture, 'start');    if (malformedSource) {
       await cli(fixture, 'stop'); await waitStopped(fixture);
       await writeFile(join(fixture.data, 'config', 'manifest.json'), '{malformed native source');

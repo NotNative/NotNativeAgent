@@ -18,6 +18,98 @@ Ground rules (from the guides and both repositories' AGENTS/README):
   commit (NNA dependencies commit before NND consumers).
 - Distinguish `implemented-unverified` from `verified`. Mock success never closes parity.
 
+## 2026-10-12 (20261012-1) Prebuilt payload smoke verified; release gates resealed
+
+- `scripts/installed-prebuilt-smoke.mjs D:\ProjectRepo\NotNativeAgent` is GREEN:
+  the prebuilt payload staged into a disposable NNA (`~/p/nnd-accept-*`),
+  activated (retained owner + public controller), attached from Chromium and
+  Electron, stopped, and the fixture removed — final output `Prebuilt
+  20261012-1 staged, activated, attached from Chromium and Electron, and
+  removed on disposable NNA.`
+- Root-cause fix carried in: the activation PowerShell's stdio pipe outlives
+  its process (the detached retained owner keeps the write end open), so the
+  acceptance harness's `run()` waited on `close` forever after `exit`
+  (reproduced wedge; a temporary child-lifecycle trace proved `exit code=0`
+  with output complete, then `close` blocked). `run()` in
+  `installed-source-acceptance.mjs` now resolves on `exit` after a 250 ms
+  grace when `close` never arrives; the trace was removed after diagnosis.
+- NNA side: `requiredNndPayloadFiles()` dropped the deleted `tray.mjs`
+  (was failing the stage with `nnd_payload_invalid`).
+- NNA test debt closed (honest): the owned-lifecycle suite had been red
+  since `402ff2a1` (20261011-11) — that commit taught the supervisor to own
+  the renewable capability authority, but `nnd-service-owned-lifecycle`'s
+  eval'd fixture never received the new free symbols (`ReferenceError:
+  createNndServiceCapabilityAuthority/bootstrapCapability/...`; earlier
+  full-suite failures had been mis-attributed to contention). The fixture
+  now injects silent capability stand-ins (bind only, no timers) plus the
+  real pure health helpers (`verifyTrialGuiProof`, `boundedHealthBody` —
+  the test already computes the real HMAC proof); suite passes solo
+  (`node --test test/nnd-service-owned-lifecycle.test.js` exit 0), and the
+   full serialized suite `node --test --test-concurrency=1` is green: 2486
+   tests, 2478 pass, 0 fail, 8 skipped, plus NNA quality gates (572 files).
+   The 3 census/install-slots failures in an earlier parallel full run were
+   the known transient-process class (the census scans the live process
+   table; concurrent tests spawn short-lived `node` processes) and pass both
+   solo and serially.
+- Release gates (`node scripts/release-gates.js --write-hashes`, run with
+  `NNA_SOURCE_ROOT=D:\ProjectRepo\NotNativeAgent`) pass: quality 916 files
+  (browser surface split into `browser-surface-parts.tsx`, over-limit
+  functions re-trimmed), smoke, feature parity 117/117, settings coverage
+  223/223 rows, production build + CSS gate, manifest; the version ledger
+  entry for the still-uncommitted 20261012-1 iteration was resealed to the
+  current content (no VERSION bump).
+- Status: `verified` for the prebuilt smoke; 20261012-1 is seal-ready.
+
+## 2026-10-12 (20261012-1) F7 browser-only journey verified
+
+- The installed browser-only journey (`scripts/installed-browser-only-journey.mjs
+  --stage=all`, fresh fixture `installed-accept-5b5c03778f5347b5`) is GREEN
+  end-to-end with Electron never launched: the setup leg ran
+  `setup_required → receipt saved → ready`, then the governed tool chain
+  open → snapshot → inspect → click → type → capture produced
+  `page marker [FOUND]`, the honest `Raster capture is unavailable in a
+  browser-only tab` refusal as the capture outcome, and the fixture
+  dev-server port in discovery (run 68, 9m23s, 45 probe notes; state in
+  `$env:TEMP/f7-run-latest.json`, ledger in `docs/build/EXECUTION/F7-JOURNAL.md`).
+- Defects fixed on the way (each unit-gated): `server/app.ts` registered the
+  preview proxy after the harness `/api/*` catch-all, so preview requests were
+  forwarded to NNA and 404'd (`integration endpoint not found`) — now gated
+  but ahead of the catch-all, with a `createApp` regression test; the tab
+  executor's guest stays mounted while the pane is hidden so tool-driven
+  actions keep working, `waitFrame` polls instead of racing, and readiness
+  evaluates while hidden; the journey stub corrected to NNA contracts
+  (canonical lifecycle status is `succeeded`, marker search must survive
+  receipt projection, capture assert reads the chain entry). Web 1504 and
+  UI 2051 green.
+- Status: `verified` for the F7 browser-only journey (DEFERRED C4 F7 row
+  closed).
+
+## 2026-10-12 (20261012-1) Service-owned tray; desktop launch decoupled from service start
+
+- Tray decoupled from the Electron client: `scripts/nnd-tray-host.ps1` is a
+  standalone WinForms NotifyIcon host spawned by the supervised service child
+  after readiness (fire-and-forget, injectable in tests). Its lifetime is the
+  service generation's (watchdog exits on discovery-record removal or parent
+  death; per-data-root mutex dedups races). Tray Quit POSTs `/stop` to the
+  supervisor controller with the discovery control token, then exits.
+- `serve-supervised.mjs` no longer launches the desktop: removing the
+  post-ready Electron spawn ends the Chromium-boot race against the start
+  command's readiness handshake (suspected cause of the overnight
+  `Acceptance child timed out` start flakiness). Login auto-start is
+  headless; `nnd enable` boots service + tray only.
+- Electron client de-trayed: `tray.mjs` deleted; `main.mjs` close = client
+  quit (service unaffected); no service-stop path remains in the client.
+- Launcher: `launch-selected-desktop.mjs` uses `attachNativeService`
+  (starts the service when down) so the Start-menu icon always ends at an
+  open client over a running service.
+- NNA (separate commit): bounded child-stderr diagnostics
+  (`nnd-service-child.js` tees the supervised child's stderr into
+  `<data root>/nnd/diagnostics/nnd-service-child.log`, last 8 KiB) so silent
+  child crashes are diagnosable on installed machines.
+- Status: implemented-unverified for the installed tray/launcher behavior
+  (its journey pending); the F7 journey for this version is verified in the
+  section above; unit/structure evidence as in PROGRESS.
+
 ## 2026-10-12 (20261011-93/94) F7 bridge hardening + attach-mode browser callback blocker
 
 

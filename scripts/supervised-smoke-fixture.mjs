@@ -3,16 +3,17 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { SCRATCH_ROOT } from './test-scratch.mjs';
 import { writeInstalledServiceManifest, validateInstalledNndService } from './installed-service-package.mjs';
 import { copyPrebuiltPayload } from './prebuilt-payload-validation.mjs';
 
 export async function createSupervisedFixture(nna, nnd, { payloadRoot = null, nativeSlot = false } = {}) {
   if (nativeSlot && !payloadRoot) throw new Error('Native slot smoke requires a prebuilt payload');
   // Compatibility: keep disposable slot paths within external Windows runtime path limits.
-  const root = join(homedir(), `.ns-${randomUUID().replaceAll('-', '').slice(0, 24)}`);
+  // The slot lives in the shared machine scratch root (operator cleanup policy), not loose in the profile.
+  const root = join(SCRATCH_ROOT, `.ns-${randomUUID().replaceAll('-', '').slice(0, 24)}`);
   const script = "$ErrorActionPreference='Stop'; $root=[Console]::In.ReadToEnd(); "
     + "$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value; "
     + "$acl=[Security.AccessControl.DirectorySecurity]::new(); "
@@ -67,7 +68,7 @@ export async function createSupervisedFixture(nna, nnd, { payloadRoot = null, na
   }
 }
 export async function removeSupervisedFixture(root) {
-  assert.equal(dirname(root), homedir());
-  assert.match(root.slice(homedir().length), /^[\\/]\.ns-[a-f0-9]{24}$/u);
+  assert.equal(dirname(root), SCRATCH_ROOT);
+  assert.match(root.slice(SCRATCH_ROOT.length), /^[\\/]\.ns-[a-f0-9]{24}$/u);
   await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }

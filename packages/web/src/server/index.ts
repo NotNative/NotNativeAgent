@@ -45,7 +45,9 @@ export async function startServer(options?: { nativeHarness?: NativeHarnessOptio
   install: () => Promise<unknown>;
   getInstallError?: () => string | null;
   clearInstallError?: () => void;
-} }): Promise<{ port: number; browserControl: BrowserControlBroker; closed: Promise<void>; nativeAuth?: { issueTicket(): { ticket: string; expiresAt: string }; revoke(): void }; dispose(): void }> {
+} }): Promise<{ port: number; browserControl: BrowserControlBroker; closed: Promise<void>;
+  browserCallback?: { url: string; token: string };
+  nativeAuth?: { issueTicket(): { ticket: string; expiresAt: string }; revoke(): void }; dispose(): void }> {
   if (options?.nativeHarness && !options.nativeAuth) throw new Error('Native harness requires native UI authentication');
   if (options?.nativeHealthProof && (!options.nativeAuth ||
     options.nativeHealthProof.installationId !== options.nativeAuth.installationId ||
@@ -62,7 +64,9 @@ export async function startServer(options?: { nativeHarness?: NativeHarnessOptio
   try {
     browserControl = new BrowserControlBroker();
     const browserCallbackSecret = randomBytes(32).toString('base64url');
-    const browserCallback = options?.nativeHarness || process.env.NOTNATIVE_BROWSER_BRIDGE === 'disabled' ? undefined : {
+    // Attach mode registers the callback with the NNA integration host at
+    // runtime (F7): the supervised child publishes this descriptor after boot.
+    const browserCallback = process.env.NOTNATIVE_BROWSER_BRIDGE === 'disabled' ? undefined : {
       url: `http://127.0.0.1:${ENV.port}/api/browser-control/request`, token: browserCallbackSecret,
     };
     const agentToolCallbackSecret = randomBytes(32).toString('base64url');
@@ -74,7 +78,12 @@ export async function startServer(options?: { nativeHarness?: NativeHarnessOptio
     const running = await startConfiguredServer(localNna, browserControl, browserCallback ? browserCallbackSecret : undefined,
       agentToolCallback ? agentToolCallbackSecret : undefined, options?.desktopUpdater, lifecycle, options?.nativeHealthProof);
     const nativeAuth = nativeBinding?.controller.nativeHandle();
-    return { ...running, ...(nativeAuth ? { nativeAuth: { issueTicket: nativeAuth.issueTicket, revoke: () => running.dispose() } } : {}) };
+    // The supervised attach child needs the descriptor to register the
+    // callback with the NNA integration host; local/child modes already
+    // carry it by env and must not echo the secret on the handle.
+    return { ...running,
+      ...(browserCallback && options?.nativeHarness ? { browserCallback } : {}),
+      ...(nativeAuth ? { nativeAuth: { issueTicket: nativeAuth.issueTicket, revoke: () => running.dispose() } } : {}) };
   } catch (error) {
     // If a later server subsystem (for example a port bind) rejects boot, the
     // child already authenticated to this process must not survive orphaned.

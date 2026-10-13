@@ -3,6 +3,63 @@
 Goal: the Windows NND product defined by [PLAN](PLAN.md), backed by independent NNA.
 The planning corpus supplies UX reference; current execution authority is PLAN and EXECUTION.
 
+## 2026-10-12 · Tray decoupled from the desktop client; service-owned tray; F7 attach chain runtime-registered · NND 20261012-1
+
+Lifecycle ownership contract (sealed in installer-structure assertions): the
+tray icon is coupled to the SERVICE, never to the Electron client. The
+supervised service child spawns a lightweight tray host
+(`scripts/nnd-tray-host.ps1`, WinForms NotifyIcon — no Chromium boot) after
+the readiness frame; the tray lives exactly as long as its service
+generation (watchdog on the discovery record and on parent death), its Quit
+stops the service, and the service NEVER launches the desktop client. The
+client is a plain window: close quits the client only; boot failure exits.
+`packages/electron/tray.mjs` is deleted and `main.mjs` no longer creates a
+tray or requests service stops. The Start-menu launcher opens the client and
+starts the service first if it is down (`attachNativeService` start-if-down,
+on top of the launcher's idempotent `desktop start`); login auto-start
+(`nnd enable`) now yields a headless service plus tray with no window, and
+`nnd stop` stops service + tray together. Electron suite 223, serve-supervised
+5/5, installer-structure 2/2, launcher/payload/release 15/15, quality gates
+914 files green; packaged at 20261012-1 (no version bump this seal).
+
+F7 attach chain: the supervised child registers the browser callback with the
+running NNA integration host at boot (bounded retries + diagnostics record),
+NNA installs `nnd_browser` into the provider surface (12 tools), and the
+installed browser-only journey drives the governed open/snapshot/inspect/
+click/type chain against a fixture dev-server page with the desktop surface
+never launched. VERIFIED 2026-10-12: the journey passed `--stage=all` on a
+fresh fixture (setup `setup_required → receipt saved → ready`, chain with
+`page marker [FOUND]`, the honest `Raster capture is unavailable in a
+browser-only tab` capture refusal, fixture port discovered; run 68, 9m23s).
+Fixes carried in: preview-proxy registration moved ahead of the harness
+`/api/*` catch-all in `server/app.ts` (regression test), the tab executor's
+guest stays mounted while hidden, `waitFrame` polling, readiness evaluated
+while the pane is hidden, and the journey's stub aligned to NNA contracts
+(lifecycle `succeeded`, receipt-projection-safe marker). Oracles: web 1504,
+UI 2051; NNA payload contract dropped the deleted `tray.mjs` requirement
+(24/24 install-slots). Run state `$env:TEMP/f7-run-latest.json`; ledger in
+`docs/build/EXECUTION/F7-JOURNAL.md`.
+
+Seal pass (same slice, still 20261012-1): the prebuilt payload smoke
+(`scripts/installed-prebuilt-smoke.mjs`) is VERIFIED 2026-10-12 — staged,
+activated, attached from Chromium and Electron, stopped, and removed on a
+disposable NNA. The attempts exposed a real harness defect: the activation
+PowerShell's stdio pipe outlives the process (the detached retained owner
+holds the write end), so `run()` waited on `close` forever after `exit`
+(frozen-step attempts; diagnosed with a temporary child-lifecycle trace,
+removed after the fix). `run()` now resolves on `exit` after a bounded 250 ms
+grace when `close` never arrives — the child's output is complete at exit.
+Full acceptance then re-ran green as F7 run 72 (fresh fixture, `verdict PASS`,
+45 notes, 19 tool results, 8m35s), validating the quality-gate refactor of the
+journey's `main()`. Quality gates re-passed at 916 files after splitting the browser surface's
+inspection and discovery panels into `browser-surface-parts.tsx` and
+re-trimming over-limit functions; `release-gates --write-hashes` with
+`NNA_SOURCE_ROOT` set resealed the uncommitted 20261012-1 iteration (settings
+coverage 223/223 rows) with no version bump. Final oracle pass: NND typecheck
+exit 0, UI suite 2051/2051, web suite 1504/1504; NNA quality gates at 572
+files and the full serialized suite `node --test --test-concurrency=1`
+2478 pass / 0 fail / 8 skipped (2486) after bumping NNA to 20261012-1.
+
 ## 2026-10-11 · Rounds 20–22: F9 step 2 multi-run routes, native revert, ledger dispositions · NND 20261011-32 / NNA 20261011-10
 
 F9 step 2 (NND 20261011-30): the desktop orchestration carries the resolved

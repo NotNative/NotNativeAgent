@@ -24,6 +24,11 @@ function inFamily(path: string, family: string): boolean {
 
 export function nativeAlphaMutationUnavailable(method: string, path: string): boolean {
   if (!nativeServiceTerminalUnavailable() || ['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) return false;
+  // The desktop browser bridge is not an NND-owned mutation: only the
+  // token-authenticated NNA child callback reaches it, and the tool side is
+  // governed by NNA's own reviewer chain (F7 contract). The preview readiness
+  // probe is a read-only reachability check that the bridge guest waits on.
+  if (path === '/api/browser-control/request' || path === '/api/system/probe-url') return false;
   if (CLOSED_FAMILIES.some(family => inFamily(path, family))) return true;
   return /^\/api\/projects\/[^/]+\/(?:config|scheduled-tasks)(?:\/|$)/u.test(path);
 }

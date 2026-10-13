@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Hono } from 'hono';
+import { createApp } from '../app.ts';
 import { registerPreviewProxyRoutes } from '../preview/preview-proxy.ts';
 
 function htmlResponse(body: string, headers: Record<string, string> = {}): Response {
@@ -26,6 +27,19 @@ describe('same-origin preview proxy', () => {
     expect(body).toContain('__nndBrowserBridgePerform');
     const refused = await app.request('http://nnd.local/api/preview-proxy/9999/index.html');
     expect(refused.status).toBe(403);
+  });
+
+  it('registers ahead of the harness catch-all inside createApp', async () => {
+    vi.stubEnv('NOTNATIVE_RUNTIME', 'service');
+    vi.stubEnv('NOTNATIVE_HARNESS', 'nna');
+    try {
+      const app = createApp({ previewProxyPorts: async () => [] });
+      const response = await app.request('http://nnd.local/api/preview-proxy/5173/');
+      // The harness catch-all answers 502/forwards to NNA (404 'integration
+      // endpoint not found') when the preview routes register after it.
+      expect(response.status).toBe(403);
+      expect(await response.text()).toContain('not an available dev server');
+    } finally { vi.unstubAllEnvs(); }
   });
 
   it('strips operator credentials and hop-by-hop headers, drops framing denials', async () => {

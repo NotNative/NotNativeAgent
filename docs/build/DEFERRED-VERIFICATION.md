@@ -69,8 +69,13 @@ NNA `20261011-10`, disposable fixtures only):
 - [x] `--native-removal` (A6 uninstall leg)
 - [x] `node scripts/installed-prebuilt-smoke.mjs <NNA root>` (prebuilt first install)
       — passed 2026-10-11 at NND `20261011-79` ("staged, activated, attached
-      from Chromium and Electron, and removed on disposable NNA"). The
-      original in-session failure was an NNA defect: the unpublished-trial
+      from Chromium and Electron, and removed on disposable NNA"). Re-VERIFIED
+      2026-10-12 at NND `20261012-1` (same final output) after carrying a
+      harness fix: the activation PowerShell's stdio pipe outlives the process
+      (the detached retained owner holds the write end), so `run()` resolves
+      on `exit` with a bounded 250 ms grace when `close` never arrives —
+      diagnosed with a temporary child-lifecycle trace, removed after the fix.
+      The original in-session failure was an NNA defect: the unpublished-trial
       supervisor path (`startUnpublishedTrial`) never created the renewable
       capability authority, so `bootstrapCapability` crashed with a TypeError
       before the readiness frame; fixed in NNA `20261011-11`
@@ -169,7 +174,7 @@ NNA `20261011-10`, disposable fixtures only):
 
 ## C4 rows awaiting installed application evidence
 
-- [ ] F7 browser-only journey (guide 04:148-150): run the required
+- [x] F7 browser-only journey (guide 04:148-150): run the required
       preview/inspection/capture/annotation flow with Electron never
       launched and deliver the attachment to native execution. Source side
       is built (`preview/browser-control-broker.ts` +
@@ -218,6 +223,35 @@ NNA `20261011-10`, disposable fixtures only):
       the tool), or the NNA supervisor re-execs its integration child with
       the callback env after NND publishes its UI origin. NNA change
       required; do not fake around it.
+      — RUNTIME REGISTRATION LANDED (20261012-1): the attach contract is
+      closed at the protocol level. The supervised child now POSTs a
+      browser-callback descriptor to the already-running NNA integration
+      host (`serve-supervised.mjs registerBrowserCallback`, bounded retries,
+      outcome recorded in the service data root
+      `diagnostics/browser-callback-registration.json`); the NNA host
+      accepts the runtime registration and installs `nnd_browser` for
+      sessions created afterwards (NNA side: `core-names.js` adds
+      `nnd_browser` to the foundational + eligible tool surface so the
+      planner exposes it without a lease). Installed journeys observed the
+      full chain: registration `registered` (200), provider surface
+      `tool_count 12`, governed open/snapshot/inspect/click/type tool
+      results flowing through the NNA tool-result envelopes, and the
+      desktop surface never launched. The semantic-reviewer route is part
+      of the journey's smoke configuration; a missing reviewer route
+      fail-closes to `deny_with_guidance` (honest behavior, observed).
+      Remaining for the green row: the installed journey end-to-end pass
+      (journey runs in this seal; see PROGRESS for the final disposition).
+      — VERIFIED (20261012-1): the installed browser-only journey passed
+      end-to-end (`scripts/installed-browser-only-journey.mjs --stage=all`
+      on a fresh fixture, `installed-accept-5b5c03778f5347b5`): the setup
+      leg ran `setup_required → receipt saved → ready`, then the governed
+      chain open → snapshot → inspect → click → type → capture produced
+      `page marker [FOUND]`, the honest `Raster capture is unavailable in
+      a browser-only tab` refusal as the capture outcome, and the fixture
+      dev-server port in `discovered` — with Electron never launched.
+      Journey run state is machine-read each run from
+      `$env:TEMP/f7-run-latest.json`; the run ledger lives in
+      `docs/build/EXECUTION/F7-JOURNAL.md` (runs 54–68).
 - [ ] F10 notification delivery across both doors (browser push + desktop
       click/deep-link routing, dedup/read-state coherence, no private
       content in OS notifications) — `lib/browser-push.ts` and the

@@ -893,10 +893,8 @@ describe('BrowserSurface', () => {
     expect(probe).toHaveBeenCalledTimes(2);
   });
 
-  it('unmounts a hidden preview and checks readiness again when revealed', async () => {
-    let resolveSecond!: (response: object) => void;
-    const probe = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, status: 200 }) })
-      .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; }));
+  it('keeps the tab preview guest mounted while hidden so tool-driven actions keep working', async () => {
+    const probe = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, status: 200 }) });
     globalThis.fetch = vi.fn().mockImplementation((url: string) => url === '/api/system/probe-url'
       ? probe() : Promise.resolve({ ok: true, json: async () => ({ servers: [] }) }));
     const view = render();
@@ -904,12 +902,12 @@ describe('BrowserSurface', () => {
     await flush();
     expect(view.querySelector('iframe')).not.toBeNull();
     setVisible(false);
-    expect(view.querySelector('iframe')).toBeNull();
+    const hiddenFrame = view.querySelector('iframe');
+    expect(hiddenFrame).not.toBeNull();
+    expect(hiddenFrame?.classList.contains('hidden')).toBe(true);
+    expect(probe).toHaveBeenCalledTimes(1);
     setVisible(true);
-    expect(probe).toHaveBeenCalledTimes(2);
-    expect(view.querySelector('iframe')).toBeNull();
-    await act(async () => resolveSecond({ ok: true, json: async () => ({ ok: true, status: 200 }) }));
-    expect(view.querySelector('iframe')).not.toBeNull();
+    expect(view.querySelector('iframe')?.classList.contains('hidden')).toBe(false);
   });
 
   it('keeps a stale history probe from opening the previous URL', async () => {

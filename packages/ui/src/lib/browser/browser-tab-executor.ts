@@ -85,9 +85,24 @@ function requireObserved(state: ExecutorState, input: Record<string, unknown>, d
   }
 }
 
+// A tool-driven open reveals the preview pane asynchronously; bounded waits
+// keep the first snapshot from racing the guest mount.
+async function waitForFrame(action: string, frame: HTMLIFrameElement | null,
+  deps: ExecutorDeps): Promise<HTMLIFrameElement | null> {
+  if (action === 'browser.open') return frame;
+  const started = Date.now();
+  for (;;) {
+    const candidate = deps.getFrame();
+    if (candidate?.contentWindow) return candidate;
+    if (Date.now() - started >= 10_000) return candidate;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
 async function runAction(action: string, rawParameters: unknown, frame: HTMLIFrameElement | null,
   state: ExecutorState, deps: ExecutorDeps, random: () => string): Promise<BridgeOutcome> {
   const input = (rawParameters ?? {}) as Record<string, unknown>;
+  const bridgeFrame = await waitForFrame(action, frame, deps);
   try {
     if (action === 'browser.open') {
       const requested = String(input.url ?? '');
@@ -100,7 +115,7 @@ async function runAction(action: string, rawParameters: unknown, frame: HTMLIFra
       return { ok: true, data: { url: requested, opened: true, settled: false } };
     }
     if (action === 'browser.snapshot') {
-      const outcome = await bridgeAsk(frame, 'browser.snapshot', {}, state, random);
+      const outcome = await bridgeAsk(bridgeFrame, 'browser.snapshot', {}, state, random);
       if (!outcome.ok) return outcome;
       const page = outcome.data as { title?: unknown; text?: unknown; nodeCount?: unknown };
       state.revision += 1;
@@ -110,21 +125,21 @@ async function runAction(action: string, rawParameters: unknown, frame: HTMLIFra
         observationId: state.observation.id } };
     }
     if (action === 'browser.inspect') {
-      return await bridgeAsk(frame, 'browser.inspect', { selector: String(input.selector ?? '') }, state, random);
+      return await bridgeAsk(bridgeFrame, 'browser.inspect', { selector: String(input.selector ?? '') }, state, random);
     }
     requireObserved(state, input, deps);
     if (action === 'browser.click') {
-      return await bridgeAsk(frame, 'browser.click', { selector: String(input.selector ?? '') }, state, random);
+      return await bridgeAsk(bridgeFrame, 'browser.click', { selector: String(input.selector ?? '') }, state, random);
     }
     if (action === 'browser.type') {
-      return await bridgeAsk(frame, 'browser.type', { selector: String(input.selector ?? ''),
+      return await bridgeAsk(bridgeFrame, 'browser.type', { selector: String(input.selector ?? ''),
         text: String(input.text ?? '') }, state, random);
     }
     if (action === 'browser.scroll') {
-      return await bridgeAsk(frame, 'browser.scroll', { direction: String(input.direction ?? '') }, state, random);
+      return await bridgeAsk(bridgeFrame, 'browser.scroll', { direction: String(input.direction ?? '') }, state, random);
     }
     if (action === 'browser.history') {
-      return await bridgeAsk(frame, 'browser.history', { direction: String(input.direction ?? '') }, state, random);
+      return await bridgeAsk(bridgeFrame, 'browser.history', { direction: String(input.direction ?? '') }, state, random);
     }
     if (action === 'browser.capture') {
       return { ok: false, error: 'Raster capture is unavailable in a browser-only tab; no capture was produced. '

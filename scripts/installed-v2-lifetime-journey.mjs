@@ -11,88 +11,14 @@ import { mkdir, readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startAttachmentProvider, setupBrowserProbe } from './installed-attachment-probe.mjs';
+import { startAttachmentProvider } from './installed-attachment-probe.mjs';
+import { setupBrowserProbe } from './installed-setup-probe.mjs';
 import { acceptanceEvidence, checkedFixturePath, cli, prepare, privateDirectory,
   run, selectedPackage, shell, waitStopped } from './installed-source-acceptance.mjs';
+import { afterRestartProbe, browserFirstProbe, desktopObserveProbe, serviceStopProbe } from './installed-probe-library.mjs';
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-const V2_TITLE = 'V2 browser first turn';
-
-function browserFirstProbe() {
-  return '(async()=>{'
-    + "const post=async(p,b)=>fetch(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});"
-    + "const delay=ms=>new Promise(r=>setTimeout(r,ms));"
-    + "const getMessages=async id=>{const r=await fetch('/api/session/'+id+'/message');"
-    + "if(r.status!==200)throw Error('message read '+r.status);return r.json();};"
-    + "const made=await post('/api/session',{title:" + JSON.stringify(V2_TITLE) + '});'
-    + 'if(made.status!==201)throw Error(\'create \'+made.status+\': \'+await made.text());'
-    + 'const id=(await made.json()).id;'
-    + "const sent=await post('/api/session/'+id+'/prompt_async',{messageID:'v2t1',agent:'nna',"
-    + "parts:[{type:'text',text:'V2 browser-first governed turn.'}]});"
-    + 'if(sent.status!==204)throw Error(\'submit \'+sent.status+\': \'+await sent.text());'
-    + 'let list=[];for(let i=0;i<300;i++){list=await getMessages(id);if(list.length>=2)break;await delay(200);}'
-    + 'if(list.length<2)throw Error(\'browser-first turn did not settle: \'+list.length);'
-    + 'let rows=[];for(let i=0;i<100;i++){'
-    + 'rows=[...document.querySelectorAll(\'[data-testid="session-row"]\')].map(r=>r.textContent);'
-    + 'if(rows.some(t=>t.includes(' + JSON.stringify(V2_TITLE) + ')))break;await delay(100);}'
-    + 'if(!rows.some(t=>t.includes(' + JSON.stringify(V2_TITLE) + ')))'
-    + 'throw Error(\'browser session row missing: \'+JSON.stringify(rows));'
-    + 'return {session:id,messages:list.length};'
-    + '})()';
-}
-
-function desktopObserveProbe() {
-  return '(async()=>{'
-    + 'const delay=ms=>new Promise(r=>setTimeout(r,ms));'
-    + 'let rows=[];for(let i=0;i<150;i++){'
-    + 'rows=[...document.querySelectorAll(\'[data-testid="session-row"]\')].map(r=>r.textContent);'
-    + 'if(rows.some(t=>t.includes(' + JSON.stringify(V2_TITLE) + ')))break;await delay(100);}'
-    + 'if(!rows.some(t=>t.includes(' + JSON.stringify(V2_TITLE) + ')))'
-    + 'throw Error(\'desktop window did not show the browser-created session: \'+JSON.stringify(rows));'
-    + 'const pill=document.querySelector(\'[data-testid="connection-pill"]\');'
-    + 'if(!pill)throw Error(\'desktop connection pill missing\');'
-    + 'return {sawSession:true,pill:pill.textContent};'
-    + '})()';
-}
-
-function serviceStopProbe() {
-  return '(async()=>{/*STOP_OBSERVE*/'
-    + "const delay=ms=>new Promise(r=>setTimeout(r,ms));"
-    // The tab loaded while the service was alive; wait for the driver's
-    // delayed explicit stop to take effect, then judge the offline state.
-    + 'let live=true;const deadline=Date.now()+180000;'
-    + 'while(Date.now()<deadline){try{const r=await fetch(\'/api/v1/nnd/setup/status\');live=r.status===200;}'
-    + 'catch(error){live=false;}if(!live)break;await delay(500);}'
-    + 'if(live)throw Error(\'service never stopped under the loaded browser tab\');'
-    + 'const pill=document.querySelector(\'[data-testid="connection-pill"]\');'
-    + 'if(!pill)throw Error(\'browser connection pill missing while stopped\');'
-    + 'let outcome;try{const r=await fetch(\'/api/v1/nnd/setup/status\');outcome={status:r.status};}'
-    + 'catch(error){outcome={status:\'unreachable\'};}'
-    + 'if(outcome.status===200)throw Error(\'stopped service still served status 200\');'
-    + 'return {outcome,pill:pill.textContent,stillRendered:document.body.textContent.length>0};'
-    + '})()';
-}
-
-function afterRestartProbe(sessionId) {
-  return '(async()=>{'
-    + "const delay=ms=>new Promise(r=>setTimeout(r,ms));"
-    + "const getMessages=async id=>{const r=await fetch('/api/session/'+id+'/message');"
-    + "if(r.status!==200)throw Error('message read '+r.status);return r.json();};"
-    + 'const listed=await fetch(\'/api/session\');'
-    + 'if(listed.status!==200)throw Error(\'session list \'+listed.status);'
-    + 'const delay2=ms=>new Promise(r=>setTimeout(r,ms));'
-    + 'let view=await listed.json();'
-    + 'const findSession=()=>(view.recent??[]).some(item=>item.id===' + JSON.stringify(sessionId) + ');'
-    + 'for(let i=0;i<120&&!findSession();i++){await delay2(500);'
-    + 'const again=await fetch(\'/api/session\');if(again.status!==200)throw Error(\'session list \'+again.status);'
-    + 'view=await again.json();}'
-    + 'let list=[];for(let i=0;i<300;i++){list=await getMessages(' + JSON.stringify(sessionId) + ');'
-    + 'if(list.length>=2)break;await delay(200);}'
-    + 'if(list.length!==2)throw Error(\'restart duplicated or lost turn history: \'+list.length);'
-    + 'return {recent:(view.recent??[]).length,messages:list.length};'
-    + '})()';
-}
 
 async function installFixture(fixture, label) {
   return run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',

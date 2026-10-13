@@ -162,6 +162,19 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, com
     if (request.tab === 'diff' || request.tab === 'git') setChangesMode(request.tab);
     setReviewRequest(null);
   });
+  // A tool-driven browser open reveals the Browser pane so the preview guest
+  // exists for the governed bridge actions (F7).
+  useEffect(() => {
+    const request = () => {
+      if (selection.key !== selectionKey) return;
+      if (!panels.visible.includes('browser')) changePanels({ ...panels, visible: [...panels.visible, 'browser'] });
+      setBrowserOpenedKey(storageKey);
+      setPanelOpen(true);
+      setSelection({ key: selectionKey, surface: 'browser' });
+    };
+    window.addEventListener('nnd-browser-pane-request', request);
+    return () => window.removeEventListener('nnd-browser-pane-request', request);
+  }, [selection.key, selectionKey, panels, changePanels, storageKey]); // panelOpen setter is stable
   // Keep opened views mounted across rail surfaces. A project switch remounts
   // Notes, while the single dirty-draft lease above survives that remount.
   const [terminalOpenedKey, setTerminalOpenedKey] = useState<string | null>(() => selection.surface === 'terminal' ? storageKey : null);

@@ -191,12 +191,19 @@ export async function lookupNativeConfigurationOperation(identity: { installatio
   catch (error) { if (error instanceof NativeConfigurationFailure && error.code === 'operation_not_found') return null; throw error; }
 }
 export function nativeRepairDocument(input: unknown): Record<string, unknown> {
-  if (!record(input) || !record(input.provider)) throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
+  if (!record(input)) throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
   const provider = input.provider;
-  if (Object.keys(input).some(key => !['workspace_root', 'provider'].includes(key))
+  // Structured provider collections and route tables travel with the document
+  // and are validated by NNA against the full configuration contract; only
+  // their presence as plain containers is checked here. The singular legacy
+  // provider field is optional when a providers array carries the profiles.
+  const structured = (key: string) => input[key] === undefined
+    || (key === 'providers' && Array.isArray(input[key])) || (key === 'routes' && record(input[key]));
+  if ((!record(provider) && !Array.isArray(input.providers))
+    || Object.keys(input).some(key => !['workspace_root', 'provider', 'providers', 'routes'].includes(key)) || !structured('providers') || !structured('routes')
     || typeof input.workspace_root !== 'string' || !input.workspace_root.trim() || input.workspace_root.length > 4096
-    || Object.keys(provider).some(key => !['id', 'endpoint', 'model', 'trust_zone'].includes(key))
-    || !['id', 'endpoint', 'model', 'trust_zone'].every(key => typeof provider[key] === 'string' && (provider[key] as string).length > 0)) {
+    || (record(provider) && (Object.keys(provider).some(key => !['id', 'endpoint', 'model', 'trust_zone'].includes(key))
+      || !['id', 'endpoint', 'model', 'trust_zone'].every(key => typeof provider[key] === 'string' && (provider[key] as string).length > 0)))) {
     throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
   }
   return input;

@@ -12,13 +12,12 @@ import { executeDesktopType } from '../lib/browser/desktop-type-action.ts';
 import { executeDesktopCapture } from '../lib/browser/desktop-capture-action.ts';
 import { executeDesktopHistory, historyNavigationPending as historyPendingNow, type HistoryPending } from '../lib/browser/desktop-history-action.ts';
 import { BrowserAnnotationControls } from './browser-annotation-controls.tsx';
+import { InspectionPanel, PreviewEmptyState, type Discovery } from './browser-surface-parts.tsx';
 import { usePreviewReadiness } from '../lib/browser/preview-readiness.ts';
 import { isDesktopShell } from '../lib/platform.ts';
 import { connectBrowserTabExecutor, previewProxyUrl } from '../lib/browser/browser-tab-executor.ts';
 
 interface DiscoveredServer { port: number; url: string; command: string }
-type Discovery = { kind: 'loading' | 'unavailable'; servers: [] }
-  | { kind: 'ready'; servers: DiscoveredServer[] };
 type GuestStatus = { kind: 'loading' | 'ready' | 'failed'; message: string };
 type ControlRequest = { requestId: string; action: string; parameters: Record<string, unknown> };
 
@@ -57,6 +56,7 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   const [annotationShieldTarget, setAnnotationShieldTarget] = useState<HTMLDivElement | null>(null);
   const [guestStart, setGuestStart] = useState<string | null>(null);
   const [guestStatus, setGuestStatus] = useState<GuestStatus | null>(null);
+  const [executorStatus, setExecutorStatus] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<PageSnapshot | null>(null);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
@@ -80,7 +80,9 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   // An in-page guest navigation must not remount the guest or restart the
   // startup probe. Only an explicit toolbar command changes guestStart.
   const readinessTarget = desktop ? guestStart : active;
-  const readiness = usePreviewReadiness(readinessTarget, reload, visible, localRuntime);
+  // Readiness must evaluate even while the pane is hidden: the tab guest stays
+  // mounted for tool-driven actions (F7), and its gate waits on this probe.
+  const readiness = usePreviewReadiness(readinessTarget, reload, true, localRuntime);
   const probeKey = `${readinessTarget ?? ''}|${reload}`;
   const waitForLocal = localRuntime && isLoopbackPreview(readinessTarget);
   const probeState = readiness?.key === probeKey ? readiness.state : 'checking';
@@ -114,7 +116,14 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
     const handle = connectBrowserTabExecutor(window.location.origin, {
       getFrame: () => tabFrameRef.current,
       currentUrl: () => historyRef.current[indexRef.current],
-      onOpen: (url) => { if (normalizePreviewUrl(url, window.location.origin)) open(url); },
+      onStatus: (status) => setExecutorStatus(status),
+      onOpen: (url) => {
+        if (!normalizePreviewUrl(url, window.location.origin)) return;
+        open(url);
+        // A tool-driven open must reveal the Browser pane so the preview guest
+        // exists for the governed bridge actions.
+        window.dispatchEvent(new CustomEvent('nnd-browser-pane-request'));
+      },
     });
     return () => handle.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -466,35 +475,20 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
         blocked={() => otherActionPending() || snapshotBusy}
         onActive={(value) => { annotationActive.current = value; if (value) invalidateInspection(); }} /> : null}
       {desktop && guestStatus ? <p role="status" className={`mt-1 text-[11px] ${guestStatus.kind === 'failed' ? 'text-amber-300' : 'text-neutral-400'}`}>{guestStatus.message}</p> : null}
+      {executorStatus !== null ? <span data-testid="browser-executor-status" className="text-[10px] text-neutral-500">{executorStatus}</span> : null}
       {snapshotError ? <p role="alert" className="mt-1 text-[11px] text-amber-300">{snapshotError}</p> : null}
     </header>
-    {snapshot ? <div className="max-h-56 overflow-auto border-b border-white/10 p-2 text-[11px] text-neutral-300" data-testid="browser-page-snapshot">
-      <div className="flex justify-between"><strong>{snapshot.title || snapshot.url}</strong><button type="button" className="underline" onClick={() => setSnapshot(null)}>Close inspection</button></div>
-      <p className="mt-1 break-all text-neutral-500">{snapshot.url}</p>
-      <p className="mt-1">{snapshot.text}{snapshot.textTruncated ? '…' : ''}</p>
-      <p className="mt-2 text-neutral-500">{snapshot.interactiveElementsOnPage} interactive elements{snapshot.elementsTruncated ? ' (first 120 shown)' : ''}</p>
-      <ul>{snapshot.elements.map((element, idx) => <li key={`${element.selector}-${idx}`} className="truncate">{element.tag} · {element.label || '(unlabeled)'} · {element.selector}</li>)}</ul>
-    </div> : null}
+    {snapshot ? <InspectionPanel snapshot={snapshot} onClose={() => setSnapshot(null)} /> : null}
     {active && waitForLocal && probeState !== 'ready' ? <div className="p-3 text-xs text-neutral-400" role="status">
       {probeState === 'checking' ? 'Waiting for local server to start…' : probeState === 'timed-out'
         ? 'Local server did not answer within 30 seconds.' : 'Readiness check unavailable.'}
       {probeState !== 'checking' ? <button type="button" className="ml-2 underline" onClick={() => setReload((value) => value + 1)}>Retry</button> : null}
     </div> : null}
-    {active && visible && (!waitForLocal || probeState === 'ready') ? desktop
+    {active && (!waitForLocal || probeState === 'ready') && (visible || !desktop) ? desktop
       ? <div className="relative min-h-0 flex-1" ref={setAnnotationShieldTarget}>
         <webview key={`${guestStart}|${reload}`} ref={(node) => { guestRef.current = node; }} title="Isolated desktop browser preview" src={guestStart ?? active} partition="nnd-preview" className="h-full w-full border-0 bg-white" />
       </div>
-      : <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={previewProxyUrl(active) ?? active} sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer" ref={(node) => { tabFrameRef.current = node; }} className="min-h-0 w-full flex-1 border-0 bg-white" /> : !active ?
-      <div className="p-3 text-[11px] text-neutral-500">
-        <p>{desktop ? 'Enter a local dev-server or HTTPS site to open in an isolated desktop browser. Governed agent inspection and viewport capture require an open page; annotation remains pending.' : 'Enter a local dev-server or website address to preview it. Loopback dev servers load through the same-origin preview proxy, so governed inspection and DOM capture work here without Electron. Other sites that prohibit embedding may not display.'}</p>
-        <div className="mt-3 flex items-center gap-2"><span className="text-neutral-300">Listening dev servers</span>
-          {localRuntime ? <button type="button" onClick={() => setScanRevision((value) => value + 1)} className="underline">Refresh</button> : null}</div>
-        {!localRuntime ? <p role="status">Server discovery is available only when this browser runs on the server machine. Enter a reachable address manually.</p> : null}
-        {localRuntime && discovery.kind === 'loading' ? <p role="status">Scanning local ports…</p> : null}
-        {localRuntime && discovery.kind === 'unavailable' ? <p role="status">Discovery unavailable; enter an address manually.</p> : null}
-        {localRuntime && discovery.kind === 'ready' && discovery.servers.length === 0 ? <p role="status">No local dev servers found.</p> : null}
-        {localRuntime && discovery.kind === 'ready' ? <ul>{discovery.servers.map((server) => <li key={server.port}>
-          <button type="button" className="py-1 text-sky-300 underline" onClick={() => open(server.url)}>{server.url}{server.command ? ` · ${server.command}` : ''}</button></li>)}</ul> : null}
-      </div> : null}
+      : <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={previewProxyUrl(active) ?? active} sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer" ref={(node) => { tabFrameRef.current = node; }} className={`${visible ? '' : 'hidden '}min-h-0 w-full flex-1 border-0 bg-white`} /> : !active ? <PreviewEmptyState desktop={desktop} localRuntime={localRuntime} discovery={discovery}
+        onScan={() => setScanRevision((value) => value + 1)} onOpen={open} /> : null}
   </section>;
 }

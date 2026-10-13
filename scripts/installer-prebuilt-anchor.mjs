@@ -12,6 +12,7 @@ const VERSIONS = /^\d{8}-[1-9]\d{0,5}$/u;
 const LAUNCHER_FILES = Object.freeze([
   'scripts/launch-selected-desktop.ps1',
   'scripts/launch-selected-desktop.mjs',
+  'scripts/nnd-tray-host.ps1',
   'scripts/resolve-active-nnd-package.mjs',
   'packages/electron/native-service-client.mjs',
   'packages/electron/native-service-selection.mjs',

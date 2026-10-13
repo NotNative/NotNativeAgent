@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Private NNA-child callback; UI sessions and URL tokens grant no access. */
 import { timingSafeEqual } from 'node:crypto';
-import type { Hono } from 'hono';
+import type { Context, Hono } from 'hono';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { BrowserControlBroker, BrowserControlError } from './browser-control-broker.ts';
 import { nativeAlphaMutationUnavailable, nativeAlphaUnavailableResponse } from '../routes/native-alpha-surface.ts';
@@ -13,9 +13,37 @@ function secretMatches(actual: string | undefined, expected: string): boolean {
   return actualBytes.length === expectedBytes.length && timingSafeEqual(actualBytes, expectedBytes);
 }
 
+/** Bounded install diagnostics: one line per browser-control outcome, capped
+ *  by rewrite. Lives only in the service's own data-root diagnostics folder. */
+function recordBrowserControlDiagnostic(entry: Record<string, unknown>): void {
+  try {
+    const dataDir = process.env.NOTNATIVE_DATA_DIR;
+    if (!dataDir) return;
+    const line = JSON.stringify({ at: new Date().toISOString(), ...entry }) + '\n';
+    void import('node:fs').then((fs) => {
+      const path = `${dataDir}/diagnostics/browser-control.jsonl`;
+      fs.mkdir(`${dataDir}/diagnostics`, { recursive: true }, () => {
+        fs.appendFile(path, line, () => {
+          fs.stat(path, (statError, stats) => {
+            if (statError || !stats || stats.size < 262_144) return;
+            fs.readFile(path, 'utf8', (readError, text) => {
+              if (readError) return;
+              const tail = text.split('\n').slice(-128).join('\n');
+              fs.writeFile(path, tail, () => { /* bounded rewrite */ });
+            });
+          });
+        });
+      });
+    });
+  } catch { /* diagnostics are best effort */ }
+}
+
 export function registerBrowserControlCallback(app: Hono, broker: BrowserControlBroker, secret: string): void {
   app.post('/api/browser-control/request', async (c) => {
-    if (!secretMatches(c.req.header('x-nnd-browser-token'), secret)) return c.json({ error: 'unauthorized' }, 401);
+    if (!secretMatches(c.req.header('x-nnd-browser-token'), secret)) {
+      recordBrowserControlDiagnostic({ kind: 'request', outcome: 'unauthorized' });
+      return c.json({ error: 'unauthorized' }, 401);
+    }
     if (nativeAlphaMutationUnavailable(c.req.method, c.req.path)) return nativeAlphaUnavailableResponse(c);
     // A 2,000-character type payload can exceed 4 KiB once JSON/UTF-8 encoded.
     // The per-field limits below still constrain the accepted action shape.
@@ -62,13 +90,23 @@ export function registerBrowserControlCallback(app: Hono, broker: BrowserControl
         || typeof parameters.observationId !== 'string' || !/^[0-9a-f-]{36}$/u.test(parameters.observationId))
         return c.json({ error: 'invalid capture target' }, 400);
     } else if (Object.keys(parameters).length !== 0) return c.json({ error: 'snapshot takes no parameters' }, 400);
-    try {
-      const result = await broker.request(body.action as 'browser.open' | 'browser.snapshot' | 'browser.inspect' | 'browser.click' | 'browser.scroll' | 'browser.history' | 'browser.type' | 'browser.capture', parameters,
-        { signal: c.req.raw.signal });
-      return c.json(result);
-    } catch (error) {
-      if (error instanceof BrowserControlError) return c.json({ error: error.message }, error.status === 499 ? 408 : error.status);
-      return c.json({ error: 'browser control failed' }, 500);
-    }
+    return dispatchBrowserControl(c, broker, body.action, parameters);
   });
+}
+
+/** Broker dispatch with bounded install diagnostics around the outcome. */
+async function dispatchBrowserControl(c: Context, broker: BrowserControlBroker, action: unknown,
+  parameters: Record<string, unknown>): Promise<Response> {
+  try {
+    const result = await broker.request(action as 'browser.open' | 'browser.snapshot' | 'browser.inspect' | 'browser.click' | 'browser.scroll' | 'browser.history' | 'browser.type' | 'browser.capture', parameters,
+      { signal: c.req.raw.signal });
+    recordBrowserControlDiagnostic({ kind: 'request', outcome: 'ok', action });
+    return c.json(result);
+  } catch (error) {
+    const detail = error instanceof BrowserControlError ? { error: error.message, status: error.status }
+      : { error: 'browser control failed', status: 500 };
+    recordBrowserControlDiagnostic({ kind: 'request', outcome: 'failed', action, ...detail });
+    if (error instanceof BrowserControlError) return c.json({ error: error.message }, error.status === 499 ? 408 : error.status);
+    return c.json({ error: 'browser control failed' }, 500);
+  }
 }

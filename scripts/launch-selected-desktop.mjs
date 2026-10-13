@@ -3,12 +3,15 @@
 import { spawn } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { probeNativeAttach } from '../packages/electron/native-service-client.mjs';
+import { attachNativeService } from '../packages/electron/native-service-client.mjs';
 import { resolveActiveNndPackage } from './resolve-active-nnd-package.mjs';
 
-export async function launchSelectedDesktop(anchor, start = spawn, probe = probeNativeAttach) {
+export async function launchSelectedDesktop(anchor, start = spawn, probe = attachNativeService) {
   const selectionFile = join(anchor, 'nna-service-selection.json');
   const plan = await resolveActiveNndPackage(selectionFile, anchor);
+  // Lifecycle contract: the Start-menu icon opens the client. If the service
+  // is down, attachNativeService starts it first (NNA's supervisor then also
+  // brings up the service-owned tray); if it is up, the client just opens.
   const attach = await probe({ installRoot: plan.nnaInstallRoot,
     installation_id: plan.installationId, data_id: plan.dataId, incarnation_id: plan.incarnationId });
   const args = [join(plan.root, 'packages', 'electron', 'main.mjs'),

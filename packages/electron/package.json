@@ -48,7 +48,6 @@
       "ipc-face.mjs",
       "trusted-origin.mjs",
       "shell-prefs.mjs",
-      "tray.mjs",
       "window-state.mjs",
       "resources/**",
       "package.json"

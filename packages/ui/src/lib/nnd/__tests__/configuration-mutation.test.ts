@@ -148,4 +148,13 @@ it('repair input refuses credentials, authority and unknown source keys before H
     model: 'base', trust_zone: 'loopback', credential: 'PRIVATE' } })).toThrow();
   expect(() => nativeRepairDocument({ workspace_root: 'C:/work', provider: { id: 'local', endpoint: 'http://127.0.0.1:9',
     model: 'base', trust_zone: 'loopback' }, allowed_capabilities: ['danger'] })).toThrow();
+  expect(nativeRepairDocument({ workspace_root: 'C:/work', provider: { id: 'local', endpoint: 'http://127.0.0.1:9',
+    model: 'base', trust_zone: 'loopback' },
+    providers: [{ id: 'local', endpoint: 'http://127.0.0.1:9', model: 'base', trust_zone: 'loopback' }],
+    routes: { primary: { provider_id: 'local', model: 'base' }, reviewer: { provider_id: 'local', model: 'base' } } })).toBeTruthy();
+  expect(() => nativeRepairDocument({ workspace_root: 'C:/work', provider: { id: 'local', endpoint: 'http://127.0.0.1:9',
+    model: 'base', trust_zone: 'loopback' }, routes: 'broken' })).toThrow();
+  expect(nativeRepairDocument({ workspace_root: 'C:/work',
+    providers: [{ id: 'local', endpoint: 'http://127.0.0.1:9', model: 'base', trust_zone: 'loopback' }],
+    routes: { primary: { provider_id: 'local', model: 'base' }, reviewer: { provider_id: 'local', model: 'base' } } })).toBeTruthy();
 });
