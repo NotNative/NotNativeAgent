@@ -2,13 +2,12 @@
 /** Authenticated NNA Activity snapshots complement, never replace, live evidence. */
 import type { StoreApi } from 'zustand/vanilla';
 import { harnessClient } from '../lib/nnd/client.ts';
+import { isNnaEngine } from '../lib/nnd/engine-identity.ts';
 import { activityRecordFromEvent, MAX_ACTIVITY_RECORDS, sameToolEvidence, type ActivityRecord } from './activity-log.ts';
 import type { DirectoryStore } from './types.ts';
 
 export function isNnaActivitySource(store: StoreApi<DirectoryStore>): boolean {
-  const nnd: unknown = store.getState().config?.nnd;
-  return !!nnd && typeof nnd === 'object' && !Array.isArray(nnd)
-    && (nnd as Record<string, unknown>).engine === 'nna';
+  return isNnaEngine(store.getState().config);
 }
 
 /** Returns false on any unavailable or malformed snapshot; existing evidence stays. */

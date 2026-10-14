@@ -299,7 +299,7 @@ export async function replyToPermission(
   request: PermissionRequest,
   reply: 'once' | 'always' | 'reject',
 ): Promise<void> {
-  if (reply === 'always') throw new Error('Remembered permission approvals are not supported');
+  if (reply === 'always') throw new Error('Remembered permission choices are not supported');
   if (nnaOwnsPermissionReview(useGlobalSyncStore.getState().config)
     || [...childStores.values()].some((store) => (store.getState().permission[sessionID]?.some((item) => item.id === request.id))
       && nnaOwnsPermissionReview(store.getState().config))) {
