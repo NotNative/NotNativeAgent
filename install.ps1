@@ -535,51 +535,6 @@ try {
 Write-InstallerOk "Runtime files installed"
 Write-InstallerLine "      $Target" DarkGray
 
-# Desktop component upgrade (one product): when a desktop package is already
-# registered, the NNA upgrade must carry it along - a stale NND package under a
-# new NNA runtime is exactly the nnd_service_crashed failure mode observed when
-# the installer replaced NNA without the registered desktop package.
-# Invariant: the desktop installer's stderr (node/pnpm chatter) routes to a log
-# FILE, never the PowerShell error stream - with $ErrorActionPreference Stop a
-# piped stderr record becomes a terminating error (the desktop installer's own
-# header documents this proven failure mode; reproduced here 2026-10-14).
-$NndRegistrationPath = Join-Path $DataRoot 'config\nnd-package.json'
-$DesktopRegistered = Test-Path -LiteralPath $NndRegistrationPath
-$DesktopInstallLog = Join-Path $SourceRoot '.tmp\nna-desktop-install.log'
-function Invoke-DesktopInstaller {
-    $previous = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        & (Join-Path $SourceRoot 'desktop\install.cmd') 1>$DesktopInstallLog 2>&1
-        return $LASTEXITCODE
-    } finally { $ErrorActionPreference = $previous }
-}
-function Show-DesktopInstallTail([int]$Lines = 12) {
-    if (Test-Path -LiteralPath $DesktopInstallLog) {
-        Get-Content -LiteralPath $DesktopInstallLog -Tail $Lines -ErrorAction SilentlyContinue |
-            ForEach-Object { Write-InstallerLine "  $_" DarkGray }
-        Write-InstallerLine "  full log: $DesktopInstallLog" DarkGray
-    }
-}
-if ($DesktopRegistered) {
-    Write-InstallerSection 'Desktop component upgrade'
-    Write-InstallerStep 'An NND desktop package is registered; upgrading it with this NNA install'
-    $DesktopScript = Join-Path $SourceRoot 'desktop\install.cmd'
-    if (-not (Test-Path -LiteralPath $DesktopScript)) {
-        Write-InstallerWarning "Desktop registration found but $DesktopScript is missing; the desktop package was NOT upgraded."
-        Write-InstallerWarning "Run it manually after this install: desktop\install.cmd"
-    } else {
-        $DesktopExit = Invoke-DesktopInstaller
-        if ($DesktopExit -eq 0) {
-            Write-InstallerOk 'Desktop component upgraded with this NNA install'
-            Show-DesktopInstallTail 6
-        } else {
-            Write-InstallerWarning "Desktop component upgrade failed (exit $DesktopExit). NNA itself is ready."
-            Write-InstallerWarning "The previous desktop package may remain registered; repair with: desktop\install.cmd"
-            Show-DesktopInstallTail 20
-        }
-    }
-}
 
 New-Item -ItemType Directory -Force -Path (Join-Path $InstallRoot 'transitory') | Out-Null
 
@@ -911,39 +866,81 @@ $InstalledVersion = (& $NodePath --disable-warning=ExperimentalWarning (Join-Pat
 if ($InstalledVersion -notmatch [Regex]::Escape($Version)) { throw 'Installed CLI version verification failed.' }
 Write-InstallerOk $InstalledVersion
 
-# Optional desktop component (one product): the NNA installer offers it after
-# the runtime is verified, so the desktop installer's NNA selection pins this
-# install. Default No (parity with the [y/N] convention); -InstallDesktop
-# answers Yes for unattended runs. A desktop failure is a warning, not an
-# installer failure - the desktop component is optional and re-runnable via
-# desktop\install.cmd.
-$DesktopScript = Join-Path $SourceRoot 'desktop\install.cmd'
-$InstallDesktopNow = $false
-if ($InstallDesktop) {
-    $InstallDesktopNow = $true
-} elseif (-not $SkipDependencyInstall -and -not $SkipProviderSetup) {
-    $DesktopAnswer = (Read-Host 'Install the NotNativeAgent desktop component now? [y/N]').Trim()
-    $InstallDesktopNow = $DesktopAnswer -in @('y', 'Y', 'yes', 'Yes', 'YES')
+# Desktop component (one product): ONE dedicated section performs every
+# desktop-related operation. A registered desktop package is upgraded with
+# this NNA install (a stale NND package under a new NNA runtime is exactly
+# the nnd_service_crashed failure observed live); an unregistered one is
+# offered as an optional install (default No, [y/N] convention;
+# -InstallDesktop answers Yes for unattended runs). The section runs after
+# Verification so the desktop installer's NNA selection pins the verified
+# install. A desktop failure is a warning, not an installer failure - the
+# component is optional and re-runnable via desktop\install.cmd.
+# Invariant: the desktop installer's stderr (node/pnpm chatter) routes to a
+# log FILE, never the PowerShell error stream - with $ErrorActionPreference
+# Stop a piped stderr record becomes a terminating error (the desktop
+# installer's own header documents this proven failure mode; reproduced
+# here 2026-10-14).
+$NndRegistrationPath = Join-Path $DataRoot 'config\nnd-package.json'
+$DesktopRegistered = Test-Path -LiteralPath $NndRegistrationPath
+$DesktopInstallLog = Join-Path $SourceRoot '.tmp\nna-desktop-install.log'
+function Invoke-DesktopInstaller {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & (Join-Path $SourceRoot 'desktop\install.cmd') 1>$DesktopInstallLog 2>&1
+        return $LASTEXITCODE
+    } finally { $ErrorActionPreference = $previous }
 }
-if ($InstallDesktopNow) {
-    Write-InstallerSection 'Desktop component'
-    if (-not (Test-Path -LiteralPath $DesktopScript)) {
-        Write-InstallerWarning "Desktop installer not found at $DesktopScript; the desktop component was not installed."
+function Show-DesktopInstallTail([int]$Lines = 12) {
+    if (Test-Path -LiteralPath $DesktopInstallLog) {
+        Get-Content -LiteralPath $DesktopInstallLog -Tail $Lines -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-InstallerLine "  $_" DarkGray }
+        Write-InstallerLine "  full log: $DesktopInstallLog" DarkGray
+    }
+}
+Write-InstallerSection 'Desktop component'
+$DesktopScript = Join-Path $SourceRoot 'desktop\install.cmd'
+if (-not (Test-Path -LiteralPath $DesktopScript)) {
+    if ($DesktopRegistered) {
+        Write-InstallerWarning "An NND desktop package is registered but $DesktopScript is missing from this source tree; the desktop package was NOT upgraded."
+        Write-InstallerWarning "Run it manually after this install: desktop\install.cmd"
     } else {
-        Write-InstallerStep 'Building and registering the desktop package (this builds the shell and can take several minutes)'
+        Write-InstallerSkip 'Desktop component not present in this source tree; skipped.'
+    }
+} elseif ($DesktopRegistered) {
+    Write-InstallerStep 'An NND desktop package is registered; upgrading it with this NNA install'
+    $DesktopExit = Invoke-DesktopInstaller
+    if ($DesktopExit -eq 0) {
+        Write-InstallerOk 'Desktop component upgraded with this NNA install'
+        Show-DesktopInstallTail 6
+    } else {
+        Write-InstallerWarning "Desktop component upgrade failed (exit $DesktopExit). NNA itself is ready."
+        Write-InstallerWarning "The previous desktop package may remain registered; repair with: desktop\install.cmd"
+        Show-DesktopInstallTail 20
+    }
+} else {
+    $InstallDesktopNow = $false
+    if ($InstallDesktop) {
+        $InstallDesktopNow = $true
+    } elseif (-not $SkipDependencyInstall -and -not $SkipProviderSetup) {
+        $DesktopAnswer = (Read-Host 'Install the NotNativeAgent desktop component now? [y/N]').Trim()
+        $InstallDesktopNow = $DesktopAnswer -in @('y', 'Y', 'yes', 'Yes', 'YES')
+    }
+    if ($InstallDesktopNow) {
+        Write-InstallerStep 'Installing and registering the desktop package (this builds the shell and can take several minutes)'
         $DesktopExit = Invoke-DesktopInstaller
         if ($DesktopExit -eq 0) {
             Write-InstallerOk 'Desktop component installed and registered'
             Show-DesktopInstallTail 8
-            Write-InstallerLine " Start it with: nna desktop start   (or the NotNativeAgent desktop shortcut)" DarkGray
+            Write-InstallerLine ' Start it with: nna desktop start   (or the NotNativeAgent desktop shortcut)' DarkGray
         } else {
             Write-InstallerWarning "Desktop component installation failed (exit $DesktopExit). NNA itself is ready."
             Write-InstallerWarning "You can retry later with: desktop\install.cmd"
             Show-DesktopInstallTail 20
         }
+    } else {
+        Write-InstallerSkip 'Desktop component not installed (optional). Install later with: desktop\install.cmd'
     }
-} elseif (-not $DesktopRegistered) {
-    Write-InstallerSkip 'Desktop component not installed (optional). Install later with: desktop\install.cmd'
 }
 
 Write-Output ''
