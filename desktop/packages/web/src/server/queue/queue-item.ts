@@ -14,6 +14,11 @@ import { randomBytes } from 'node:crypto';
 export const QUEUE_CONTENT_MAX_CHARS = 200_000;
 export const QUEUE_CONTEXT_PREVIEW_MAX_CHARS = 103;
 export const QUEUE_SNAPSHOT_PREVIEW_MAX_CHARS = 100;
+/** The item id doubles as the NNA submission's idempotency identity
+ *  (`messageID`), so NEW ids must satisfy NNA's bounded external-id rule;
+ *  legacy stored ids that do not match simply ride without the identity
+ *  (dispatch omits `messageID` for them — compatibility, never a send block). */
+export const QUEUE_ITEM_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 
 export type AttachmentSource = 'local' | 'server' | 'vscode';
 
@@ -56,6 +61,14 @@ export class QueueItemValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'QueueItemValidationError';
+  }
+}
+
+/** Duplicate/conflicting enqueue: HTTP 409 through the route family (F9). */
+export class QueueItemConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'QueueItemConflictError';
   }
 }
 
@@ -172,8 +185,15 @@ export function parseQueuedItemInput(raw: unknown): QueueItem {
     fail('queued item requires text, attachments, or context');
   }
   if (!body.sendConfig) fail('sendConfig with providerID+modelID is required');
+  const suppliedId = optionalString(body.id, 'id');
+  // The id doubles as the NNA submission identity (F9): a supplied id must
+  // satisfy NNA's bounded external-id rule, else the eventual send could
+  // never be idempotent. Server-generated ids always match by construction.
+  if (suppliedId !== undefined && !QUEUE_ITEM_ID_PATTERN.test(suppliedId)) {
+    fail('id must be a bounded item identifier');
+  }
   const item: QueueItem = {
-    id: optionalString(body.id, 'id') ?? newQueueItemId(),
+    id: suppliedId ?? newQueueItemId(),
     createdAt: typeof body.createdAt === 'number' && Number.isFinite(body.createdAt) ? body.createdAt : Date.now(),
     content,
     text: stripped.text,
@@ -185,6 +205,26 @@ export function parseQueuedItemInput(raw: unknown): QueueItem {
   if (stripped.agentMention) item.agentMention = stripped.agentMention;
   if (contextPreview) item.contextPreview = contextPreview.slice(0, QUEUE_CONTEXT_PREVIEW_MAX_CHARS);
   return item;
+}
+
+/** Duplicate-retry comparison for idempotent enqueue (F9): the payload WITHOUT
+ *  the arrival stamp, projected with explicit fields so key order from a disk
+ *  round-trip can never flip the answer. */
+export function sameQueuePayload(left: QueueItem, right: QueueItem): boolean {
+  const project = (item: QueueItem): string => JSON.stringify({
+    content: item.content,
+    text: item.text,
+    agentMention: item.agentMention ?? null,
+    attachments: item.attachments.map((attachment) => ({
+      id: attachment.id, filename: attachment.filename, mimeType: attachment.mimeType,
+      size: attachment.size, source: attachment.source,
+      serverPath: attachment.serverPath ?? null, dataUrl: attachment.dataUrl,
+    })),
+    context: item.context,
+    sendConfig: item.sendConfig,
+    contextPreview: item.contextPreview ?? null,
+  });
+  return project(left) === project(right);
 }
 
 function firstLine(text: string): string {

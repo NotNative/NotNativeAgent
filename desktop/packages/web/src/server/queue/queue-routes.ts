@@ -11,7 +11,7 @@
  */
 import { Hono, type Context } from 'hono';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
-import { QueueItemValidationError, publicQueueItem } from './queue-item.ts';
+import { QueueItemConflictError, QueueItemValidationError, publicQueueItem } from './queue-item.ts';
 import { getMessageQueueRuntime, type MessageQueueRuntime } from './queue-runtime.ts';
 
 export const QUEUE_BODY_MAX_CHARS = 50 * 1024 * 1024; // 50 MiB JSON cap (doc 03 §3)
@@ -51,10 +51,11 @@ async function enqueueHandler(c: Context, runtime: MessageQueueRuntime): Promise
   const item = body.item;
   if (item === null || typeof item !== 'object' || Array.isArray(item)) return invalid(c, 'item must be an object');
   try {
-    const { revision, itemId } = await runtime.enqueueItemShared(sessionId, directory, item);
-    return c.json({ revision, session: directory, itemId });
+    const { revision, itemId, duplicate } = await runtime.enqueueItemShared(sessionId, directory, item);
+    return c.json({ revision, session: directory, itemId, ...(duplicate ? { duplicate: true } : {}) });
   } catch (error) {
     if (error instanceof QueueItemValidationError) return invalid(c, error.message);
+    if (error instanceof QueueItemConflictError) return c.json({ error: error.message }, 409);
     return invalid(c, `queued item rejected: ${String(error).slice(0, 200)}`);
   }
 }

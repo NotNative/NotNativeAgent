@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-/** P9-6b create/send/fork/archive orchestration workflow. */
+/** P9-6b create/send/fork/archive orchestration workflow, with the F9 durable
+ *  creation-operation reconciliation on `createSession`. */
 import type {
   CreateInput, CreatedWorktree, DispatchContext, OrchestratorDeps, RecordObject, ResolvedSelection,
   RunInput, SelectionInput, SessionOrchestrationResponse,
@@ -10,12 +11,69 @@ import { emptyHarnessFixture, loadHarness, resolveSelection } from './session-or
 import {
   dispatch, harnessSession, messageIdsOf, partial, readSessionOr, responseOf, selectedOf,
 } from './session-orchestration-dispatch.ts';
+import { fingerprintOf, reserveOperation, settleOperation } from './session-operation-store.ts';
 import { WorktreeCreatedError } from './session-worktree.ts';
 import { CONTROL_EVENTS } from '../lib/harnessNaming.ts';
 import { publishControlEvent } from '../lib/bus.ts';
 
 function defaultEmit(event: RecordObject): void {
   try { publishControlEvent({ type: CONTROL_EVENTS.sessionCreated, payload: event }); } catch { /* fanout is non-fatal */ }
+}
+
+/** The request identity of a creation: everything the caller asked for EXCEPT
+ *  the operation id itself (the id is the key, not part of the payload). */
+function operationFingerprint(input: CreateInput): string {
+  const { operationId: _operationId, ...payload } = input;
+  return fingerprintOf(payload);
+}
+
+/** F9 durable creation: a retry of the SAME id replays the stored outcome, a
+ *  changed payload under that id is rejected, and an earlier attempt whose
+ *  outcome is unknown refuses resubmission until it is resolved. */
+async function reconcileOperation(input: CreateInput): Promise<SessionOrchestrationResponse | null> {
+  if (input.operationId === undefined) return null;
+  const reservation = await reserveOperation(input.operationId, operationFingerprint(input));
+  if (reservation.kind === 'conflict') {
+    return fail(409, 'operationId was already used with a different payload');
+  }
+  if (reservation.kind === 'settled') {
+    const stored = reservation.receipt.response;
+    if (stored !== undefined && typeof stored === 'object' && stored !== null
+      && typeof (stored as { ok?: unknown }).ok === 'boolean') {
+      return stored as unknown as SessionOrchestrationResponse;
+    }
+    return fail(409, 'stored creation receipt is unreadable; use a new operationId');
+  }
+  if (reservation.kind === 'pending') {
+    return fail(503, reservation.live
+      ? 'an attempt for this operation is still running in another process; retry after it settles'
+      : 'an earlier attempt for this operation has an unknown outcome; '
+        + 'inspect the native session list, then retry with a new operationId');
+  }
+  return null;
+}
+
+/** Records the outcome: a settled envelope replays on retry; a definite
+ *  pre-acceptance failure RELEASES the id (the same id may be retried after a
+ *  fixed request); an acceptance-unknown transport failure keeps the pending
+ *  reservation so a retry can never resubmit blindly. */
+async function recordOperation(input: CreateInput, outcome: SessionOrchestrationResponse): Promise<void> {
+  if (input.operationId === undefined) return;
+  if (outcome.ok) {
+    await settleOperation(input.operationId, outcome as unknown as RecordObject);
+    return;
+  }
+  const failure = outcome.failure;
+  if (failure.partial === true || failure.sessionId !== undefined) {
+    // Native acceptance happened (a session or worktree exists): the envelope
+    // is the original outcome a retry must replay, partial or not.
+    await settleOperation(input.operationId, outcome as unknown as RecordObject);
+    return;
+  }
+  if (failure.status === 502 || failure.status === 503) {
+    return; // acceptance unknown → the pending reservation stays (never blind)
+  }
+  await settleOperation(input.operationId, null); // definite pre-acceptance failure → release
 }
 
 async function prepareWorktree(deps: OrchestratorDeps, sourceDirectory: string,
@@ -45,6 +103,14 @@ async function prepareWorktree(deps: OrchestratorDeps, sourceDirectory: string,
 }
 
 export async function createSession(deps: OrchestratorDeps, input: CreateInput): Promise<SessionOrchestrationResponse> {
+  const reconciled = await reconcileOperation(input);
+  if (reconciled !== null) return reconciled;
+  const outcome = await runCreateSession(deps, input);
+  await recordOperation(input, outcome);
+  return outcome;
+}
+
+async function runCreateSession(deps: OrchestratorDeps, input: CreateInput): Promise<SessionOrchestrationResponse> {
   const directoryResult = await resolveScope(deps, input.scope);
   if (typeof directoryResult !== 'string') return directoryResult;
   const prompt = input.prompt;

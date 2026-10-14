@@ -37,6 +37,10 @@ export type HarnessSession = Session;
 export interface HarnessResult<T> {
   data?: T;
   error?: string;
+  /** Structured failure code from NNA's error envelope (e.g. `session_busy`),
+   *  when the response body carried one. Invariant: handlers prefer this code
+   *  over message prose for machine decisions (CTL-DATA: machine state wins). */
+  code?: string;
   response?: { status: number };
   headers?: Headers;
 }
@@ -150,11 +154,16 @@ async function request<T>(
     return { error: `${operation} failed: ${String(error)}`, response: { status: response.status }, headers: response.headers };
   }
   if (!response.ok) {
-    const message =
-      (body as { error?: { message?: string } } | null)?.error?.message ??
-      (body as { message?: string } | null)?.message ??
-      response.statusText;
-    return { error: `${operation} failed (${response.status}): ${message}`, response: { status: response.status }, headers: response.headers };
+    const envelope = (body as { error?: { message?: string; code?: string } } | null)?.error;
+    const message = envelope?.message
+      ?? (body as { message?: string } | null)?.message
+      ?? response.statusText;
+    const result: HarnessResult<T> = {
+      error: `${operation} failed (${response.status}): ${message}`,
+      response: { status: response.status }, headers: response.headers,
+    };
+    if (typeof envelope?.code === 'string' && envelope.code !== '') result.code = envelope.code;
+    return result;
   }
   return { data: body as T, response: { status: response.status }, headers: response.headers };
 }
@@ -291,9 +300,6 @@ export const harnessClient = {
   async getLsp(opts?: DirOption): Promise<HarnessResult<unknown[]>> {
     return request('getLsp', '/lsp', undefined, undefined, opts?.directory);
   },
-  async getVcs(opts?: DirOption): Promise<HarnessResult<{ branch: string; default_branch?: string }>> {
-    return request('getVcs', '/vcs', undefined, undefined, opts?.directory);
-  },
 
   // sessions (P-04)
   async listSessions(opts?: DirOption & { roots?: boolean; archived?: boolean; limit?: number }): Promise<HarnessResult<HarnessSession[]>> {
@@ -350,14 +356,8 @@ export const harnessClient = {
   async unrevertSession(sessionId: string, opts?: DirOption): Promise<HarnessResult<HarnessSession>> {
     return request('unrevertSession', `/session/${sid(sessionId)}/unrevert`, post({}), undefined, opts?.directory);
   },
-  async summarizeSession(sessionId: string, model?: { providerID?: string; modelID?: string }, opts?: DirOption): Promise<HarnessResult<boolean>> {
-    return request('summarizeSession', `/session/${sid(sessionId)}/summarize`, post(model ?? {}), undefined, opts?.directory);
-  },
   async listChildren(sessionId: string, opts?: DirOption): Promise<HarnessResult<HarnessSession[]>> {
     return request('listChildren', `/session/${sid(sessionId)}/children`, undefined, undefined, opts?.directory);
-  },
-  async listTodos(sessionId: string, opts?: DirOption): Promise<HarnessResult<Todo[]>> {
-    return request('listTodos', `/session/${sid(sessionId)}/todo`, undefined, undefined, opts?.directory);
   },
   /** Authoritative status map (P-07): omission ⇒ idle; failure ⇒ error, never {}. */
   async sessionStatus(opts?: DirOption): Promise<HarnessResult<Record<string, SessionStatus>>> {
@@ -395,15 +395,17 @@ export const harnessClient = {
   },
 
   // permissions (P-08)
+  // Why (uniformity audit #12): getPermissionV2 (double-/api path, zero
+  // callers) was removed with the dead surface. NNA serves no /permission
+  // route — the permission reply flow lives behind the authenticated decision
+  // contract (doc 04 item 5); listPermissions/replyToPermission stay because
+  // the blocking-request flow is load-bearing and fails honestly without it.
   async listPermissions(opts?: DirOption): Promise<HarnessResult<PermissionRequest[]>> {
     return request('listPermissions', '/permission', undefined, undefined, opts?.directory);
   },
   async replyToPermission(requestId: string, reply: 'once' | 'always' | 'reject', message?: string, opts?: DirOption): Promise<HarnessResult<boolean>> {
     assertPermissionReply(reply); // W-32: "always" is refused at the transport boundary
     return request('replyToPermission', `/permission/${sid(requestId)}/reply`, post({ reply, ...(message ? { message } : {}) }), undefined, opts?.directory);
-  },
-  async getPermissionV2(sessionId: string, requestId: string, opts?: DirOption): Promise<HarnessResult<unknown>> {
-    return request('getPermissionV2', `/api/session/${sid(sessionId)}/permission/${sid(requestId)}`, undefined, undefined, opts?.directory);
   },
 
   // questions (P-09)
@@ -424,9 +426,11 @@ export const harnessClient = {
   async updateConfig(config: Record<string, unknown>): Promise<HarnessResult<HarnessConfig>> {
     return request('updateConfig', '/config', { method: 'PATCH', body: JSON.stringify({ config }), headers: { 'content-type': 'application/json' } });
   },
-  async getProvidersForConfig(opts?: DirOption): Promise<HarnessResult<{ providers: Provider[]; default: Record<string, string> }>> {
-    return request('getProvidersForConfig', '/config/providers', undefined, undefined, opts?.directory);
-  },
+  // Why (uniformity audit #4): the OpenChamber-era endpoints NNA does not
+  // serve were removed rather than kept-and-404'd — getProvidersForConfig
+  // (/config/providers), listToolIds (/experimental/tool/ids), summarizeSession
+  // (/session/:id/summarize), listTodos (/session/:id/todo) and getVcs (/vcs)
+  // had no callers; listQuestions stays because NNA serves the question routes.
   async listProviders(opts?: DirOption): Promise<HarnessResult<Provider[]>> {
     return request('listProviders', '/provider', undefined, undefined, opts?.directory);
   },
@@ -435,9 +439,6 @@ export const harnessClient = {
   },
   async listCommands(opts?: DirOption): Promise<HarnessResult<CommandInfo[]>> {
     return request('listCommands', '/command', undefined, undefined, opts?.directory);
-  },
-  async listToolIds(): Promise<HarnessResult<string[]>> {
-    return request('listToolIds', '/experimental/tool/ids');
   },
 
   // streams (P-06): URL builders — EventSource owns reconnect/Last-Event-ID

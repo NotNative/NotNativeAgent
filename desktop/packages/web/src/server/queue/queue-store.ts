@@ -194,6 +194,13 @@ export class MessageQueueStore {
     return this.sessions.get(sessionId) ?? null;
   }
 
+  /** F9 idempotent-enqueue lookup: the stored item with this id, if any.
+   *  The runtime compares payloads against it before appending, so a retried
+   *  enqueue after a lost acknowledgement never duplicates the queue. */
+  findItem(sessionId: string, itemId: string): QueueItem | null {
+    return this.sessions.get(sessionId)?.items.find((item) => item.id === itemId) ?? null;
+  }
+
   directoryOf(sessionId: string): string | null {
     return this.sessions.get(sessionId)?.directory ?? null;
   }

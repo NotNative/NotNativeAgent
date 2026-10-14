@@ -12,18 +12,19 @@ import { useGlobalSessionStatusStore } from './global-stores.ts';
 import type { SessionStatus } from '../lib/nnd/types.ts';
 
 export async function runPhase2(directory: string, store: StoreApi<DirectoryStore>, isCurrent: () => boolean): Promise<void> {
-  const [commands, mcp, lsp, vcs] = await Promise.allSettled([
+  // Why (uniformity audit #4): the vcs fetch was removed with the dead
+  // getVcs client — NNA serves no /vcs route; the lapsed branch chip degrades
+  // honestly instead of requesting a 404 each boot.
+  const [commands, mcp, lsp] = await Promise.allSettled([
     harnessClient.listCommands({ directory }),
     harnessClient.getMcp({ directory }),
     harnessClient.getLsp({ directory }),
-    harnessClient.getVcs({ directory }),
   ]);
   if (!isCurrent()) return; // deferred phase gated on isCurrent too
   const patch: Partial<SyncState> = {};
   if (commands.status === 'fulfilled' && !commands.value.error && commands.value.data) patch.command = commands.value.data as SyncState['command'];
   if (mcp.status === 'fulfilled' && !mcp.value.error) patch.mcp = mcp.value.data ?? null;
   if (lsp.status === 'fulfilled' && !lsp.value.error && lsp.value.data) patch.lsp = lsp.value.data as SyncState['lsp'];
-  if (vcs.status === 'fulfilled' && !vcs.value.error && vcs.value.data) patch.vcs = vcs.value.data as SyncState['vcs'];
   store.setState(patch);
   await Promise.allSettled([
     loadBlockingInto(store, directory, 'question', isCurrent),

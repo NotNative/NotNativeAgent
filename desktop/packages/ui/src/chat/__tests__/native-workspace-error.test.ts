@@ -10,3 +10,9 @@ it('shows actionable native workspace refusal while the composer restores its dr
   describeSendFailure(new Error(message), false);
   expect(toast.error).toHaveBeenCalledWith(message);
 });
+
+it('narrates the NNA busy refusal with the recovery and never a generic failure', () => {
+  describeSendFailure({ status: 409, message: 'NND session already has an active turn' }, false);
+  expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('running a turn'));
+  expect(toast.error).not.toHaveBeenCalledWith('Message failed to send. Your text was restored.');
+});

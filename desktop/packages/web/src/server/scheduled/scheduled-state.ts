@@ -4,8 +4,12 @@
  * run queue and slot counters. Timers carry the slot they were armed FOR so a
  * late fire still claims the exact occurrence; overflow delays re-arm
  * recursively at the setTimeout cap instead of firing early.
+ * F9: the project sync also enqueues a RESUME for a pending occurrence whose
+ * durable dispatch record was orphaned by a crash (dead owner pid), so the
+ * restart reconciles by operation id instead of leaving the record stuck.
  */
 import { MAX_TIMEOUT_MS } from './scheduled-constants.ts';
+import { ownedByLiveProcess, processAlive } from './scheduled-claims.ts';
 import type { RunRequest, RuntimePorts } from './scheduled-ports.ts';
 import { finiteOr, messageOf, optionalFinite } from './scheduled-util.ts';
 import type { ScheduledTask } from './task-schema.ts';
@@ -149,6 +153,13 @@ export async function syncScheduledProject(ports: RuntimePorts, state: Scheduled
     // UI read it without a store round-trip).
     task.state.nextRunAt = optionalFinite(nextAt);
     state.scheduleFutureRun(projectId, task, finiteOr(nextAt, -Infinity));
+    // F9 restart reconciliation: a pending dispatch record whose owner died
+    // is re-driven through the resume path (a live owner's in-flight run is
+    // never raced, and this instance's own active run is keyed as busy).
+    const dispatch = task.state.dispatch;
+    if (dispatch !== undefined && !ownedByLiveProcess(dispatch, processAlive)) {
+      state.enqueue({ projectId, taskId: task.id, reason: 'resume', scheduledFor: dispatch.scheduledFor });
+    }
   }
 }
 

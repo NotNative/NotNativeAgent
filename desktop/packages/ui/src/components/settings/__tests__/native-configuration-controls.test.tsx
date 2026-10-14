@@ -1026,9 +1026,11 @@ it('validates the four context threshold drafts against the native decimal bound
 });
 
 it('offers the remaining advertised route rows in the catalog-gated field chooser', async () => {
-  // The routes page tunes reviewer and vision scalars only; every other
-  // route row NNA advertises is edited here through the generic chooser and
-  // the same preview-and-save ceremony.
+  // The routes page now tunes every role's scalar and list members; this
+  // generic chooser on the native configuration page still accepts whatever
+  // the catalog advertises — including the primary/subagent rows — through
+  // the same preview-and-save ceremony, so this test keeps proving the
+  // generic path for them.
   const tuning = ['budget', 'context_limit_bytes', 'deadline_ms', 'enable_thinking', 'max_output_tokens',
     'reasoning_effort', 'temperature'];
   const routePaths = ['primary', 'subagent'].flatMap(role => [...tuning.map(key => `routes.${role}.${key}`),

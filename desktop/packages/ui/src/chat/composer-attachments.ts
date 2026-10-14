@@ -34,5 +34,9 @@ export function describeSendFailure(error: unknown, hadAttachments: boolean): vo
   const kind = sendErrorKind(error);
   if (kind === 'runtime-changed') toast.error('Message failed to send. Attachments restored.');
   else if (kind === 'payload-too-large') toast.error('Attachments are too large to send. Trim the batch and try again.');
+  // Why: NNA refused the submission because the session already runs a turn;
+  // say so with the exact recovery (the draft is still in the composer and the
+  // queue/stop controls own the next move), never a generic failure.
+  else if (kind === 'busy') toast.error('NNA refused the message: the session is running a turn. Your draft is unchanged — queue it, steer, or stop the turn first.');
   else toast.error(hadAttachments ? 'Message failed to send. Attachments restored.' : 'Message failed to send. Your text was restored.');
 }

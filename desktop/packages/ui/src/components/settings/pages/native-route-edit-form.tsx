@@ -7,8 +7,16 @@ import { chooseNativeField, previewNativeField, publishNativeField } from './nat
 import { invalidateNativePreview, type ControlsModel } from './native-configuration-controls-model.ts';
 import { RouteArrayInput, routeArrayValid } from './native-route-array-editor.tsx';
 
-const ROUTE_SCALAR = /^routes\.(?:reviewer|vision)\.(?:budget|context_limit_bytes|deadline_ms|enable_thinking|max_output_tokens|reasoning_effort|temperature)$/u;
-const ROUTE_ARRAY = /^routes\.(?:reviewer|vision)\.(?:required_capabilities|fallbacks)$/u;
+const ROUTE_SCALAR = /^routes\.(?:primary|reviewer|subagent|vision)\.(?:budget|context_limit_bytes|deadline_ms|enable_thinking|max_output_tokens|reasoning_effort|temperature)$/u;
+const ROUTE_ARRAY = /^routes\.(?:primary|reviewer|subagent|vision)\.(?:required_capabilities|fallbacks)$/u;
+// The primary deadline keeps its own typed control in the provider-deadline
+// block on the native configuration page (native-configuration-controls-map.ts
+// PROVIDER_DEADLINE), which previews the global provider timeout and the
+// primary deadline together — the pair src/config-bounds.js providerTimeouts
+// resolves them as. Offering it again here would duplicate that surface.
+const routeScalarField = (field: NativeEditableField) => ROUTE_SCALAR.test(field.path) && field.type !== 'array'
+  && !field.path.startsWith('routes.primary.deadline_ms');
+const routeArrayField = (field: NativeEditableField) => ROUTE_ARRAY.test(field.path) && field.type === 'array';
 const NUMERIC_DRAFT = /^\d+(?:\.\d+)?$/u;
 // Loose enough to let a decimal be typed ("0." mid-keystroke); the strict
 // gate that blocks the preview stays NUMERIC_DRAFT.
@@ -82,12 +90,11 @@ function ScalarInput({ field, model }: { field: NativeEditableField; model: Cont
 
 export function NativeRouteEditForm({ model, view }: { model: ControlsModel; view: NativeConfigurationView }): ReactNode {
   const { t } = useI18n();
-  const fields = model.fields.filter(field => (ROUTE_SCALAR.test(field.path) && field.type !== 'array')
-    || (ROUTE_ARRAY.test(field.path) && field.type === 'array'));
+  const fields = model.fields.filter(field => routeScalarField(field) || routeArrayField(field));
   const selected = fields.find(field => field.path === model.fieldPath);
   const row = view.fields.find(field => field.path === selected?.path);
   const scalarPreview = model.preview?.request.operations[0]?.op !== 'bind_route' ? model.preview : null;
-  const projected = scalarPreview?.result.view.fields.find(field => field.path === selected?.path)?.effective;
+  const projected = scalarPreview?.result.view.fields.find(field => field.path === selected?.path);
   if (fields.length === 0) return <p role="status">{t('settings.nativeRoutes.unavailable')}</p>;
   return <div className="space-y-2" data-settings-item="native-routes.tuning">
     <p>{t('settings.nativeConfiguration.manageScope')}</p>
@@ -117,7 +124,13 @@ export function NativeRouteEditForm({ model, view }: { model: ControlsModel; vie
         onClick={() => previewNativeField(model, view)}>{t('settings.nativeConfiguration.preview')}</button>
       {scalarPreview ? <div role="status">
         <p>{t('settings.nativeConfiguration.previewReady')}</p>
-        <p>{projected?.present ? JSON.stringify(projected) : t('settings.nativeConfiguration.absent')}</p>
+        {/* The preview shows what this save persists and what resolves from it:
+            a null explicit saves unset, while the effective value may still
+            carry an inherited or compiled value NNA resolves behind it. */}
+        <p>{t('settings.nativeConfiguration.explicit')}: {projected?.explicit.present && 'value' in projected.explicit
+          ? JSON.stringify(projected.explicit.value) : t('settings.nativeConfiguration.absent')}</p>
+        <p>{t('settings.nativeConfiguration.effective')}: {projected?.effective.present && 'value' in projected.effective
+          ? JSON.stringify(projected.effective.value) : t('settings.nativeConfiguration.absent')}</p>
         <button type="button" disabled={model.busy} onClick={() => publishNativeField(model, view)}>
           {t('settings.nativeConfiguration.save')}</button>
       </div> : null}

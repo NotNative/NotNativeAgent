@@ -112,8 +112,12 @@ export const enNativeConfiguration = {
   'settings.nativeSearxngDeployment.title': 'NNA managed SearXNG deployment',
   'settings.nativeInvocationVocabulary.title': 'NNA invocation vocabulary',
   'settings.page.nativeTui.title': 'NNA terminal preferences',
+  // Title stays 'NNA reviewer and vision routes': desktop/scripts/
+  // electron-native-configuration-browser.mjs clicks this nav label and pins
+  // its section aria-label, and that script sits outside the settings lane —
+  // changing it belongs with a change to that script in one slice.
   'settings.page.nativeRoutes.title': 'NNA reviewer and vision routes',
-  'settings.nativeRoutes.description': 'Tune supported reviewer and vision route settings in the selected NNA user manifest. Saved changes are not applied to running work.',
+  'settings.nativeRoutes.description': 'Tune supported scalar and list route settings for every route role in the selected NNA user manifest. Saved changes are not applied to running work.',
   'settings.nativeRoutes.provider': 'Provider',
   'settings.nativeRoutes.model': 'Model',
   'settings.nativeRoutes.bindingReadOnly': 'Provider and model changes are offered below when NNA supports paired native binding.',
@@ -126,8 +130,8 @@ export const enNativeConfiguration = {
   'settings.nativeRoutes.members': 'All served members of this route role',
   'settings.nativeRoutes.chooseProvider': 'Choose provider',
   'settings.nativeRoutes.noUserProviders': 'No provider in the selected user manifest is available for binding.',
-  'settings.nativeRoutes.choose': 'Reviewer or vision setting',
-  'settings.nativeRoutes.unavailable': 'This NNA service does not offer editable reviewer or vision scalar route settings.',
+  'settings.nativeRoutes.choose': 'Route setting',
+  'settings.nativeRoutes.unavailable': 'This NNA service does not offer editable scalar route settings.',
   'settings.nativeRoutes.arrayHint': 'Order the entries: fallback roles are tried in the listed order. NNA checks the names, uniqueness, and limits, and refuses fallback cycles itself; an empty list is legal.',
   'settings.nativeRoutes.removeEntry': 'Remove entry',
   'settings.nativeRoutes.sourceMissing': 'Repair the selected user manifest in NNA configuration before editing route settings.',

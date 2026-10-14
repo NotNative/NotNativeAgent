@@ -12,6 +12,7 @@
  */
 import { harnessRequest, callHarness, callHarnessJson } from './queue-adapter-calls.ts';
 import { commandArgsOf, commandNameOf, expandCommandTemplate } from './queue-expansion.ts';
+import { QUEUE_ITEM_ID_PATTERN } from './queue-item.ts';
 import type { ProjectKnowledgeProvider } from './queue-hooks.ts';
 import type { QueueItem } from './queue-item.ts';
 
@@ -162,7 +163,12 @@ async function postPromptRoute(
     model: { providerID: item.sendConfig.providerID, modelID: item.sendConfig.modelID },
     parts,
   };
+  // F9: the queue item id is the submission's idempotency identity — NNA
+  // treats a repeat of a persisted submission as an accepted duplicate (204),
+  // so an acceptance-unknown retry of the same head never opens a second turn.
+  // Ids from before the bounded-id rule simply ride without the identity.
+  if (QUEUE_ITEM_ID_PATTERN.test(item.id)) body.messageID = item.id;
   if (item.sendConfig.agent) body.agent = item.sendConfig.agent;
-  if (item.sendConfig.variant) body.variant = item.sendConfig.variant;
+  // Why: no variant on the prompt route — NNA rejects per-prompt variant (nnd_variant_override_unsupported).
   return postSession(sessionId, directory, `/session/${encodeURIComponent(sessionId)}/prompt_async`, body);
 }

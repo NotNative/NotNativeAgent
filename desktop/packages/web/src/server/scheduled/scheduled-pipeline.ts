@@ -17,7 +17,8 @@ import { fitObjective, type DistillPort } from '../goals/goal-distill.ts';
 import { commandEntryOf } from '../queue/queue-dispatch.ts';
 import type { ProjectKnowledgeProvider } from '../queue/queue-hooks.ts';
 import { commandArgsOf, commandNameOf, expandCommandTemplate } from '../queue/queue-expansion.ts';
-import type { PipelineOutcome, RunRequest } from './scheduled-ports.ts';
+import { operationIdForOccurrence } from './scheduled-claims.ts';
+import type { PipelineOutcome, PipelinePhaseHooks, RunRequest } from './scheduled-ports.ts';
 import { messageOf } from './scheduled-util.ts';
 import type { ScheduledTask } from './task-schema.ts';
 
@@ -193,11 +194,12 @@ async function plantGoal(
   return written;
 }
 
-function promptBody(task: ScheduledTask, parts: Array<Record<string, unknown>>): Record<string, unknown> {
+function promptBody(task: ScheduledTask, parts: Array<Record<string, unknown>>, messageID?: string): Record<string, unknown> {
   return {
     model: { providerID: task.execution.providerID, modelID: task.execution.modelID },
     ...(task.execution.agent !== undefined ? { agent: task.execution.agent } : {}),
-    ...(task.execution.variant !== undefined ? { variant: task.execution.variant } : {}),
+    // Why: no variant — the prompt route rejects per-prompt variant (nnd_variant_override_unsupported).
+    ...(messageID !== undefined ? { messageID } : {}),
     parts,
   };
 }
@@ -211,8 +213,14 @@ function commandBody(task: ScheduledTask, name: string, args: string): Record<st
   };
 }
 
-/** C.6 step 9 plain prompt route: parts in order, recordDelivered after ok. */
-async function dispatchPromptRoute(deps: ScheduledPipelineDeps, ctx: DispatchContext): Promise<void> {
+/** C.6 step 9 plain prompt route: parts in order, recordDelivered after ok.
+ *  A scheduled occurrence carries its operation id as `messageID`, which NNA
+ *  treats as the submission's idempotency identity — an acceptance-unknown
+ *  resume re-dispatches the SAME id, and the harness answers 204 without a
+ *  second turn. */
+async function dispatchPromptRoute(
+  deps: ScheduledPipelineDeps, ctx: DispatchContext, phases?: PipelinePhaseHooks, messageID?: string,
+): Promise<void> {
   const text = await deps.expandPrompt(ctx.task.execution.prompt, ctx.directory);
   let intro: string | null = null;
   if (ctx.task.execution.goalEnabled === true) {
@@ -225,15 +233,35 @@ async function dispatchPromptRoute(deps: ScheduledPipelineDeps, ctx: DispatchCon
   if (knowledge !== null) parts.push({ type: 'text', text: knowledge, synthetic: true });
   if (text.trim() !== '') parts.push({ type: 'text', text });
   if (intro !== null) parts.push({ type: 'text', text: intro, synthetic: true });
-  const outcome = await deps.harness.sendPrompt(ctx.sessionId, ctx.directory, promptBody(ctx.task, parts));
+  const outcome = await deps.harness.sendPrompt(ctx.sessionId, ctx.directory,
+    promptBody(ctx.task, parts, messageID));
   if (!outcome.ok) throw new Error(`prompt dispatch rejected with ${outcome.status}`);
+  await noteAccepted(deps, phases, ctx.sessionId);
   if (knowledge !== null) recordKnowledge(deps, ctx, ctx.sessionId);
 }
 
+/** Records the acceptance phase; a refused/failed advance is logged, never
+ *  fatal — the completion patch still settles the occurrence record. */
+async function noteAccepted(
+  deps: ScheduledPipelineDeps, phases: PipelinePhaseHooks | undefined, sessionId: string,
+): Promise<void> {
+  if (phases === undefined) return;
+  try {
+    if (!await phases.onAccepted(sessionId)) {
+      deps.log.warn(`scheduled acceptance record refused for session ${sessionId}`);
+    }
+  } catch (error) {
+    deps.log.warn(`scheduled acceptance record failed: ${messageOf(error)}`);
+  }
+}
+
 /** C.6 step 9 command route: expanded-template objective for the goal
- *  (template-less commands keep the raw invocation), no synthetic parts. */
+ *  (template-less commands keep the raw invocation), no synthetic parts.
+ *  The NNA command route has no idempotency identity field yet (contract gap),
+ *  so the acceptance phase advances but nothing rides the body. */
 async function dispatchCommandRoute(
   deps: ScheduledPipelineDeps, ctx: DispatchContext, name: string, template: string | null,
+  phases?: PipelinePhaseHooks,
 ): Promise<void> {
   const args = commandArgsOf(ctx.task.execution.prompt, name);
   if (ctx.task.execution.goalEnabled === true) {
@@ -242,6 +270,7 @@ async function dispatchCommandRoute(
   }
   const outcome = await deps.harness.sendCommand(ctx.sessionId, ctx.directory, commandBody(ctx.task, name, args));
   if (!outcome.ok) throw new Error(`command dispatch rejected with ${outcome.status}`);
+  await noteAccepted(deps, phases, ctx.sessionId);
 }
 
 /** C.6 step 7 slash resolution: a catalog hit executes; a miss, a read
@@ -261,20 +290,42 @@ async function slashRoute(
   }
 }
 
-async function runScheduledPipeline(deps: ScheduledPipelineDeps, request: RunRequest, task: ScheduledTask): Promise<PipelineOutcome> {
+async function runScheduledPipeline(
+  deps: ScheduledPipelineDeps, request: RunRequest, task: ScheduledTask,
+  phases?: PipelinePhaseHooks,
+): Promise<PipelineOutcome> {
   const startedAt = deps.now();
   if (!await deps.waitForReady()) {
     deps.log.warn('harness not ready within the scheduled poll window; proceeding');
   }
   const directory = await deps.harness.resolveDirectory(request.projectId);
   if (directory === null) throw new Error(`project ${request.projectId} has no harness worktree`);
-  const sessionId = sessionOf(await deps.harness.createSession(directory, runTitle(task, startedAt)));
-  if (sessionId === '') throw new Error('harness session create returned no session id');
+  // An acceptance-unknown resume reuses the RECORDED session: no second
+  // create, and the re-dispatch carries the same idempotent identity.
+  let sessionId = request.resumeSessionId ?? '';
+  if (sessionId === '') {
+    sessionId = sessionOf(await deps.harness.createSession(directory, runTitle(task, startedAt)));
+    if (sessionId === '') throw new Error('harness session create returned no session id');
+    if (phases !== undefined && !await phases.onSessionCreated(sessionId)) {
+      // The creating marker must exist before anything native mutates; a
+      // refused advance fails the run instead of creating behind it.
+      throw new Error('occurrence dispatch record refused the session-create phase');
+    }
+  } else if (phases !== undefined) {
+    await phases.onSessionCreated(sessionId); // re-persist the known session id
+  }
   const ctx: DispatchContext = { request, task, sessionId, directory, startedAt };
   emitRunning(deps, ctx);
+  // The occurrence's deterministic operation id doubles as the submission's
+  // idempotency identity — for scheduled runs AND their resumes alike (a
+  // resume must re-send the SAME id or the dedupe would never hit). Manual
+  // runs carry no occurrence, so no id rides.
+  const scheduledFor = request.scheduledFor;
+  const messageID = scheduledFor !== undefined && Number.isFinite(scheduledFor)
+    ? operationIdForOccurrence(task.id, scheduledFor) : undefined;
   const route = task.execution.prompt.startsWith('/') ? await slashRoute(deps, directory, task.execution.prompt) : null;
-  if (route !== null) await dispatchCommandRoute(deps, ctx, route.name, route.template);
-  else await dispatchPromptRoute(deps, ctx);
+  if (route !== null) await dispatchCommandRoute(deps, ctx, route.name, route.template, phases);
+  else await dispatchPromptRoute(deps, ctx, phases, messageID);
   const finishedAt = deps.now();
   return {
     sessionID: sessionId,
@@ -284,6 +335,6 @@ async function runScheduledPipeline(deps: ScheduledPipelineDeps, request: RunReq
 
 /** Builds the C.6 pipeline port handed to the scheduled runtime. */
 export function createScheduledRunPipeline(deps: ScheduledPipelineDeps) {
-  return (request: RunRequest, task: ScheduledTask): Promise<PipelineOutcome> =>
-    runScheduledPipeline(deps, request, task);
+  return (request: RunRequest, task: ScheduledTask, phases?: PipelinePhaseHooks): Promise<PipelineOutcome> =>
+    runScheduledPipeline(deps, request, task, phases);
 }

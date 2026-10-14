@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /** P9-6b request parsing and scope validation. */
 import { statSync } from 'node:fs';
+import { OPERATION_ID_PATTERN } from './session-operation-store.ts';
 import type {
   CreateInput, OrchestratorDeps, RecordObject, RunInput, ScopeInput, SelectionInput,
   SessionOrchestrationResponse, WorktreeRequest,
@@ -61,6 +62,10 @@ export function parseCreateBody(body: RecordObject): CreateInput | string {
   if (body.setUpstream !== undefined && typeof body.setUpstream !== 'boolean') {
     return 'setUpstream must be boolean';
   }
+  const operationId = textOf(body.operationId).trim();
+  if (operationId !== '' && !OPERATION_ID_PATTERN.test(operationId)) {
+    return 'operationId must be a bounded identifier';
+  }
   const worktree = parseWorktree(body.worktree);
   if (typeof worktree === 'string') return worktree;
   if (worktree !== null && body.setUpstream === true) worktree.setUpstream = true;
@@ -79,6 +84,7 @@ export function parseCreateBody(body: RecordObject): CreateInput | string {
     ...(goal ? { goal } : {}),
     ...(goalTokenBudget !== undefined ? { goalTokenBudget } : {}),
     ...(worktree !== null ? { worktree } : {}),
+    ...(operationId !== '' ? { operationId } : {}),
   };
 }
 

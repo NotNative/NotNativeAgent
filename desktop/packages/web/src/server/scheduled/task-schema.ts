@@ -10,6 +10,7 @@
  */
 import { TOKEN_BUDGET_MAX } from '../goals/goal-constants.ts';
 import { cronNextAt, isValidZone, parseOnceSlot } from './next-run.ts';
+import { dispatchOf, type OccurrenceDispatch } from './scheduled-claims.ts';
 import {
   TASK_CRON_MAX, TASK_ID_MAX, TASK_LAST_ERROR_MAX, TASK_NAME_MAX,
   TASK_PROMPT_MAX, TASK_ROUTE_ID_MAX,
@@ -42,6 +43,10 @@ export interface TaskState {
   nextRunAt?: number;
   lastScheduledFor?: number;
   lastError?: string;
+  /** F9 durable occurrence record: present while a claimed occurrence has not
+   *  settled; cleared by the completion patch. Read through `dispatchOf`
+   *  (which validates), never field-dereferenced directly. */
+  dispatch?: OccurrenceDispatch;
 }
 
 export interface ScheduledTask {
@@ -185,6 +190,10 @@ function normalizeState(raw: unknown, options: NormalizeOptions): TaskState {
   else delete state.lastScheduledFor;
   const lastError = boundedString(shape.lastError, TASK_LAST_ERROR_MAX);
   if (lastError !== undefined) state.lastError = lastError; else delete state.lastError;
+  // The dispatch record is a KNOWN state field: a damaged record is dropped
+  // (the stale running marker still refuses re-claims of that occurrence).
+  const dispatch = dispatchOf({ state: shape });
+  if (dispatch !== null) state.dispatch = dispatch; else delete state.dispatch;
   return state;
 }
 

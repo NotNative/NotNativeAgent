@@ -19,15 +19,28 @@ export interface TaskRunEvent {
 export interface RunRequest {
   projectId: string;
   taskId: string;
-  reason: 'scheduled' | 'manual';
+  reason: 'scheduled' | 'manual' | 'resume';
   scheduledFor?: number;
+  /** F9: resume an occurrence whose durable record already knows its session
+   *  (acceptance-unknown reconciliation) — the pipeline re-dispatches WITHOUT
+   *  creating another session, carrying the occurrence operation id. */
+  resumeSessionId?: string;
+}
+
+/** F9 phase callbacks the run controller threads into the pipeline so the
+ *  durable dispatch record advances around native acceptance. */
+export interface PipelinePhaseHooks {
+  /** After session create (or resume lookup): persist the session id. */
+  onSessionCreated(sessionId: string): Promise<boolean>;
+  /** After the prompt/command dispatch was accepted by the harness. */
+  onAccepted(sessionId: string): Promise<boolean>;
 }
 
 export interface PipelineOutcome {
   sessionID?: string;
   /** C.6 step 11 return shape (extra fields are ignored by the runtime). */
   durationMs?: number;
-  reason?: 'scheduled' | 'manual';
+  reason?: 'scheduled' | 'manual' | 'resume';
   startedAt?: number;
   finishedAt?: number;
 }
@@ -53,7 +66,7 @@ export interface StorePorts {
 
 export interface RuntimePorts extends StorePorts {
   listProjects: () => Promise<string[]>;
-  runPipeline: (request: RunRequest, task: ScheduledTask) => Promise<PipelineOutcome>;
+  runPipeline: (request: RunRequest, task: ScheduledTask, phases?: PipelinePhaseHooks) => Promise<PipelineOutcome>;
   emit: (event: TaskRunEvent) => void;
   log: { warn: (message: string) => void; error: (message: string) => void };
   now: () => number;

@@ -293,11 +293,11 @@ export interface PromptAsyncBody {
   messageID?: string;
   model: { providerID: string; modelID: string };
   agent?: string;
-  variant?: string;
+  // Why: no variant/delivery fields — NNA rejects both on prompt_async
+  // (nnd_variant_override_unsupported / nnd_delivery_override_unsupported).
   tools?: Record<string, boolean>;
   format?: unknown;
   system?: string;
-  delivery?: 'steer' | 'queue';
   parts: PromptPartInput[];
 }
 

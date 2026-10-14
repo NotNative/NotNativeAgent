@@ -122,7 +122,7 @@ export async function dispatch(deps: OrchestratorDeps, context: DispatchContext,
     ? await deps.harness.sendPrompt(context.sessionId, context.directory, {
       model: { providerID: selection.providerID, modelID: selection.modelID },
       agent: selection.agent,
-      ...(selection.variant === undefined ? {} : { variant: selection.variant }),
+      // Why: no variant — the prompt route rejects per-prompt variant (nnd_variant_override_unsupported).
       parts: [
         ...(knowledge === null ? [] : [{ type: 'text', text: knowledge, synthetic: true }]),
         ...(expanded.trim() === '' ? [] : [{ type: 'text', text: expanded }]),

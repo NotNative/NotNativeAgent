@@ -203,16 +203,18 @@ async function dispatchPrompt(
       model: {
         providerID: input.model.providerID,
         modelID: input.model.modelID,
-        ...(input.model.variant === undefined ? {} : { variant: input.model.variant }),
+        // Why: no variant/delivery here — NNA rejects per-prompt overrides on
+        // prompt_async (nnd_variant_override_unsupported / nnd_delivery_override_unsupported).
       },
       ...(input.agent ? { agent: input.agent } : {}),
-      ...(input.delivery ? { delivery: input.delivery } : {}),
       parts,
     },
     { directory },
   );
   if (result.error) {
-    throw Object.assign(new Error(result.error), { status: result.response?.status, transportTagged: result.response === undefined });
+    // Preserve NNA's structured failure code: machine decisions (busy vs
+    // conflict vs duplicate) must not re-infer intent from message prose.
+    throw Object.assign(new Error(result.error), { status: result.response?.status, code: result.code, transportTagged: result.response === undefined });
   }
   if (result.response && result.response.status !== 204) {
     throw Object.assign(new Error(`prompt_async unexpected status ${result.response.status}`), { status: result.response.status, transportTagged: false });

@@ -17,6 +17,7 @@ import { createSessionWorktree, waitForWorktree } from './session-worktree.ts';
 import { archiveSessionIds, createSession, sendSession } from './session-orchestration-service.ts';
 import { parseCreateBody, parseRunBody, safeDirectory } from './session-orchestration-input.ts';
 import { goalIntro } from './session-orchestration-dispatch.ts';
+import { OPERATION_ID_PATTERN, readOperation } from './session-operation-store.ts';
 
 export type { DispatchContext, OrchestratorDeps, OrchestratorSettings, ResolvedSelection, SelectionInput, SessionHarnessPorts, SessionOrchestrationError, SessionOrchestrationResponse, WorktreeRequest };
 export { archiveSessionIds, createSession, sendSession };
@@ -71,6 +72,17 @@ export function registerOpenChamberSessionRoutes(app: Hono, custom?: Orchestrato
     const parsed = parseCreateBody(body);
     if (typeof parsed === 'string') return Response.json({ error: parsed }, { status: 400 });
     return await envelope(createSession(deps, parsed));
+  });
+  // F9 creation-receipt lookup: an unknown-outcome reservation is resolved by
+  // READING this record (never by re-running the creation blindly).
+  app.get('/api/openchamber/sessions/operations/:operationId', (context) => {
+    const operationId = context.req.param('operationId') ?? '';
+    if (!OPERATION_ID_PATTERN.test(operationId)) {
+      return Response.json({ error: 'operationId must be a bounded identifier' }, { status: 400 });
+    }
+    const receipt = readOperation(operationId);
+    if (receipt === null) return Response.json({ error: 'operation not found' }, { status: 404 });
+    return Response.json(receipt);
   });
   app.post('/api/openchamber/sessions/archive', async (context) => {
     const body = await bodyOf(context.req.raw);

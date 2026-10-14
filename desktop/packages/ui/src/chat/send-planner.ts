@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
- * Send planning (doc 05 §B.9/§H.1/§H.7/§H.8 + §F.4). Pure over a planning
- * snapshot; the composer owns identity snapshots and engine calls.
+ * Send planning (doc 05 §B.9/§B.11/§H.1/§H.7/§H.8 + §F.4). Pure over a
+ * planning snapshot; the composer owns identity snapshots and engine calls.
  */
 import { classifyCommand, expandPrompt, skillMentionInstruction, type PromptToken } from './prompt-language.ts';
 import type { QueuedMessage } from './drafts.ts';
@@ -91,11 +91,22 @@ function skillNames(tokens: PromptToken[]): string[] {
 }
 
 /** §B.9 error mapping label family (toast text selection is composer-side). */
-export function sendErrorKind(error: unknown): 'payload-too-large' | 'runtime-changed' | 'transport' | 'server' | 'unknown' {
+export function sendErrorKind(error: unknown): 'payload-too-large' | 'runtime-changed' | 'busy' | 'transport' | 'server' | 'unknown' {
   const status = (error as { status?: number })?.status;
   if (status === 413) return 'payload-too-large';
   const message = String((error as { message?: string })?.message ?? error);
   if (/runtime (changed|switch)/iu.test(message)) return 'runtime-changed';
+  // Why: NNA validates busy state itself and refuses a submission against an
+  // active turn with the structured code `session_busy` (409, "NND session
+  // already has an active turn"). Prefer that code when the client preserved
+  // it — machine state is authoritative (CTL-DATA) — and keep the prose match
+  // only as the fallback for paths that dropped the code before this
+  // classifier ran. Other 409 conflicts (an upload conflict, a duplicate id)
+  // carry no busy marker and keep the generic label.
+  const code = (error as { code?: string })?.code;
+  if (code === 'session_busy') return 'busy';
+  if (code) return status === undefined ? 'unknown' : 'server';
+  if (/session_busy|already has an active turn/iu.test(message)) return 'busy';
   if (/timeout|network|failed to fetch|gateway|econnreset|socket/iu.test(message)) return 'transport';
   if (status !== undefined) return 'server';
   return 'unknown';

@@ -9,7 +9,7 @@ import { AdapterQueueFeed, type QueueEnvelope, type QueueFeed } from './queue-fe
 import { NULL_KNOWLEDGE_PROVIDER, notifyPromptSent, type ProjectKnowledgeProvider } from './queue-hooks.ts';
 import { createAgentMemoryKnowledgeProvider } from '../agent-tool/memory-delivery.ts';
 import { QUEUE_FILE_NAME, MessageQueueStore } from './queue-store.ts';
-import { parseQueuedItemInput, type QueueItem } from './queue-item.ts';
+import { QueueItemConflictError, parseQueuedItemInput, sameQueuePayload, type QueueItem } from './queue-item.ts';
 import { withConfigLock } from '../scheduled/config-lock.ts';
 import { QueueDispatchClaims, type DispatchClaim } from './queue-dispatch-claims.ts';
 import { asRecord, errorNameOf, optionalPropertyString, tailUnfinishedAssistant, failureDelayMs } from './queue-runtime-utils.ts';
@@ -119,14 +119,25 @@ export class MessageQueueRuntime {
       return result;
     });
   }
-  enqueueItem(sessionId: string, directory: string, rawItem: unknown): { revision: number; itemId: string } {
+  enqueueItem(sessionId: string, directory: string, rawItem: unknown): { revision: number; itemId: string; duplicate: boolean } {
     const item = parseQueuedItemInput(rawItem);
+    // F9 duplicate policy: an id already present with the SAME payload is the
+    // same enqueue retried after a lost acknowledgement — accept without a
+    // mutation (same revision, no duplicate append); a CHANGED payload under
+    // that id is a conflict the caller must reject.
+    const prior = this.store.findItem(sessionId, item.id);
+    if (prior !== null) {
+      if (sameQueuePayload(prior, item)) {
+        return { revision: this.store.currentRevision, itemId: item.id, duplicate: true };
+      }
+      throw new QueueItemConflictError(`queued item ${item.id} already exists with a different payload`);
+    }
     const revision = this.store.enqueue(sessionId, directory, item, (id) => this.inFlightIdOf(id));
     this.announceWithRevision(sessionId, directory, revision);
     this.armQuiet(sessionId); // arms dispatch; a session may already be idle
-    return { revision, itemId: item.id };
+    return { revision, itemId: item.id, duplicate: false };
   }
-  enqueueItemShared(sessionId: string, directory: string, rawItem: unknown): Promise<{ revision: number; itemId: string }> {
+  enqueueItemShared(sessionId: string, directory: string, rawItem: unknown): Promise<{ revision: number; itemId: string; duplicate: boolean }> {
     return this.withSharedQueue(() => this.enqueueItem(sessionId, directory, rawItem));
   }
   takeItem(sessionId: string, itemId: string): { kind: 'taken'; item: QueueItem; revision: number; directory: string } | { kind: 'inFlight' } | { kind: 'unknown' } {

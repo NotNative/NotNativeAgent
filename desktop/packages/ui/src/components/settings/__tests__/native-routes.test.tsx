@@ -364,10 +364,16 @@ it('discards a late route view from the old runtime after switching NNA', async 
 });
 
 it('offers exactly the route rows NNA advertises and none it leaves unbound', async () => {
-  // NNA's catalog decides the offer: seven typed scalars for each of the
-  // reviewer and vision routes are tuned here, the provider/model pair rides
-  // the paired binding form, and the primary and subagent routes are not
-  // offered on this page at all.
+  // NNA's catalog decides the offer: the seven scalar members plus the two
+  // list members are tuned here for every role — src/nnd-configuration-intents.js
+  // admits generic writes for routes.{role} regardless of role (the one
+  // caveat: a generic write for routes.primary.deadline_ms normalizes onto
+  // the canonical provider_timeout_ms pair, the alias never persists) — while
+  // the provider/model pair never enters this chooser: primary and subagent
+  // bind through the provider route authority and reviewer/vision through the
+  // paired binding form below. The primary deadline keeps its typed control in
+  // the provider-deadline block on the native configuration page, which
+  // previews the global timeout beside it.
   const tuning = ['budget', 'context_limit_bytes', 'deadline_ms', 'enable_thinking', 'max_output_tokens',
     'reasoning_effort', 'temperature'];
   const roles = ['primary', 'reviewer', 'subagent', 'vision'];
@@ -378,19 +384,123 @@ it('offers exactly the route rows NNA advertises and none it leaves unbound', as
     fields: [...view.fields.filter(field => !field.path.startsWith('routes.')),
       ...paths.map(path => row(path, 'value'))] });
   vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({
-    fields: paths.map(path => ({ path, type: path.endsWith('temperature') ? 'number' : 'string',
+    fields: paths.map(path => ({ path, type: path.endsWith('temperature') ? 'number' as const
+      : path.endsWith('required_capabilities') || path.endsWith('fallbacks') ? 'array' as const : 'integer' as const,
       editability: { available: true as const, scope: 'user' as const,
         required_permission: 'nnd.configuration.manage' as const } })),
     routeBindings: ['reviewer', 'vision'] });
   act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>));
   await act(async () => {});
   const options = [...container.querySelectorAll('option')].map(option => option.value);
-  for (const role of ['reviewer', 'vision']) {
-    for (const key of tuning) expect(options, `routes.${role}.${key}`).toContain(`routes.${role}.${key}`);
+  for (const role of roles) for (const key of tuning) {
+    if (role === 'primary' && key === 'deadline_ms') continue;
+    expect(options, `routes.${role}.${key}`).toContain(`routes.${role}.${key}`);
   }
-  expect(options.filter(value => value.startsWith('routes.'))).toHaveLength(14);
+  for (const role of roles) for (const key of ['required_capabilities', 'fallbacks']) {
+    expect(options, `routes.${role}.${key}`).toContain(`routes.${role}.${key}`);
+  }
+  // The binding pair is never a scalar choice here, and the primary deadline
+  // belongs to the provider-deadline block that shows the pair it overrides.
+  expect(options).not.toContain('routes.primary.deadline_ms');
+  for (const role of roles) {
+    expect(options, `routes.${role}.provider_id`).not.toContain(`routes.${role}.provider_id`);
+    expect(options, `routes.${role}.model`).not.toContain(`routes.${role}.model`);
+  }
+  expect(options.filter(value => value.startsWith('routes.'))).toHaveLength(35);
   const roleSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Route to bind"]');
   expect(roleSelect).not.toBeNull();
   expect([...roleSelect!.querySelectorAll('option')].map(option => option.value).filter(Boolean))
     .toEqual(['reviewer', 'vision']);
+});
+
+it('refuses an out-of-range subagent budget before the wire and surfaces NNA’s refusal when the native preview rejects', async () => {
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    editable('routes.subagent.budget', 'integer'), editable('routes.subagent.provider_id', 'string')],
+    routeBindings: ['reviewer', 'vision'] });
+  const liveView = { ...view, fields: [...view.fields, row('routes.subagent.budget', 4)] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(liveView);
+  vi.mocked(nativeChange).mockImplementation((_view, field, mode, draft) => ({
+    installation_id: view.installation_id, data_id: view.data_id, scope: 'user' as const,
+    expected_revision: revision, expected_resolution_revision: resolution,
+    operations: [{ op: mode === 'reset' ? 'reset' : 'set', field: field.path,
+      ...(mode === 'set' ? { value: JSON.parse(draft) } : {}) }] }));
+  // The native preview refuses when a higher-precedence source owns the field
+  // (src/nnd-configuration-service.js candidate() throws
+  // configuration_source_shadowed); the desktop echoes NNA's own code.
+  vi.mocked(previewNativeConfiguration).mockRejectedValue(Object.assign(new Error('shadowed'),
+    { code: 'configuration_source_shadowed' }));
+  act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>)); await act(async () => {});
+  const tuning = container.querySelector('[data-settings-item="native-routes.tuning"]')!;
+  const chooser = tuning.querySelector('select') as HTMLSelectElement;
+  await act(async () => { chooser.value = 'routes.subagent.budget';
+    chooser.dispatchEvent(new Event('change', { bubbles: true })); });
+  const preview = () => [...tuning.querySelectorAll('button')].find(item => item.textContent?.includes('Preview change')) as HTMLButtonElement;
+  const numberInput = tuning.querySelector('input[type="number"]') as HTMLInputElement;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(numberInput, '999');
+    numberInput.dispatchEvent(new Event('input', { bubbles: true })); });
+  // Mirror bound (configuration-rules.js budget 1–64) refuses before the wire.
+  expect(preview().disabled).toBe(true);
+  expect(previewNativeConfiguration).not.toHaveBeenCalled();
+  expect(nativeChange).not.toHaveBeenCalled();
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(numberInput, '8');
+    numberInput.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(preview().disabled).toBe(false);
+  await act(async () => preview().click());
+  expect(previewNativeConfiguration).toHaveBeenCalled();
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain('configuration_source_shadowed');
+  expect(container.textContent).not.toContain('Save to NNA');
+});
+
+it('surfaces a revision conflict on a subagent save and keeps the draft for reconciliation', async () => {
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    editable('routes.subagent.budget', 'integer'), editable('routes.subagent.provider_id', 'string')],
+    routeBindings: ['reviewer', 'vision'] });
+  const request = { installation_id: view.installation_id, data_id: view.data_id, scope: 'user' as const,
+    expected_revision: revision, expected_resolution_revision: resolution,
+    operations: [{ op: 'set' as const, field: 'routes.subagent.budget', value: 8 }] };
+  vi.mocked(nativeChange).mockReturnValue(request);
+  vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: revision,
+    resolution_revision: resolution, application: 'not_applied', view: { ...view, fields: [...view.fields,
+      row('routes.subagent.budget', 8)] } });
+  vi.mocked(saveNativeConfiguration).mockRejectedValue(Object.assign(new Error('conflict'),
+    { code: 'manifest_revision_conflict' }));
+  vi.mocked(requestNativeConfiguration).mockResolvedValue({ ...view,
+    fields: [...view.fields, row('routes.subagent.budget', 4)] });
+  act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>)); await act(async () => {});
+  const tuning = container.querySelector('[data-settings-item="native-routes.tuning"]')!;
+  const chooser = tuning.querySelector('select') as HTMLSelectElement;
+  await act(async () => { chooser.value = 'routes.subagent.budget';
+    chooser.dispatchEvent(new Event('change', { bubbles: true })); });
+  const numberInput = tuning.querySelector('input[type="number"]') as HTMLInputElement;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(numberInput, '8');
+    numberInput.dispatchEvent(new Event('input', { bubbles: true })); });
+  const preview = () => [...tuning.querySelectorAll('button')].find(item => item.textContent?.includes('Preview change')) as HTMLButtonElement;
+  await act(async () => preview().click());
+  // The preview names both sides before save: the persisted value and the
+  // value NNA resolves from it.
+  expect(container.textContent).toContain('Explicit: 8');
+  expect(container.textContent).toContain('Effective: 8');
+  await act(async () => [...tuning.querySelectorAll('button')].find(item => item.textContent?.includes('Save to NNA'))!.click());
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain('manifest_revision_conflict');
+  // The conflict does not swallow the operator's typed draft.
+  expect((tuning.querySelector('input[type="number"]') as HTMLInputElement).value).toBe('8');
+  expect(container.textContent).toContain('routes.subagent.budget');
+});
+
+it('hides a route member the native catalog does not advertise', async () => {
+  vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
+    editable('routes.subagent.temperature', 'number'), editable('routes.subagent.provider_id', 'string')],
+    routeBindings: ['reviewer', 'vision'] });
+  const liveView = { ...view, fields: [...view.fields, row('routes.subagent.temperature', 0.3),
+    row('routes.subagent.budget', 4), row('routes.subagent.fallbacks', ['vision'] as string[])] };
+  vi.mocked(requestNativeConfiguration).mockResolvedValue(liveView);
+  act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>)); await act(async () => {});
+  const options = [...container.querySelectorAll('option')].map(option => option.value);
+  expect(options).toContain('routes.subagent.temperature');
+  // Advertised nowhere, offered nowhere: the unbudgeted and list members stay out.
+  expect(options).not.toContain('routes.subagent.budget');
+  expect(options).not.toContain('routes.subagent.fallbacks');
 });

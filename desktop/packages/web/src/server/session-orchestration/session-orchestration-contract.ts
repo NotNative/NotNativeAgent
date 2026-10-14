@@ -77,6 +77,9 @@ export interface CreateInput {
   goal?: boolean;
   goalTokenBudget?: number;
   worktree?: WorktreeRequest;
+  /** F9 durable creation identity: a retry with the same id replays the
+   *  original outcome; a changed payload under the same id is rejected. */
+  operationId?: string;
 }
 
 export interface RunInput {
@@ -98,7 +101,7 @@ export interface DispatchContext {
 }
 
 export type SessionOrchestrationError = {
-  status: 400 | 404 | 500 | 502;
+  status: 400 | 404 | 409 | 500 | 502 | 503;
   error: string;
   partial?: boolean;
   partialAction?: 'worktree-created' | 'goal-configured' | 'fork-created';

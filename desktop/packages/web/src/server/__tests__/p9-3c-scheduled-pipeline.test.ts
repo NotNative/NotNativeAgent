@@ -13,6 +13,7 @@ const OPTS = { now: T0, serverZone: 'UTC' };
 
 const configMod = await import('../scheduled/task-config.ts');
 const schemaMod = await import('../scheduled/task-schema.ts');
+const { operationIdForOccurrence } = await import('../scheduled/scheduled-claims.ts');
 const busMod = await import('../lib/bus.ts');
 const pipelineMod = await import('../scheduled/scheduled-pipeline.ts');
 const serviceMod = await import('../scheduled/scheduled-service.ts');
@@ -158,8 +159,11 @@ describe('scheduled pipeline (C.6)', () => {
     expect(calls.creates).toEqual([{ directory: '/repo/alpha', title: 'Nightly digest 2026-09-25 09:30' }]);
     expect(calls.prompts).toHaveLength(1);
     expect(calls.prompts[0]!.sessionId).toBe('sess-1');
+    // F9: the scheduled occurrence's deterministic operation id rides as the
+    // submission's idempotency identity (messageID).
     expect(calls.prompts[0]!.body).toEqual({
       model: { providerID: 'acme', modelID: 'fast' },
+      messageID: operationIdForOccurrence('task-1', T0),
       parts: [{ type: 'text', text: 'Summarize the inbox' }],
     });
     expect(events).toEqual([{

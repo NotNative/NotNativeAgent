@@ -34,7 +34,7 @@ describe('boot/resume binding (W-30)', () => {
     expect(readLastActiveSession()).toBeNull();
   });
 
-  it('enrichment lands commands/mcp/lsp/vcs and the signature guard never resurrects settled requests', async () => {
+  it('enrichment lands commands/mcp/lsp and the signature guard never resurrects settled requests', async () => {
     const store = createDirectoryStore();
     const permission: PermissionRequest = { id: 'pr1', sessionID: 's1' } as PermissionRequest;
     store.getState().patch({ permission: { s1: [permission] } });
@@ -42,13 +42,11 @@ describe('boot/resume binding (W-30)', () => {
     client.listCommands = vi.fn(async () => ({ data: [{ name: 'review' }] as never, error: null })) as never;
     client.getMcp = vi.fn(async () => ({ data: { servers: [] }, error: null })) as never;
     client.getLsp = vi.fn(async () => ({ data: [] as never, error: null })) as never;
-    client.getVcs = vi.fn(async () => ({ data: { branch: 'main' }, error: null })) as never;
     client.listPermissions = vi.fn(async () => ({ data: [] as never, error: null })) as never; // pr1 settled elsewhere
     client.listQuestions = vi.fn(async () => ({ data: [] as never, error: null })) as never;
     await runPhase2('D:/work', store, () => true);
     const state = store.getState();
     expect(state.command).toEqual([{ name: 'review' }]);
-    expect(state.vcs).toEqual({ branch: 'main' });
     expect(store.getState().permission['s1']).toBeFalsy(); // stable signature proves the omission is a real deletion
   });
 
@@ -59,7 +57,6 @@ describe('boot/resume binding (W-30)', () => {
     client.listCommands = vi.fn(async () => ({ data: [], error: null })) as never;
     client.getMcp = vi.fn(async () => ({ data: null, error: null })) as never;
     client.getLsp = vi.fn(async () => ({ data: null, error: null })) as never;
-    client.getVcs = vi.fn(async () => ({ data: null, error: null })) as never;
     let deliverList!: () => void;
     client.listPermissions = vi.fn(async () => {
       store.getState().patch({ permission: { s1: [live] } }); // SSE arrival mid-flight

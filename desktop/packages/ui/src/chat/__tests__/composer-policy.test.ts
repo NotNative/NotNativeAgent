@@ -98,6 +98,27 @@ describe('error classification (§B.9 mapping)', () => {
     expect(sendErrorKind({ status: 500 })).toBe('server');
     expect(sendErrorKind(new Error('mystery'))).toBe('unknown');
   });
+
+  it('classifies NNA session_busy refusals as busy, distinct from other 409s', () => {
+    // NNA's own refusal text rides either the message envelope or the raw message.
+    expect(sendErrorKind({ status: 409, message: 'session_busy: NND session already has an active turn' })).toBe('busy');
+    expect(sendErrorKind(new Error('promptAsync failed (409): NND session already has an active turn'))).toBe('busy');
+    // A different 409 (duplicate id, upload conflict) must NOT read as busy.
+    expect(sendErrorKind({ status: 409, message: 'request id already submitted' })).toBe('server');
+    expect(sendErrorKind({ status: 409, message: 'attachment upload conflict' })).toBe('server');
+  });
+
+  it('prefers the structured NNA code over message prose for the busy kind', () => {
+    // The client preserves NNA's error-envelope code; machine state wins
+    // (CTL-DATA) even when the prose does not match the busy pattern.
+    expect(sendErrorKind({ status: 409, code: 'session_busy', message: 'opaque refusal' })).toBe('busy');
+    // A structured non-busy code never becomes busy, even if the prose
+    // accidentally reads like a busy refusal.
+    expect(sendErrorKind({ status: 409, code: 'duplicate_request', message: 'already has an active turn' })).toBe('server');
+    // A code without a status classifies honestly rather than guessing.
+    expect(sendErrorKind({ code: 'session_busy', message: 'no status carried' })).toBe('busy');
+    expect(sendErrorKind({ code: 'other_code', message: 'no status carried' })).toBe('unknown');
+  });
 });
 
 describe('input history (§H.4)', () => {

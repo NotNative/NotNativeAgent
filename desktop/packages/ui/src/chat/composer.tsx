@@ -12,12 +12,12 @@ import { activeTrigger, commandRegistry, replaceTriggerToken, skillInstructionFr
 import { shouldSubmitEnter, recallDirection } from './keyboard-policy.ts';
 import { draftKey, readDraft, saveDraft, flushDraftsNow, type DraftAttachment, type QueuedMessage } from './drafts.ts';
 import { recordSend, recallList, recallDirectionResult, type HistoryEntry } from './input-history.ts';
-import { planSend, type PlannedSend } from './send-planner.ts';
+import { planSend, sendErrorKind, type PlannedSend } from './send-planner.ts';
 import { useAuthSessionStore, authSessionBlocksSend } from '../lib/runtime-auth-expiry.ts';
 import { ComposerFooter, AttachmentChips, DraftStarterChips, PickerPopup, QueueChipsRow } from './composer-bits.tsx';
 import { describeSendFailure, dedupeNames, fileToDataUrl } from './composer-attachments.ts';
 import { createAnnotationHandler } from './composer-annotation.ts';
-import { handleQueuedTarget } from './composer-queue.ts';
+import { deliveryRoutes, type OutgoingPart } from './composer-delivery.ts';
 import { ModelPicker, type ModelSelection } from './model-picker.tsx';
 import type { PartLite } from './turns.ts';
 import { fsSearch } from '../lib/server-api.ts';
@@ -25,10 +25,8 @@ import { refreshSnippets, snippetMap, snippetSubscribe } from '../lib/snippets-s
 import { useMessageQueueStore, normalizeFollowUpBehavior } from '../stores/useMessageQueueStore.ts';
 import { settingsValue } from '../lib/settings/store.ts';
 import { modelForCreatedSession, useComposerModel } from './composer-model-config.ts';
-import { deliverToNewSession } from './composer-draft-pins.ts';
 import { GLOBAL_DIRECTORY } from '../sync/routing-index.ts';
 import { responseStyleRider } from './response-style.ts';
-import { btwSendStateFor } from './btw-org.ts';
 const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw']; const MAX_LINES = 8;
 export interface ComposerServices { engine: SyncEngine; store: (directory?: string) => StoreApi<DirectoryStore>; dispatch: (command: 'undo' | 'redo' | 'timeline' | 'compact') => void; }
 
@@ -50,8 +48,6 @@ export interface ComposerProps {
   onModelSelection?: (selection: { providerID: string; modelID: string; variant: string | null }) => void;
   onAddProvider?: () => void;
 }
-
-type OutgoingPart = { type: 'text'; text: string; synthetic?: boolean } | { type: 'file'; url?: string; filename?: string; mime?: string };
 
 export function Composer(props: ComposerProps): ReactNode {
   const { services, sessionID, directory, sessionKey } = props;
@@ -255,10 +251,11 @@ export function Composer(props: ComposerProps): ReactNode {
       tokens,
       attachmentNames: attachments.map((a) => a.name),
     });
-    await executePlan(plan, tokens, composed, skillInstruction);
+    await executePlan(plan, tokens, composed, skillInstruction, followUp);
   };
 
-  async function executePlan(plan: PlannedSend, tokens: PromptToken[], composed: string, skillInstruction: string | null): Promise<void> {
+  async function executePlan(plan: PlannedSend, tokens: PromptToken[], composed: string,
+    skillInstruction: string | null, followUp: 'queue' | 'steer'): Promise<void> {
     void tokens;
     if (plan.localCommand) {
       setText('');
@@ -276,37 +273,33 @@ export function Composer(props: ComposerProps): ReactNode {
     }
     if (sessionID && plan.denyPermissions) {
       for (const request of [...(store.getState().permission[sessionID] ?? [])]) {
-        await services.engine.actions.replyPermission(sessionID, request, 'reject').catch(() => toast.error('Failed to deny the permission request'));
+        const denied = await services.engine.actions.replyPermission(sessionID, request, 'reject')
+          .then(() => true, () => false);
+        if (!denied) {
+          // §B.9/§F.4: a denial we could not deliver must not be dropped on the
+          // floor — stop the send so the pending request and the typed draft
+          // both stay recoverable (neither is cleared on this path).
+          toast.error('Could not deny the pending permission request. Your draft stays in the composer.');
+          return;
+        }
       }
     }
     if (sessionID && plan.rejectQuestions) {
       for (const request of [...(store.getState().question[sessionID] ?? [])]) {
-        await services.engine.actions.replyQuestion(sessionID, request, [], true).catch(() => toast.error('Failed to dismiss the question'));
+        const dismissed = await services.engine.actions.replyQuestion(sessionID, request, [], true)
+          .then(() => true, () => false);
+        if (!dismissed) {
+          toast.error('Could not dismiss the pending question. Your draft stays in the composer.');
+          return;
+        }
       }
     }
     if (plan.queueTarget) {
-      if (attachments.length > 0) {
-        toast.error('Wait for the current turn before sending attachments. Your draft is still here.');
-        return;
-      }
-      const { rider, panelActive } = btwSendState();
-      await handleQueuedTarget({
-        directory,
-        sessionID,
-        sessionKey,
-        composed,
-        liveQueue: readDraft(directory, sessionKey).queue,
-        setQueueChips: setQueueChips,
-        saveDraftQueue: (queue) => saveDraft(directory, sessionKey, { text: '', attachments: [], queue }),
-        clearComposer: () => { setText(''); setAttachments([]); persist('', []); },
-        restoreComposer: () => { setText(restoreSnapshot.current.text); setAttachments(restoreSnapshot.current.attachments); },
-        sendConfig: { ...model, agent: sendAgent },
-        recordHistory: () => recordSend({ directory, sessionID, text: composed, attachments: [], scope: 'session', attachmentTarget: 'scoped' }),
-      });
+      await delivery.queueNow(composed);
       return;
     }
     if (!plan.deliverable) return;
-    const { rider: btwRider, panelActive: btwPanelActive } = btwSendState();
+    const { rider: btwRider, panelActive: btwPanelActive } = delivery.btwSendState();
     const outgoing: OutgoingPart[] = [
       { type: 'text' as const, text: plan.deliverable.text },
       ...(skillInstruction ? [{ type: 'text' as const, text: skillInstruction, synthetic: true }] : []),
@@ -320,7 +313,7 @@ export function Composer(props: ComposerProps): ReactNode {
       }
     }
     try {
-      await deliver(outgoing, plan.delivery);
+      await delivery.deliver(outgoing, plan.delivery);
       recordSend({ directory, sessionID, text: composed,
         attachments: btwPanelActive ? [] : attachments, scope: 'session', attachmentTarget: 'scoped' });
       setText('');
@@ -328,46 +321,18 @@ export function Composer(props: ComposerProps): ReactNode {
       persist('', []);
       recallRef.current = { list: [], position: -1, liveText: '' };
     } catch (error) {
+      if (sessionID && sendErrorKind(error) === 'busy') {
+        await delivery.busyReroute(composed, followUp);
+        return;
+      }
       if (!sessionID) {
         // draft send failure returns the column to the draft and keeps the prompt
         useSessionViewStore.getState().setCurrentSession(null);
         saveDraft(directory, 'draft', { text: restoreSnapshot.current.text, attachments: restoreSnapshot.current.attachments, queue: readDraft(directory, 'draft').queue });
       }
-      setText(restoreSnapshot.current.text);
-      setAttachments(restoreSnapshot.current.attachments);
+      delivery.restoreDraft();
       describeSendFailure(error, restoreSnapshot.current.attachments.length > 0);
     }
-  }
-
-  async function deliver(outgoing: OutgoingPart[], delivery: 'steer' | null): Promise<void> {
-    const target = sessionID;
-    const payloadParts = outgoing.map((part) => part.type === 'file'
-      ? ({ type: 'file' as const, url: part.url, filename: part.filename, mime: part.mime })
-      : ({ type: 'text' as const, text: part.text, ...(part.synthetic ? { synthetic: true } : {}) }));
-    const command = shell ? text.trim() : '';
-    if (target && shell && command) {
-      await services.engine.actions.runShell(target, command);
-      return;
-    }
-    if (!target && shell && command) {
-      // §B.3: shell mode text is a HARNESS-executed command — never model
-      // input, and never the first message that materializes a session.
-      toast.error('Open a session to run shell commands.');
-      return;
-    }
-    if (target) {
-      await services.engine.actions.send({ directory, sessionID: target, parts: payloadParts, model, agent: sendAgent, ...(delivery ? { delivery } : {}) });
-      return;
-    }
-    await deliverToNewSession({ directory, sourceKey: sessionKey, outgoing: payloadParts,
-      delivery, model, sendAgent, nnaConfigured, services });
-  }
-
-  function btwSendState(): ReturnType<typeof btwSendStateFor> {
-    const sessionMetadata = sessionID
-      ? store.getState().session.find((entry) => entry.id === sessionID)?.metadata
-      : undefined;
-    return btwSendStateFor(directory, sessionID, sessionMetadata);
   }
 
   function onKey(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
@@ -445,6 +410,9 @@ export function Composer(props: ComposerProps): ReactNode {
   const sendBlocked = authSessionBlocksSend(authStatus) || configUnavailable || (nnaConfigured && !nnaModel) || nativeWorkspacePending;
   // §6.7 step 3: the send guard blocks while the session expiry is confirmed.
   const canSend = (text.trim().length > 0 || attachments.length > 0) && !sendBlocked;
+  // Fresh each render like the inline delivery closures it replaces: the
+  // handlers must read this render's state, never a memoized stale snapshot.
+  const delivery = deliveryRoutes({ directory, sessionID, sessionKey, shell, text, attachments, model, sendAgent, nnaConfigured, services, store, restoreSnapshot, setText, setAttachments, persist, setQueueChips });
   const starterList = props.starters ?? [];
 
   return (<>
@@ -477,7 +445,15 @@ export function Composer(props: ComposerProps): ReactNode {
       <ComposerFooter
         busy={busy}
         canSend={canSend}
-        onStop={() => sessionID && void services.engine.actions.abort(sessionID)}
+        onStop={() => {
+          if (!sessionID) return;
+          // Why: abort is NNA's distinct cancel operation and NNA validates its
+          // authorization and busy state; a refusal or unknown answer must
+          // surface, or the UI would claim the turn stopped when it did not.
+          void services.engine.actions.abort(sessionID).catch((error: unknown) => {
+            toast.error(`NNA did not confirm the stop (${error instanceof Error ? error.message : String(error)}). The turn may still be running.`);
+          });
+        }}
         agent={agent}
         agents={agentNames}
         onAgent={setAgent}
