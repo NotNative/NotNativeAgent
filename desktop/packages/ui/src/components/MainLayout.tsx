@@ -286,7 +286,7 @@ export function MainLayout(): ReactNode {
       ) : (
       <header className="flex min-w-0 items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
         <div className="text-[11px] uppercase tracking-widest text-amber-400/80">NotNative</div>
-        <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={runtimeKey} />
+        <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={runtimeKey} onOpenDraft={actions.openDraft} />
         <SessionTabs engine={engine} directory={activeDirectory} />
         <button type="button" data-testid="mini-chat-open" title={t('shell.minichat.openAria')} aria-label={t('shell.minichat.openAria')}
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100" onClick={openMiniChat}>▣</button>
