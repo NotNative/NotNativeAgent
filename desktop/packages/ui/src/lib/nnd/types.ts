@@ -163,7 +163,11 @@ export interface MessageEntry {
 
 export interface Todo {
   content: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | string;
+  // Why: closed set mirroring NNA's canonical task vocabulary (conversation-work.js
+  // TASK_STATES: pending | in_progress | completed | blocked). The old open
+  // `| string` invited a 'cancelled' value NNA never produces (NNA blocks tasks,
+  // it does not cancel them); CTL-DATA: one bounded vocabulary at the boundary.
+  status: 'pending' | 'in_progress' | 'completed' | 'blocked';
   priority: 'high' | 'medium' | 'low' | string;
 }
 

@@ -264,7 +264,11 @@ export function subagentRows(state: DirectoryStore, parentID: string, statusOf: 
 export interface TodoRowView { content: string; status: string; priority: string }
 
 export function todoRows(state: DirectoryStore, sessionID: string): TodoRowView[] {
-  const rank: Record<string, number> = { 'in-progress': 0, pending: 1, completed: 2, cancelled: 3 };
+  // Why: rank keys mirror NNA's canonical task states (conversation-work.js
+  // TASK_STATES). The old table keyed 'in-progress' (hyphen) and ranked
+  // 'cancelled' — values NNA never emits, so every active task silently fell
+  // to the catch-all rank 9 under the old vocabulary.
+  const rank: Record<string, number> = { in_progress: 0, pending: 1, completed: 2, blocked: 3 };
   return [...(state.todo[sessionID] ?? [])]
     .sort((a, b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || a.content.localeCompare(b.content))
     .map((todo) => ({ content: todo.content, status: todo.status, priority: todo.priority }));

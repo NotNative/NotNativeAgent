@@ -230,7 +230,7 @@ describe('subagent rows (§E.9) + tasks + §G no-borrow', () => {
     const store = emptyStore();
     const todos: Todo[] = [
       { content: 'b-done', status: 'completed', priority: 'high' },
-      { content: 'a-active', status: 'in-progress', priority: 'high' },
+      { content: 'a-active', status: 'in_progress', priority: 'high' },
       { content: 'c-wait', status: 'pending', priority: 'low' },
     ];
     patch(store, { todo: { s1: todos } });

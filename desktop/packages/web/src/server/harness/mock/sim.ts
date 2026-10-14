@@ -163,7 +163,9 @@ function applyTriggers(session: Session, text: string): void {
     emitEvent(session.directory, 'question.asked', { id, sessionID: session.id, questions: pendingQuestions.get(id)!.questions });
   }
   if (lowered.includes('todo')) {
-    const list = [
+    // Bounded NNA task vocabulary (conversation-work.js TASK_STATES) — the mock
+    // teaches consumers the same closed set the real runtime emits.
+    const list: Array<{ content: string; status: 'pending' | 'in_progress' | 'completed' | 'blocked'; priority: 'high' | 'medium' | 'low' }> = [
       { content: 'Inspect the failing area', status: 'completed', priority: 'high' },
       { content: 'Awaiting NNA integration for the real fix', status: 'pending', priority: 'medium' },
     ];
