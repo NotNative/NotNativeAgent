@@ -2040,6 +2040,10 @@
     {
       "version": "20261014-3",
       "content_sha256": "e066905384cfbbd052cb71d79a946e3409ee269215bced9198bd8b5f6d2beeb1"
+    },
+    {
+      "version": "20261014-4",
+      "content_sha256": "cb707904549640e6919043f06f5d568b26e7c15016c00a50d819bf0cecc61b15"
     }
   ]
 }

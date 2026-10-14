@@ -156,10 +156,8 @@ async function modelSelection(directory: string, requestModel: string | undefine
   const settings = readMergedSettings('web');
   return walkthroughModelSelection({
     providers, credentials, requestModel,
-    // Why (uniformity #2): the walkthrough model selection is per-request —
-    // the UI passes the operator's pick on the generate call (requestModel);
-    // the stored walkthroughModelOverride registry entry was removed, so a
-    // mirrored legacy value still resolves but nothing new stores it.
+    // Why (uniformity #2): per-request selection — the registry override entry
+    // was removed; a mirrored legacy value still resolves, nothing new stores it.
     settingsOverride: (settings as { walkthroughModelOverride?: unknown }).walkthroughModelOverride as string | undefined ?? '', smallModelSettings: settings, config,
   });
 }

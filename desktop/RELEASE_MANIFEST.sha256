@@ -1,6 +1,6 @@
 a3d2b37001d73bc741be25f2a9bd0c17973af0c69715ec02a142c68a7906a4fd *install.ps1
 aba02711d175ddbc4735cb909191028ab655a0759e8a82001c59dea81b46c548 *install.sh
-bc496089c49c8d79ee92f45788555449c2f67302c320aabf903f12b79437cce3 *package.json
+18a01459b8204611a2af3b68c9516e1648beae2ae255768399399ae9300449fa *package.json
 c0e9b8a86b1902e3b6df37cbf82454190b84e42e369f25977efcf3022765078f *packages/electron/assets/tray-running.png
 755279bae73c0764987a15b72c04223ebd3b4ebc07aea462e3ed8c244095981f *packages/electron/assets/tray-stopped.png
 acc2fe838c7c16a10e96f90ae0a132227d598247f5ff47012b16a2ff59f9c1ba *packages/electron/browser-guest-policy.mjs
@@ -209,7 +209,7 @@ f9a1b891a65b0f3729fabcbc63480ae9547ba38e16187e646a056d07799fd6ad *packages/ui/sr
 ae65281da7b0613c4b26aecc874449f2bad1ea156d73a7a8d7dfb9355e5b5467 *packages/ui/src/chat/turns.ts
 e7ed9856d049b1d5d9686dca9515e2764a675eeb66d4163ffccf09ea45e0fec4 *packages/ui/src/chat/use-agent-memory-events.ts
 b7ecf2478ec024f779f8643f811da951a8de76dc4c0a0a5f8df48fbd7ec76bed *packages/ui/src/chat/use-operator-rail-width.ts
-98f98113833f09c3c175d2321215847c753cbb3df4755e470deef1aeef1ce803 *packages/ui/src/chat/walkthrough-preview.tsx
+aa3383cca711a271f902bc027b091c5bf9a085654617be29b0756f15c6544159 *packages/ui/src/chat/walkthrough-preview.tsx
 533ecb6303053f4f9728f9692a3748c0a1b13896e3182780f831155bdaf48c92 *packages/ui/src/chat/work-status-panel.tsx
 756ac6db9955a2d0ab4f631d3b38b9e2a66b669e1ea3023de5f0b4d52f96555e *packages/ui/src/chat/work-status.ts
 00546b8fb5b603085a08d72934147caa8849f59db6993c5787158c191ee201fa *packages/ui/src/chat/workspace-context-import.tsx
@@ -568,7 +568,7 @@ cde8ae8298b46f7320d59f586b84bcc65182a89332e12b58ae61f6831727b794 *packages/ui/sr
 83f97420b3dfaa479eb0c38b4d084650c3a0eecc2bfaab36d06d9d7e7dc2b2e7 *packages/ui/src/lib/i18n/messages/en-runtime.ts
 193201b84b162ec1a692385d233751bce89c18fbc6e51d8e606723b641b8edc3 *packages/ui/src/lib/i18n/messages/en-scheduled.ts
 f0b48c8ceda062be10bd2b9af1dbb36c9390e4d4b8c07f14ccb1104ed3ebb3e2 *packages/ui/src/lib/i18n/messages/en-shell-ui.ts
-2f1199185702aea72b9f2e6313094e758a57d21f79e653a78c3d86977fe84dcc *packages/ui/src/lib/i18n/messages/en.ts
+62e3bacb9b7f29f8266c07d530ed2dfcc630a44576322fea95e9efa31f703ac6 *packages/ui/src/lib/i18n/messages/en.ts
 f113cd010eebbd326e26e78ad859b2084b84fbde7b540fdf251c890102509cb0 *packages/ui/src/lib/i18n/messages/locale-agent-groups.ts
 ffdcb67997555375390958994e8a53b6e7b95d37e8f652f4baf4f8d70ee9ba7b *packages/ui/src/lib/i18n/messages/locale-appearance.ts
 952e20c37b2af51a4774b1d6fb17b94b952527061479677ea53773a90fcf8cee *packages/ui/src/lib/i18n/messages/locale-catalogs-a.ts
@@ -689,7 +689,7 @@ a32528c6da1f3cb1458e1f770fa06474f42728829c7fb88854420aee107c1470 *packages/ui/sr
 1daba33e224de88751059cbcf4075daa061ee6dbe70247ecc71c2a74d5af0bd3 *packages/ui/src/lib/nnd/skills.ts
 9d2b3873065460bc483b7ec391a681777cefc79956a27e01b5f16629bbe89710 *packages/ui/src/lib/nnd/steering-capability.ts
 b62323945e7472ffcde7812cbc5d0328d451ca0bd108bdc088635b7849490daf *packages/ui/src/lib/nnd/trust.ts
-957c8fc164dc051563c7105314163ea41d2ced714b4b43f3153c7b5971d51279 *packages/ui/src/lib/nnd/types.ts
+035c75316f646899da6f70d7ec1ce7c267ba395dddf22bb4bb61fd703f23e59b *packages/ui/src/lib/nnd/types.ts
 f06af31013388925e871aa11b83923cc55fa5f31094c920269a8a7da516ec338 *packages/ui/src/lib/nnd/update-actions.ts
 f2e9be63481c238149b8f2020347261f91d974e8f3e8ac7ed4b981ff49bc3a38 *packages/ui/src/lib/nnd/update-state.ts
 4904ddb3e4f6a6959a888a4a0d378649e106557985d3fd4526b3173bf15d52ac *packages/ui/src/lib/nnd/web-fetch-pending.ts
@@ -760,7 +760,7 @@ b5c6e4058e1bdadac8507b7eb131828fdda85b753e9ede129ec0418037eda089 *packages/ui/sr
 582b7f8fd88b09a3281e1dad66a84523746dceffe8f274f0e35fae4d77518d4f *packages/ui/src/lib/settings/parse.ts
 26cc39baa9c5ae2394a4f3c84179ba898b49ddb84f40725c3581b75159ae2e9b *packages/ui/src/lib/settings/parsers.ts
 fe1dd86b457f72d858cff857e4d13114274bb961bd24bf49e521a436d00707da *packages/ui/src/lib/settings/persistence.ts
-518ce86f8638e3e3132bc7320bcea215bbb5b7af392e93c707d43be8c68d8b0e *packages/ui/src/lib/settings/registry.ts
+8756ba2b40ef4a7043d5471830e4adcc8aae9c442f7ae07cd8d9bd1e1a6f2440 *packages/ui/src/lib/settings/registry.ts
 c25de1f3cb99170ba9e34ab7b26160b06ac7b31577223ed34fe7de735892ca91 *packages/ui/src/lib/settings/save-state.ts
 b98aa573168ff2ac42c97b1481aaea8b4a49bb7079e0ded5228c60ed656e3f38 *packages/ui/src/lib/settings/store.ts
 f2048e2aa659bccecfd837e2315464aa81e6c2c18155563642c5023b179cd0b4 *packages/ui/src/lib/shortcuts/__tests__/bindings.test.ts
@@ -970,7 +970,7 @@ b990b9a46e0a59efbcdde0f2f32070b136fae41915592e57f2e5233390761547 *packages/web/s
 4d435b06568cced83f4f62c4173507c174c9f6e7d26bcc770c176b4733a35f2a *packages/web/src/server/__tests__/native-terminal-fence.test.ts
 5ce6c062c39de49c023871088470bd809af996f889fb7aa5215f1ca9dc7b787b *packages/web/src/server/__tests__/native-ui-auth.test.ts
 0ff0adbfc995a7567b4762568452c40b6d35737d09a5fb15e16b65c8e9564e48 *packages/web/src/server/__tests__/native-workspace-admission.test.ts
-f31bc1400365259a69b0d3981205aa522fc4e41f4d13e2e406ec0a8945720805 *packages/web/src/server/__tests__/notification-model.test.ts
+fc18759626678ab63c28460a5c242b9732b599bdfd9b97cd2add357bdd71f096 *packages/web/src/server/__tests__/notification-model.test.ts
 191252d08291ef4284b76bf8835c203202636a7a66bd5375384904d2d60dcd20 *packages/web/src/server/__tests__/notification-native-text.test.ts
 2b1ceb8c0a5ace8b78c4e3394ffd78963b83ee2693ae89872d6890c3c69ce0d0 *packages/web/src/server/__tests__/notification-pending.test.ts
 c063f069953cf439fabf6a49e28a4ad4044e0140d16783d20fed042ba7ef07ec *packages/web/src/server/__tests__/notification-routes.test.ts
@@ -992,7 +992,7 @@ c647639dab17c81626b7bf1076aaf977683b5fb70b40b8a0e9cd098112f927cf *packages/web/s
 c8bb00cce4f26971eea59e9fc912d756b9566774574fef8206c71dc0ab5e1f9a *packages/web/src/server/__tests__/p10-session-knowledge.test.ts
 b8a405f93c2d8233bf09517ec5efbecbed204fdf09044661bd322c56cff6ac04 *packages/web/src/server/__tests__/p10-shared-plans.test.ts
 5d2e73f5335bc502da76dcab7bd7b439e0799829179596e180f4fccc6c0f9fd7 *packages/web/src/server/__tests__/p10-skill-scan.test.ts
-d12c2c179638b83b3880fd8c1545b5665abb8cdd79e7c78a9d7f3a547785e434 *packages/web/src/server/__tests__/p10-small-model.test.ts
+4d7448bf389758e11f1548d0c9455f47cde67bf4e76c6e0ef3934515a56d10a0 *packages/web/src/server/__tests__/p10-small-model.test.ts
 e71b81f96f45ee3e60b976b8de1b4b60dc47193bfa485565db47d4fc90763970 *packages/web/src/server/__tests__/p10-todo-schema.test.ts
 c3e4316bcf2b3c53312c4153fa7bc6de2902d85c2b1a921c68ed3e602aa8d3e5 *packages/web/src/server/__tests__/p11-browser-callback.test.ts
 3e98a9c204bcc3ae802815d067d93f595f9d52832aa91a6dd015807cdcabaa0c *packages/web/src/server/__tests__/p11-browser-control-broker.test.ts
@@ -1003,7 +1003,7 @@ e682ba3ad52396404de1f864a8ae4f295abb18ac25b888f8f027aaed8daa4e75 *packages/web/s
 64637ea93403f8be4a7cee71de702087925767123ba2764f080cc6090afc9175 *packages/web/src/server/__tests__/p11-preview-proxy.test.ts
 4f48dedd2b018cb2e49ca1997f0d8b3a2d27c0a069456b41a01c4e6313faea9d *packages/web/src/server/__tests__/p11-probe-url.test.ts
 12522bd18f5468cd4199c4aa27bc0d9af4e652f7cffb48d46b997a8c2a474fe6 *packages/web/src/server/__tests__/p11-walkthrough-cache.test.ts
-cfbd3eebac4225ed3f3af7302056e017b20b140ccd75a6a165ae26aa9f35b081 *packages/web/src/server/__tests__/p11-walkthrough-generate.test.ts
+1be6df45708685d28e375429a9069beb430b2e4cd4083328afad903854dcd9db *packages/web/src/server/__tests__/p11-walkthrough-generate.test.ts
 7734c5bf28e36da91d1dd4b8b61c7159193c3e0cf45ac5d73d5d3820f47549fa *packages/web/src/server/__tests__/p11-walkthrough-snapshot.test.ts
 9bfacd7451bbb979a6c1e91d29bf720407894ac6dd2550b6e8d10fa60d510e17 *packages/web/src/server/__tests__/p11-walkthrough-source.test.ts
 ad4f216d430b715fe14fe34bed9cf5dcfe427a6081b352632641c57af64c1401 *packages/web/src/server/__tests__/p12-native-notifications.test.js
@@ -1176,7 +1176,7 @@ b20104b00013aa6ea1760ef19127f8459c7d00484299d3ffb46db9b02faef13e *packages/web/s
 ad9cec16ca67b5f76556f3214f2642757b2340124e37e24162c9159a82e3c5cb *packages/web/src/server/lib/relay/request-body.ts
 71f8241a5f147484d90f93a2c2cfd6524cbc2848bef4c3ff100f432154969c7d *packages/web/src/server/lib/relay/tunnel-codec.ts
 c2642e665c9341be74989edac0ba35fae05ab70ee9b537e28c3c7f0e257148d5 *packages/web/src/server/lib/settings-gate.ts
-59bba71dfa69a6a9ceebf0f33a03fb1248d6245fecc156263202c133dda1080c *packages/web/src/server/lib/settings-registry.json
+a0026195b0e58f4e296ef3e0e2a6da47042710a839bcdf01994e5980b7e292e6 *packages/web/src/server/lib/settings-registry.json
 823d2797d53e4447d82852a77883ad874f52376ea2eefeafcdf06711865f7a1e *packages/web/src/server/lib/settings-store.ts
 e1252bbbb32e9235ca07fe6cebc2e253b4737a2106dc916d8dd8e0bd181d74ae *packages/web/src/server/lib/skills/git-identity.ts
 7aff2b3488998426de202edd40934ac1ca14659279c29cdfa9e254c4806a65f6 *packages/web/src/server/lib/skills/skill-catalog-cache.ts
@@ -1204,18 +1204,18 @@ bbe18a80cfdd9c89ade0dcff5d92c64127027b37eef1e8c57f0e98cc488e3fb8 *packages/web/s
 be387f8c74de03efbf72c8e35222bcd7e1fdaced3b720a9b3649899e9d9c70f4 *packages/web/src/server/lib/tunnels/tunnel-starters.ts
 61da14676b8681e25f5df47253dab6fd4d6e255b9e1fd434c90d3d2fc8a6cf8b *packages/web/src/server/lib/tunnels/tunnel-startup.ts
 23e2886029224aead0a3ab17ced0b1744d3e48a1108a836a785b0e0cc31828ad *packages/web/src/server/lib/tunnels/tunnel-validate.ts
-689c52f03f5549724d41efd3ceaa3443dad28c248f876fc3dd09d427bdb455e9 *packages/web/src/server/lib/walkthrough/__tests__/identity.test.ts
-22cfa1cd28f2f25c6b26bd1215ede30c92e69b6a0ee36153f7448acb80caf1f0 *packages/web/src/server/lib/walkthrough/__tests__/model-readiness.test.ts
+4039cc4f8f7f3304838a591a48d075e0f109b030316c43254eaab24cbfa1f426 *packages/web/src/server/lib/walkthrough/__tests__/identity.test.ts
+f539454cbea14cce9a230fc1b0024c4569e054ded3be0ccd1b21d87e6907ff94 *packages/web/src/server/lib/walkthrough/__tests__/model-readiness.test.ts
 966bfe140f95995dc4754bb835db94b7b4c8fa25052a1671639376f3a9a85f61 *packages/web/src/server/lib/walkthrough/cache.ts
-9f716634a96c8f29eb4dfbd7d5aa22acd5a8a93f81d3d571ada06c1acf2f5ee5 *packages/web/src/server/lib/walkthrough/identity.ts
-944062928ec2de399f422ee1ac5c46d6ac3116befe1b26ccd47a891f36106b26 *packages/web/src/server/lib/walkthrough/model-readiness.ts
+995b2099e717e0d8abc794879f3981e850713de6af86736c7260496d642bf032 *packages/web/src/server/lib/walkthrough/identity.ts
+4f7bf4cf58afaabbfcf698b9791725c444e2f6875008cc50adb4a7bd8419ad2e *packages/web/src/server/lib/walkthrough/model-readiness.ts
 55f4bd9abb0d87c8f0b6f601ac9cbfd9baa1a0345b2895069d69dc7d2d566fd9 *packages/web/src/server/lib/walkthrough/prompt.ts
 bf4d69e79f75144360420100cfaed8185361bff147acbd449b90cae26659f785 *packages/web/src/server/lib/walkthrough/response-schema.ts
 1aed8b2316755cef8c6cbaf0407ddff9a3cdaf3e8175c81b49ffadc182e31db2 *packages/web/src/server/magic-prompts/prompt-store.ts
 f3001a9e7ab28f7b6a3db0d0e2295e92adc915e77536875538df20aaf487b495 *packages/web/src/server/notifications/delivery-receipt.ts
 365c6e197a52d3431bcb9d794bdff716fe748dd715cf54c34d2df51cd0db8cfd *packages/web/src/server/notifications/model-context.ts
 b1d0087002f93bfeaa72272a307cf5b52658be336633cfea83326a8375cb4973 *packages/web/src/server/notifications/model-text.ts
-ce7a8662d3d390b8e5b63ea0c5a6cb6383ff0ef2a5acea5c1a9865696462f9e9 *packages/web/src/server/notifications/native-text.ts
+769b02d97c0d69ef17f66c2293f6149541da316425b2c9bffb59361fa32d0591 *packages/web/src/server/notifications/native-text.ts
 9b50a84f8a46671060d7ee9f6d250cce75f804bd201ec32c195436ef4a1d4a89 *packages/web/src/server/notifications/pending-snapshot.ts
 87a2131d07fb800c4e37360f675798471711a72befbde82756986235426d776b *packages/web/src/server/notifications/routes.ts
 abca950aa8f13eb1e44af42e6b5c90ab3c5ee5584fe9b8f4bfb1b9ba6658473a *packages/web/src/server/notifications/session-projection.ts
@@ -1269,7 +1269,7 @@ aadb8a56429ae61654b1a3015bad75b91049182dbf7ee38d66b8db3d5a6e618d *packages/web/s
 0b9d96fe9863ab17c8f457591e358b530c34ee2d827baed4cce9ff88ff9b5419 *packages/web/src/server/routes/git-diff.ts
 6bd9c9e743cb8d6ae0fefbd0a005b4cce784e03f0b077550fcc72fc5d81f5317 *packages/web/src/server/routes/git-stash.ts
 f0264df711119ef906faa95b678c4e865155331193ebf270c2e563b671bee049 *packages/web/src/server/routes/git-sync.ts
-e826f4be8cdeaf450c403ad1845e22cb976b6d21d903ed94554175b3ceae200b *packages/web/src/server/routes/git-walkthrough-generate.ts
+2a7b7728d0267ee0214b27d47ea0b42dfb9e56a55cb1e79afb680243bd58af8d *packages/web/src/server/routes/git-walkthrough-generate.ts
 03085d19c6cd068f5aab7e198bbdad74010c799b3fefc31830d9b6d422d73e6d *packages/web/src/server/routes/git-walkthrough-snapshot.ts
 d5ff6f0830b931f1159f2868cd05b99c5930ca65ef982ce9623c07495a5c31e4 *packages/web/src/server/routes/git-walkthrough-sources.ts
 1f5d979b03fa354b724b1c98497e8c7da1e82a138f5ae5346990a5b46d67887c *packages/web/src/server/routes/git-worktrees.ts
@@ -1294,7 +1294,7 @@ b10a8f7e4cde9d39a0980e5ea55c71f23e9829b605ee33714694c65ff99a030f *packages/web/s
 932588f1e02108d77d2d6cd97178b9cb1db77aa1015e2ecc10f1d1e4cbc0f5d4 *packages/web/src/server/routes/skills.ts
 5b860bf28bbe365d3c2d4e48a2deb2e331b55af6d82810427d1b136020257917 *packages/web/src/server/routes/small-model-assist.ts
 39365e3844a1aa529b7aebaec715c68af2774ce36f9c205a16e010ef2a8f556a *packages/web/src/server/routes/small-model-native.test.ts
-45ba1b23a773b59d727daac1a0af1bb26a45cf62cd30cdeac073cc2e9577d06a *packages/web/src/server/routes/small-model.ts
+dddf081a8fe18c6b665ccbd06ff40cc530ef26eb0c9f54e389547f31b9159088 *packages/web/src/server/routes/small-model.ts
 1d339e12b8347b152174d3dd09ffca3183ba272b6b7e6f94ff868db18e4c3775 *packages/web/src/server/routes/snippets.ts
 f39fb7a54f66752e409cfb40adb32fe3242d63e312fc3b2de0506d65ca3ebe88 *packages/web/src/server/routes/speech.ts
 ef36eaba305a449b00474419db0a9b8e9f9ca7a986236fee2ce38e756b2f63fb *packages/web/src/server/routes/tunnel.ts
@@ -1332,7 +1332,7 @@ c6ee75275e5309f5d6cefaa15bf36036e0329035ab234436d9b69be1d4008d30 *packages/web/s
 a4949bd941c9fda300695e01fe2c10a6b3911d6ce677628aa77462d0c9d2668d *packages/web/src/server/session-orchestration/session-orchestration-contract.ts
 bcfe35026ec03f77f3cf99b64a43d9364658e83084fe19f07579dcf5d91f0807 *packages/web/src/server/session-orchestration/session-orchestration-dispatch.ts
 d182ef2c25b87e09559063408f4378c15a26ab47693a7c52387fa564e234be2b *packages/web/src/server/session-orchestration/session-orchestration-input.ts
-fa858a74b21112dab8c6b7e29b58e8768868414679114d5dc7707a3d7fcd2ea7 *packages/web/src/server/session-orchestration/session-orchestration-selection.ts
+60f35b394b0e0ca24e8f1892eab54ad38d299ccbe45e2a4ebc482bfe850724fd *packages/web/src/server/session-orchestration/session-orchestration-selection.ts
 750d45c727f81d0064861922697662807ecc8989c7e6d5c32a49f4394e751cf4 *packages/web/src/server/session-orchestration/session-orchestration-service.ts
 248e5feff2aa0c23e2bfdb9b67aacd9ca70ec8f8c79fe611606447cdac194a48 *packages/web/src/server/session-orchestration/session-worktree.ts
 e68e98e5225d3f4fcbbbfad49970a845ab568593a64bf3e18b039286a0d9ffdf *packages/web/src/server/snippets/snippet-store.ts
@@ -1469,4 +1469,4 @@ f51edfa328eb709c020d49eda44a4c3e7170245808fee35183c4988f2239934c *scripts/superv
 1b34e2f53b38e8fe0f2c78ffd831a249a3078c1f17cc0c6b0c0876506d247d73 *scripts/web-serve.mjs
 1765eb6dcbb8a5f4ce0b334dff6d663c483c6681cd77e3f6942e888b050f2b92 *scripts/write-nna-selection.mjs
 1b37ee49f8897d765820cd1b2c5e3c30b2c21e3713782af04a18bc9ad3f6b897 *tsconfig.base.json
-9ae381c6c0b43088c56d6488b5320c6ebbad914a2438071a2edfdd408962bc20 *VERSION
+59f09d76c1c03fc5112952e96900e19d5c5319676aa48a0ea5a3ed8aec9b5b62 *VERSION
