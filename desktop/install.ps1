@@ -675,16 +675,52 @@ foreach ($anchor in @($DesktopDir, $StartMenuDir)) {
 
 Push-Location $InstallDir
 try {
-    Write-Heading "Installing dependencies (pnpm install --frozen-lockfile)"
-    $pnpmExit = Invoke-Native "pnpm" @("install", "--frozen-lockfile") "pnpm-errors.log"
-    if ($pnpmExit -ne 0) { Show-NativeFailures "pnpm-errors.log" 20; throw "pnpm install exited $pnpmExit" }
-    if (!(Test-Path (Join-Path $InstallDir "packages\electron\node_modules\electron\dist\electron.exe"))) {
-        Write-Host "  re-running electron postinstall (pnpm skips it for unlisted builds)"
-        Push-Location (Join-Path $InstallDir "packages\electron\node_modules\electron")
+    # Dependency idempotency: the first install runs pnpm and records the
+    # pnpm-lock.yaml hash inside node_modules; a later run skips pnpm entirely
+    # when the recorded hash matches the copied lockfile AND the artifacts
+    # pnpm produces (electron dist, node-pty prebuilds) are all present. A
+    # changed lockfile or a missing artifact re-runs the install. Files are
+    # still replaced unconditionally by the robocopy step above - only the
+    # dependency install is skipped.
+    $Lockfile = Join-Path $InstallDir 'pnpm-lock.yaml'
+    $DepMarker = Join-Path $InstallDir 'node_modules\.pnpm-deps-marker.json'
+    $ElectronDist = Join-Path $InstallDir 'packages\electron\node_modules\electron\dist\electron.exe'
+    $NodePtyMarker = Join-Path $InstallDir 'packages\electron\dist-server\node_modules\node-pty\prebuilds\win32-x64\conpty.node'
+    $depsComplete = (Test-Path -LiteralPath $ElectronDist) -and (Test-Path -LiteralPath $NodePtyMarker)
+    $lockHash = $null
+    if (Test-Path -LiteralPath $Lockfile) {
+        $lockHash = (Get-FileHash -LiteralPath $Lockfile -Algorithm SHA256).Hash
+    }
+    $markerMatches = $false
+    if ($depsComplete -and (Test-Path -LiteralPath $DepMarker)) {
         try {
-            $fixExit = Invoke-Native "node" @("install.js") "electron-errors.log"
-            if ($fixExit -ne 0) { Show-NativeFailures "electron-errors.log" 20; throw "electron install.js exited $fixExit" }
-        } finally { Pop-Location }
+            $marker = Get-Content -LiteralPath $DepMarker -Raw -Encoding UTF8 | ConvertFrom-Json
+            $markerMatches = ($marker.lockfile_sha256 -eq $lockHash)
+        } catch { $markerMatches = $false }
+    }
+    if ($depsComplete -and $markerMatches) {
+        Write-Heading 'Dependencies already installed (lockfile unchanged; artifacts complete) - skipping pnpm install'
+    } else {
+        Write-Heading "Installing dependencies (pnpm install --frozen-lockfile)"
+        $pnpmExit = Invoke-Native "pnpm" @("install", "--frozen-lockfile") "pnpm-errors.log"
+        if ($pnpmExit -ne 0) { Show-NativeFailures "pnpm-errors.log" 20; throw "pnpm install exited $pnpmExit" }
+        if (!(Test-Path (Join-Path $InstallDir "packages\electron\node_modules\electron\dist\electron.exe"))) {
+            Write-Host "  re-running electron postinstall (pnpm skips it for unlisted builds)"
+            Push-Location (Join-Path $InstallDir "packages\electron\node_modules\electron")
+            try {
+                $fixExit = Invoke-Native "node" @("install.js") "electron-errors.log"
+                if ($fixExit -ne 0) { Show-NativeFailures "electron-errors.log" 20; throw "electron install.js exited $fixExit" }
+            } finally { Pop-Location }
+        }
+        # Record the lockfile identity only after a fully successful install,
+        # so a torn install can never satisfy the skip check.
+        if ($lockHash -and (Test-Path -LiteralPath $ElectronDist) -and (Test-Path -LiteralPath $NodePtyMarker)) {
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $DepMarker) | Out-Null
+            Set-Content -LiteralPath $DepMarker -Value (@{ lockfile_sha256 = $lockHash; recorded_at = (Get-Date).ToString('o') } | ConvertTo-Json) -Encoding UTF8
+            Write-Host ('  dependency marker written (lockfile ' + $lockHash.Substring(0, 12) + '...)')
+        } elseif ($lockHash) {
+            Write-Host "  dependency marker NOT written: artifacts incomplete after install" -ForegroundColor Yellow
+        }
     }
     # Electron carries Chromium. Verify that the installed executable launches
     # and reports its embedded Chromium version; UI rendering is checked later.
