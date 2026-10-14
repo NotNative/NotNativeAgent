@@ -79,29 +79,7 @@ export class ProviderRunner {
         attemptOutcome = active.cancelled ? 'cancelled' : 'failed';
         attemptReason = error?.code ?? 'provider_failed';
         this.#recordFailed(active, error, requestSpan, requestStarted);
-        const partial = hasCommittedAttemptOutput(error, active);
-        const plan = error.retryable
-          ? (this.reliability?.providerRetry(active, error.code, attempt, partial, error.retryAfterMs)
-            ?? active.recovery.providerRetry(error.code, attempt, partial, error.retryAfterMs))
-          : { retry: false };
-        if (!plan.retry || active.cancelled) throw error;
-        await this.#settleRetryableAttempt(active);
-        this.state.transition('recovering', { trigger: error.code, turnId: active.turnId });
-        await this.recordRecovery(plan.action, active);
-        retryDelay = plan.delayMs;
-        // Why: NND's session-status map needs a real retry signal during this
-        // recovery window; `active` is the engine's live turn object (read by
-        // nnd-session-registry statuses()) and stays unfinalized here. attempt
-        // is the 1-based attempt counter about to run; message is the genuine
-        // provider failure code; next is the epoch-ms of the pending retry.
-        // Invariant: busy and retry never coexist — the registry prefers this
-        // entry over busy for the same unfinalized turn. next: 0 means the
-        // delay was unknown or immediate; no other field is ever fabricated.
-        active.providerRetry = {
-          attempt: attempt + 1,
-          message: attemptReason ?? 'provider_failed',
-          next: Number.isFinite(retryDelay) && retryDelay > 0 ? Date.now() + retryDelay : 0,
-        };
+        retryDelay = await this.#planRetry(error, active, attempt);
       } finally {
         try { await this.#recordAttemptReceipt(manifest, active, {
           outcome: attemptOutcome, reasonCode: attemptReason, attemptId,
@@ -113,6 +91,35 @@ export class ProviderRunner {
     }
   }
 
+  /** Classifies a failed attempt into the retry plan and publishes the NND
+   *  retry signal on the live turn. Why: NND's session-status map needs a real
+   *  retry signal during the recovery window; `active` is the engine's live
+   *  turn object (read by nnd-session-registry statuses()) and stays
+   *  unfinalized here. attempt is the 1-based attempt counter about to run;
+   *  message is the genuine provider failure code; next is the epoch-ms of the
+   *  pending retry. Invariant: busy and retry never coexist - the registry
+   *  prefers this entry over busy for the same unfinalized turn. next: 0 means
+   *  the delay was unknown or immediate; no other field is ever fabricated.
+   *  Throws when the attempt is not retryable (the original error propagates).
+   *  Returns the retry delay in ms for the caller's cancellable delay. */
+  async #planRetry(error, active, attempt) {
+    const partial = hasCommittedAttemptOutput(error, active);
+    const plan = error.retryable
+      ? (this.reliability?.providerRetry(active, error.code, attempt, partial, error.retryAfterMs)
+        ?? active.recovery.providerRetry(error.code, attempt, partial, error.retryAfterMs))
+      : { retry: false };
+    if (!plan.retry || active.cancelled) throw error;
+    await this.#settleRetryableAttempt(active);
+    this.state.transition('recovering', { trigger: error.code, turnId: active.turnId });
+    await this.recordRecovery(plan.action, active);
+    const delay = plan.delayMs;
+    active.providerRetry = {
+      attempt: attempt + 1,
+      message: error?.code ?? 'provider_failed',
+      next: Number.isFinite(delay) && delay > 0 ? Date.now() + delay : 0,
+    };
+    return delay;
+  }
   #observeProviderUsage(active, usage, manifest) {
     this.reliability?.observeProviderUsage?.({
       providerProfile: active.providerResource, model: active.modelName,

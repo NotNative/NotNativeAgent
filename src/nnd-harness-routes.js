@@ -75,6 +75,28 @@ export async function dispatchNndHarnessRequest(request, response, context) {
   return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
 }
 
+/** Serves GET /path: the real home/state/config/workspace identity. Why: the
+ * HarnessPath contract advertises real paths (uniformity #17); empty strings
+ * would read as an existing root and lie to desktop consumers. Security: only
+ * directory paths are disclosed to the authenticated local harness principal
+ * (nnd.read); credential and secret files inside those trees are never
+ * included. */
+async function sendDiscoveryPaths(response, context, workspace) {
+    const binding = await context.nndEngineHost?.primaryWorkspaceBinding?.();
+    if (binding && binding.configured_root !== workspace) {
+      throw new ContractError('nnd_workspace_binding_invalid', 'Native primary workspace changed during discovery');
+    }
+    // Why: the HarnessPath contract advertises real paths; empty strings read
+    // as an existing root directory and lie to desktop consumers. NNA's data
+    // inventory supplies the home/state/config concepts, so all five fields are
+    // filled. Security: only directory paths are disclosed to the authenticated
+    // local harness principal (nnd.read); credential and secret files inside
+    // those trees are never included in the payload.
+    const paths = context.dataPaths ?? userDataPaths();
+    return send(response, 200, { home: paths.root, state: join(paths.root, 'runtime'), config: paths.config, worktree: workspace, directory: workspace,
+      ...(binding ? { workspace_id: binding.id } : {}) });
+}
+
 function sessionIdOf(match) {
   if (!match[1]) return null;
   try { const id = decodeURIComponent(match[1]); requireExternalId(id, 'session_id'); return id; }
@@ -267,21 +289,7 @@ async function dispatchBootstrapRequest(request, response, context) {
   // pin (no owning module, name only in this route + its test), which read as a
   // harness protocol version; the field is the NNA product version.
   if (path === '/global/health') return send(response, 200, { healthy: true, version: VERSION });
-  if (path === '/path') {
-    const binding = await context.nndEngineHost?.primaryWorkspaceBinding?.();
-    if (binding && binding.configured_root !== workspace) {
-      throw new ContractError('nnd_workspace_binding_invalid', 'Native primary workspace changed during discovery');
-    }
-    // Why: the HarnessPath contract advertises real paths; empty strings read
-    // as an existing root directory and lie to desktop consumers. NNA's data
-    // inventory supplies the home/state/config concepts, so all five fields are
-    // filled. Security: only directory paths are disclosed to the authenticated
-    // local harness principal (nnd.read); credential and secret files inside
-    // those trees are never included in the payload.
-    const paths = context.dataPaths ?? userDataPaths();
-    return send(response, 200, { home: paths.root, state: join(paths.root, 'runtime'), config: paths.config, worktree: workspace, directory: workspace,
-      ...(binding ? { workspace_id: binding.id } : {}) });
-  }
+  if (path === '/path') return sendDiscoveryPaths(response, context, workspace);
   if (path === '/v1/nnd/mcp') {
     const inventory = context.nndEngineHost?.nndMcpInventory;
     if (!inventory) throw new ContractError('nnd_engine_unavailable', 'NND MCP inventory is unavailable');
