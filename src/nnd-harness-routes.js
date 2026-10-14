@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import { join } from 'node:path';
 import { ContractError, newId, requireExternalId } from './ids.js';
-import { VERSION } from './product.js';
+import { userDataPaths, VERSION } from './product.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { sseOpen } from './opencode/protocol.js';
@@ -245,7 +246,14 @@ async function dispatchBootstrapRequest(request, response, context) {
     if (binding && binding.configured_root !== workspace) {
       throw new ContractError('nnd_workspace_binding_invalid', 'Native primary workspace changed during discovery');
     }
-    return send(response, 200, { home: '', state: '', config: '', worktree: workspace, directory: workspace,
+    // Why: the HarnessPath contract advertises real paths; empty strings read
+    // as an existing root directory and lie to desktop consumers. NNA's data
+    // inventory supplies the home/state/config concepts, so all five fields are
+    // filled. Security: only directory paths are disclosed to the authenticated
+    // local harness principal (nnd.read); credential and secret files inside
+    // those trees are never included in the payload.
+    const paths = context.dataPaths ?? userDataPaths();
+    return send(response, 200, { home: paths.root, state: join(paths.root, 'runtime'), config: paths.config, worktree: workspace, directory: workspace,
       ...(binding ? { workspace_id: binding.id } : {}) });
   }
   if (path === '/v1/nnd/mcp') {

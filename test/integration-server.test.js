@@ -508,7 +508,7 @@ test('NND harness session routes bind creation to the complete principal workspa
   nndEngineHost.nndModel = { providerID: 'primary', modelID: 'test' };
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost, nndWorkspaceRoot: root,
-    providerStore: new ProviderProfileStore({ configRoot }),
+    dataPaths: { root: join(root, 'nna-data'), config: join(root, 'nna-data', 'config') },
     broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }), port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
@@ -516,7 +516,12 @@ test('NND harness session routes bind creation to the complete principal workspa
     const owner = principal(['nnd.read', 'nnd.session.create'], { workspace_ids: ['w_one', 'w_two'] });
     const health = await request(base, '/global/health', owner);
     assert.deepEqual(health.value, { healthy: true, version: VERSION });
-    assert.equal((await request(base, '/path', owner)).value.directory, root);
+    const path = (await request(base, '/path', owner)).value;
+    assert.equal(path.directory, root);
+    assert.equal(path.worktree, root);
+    assert.equal(path.home, join(root, 'nna-data'));
+    assert.equal(path.state, join(root, 'nna-data', 'runtime'));
+    assert.equal(path.config, join(root, 'nna-data', 'config'));
     const config = await request(base, '/config', owner);
     assert.deepEqual(config.value, {
       model: 'primary/test', default_agent: 'nna',

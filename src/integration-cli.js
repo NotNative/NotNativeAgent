@@ -95,6 +95,10 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
   try {
     service = await startIntegrationServer({
       activation, token, instanceId, broker, providerStore, nndEngineHost, nndRuntime: lifecycle.runtime, nndWorkspaceRoot: nndEngineHost?.workspaceRoot,
+      // Why: /path advertises the serving instance's NNA data inventory; the
+      // server module must not silently re-derive it from a different NNA_HOME
+      // than the one that created this process's lease and stores.
+      dataPaths: paths,
       nndBrowserCallbackRegistry: lifecycle.nndBrowserCallbackRegistry, host: '127.0.0.1', port: 0,
     });
   } catch (error) {
