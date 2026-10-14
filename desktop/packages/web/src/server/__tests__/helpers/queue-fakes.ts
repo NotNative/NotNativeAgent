@@ -36,6 +36,10 @@ export class FakeQueueHarness implements HarnessAdapter {
   statusPayload: unknown = {};
   tailPayload: unknown = [];
   catalog: Array<Record<string, unknown>> = [];
+  /** NNA skills inventory served at `GET /v1/nnd/skills` (null = not served → 404). */
+  skillsInventory: { version: number; state: string; skills: Array<Record<string, unknown>> } | null = null;
+  /** GET /command failure mode: real NNA serves no command catalog (404). */
+  commandCatalogFailure = false;
   outcomes: FakeSendOutcome[] = [];
   private heldResolvers: Array<(response: Response) => void> = [];
   private statusGates: Array<(response: Response) => void> = [];
@@ -53,7 +57,12 @@ export class FakeQueueHarness implements HarnessAdapter {
       }
       return this.statusFailure ? harnessError('fake status failure', 502) : json(this.statusPayload);
     }
-    if (method === 'GET' && path === '/command') return json(this.catalog);
+    if (method === 'GET' && path === '/v1/nnd/skills') {
+      return this.skillsInventory === null ? harnessError('fake harness: no skills inventory', 404) : json(this.skillsInventory);
+    }
+    if (method === 'GET' && path === '/command') {
+      return this.commandCatalogFailure ? harnessError('fake harness: no command catalog', 404) : json(this.catalog);
+    }
     const messageMatch = /^\/session\/([^/]+)\/message$/.exec(path);
     if (messageMatch && method === 'GET') {
       return this.tailFailure ? harnessError('fake tail failure', 502) : json(this.tailPayload);

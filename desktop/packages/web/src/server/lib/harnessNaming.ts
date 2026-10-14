@@ -5,7 +5,12 @@
  * naming pass edits BOTH files together. Doc 02 §9 + NOTES/02 D13/D15.
  */
 export const HARNESS_NAME = 'NotNativeAgent';
-export const HARNESS_VERSION = '0.1.0-mock';
+// Why: the mock's /global/health version mirrors the REAL contract shape —
+// NNA answers with its product version (YYYYMMDD-N, src/product.js VERSION),
+// never a semver. A mock-specific '0.1.0-mock' taught consumers to expect a
+// shape real NNA never returns (uniformity audit follow-up). The value is
+// clearly marked mock-only so it can never be confused with a real build id.
+export const HARNESS_VERSION = '00000000-0-mock';
 
 /** HP-4 / doc 02 §3.5: directory scoping transports. */
 export const DIRECTORY_HEADER = 'x-nnd-directory';

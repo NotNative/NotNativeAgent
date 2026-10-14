@@ -79,28 +79,45 @@ describe('backoff formula (§D.3.8, single authority)', () => {
   });
 });
 
-describe('slash routing (§D.3.6)', () => {
-  it('a command WITHOUT context rides the command route with provider/model and bare arguments', async () => {
+describe('slash routing (§D.3.6, NND-side expansion → prompt_async)', () => {
+  it('a command WITH a served template expands the template into the delivered text ($ARGUMENTS) on prompt_async', async () => {
+    const session = rig();
+    try {
+      session.fake.catalog = [{ name: 'plan', source: 'command', template: 'Draft a plan for $ARGUMENTS' }];
+      await enqueue(session, '/plan the rollout today', { context: [{ kind: 'instruction', text: 'be terse' }] });
+      await waitUntil(() => sendsTo(session).length === 1, 900);
+      const send = sendsTo(session)[0]!;
+      expect(send.route).toBe('prompt_async');
+      const parts = send.body.parts as Array<Record<string, unknown>>;
+      expect(parts[0]!.text).toBe('Draft a plan for the rollout today'); // expansion replaced the text
+      expect(parts.some((part) => part.text === 'be terse')).toBe(true);
+    } finally {
+      cleanup(session);
+    }
+  });
+
+  it('a command WITHOUT context with a served template also expands and rides prompt_async', async () => {
     const session = rig();
     try {
       session.fake.catalog = [{ name: 'review', source: 'command', template: 'Review the changes ($ARGUMENTS)' }];
       await enqueue(session, '/review the staging diff');
       await waitUntil(() => sendsTo(session).length === 1, 900);
       const send = sendsTo(session)[0]!;
-      expect(send.route).toBe('command');
-      expect(send.body.command).toBe('review');
-      expect(send.body.arguments).toBe('the staging diff');
-      expect(send.body.model).toBe('nnd-mock/mock-smart');
-      expect('parts' in send.body).toBe(false);
+      expect(send.route).toBe('prompt_async'); // Why: NNA owns no command route; NND expands its own §B.8 grammar
+      const parts = send.body.parts as Array<Record<string, unknown>>;
+      expect(parts[0]!.text).toBe('Review the changes (the staging diff)');
+      expect('command' in send.body).toBe(false); // the dead command route is never called
+      expect(session.fake.servedPaths.some((path) => path.startsWith('POST /session/') && path.endsWith('/command'))).toBe(false);
     } finally {
       cleanup(session);
     }
   });
 
-  it('a skill-named slash rides prompt_async with the named skill instruction', async () => {
+  it('a skill-shaped slash that NNA\'s served skills inventory names rides prompt_async with the skill instruction (no catalog served)', async () => {
     const session = rig();
     try {
-      session.fake.catalog = [{ name: 'explain', source: 'skill' }];
+      session.fake.skillsInventory = { version: 1, state: 'discovered', skills: [{ id: 'explain', version: '1', description: null, invocation: 'user' }] };
+      session.fake.commandCatalogFailure = true; // real NNA serves no /command catalog
       await enqueue(session, '/explain recursion basics');
       await waitUntil(() => sendsTo(session).length === 1, 900);
       const send = sendsTo(session)[0]!;
@@ -114,17 +131,17 @@ describe('slash routing (§D.3.6)', () => {
     }
   });
 
-  it('a command WITH context expands the template into the delivered text ($ARGUMENTS)', async () => {
+  it('a catalog skill entry still resolves as a skill when the harness serves a catalog', async () => {
     const session = rig();
     try {
-      session.fake.catalog = [{ name: 'plan', source: 'command', template: 'Draft a plan for $ARGUMENTS' }];
-      await enqueue(session, '/plan the rollout today', { context: [{ kind: 'instruction', text: 'be terse' }] });
+      session.fake.catalog = [{ name: 'explain', source: 'skill' }];
+      await enqueue(session, '/explain recursion basics');
       await waitUntil(() => sendsTo(session).length === 1, 900);
       const send = sendsTo(session)[0]!;
-      expect(send.route).toBe('prompt_async'); // context forces the prompt route
+      expect(send.route).toBe('prompt_async');
       const parts = send.body.parts as Array<Record<string, unknown>>;
-      expect(parts[0]!.text).toBe('Draft a plan for the rollout today'); // expansion replaced the text
-      expect(parts.some((part) => part.text === 'be terse')).toBe(true);
+      expect(parts[0]!.text).toBe('/explain recursion basics');
+      expect(parts.some((part) => part.text === 'The user explicitly invoked the explain skill. Use the corresponding skill tool to handle this request.')).toBe(true);
     } finally {
       cleanup(session);
     }
@@ -158,15 +175,28 @@ describe('slash routing (§D.3.6)', () => {
     }
   });
 
-  it('an unknown slash name stays plain prose (catalog miss)', async () => {
+  it('an unknown slash name degrades to plain prose when no catalog is served (real-NNA catalog miss)', async () => {
     const session = rig();
     try {
-      session.fake.catalog = [];
+      session.fake.commandCatalogFailure = true;
       await enqueue(session, '/mystery arg');
       await waitUntil(() => sendsTo(session).length === 1, 900);
       const send = sendsTo(session)[0]!;
       expect(send.route).toBe('prompt_async');
       expect((send.body.parts as Array<{ text?: string }>)[0]!.text).toBe('/mystery arg');
+    } finally {
+      cleanup(session);
+    }
+  });
+
+  it('a non-skill catalog entry without a template keeps the raw invocation (nothing to expand)', async () => {
+    const session = rig();
+    try {
+      session.fake.catalog = [{ name: 'check', source: 'command' }];
+      await enqueue(session, '/check now');
+      await waitUntil(() => sendsTo(session).length === 1, 900);
+      const parts = sendsTo(session)[0]!.body.parts as Array<{ text?: string }>;
+      expect(parts[0]!.text).toBe('/check now');
     } finally {
       cleanup(session);
     }
