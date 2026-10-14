@@ -873,8 +873,8 @@ Write-InstallerOk $InstalledVersion
 # offered as an optional install (default No, [y/N] convention;
 # -InstallDesktop answers Yes for unattended runs). The section runs after
 # Verification so the desktop installer's NNA selection pins the verified
-# install. A desktop failure is a warning, not an installer failure - the
-# component is optional and re-runnable via desktop\install.cmd.
+# install. Once selected or registered, desktop installation is part of the
+# platform result: failure makes the installer exit nonzero.
 # Invariant: the desktop installer's stderr (node/pnpm chatter) routes to a
 # log FILE, never the PowerShell error stream - with $ErrorActionPreference
 # Stop a piped stderr record becomes a terminating error (the desktop
@@ -918,7 +918,21 @@ function Invoke-DesktopInstaller {
             $env:PATH = "$(Join-Path $buildTools 'node_modules\.bin');$env:PATH"
         }
         & $DesktopScript @desktopArguments 1>$DesktopInstallLog 2>&1
-        return $LASTEXITCODE
+        if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+        # Invariant: an installer exit alone cannot prove the selected desktop package was registered at this release.
+        $priorNnaHome = $env:NNA_HOME
+        $env:NNA_HOME = $DataRoot
+        try {
+            $statusText = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') nnd package status 2>>$DesktopInstallLog
+            if ($LASTEXITCODE -ne 0) { throw 'The installed desktop package could not be inspected.' }
+            $status = $statusText | ConvertFrom-Json
+            if ($status.registered -ne $true -or $status.valid -ne $true -or $status.version -cne $Version -or
+                $status.root -isnot [string] -or !(Test-Path -LiteralPath (Join-Path $status.root 'VERSION') -PathType Leaf) -or
+                (Get-Content -LiteralPath (Join-Path $status.root 'VERSION') -Raw).Trim() -cne $Version) {
+                throw "Desktop package did not register the expected version $Version."
+            }
+        } finally { $env:NNA_HOME = $priorNnaHome }
+        return 0
     } catch {
         Add-Content -LiteralPath $DesktopInstallLog -Value $_.Exception.Message
         return 1
@@ -933,10 +947,15 @@ function Show-DesktopInstallTail([int]$Lines = 12) {
 }
 Write-InstallerSection 'Desktop component'
 $DesktopScript = Join-Path $SourceRoot 'desktop\install.cmd'
+$DesktopInstallFailed = $false
 if (-not (Test-Path -LiteralPath $DesktopScript)) {
     if ($DesktopRegistered) {
         Write-InstallerWarning "An NND desktop package is registered but $DesktopScript is missing from this source tree; the desktop package was NOT upgraded."
         Write-InstallerWarning "Run it manually after this install: desktop\install.cmd"
+        $DesktopInstallFailed = $true
+    } elseif ($InstallDesktop) {
+        Write-InstallerWarning 'Desktop installation was requested but the desktop installer is missing.'
+        $DesktopInstallFailed = $true
     } else {
         Write-InstallerSkip 'Desktop component not present in this source tree; skipped.'
     }
@@ -950,6 +969,7 @@ if (-not (Test-Path -LiteralPath $DesktopScript)) {
         Write-InstallerWarning "Desktop component upgrade failed (exit $DesktopExit). NNA itself is ready."
         Write-InstallerWarning "The previous desktop package may remain registered; repair with: desktop\install.cmd"
         Show-DesktopInstallTail 20
+        $DesktopInstallFailed = $true
     }
 } else {
     $InstallDesktopNow = $false
@@ -970,10 +990,16 @@ if (-not (Test-Path -LiteralPath $DesktopScript)) {
             Write-InstallerWarning "Desktop component installation failed (exit $DesktopExit). NNA itself is ready."
             Write-InstallerWarning "You can retry later with: desktop\install.cmd"
             Show-DesktopInstallTail 20
+            $DesktopInstallFailed = $true
         }
     } else {
         Write-InstallerSkip 'Desktop component not installed (optional). Install later with: desktop\install.cmd'
     }
+}
+
+if ($DesktopInstallFailed) {
+    Write-InstallerWarning 'Platform installation is incomplete because the desktop component did not install.'
+    exit 1
 }
 
 Write-Output ''

@@ -2060,6 +2060,10 @@
     {
       "version": "20261014-8",
       "content_sha256": "9eaf4eb421724130db40edc953d9c147eaf280a2c6098b4488e0ffc11cbe0375"
+    },
+    {
+      "version": "20261014-9",
+      "content_sha256": "9e5e1ed931b2d21d3ef63ea256dc63884504db6fe355b230f76684cca4fed497"
     }
   ]
 }

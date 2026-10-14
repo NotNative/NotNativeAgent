@@ -105,6 +105,16 @@ PowerShell resolves `nna` to the `.ps1` launcher before the compatibility `.cmd`
 so NNA can consume its guarded control keys and return directly without the Windows
 `Terminate batch job` prompt. Command Prompt continues to use `nna.cmd`.
 
+The desktop component installs at `%LOCALAPPDATA%\NotNativeDesktop` by default. On a
+first install, pass `-InstallDesktop` or accept the interactive prompt to include it.
+Once registered, rerunning `install.ps1` upgrades the desktop component at its
+registered location and checks that its version matches NNA. `nna update` uses the
+same installer when a newer release is available, so it upgrades a registered
+desktop component too. A failed desktop upgrade makes the installer and
+`nna update` report failure; inspect `%USERPROFILE%\.nna\logs\nna-desktop-install.log`
+and rerun the installer after correcting the cause. `nna update --check` only
+checks for a newer repository version and does not install anything.
+
 No machine-wide files, services, scheduled tasks, or administrator settings are
 created. Managed installations can supply `-InstallRoot`, `-DataRoot`, and
 `-SkipPathUpdate`. Installing Node itself remains per-user and does not invoke MSI or
