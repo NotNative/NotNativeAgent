@@ -166,9 +166,18 @@ export class NndSessionRegistry {
   statuses(principal) {
     const statuses = {};
     for (const record of this.#sessions.values()) {
-      if (samePrincipal(record, principal) && record.engine?.active && !record.engine.active.finalized) {
-        statuses[record.sessionId] = { type: 'busy' };
-      }
+      if (!samePrincipal(record, principal) || !record.engine?.active || record.engine.active.finalized) continue;
+      const retry = record.engine.active.providerRetry;
+      // Why: NND's retry UI consumes a real provider-retry signal. The runner
+      // publishes {attempt, message, next} on the engine's live `active` turn
+      // (src/provider/runner.js) during the recovery window; before that
+      // plumbing existed the map could only report busy, so NND showed no
+      // retry state at all. Invariant: busy and retry never coexist for one
+      // session — retry replaces busy for the same unfinalized turn; next: 0
+      // means the next-attempt time is unknown, never fabricated.
+      statuses[record.sessionId] = retry
+        ? { type: 'retry', attempt: retry.attempt, message: retry.message, next: retry.next ?? 0 }
+        : { type: 'busy' };
     }
     return statuses;
   }

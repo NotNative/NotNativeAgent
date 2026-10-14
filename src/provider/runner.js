@@ -70,6 +70,7 @@ export class ProviderRunner {
         this.#observeProviderUsage(active, attemptUsage, manifest);
         this.#recordSucceeded(active, requestSpan, requestStarted);
         attemptOutcome = 'completed';
+        active.providerRetry = null;
         active.stepReasoningText = active.attemptReasoningText;
         active.stepReasoningReplayable = active.attemptReasoningReplayable;
         return;
@@ -88,6 +89,19 @@ export class ProviderRunner {
         this.state.transition('recovering', { trigger: error.code, turnId: active.turnId });
         await this.recordRecovery(plan.action, active);
         retryDelay = plan.delayMs;
+        // Why: NND's session-status map needs a real retry signal during this
+        // recovery window; `active` is the engine's live turn object (read by
+        // nnd-session-registry statuses()) and stays unfinalized here. attempt
+        // is the 1-based attempt counter about to run; message is the genuine
+        // provider failure code; next is the epoch-ms of the pending retry.
+        // Invariant: busy and retry never coexist — the registry prefers this
+        // entry over busy for the same unfinalized turn. next: 0 means the
+        // delay was unknown or immediate; no other field is ever fabricated.
+        active.providerRetry = {
+          attempt: attempt + 1,
+          message: attemptReason ?? 'provider_failed',
+          next: Number.isFinite(retryDelay) && retryDelay > 0 ? Date.now() + retryDelay : 0,
+        };
       } finally {
         try { await this.#recordAttemptReceipt(manifest, active, {
           outcome: attemptOutcome, reasonCode: attemptReason, attemptId,
@@ -348,6 +362,9 @@ function initializeAttempt(active, outputLimitTokens = null) {
   active.attemptReasoningOverflow = false;
   active.providerDispatched = false;
   active.providerTerminal = false;
+  // Why: a new attempt leaves the previous retry window, so the NND retry
+  // signal must not outlive it.
+  active.providerRetry = null;
   active.finishReason = null;
   active.lastProviderActivityAt = Date.now();
   active.lastProviderHealthAt = null;

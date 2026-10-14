@@ -84,3 +84,32 @@ test('NND child agent identity is a bounded structured field, not parsed from th
   assert.equal(registry.get('child_long', owner).agent, undefined);
   assert.equal(registry.get('child_long', owner).title, 'Subagent');
 });
+
+test('NND status reports retry during the provider recovery window and never with busy', () => {
+  const owner = { subjectId: 'u1', workspaceIds: ['w1'] };
+  const registry = new NndSessionRegistry();
+  const engine = { active: { finalized: false }, config: {}, transcript: [] };
+  registry.register('child_1', 'parent_1', owner, engine);
+  const statuses = owner => registry.statuses(owner);
+
+  assert.deepEqual(statuses(owner), { child_1: { type: 'busy' } }, 'no retry signal before the recovery window');
+  engine.active.providerRetry = { attempt: 2, message: 'provider_transient', next: 123_456 };
+  assert.deepEqual(statuses(owner), { child_1: { type: 'retry', attempt: 2, message: 'provider_transient', next: 123_456 } },
+    'retry replaces busy for the same unfinalized turn');
+  assert.deepEqual(statuses({ subjectId: 'u2', workspaceIds: ['w1'] }), {}, 'principal scoping unchanged during retry');
+
+  engine.active.providerRetry = null;
+  assert.deepEqual(statuses(owner), { child_1: { type: 'busy' } }, 'retry disappears when the window closes');
+
+  engine.active.finalized = true;
+  assert.deepEqual(statuses(owner), {}, 'finalized turn exposes neither busy nor retry');
+});
+
+test('NND retry status keeps unknown next-attempt timing honest as zero', () => {
+  const owner = { subjectId: 'u1', workspaceIds: ['w1'] };
+  const registry = new NndSessionRegistry();
+  registry.register('child_1', 'parent_1', owner,
+    { active: { finalized: false, providerRetry: { attempt: 1, message: 'provider_timeout' } }, config: {}, transcript: [] });
+  assert.deepEqual(registry.statuses(owner),
+    { child_1: { type: 'retry', attempt: 1, message: 'provider_timeout', next: 0 } });
+});
