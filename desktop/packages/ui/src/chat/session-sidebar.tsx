@@ -11,6 +11,7 @@ import { harnessClient, normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore } from '../sync/global-stores.ts';
 import { addNativeWorkspace, readNativeWorkspaceAdmissions } from '../lib/nnd/workspace-admission.ts';
+import { pickWorkspaceDirectory } from '../lib/nnd/workspace-picker.ts';
 import { WorkspaceRecoveryControls } from './workspace-recovery-controls.tsx';
 import { useSessionOrderingStore } from '../sync/session-ordering.ts';
 import { useSessionFoldersStore, unsortedSessionIds } from '../stores/useSessionFoldersStore.ts';
@@ -157,7 +158,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
     workspaceOptions.unshift({ directory: currentWorkspace, label: currentWorkspace });
   }
   const addWorkspace = async (): Promise<void> => {
-    const path = prompt('Enter the absolute folder path to add as a workspace:'); // eslint-disable-line no-alert
+    const path = await pickWorkspaceDirectory();
     if (path === null) return;
     try {
       const directory = await addNativeWorkspace(path);

@@ -24,6 +24,7 @@ import { startersFor, type Starter } from './starters.ts';
 import type { ModelSelection } from './model-picker.tsx';
 import { toast } from 'sonner';
 import { addNativeWorkspace } from '../lib/nnd/workspace-admission.ts';
+import { pickWorkspaceDirectory } from '../lib/nnd/workspace-picker.ts';
 import { recapFor } from './work-status.ts';
 import { useGlobalSessionsStore } from '../sync/global-stores.ts';
 import { ChildSessionControls } from './child-session-controls.tsx';
@@ -271,10 +272,12 @@ export function ChatView(props: ChatViewProps): ReactNode {
               {' · '}
               <button type="button" data-testid="landing-add-workspace" className="underline decoration-dotted underline-offset-2 hover:text-neutral-300"
                 onClick={() => {
-                  const path = window.prompt('Absolute folder path to add as a workspace:');
-                  if (!path || !path.trim()) return;
-                  addNativeWorkspace(path.trim()).then(() => toast.success(`Workspace added: ${path.trim()}`))
-                    .catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Could not add workspace.'));
+                  void (async () => {
+                    const path = await pickWorkspaceDirectory();
+                    if (!path) return;
+                    addNativeWorkspace(path).then(() => toast.success(`Workspace added: ${path}`))
+                      .catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Could not add workspace.'));
+                  })();
                 }}>+ Add another workspace</button>
             </p>
           </div> : null}

@@ -16,6 +16,7 @@ const NATIVE_ALPHA_ALLOWED_COMMANDS = new Set([
   'desktop_toggle_current_window_maximized', 'desktop_get_current_window_state',
   'desktop_set_window_pinned', 'desktop_boot_config_get', 'desktop_notify', 'desktop_get_launch_at_login',
   'desktop_retry_server', 'desktop_open_external', 'desktop_get_boot_info',
+  'desktop_pick_directory',
 ]);
 
 export function nativeAlphaDesktopActionUnavailable(command) {
@@ -446,6 +447,21 @@ export function createInvokeFace(input, dependencies) {
     }
     if (command === 'desktop_get_boot_info') {
       return { ok: true, result: input.bootInfo() };
+    }
+    // Workspace model (b): native open-directory chooser for adding a
+    // workspace. Sender framing is already checked by the caller; the dialog
+    // is app-modal to the main window and never writes anything.
+    if (command === 'desktop_pick_directory') {
+      if (!dependencies.dialog) return { ok: false, error: 'dialog-unavailable' };
+      const window = dependencies.windowForSender?.(event) ?? undefined;
+      const options = { properties: ['openDirectory', 'createDirectory'], title: 'Choose a workspace folder' };
+      const result = window
+        ? await dependencies.dialog.showOpenDialog(window, options)
+        : await dependencies.dialog.showOpenDialog(options);
+      if (result.canceled || !Array.isArray(result.filePaths) || result.filePaths.length === 0) {
+        return { ok: true, result: null };
+      }
+      return { ok: true, result: result.filePaths[0] };
     }
     return { ok: false, error: 'unknown-command' }; // never throws raw (§11.1)
   }

@@ -154,7 +154,7 @@ test('window controls work in another trusted local BrowserWindow', async () => 
   assert.equal(minimized, 1);
 });
 
-function registeredInvoke(input) {
+function registeredInvoke(input, dependencies = {}) {
   let handler;
   const face = createInvokeFace({
     origin: () => 'http://127.0.0.1:57123',
@@ -164,7 +164,7 @@ function registeredInvoke(input) {
     bootInfo: () => ({}),
     mainContents: () => input.contents,
     ...input,
-  }, { ipcMain: { on: (_channel, callback) => { handler = callback; } }, shell: { openExternal: async () => {} } });
+  }, { ipcMain: { on: (_channel, callback) => { handler = callback; } }, shell: { openExternal: async () => {} }, ...dependencies });
   face.register();
   return async (event, command, payload) => {
     let reply;
@@ -523,4 +523,29 @@ test('relay pairing completion accepts responses only from the desktop local mai
   assert.equal(remote.ok, false);
   assert.equal(remote.error, 'sender-not-allowed');
   assert.deepEqual(calls, [{ requestId: 'request-1', result: { ok: true, clientToken: 'token' } }]);
+});
+
+test('desktop_pick_directory opens the native chooser and honours cancellation', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const dialogCalls = [];
+  let pickResult = { canceled: false, filePaths: ['D:/work/alpha'] };
+  const invoke = registeredInvoke({ contents }, { dialog: { showOpenDialog: async (windowOrOptions, maybeOptions) => {
+    dialogCalls.push(maybeOptions ?? windowOrOptions);
+    return pickResult;
+  } } });
+  const local = (command) => invoke(ipcEvent(contents, 'notnative-ui://app/index.html'), command);
+  const first = await local('desktop_pick_directory');
+  assert.equal(first.ok, true);
+  assert.equal(first.result, 'D:/work/alpha');
+  assert.equal(dialogCalls[0].properties.includes('openDirectory'), true);
+  assert.equal(dialogCalls[0].properties.includes('createDirectory'), true);
+  pickResult = { canceled: true, filePaths: [] };
+  const cancelled = await local('desktop_pick_directory');
+  assert.equal(cancelled.ok, true);
+  assert.equal(cancelled.result, null);
+  // Without a dialog dependency the channel refuses honestly (older shells).
+  const noDialog = registeredInvoke({ contents });
+  const refused = await noDialog(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_pick_directory');
+  assert.equal(refused.ok, false);
+  assert.equal(refused.error, 'dialog-unavailable');
 });

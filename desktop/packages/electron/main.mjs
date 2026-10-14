@@ -1068,6 +1068,7 @@ const invokeFace = createInvokeFace({
   relayHostSelect: selectRelayDesktopHost,
   relayPairingBridge,
   mainContents: () => mainWindow?.webContents,
+  dialog,
   nativeNotifications,
   fileUtilities: () => fileUtilities,
   localPathUtilities: () => localPathUtilities,
