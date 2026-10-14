@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CredentialResolver, normalizeCredentialBinding } from '../src/credential-bindings.js';
+import { ContractError } from '../src/ids.js';
+import { CredentialResolver, environmentCredential, normalizeCredentialBinding, secretCredential } from '../src/credential-bindings.js';
 import { OpenAICompatibleProvider } from '../src/provider.js';
 import { resolveManifest } from '../src/config.js';
 
@@ -40,6 +41,38 @@ test('provider discovery injects a selected Secret Broker credential without env
   const capabilities = await provider.capabilities(new AbortController().signal);
   assert.equal(authorization, 'Bearer provider-secret-value');
   assert.deepEqual(capabilities.models, ['model']);
+});
+
+test('credential binding grammar accepts environment names and secret references, and refuses violations with credential_binding_invalid', () => {
+  // Acceptance: the two documented dynamic sources.
+  assert.deepEqual(normalizeCredentialBinding({ source: 'environment', name: 'SERVER_TOKEN' }),
+    { source: 'environment', name: 'SERVER_TOKEN' });
+  assert.deepEqual(normalizeCredentialBinding({ source: 'secret', secret_id: 'sec_provider', field: 'api_key' }),
+    { source: 'secret', secretId: 'sec_provider', field: 'api_key' });
+  // Refusal: bad environment-name shape (digit-leading, then illegal character).
+  for (const bad of ['', '1TOKEN', 'BAD NAME', 'TOKEN-UPPER']) {
+    assert.throws(() => environmentCredential(bad), (error) =>
+      error instanceof ContractError && error.code === 'credential_binding_invalid');
+  }
+  // Refusal: malformed sec_ id, then valid id with missing/invalid field.
+  assert.throws(() => secretCredential('notsec', 'api_key'), (error) =>
+    error instanceof ContractError && error.code === 'credential_binding_invalid');
+  assert.throws(() => secretCredential('sec_', 'api_key'), (error) =>
+    error instanceof ContractError && error.code === 'credential_binding_invalid');
+  for (const badField of ['', '1field', 'field name']) {
+    assert.throws(() => secretCredential('sec_provider', badField), (error) =>
+      error instanceof ContractError && error.code === 'credential_binding_invalid');
+  }
+  // Refusal: not a binding object at all.
+  assert.throws(() => normalizeCredentialBinding('SERVER_TOKEN'), (error) =>
+    error instanceof ContractError && error.code === 'credential_binding_invalid');
+  assert.throws(() => normalizeCredentialBinding({ source: 'keystore' }), (error) =>
+    error instanceof ContractError && error.code === 'credential_binding_invalid');
+  // The exact same refusal code reaches the normalizeCredentialBinding boundary.
+  assert.throws(() => normalizeCredentialBinding({ source: 'environment', name: 'BAD NAME' }), (error) =>
+    error instanceof ContractError && error.code === 'credential_binding_invalid');
+  assert.throws(() => normalizeCredentialBinding({ source: 'secret', secret_id: 'sec_x', field: '1f' }), (error) =>
+    error instanceof ContractError && error.code === 'credential_binding_invalid');
 });
 
 test('configuration accepts structured provider, MCP bearer, stdio-target, and custom-header bindings', () => {

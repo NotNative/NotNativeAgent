@@ -10,6 +10,7 @@ import { dispatchNndNotificationRequest } from './nnd-notification-routes.js';
 import { dispatchNndAssistRequest } from './nnd-assist-routes.js';
 import { modelRouteFromBody } from './nnd-session-model-route.js';
 const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort|fork|revert|unrevert))?$/u;
+const COMMAND_ROUTE = '/command';
 const ACTIVITY_HISTORY_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/activity-history$/u;
 const ACTIVITY_TOMBSTONES_ROUTE = '/v1/nnd/activity-tombstones';
 const MESSAGE_LIMIT_MAX = 200;
@@ -21,7 +22,7 @@ export async function dispatchNndHarnessRequest(request, response, context) {
   if (await dispatchNndQuestionRequest(request, response, context)) return true;
   if (await dispatchNndNotificationRequest(request, response, context)) return true;
   if (await dispatchNndAssistRequest(request, response, context)) return true;
-  if (await dispatchBootstrapRequest(request, response, context)) return true;
+  if (await dispatchBootstrapRequest(request, response, context) || await readCommandCatalog(request, response, context)) return true;
   const match = ROUTE.exec(context.url.pathname); if (!match) return false;
   const host = context.nndEngineHost; if (!host) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');
   const id = sessionIdOf(match);
@@ -164,6 +165,31 @@ async function readActivityHistory(request, response, context) {
   }
   return send(response, 200, await host.activityHistoryPage(id, context.principal,
     { ...(limit === null ? {} : { limit: Number(limit) }), ...(cursor === null ? {} : { cursor }) }));
+}
+
+/** C.6 step 2/7 read seam: NNA serves a read-only GET /command catalog built
+ *  from its real skills inventory. Why: NND's scheduled and queue paths poll
+ *  GET /command for readiness and slash resolution; serving the honest skill
+ *  entries (source 'skill') turns a 404 into real data while keeping the
+ *  ruled boundary — NNA holds no command-execution concept, so the catalog
+ *  offers NO executable template entries and
+ *  POST /session/:id/command stays unrouted (a slash hit there degrades to
+ *  the plain prompt route NND-side, same expansion treatment the queue got).
+ *  Compatibility: entries use the {name, description, template, source}
+ *  shape NND's commandEntryOf resolves; an empty inventory yields an empty
+ *  catalog, never fabricated entries. */
+async function readCommandCatalog(request, response, context) {
+  if (context.url.pathname !== COMMAND_ROUTE) return false;
+  if (request.method !== 'GET') return send(response, 405,
+    { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+  requireIntegrationPermission(context.principal, 'nnd.read');
+  const inventory = await context.nndEngineHost?.readNndSkillsInventory?.();
+  // Compatibility: nnd_skills_catalog_unavailable is the registered code whose
+  // failure mapping is already 503 (secret-broker-server status table).
+  if (!inventory) throw new ContractError('nnd_skills_catalog_unavailable', 'NNA skill discovery is unavailable');
+  const skills = Array.isArray(inventory.skills) ? inventory.skills : [];
+  return send(response, 200, skills.filter((skill) => skill?.invocation === 'user' || skill?.invocation === 'both')
+    .map((skill) => ({ name: skill.id, description: skill.description, source: 'skill' })));
 }
 
 function readSession(response, context, host, id, detail) {

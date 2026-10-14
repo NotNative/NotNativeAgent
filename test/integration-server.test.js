@@ -325,6 +325,50 @@ test('NND skills inventory is read-only and omits source paths and bodies', asyn
   } finally { await service.close(); }
 });
 
+test('NND command catalog maps the skills inventory honestly and refuses execution', async () => {
+  const root = createScratchSync('nna-nnd-commands-');
+  const configRoot = join(root, 'config');
+  await mkdir(configRoot, { recursive: true });
+  await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
+    nndEngineHost: { readNndSkillsInventory: async () => ({ version: 1, state: 'discovered', skills: [
+      { id: 'review', version: '1', description: 'Review code', invocation: 'both' },
+      { id: 'prepare', version: '2', description: 'Agent-only prep', invocation: 'agent' },
+    ] }) },
+    providerStore: new ProviderProfileStore({ configRoot }),
+    broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }), port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    // Skill-sourced entries only: NNA owns no command-execution concept, so no
+    // template-bearing executable entries are ever fabricated.
+    const result = await request(base, '/command', principal(['nnd.read']));
+    assert.deepEqual(result.value, [{ name: 'review', description: 'Review code', source: 'skill' }]);
+    // An empty inventory yields an empty catalog, not fake entries.
+    const empty = await startIntegrationServer({
+      activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
+      nndEngineHost: { readNndSkillsInventory: async () => ({ version: 1, state: 'discovered', skills: [] }) },
+      providerStore: new ProviderProfileStore({ configRoot }),
+      broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }), port: 0,
+    });
+    try {
+      const emptyBase = `http://127.0.0.1:${empty.address.port}`;
+      assert.deepEqual((await request(emptyBase, '/command', principal(['nnd.read']))).value, []);
+    } finally { await empty.close(); }
+    assert.equal((await request(base, '/command', principal([]))).status, 403);
+    assert.equal((await request(base, '/command', principal(['nnd.read']), { method: 'POST' })).status, 405);
+    // An unavailable inventory fails with the registered skills code, not a fabricated catalog.
+    const broken = await startIntegrationServer({
+      activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
+      nndEngineHost: {}, providerStore: new ProviderProfileStore({ configRoot }), port: 0,
+    });
+    const brokenBase = `http://127.0.0.1:${broken.address.port}`;
+    try { assert.equal((await request(brokenBase, '/command', principal(['nnd.read']))).status, 503); }
+    finally { await broken.close(); }
+  } finally { await service.close(); }
+});
+
 test('NND agent inventory exposes built-in roles and the running delegation route without grants', async () => {
   const root = createScratchSync('nna-nnd-agents-');
   const configRoot = join(root, 'config');

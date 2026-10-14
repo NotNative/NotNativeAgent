@@ -126,6 +126,26 @@ test('durable secret mutations succeed when audit observation fails', async () =
   assert.equal(broker.lastAuditFailure, 'observer_unavailable');
 });
 
+test('secret use requires the four-field envelope of non-empty strings', async () => {
+  const { broker } = await fixture();
+  const created = await broker.create({ label: 'Envelope', kind: 'token', fields: { token: 'envelope-secret' } });
+  const valid = { consumer: 'test.connector', destination: 'https://example.test', purpose: 'test', reviewerDecisionId: 'review_1' };
+  for (const key of ['consumer', 'destination', 'purpose', 'reviewerDecisionId']) {
+    const missing = { ...valid, [key]: undefined };
+    await assert.rejects(() => broker.withSecret(created.id, missing, async () => undefined),
+      { code: 'secret_use_request_invalid' });
+    const empty = { ...valid, [key]: '   ' };
+    await assert.rejects(() => broker.withSecret(created.id, empty, async () => undefined),
+      { code: 'secret_use_request_invalid' });
+  }
+  await assert.rejects(() => broker.withSecret(created.id, null, async () => undefined),
+    { code: 'secret_use_request_invalid' });
+  assert.equal((await broker.get(created.id)).useCount, 0);
+  const result = await broker.withSecret(created.id, valid, async () => 'ok');
+  assert.equal(result, 'ok');
+  assert.equal((await broker.get(created.id)).useCount, 1);
+});
+
 test('audit reads skip malformed ledger lines while retaining valid events', async () => {
   const { root, broker } = await fixture();
   await broker.create({ label: 'Audited', kind: 'token', fields: { token: 'audit-secret' } });
