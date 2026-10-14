@@ -882,14 +882,47 @@ Write-InstallerOk $InstalledVersion
 # here 2026-10-14).
 $NndRegistrationPath = Join-Path $DataRoot 'config\nnd-package.json'
 $DesktopRegistered = Test-Path -LiteralPath $NndRegistrationPath
-$DesktopInstallLog = Join-Path $SourceRoot '.tmp\nna-desktop-install.log'
+$DesktopInstallLog = Join-Path $DataRoot 'logs\nna-desktop-install.log'
 function Invoke-DesktopInstaller {
+    # Invariant: the component must register against this install's verified
+    # NNA identity, including custom install and data roots.
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $DesktopInstallLog) | Out-Null
     $previous = $ErrorActionPreference
+    $priorPath = $env:PATH
     $ErrorActionPreference = 'Continue'
     try {
-        & (Join-Path $SourceRoot 'desktop\install.cmd') 1>$DesktopInstallLog 2>&1
+        # The root installer can download Node without changing this process's
+        # PATH. NND's source build needs that selected runtime and pnpm.
+        $env:PATH = "$(Split-Path -Parent $NodePath);$env:PATH"
+        $desktopArguments = @('-NnaInstallRoot', $InstallRoot, '-NnaDataRoot', $DataRoot)
+        if ($DesktopRegistered) {
+            # Invariant: a registered custom NND root is upgraded in place.
+            $priorNnaHome = $env:NNA_HOME
+            $env:NNA_HOME = $DataRoot
+            try {
+                $statusText = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') nnd package status 2>$DesktopInstallLog
+                if ($LASTEXITCODE -ne 0) { throw 'The registered desktop package could not be inspected.' }
+                $status = $statusText | ConvertFrom-Json
+                if ($status.registered -ne $true -or $status.root -isnot [string] -or
+                    ![IO.Path]::IsPathRooted($status.root)) { throw 'The registered desktop package root is invalid.' }
+                $desktopArguments += @('-InstallDir', $status.root)
+            } finally { $env:NNA_HOME = $priorNnaHome }
+        }
+        if (!(Get-Command pnpm -CommandType Application -ErrorAction SilentlyContinue)) {
+            if ($SkipDependencyInstall) { throw 'pnpm is missing and dependency installation was disabled.' }
+            $npm = Find-CompatibleNpm $NodePath
+            if (!$npm) { throw 'npm is unavailable for the desktop build tool setup.' }
+            $buildTools = Join-Path $InstallRoot 'build-tools'
+            & $npm install --prefix $buildTools --no-audit --no-fund --loglevel=error 'pnpm@10.28.2' 1>$DesktopInstallLog 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "Desktop pnpm setup failed (exit $LASTEXITCODE); see $DesktopInstallLog" }
+            $env:PATH = "$(Join-Path $buildTools 'node_modules\.bin');$env:PATH"
+        }
+        & $DesktopScript @desktopArguments 1>$DesktopInstallLog 2>&1
         return $LASTEXITCODE
-    } finally { $ErrorActionPreference = $previous }
+    } catch {
+        Add-Content -LiteralPath $DesktopInstallLog -Value $_.Exception.Message
+        return 1
+    } finally { $env:PATH = $priorPath; $ErrorActionPreference = $previous }
 }
 function Show-DesktopInstallTail([int]$Lines = 12) {
     if (Test-Path -LiteralPath $DesktopInstallLog) {
@@ -922,7 +955,7 @@ if (-not (Test-Path -LiteralPath $DesktopScript)) {
     $InstallDesktopNow = $false
     if ($InstallDesktop) {
         $InstallDesktopNow = $true
-    } elseif (-not $SkipDependencyInstall -and -not $SkipProviderSetup) {
+    } elseif (-not $SkipDependencyInstall -and -not $SkipProviderSetup -and -not [Console]::IsInputRedirected) {
         $DesktopAnswer = (Read-Host 'Install the NotNativeAgent desktop component now? [y/N]').Trim()
         $InstallDesktopNow = $DesktopAnswer -in @('y', 'Y', 'yes', 'Yes', 'YES')
     }

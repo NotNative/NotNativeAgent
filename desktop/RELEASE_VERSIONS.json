@@ -2048,6 +2048,10 @@
     {
       "version": "20261014-5",
       "content_sha256": "210dfa8d402ae6b530abb6416d4a01723b2eb9a95bced6c3b12ba8e6aceaecb2"
+    },
+    {
+      "version": "20261014-6",
+      "content_sha256": "8334ef5e278b6ef41534d0c65865b0600c695d17de854d29cc3c79ac3eecc217"
     }
   ]
 }

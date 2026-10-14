@@ -176,12 +176,15 @@ test('first run without discovery requires a real terminal', async () => {
 test('version bump synchronizes canonical, runtime, package, and SBOM versions', async () => {
   const root = createScratchSync('nna-version-bump-');
   try {
-    await mkdir(join(root, 'scripts')); await mkdir(join(root, 'src'));
+    await mkdir(join(root, 'scripts')); await mkdir(join(root, 'src')); await mkdir(join(root, 'desktop'));
     for (const path of ['VERSION', 'package.json', 'SBOM.spdx.json']) {
       await copyFile(join(projectRoot, path), join(root, path));
     }
     await copyFile(join(projectRoot, 'src', 'product.js'), join(root, 'src', 'product.js'));
     await copyFile(join(projectRoot, 'scripts', 'bump-version.js'), join(root, 'scripts', 'bump-version.js'));
+    for (const path of ['VERSION', 'package.json']) {
+      await copyFile(join(projectRoot, 'desktop', path), join(root, 'desktop', path));
+    }
     const result = spawnSync(process.execPath, [join(root, 'scripts', 'bump-version.js'), '--date', '20991231', '--iteration', '7'], {
       cwd: root, encoding: 'utf8',
     });
@@ -191,6 +194,8 @@ test('version bump synchronizes canonical, runtime, package, and SBOM versions',
     const sbom = JSON.parse(await readFile(join(root, 'SBOM.spdx.json'), 'utf8'));
     assert.equal(packageJson.version, '20991231.0.7');
     assert.equal(packageJson.nna_version, '20991231-7');
+    assert.equal((await readFile(join(root, 'desktop', 'VERSION'), 'utf8')).trim(), '20991231-7');
+    assert.equal(JSON.parse(await readFile(join(root, 'desktop', 'package.json'), 'utf8')).nnd_version, '20991231-7');
     assert.equal(sbom.packages[0].versionInfo, '20991231-7');
     assert.match(await readFile(join(root, 'src', 'product.js'), 'utf8'), /VERSION = '20991231-7'/u);
   } finally {

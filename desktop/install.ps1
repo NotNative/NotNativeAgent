@@ -125,12 +125,23 @@ if ($hasShortcutRoot) {
 function Write-Heading([string]$Text) { Write-Host "" ; Write-Host $Text -ForegroundColor Cyan }
 function Write-Good([string]$Text) { Write-Host "  $Text" -ForegroundColor Green }
 
+function Get-NativeLogPath([string]$Name) {
+    # Invariant: installer diagnostics stay writable when the source checkout
+    # or the caller's current directory is read only.
+    if ($Name -notmatch '^[a-z][a-z0-9-]*\.log$') { throw 'Installer log name is invalid.' }
+    $directory = Join-Path $env:APPDATA 'NotNativeDesktop\installer-logs'
+    New-Item -ItemType Directory -Force -Path $directory | Out-Null
+    return Join-Path $directory $Name
+}
+
 # Native processes emit warnings on stderr; in PowerShell those become error
 # records, and Stop would terminate on any of them. Continue lets stderr flow
 # into the log file; the exit code stays authoritative. Robocopy prints its
 # own diagnostics (access denied etc.) on STDOUT, not stderr - so callers that
 # care pass -OutputLog to capture stdout as well (the default still sinks it).
 function Invoke-Native([string]$Tool, [string[]]$ToolArgs, [string]$ErrorLog, [string]$OutputLog) {
+    $ErrorLog = Get-NativeLogPath $ErrorLog
+    if ($OutputLog) { $OutputLog = Get-NativeLogPath $OutputLog }
     $previous = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
@@ -146,6 +157,7 @@ function Invoke-Native([string]$Tool, [string[]]$ToolArgs, [string]$ErrorLog, [s
 }
 
 function Show-NativeFailures([string]$ErrorLog, [int]$Lines = 30, [switch]$FromTail) {
+    $ErrorLog = Get-NativeLogPath $ErrorLog
     if (Test-Path -LiteralPath $ErrorLog) {
         $rows = if ($FromTail) { Get-Content -LiteralPath $ErrorLog -Tail $Lines -ErrorAction SilentlyContinue }
                 else { Get-Content -LiteralPath $ErrorLog -ErrorAction SilentlyContinue | Select-Object -First $Lines }
