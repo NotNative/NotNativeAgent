@@ -594,8 +594,29 @@ test('semantic process review denies an unclassified or unknown effect before ex
     }, { ...context, definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' } });
     assert.equal(result.outcome, 'deny_with_guidance');
     assert.equal(result.reasonCode, reason);
-    assert.match(result.guidance, /simpler explicit/u);
+    assert.match(result.guidance, /reviewer output was incomplete|effects of this command/u);
   }
+});
+
+test('missing process effect does not latch as a policy denial against a later review', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'missing-process-effect' });
+  let calls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    calls += 1;
+    return { outcome: 'approve', confidence: 1, reason_code: 'ssh_diagnostic', authority_anchors: [1],
+      ...(calls === 2 ? { effect_assessment: 'read_only' } : {}) };
+  } } });
+  const makeRequest = (id) => ({
+    ...readRequest(id), toolName: 'shell_run', args: { script: 'ssh -o BatchMode=yes mongrel@ultra hostname' },
+    resolved: { path: 'D:/workspace', insideWorkspace: true, reviewComplexity: 'simple_shell', readOnly: false },
+  });
+  const reviewContext = { ...context,
+    authority: { id: 'authority-1', intent: [{ content: 'Diagnose RDP on ultra over SSH.', sequence: 1 }], mission: null },
+    definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
+  };
+  assert.equal((await reviewer.review(makeRequest('ssh-first'), reviewContext)).reasonCode, 'process_effect_unclassified');
+  assert.equal((await reviewer.review(makeRequest('ssh-second'), reviewContext)).outcome, 'approve');
+  assert.equal(calls, 2);
 });
 
 test('consequential process requests leave exact action authorization to semantic review', async () => {
@@ -881,7 +902,7 @@ test('semantic reviewer makes one bounded schema-repair attempt with separate ev
 
   assert.equal(result.outcome, 'approve');
   assert.equal(requests.length, 2);
-  assert.equal(requests[1].messages.at(-1).content, 'The prior response did not match the required schema. Return one corrected JSON decision.');
+  assert.match(requests[1].messages.at(-1).content, /Return one corrected JSON decision/u);
   assert.equal(receipts.length, 2);
   assert.equal(receipts[0].outcome, 'failed');
   assert.equal(receipts[0].reasonCode, 'reviewer_output_malformed');
@@ -889,6 +910,44 @@ test('semantic reviewer makes one bounded schema-repair attempt with separate ev
   assert.equal(receipts[0].logicalRequestId, receipts[1].logicalRequestId);
   assert.notEqual(receipts[0].attemptId, receipts[1].attemptId);
   assert.deepEqual(telemetry.map(({ status }) => status), ['started', 'failed', 'started', 'succeeded']);
+});
+
+test('reviewer repairs a process approval that omits effect assessment', async () => {
+  const requests = [];
+  const outputs = [
+    '{"outcome":"approve","confidence":1,"reason_code":"ssh_diagnostic","authority_anchors":[1]}',
+    '{"outcome":"approve","confidence":1,"reason_code":"ssh_diagnostic","authority_anchors":[1],"effect_assessment":"read_only"}',
+  ];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    yield { type: 'text', text: outputs[requests.length - 1] };
+    yield { type: 'terminal' };
+  } };
+  const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
+  const reviewer = new RoutedSemanticReviewer({ candidates: () => [route], provider: () => provider });
+  const decision = await reviewer.review({ request: { toolName: 'shell_run', args: {
+    script: 'ssh -o BatchMode=yes -o ConnectTimeout=10 mongrel@ultra hostname',
+  } }, authenticatedIntent: [{ sequence: 1, content: 'Diagnose RDP on ultra over SSH.' }] },
+  new AbortController().signal);
+  assert.equal(decision.effect_assessment, 'read_only');
+  assert.equal(requests.length, 2);
+  assert.ok(!requests[0].responseFormat.json_schema.schema.required.includes('effect_assessment'));
+  assert.match(requests[1].messages.at(-1).content, /without effect_assessment/u);
+});
+
+test('reviewer leaves a still-unclassified process approval for fail-closed normalization', async () => {
+  let calls = 0;
+  const provider = { async *stream() {
+    calls += 1;
+    yield { type: 'text', text: '{"outcome":"approve","confidence":1,"reason_code":"intent_match","authority_anchors":[1]}' };
+    yield { type: 'terminal' };
+  } };
+  const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
+  const reviewer = new RoutedSemanticReviewer({ candidates: () => [route], provider: () => provider });
+  const decision = await reviewer.review({ request: { toolName: 'shell_run' }, authenticatedIntent: [] },
+    new AbortController().signal);
+  assert.equal(decision.effect_assessment, undefined);
+  assert.equal(calls, 2);
 });
 
 test('semantic reviewer fails closed after the one schema-repair attempt', async () => {

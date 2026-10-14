@@ -8,7 +8,7 @@ import { workspaceTransitionClassification } from './reliability/workspace-scope
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
 const REVIEWER_SERVICE_FAILURES = new Set([
   'mandatory_review_failed', 'provider_reasoning_control_rejected', 'semantic_review_unavailable', 'semantic_review_timeout',
-  'authority_anchor_missing', 'authority_anchor_invalid',
+  'authority_anchor_missing', 'authority_anchor_invalid', 'process_effect_unclassified',
 ]);
 export class MandatoryReviewer {
   constructor(options) {
@@ -336,7 +336,7 @@ function normalizeCandidate(value, request, context) {
     }
     if (!['read_only', 'state_changing'].includes(value.effect_assessment)) {
       return deny('process_effect_unclassified',
-        'The reviewer did not classify this command’s effects. Use a simpler explicit operation whose effects can be reviewed.', request);
+        'The reviewer omitted the process effect assessment after clarification. NNA denied the operation because the reviewer output was incomplete. Check or change the Reviewer route.', request);
     }
   }
   if (value.outcome === 'approve') return semanticApproval(value, request, context);

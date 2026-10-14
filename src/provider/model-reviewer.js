@@ -31,7 +31,7 @@ export class RoutedSemanticReviewer {
       throw new ContractError('route_capability_unavailable', 'no trust-compatible reviewer route is available');
     }
     const logicalRequestId = newId('reviewer_route');
-    const state = { invalidOutput: null, repairs: 0 };
+    const state = { invalidOutput: null, repairs: 0, repairKind: null };
     let lastError = null;
     for (let index = 0; index < routes.length; index += 1) {
       const route = routes[index];
@@ -111,7 +111,17 @@ async function runReviewerAttempts(route, input, signal, state, run) {
   let constrained = route.profile?.capabilities?.structuredOutput !== false;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      return await run(reviewerRequest(route, input, state.invalidOutput, constrained));
+      const decision = await run(reviewerRequest(route, input, state.invalidOutput, constrained, state.repairKind));
+      // Why: effect_assessment is optional in the general decision schema. A process
+      // approval missing it gets one focused clarification before the review boundary fails closed.
+      if (processReview(input) && decision.outcome === 'approve'
+        && decision.effect_assessment === undefined && state.repairs === 0) {
+        state.repairs += 1;
+        state.invalidOutput = JSON.stringify(decision);
+        state.repairKind = 'missing_effect';
+        continue;
+      }
+      return decision;
     } catch (error) {
       if (!signal?.aborted && constrained && error?.code === 'provider_response_format_unsupported') {
         constrained = false;
@@ -120,6 +130,7 @@ async function runReviewerAttempts(route, input, signal, state, run) {
       if (!signal?.aborted && state.repairs === 0 && error?.code === 'reviewer_output_malformed') {
         state.repairs += 1;
         state.invalidOutput = error.reviewerOutput ?? '';
+        state.repairKind = 'malformed';
         continue;
       }
       throw error;
@@ -128,7 +139,7 @@ async function runReviewerAttempts(route, input, signal, state, run) {
   throw new ContractError('reviewer_output_malformed', 'reviewer repair attempt did not produce a decision');
 }
 
-function reviewerRequest(route, input, invalidOutput, constrained) {
+function reviewerRequest(route, input, invalidOutput, constrained, repairKind) {
   const messages = [
     { role: 'system', content: reviewerPolicy() + (constrained ? ''
       : ` Required JSON schema: ${JSON.stringify(reviewerResponseFormat().json_schema.schema)}`) },
@@ -136,7 +147,9 @@ function reviewerRequest(route, input, invalidOutput, constrained) {
   ];
   if (invalidOutput !== null) messages.push(
     { role: 'assistant', content: invalidOutput },
-    { role: 'user', content: 'The prior response did not match the required schema. Return one corrected JSON decision.' },
+    { role: 'user', content: repairKind === 'missing_effect'
+      ? 'You approved a process command without effect_assessment. Return a corrected decision with read_only, state_changing, or unknown. If uncertain, deny with guidance.'
+      : 'The prior response did not match the required schema. Return one corrected JSON decision.' },
   );
   return Object.freeze({
     model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 4096, 4096),
@@ -274,4 +287,8 @@ function parseDecision(text) {
     ...(value.effect_assessment !== undefined ? { effect_assessment: value.effect_assessment } : {}),
     ...(value.guidance !== undefined ? { guidance: value.guidance } : {}),
   });
+}
+
+function processReview(input) {
+  return ['shell_run', 'process_run'].includes(input?.request?.toolName);
 }
