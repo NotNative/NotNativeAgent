@@ -575,6 +575,17 @@ installed_version=$(nna_runtime --version)
 case "$installed_version" in *"$version"*) ;; *) printf '%s\n' 'Installed CLI version verification failed.' >&2; exit 1 ;; esac
 ok "$installed_version"
 
+# Desktop component (one product): Windows-only today. The POSIX installer
+# states the skip honestly instead of silently omitting the component, and
+# records the same manual command the Windows installer prints.
+section 'Desktop component'
+if [ -f "$(dirname "$source_root")/desktop/install.sh" ] || [ -f "$source_root/desktop/install.sh" ]; then
+  printf '%s\n' '[--] The desktop component requires Windows (win32/x64 payload); skipped on this platform.'
+  printf '%s\n' '     On a Windows machine it installs with the NNA installer, or manually: desktop/install.cmd'
+else
+  printf '%s\n' '[--] Desktop component not present in this source tree; skipped.'
+fi
+
 printf '\n%b INSTALL COMPLETE%b\n' "$c_magenta" "$c_reset"
 printf '%b Version     %s%b\n' "$c_white" "$version" "$c_reset"
 printf '%b Application %s%b\n' "$c_dim" "$target" "$c_reset"

@@ -50,6 +50,19 @@ attaches as a client. Actual disposable installed-payload and Chromium checks pa
 Existing-data migration, login startup, recovery and complete settings parity remain open.
 Package registration and source integration tests do not establish installed acceptance.
 
+## Installing
+
+**The product installer is the NNA installer.** Run the NNA `install.ps1`/`install.sh`
+from the repository root; it offers the desktop component as an optional step
+(default No; answer Yes or pass `-InstallDesktop`), and a registered desktop
+package is upgraded automatically whenever NNA upgrades. When it completes,
+`nna desktop start` works immediately.
+
+`desktop\install.cmd` / `install.ps1` in this subtree remain the
+**development/source-build path** (build gates, smoke tests, and the prebuilt
+stage/activate operations use them). Running it standalone still works and pins
+the installed NNA, but it is not the product installation route.
+
 ## Dev loop
 
 ```bash
