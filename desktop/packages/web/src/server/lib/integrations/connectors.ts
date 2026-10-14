@@ -26,7 +26,7 @@ export type LinearIssueSummary = {
 export type RemoteOrigin = { owner: string; repo: string };
 
 export class IntegrationError extends Error {
-  constructor(readonly code: 'github-unavailable' | 'github-rate-limited' | 'no-remote' | 'linear-unconfigured' | 'linear-unavailable', message: string) {
+  constructor(readonly code: 'nnd_integration_github_unavailable' | 'nnd_integration_github_rate_limited' | 'nnd_integration_no_remote' | 'nnd_integration_linear_unconfigured' | 'nnd_integration_linear_unavailable', message: string) {
     super(message);
   }
 }
@@ -46,7 +46,7 @@ export async function listOpenPullRequests(input: {
   token?: string | null;
   signal?: AbortSignal;
 }): Promise<PullRequestSummary[]> {
-  if (!input.origin) throw new IntegrationError('no-remote', 'No GitHub remote origin for this directory.');
+  if (!input.origin) throw new IntegrationError('nnd_integration_no_remote', 'No GitHub remote origin for this directory.');
   const fetchImpl = input.fetchImpl ?? fetch;
   const headers: Record<string, string> = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
   if (input.token) headers.Authorization = `Bearer ${input.token}`;
@@ -56,14 +56,14 @@ export async function listOpenPullRequests(input: {
       headers, signal: AbortSignal.any([input.signal ?? AbortSignal.abort(), AbortSignal.timeout(TIMEOUT_MS)]),
     });
   } catch {
-    throw new IntegrationError('github-unavailable', 'GitHub API transport failed.');
+    throw new IntegrationError('nnd_integration_github_unavailable', 'GitHub API transport failed.');
   }
-  if (response.status === 403 || response.status === 429) throw new IntegrationError('github-rate-limited', 'GitHub API rate limit reached.');
-  if (!response.ok) throw new IntegrationError('github-unavailable', `GitHub API returned ${response.status}.`);
+  if (response.status === 403 || response.status === 429) throw new IntegrationError('nnd_integration_github_rate_limited', 'GitHub API rate limit reached.');
+  if (!response.ok) throw new IntegrationError('nnd_integration_github_unavailable', `GitHub API returned ${response.status}.`);
   const text = await boundedText(response);
   let raw: unknown;
-  try { raw = JSON.parse(text); } catch { throw new IntegrationError('github-unavailable', 'GitHub API returned malformed JSON.'); }
-  if (!Array.isArray(raw)) throw new IntegrationError('github-unavailable', 'GitHub API payload is not a pull list.');
+  try { raw = JSON.parse(text); } catch { throw new IntegrationError('nnd_integration_github_unavailable', 'GitHub API returned malformed JSON.'); }
+  if (!Array.isArray(raw)) throw new IntegrationError('nnd_integration_github_unavailable', 'GitHub API payload is not a pull list.');
   return raw.flatMap((entry): PullRequestSummary[] => {
     const pr = entry as Record<string, unknown>;
     if (typeof pr.number !== 'number' || typeof pr.title !== 'string' || typeof pr.html_url !== 'string'
@@ -82,7 +82,7 @@ export async function listLinearIssues(input: {
   fetchImpl?: typeof fetch;
   signal?: AbortSignal;
 }): Promise<LinearIssueSummary[]> {
-  if (!input.apiKey) throw new IntegrationError('linear-unconfigured', 'No Linear API key configured (setup is optional; the surface fails closed).');
+  if (!input.apiKey) throw new IntegrationError('nnd_integration_linear_unconfigured', 'No Linear API key configured (setup is optional; the surface fails closed).');
   const fetchImpl = input.fetchImpl ?? fetch;
   let response: Response;
   try {
@@ -93,15 +93,15 @@ export async function listLinearIssues(input: {
       signal: AbortSignal.any([input.signal ?? AbortSignal.abort(), AbortSignal.timeout(TIMEOUT_MS)]),
     });
   } catch {
-    throw new IntegrationError('linear-unavailable', 'Linear API transport failed.');
+    throw new IntegrationError('nnd_integration_linear_unavailable', 'Linear API transport failed.');
   }
-  if (!response.ok) throw new IntegrationError('linear-unavailable', `Linear API returned ${response.status}.`);
+  if (!response.ok) throw new IntegrationError('nnd_integration_linear_unavailable', `Linear API returned ${response.status}.`);
   const text = await boundedText(response);
   let raw: unknown;
-  try { raw = JSON.parse(text); } catch { throw new IntegrationError('linear-unavailable', 'Linear API returned malformed JSON.'); }
+  try { raw = JSON.parse(text); } catch { throw new IntegrationError('nnd_integration_linear_unavailable', 'Linear API returned malformed JSON.'); }
   const nodes = (raw as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
   const list = (nodes?.issues as Record<string, unknown>)?.nodes;
-  if (!Array.isArray(list)) throw new IntegrationError('linear-unavailable', 'Linear API payload is not an issue list.');
+  if (!Array.isArray(list)) throw new IntegrationError('nnd_integration_linear_unavailable', 'Linear API payload is not an issue list.');
   return list.flatMap((entry): LinearIssueSummary[] => {
     const issue = entry as Record<string, unknown>;
     if (typeof issue.identifier !== 'string' || typeof issue.title !== 'string' || typeof issue.url !== 'string'
@@ -118,14 +118,14 @@ export async function listLinearIssues(input: {
 
 async function boundedText(response: Response): Promise<string> {
   const reader = response.body?.getReader();
-  if (!reader) throw new IntegrationError('github-unavailable', 'Empty response body.');
+  if (!reader) throw new IntegrationError('nnd_integration_github_unavailable', 'Empty response body.');
   const chunks: Uint8Array[] = []; let bytes = 0;
   try {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       bytes += value.byteLength;
-      if (bytes > MAX_BYTES) { await reader.cancel(); throw new IntegrationError('github-unavailable', 'Response body exceeds the size bound.'); }
+      if (bytes > MAX_BYTES) { await reader.cancel(); throw new IntegrationError('nnd_integration_github_unavailable', 'Response body exceeds the size bound.'); }
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }

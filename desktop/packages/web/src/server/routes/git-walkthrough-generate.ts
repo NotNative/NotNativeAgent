@@ -81,7 +81,7 @@ export function digestFor(snapshot: Snapshot): { digest: unknown[]; aliases: Map
     aliases.set(alias, stop);
   }
   if (Buffer.byteLength(JSON.stringify(digest), 'utf8') > MAX_DIGEST_BYTES) {
-    throw new WalkthroughGenerateError('Diff digest is too large for this model request; no text was sent.', 413, 'context-too-small');
+    throw new WalkthroughGenerateError('Diff digest is too large for this model request; no text was sent.', 413, 'nnd_context_too_small');
   }
   return { digest, aliases, omitted };
 }
@@ -89,9 +89,9 @@ export function digestFor(snapshot: Snapshot): { digest: unknown[]; aliases: Map
 function parsedObject(text: string): Record<string, unknown> {
   const cleaned = text.trim().replace(/^```(?:json)?\s*/iu, '').replace(/\s*```$/u, '');
   let value: unknown;
-  try { value = JSON.parse(cleaned); } catch { throw new WalkthroughGenerateError('Model returned invalid walkthrough JSON.', 502, 'invalid-walkthrough'); }
+  try { value = JSON.parse(cleaned); } catch { throw new WalkthroughGenerateError('Model returned invalid walkthrough JSON.', 502, 'nnd_walkthrough_invalid'); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new WalkthroughGenerateError('Model returned invalid walkthrough JSON.', 502, 'invalid-walkthrough');
+    throw new WalkthroughGenerateError('Model returned invalid walkthrough JSON.', 502, 'nnd_walkthrough_invalid');
   }
   return value as Record<string, unknown>;
 }
@@ -101,7 +101,7 @@ export function normalizeWalkthrough(text: string, aliases: Map<string, Snapshot
   const title = typeof rawResult.title === 'string' ? rawResult.title.replace(/\s+/gu, ' ').trim().slice(0, 80) : '';
   const focus = typeof rawResult.focus === 'string' ? rawResult.focus.replace(/\s+/gu, ' ').trim().slice(0, 500) : '';
   const raw = rawResult.chapters;
-  if (!title || !focus || !Array.isArray(raw) || raw.length > 6) throw new WalkthroughGenerateError('Model returned invalid chapters.', 502, 'invalid-walkthrough');
+  if (!title || !focus || !Array.isArray(raw) || raw.length > 6) throw new WalkthroughGenerateError('Model returned invalid chapters.', 502, 'nnd_walkthrough_invalid');
   const used = new Set<string>();
   const chapters: ModelChapter[] = [];
   let totalStops = 0;
@@ -127,11 +127,11 @@ export function normalizeWalkthrough(text: string, aliases: Map<string, Snapshot
     }
     if (stops.length) { totalStops += stops.length; chapters.push({ title: shaped.title.replace(/\s+/gu, ' ').trim().slice(0, 24), icon, blurb, stops }); }
   }
-  if (!chapters.length) throw new WalkthroughGenerateError('Model did not explain any current hunk.', 502, 'invalid-walkthrough');
+  if (!chapters.length) throw new WalkthroughGenerateError('Model did not explain any current hunk.', 502, 'nnd_walkthrough_invalid');
   return { title, focus, chapters };
 }
 function cancelledIfAborted(job: WalkthroughJob): void {
-  if (job.controller.signal.aborted) throw new WalkthroughGenerateError('Walkthrough generation cancelled.', 499, 'cancelled');
+  if (job.controller.signal.aborted) throw new WalkthroughGenerateError('Walkthrough generation cancelled.', 499, 'nnd_generation_cancelled');
 }
 function cacheIdentity(sourceKey: string, root: string, identity: { providerID: string; modelID: string },
   language: string, snapshot: Snapshot) {
@@ -164,7 +164,7 @@ async function ownedSession(ports: Partial<Record<'call' | 'root', any>>, sessio
   directory: string, job: WalkthroughJob): Promise<Response> {
   return ports.call?.(harnessRequest(`/session/${encodeURIComponent(sessionId)}`, directory, {
     method: 'GET', signal: signalWithDeadline(job, 5_000),
-  })) ?? Promise.reject(new WalkthroughGenerateError('Walkthrough generation failed.', 500, 'generation-failed'));
+  })) ?? Promise.reject(new WalkthroughGenerateError('Walkthrough generation failed.', 500, 'nnd_walkthrough_generation_failed'));
 }
 
 type WalkthroughModelResponse = { revision: unknown; text: unknown; providerID: unknown; modelID: unknown; error?: { message?: string } };
@@ -173,7 +173,7 @@ type AcceptedModelResponse = { revision: string; text: string; providerID: strin
 function requestedModel(value: unknown): string | null {
   if (value === undefined || value === null) return null;
   if (typeof value !== 'string' || value.length > 512) {
-    throw new WalkthroughGenerateError('Invalid walkthrough request.', 400, 'invalid-request');
+    throw new WalkthroughGenerateError('Invalid walkthrough request.', 400, 'nnd_walkthrough_request_invalid');
   }
   const separator = value.indexOf('/');
   if (separator <= 0 || separator >= value.length - 1) {
@@ -193,7 +193,7 @@ function acceptModelResponse(result: WalkthroughModelResponse | null, snapshot: 
   identity: { providerID: string; modelID: string } | null,
   requestModel: string | null): AcceptedModelResponse {
   if (!validModelResponse(result, snapshot)) {
-    throw new WalkthroughGenerateError('Model response does not match this diff revision.', 502, 'invalid-walkthrough');
+    throw new WalkthroughGenerateError('Model response does not match this diff revision.', 502, 'nnd_walkthrough_invalid');
   }
   if (identity !== null && (result!.providerID !== identity.providerID || result!.modelID !== identity.modelID)) {
     throw new WalkthroughGenerateError('Model response does not match this walkthrough identity.', 502, 'model-changed');
@@ -220,8 +220,8 @@ function walkthroughModelError(response: Response, body: Record<string, unknown>
   const detail = body !== null && body.error !== null && typeof body.error === 'object' && !Array.isArray(body.error)
     ? body.error as Record<string, unknown> : {};
   const code = typeof detail.code === 'string' ? detail.code : 'model-unavailable';
-  const status = code === 'context-too-small' ? 409 : code === 'output-exhausted' ? 422
-    : code === 'cancelled' ? 499 : response.status >= 400 && response.status <= 499 ? response.status : 502;
+  const status = code === 'nnd_context_too_small' ? 409 : code === 'nnd_output_exhausted' ? 422
+    : code === 'nnd_generation_cancelled' ? 499 : response.status >= 400 && response.status <= 499 ? response.status : 502;
   const message = typeof detail.message === 'string' ? detail.message : 'Walkthrough model is unavailable.';
   return new WalkthroughGenerateError(message, status, code);
 }
@@ -254,10 +254,10 @@ function parseInputs(sessionId: unknown, expected: unknown, directory: unknown, 
 } {
   if (typeof sessionId !== 'string' || !SESSION_ID.test(sessionId) || typeof expected !== 'string' || !REVISION.test(expected)
     || typeof directory !== 'string' || !directory || directory.length > 4096) {
-    throw new WalkthroughGenerateError('Invalid walkthrough request.', 400, 'invalid-request');
+    throw new WalkthroughGenerateError('Invalid walkthrough request.', 400, 'nnd_walkthrough_request_invalid');
   }
   try { parseWalkthroughSource(rawSource); } catch {
-    throw new WalkthroughGenerateError('Invalid walkthrough request.', 400, 'invalid-request');
+    throw new WalkthroughGenerateError('Invalid walkthrough request.', 400, 'nnd_walkthrough_request_invalid');
   }
     return { sessionId, expected, directory, language: 'en' };
 }
@@ -288,7 +288,7 @@ async function runGeneration(input: { sessionId: string; expected: string; direc
     const readiness = walkthroughReadiness({ digestCount: digest.length, fileCount: snapshot.fileCount, requiredChars, selection: selected });
     if (!readiness.ready) {
       const reason = readiness.reason ?? 'no-model';
-      const status = reason === 'no-provider-login' ? 401 : reason === 'context-too-small' ? 409 : 422;
+      const status = reason === 'no-provider-login' ? 401 : reason === 'nnd_context_too_small' ? 409 : 422;
       throw new WalkthroughGenerateError(`Walkthrough model is not ready: ${reason}.`, status, reason);
     }
   }
@@ -371,7 +371,7 @@ export async function generateWalkthrough(directory: string, sessionId: string, 
     language, requestModel, cache: context.cache ?? defaultCachedWalkthrough, modelPorts: context.modelPorts };
   job.promise = runGeneration(generation).catch((error) => {
     job.error = error;
-    if (job.controller.signal.aborted) throw new WalkthroughGenerateError('Walkthrough generation cancelled.', 499, 'cancelled');
+    if (job.controller.signal.aborted) throw new WalkthroughGenerateError('Walkthrough generation cancelled.', 499, 'nnd_generation_cancelled');
     throw error;
   }).finally(() => {
     job.state = 'settled';
@@ -416,7 +416,7 @@ export function walkthroughProgressState(encodedSource: string, root: string,
   } catch (cause) {
     const failure = cause as { status?: number; code?: string };
     const status = failure.status === 400 || typeof failure.status !== 'number' ? 400 : 500;
-    return { status, body: { error: "Invalid walkthrough progress request.", code: status === 400 ? String(failure.code ?? "invalid-source") : "progress-failed" } };
+    return { status, body: { error: "Invalid walkthrough progress request.", code: status === 400 ? String(failure.code ?? 'nnd_walkthrough_source_invalid') : 'nnd_walkthrough_progress_failed' } };
   }
 }
 
@@ -440,15 +440,15 @@ export function registerGitWalkthroughGenerateRoute(app: Hono): void {
     } catch (cause) {
       if (cause instanceof WalkthroughGenerateError) return c.json({ error: cause.message, code: cause.code }, cause.status as 400);
       if (cause instanceof SnapshotError) return c.json({ error: cause.message, code: cause.code }, cause.status as 403);
-      return c.json({ error: 'Walkthrough generation failed.', code: 'generation-failed' }, 500);
+      return c.json({ error: 'Walkthrough generation failed.', code: 'nnd_walkthrough_generation_failed' }, 500);
     }
   });
   app.get('/api/git/walkthrough-readiness', async (c) => {
     try {
       const directory = c.req.query('directory');
-      if (!directory) return c.json({ error: 'directory parameter is required', code: 'invalid-request' }, 400);
+      if (!directory) return c.json({ error: 'directory parameter is required', code: 'nnd_walkthrough_request_invalid' }, 400);
       const rawSource = c.req.query('source') ?? 'all';
-      if (rawSource.length > 4_096) throw new WalkthroughGenerateError('Invalid walkthrough source.', 400, 'invalid-source');
+      if (rawSource.length > 4_096) throw new WalkthroughGenerateError('Invalid walkthrough source.', 400, 'nnd_walkthrough_source_invalid');
       const source = rawSource === 'all' || rawSource === 'staged' || rawSource === 'working'
         ? parseWalkthroughSource(rawSource)
         : parseWalkthroughSource(JSON.parse(rawSource) ?? {});
@@ -464,16 +464,16 @@ export function registerGitWalkthroughGenerateRoute(app: Hono): void {
       if (cause instanceof WalkthroughGenerateError) return c.json({ error: cause.message, code: cause.code }, cause.status as 502);
       if (cause instanceof Error && (cause as { status?: unknown }).status === 400) {
         return c.json({ error: cause.message,
-          code: (cause as { code?: unknown }).code === 'invalid-source' ? 'invalid-source' : 'invalid-request' }, 400);
+          code: (cause as { code?: unknown }).code === 'nnd_walkthrough_source_invalid' ? 'nnd_walkthrough_source_invalid' : 'nnd_walkthrough_request_invalid' }, 400);
       }
       if (cause instanceof SnapshotError) return c.json({ error: cause.message, code: cause.code }, cause.status as 403);
-      if (cause instanceof SyntaxError) return c.json({ error: 'Invalid walkthrough source.', code: 'invalid-source' }, 400);
-      return c.json({ error: 'Walkthrough readiness failed.', code: 'readiness-failed' }, 500);
+      if (cause instanceof SyntaxError) return c.json({ error: 'Invalid walkthrough source.', code: 'nnd_walkthrough_source_invalid' }, 400);
+      return c.json({ error: 'Walkthrough readiness failed.', code: 'nnd_walkthrough_readiness_failed' }, 500);
     }
   });
   app.get('/api/git/walkthrough-progress', (c) => {
     const directory = c.req.query('directory');
-    if (!directory) return c.json({ error: 'directory parameter is required', code: 'invalid-request' }, 400);
+    if (!directory) return c.json({ error: 'directory parameter is required', code: 'nnd_walkthrough_request_invalid' }, 400);
     try {
       const state = walkthroughProgressState(c.req.query('source') ?? '{}', sourceRoot(directory), jobs,
         typeof c.req.query('model') === 'string' ? c.req.query('model') : null);
@@ -486,7 +486,7 @@ export function registerGitWalkthroughGenerateRoute(app: Hono): void {
   app.post('/api/git/walkthrough-cancel', async (c) => {
     try {
       const body = await readJsonBodyBounded(c.req.raw, 4_096);
-      if (!body?.directory) return c.json({ error: 'directory parameter is required', code: 'invalid-request' }, 400);
+      if (!body?.directory) return c.json({ error: 'directory parameter is required', code: 'nnd_walkthrough_request_invalid' }, 400);
       const state = walkthroughCancelState(body?.source ?? { kind: 'working-tree', scope: 'all' }, sourceRoot(body.directory as string), jobs,
         typeof body?.model === 'string' ? body.model : null);
       return c.json(state.body, state.status as 200);

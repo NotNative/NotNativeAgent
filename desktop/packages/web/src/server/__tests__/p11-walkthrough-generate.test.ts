@@ -38,7 +38,7 @@ describe('walkthrough generation lifecycle', () => {
     await new Promise((resolve) => setTimeout(resolve));
     expect(cancelWalkthrough('/repo', { kind: 'working-tree', scope: 'all' }, '/job-root', store)).toBe(true);
     release(new Error('aborted transport'));
-    await expect(pending).rejects.toMatchObject({ code: 'cancelled' });
+    await expect(pending).rejects.toMatchObject({ code: 'nnd_generation_cancelled' });
   });
 
   it('reports progress failures as structured source answers, not raw 500 text', async () => {
@@ -49,7 +49,7 @@ describe('walkthrough generation lifecycle', () => {
     const target = 'definitely-missing-repo';
     const response = await app.request('/api/git/walkthrough-progress?source=all&directory=' + encodeURIComponent(target));
     const body = await response.json() as { error?: string; code?: string };
-    expect(body.code).toBe('git-failed');
+    expect(body.code).toBe('nnd_walkthrough_git_failed');
   });
 
   it('returns malformed readiness source as a request error', async () => {
@@ -59,7 +59,7 @@ describe('walkthrough generation lifecycle', () => {
     registerGitWalkthroughGenerateRoute(app);
     const response = await app.request('/api/git/walkthrough-readiness?directory=missing&source=not-json');
     expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ code: 'invalid-source' });
+    expect(await response.json()).toMatchObject({ code: 'nnd_walkthrough_source_invalid' });
   });
 });
 const json = (value: unknown, status = 200): Response => Response.json(value, { status });
@@ -218,7 +218,7 @@ describe('model-authored walkthrough boundary', () => {
     await generateWalkthrough('/repo', 'ses_test', revision, ports, 'staged');
     expect(scopes).toEqual([{ kind: 'working-tree', scope: 'staged' }, { kind: 'working-tree', scope: 'staged' }]);
     await expect(generateWalkthrough('/repo', 'ses_test', revision, ports, 'invalid' as 'all'))
-      .rejects.toMatchObject({ code: 'invalid-request' });
+      .rejects.toMatchObject({ code: 'nnd_walkthrough_request_invalid' });
     expect(calls).toBe(2);
   });
 
@@ -303,6 +303,6 @@ describe('model-authored walkthrough boundary', () => {
     const store = new Map<string, WalkthroughJob>();
     expect(walkthroughProgressState('not-json', '/job-root', store)).toMatchObject({
       status: 400,
-      body: { code: 'invalid-source' },
+      body: { code: 'nnd_walkthrough_source_invalid' },
     });
   });

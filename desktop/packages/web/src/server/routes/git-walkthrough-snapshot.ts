@@ -40,7 +40,7 @@ function git(cwd: string, args: string[], maxBuffer = SNAPSHOT_MAX_PATCH_BYTES +
   } catch (cause) {
     const error = cause as { code?: string; stderr?: string };
     if (error.code === 'ENOBUFS') throw new SnapshotError('Diff exceeds walkthrough preview limit.', 413, 'diff-too-large');
-    throw new SnapshotError(error.stderr?.trim() || 'Git snapshot failed.', 500, 'git-failed');
+    throw new SnapshotError(error.stderr?.trim() || 'Git snapshot failed.', 500, 'nnd_walkthrough_git_failed');
   }
 }
 
@@ -131,7 +131,7 @@ function diffPart(root: string, entry: Entry, scope: Scope): Part {
     } catch (cause) {
       const result = cause as { status?: number; stdout?: string; code?: string };
       if (result.code === 'ENOBUFS') throw new SnapshotError('Diff exceeds walkthrough preview limit.', 413, 'diff-too-large');
-      if (result.status !== 1 || typeof result.stdout !== 'string') throw new SnapshotError('Git untracked diff failed.', 500, 'git-failed');
+      if (result.status !== 1 || typeof result.stdout !== 'string') throw new SnapshotError('Git untracked diff failed.', 500, 'nnd_walkthrough_git_failed');
       patch = result.stdout;
     }
   } else {
@@ -179,12 +179,12 @@ export function sourceRoot(directory: string): string {
 }
 
 function reviewObject(root: string, ref: string, label: string): string {
-  if (!ref || Buffer.byteLength(ref, 'utf8') > MAX_REF_CHARS) throw new SnapshotError(`Invalid ${label} reference.`, 400, 'invalid-source');
+  if (!ref || Buffer.byteLength(ref, 'utf8') > MAX_REF_CHARS) throw new SnapshotError(`Invalid ${label} reference.`, 400, 'nnd_walkthrough_source_invalid');
   let value = '';
   try {
     value = git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], 4096).trim();
   } catch (cause) {
-    if (cause instanceof SnapshotError && cause.code === 'git-failed') throw new SnapshotError(`Unknown ${label} reference.`, 404, 'unknown-source');
+    if (cause instanceof SnapshotError && cause.code === 'nnd_walkthrough_git_failed') throw new SnapshotError(`Unknown ${label} reference.`, 404, 'unknown-source');
     throw cause;
   }
   if (!/^[0-9a-f]{40}$/u.test(value)) throw new SnapshotError(`Unknown ${label} reference.`, 404, 'unknown-source');
@@ -237,7 +237,7 @@ function sourceParts(patch: string): Part[] {
 export function getWalkthroughSnapshot(directory: string, afterFirstCapture?: () => void,
   selected: WalkthroughSource | WalkthroughScope = 'all'): Snapshot & { source?: WalkthroughSource } {
 if (typeof selected === 'string' && !['all', 'staged', 'working'].includes(selected)) {
-  throw new SnapshotError('Invalid walkthrough scope.', 400, 'invalid-scope');
+  throw new SnapshotError('Invalid walkthrough scope.', 400, 'nnd_walkthrough_scope_invalid');
 }
 const source = typeof selected === 'string' ? parseWalkthroughSource(selected) : selected;
   return source.kind === 'working-tree'
@@ -280,7 +280,7 @@ export function registerGitWalkthroughSnapshotRoute(app: Hono): void {
       if (typeof admission.status === 'number') {
         return c.json({ error: cause instanceof Error ? cause.message : 'Invalid walkthrough source.', code: String(admission.code) }, admission.status as 400);
       }
-      return c.json({ error: 'Git snapshot failed.', code: 'git-failed' }, 500);
+      return c.json({ error: 'Git snapshot failed.', code: 'nnd_walkthrough_git_failed' }, 500);
     }
   });
 }

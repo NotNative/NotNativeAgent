@@ -35,13 +35,13 @@ describe('walkthrough model readiness', () => {
     expect(walkthroughReadiness({ digestCount: 0, fileCount: 0, requiredChars: 8192,
       selection })).toEqual({ ready: false, reason: 'empty-diff', requiredChars: 8192, availableChars: null });
     expect(walkthroughReadiness({ digestCount: 1, fileCount: 1, requiredChars: 400_001,
-      selection })).toEqual({ ready: false, reason: 'provider-unsupported', requiredChars: 400_001, availableChars: 368_000 });
+      selection })).toEqual({ ready: false, reason: 'nnd_provider_unsupported', requiredChars: 400_001, availableChars: 368_000 });
     const supportedSelection = walkthroughModelSelection({ ...options,
       providers: [{ ...provider, id: 'openai' }], credentials: { openai: 'api' },
       requestModel: 'openai/compact', settingsOverride: '', config: {},
     });
     expect(walkthroughReadiness({ digestCount: 1, fileCount: 1, requiredChars: 400_001,
-      selection: supportedSelection })).toEqual({ ready: false, reason: 'context-too-small', requiredChars: 400_001, availableChars: 368_000 });
+      selection: supportedSelection })).toEqual({ ready: false, reason: 'nnd_context_too_small', requiredChars: 400_001, availableChars: 368_000 });
     expect(walkthroughReadiness({ digestCount: 1, fileCount: 1, requiredChars: 368_000,
       selection: supportedSelection })).toEqual({ ready: true, reason: null, requiredChars: 368_000, availableChars: 368_000 });
     expect(walkthroughReadiness({ digestCount: 1, fileCount: 1, requiredChars: 8192,

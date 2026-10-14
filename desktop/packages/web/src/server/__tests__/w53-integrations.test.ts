@@ -39,21 +39,21 @@ describe('integration connectors (W-53)', () => {
 
   it('fails closed: no remote, transport error, rate limit, malformed payloads', async () => {
     await expect(listOpenPullRequests({ origin: null, fetchImpl: (async () => jsonResponse([])) as typeof fetch }))
-      .rejects.toMatchObject({ code: 'no-remote' });
+      .rejects.toMatchObject({ code: 'nnd_integration_no_remote' });
     await expect(listOpenPullRequests({ origin: { owner: 'a', repo: 'b' }, fetchImpl: (async () => { throw new TypeError('down'); }) as typeof fetch }))
-      .rejects.toMatchObject({ code: 'github-unavailable' });
+      .rejects.toMatchObject({ code: 'nnd_integration_github_unavailable' });
     await expect(listOpenPullRequests({ origin: { owner: 'a', repo: 'b' }, fetchImpl: (async () => jsonResponse({ message: 'rate limited' }, 403)) as typeof fetch }))
-      .rejects.toMatchObject({ code: 'github-rate-limited' });
+      .rejects.toMatchObject({ code: 'nnd_integration_github_rate_limited' });
     await expect(listOpenPullRequests({ origin: { owner: 'a', repo: 'b' }, fetchImpl: (async () => jsonResponse({ nope: true })) as typeof fetch }))
-      .rejects.toMatchObject({ code: 'github-unavailable' });
+      .rejects.toMatchObject({ code: 'nnd_integration_github_unavailable' });
     await expect(listOpenPullRequests({ origin: { owner: 'a', repo: 'b' }, fetchImpl: (async () => new Response('not json', { status: 200 })) as typeof fetch }))
-      .rejects.toMatchObject({ code: 'github-unavailable' });
-    expect(new IntegrationError('no-remote', 'x')).toBeInstanceOf(Error);
+      .rejects.toMatchObject({ code: 'nnd_integration_github_unavailable' });
+    expect(new IntegrationError('nnd_integration_no_remote', 'x')).toBeInstanceOf(Error);
   });
 
   it('linear fails closed unconfigured and parses issues when keyed', async () => {
     await expect(listLinearIssues({ apiKey: null, fetchImpl: (async () => jsonResponse({})) as typeof fetch }))
-      .rejects.toMatchObject({ code: 'linear-unconfigured' });
+      .rejects.toMatchObject({ code: 'nnd_integration_linear_unconfigured' });
     const seen: RequestInit[] = [];
     const issues = await listLinearIssues({
       apiKey: 'lin_key',
@@ -70,6 +70,6 @@ describe('integration connectors (W-53)', () => {
     expect(issues[0]).toMatchObject({ identifier: 'AC-1', state: 'In Progress', assignee: 'Ada' });
     expect(issues[1]!.assignee).toBeNull();
     await expect(listLinearIssues({ apiKey: 'lin_key', fetchImpl: (async () => jsonResponse({ data: {} })) as typeof fetch }))
-      .rejects.toMatchObject({ code: 'linear-unavailable' });
+      .rejects.toMatchObject({ code: 'nnd_integration_linear_unavailable' });
   });
 });

@@ -21,14 +21,14 @@ function remoteOrigin(directory: string): { owner: string; repo: string } | null
 export function registerIntegrationRoutes(app: Hono): void {
   app.get('/api/integrations/github/pulls', (c) => {
     const directory = c.req.query('directory') ?? '';
-    if (!directory) return c.json({ error: 'directory parameter is required', code: 'no-directory' }, 400);
+    if (!directory) return c.json({ error: 'directory parameter is required', code: 'nnd_walkthrough_request_invalid' }, 400);
     return (async () => {
       try {
         const pulls = await listOpenPullRequests({ origin: remoteOrigin(directory), token: process.env.GITHUB_TOKEN ?? null });
         return c.json({ pulls });
       } catch (cause) {
-        if (cause instanceof IntegrationError) return c.json({ error: cause.message, code: cause.code }, cause.code === 'github-rate-limited' ? 429 : 409);
-        return c.json({ error: 'GitHub integration failed.', code: 'github-unavailable' }, 500);
+        if (cause instanceof IntegrationError) return c.json({ error: cause.message, code: cause.code }, cause.code === 'nnd_integration_github_rate_limited' ? 429 : 409);
+        return c.json({ error: 'GitHub integration failed.', code: 'nnd_integration_github_unavailable' }, 500);
       }
     })();
   });
@@ -40,7 +40,7 @@ export function registerIntegrationRoutes(app: Hono): void {
         return c.json({ issues });
       } catch (cause) {
         if (cause instanceof IntegrationError) return c.json({ error: cause.message, code: cause.code }, 409);
-        return c.json({ error: 'Linear integration failed.', code: 'linear-unavailable' }, 500);
+        return c.json({ error: 'Linear integration failed.', code: 'nnd_integration_linear_unavailable' }, 500);
       }
     })();
   });

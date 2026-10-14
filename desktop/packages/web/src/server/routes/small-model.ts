@@ -119,7 +119,7 @@ async function inspect(url: string, ports: SmallModelPorts): Promise<unknown> {
     model: modelView(resolution.model, hasLogin, supported),
     authenticatedProviders: Object.keys(credentials).sort(),
     unavailableReason: !hasLogin ? 'no-provider-login'
-      : !supported ? 'provider-unsupported' : null,
+      : !supported ? 'nnd_provider_unsupported' : null,
   };
 }
 
@@ -162,7 +162,7 @@ async function generateRoute(rawRequest: Request, ports: SmallModelPorts, signal
   if (resolution.model.id === '') return genericModelFailed();
   if (!wireSupported(resolution.provider.id) || credential === null) {
     return Response.json({
-      error: { code: 'provider-unsupported', ...genericFailure() },
+      error: { code: 'nnd_provider_unsupported', ...genericFailure() },
     }, { status: 422 });
   }
   const outputTokens = outputBudget(resolution.model, maxOutputTokens);
@@ -222,7 +222,7 @@ function generationResponse(
   const wire = wireKind(resolution.provider.id);
   const text = parseSmallModelResponse(outcome.text, wire);
   if (text !== null && outputExhausted(outcome.text, wire)) {
-    return Response.json({ error: { code: 'output-exhausted', ...genericFailure() } }, { status: 422 });
+    return Response.json({ error: { code: 'nnd_output_exhausted', ...genericFailure() } }, { status: 422 });
   }
   if (text === null) return Response.json(providerParseError(), { status: 502 });
   return Response.json({
@@ -440,18 +440,18 @@ function genericModelFailed(): Response {
 }
 
 function providerOutcome(outcome: { status: number; code: string }): Response {
-  const status = outcome.code === 'provider-unsupported' ? 422 : outcome.code === 'provider-failed' ? 502 : outcome.status;
+  const status = outcome.code === 'nnd_provider_unsupported' ? 422 : outcome.code === 'nnd_provider_failed' ? 502 : outcome.status;
   return Response.json({ error: { code: outcome.code, ...genericFailure() } }, { status: status < 400 || status > 499 ? 502 : status });
 }
 
 function providerParseError(): Record<string, unknown> {
-  return { error: { code: 'invalid-provider-response', ...genericFailure() } };
+  return { error: { code: 'nnd_provider_response_invalid', ...genericFailure() } };
 }
 
 function contextTooSmall(requiredChars: number, availableChars: number): unknown {
   return {
     error: {
-      code: 'context-too-small', requiredChars, availableChars,
+      code: 'nnd_context_too_small', requiredChars, availableChars,
       message: 'The selected Small Model could not complete this action. Choose another model in Settings → Sessions → Small Model and try again.',
     },
   };

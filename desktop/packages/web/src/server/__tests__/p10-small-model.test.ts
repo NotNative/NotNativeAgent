@@ -74,7 +74,7 @@ describe('small-model routes', () => {
     });
     const wire = (await (await unsupported.request('/api/small-model?providerID=zen&modelID=gemini-flash')).json()) as
       { available: boolean; unavailableReason: string };
-    expect(wire).toMatchObject({ available: false, unavailableReason: 'provider-unsupported' });
+    expect(wire).toMatchObject({ available: false, unavailableReason: 'nnd_provider_unsupported' });
   });
 
   it('uses the model endpoint, OpenCode session header, and bounded fields for Google generation', async () => {
