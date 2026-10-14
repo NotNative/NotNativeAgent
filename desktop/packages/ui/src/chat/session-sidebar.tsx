@@ -432,7 +432,7 @@ function SidebarRow({ session, status, currentSessionId, actions, pinned, folder
           <span className={`min-w-0 flex-1 truncate text-[13px] ${currentSessionId === session.id ? 'text-neutral-100' : 'text-neutral-300'}`}>{session.title || 'Untitled Session'}</span>
           {pinned ? <span aria-label="Pinned session" className="text-[10px] text-amber-400">◆</span> : null}
         </div>
-        <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{session.parentID && session.agent ? <span> · {session.agent}</span> : null}{attention ? <span className="text-amber-300"> · {attention}</span> : null}{hiddenAttention?.length ? <span className="text-amber-300" data-testid="collapsed-subtask-attention"> · {hiddenAttention.length} subtask{hiddenAttention.length === 1 ? ' needs' : 's need'} attention</span> : null}{activity ? <span className="text-sky-300" data-testid={session.parentID ? 'child-current-activity' : 'session-current-activity'}> · {activity}</span> : null}</div>
+        <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{session.parentID && session.agent ? <span> · {session.agent}</span> : null}{session.directory ? <span data-testid="session-workspace-label" title={session.directory}> · {shortDirectory(session.directory)}</span> : null}{attention ? <span className="text-amber-300"> · {attention}</span> : null}{hiddenAttention?.length ? <span className="text-amber-300" data-testid="collapsed-subtask-attention"> · {hiddenAttention.length} subtask{hiddenAttention.length === 1 ? ' needs' : 's need'} attention</span> : null}{activity ? <span className="text-sky-300" data-testid={session.parentID ? 'child-current-activity' : 'session-current-activity'}> · {activity}</span> : null}</div>
       </button>
       {!selecting ? <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
         <button type="button" aria-label={`${pinned ? 'Unpin' : 'Pin'} ${session.title || 'session'}`} className="hover:text-amber-300" onClick={() => useSessionPinnedStore.getState().toggle(session.directory ?? 'global', session.id)}>{pinned ? '◆' : '◇'}</button>
@@ -474,7 +474,7 @@ function ArchivedRow({ session, actions }: { session: Session; actions: ChatSide
     <li className="group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-white/5">
       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => actions.openSession(session.id, session.directory ?? '')} data-testid="archived-row">
         <div className="truncate text-[13px] text-neutral-500">{session.title || 'Untitled Session'}</div>
-        <div className="text-[10px] text-neutral-700">archived {formatRelative(session.time.archived ?? session.time.updated)}</div>
+        <div className="text-[10px] text-neutral-700">archived {formatRelative(session.time.archived ?? session.time.updated)}{session.directory ? <> · <span data-testid="archived-workspace-label" title={session.directory}>{shortDirectory(session.directory)}</span></> : null}</div>
       </button>
       {!session.parentID ? <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
         <button type="button" aria-label={`Restore ${session.title || 'session'}`} data-testid="restore-session" className="hover:text-neutral-200" onClick={() => void actions.restore(session.id, session.directory ?? '').catch(() => toast.error('Failed to restore the session'))}>↩</button>
