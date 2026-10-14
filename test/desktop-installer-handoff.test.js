@@ -9,6 +9,32 @@ import { join, resolve } from 'node:path';
 const powershell = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe');
 const literal = value => `'${value.replaceAll("'", "''")}'`;
 
+test('desktop choice prompts during interactive update even when unrelated setup is skipped',
+  { skip: process.platform !== 'win32' }, () => {
+    const script = `$ErrorActionPreference = 'Stop'
+$tokens = $null; $errors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile(${literal(resolve('install.ps1'))}, [ref]$tokens, [ref]$errors)
+if ($errors.Count) { throw 'Root installer does not parse' }
+$fn = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Confirm-DesktopInstallation' }, $true)
+if (!$fn) { throw 'Desktop prompt function is missing' }
+Invoke-Expression $fn.Extent.Text
+$SkipProviderSetup = $true
+$SkipWebSearchSetup = $true
+$SkipPlaywrightSetup = $true
+$script:answers = @('Yes', 'No')
+$script:prompts = 0
+function Read-Host { param($Prompt) $script:prompts++; return $script:answers[$script:prompts - 1] }
+if (!(Confirm-DesktopInstallation $false $false)) { throw 'Yes was ignored' }
+if (Confirm-DesktopInstallation $false $false) { throw 'No was ignored' }
+if (Confirm-DesktopInstallation $false $true) { throw 'Redirected input was accepted' }
+if (!(Confirm-DesktopInstallation $true $true)) { throw 'Explicit desktop request was ignored' }
+if ($script:prompts -ne 2) { throw 'Prompt count was incorrect' }
+`;
+    const run = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      { encoding: 'utf8', timeout: 30000, windowsHide: true });
+    assert.equal(run.status, 0, run.stderr || run.stdout);
+  });
+
 test('desktop handoff creates its log and preserves custom NNA and NND roots',
   { skip: process.platform !== 'win32' }, async t => {
     const fixture = await mkdtemp(join(tmpdir(), 'nna-desktop-handoff-'));

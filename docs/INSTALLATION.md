@@ -110,7 +110,9 @@ first install, pass `-InstallDesktop` or accept the interactive prompt to includ
 Once registered, rerunning `install.ps1` upgrades the desktop component at its
 registered location and checks that its version matches NNA. `nna update` uses the
 same installer when a newer release is available, so it upgrades a registered
-desktop component too. A failed desktop upgrade makes the installer and
+desktop component too. If desktop is not registered, an interactive `nna update`
+asks whether to install it. Answering Yes builds and registers the component;
+answering No leaves it uninstalled. A failed desktop upgrade makes the installer and
 `nna update` report failure; inspect `%USERPROFILE%\.nna\logs\nna-desktop-install.log`
 and rerun the installer after correcting the cause. `nna update --check` only
 checks for a newer repository version and does not install anything.

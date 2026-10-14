@@ -945,6 +945,13 @@ function Show-DesktopInstallTail([int]$Lines = 12) {
         Write-InstallerLine "  full log: $DesktopInstallLog" DarkGray
     }
 }
+function Confirm-DesktopInstallation([bool]$Requested, [bool]$InputRedirected) {
+    if ($Requested) { return $true }
+    if ($InputRedirected) { return $false }
+    # Why: update skips unrelated provider setup, but an interactive operator still chooses whether to add desktop.
+    $Answer = (Read-Host 'Install the NotNativeAgent desktop component now? [y/N]').Trim()
+    return $Answer -in @('y', 'Y', 'yes', 'Yes', 'YES')
+}
 Write-InstallerSection 'Desktop component'
 $DesktopScript = Join-Path $SourceRoot 'desktop\install.cmd'
 $DesktopInstallFailed = $false
@@ -972,13 +979,7 @@ if (-not (Test-Path -LiteralPath $DesktopScript)) {
         $DesktopInstallFailed = $true
     }
 } else {
-    $InstallDesktopNow = $false
-    if ($InstallDesktop) {
-        $InstallDesktopNow = $true
-    } elseif (-not $SkipDependencyInstall -and -not $SkipProviderSetup -and -not [Console]::IsInputRedirected) {
-        $DesktopAnswer = (Read-Host 'Install the NotNativeAgent desktop component now? [y/N]').Trim()
-        $InstallDesktopNow = $DesktopAnswer -in @('y', 'Y', 'yes', 'Yes', 'YES')
-    }
+    $InstallDesktopNow = Confirm-DesktopInstallation ([bool]$InstallDesktop) ([Console]::IsInputRedirected)
     if ($InstallDesktopNow) {
         Write-InstallerStep 'Installing and registering the desktop package (this builds the shell and can take several minutes)'
         $DesktopExit = Invoke-DesktopInstaller

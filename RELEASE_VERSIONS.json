@@ -36,6 +36,10 @@
     {
       "version": "20261014-9",
       "content_sha256": "1bdc62d4ed2fc5d5ceef71b3e43e780b987f3e3b4054997f9583b90b422972ce"
+    },
+    {
+      "version": "20261014-10",
+      "content_sha256": "f8857f106f4cd03ed78a634b1862b9c600309553a716368233b4e8b569efdc8f"
     }
   ]
 }
