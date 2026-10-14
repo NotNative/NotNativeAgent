@@ -23,6 +23,7 @@ import { OperatorRail } from './operator-rail.tsx';
 import { startersFor, type Starter } from './starters.ts';
 import type { ModelSelection } from './model-picker.tsx';
 import { toast } from 'sonner';
+import { addNativeWorkspace } from '../lib/nnd/workspace-admission.ts';
 import { recapFor } from './work-status.ts';
 import { useGlobalSessionsStore } from '../sync/global-stores.ts';
 import { ChildSessionControls } from './child-session-controls.tsx';
@@ -265,6 +266,17 @@ export function ChatView(props: ChatViewProps): ReactNode {
           {draftLanding ? <div className="mb-7" data-testid="chat-draft-landing">
             <h1 className="text-2xl font-medium tracking-tight text-neutral-200 sm:text-3xl">What should we work on in {workspaceName}?</h1>
             <p className="mt-2 text-xs text-neutral-500">Your workspace is ready. Start with a message or choose a suggestion.</p>
+            <p className="mt-3 text-xs text-neutral-600">
+              <span title={shownRef.directory} data-testid="landing-workspace-path">{shownRef.directory}</span>
+              {' · '}
+              <button type="button" data-testid="landing-add-workspace" className="underline decoration-dotted underline-offset-2 hover:text-neutral-300"
+                onClick={() => {
+                  const path = window.prompt('Absolute folder path to add as a workspace:');
+                  if (!path || !path.trim()) return;
+                  addNativeWorkspace(path.trim()).then(() => toast.success(`Workspace added: ${path.trim()}`))
+                    .catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Could not add workspace.'));
+                }}>+ Add another workspace</button>
+            </p>
           </div> : null}
           <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
           {goalEnabled && shownRef.sessionID && !isChildSession && !sessionMetadataLoading ? <SessionGoalControls key={shownRef.sessionID} sessionID={shownRef.sessionID} store={shownRef.store} externalRevision={typeof globalGoalRevision === 'number' && Number.isSafeInteger(globalGoalRevision) && globalGoalRevision >= 0 ? globalGoalRevision : 0} /> : null}
