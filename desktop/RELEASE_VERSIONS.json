@@ -2036,6 +2036,10 @@
     {
       "version": "20261014-2",
       "content_sha256": "401c04ada5dbd0367a05dfb5f2e545b3b5a6987c504e7c71e823464894b91dcc"
+    },
+    {
+      "version": "20261014-3",
+      "content_sha256": "e066905384cfbbd052cb71d79a946e3409ee269215bced9198bd8b5f6d2beeb1"
     }
   ]
 }
