@@ -116,8 +116,8 @@ test('uninstall evidence requires exact native registration and guard identity',
   const helperPath = resolve('scripts/installer-prebuilt-uninstall-evidence.ps1');
   const statusPath = join(root, 'status.json');
   const initialize = ". $env:NND_TEST_EVIDENCE;$ErrorActionPreference='Stop';";
-  const evidence = (cliStatus, extra = '') => spawnSync(powershell, [
-    '-NoProfile', '-NonInteractive', '-Command', initialize + `$nna=@{Node='node';Cli='${cliStatus.replaceAll("'", "''")}';DataRoot='${join(root, 'data').replaceAll("'", "''")}'};$status=Get-NndRegistrationStatus $nna;${extra}`,
+  const evidence = (cliStatus, extra = '', allowRepair = false) => spawnSync(powershell, [
+    '-NoProfile', '-NonInteractive', '-Command', initialize + `$nna=@{Node='node';Cli='${cliStatus.replaceAll("'", "''")}';DataRoot='${join(root, 'data').replaceAll("'", "''")}'};$status=Get-NndRegistrationStatus $nna${allowRepair ? ' -AllowInvalidForRepair' : ''};${extra}`,
   ], { encoding: 'utf8', windowsHide: true, timeout: 12000, env: { ...process.env, NND_TEST_EVIDENCE: helperPath } });
 
   const goodCli = join(root, 'good.mjs');
@@ -134,4 +134,13 @@ test('uninstall evidence requires exact native registration and guard identity',
   const invalidCli = join(root, 'invalid.mjs');
   await writeFile(invalidCli, 'process.stdout.write("not-json")');
   assert.match(evidence(invalidCli).stderr, /status is unavailable/u);
+  const incompleteCli = join(root, 'incomplete.mjs');
+  await writeFile(incompleteCli, `process.stdout.write(JSON.stringify(${JSON.stringify({ ...good, valid: false, reason: 'nnd_package_incomplete' })}))`);
+  assert.match(evidence(incompleteCli).stderr, /status is unavailable/u);
+  const repair = evidence(incompleteCli, '[Console]::Out.WriteLine($status.reason)', true);
+  assert.equal(repair.status, 0, repair.stderr);
+  assert.match(repair.stdout, /nnd_package_incomplete/u);
+  assert.match(evidence(incompleteCli,
+    `Assert-NndUninstallRegistrationStatus $status '${join(root, 'slot').replaceAll("'", "''")}' '20261004-4'`, true).stderr,
+  /expected registered NND package/u);
 });

@@ -139,7 +139,7 @@ test('an activation-transaction failure retains recovery evidence without claimi
     const result = run(f);
     assert.notEqual(result.status, 0);
     const calls = await readLog(f);
-    assert.match(calls, /package deactivate/u, calls);
+    assert.match(calls, /package deactivate/u, [result.stdout, result.stderr, calls].join('\n'));
     assert.match(calls, /package activate/u, calls);
     assert.match([result.stdout, result.stderr].join('\n'), /activation transaction/u);
     assert.match([result.stdout, result.stderr].join('\n'), /install-transaction\.json/u);

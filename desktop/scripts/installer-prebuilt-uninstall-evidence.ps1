@@ -1,6 +1,6 @@
 # Uninstall cannot trust local anchor bytes alone. The native registration and
 # native guard must independently report the same selected identity and slot.
-function Get-NndRegistrationStatus($SelectedNna) {
+function Get-NndRegistrationStatus($SelectedNna, [switch]$AllowInvalidForRepair) {
     $previousNnaHome = $env:NNA_HOME
     $env:NNA_HOME = $SelectedNna.DataRoot
     $previousPreference = $ErrorActionPreference
@@ -18,7 +18,13 @@ function Get-NndRegistrationStatus($SelectedNna) {
             $status.root -is [string] -and $status.root.Length -gt 0 -and
             $status.version -is [string] -and
             $status.version -cmatch '^\d{8}-[1-9]\d{0,5}$'
-        if (!$isInactive -and !$isActive) { throw 'NNA returned an invalid NND package status.' }
+        $isRepairable = $AllowInvalidForRepair -and $keys.Count -eq 5 -and
+            $status.registered -eq $true -and $status.valid -eq $false -and
+            $status.root -is [string] -and $status.root.Length -gt 0 -and
+            $status.version -is [string] -and
+            $status.version -cmatch '^\d{8}-[1-9]\d{0,5}$' -and
+            $status.reason -cin @('nnd_package_incomplete', 'nnd_package_manifest_invalid')
+        if (!$isInactive -and !$isActive -and !$isRepairable) { throw 'NNA returned an invalid NND package status.' }
         return $status
     } catch {
         throw 'NND package status is unavailable or invalid; NND preservation was not changed.'

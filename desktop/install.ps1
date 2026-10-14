@@ -363,7 +363,7 @@ function Invoke-NndRegistration([string]$Action, [string]$Root, $SelectedNna) {
 # service is never started here; the desktop shortcut and `nna nnd start` own
 # that. A non-empty fresh target with no registration is still refused.
 function Resolve-NndInstallPlan($SelectedNna, [string]$Root) {
-    $status = Get-NndRegistrationStatus $SelectedNna
+    $status = Get-NndRegistrationStatus $SelectedNna -AllowInvalidForRepair
     if ($status.registered -ne $true) {
         if (Test-Path -LiteralPath $Root) {
             throw 'Fresh NND target already exists without a registration; remove it or recover the previous installation explicitly. No files were copied.'
@@ -372,6 +372,13 @@ function Resolve-NndInstallPlan($SelectedNna, [string]$Root) {
         return @{ Mode = 'fresh'; PreviousVersion = $null }
     }
     if (!$status.root) { throw 'Native registration exists but is unreadable; resolve it explicitly before installing NND.' }
+    # Invariant: only the same registered target may be repaired in place.
+    # Invalid package bytes must not let this installer overwrite a different root.
+    $registeredRoot = [IO.Path]::GetFullPath($status.root).TrimEnd('\', '/')
+    $targetRoot = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    if (!$registeredRoot.Equals($targetRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'The registered NND package root differs from this install target; repair it at the registered root.'
+    }
     $wasRunning = $false
     $oldPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
@@ -661,10 +668,10 @@ try {
 Write-Heading "Copying source"
 Write-NndTransactionRecord 'copied' $installPlan
 $copyExit = Invoke-Native "robocopy" @(
-    $Source, $InstallDir, "/E", "/NFL", "/NDL", "/NJH", "/NP", "/R:2", "/W:1",
+    $Source, $InstallDir, "/E", "/IS", "/IT", "/NFL", "/NDL", "/NJH", "/NP", "/R:2", "/W:1",
     "/XD", "node_modules", ".pnpm-store", ".git", ".tmp", ".agents-workspace", ".vite", "coverage", "dist", "dist-server",
     "dist-electron", "resources", "__pycache__",
-    "/XF", "*.log", ".env.local", "packaging-*.log", "install-mode.txt"
+    "/XF", "*.log", ".env.local", "packaging-*.log", "install-mode.txt", "build-stamp.json"
 ) "robocopy-errors.log" "robocopy-out.log"
 if ($copyExit -ge 8) {
     # robocopy diagnostics ("access denied", stat failures) go to STDOUT. The
@@ -673,6 +680,28 @@ if ($copyExit -ge 8) {
     Show-NativeFailures "robocopy-out.log" 20 -FromTail
     Show-NativeFailures "robocopy-errors.log" 10
     throw "robocopy failed with code $copyExit"
+}
+# Invariant: registration must not publish a new version over stale lifecycle
+# code. Robocopy's exit code alone cannot prove that the installed entrypoints
+# match this source tree (a reported successful install has left these files old).
+function Get-NndCopyDigest([string]$Path) {
+    $sha = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::OpenRead($Path)
+    try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToUpperInvariant() }
+    finally { $stream.Dispose(); $sha.Dispose() }
+}
+foreach ($relative in @(
+    'VERSION', 'package.json',
+    'scripts\serve-installed.mjs', 'scripts\serve-supervised.mjs',
+    'scripts\nnd-tray-host.ps1'
+)) {
+    $sourceFile = Join-Path $Source $relative
+    $installedFile = Join-Path $InstallDir $relative
+    if (!(Test-Path -LiteralPath $installedFile -PathType Leaf) -or
+        (Get-NndCopyDigest $sourceFile) -cne
+        (Get-NndCopyDigest $installedFile)) {
+        throw "Desktop source copy is incomplete at $relative; package registration was not changed."
+    }
 }
 Write-Good "source copied"
 
@@ -699,9 +728,21 @@ try {
     $ElectronDist = Join-Path $InstallDir 'packages\electron\node_modules\electron\dist\electron.exe'
     $NodePtyMarker = Join-Path $InstallDir 'packages\electron\dist-server\node_modules\node-pty\prebuilds\win32-x64\conpty.node'
     $depsComplete = (Test-Path -LiteralPath $ElectronDist) -and (Test-Path -LiteralPath $NodePtyMarker)
+    # Invariant: pnpm workspace links must resolve inside this installed tree.
+    # A prior install can leave junctions into an app-virtualized copy; a lock
+    # marker and Electron binary then look healthy while Vite builds old UI code.
+    $uiLink = Join-Path $InstallDir 'packages\web\node_modules\@notnative\ui'
+    $uiRoot = [IO.Path]::GetFullPath((Join-Path $InstallDir 'packages\ui')).TrimEnd('\', '/')
+    $uiLinkTarget = if (Test-Path -LiteralPath $uiLink) { (Get-Item -LiteralPath $uiLink -Force).Target } else { $null }
+    $workspaceLinkHealthy = ($uiLinkTarget -is [string]) -and
+        ([IO.Path]::GetFullPath($uiLinkTarget).TrimEnd('\', '/')).Equals(
+            $uiRoot, [StringComparison]::OrdinalIgnoreCase)
+    if (!$workspaceLinkHealthy) { $depsComplete = $false }
+    $staleWorkspaceLink = (Test-Path -LiteralPath (Join-Path $InstallDir 'node_modules')) -and
+        !$workspaceLinkHealthy
     $lockHash = $null
     if (Test-Path -LiteralPath $Lockfile) {
-        $lockHash = (Get-FileHash -LiteralPath $Lockfile -Algorithm SHA256).Hash
+        $lockHash = Get-NndCopyDigest $Lockfile
     }
     $markerMatches = $false
     if ($depsComplete -and (Test-Path -LiteralPath $DepMarker)) {
@@ -713,8 +754,10 @@ try {
     if ($depsComplete -and $markerMatches) {
         Write-Heading 'Dependencies already installed (lockfile unchanged; artifacts complete) - skipping pnpm install'
     } else {
-        Write-Heading "Installing dependencies (pnpm install --frozen-lockfile)"
-        $pnpmExit = Invoke-Native "pnpm" @("install", "--frozen-lockfile") "pnpm-errors.log"
+        $pnpmArguments = @("install", "--frozen-lockfile")
+        if ($staleWorkspaceLink) { $pnpmArguments += "--force" }
+        Write-Heading "Installing dependencies (pnpm $($pnpmArguments -join ' '))"
+        $pnpmExit = Invoke-Native "pnpm" $pnpmArguments "pnpm-errors.log"
         if ($pnpmExit -ne 0) { Show-NativeFailures "pnpm-errors.log" 20; throw "pnpm install exited $pnpmExit" }
         if (!(Test-Path (Join-Path $InstallDir "packages\electron\node_modules\electron\dist\electron.exe"))) {
             Write-Host "  re-running electron postinstall (pnpm skips it for unlisted builds)"

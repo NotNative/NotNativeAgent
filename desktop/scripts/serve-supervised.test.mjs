@@ -104,6 +104,30 @@ test('the supervised child spawns the service-owned tray host after readiness', 
   }
 });
 
+test('the default Windows tray launch executes its PowerShell host', windows, async (t) => {
+  const root = await fixture(t);
+  const marker = join(root, 'tray-spawned');
+  await writeFile(join(root, 'scripts/nnd-tray-host.ps1'),
+    "param([string]$DataRoot,[string]$InstallRoot,[string]$NodePath)\n" +
+    "[IO.File]::WriteAllText((Join-Path $InstallRoot 'tray-spawned'), 'ok')\n");
+  const run = launch(root);
+  t.after(() => run.child.kill());
+  const boot = await bootstrap(root);
+  run.send(boot);
+  assert.equal((await run.next()).type, 'ready');
+  const { access } = await import('node:fs/promises');
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    try { await access(marker); break; }
+    catch {
+      if (Date.now() >= deadline) throw new Error('PowerShell tray host did not execute');
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  run.send({ type: 'stop', protocol: '1.0', generation: boot.generation, request_id: 'stop' });
+  assert.equal((await run.next()).type, 'stopped');
+});
+
 test('the supervised child accepts and acknowledges supervisor-pushed capabilities', windows, async (t) => {
   const root = await fixture(t);
   const run = launch(root); t.after(() => run.child.kill());

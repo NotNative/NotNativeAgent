@@ -177,7 +177,7 @@ export async function runSupervisedService({ input = process.stdin, output = pro
         '-DataRoot', bootstrap.nna_data_root, '-InstallRoot', root, '-NodePath', process.execPath],
         // Neutral CWD: a live process locks its working directory, and the
         // tray must never pin the install root against cleanup or upgrade.
-        { cwd: process.env.SystemRoot ?? null, detached: true, windowsHide: true, stdio: 'ignore' });
+        { cwd: process.env.SystemRoot ?? null, windowsHide: true, stdio: 'ignore' });
       child.once('error', (error) => {
         console.error(`NND tray host launch failed: ${error instanceof Error ? error.message : 'unknown error'}`);
       });

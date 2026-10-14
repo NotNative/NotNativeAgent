@@ -33,6 +33,15 @@ test('installer.ps1 follows the dumb-copy shape: plan, copy, build, register, sh
     && deactivateAt < source.indexOf('Invoke-NndRegistration \'activate\''));
   assert.ok(source.includes('function Write-NndTransactionRecord'));
   assert.ok(source.includes('install-transaction.json'));
+  assert.ok(source.includes('"/IS", "/IT"'));
+  assert.ok(source.includes('"build-stamp.json"'));
+  assert.ok(source.includes('staleWorkspaceLink'));
+  assert.ok(source.includes('The registered NND package root differs from this install target'));
+  for (const file of ['serve-installed.mjs', 'serve-supervised.mjs', 'nnd-tray-host.ps1']) {
+    assert.ok(source.includes(file), 'installed lifecycle copy must verify ' + file);
+  }
+  assert.ok(source.indexOf('Desktop source copy is incomplete') > copyAt);
+  assert.ok(source.indexOf('Desktop source copy is incomplete') < registerAt);
   assert.ok(source.includes('the previous package registration is intact'));
   // Legacy takeover: a live Electron-owned backend from the install tree is
   // refused with recovery instructions before any mutation; nothing is killed.
@@ -59,6 +68,7 @@ test('installer.ps1 follows the dumb-copy shape: plan, copy, build, register, sh
   const supervisedReady = supervised.indexOf("type: 'ready'");
   const supervisedTray = supervised.indexOf('nnd-tray-host.ps1');
   assert.ok(supervisedReady > 0 && supervisedReady < supervisedTray);
+  assert.ok(!supervised.includes('detached: true'), 'Windows PowerShell tray must execute in the service process group');
   assert.ok(!supervised.includes('launchSelectedDesktop'));
   const main = await readFile(resolve('packages/electron/main.mjs'), 'utf8');
   assert.ok(!main.includes('createTrayController'));
