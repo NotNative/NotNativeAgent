@@ -24,7 +24,7 @@ function fixture(options: Partial<SmallModelPorts> = {}): Hono {
   const app = new Hono();
   registerSmallModelRoutes(app, {
     providers,
-    config: async () => ({ small_model: 'nnd-mock/mock-small' }),
+    config: async () => ({}), // uniformity #2: small_model is dead
     settings: async () => ({}),
     fetch: vi.fn(async () => new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: '{"answer":1}' }] } }],

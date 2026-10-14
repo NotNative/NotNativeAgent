@@ -20,7 +20,7 @@ describe('bounded model notification text', () => {
     ]);
     const text = new NotificationModelText({ messages, ports: {
       providers: async () => [{ id: 'openai', options: { apiKey: 'test-key' }, models: { 'gpt-nano': { id: 'gpt-nano', api: { url: 'https://provider.example/v1' }, limit: { context: 20000, output: 1024 } } } }],
-      config: async () => ({ small_model: 'openai/gpt-nano' }), settings: async () => ({}), fetch: fetcher,
+      config: async () => ({}), settings: async () => ({}), fetch: fetcher, // uniformity #2: small_model is dead - family fallback selects gpt-nano
     } });
     expect(await text.render(payload, () => true)).toEqual({ ...payload, title: 'Build verified', body: 'All checks passed.' });
     const [url, init] = fetcher.mock.calls[0]! as unknown as [string, RequestInit];

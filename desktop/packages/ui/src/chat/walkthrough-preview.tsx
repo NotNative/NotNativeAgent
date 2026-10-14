@@ -301,13 +301,14 @@ function textInput(label: string, value: string, onChange: (value: string) => vo
     onChange={(event) => onChange(event.currentTarget.value)} />;
 }
 
-function ModelSelector({ options, override }: { options: WalkthroughModelOption[]; override: string }
+function ModelSelector({ options, override, onChange }: { options: WalkthroughModelOption[]; override: string; onChange: (value: string) => void }
 ): ReactNode {
   const selected = options.some((option) => `${option.providerID}/${option.modelID}` === override)
     ? override : '';
-  const changeModel = (model: string): void => setSettingsField('walkthroughModelOverride', model);
+  // Per-request selection (uniformity #2): writes local component state, not a
+  // stored setting — NNA honors the model on each walkthrough call.
   return <select aria-label="Walkthrough model" className="min-w-0 max-w-64 rounded border border-white/15 bg-neutral-950 px-1 py-1 text-[11px] text-neutral-300"
-    value={selected} onChange={(event) => changeModel(event.currentTarget.value)}>
+    value={selected} onChange={(event) => onChange(event.currentTarget.value)}>
     <option value="">Default chain</option>
     {options.map((option) => <option key={`${option.providerID}/${option.modelID}`}
       value={`${option.providerID}/${option.modelID}`}>{option.hasLogin ? option.label : `${option.label} (no login)`}</option>)}
@@ -355,13 +356,17 @@ function SourceFields({ source, onChange }: { source: SelectedSource; onChange: 
 export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { directory: string; sessionId: string | null; visible: boolean }): ReactNode {
   const [source, setSource] = useState<SelectedSource>('all');
   const [active, setActive] = useState(0);
-  const override = useSettingsStore((state) => typeof state.doc.walkthroughModelOverride === 'string'
-    ? state.doc.walkthroughModelOverride : '');
+  // Why (uniformity #2): the walkthrough model selection is COMPONENT-LOCAL
+  // state passed PER-REQUEST — NNA honors the operator's model on each
+  // walkthrough call (nnd-walkthrough.js) and has no stored auxiliary-model
+  // setting. The old stored override claimed a harness persistence it never
+  // performed; a local selection makes the same choice honestly.
+  const [modelOverride, setModelOverride] = useState('');
   const valid = validSource(source);
   const { preview, stale, error, refresh } = useWalkthroughPreview(directory, typeof source === 'string' ? source : valid, visible);
   const { record: modelRecord, error: modelError } = useWalkthroughModelReadiness(directory,
-    typeof source === 'string' ? source : valid, visible, preview?.signature ?? null, override);
-  const { narrative, generating, stage, error: generationError, generate, cancel, reset } = useWalkthroughNarrative(directory, typeof source === 'string' ? source : valid, sessionId, preview, stale, override);
+    typeof source === 'string' ? source : valid, visible, preview?.signature ?? null, modelOverride);
+  const { narrative, generating, stage, error: generationError, generate, cancel, reset } = useWalkthroughNarrative(directory, typeof source === 'string' ? source : valid, sessionId, preview, stale, modelOverride);
   const stop = preview?.stops[Math.min(active, (preview?.stops.length ?? 1) - 1)];
   useEffect(() => { setActive(0); }, [identity(source), directory]);
   const changeSource = (next: SelectedSource): void => {
@@ -377,7 +382,7 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
     <header className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2">
       <div className="w-full text-xs font-medium text-neutral-200">Diff walkthrough</div>
       <SourceSelector source={source} onChange={changeSource} />
-      <ModelSelector options={modelRecord?.options ?? []} override={override} />
+      <ModelSelector options={modelRecord?.options ?? []} override={modelOverride} onChange={setModelOverride} />
       <SourceFields source={source} onChange={changeSource} />
       <button type="button" className="rounded border border-white/15 px-2 py-1 text-[11px] text-neutral-300 disabled:opacity-40"
         disabled={!validSource(source)} onClick={() => { reset(); void refresh(); }}>Refresh</button>

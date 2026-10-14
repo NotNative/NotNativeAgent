@@ -75,8 +75,11 @@ export function identityFromString(value: unknown): ModelIdentity | null {
 
 export function configuredIdentity(config: unknown, providers: readonly unknown[],
   override: string, smallModelOverride: string): ModelIdentity | null {
+  // Why (uniformity #2): the dead config reads (small_model / walkthrough_model)
+  // are gone — NNA never emits those keys. Selection honors the per-request
+  // override and the desktop-local per-call choice, then NNA's primary model.
   const requested = identityFromString(override) ?? identityFromString(smallModelOverride)
-    ?? identityFromString(objectOf(config)?.small_model) ?? identityFromString(objectOf(config)?.model);
+    ?? identityFromString(objectOf(config)?.model);
   if (requested !== null && providerHasModel(providers, requested.providerID, requested.modelID)) return requested;
   return null;
 }

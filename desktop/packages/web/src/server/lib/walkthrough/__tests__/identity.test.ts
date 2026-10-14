@@ -31,9 +31,14 @@ describe('walkthrough model identity', () => {
     const provider = { id: 'openai', models: { 'gpt-nano': { id: 'gpt-nano' }, hidden: { id: 'other' } } };
     expect(providerModels(provider)).toEqual([{ providerID: 'openai', modelID: 'gpt-nano' },
       { providerID: 'openai', modelID: 'other' }]);
-    expect(configuredIdentity({ small_model: 'openai/gpt-nano' }, [provider], '', '')).toEqual({
+    // Uniformity #2: the dead config reads (small_model / walkthrough_model)
+    // are gone — the chain honors override, per-call choice, then NNA's model.
+    expect(configuredIdentity({ small_model: 'openai/gpt-nano' }, [provider], '', '')).toBeNull();
+    expect(configuredIdentity({}, [provider], 'openai/gpt-nano', '')).toEqual({
       providerID: 'openai', modelID: 'gpt-nano' });
-    expect(configuredIdentity({ small_model: 'openai/missing' }, [provider], '', '')).toBeNull();
+    expect(configuredIdentity({ model: 'openai/gpt-nano' }, [provider], '', '')).toEqual({
+      providerID: 'openai', modelID: 'gpt-nano' });
+    expect(configuredIdentity({}, [provider], 'openai/missing', '')).toBeNull();
   });
 
   it('separates cache identity by walkthrough revision, source, model, language, and files', () => {

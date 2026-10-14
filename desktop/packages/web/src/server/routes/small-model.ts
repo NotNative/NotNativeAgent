@@ -253,21 +253,18 @@ async function resolve(input: {
     return { provider: model.provider, model: model.model, source: 'request-model' };
   }
   if (input.settings.smallModelUseDefault === false) {
-    const value = textOf(input.settings.smallModelOverride, 512);
+    // Desktop-local per-call choice (uniformity #2): the stored override was
+    // removed from the registry; a mirrored legacy value still resolves if the
+    // mirror carries one, else this branch dead-ends to the default chain.
+    const value = textOf((input.settings as { smallModelOverride?: unknown }).smallModelOverride, 512);
     if (value === '') return null;
     const model = explicitModel(input.providers, value);
     if (model === null) return null;
     return { provider: model.provider, model: model.model, source: 'settings-override' };
   }
-  const configured = splitModel(textOf((objectOf(input.config)?.small_model as unknown), 512));
-  if (configured !== null && restrict && (preferred === null || configured.providerID !== preferred.id)) return null;
-  if (configured !== null) {
-    const model = explicitModel(input.providers, `${configured.providerID}/${configured.modelID}`);
-    if (model !== null && hasCredential(input.credentials, model.provider.id, model.provider)
-      && wireSupported(model.provider.id)) {
-      return { provider: model.provider, model: model.model, source: 'harness-small-model' };
-    }
-  }
+  // Why (uniformity #2): the config.small_model read is gone — NNA never emits
+  // that key and has no auxiliary-model concept behind it. Resolution rides the
+  // per-call choice above, then the preferred/credential chain below.
   const preferredModel = input.request.preferredModelID === undefined || input.request.preferredModelID === ''
     ? null : explicitModel(input.providers, `${preferred?.id ?? ''}/${input.request.preferredModelID}`);
   const candidates = familyCandidates(input.providers, preferred?.id ?? null, preferred !== null && restrict);

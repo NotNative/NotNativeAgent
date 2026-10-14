@@ -54,7 +54,7 @@ describe('walkthrough model readiness', () => {
       requiredChars: 8192, availableChars: 368_000 });
   });
 
-  it('falls back to an authenticated supported catalog family only when the small-model chain is enabled', () => {
+  it('falls back to an authenticated supported catalog family; the dead config chain is gone', () => {
     const provider: ProviderRecord = { id: 'openai', options: { apiKey: 'test-key' }, models: {
       'gpt-nano': { id: 'gpt-nano', limit: { context: 100_000, output: 8_000 },
         capabilities: { output: { json: true } } },
@@ -66,5 +66,11 @@ describe('walkthrough model readiness', () => {
       requestModel: null, settingsOverride: '', config: {},
       smallModelSettings: { smallModelUseDefault: false, smallModelOverride: 'openai/missing' } });
     expect(restricted.model).toBeNull();
+    // Uniformity #2: a config claiming small_model/walkthrough_model is dead —
+    // NNA never emits those keys; selection must not honor them anymore.
+    const deadConfig = walkthroughModelSelection({ providers: [provider], credentials: { openai: 'api' },
+      requestModel: null, settingsOverride: '', config: { small_model: 'openai/gpt-nano', walkthrough_model: 'openai/gpt-nano' },
+      smallModelSettings: { smallModelUseDefault: true } });
+    expect(deadConfig.selected).toEqual({ providerID: 'openai', modelID: 'gpt-nano' }); // family fallback, not the config claim
   });
 });

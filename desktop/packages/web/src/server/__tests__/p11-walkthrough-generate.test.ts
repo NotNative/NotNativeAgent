@@ -149,7 +149,7 @@ describe('model-authored walkthrough boundary', () => {
       providers: async () => [{ id: 'openai', options: { apiKey: 'test-key', baseURL: 'https://api.openai.com/v1' },
         models: { 'gpt-nano': { id: 'gpt-nano', limit: { context: 100_000, output: 8_000 },
           capabilities: { output: { json: true } } } } }],
-      config: async () => ({ small_model: 'openai/gpt-nano' }),
+      config: async () => ({}), // uniformity #2: small_model is dead - family fallback selects gpt-nano
       fetch: async (_input: string | URL | Request, init?: RequestInit) => {
         generationRequest = JSON.parse(String(init?.body)) as Record<string, unknown>;
         return Response.json({ choices: [{ message: { content: narrative } }] });
@@ -182,7 +182,7 @@ describe('model-authored walkthrough boundary', () => {
       providers: async () => [{ id: 'google', options: { apiKey: 'test-key', baseURL: 'https://generativelanguage.googleapis.com/v1beta/models' },
         models: { 'gemini-flash': { id: 'gemini-flash', limit: { context: 100_000, output: 8_000 },
           capabilities: { output: { json: true } } } } }],
-      config: async () => ({ small_model: 'google/gemini-flash' }),
+      config: async () => ({}), // uniformity #2: small_model is dead - family fallback selects gemini-flash
       fetch: async (_input: string | URL | Request, init?: RequestInit) => {
         requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
         return Response.json({ candidates: [{ content: { parts: [{ text: narrative }] } }] });

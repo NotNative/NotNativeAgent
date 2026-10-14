@@ -385,12 +385,6 @@
     "smallModelUseDefault": {
       "scope": "profile"
     },
-    "smallModelOverride": {
-      "scope": "profile"
-    },
-    "walkthroughModelOverride": {
-      "scope": "profile"
-    },
     "zenModel": {
       "scope": "profile"
     },

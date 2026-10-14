@@ -277,7 +277,8 @@ export interface Project {
 
 export interface HarnessConfig extends Record<string, unknown> {
   model?: string;
-  small_model?: string;
+  // Why (uniformity #2): small_model removed — NNA never emits it (its /config
+  // returns model / default_agent / nnd only) and has no auxiliary-model concept.
   default_agent?: string;
   username?: string;
 }

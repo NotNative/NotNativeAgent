@@ -123,25 +123,21 @@ export function walkthroughModelSelection(input: {
     .map(([modelID, record]) => modelOption(provider, modelID, record, input.credentials))
     .filter((option): option is WalkthroughModelOption => option !== null));
   const config = objectOf(input.config);
+  // Why (uniformity #2): selection honors the per-request operator model and
+  // the desktop-local small-model setting (an honored per-call choice); the
+  // dead config reads (walkthrough_model / small_model) are gone — NNA never
+  // emits those keys and has no auxiliary-model concept to read them from.
   const requestOrFeature = identityFromString(input.requestModel) ?? identityFromString(input.settingsOverride);
-  let selected = requestOrFeature ?? identityFromString(config?.walkthrough_model);
+  let selected = requestOrFeature;
   const settings = input.smallModelSettings ?? {};
   if (selected === null && settings.smallModelUseDefault === false) {
-    selected = identityFromString(settings.smallModelOverride);
+    selected = identityFromString((settings as { smallModelOverride?: unknown }).smallModelOverride);
   } else if (selected === null) {
-    const configured = identityFromString(config?.small_model);
-    const configuredOption = configured === null ? null : options.find((option) =>
-      option.providerID === configured.providerID && option.modelID === configured.modelID);
-    if (configuredOption?.hasLogin && configuredOption.structuredOutput !== false
-      && ['openai', 'anthropic', 'google'].includes(configuredOption.providerID)) {
-      selected = configured;
-    } else {
-      const candidate = chooseFamilyModel({ candidates: familyCandidates({ providers, preferredProviderID: null })
-        .filter(({ provider, model }) => hasCredential(input.credentials, provider.id, provider)
-          && ['openai', 'anthropic', 'google'].includes(provider.id)
-          && modelStructuredOutput(model) !== false) });
-      selected = candidate === null ? null : { providerID: candidate.provider.id, modelID: candidate.model.id };
-    }
+    const candidate = chooseFamilyModel({ candidates: familyCandidates({ providers, preferredProviderID: null })
+      .filter(({ provider, model }) => hasCredential(input.credentials, provider.id, provider)
+        && ['openai', 'anthropic', 'google'].includes(provider.id)
+        && modelStructuredOutput(model) !== false) });
+    selected = candidate === null ? null : { providerID: candidate.provider.id, modelID: candidate.model.id };
   }
   const model = selected === null ? null :
     options.find((option) => option.providerID === selected.providerID && option.modelID === selected.modelID) ?? null;

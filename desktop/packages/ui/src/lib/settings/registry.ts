@@ -178,8 +178,11 @@ export const SETTINGS_REGISTRY: SettingsField[] = [
   f('defaultVariant', 'profile', pStr({ trim: true, max: 128 }), { uiField: 'model' }),
   f('defaultAgent', 'profile', pStr({ trim: true, max: 128 }), { uiField: 'model' }),
   f('smallModelUseDefault', 'profile', pBool(), { uiField: 'model' }),
-  f('smallModelOverride', 'profile', pStr({ trim: true, max: 256 }), { uiField: 'model' }),
-  f('walkthroughModelOverride', 'profile', pStr({ trim: true, max: 256 }), { uiField: 'model' }),
+  // Why (uniformity #2): smallModelOverride and walkthroughModelOverride were
+  // removed — NNA has no auxiliary "small task model" concept (helpers ride
+  // the primary route; walkthrough honors a per-request operator model and
+  // notification a per-call model, both from NNA's configured profiles). A
+  // stored desktop override claimed a harness persistence it never performed.
   f('zenModel', 'profile', pStr({ trim: true, max: 256 }), { uiField: 'model' }),
   f('favoriteModels', 'profile', pModelRefs(64), { uiField: 'modelPrefs' }),
   f('hiddenModels', 'profile', pModelRefs(1024), { uiField: 'modelPrefs' }),

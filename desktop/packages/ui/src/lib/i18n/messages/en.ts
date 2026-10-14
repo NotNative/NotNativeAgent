@@ -401,7 +401,7 @@ const en = {
   'settings.general.shareUsageReports': 'Share anonymous usage reports',
   'settings.general.usageReportConsent': 'Allow anonymous product usage reports',
   'settings.sessions.defaults': 'Defaults',
-  'settings.sessions.defaultsNote': 'Default model, agent, variant, small-model override, and walkthrough model settings write to the agent harness configuration. Their pickers will arrive with Providers and Agents settings; these fields are registered and saved meanwhile.',
+  'settings.sessions.defaultsNote': 'Default model, agent, and variant are desktop-local preferences; NNA resolves generation through its configured provider routes and honors per-request model picks (walkthrough, notifications) from NNA profiles. These fields are registered and saved locally.',
   'settings.sessions.behavior': 'Behavior',
   'settings.sessions.confirmDelete': 'Show a confirmation before deleting a session',
   'settings.sessions.previewOpenFiles': 'Preview open files',
