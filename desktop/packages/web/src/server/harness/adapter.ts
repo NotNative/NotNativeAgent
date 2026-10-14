@@ -19,9 +19,15 @@ export interface HarnessAdapter {
   handle(request: Request): Promise<Response>;
 }
 
-/** Harness wire responses are BARE payloads (doc 02 / D12) — no {data} wrapper. */
-export const harnessError = (message: string, status = 400): Response =>
-  new Response(JSON.stringify({ error: { message } }), {
+/**
+ * Harness wire responses are BARE payloads (doc 02 / D12) — no {data} wrapper.
+ * Why: NNA's error contract is `{ error: { code, message } }` (e.g. NNA
+ * src/nnd-harness-routes.js and src/secret-broker-server.js error sends), so
+ * every emitted envelope carries a stable snake_case code; callers may pass a
+ * specific one and unclassified sites default to `harness_error`.
+ */
+export const harnessError = (message: string, status = 400, code = 'harness_error'): Response =>
+  new Response(JSON.stringify({ error: { code, message } }), {
     status,
     headers: { 'content-type': 'application/json' },
   });

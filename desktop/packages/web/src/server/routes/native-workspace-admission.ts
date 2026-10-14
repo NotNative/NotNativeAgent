@@ -247,7 +247,7 @@ export async function handleNativeSessionCreation(request: Request,
     || (path !== '/api/session' && !/^\/api\/session\/[^/]+\/fork$/u.test(path))) return forward(request);
   try {
     const body = await request.clone().json().catch(() => null) as Record<string, unknown> | null;
-    if (!body || typeof body !== 'object' || Array.isArray(body)) return harnessError('Session create body is invalid.', 400);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return harnessError('Session create body is invalid.', 400, 'session_create_request_invalid');
     const raw = await readPath();
     const selected = body.workspace_id === undefined ? null
       : await admitSelectedWorkspace(body.directory, body.workspace_id, async () => raw);
@@ -256,16 +256,16 @@ export async function handleNativeSessionCreation(request: Request,
     let header = request.headers.get(DIRECTORY_HEADER);
     const encoding = request.headers.get(DIRECTORY_ENCODING_HEADER);
     if (encoding && encoding !== 'uri' || encoding === 'uri' && header === null) {
-      return harnessError('Session workspace header is invalid.', 400);
+      return harnessError('Session workspace header is invalid.', 400, 'session_workspace_header_invalid');
     }
     if (encoding === 'uri' && header !== null) {
       try { header = decodeURIComponent(header); }
-      catch { return harnessError('Session workspace header is invalid.', 400); }
+      catch { return harnessError('Session workspace header is invalid.', 400, 'session_workspace_header_invalid'); }
     }
     const query = new URL(request.url).searchParams.get('location[directory]');
     for (const candidate of [header, query, body.directory]) {
       if (candidate !== null && candidate !== undefined && !sameWorkspacePath(candidate, native)) {
-        return harnessError(`NNA is attached to ${native}. Select that workspace or reconfigure NNA before creating a session.`, 409);
+        return harnessError(`NNA is attached to ${native}. Select that workspace or reconfigure NNA before creating a session.`, 409, 'workspace_identity_mismatch');
       }
     }
     const forwarding = selected ? new Request(request, {
@@ -275,20 +275,20 @@ export async function handleNativeSessionCreation(request: Request,
     if (!response.ok) return response;
     const record = await response.clone().json().catch(() => null) as Record<string, unknown> | null;
     if (!record || typeof record !== 'object' || Array.isArray(record)) {
-      return harnessError('NNA created a session with an unreadable workspace. Refresh before sending.', 502);
+      return harnessError('NNA created a session with an unreadable workspace. Refresh before sending.', 502, 'session_workspace_unreadable');
     }
     const actual = record.directory;
     if (!sameWorkspacePath(actual, native)) {
       const id = typeof record.id === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(record.id) ? record.id : 'unknown';
-      return harnessError(`NNA created session ${id} in a changed or unknown workspace. The session remains recoverable in NNA; refresh before sending.`, 409);
+      return harnessError(`NNA created session ${id} in a changed or unknown workspace. The session remains recoverable in NNA; refresh before sending.`, 409, 'workspace_identity_mismatch');
     }
     if (selected && record.projectID !== selected.workspace_id) {
-      return harnessError('NNA created a session with a changed workspace identity. Refresh before sending.', 409);
+      return harnessError('NNA created a session with a changed workspace identity. Refresh before sending.', 409, 'workspace_identity_mismatch');
     }
     return response;
   } catch (error) {
     const failure = error instanceof WorkspaceAdmissionError ? error : new WorkspaceAdmissionError('NNA workspace identity is unavailable.', 503);
-    return harnessError(failure.message, failure.status);
+    return harnessError(failure.message, failure.status, 'nnd_workspace_admission_unavailable');
   }
 }
 

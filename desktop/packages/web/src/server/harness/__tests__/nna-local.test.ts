@@ -215,7 +215,7 @@ describe('managed local NNA launcher', () => {
     const result = guardLocalNnaHarness({ handle: vi.fn() }, { isRunning: () => false });
     const response = await result.handle(new Request('http://nnd.local/api/session'));
     expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({ error: { message: 'NNA local harness stopped' } });
+    expect(await response.json()).toEqual({ error: { code: 'nnd_harness_stopped', message: 'NNA local harness stopped' } });
   });
 
   it('refuses managed creation without native identity and preserves a mismatched race-created session', async () => {

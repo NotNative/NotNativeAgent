@@ -78,7 +78,7 @@ describe('NNA harness adapter', () => {
     const adapter = createNnaHarnessAdapter({ endpoint: 'http://127.0.0.1:4100', token, principal, fetch });
     const response = await adapter.handle(new Request('http://nnd.local/api/session'));
     expect(response.status).toBe(504);
-    expect(await response.json()).toEqual({ error: { message: 'NNA harness request timed out' } });
+    expect(await response.json()).toEqual({ error: { code: 'nnd_harness_timeout', message: 'NNA harness request timed out' } });
   });
 
   it('gives admission, session creation and walkthrough bounded deadlines while keeping reads at 30 seconds', async () => {
@@ -134,7 +134,7 @@ describe('NNA harness adapter', () => {
     const response = await pending;
     expect(upstreamSignal?.aborted).toBe(true);
     expect(response.status).toBe(499);
-    expect(await response.json()).toEqual({ error: { message: 'NND request was cancelled' } });
+    expect(await response.json()).toEqual({ error: { code: 'nnd_request_cancelled', message: 'NND request was cancelled' } });
   });
 
   it('keeps the client abort bound to a live upstream event stream', async () => {
@@ -193,7 +193,7 @@ describe('NNA harness adapter', () => {
     const adapter = createNnaHarnessAdapter({ endpoint: 'http://127.0.0.1:4100', token, principal: () => { throw new Error('minting detail'); }, fetch });
     const response = await adapter.handle(new Request('http://nnd.local/api/session'));
     expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({ error: { message: 'NNA harness principal is unavailable' } });
+    expect(await response.json()).toEqual({ error: { code: 'nnd_harness_principal_unavailable', message: 'NNA harness principal is unavailable' } });
     expect(fetch).not.toHaveBeenCalled();
   });
 });

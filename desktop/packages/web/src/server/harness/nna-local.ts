@@ -251,12 +251,12 @@ function validAgentToolCallback(callback: { url: string; token: string }): boole
 export function guardLocalNnaHarness(adapter: HarnessAdapter,
   harness: Pick<LocalNnaHarness, 'isRunning'> & Partial<Pick<ManagedLocalNnaHarness, 'workspaceId' | 'ensurePrimaryWorkspaceId'>>): HarnessAdapter {
   return { handle: async (request) => {
-    if (!harness.isRunning()) return harnessError('NNA local harness stopped', 502);
+    if (!harness.isRunning()) return harnessError('NNA local harness stopped', 502, 'nnd_harness_stopped');
     const pathname = new URL(request.url).pathname;
     const creates = request.method === 'POST' && (pathname === '/api/session' || /^\/api\/session\/[^/]+\/fork$/u.test(pathname));
     if (!/^\/api\/session(?:\/|$)/u.test(pathname) || !harness.ensurePrimaryWorkspaceId) return adapter.handle(request);
     const id = creates || !harness.workspaceId?.() ? await harness.ensurePrimaryWorkspaceId() : harness.workspaceId();
-    if (!id) return harnessError('NNA primary workspace identity is unavailable. Complete NNA setup and refresh the connection.', 503);
+    if (!id) return harnessError('NNA primary workspace identity is unavailable. Complete NNA setup and refresh the connection.', 503, 'nnd_workspace_identity_unavailable');
     const selected = creates ? await request.clone().json().catch(() => null) as Record<string, unknown> | null : null;
     const expectedId = typeof selected?.workspace_id === 'string' && /^ws_[a-f0-9]{24}$/u.test(selected.workspace_id)
       ? selected.workspace_id : id;
@@ -265,7 +265,7 @@ export function guardLocalNnaHarness(adapter: HarnessAdapter,
     const record = await response.clone().json().catch(() => null) as Record<string, unknown> | null;
     if (!record || record.projectID !== expectedId) {
       const session = typeof record?.id === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(record.id) ? record.id : 'unknown';
-      return harnessError(`NNA created session ${session} with a changed workspace identity. It remains recoverable in NNA; refresh before sending.`, 409);
+      return harnessError(`NNA created session ${session} with a changed workspace identity. It remains recoverable in NNA; refresh before sending.`, 409, 'nnd_workspace_identity_mismatch');
     }
     return response;
   } };
