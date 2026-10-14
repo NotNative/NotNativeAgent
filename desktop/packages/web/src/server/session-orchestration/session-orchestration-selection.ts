@@ -122,10 +122,13 @@ export async function resolveSelection(
   }
   const settings = settingsFor(deps, directory);
   const candidates: Array<{ value: string | null; variant?: string }> = [
+    // Why (uniformity #2/#11): the desktop-local defaults are candidate
+    // preferences; NNA's configured model is the authoritative entry and the
+    // inventory-validated chain below decides. No fabricated model literal:
+    // the removed OpenChamber-era fallback named a model no NNA profile has.
     { value: settings.defaultModel ?? null, variant: settings.defaultVariant },
     { value: agentModelOf(agents, agent) },
     { value: textOf(config.model) === '' ? null : textOf(config.model) },
-    { value: 'opencode/big-pickle' },
   ];
   let resolved: { providerID: string; modelID: string; variant?: string } | null = null;
   if (requestedModel !== null) resolved = modelSelectionOf(request.model);
