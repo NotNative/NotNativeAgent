@@ -79,6 +79,12 @@ export function ascendingId(prefix: string): string {
 }
 
 function applyDirectory(method: string, path: string, headers: Headers, dirOverride?: string): string {
+  // Invariant (uniformity #10): the directory parameter is PRESENTATION
+  // scoping only — NNA reads it nowhere (repo-wide verified) and scopes
+  // sessions by principal + the per-session bound workspace admitted at
+  // creation. Per-directory stores on the desktop organize client state;
+  // they never assert or filter harness authority. One authority: NNA's
+  // workspace admission (session-lifecycle.ts nativeWorkspaceForCreate).
   const dir = dirOverride !== undefined ? normalizeDirectory(dirOverride) : currentDirectory;
   if (!dir) return path;
   const isRead = method === 'GET' || method === 'HEAD';

@@ -294,7 +294,7 @@ async function dispatchBootstrapRequest(request, response, context) {
 }
 
 function trustedWorkspace(value) {
-  // The browser's directory header is never an authority to select a host path.
+  // Why (uniformity #10): the browser's directory header/query is NEVER read on this side — it is desktop presentation scoping, not an authority. One authority exists: principal + the per-session bound workspace admitted at creation; every path decision here fails closed against that binding.
   return typeof value === 'string' && value.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(value) ? value : '';
 }
 
