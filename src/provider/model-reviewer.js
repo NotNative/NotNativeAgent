@@ -140,9 +140,10 @@ async function runReviewerAttempts(route, input, signal, state, run) {
 }
 
 function reviewerRequest(route, input, invalidOutput, constrained, repairKind) {
+  const responseFormat = reviewerResponseFormat(repairKind === 'missing_effect');
   const messages = [
     { role: 'system', content: reviewerPolicy() + (constrained ? ''
-      : ` Required JSON schema: ${JSON.stringify(reviewerResponseFormat().json_schema.schema)}`) },
+      : ` Required JSON schema: ${JSON.stringify(responseFormat.json_schema.schema)}`) },
     { role: 'user', content: JSON.stringify(input) },
   ];
   if (invalidOutput !== null) messages.push(
@@ -155,7 +156,7 @@ function reviewerRequest(route, input, invalidOutput, constrained, repairKind) {
     model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 4096, 4096),
     // Why: reviewer JSON is bounded by responseFormat and local validation. Reasoning controls
     // are provider dialect settings; a universal "off" request is invalid for some models.
-    ...routeReasoningFields(route), messages, tools: [], responseFormat: constrained ? reviewerResponseFormat() : null,
+    ...routeReasoningFields(route), messages, tools: [], responseFormat: constrained ? responseFormat : null,
   });
 }
 
@@ -187,14 +188,17 @@ function elapsedMs(started) {
   return Number(process.hrtime.bigint() - started) / 1_000_000;
 }
 
-function reviewerResponseFormat() {
+function reviewerResponseFormat(requireEffectAssessment = false) {
   return {
     type: 'json_schema',
     json_schema: {
-      name: 'nna_review_decision', strict: true,
+      name: requireEffectAssessment ? 'nna_review_effect_clarification' : 'nna_review_decision', strict: true,
       schema: {
         type: 'object', additionalProperties: false,
-        required: ['outcome', 'confidence', 'reason_code', 'authority_anchors'],
+        // Why: the initial contract remains lenient. A retry for a missing process effect
+        // supplies a narrower grammar so constrained decoders cannot omit it again.
+        required: ['outcome', 'confidence', 'reason_code', 'authority_anchors',
+          ...(requireEffectAssessment ? ['effect_assessment'] : [])],
         properties: {
           outcome: { type: 'string', enum: [...REVIEW_OUTCOMES] },
           confidence: { type: 'number' },

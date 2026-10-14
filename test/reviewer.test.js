@@ -932,6 +932,8 @@ test('reviewer repairs a process approval that omits effect assessment', async (
   assert.equal(decision.effect_assessment, 'read_only');
   assert.equal(requests.length, 2);
   assert.ok(!requests[0].responseFormat.json_schema.schema.required.includes('effect_assessment'));
+  assert.ok(requests[1].responseFormat.json_schema.schema.required.includes('effect_assessment'));
+  assert.equal(requests[1].responseFormat.json_schema.name, 'nna_review_effect_clarification');
   assert.match(requests[1].messages.at(-1).content, /without effect_assessment/u);
 });
 
@@ -948,6 +950,28 @@ test('reviewer leaves a still-unclassified process approval for fail-closed norm
     new AbortController().signal);
   assert.equal(decision.effect_assessment, undefined);
   assert.equal(calls, 2);
+});
+
+test('effect clarification falls back to validated JSON when its narrower grammar is unsupported', async () => {
+  const requests = [];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    if (requests.length === 2) throw new ContractError('provider_response_format_unsupported', 'grammar rejected');
+    yield { type: 'text', text: JSON.stringify({
+      outcome: 'approve', confidence: 1, reason_code: 'ssh_diagnostic', authority_anchors: [1],
+      ...(requests.length === 3 ? { effect_assessment: 'read_only' } : {}),
+    }) };
+    yield { type: 'terminal' };
+  } };
+  const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
+  const reviewer = new RoutedSemanticReviewer({ candidates: () => [route], provider: () => provider });
+  const decision = await reviewer.review({ request: { toolName: 'shell_run' }, authenticatedIntent: [] },
+    new AbortController().signal);
+  assert.equal(decision.effect_assessment, 'read_only');
+  assert.equal(requests.length, 3);
+  assert.ok(requests[1].responseFormat.json_schema.schema.required.includes('effect_assessment'));
+  assert.equal(requests[2].responseFormat, null);
+  assert.ok(requests[2].messages[0].content.includes('"effect_assessment"'));
 });
 
 test('semantic reviewer fails closed after the one schema-repair attempt', async () => {
