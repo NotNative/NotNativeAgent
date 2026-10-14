@@ -169,7 +169,12 @@ export async function runSupervisedService({ input = process.stdin, output = pro
       const powershell = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
       const trayHost = join(root, 'scripts', 'nnd-tray-host.ps1');
       const child = spawn(powershell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', trayHost,
-        '-DataRoot', bootstrap.nnd_data_root, '-InstallRoot', root, '-NodePath', process.execPath],
+        // Why: the tray host reads the discovery record at
+        // <DataRoot>/runtime/nnd/current.json, which lives under the NNA data
+        // root (identity.data_root), not under nnd_data_root (<data>/nnd, the
+        // service's own state). Passing nnd_data_root made the tray's timer
+        // never find the record and exit immediately (no tray icon).
+        '-DataRoot', bootstrap.nna_data_root, '-InstallRoot', root, '-NodePath', process.execPath],
         // Neutral CWD: a live process locks its working directory, and the
         // tray must never pin the install root against cleanup or upgrade.
         { cwd: process.env.SystemRoot ?? null, detached: true, windowsHide: true, stdio: 'ignore' });
