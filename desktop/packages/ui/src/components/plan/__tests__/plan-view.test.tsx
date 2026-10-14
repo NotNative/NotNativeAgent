@@ -100,11 +100,15 @@ beforeEach(() => {
   writesShouldFail = false;
   fetchMock.mockImplementation(async (input: string, init?: RequestInit) => routeFetch(input, init));
   window.localStorage.clear();
+  // Why: flushTimers paces only the component's 350 ms autosave debounce; shouldAdvanceTime
+  // keeps the fetch-mock microtask chain live while the sleeps become instant advances.
+  vi.useFakeTimers({ shouldAdvanceTime: true });
   document.body.innerHTML = '';
   document.head.innerHTML = '';
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   try {
     act(() => rootHandle?.unmount());
   } finally {
@@ -158,7 +162,10 @@ async function type(text: string): Promise<void> {
 
 async function flushTimers(ms: number): Promise<void> {
   await act(async () => {
-    await new Promise((done) => setTimeout(done, ms));
+    await vi.advanceTimersByTimeAsync(ms);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
   });
 }
 

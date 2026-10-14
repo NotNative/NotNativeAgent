@@ -111,7 +111,9 @@ function catalogStore(): ReturnType<typeof stubStore> {
 }
 
 function settle(ms = 20): Promise<void> {
-  return new Promise((resolve) => { setTimeout(resolve, ms); });
+  // Why: the waits pace the composer/preview debounce (a component timer) plus
+  // mocked-promise resolution; fake timers with shouldAdvanceTime make both instant.
+  return act(async () => { await vi.advanceTimersByTimeAsync(ms); }) as unknown as Promise<void>;
 }
 
 let container: HTMLElement | null = null;
@@ -179,9 +181,14 @@ beforeEach(() => {
   snippetList.mockReset();
   snippetList.mockResolvedValue({ ok: true, snippets: [] });
   __resetSnippetsSourceForTests();
+  // Why: see settle() — pacing only component debounce timers + mock microtasks.
+  vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
-afterEach(() => { unmount(); });
+afterEach(() => {
+  unmount();
+  vi.useRealTimers();
+});
 
 function editorBody(): Record<string, unknown> {
   // The typed client's second argument IS the task input (JSON.stringify

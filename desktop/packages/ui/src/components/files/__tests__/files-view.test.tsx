@@ -68,6 +68,9 @@ beforeEach(() => {
   } } as unknown as RuntimeAPIs);
   fetchMock.mockImplementation(async (input: string) => route(String(input)));
   window.__NOTNATIVE_RUNTIME_KEY__ = undefined;
+  // Why: the suite paces component debounce timers only; shouldAdvanceTime keeps
+  // real microtasks (fetch mocks) flowing while the sleeps become instant advances.
+  vi.useFakeTimers({ shouldAdvanceTime: true });
   useFilesViewTabsStore.getState().__resetForTests();
   __resetDraftLeasesForTests();
   useFilesViewTabsStore.getState().setSelectedPath(DIR, `${DIR}/a.ts`, 'local');
@@ -77,6 +80,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   try {
     act(() => rootHandle?.unmount());
   } finally {
@@ -107,7 +111,9 @@ describe('FilesView flow (doc 06 §2/§3 v1)', () => {
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     await act(async () => { rootHandle!.render(<I18nProvider><FileTree root={DIR} runtimeKey="local" visible
       onOpenFile={() => undefined} onNewFile={() => undefined} onNewFolder={() => undefined}
-      onRename={() => undefined} onDelete={() => undefined} readOnly /></I18nProvider>); await Promise.resolve(); });
+      onRename={() => undefined} onDelete={() => undefined} readOnly /></I18nProvider>);
+      await vi.advanceTimersByTimeAsync(50); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(document.querySelector('[data-testid="files-tree"]')).not.toBeNull();
     expect(document.querySelector('button[title="/repo/a.ts"]')).not.toBeNull();
     expect(document.querySelector('button[aria-label="a.ts"]')).toBeNull();
@@ -128,10 +134,10 @@ describe('FilesView flow (doc 06 §2/§3 v1)', () => {
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await act(async () => { rootHandle!.render(tree(false)); });
-    await act(async () => { await new Promise((done) => setTimeout(done, 250)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(250); });
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/fs/search'))).toBe(false);
     await act(async () => { rootHandle!.render(tree(true)); });
-    await act(async () => { await new Promise((done) => setTimeout(done, 250)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(250); });
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/fs/search'))).toBe(true);
   });
 
@@ -164,7 +170,7 @@ describe('FilesView flow (doc 06 §2/§3 v1)', () => {
       await Promise.resolve();
     });
     await act(async () => {
-      await new Promise((done) => setTimeout(done, 1_800));
+      await vi.advanceTimersByTimeAsync(1_800);
     });
     const calls = fetchMock.mock.calls.map((call) => String(call[0]));
     const writeCall = calls.find((url) => url.includes('/api/fs/write'));
@@ -256,7 +262,7 @@ describe('FilesView flow (doc 06 §2/§3 v1)', () => {
     expect((document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement).value).toBe('kept draft\n');
     expect(document.querySelector('[data-testid="files-recovered-draft"]')?.textContent).toContain('Unsaved edits restored');
     fetchMock.mockClear();
-    await act(async () => { await new Promise((done) => setTimeout(done, 1_700)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_700); });
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/fs/write'))).toBe(false);
     await act(async () => { (document.querySelector('[data-testid="save-now"]') as HTMLButtonElement).click(); await Promise.resolve(); });
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/fs/write'))).toBe(true);
