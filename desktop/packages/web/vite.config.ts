@@ -50,6 +50,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx,js}'],
-    maxWorkers: 4,
+    // Why: 32 logical cores available; this suite is test-bound (child git
+    // processes), so workers help until the spawn fan-out saturates. Why not
+    // more: bounded memory per forked worker on this machine.
+    maxWorkers: 12,
   },
 });
