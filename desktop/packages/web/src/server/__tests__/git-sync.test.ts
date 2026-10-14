@@ -4,42 +4,24 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Hono } from 'hono';
 import { registerGitSyncRoutes } from '../routes/git-sync.ts';
+import { buildSyncTemplate, copySyncFixture, git, type SyncTemplate } from './helpers/git-fixture-kit.ts';
 
 let sandbox: string | null = null;
 
-afterEach(() => {
-  if (sandbox) rmSync(sandbox, { recursive: true, force: true });
-  sandbox = null;
-});
+// Template repo built once per file; each test gets an isolated copy.
+const template: SyncTemplate = buildSyncTemplate();
 
-function git(directory: string, ...args: string[]): string {
-  return execFileSync('git', ['-C', directory, ...args], { encoding: 'utf8', windowsHide: true }).trim();
-}
-
-function fixture(withRemote = true): { local: string; remote: string; peer: string } {
-  sandbox = mkdtempSync(join(tmpdir(), 'nnd-git-sync-'));
-  const local = join(sandbox, 'local');
-  const remote = join(sandbox, 'remote.git');
-  const peer = join(sandbox, 'peer');
-  execFileSync('git', ['init', '-q', '-b', 'main', local]);
-  git(local, 'config', 'user.name', 'NND Test');
-  git(local, 'config', 'user.email', 'nnd@example.test');
-  writeFileSync(join(local, 'base.txt'), 'base\n');
-  git(local, 'add', '-A');
-  git(local, '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'base');
-  if (withRemote) {
-    execFileSync('git', ['init', '-q', '--bare', remote]);
-    git(local, 'remote', 'add', 'origin', remote);
-    git(local, 'push', '-q', '-u', 'origin', 'main');
-    execFileSync('git', ['-C', remote, 'symbolic-ref', 'HEAD', 'refs/heads/main']);
-    execFileSync('git', ['clone', '-q', remote, peer]);
-    git(peer, 'config', 'user.name', 'NND Peer');
-    git(peer, 'config', 'user.email', 'peer@example.test');
+function fixture(withRemote = true): { local: string; remote: string; peer: string; root: string } {
+  const copied = copySyncFixture(template);
+  if (!withRemote) {
+    // Remote-less scenarios never touch origin; drop the copied remote and
+    // clear the configured remote so state matches the old local-only fixture.
+    execFileSync('git', ['-C', copied.local, 'remote', 'remove', 'origin'], { windowsHide: true });
   }
-  return { local, remote, peer };
+  return { local: copied.local, remote: copied.remote, peer: copied.peer, root: copied.root };
 }
 
 async function sync(directory?: string): Promise<Response> {
@@ -99,10 +81,15 @@ describe('local branch creation', () => {
   it('allows creating a branch before the first commit', async () => {
     sandbox = mkdtempSync(join(tmpdir(), 'nnd-git-unborn-'));
     const local = join(sandbox, 'local');
-    execFileSync('git', ['init', '-q', '-b', 'main', local]);
-    const response = await createBranch(local, 'feature/first');
-    expect(response.status).toBe(200);
-    expect(git(local, 'symbolic-ref', '--short', 'HEAD')).toBe('feature/first');
+    execFileSync('git', ['init', '-q', '-b', 'main', local], { windowsHide: true });
+    try {
+      const response = await createBranch(local, 'feature/first');
+      expect(response.status).toBe(200);
+      expect(git(local, 'symbolic-ref', '--short', 'HEAD')).toBe('feature/first');
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true });
+      sandbox = null;
+    }
   });
 
   it('creates and checks out a new local branch from the inspected HEAD', async () => {
@@ -153,8 +140,8 @@ describe('explicit Git sync', () => {
   });
 
   it('does not guess origin when multiple remotes are available, and honors an explicit push default', async () => {
-    const { local, remote } = fixture();
-    const fork = join(sandbox!, 'fork.git');
+    const { local, remote, root } = fixture();
+    const fork = join(root, 'fork.git');
     execFileSync('git', ['init', '-q', '--bare', fork]);
     git(local, 'remote', 'add', 'fork', fork);
     git(local, 'switch', '-q', '-c', 'feature');

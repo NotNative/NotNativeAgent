@@ -5,17 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getWalkthroughSnapshot, __snapshotTestables, SNAPSHOT_MAX_FILES } from '../routes/git-walkthrough-snapshot.ts';
+import { buildWalkthroughTemplate, copyWalkthroughRepo, git as gitIn } from './helpers/git-fixture-kit.ts';
 
+// Template repo built once per file; each test gets an isolated copy.
+const template = buildWalkthroughTemplate();
 let repo = '';
-const git = (...args: string[]): string => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' });
+const git = (...args: string[]): string => gitIn(repo, ...args);
 beforeEach(() => {
-  repo = mkdtempSync(join(tmpdir(), 'nnd-walkthrough-'));
-  git('init', '-q');
-  git('config', 'user.email', 'test@example.com');
-  git('config', 'user.name', 'Test');
-  writeFileSync(join(repo, 'both.txt'), 'old\n');
-  writeFileSync(join(repo, 'rename.txt'), 'rename old\n');
-  git('add', '-A'); git('commit', '-qm', 'initial');
+  repo = copyWalkthroughRepo(template);
 });
 afterEach(() => rmSync(repo, { recursive: true, force: true }));
 

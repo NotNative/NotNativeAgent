@@ -14,6 +14,7 @@ import { catalogScanFailure } from '../routes/skill-catalog-common.ts';
 import { writeSettingsPatch } from '../lib/settings-store.ts';
 import type { CatalogScanItem } from '../lib/skills/skill-catalog-scan.ts';
 import { externalSkillFlags, scanLocalSkills } from '../lib/skills/skill-scan.ts';
+import { buildCatalogTemplate, copyCatalogRepository } from './helpers/git-fixture-kit.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'nnd-p10-skills-'));
 let checkout = '';
@@ -36,22 +37,12 @@ function app(): Hono {
   return instance;
 }
 
+// Committed catalog-source template built once per file; each test copies it
+// because the cache test amends its copy's history.
+const catalogTemplate = buildCatalogTemplate();
+
 function catalogRepository(): string {
-  const repository = mkdtempSync(join(tmpdir(), 'nnd-p10-catalog-source-'));
-  const valid = join(repository, 'skills', 'source-good');
-  const invalid = join(repository, 'skills', 'Invalid Name');
-  mkdirSync(valid, { recursive: true });
-  mkdirSync(invalid, { recursive: true });
-  writeFileSync(join(valid, 'SKILL.md'),
-    '---\nname: source-good\ndescription: Repository source skill\n---\nReady.');
-  writeFileSync(join(invalid, 'SKILL.md'),
-    '---\ndescription: Invalid but still visible\n---\nInspect.');
-  execFileSync('git', ['-c', 'init.defaultBranch=main', 'init'], { cwd: repository, stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['config', 'user.email', 'catalog@nnd.test'], { cwd: repository, stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['config', 'user.name', 'NND Catalog'], { cwd: repository, stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['add', '-A'], { cwd: repository, stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['commit', '-q', '-m', 'catalog source'], { cwd: repository, stdio: 'ignore', windowsHide: true });
-  return repository;
+  return copyCatalogRepository(catalogTemplate);
 }
 
 describe('P10 skill discovery', () => {
