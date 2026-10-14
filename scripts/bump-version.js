@@ -40,11 +40,26 @@ export async function bumpVersion(root, options = {}, io = {}) {
   sbom.name = `NotNativeAgent-${version}`;
   sbom.documentNamespace = `https://example.invalid/not-native-agent/sbom/${version}`;
   sbom.packages[0].versionInfo = version;
+  // Why: one product, one canonical stamp — NotNativeDesktop is a component, not a peer
+  // product; its VERSION/package mirror the root stamp instead of advancing independently.
+  // Compatibility: desktop mirrors use the same semver mapping `${date}.0.${iteration}` and
+  // the root nna_version string doubles as nnd_version, so desktop consumers see one stamp.
+  const desktopPath = join(root, 'desktop');
+  const desktopVersionPath = join(desktopPath, 'VERSION');
+  const desktopPackagePath = join(desktopPath, 'package.json');
+  const desktopOriginals = await Promise.all([
+    read(desktopVersionPath, 'utf8'), read(desktopPackagePath, 'utf8'),
+  ]);
+  const desktopPackageJson = parseMetadata(desktopOriginals[1], desktopPackagePath);
+  desktopPackageJson.version = packageVersion;
+  desktopPackageJson.nnd_version = version;
   await writeSynchronized([
     { path: versionPath, before: originals[0], after: `${version}\n` },
     { path: packagePath, before: originals[1], after: `${JSON.stringify(packageJson, null, 2)}\n` },
     { path: productPath, before: originals[2], after: nextProduct },
     { path: sbomPath, before: originals[3], after: `${JSON.stringify(sbom, null, 2)}\n` },
+    { path: desktopVersionPath, before: desktopOriginals[0], after: `${version}\n` },
+    { path: desktopPackagePath, before: desktopOriginals[1], after: `${JSON.stringify(desktopPackageJson, null, 2)}\n` },
   ], write);
   return Object.freeze({ current, version });
 }

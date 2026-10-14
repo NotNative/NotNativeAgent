@@ -21,7 +21,7 @@
     "registry:snapshot": "node scripts/registry-snapshot.mjs",
     "graph:check": "node scripts/repository-graph.js --check",
     "language:report": "node scripts/controlled-language-gates.js --write-report",
-    "version:bump": "node scripts/bump-version.js",
+    "version:bump": "node -e \"process.stderr.write('desktop version is a root-stamped mirror; run node scripts/bump-version.js from the NNA repository root instead\\n'); process.exit(1)\"",
     "version:check": "node scripts/bump-version.js --check",
     "smoke:test": "node --experimental-transform-types scripts/smoke-test.js",
     "integration:smoke": "node --experimental-transform-types scripts/nna-source-smoke.mjs",

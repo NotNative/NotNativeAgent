@@ -11,10 +11,14 @@ async function fixture(sbom = {
 }) {
   const root = await mkdtemp(join(tmpdir(), 'nna-bump-rollback-'));
   await mkdir(join(root, 'src'));
+  await mkdir(join(root, 'desktop'));
   await writeFile(join(root, 'VERSION'), '20260101-1\n', 'utf8');
   await writeFile(join(root, 'package.json'), '{"version":"20260101.0.1","nna_version":"20260101-1"}\n', 'utf8');
   await writeFile(join(root, 'src', 'product.js'), "export const VERSION = '20260101-1';\n", 'utf8');
   await writeFile(join(root, 'SBOM.spdx.json'), `${JSON.stringify(sbom)}\n`, 'utf8');
+  // desktop mirrors the root stamp; the bump rewrites these as part of one synchronized publication
+  await writeFile(join(root, 'desktop', 'VERSION'), '20260101-1\n', 'utf8');
+  await writeFile(join(root, 'desktop', 'package.json'), '{"version":"20260101.0.1","nnd_version":"20260101-1"}\n', 'utf8');
   return root;
 }
 
