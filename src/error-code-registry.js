@@ -124,6 +124,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_assist_output_invalid', 'nnd_assist_output_large', 'nnd_assist_timeout', 'nnd_assist_tool_violation',
     'nnd_notification_invalid',
     'nnd_model_override_unsupported', 'nnd_agent_override_unsupported', 'nnd_prompt_part_unsupported',
+    'nnd_variant_override_unsupported', 'nnd_delivery_override_unsupported',
     'nnd_attachment_upload_invalid', 'nnd_attachment_upload_conflict', 'nnd_attachment_upload_capacity',
     'nnd_attachment_upload_expired', 'nnd_attachment_upload_scope_denied', 'nnd_attachment_upload_unavailable',
   ]),

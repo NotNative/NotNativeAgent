@@ -6,8 +6,12 @@ import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createNndConfigurationService } from '../src/nnd-configuration-service.js';
-import { normalizeNndConfigurationOperations } from '../src/nnd-configuration-intents.js';
+import { normalizeNndConfigurationOperations, applyNndConfigurationOperations,
+  nndConfigurationOperationPaths } from '../src/nnd-configuration-intents.js';
 import { projectNndConfigurationView } from '../src/nnd-configuration-view.js';
+import { manifestFromConfig, withRouteDeadline } from '../src/provider/route-configuration.js';
+import { resolveManifest } from '../src/config.js';
+import { providerTimeouts } from '../src/config-bounds.js';
 
 const identity = { installation_id: 'installation_test', data_id: 'data_test', scope: 'user' };
 const principal = { subjectId: 'native-local-operator', permissions: ['nnd.configuration.read', 'nnd.configuration.manage', 'nnd.configuration.repair'] };
@@ -240,4 +244,75 @@ test('repair accepts a source whose absolute workspace fails native explicit sco
     operation_id: 'repair_invalid_root', document: { workspace_root: f.root, provider } });
   assert.equal(result.persistence, 'saved');
   assert.equal((await f.service.read(principal)).sourceState, 'present');
+});
+
+test('primary deadline generic writes normalize to the canonical pair contract', () => {
+  const set = normalizeNndConfigurationOperations([{ op: 'set', field: 'routes.primary.deadline_ms', value: 600000 }]);
+  assert.deepEqual(set, [{ op: 'set', field: 'provider_timeout_ms', value: 600000 }]);
+  const reset = normalizeNndConfigurationOperations([{ op: 'reset', field: 'routes.primary.deadline_ms' }]);
+  assert.deepEqual(reset, [{ op: 'reset', field: 'provider_timeout_ms' }]);
+  assert.deepEqual(normalizeNndConfigurationOperations([{ op: 'set', field: 'provider_timeout_ms', value: 600000 }]), set);
+  // One request may name the pair once, whichever advertised path it uses, and the
+  // typed bound runs on the canonical pair descriptor.
+  for (const operations of [
+    [{ op: 'set', field: 'routes.primary.deadline_ms', value: 1000 }, { op: 'set', field: 'provider_timeout_ms', value: 2000 }],
+    [{ op: 'set', field: 'provider_timeout_ms', value: 1000 }, { op: 'set', field: 'routes.primary.deadline_ms', value: 2000 }],
+    [{ op: 'set', field: 'provider_timeout_ms', value: 1000 }, { op: 'reset', field: 'routes.primary.deadline_ms' }],
+    [{ op: 'set', field: 'routes.primary.deadline_ms', value: 1.5 }],
+    [{ op: 'set', field: 'routes.primary.deadline_ms', value: '600000' }],
+    [{ op: 'reset', field: 'routes.primary.deadline_ms', value: 1000 }],
+  ]) {
+    assert.throws(() => normalizeNndConfigurationOperations(operations), { code: 'nnd_configuration_request_invalid' });
+  }
+});
+
+test('generic and canonical deadline writes end in identical persisted state that survives a rebuild', () => {
+  const raw = { provider, workspace_root: process.cwd(), routes: { primary: { temperature: 0.2 }, reviewer: { temperature: 0.4 } } };
+  const [operation] = normalizeNndConfigurationOperations([{ op: 'set', field: 'routes.primary.deadline_ms', value: 600000 }]);
+  const generic = applyNndConfigurationOperations(raw, [operation]);
+  const canonical = withRouteDeadline(resolveManifest(raw), 'primary', 600000).manifest;
+  assert.equal(generic.provider_timeout_ms, 600000);
+  assert.equal(Object.hasOwn(generic.routes.primary, 'deadline_ms'), false);
+  assert.equal(generic.routes.primary.temperature, 0.2);
+  assert.equal(generic.provider_timeout_ms, canonical.provider_timeout_ms);
+  assert.equal(Object.hasOwn(canonical.routes.primary, 'deadline_ms'), false);
+  assert.deepEqual(providerTimeouts(generic), providerTimeouts(canonical));
+  // A later canonical transaction keeps the saved value: the serializer carries the
+  // pair through provider_timeout_ms and never writes the alias key.
+  const rebuilt = manifestFromConfig(resolveManifest(generic));
+  assert.equal(rebuilt.provider_timeout_ms, 600000);
+  assert.equal(Object.hasOwn(rebuilt.routes.primary, 'deadline_ms'), false);
+  assert.equal(providerTimeouts(rebuilt).providerMs, 600000);
+});
+
+test('a stray raw primary deadline folds through both entry points', () => {
+  const raw = { provider, workspace_root: process.cwd(), routes: { primary: { deadline_ms: 300000 } } };
+  const [set] = normalizeNndConfigurationOperations([{ op: 'set', field: 'routes.primary.deadline_ms', value: 600000 }]);
+  const afterSet = applyNndConfigurationOperations(raw, [set]);
+  assert.equal(afterSet.provider_timeout_ms, 600000);
+  assert.equal(Object.hasOwn(afterSet.routes.primary, 'deadline_ms'), false);
+  const [reset] = normalizeNndConfigurationOperations([{ op: 'reset', field: 'routes.primary.deadline_ms' }]);
+  const afterReset = applyNndConfigurationOperations(raw, [reset]);
+  assert.equal(Object.hasOwn(afterReset, 'provider_timeout_ms'), false);
+  assert.equal(Object.hasOwn(afterReset.routes.primary, 'deadline_ms'), false);
+  // Both entry points converge on one meaning for the owning boundary.
+  assert.deepEqual(providerTimeouts(afterSet), providerTimeouts(withRouteDeadline(resolveManifest(raw), 'primary', 600000).manifest));
+  // The pair is reported once for shadow checks, whichever entry shape arrives.
+  assert.deepEqual(nndConfigurationOperationPaths(set), ['provider_timeout_ms', 'routes.primary.deadline_ms']);
+  assert.deepEqual(nndConfigurationOperationPaths({ op: 'reset', field: 'routes.primary.deadline_ms' }),
+    ['provider_timeout_ms', 'routes.primary.deadline_ms']);
+  assert.deepEqual(nndConfigurationOperationPaths({ op: 'set', field: 'provider_timeout_ms', value: 1 }),
+    ['provider_timeout_ms', 'routes.primary.deadline_ms']);
+});
+
+test('project shadow of the deadline alias blocks a write to the canonical pair member', async t => {
+  const f = await fixture(t);
+  await writeFile(f.paths.trustedWorkspaces, JSON.stringify({ version: 1,
+    workspaces: [{ root: await realpath(f.root), trustedAt: '2026-10-03T00:00:00.000Z' }] }));
+  await writeFile(join(f.root, '.nna', 'settings.json'), JSON.stringify({ routes: { primary: { deadline_ms: 5000 } } }));
+  const viaAlias = await f.request([{ op: 'set', field: 'routes.primary.deadline_ms', value: 600000 }], 'shadow_alias');
+  await assert.rejects(f.service.save(principal, viaAlias), { code: 'configuration_source_shadowed' });
+  const viaCanonical = await f.request([{ op: 'set', field: 'provider_timeout_ms', value: 600000 }], 'shadow_canonical');
+  await assert.rejects(f.service.save(principal, viaCanonical), { code: 'configuration_source_shadowed' });
+  assert.equal(Object.hasOwn(JSON.parse(await readFile(f.path, 'utf8')), 'provider_timeout_ms'), false);
 });

@@ -214,6 +214,13 @@ export function withRouteDeadline(config, role, deadlineMs = null) {
   if (!Object.hasOwn(config.routes, role)) throw new ContractError('route_role_invalid', `unknown route role ${role}`);
   const manifest = manifestFromConfig(config);
   if (role === 'primary') {
+    // Why: one knob, one persisted meaning. The primary route deadline and the
+    // global provider timeout are the same value, so this write stores it only as
+    // provider_timeout_ms and clears the routes.primary.deadline_ms alias.
+    // manifestFromConfig never serializes the primary deadline, so the pair value
+    // round-trips through every later canonical transaction.
+    // Compatibility: the generic NND intent contract normalizes its primary-deadline
+    // operations onto this same pair, so all entry points converge on this state.
     if (deadlineMs === null) delete manifest.provider_timeout_ms;
     else manifest.provider_timeout_ms = deadlineMs;
     delete manifest.routes.primary.deadline_ms;

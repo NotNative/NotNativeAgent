@@ -15,6 +15,7 @@ import { nndMcpInventory } from '../src/nnd-mcp-inventory.js';
 import { nndAgentInventory } from '../src/nnd-agent-inventory.js';
 import { ContractError } from '../src/ids.js';
 import { createCapabilityAuthority } from '../src/integration-capability.js';
+import { VERSION } from '../src/product.js';
 
 const TOKEN = 'ephemeral-integration-token-with-at-least-32-characters';
 
@@ -514,7 +515,7 @@ test('NND harness session routes bind creation to the complete principal workspa
   try {
     const owner = principal(['nnd.read', 'nnd.session.create'], { workspace_ids: ['w_one', 'w_two'] });
     const health = await request(base, '/global/health', owner);
-    assert.deepEqual(health.value, { healthy: true, version: '1.18.31' });
+    assert.deepEqual(health.value, { healthy: true, version: VERSION });
     assert.equal((await request(base, '/path', owner)).value.directory, root);
     const config = await request(base, '/config', owner);
     assert.deepEqual(config.value, {
@@ -658,6 +659,18 @@ test('NND harness session routes bind creation to the complete principal workspa
     });
     assert.equal(wrongAgent.status, 400);
     assert.equal(wrongAgent.value.error.code, 'nnd_agent_override_unsupported');
+    // CTL-DATA: NND's variant (effort) and delivery (steer|queue) fields must fail
+    // loudly here — NNA cannot apply either, so the boundary rejects instead of dropping.
+    const variantPrompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+      method: 'POST', body: { variant: 'high', parts: [{ type: 'text', text: 'effort override' }] },
+    });
+    assert.equal(variantPrompt.status, 400);
+    assert.equal(variantPrompt.value.error.code, 'nnd_variant_override_unsupported');
+    const deliveryPrompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+      method: 'POST', body: { delivery: 'steer', parts: [{ type: 'text', text: 'delivery override' }] },
+    });
+    assert.equal(deliveryPrompt.status, 400);
+    assert.equal(deliveryPrompt.value.error.code, 'nnd_delivery_override_unsupported');
     assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, principal([], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { parts: [{ type: 'text', text: 'denied' }] },
     })).status, 403);

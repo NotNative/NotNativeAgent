@@ -44,6 +44,37 @@ test('walkthrough rejects malformed aliases, extra fields, and oversized input b
   assert.deepEqual(state.calls, []);
 });
 
+test('walkthrough accepts an optional operator-selected model and honors it in the provider request', async () => {
+  const state = fixture();
+  assert.deepEqual(await runNndWalkthrough(state.context, { ...body, model: 'operator-pick' }), {
+    text: '{"chapters":[]}', providerID: 'local', modelID: 'operator-pick', revision,
+  });
+  assert.deepEqual(state.calls[0], ['resolve', 'primary']);
+  const request = state.calls.find(([kind]) => kind === 'stream')[1];
+  assert.equal(request.model, 'operator-pick');
+  assert.equal(state.releases, 1);
+});
+
+test('walkthrough rejects a malformed optional model before a provider call', async () => {
+  const state = fixture();
+  await assert.rejects(runNndWalkthrough(state.context, { ...body, model: 42 }), { code: 'nnd_walkthrough_invalid' });
+  await assert.rejects(runNndWalkthrough(state.context, { ...body, model: '' }), { code: 'nnd_walkthrough_invalid' });
+  await assert.rejects(runNndWalkthrough(state.context, { ...body, model: 'x'.repeat(257) }), { code: 'nnd_walkthrough_invalid' });
+  assert.deepEqual(state.calls, []);
+});
+
+test('walkthrough keeps the original two-key contract and still rejects unknown extra fields', async () => {
+  const state = fixture();
+  assert.deepEqual(await runNndWalkthrough(state.context, body), {
+    text: '{"chapters":[]}', providerID: 'local', modelID: 'small', revision,
+  });
+  await assert.rejects(runNndWalkthrough(state.context, { ...body, model: 'small', extra: true }),
+    { code: 'nnd_walkthrough_invalid' });
+  await assert.rejects(runNndWalkthrough(state.context, { ...body, model: 'small', other: 'x' }),
+    { code: 'nnd_walkthrough_invalid' });
+  assert.equal(state.releases, 1);
+});
+
 test('walkthrough rejects tool calls and releases scheduler capacity', async () => {
   const state = fixture([{ type: 'tool_fragment' }, { type: 'terminal' }]);
   await assert.rejects(runNndWalkthrough(state.context, body), { code: 'nnd_walkthrough_tool_violation' });

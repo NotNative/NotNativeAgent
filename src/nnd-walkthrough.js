@@ -8,13 +8,23 @@ const MAX_HUNKS = 200;
 const MAX_DIGEST_BYTES = 64_000;
 const MAX_OUTPUT_BYTES = 65_536;
 const DEADLINE_MS = 45_000;
+// Why: the optional operator model mirrors the manifest route-model rule in
+// src/config.js (string, 0 < length <= 256), validated at this contract edge so
+// an unbounded selection can never reach the provider request.
+const MAX_MODEL_CHARS = 256;
 
 function invalid() { throw new ContractError('nnd_walkthrough_invalid', 'NND walkthrough request is invalid'); }
 
 function validateDigest(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)
-    || Object.keys(body).length !== 2 || !Object.hasOwn(body, 'revision') || !Object.hasOwn(body, 'digest')
-    || typeof body.revision !== 'string' || !REVISION.test(body.revision)
+    || !Object.hasOwn(body, 'revision') || !Object.hasOwn(body, 'digest')) invalid();
+  // Compatibility: the original contract sent exactly {revision, digest}; `model`
+  // is an optional operator selection, so 2 or 3 keys are both valid.
+  const keys = Object.keys(body);
+  if (keys.length !== 2 && keys.length !== 3) invalid();
+  if (keys.some((key) => key !== 'revision' && key !== 'digest' && key !== 'model')) invalid();
+  if (Object.hasOwn(body, 'model') && (typeof body.model !== 'string' || !body.model || body.model.length > MAX_MODEL_CHARS)) invalid();
+  if (typeof body.revision !== 'string' || !REVISION.test(body.revision)
     || !Array.isArray(body.digest) || body.digest.length < 1 || body.digest.length > MAX_HUNKS) invalid();
   const aliases = new Set();
   for (const item of body.digest) {
@@ -40,7 +50,7 @@ export async function runNndWalkthrough(context, body) {
     throw new ContractError('nnd_walkthrough_busy', 'NND session is busy');
   }
   if (context.walkthroughInFlight) throw new ContractError('nnd_walkthrough_busy', 'NND walkthrough is already generating');
-  const pending = generate(context.engine, digest);
+  const pending = generate(context.engine, digest, body.model);
   context.walkthroughInFlight = pending;
   try {
     const result = await pending;
@@ -51,7 +61,7 @@ export async function runNndWalkthrough(context, body) {
   } finally { if (context.walkthroughInFlight === pending) context.walkthroughInFlight = null; }
 }
 
-async function generate(engine, digest) {
+async function generate(engine, digest, model) {
   if (!engine.router?.resolve || !engine.router?.provider || !engine.scheduler?.acquire) {
     throw new ContractError('nnd_walkthrough_unavailable', 'NND model route is unavailable');
   }
@@ -67,7 +77,9 @@ async function generate(engine, digest) {
   let release;
   try {
     release = await engine.scheduler.acquire(route.profile.id, engine.sessionId, controller.signal, () => undefined);
-    const request = Object.freeze({ model: route.model, temperature: 0,
+    // Compatibility: without an operator selection the request keeps the
+    // configured route model, so the pre-selection contract is unchanged.
+    const request = Object.freeze({ model: model ?? route.model, temperature: 0,
       maxOutputTokens: Math.min(1_024, route.maxOutputTokens ?? 1_024),
       tools: [], messages: [
         { role: 'system', content: policy() },
@@ -88,7 +100,7 @@ async function generate(engine, digest) {
     }
     if (controller.signal.aborted) throw new ContractError('nnd_walkthrough_timeout', 'NND walkthrough timed out');
     if (!terminal || !text.trim()) throw new ContractError('nnd_walkthrough_output_invalid', 'NND walkthrough returned no completed text');
-    return { text, providerID: route.profile.id, modelID: route.model };
+    return { text, providerID: route.profile.id, modelID: model ?? route.model };
   } catch (error) {
     if (controller.signal.aborted) {
       throw new ContractError('nnd_walkthrough_timeout', 'NND walkthrough timed out');

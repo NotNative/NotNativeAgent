@@ -8,6 +8,9 @@ export const NND_ROUTE_BINDING_ROLES = Object.freeze(['reviewer', 'vision']);
 export const NND_ROUTE_BINDING_FIELDS = Object.freeze(NND_ROUTE_BINDING_ROLES.flatMap((role) =>
   [`routes.${role}.provider_id`, `routes.${role}.model`]));
 const MEMORY_PAIR = Object.freeze(['memory.enabled', 'memory.required']);
+// routes.primary.deadline_ms has one meaning: the global provider timeout that
+// withRouteDeadline persists as provider_timeout_ms with the alias key cleared.
+export const PRIMARY_DEADLINE_PATHS = Object.freeze(['provider_timeout_ms', 'routes.primary.deadline_ms']);
 const FIELDS = new Map(CONFIGURATION_CATALOG.fields.filter((field) => field.editability.generic_editable
   && TYPES.has(field.type) && field.path !== 'workspace_root' && field.sensitivity !== 'credential_reference'
   && !/^(?:provider\.|providers\[|mcp_servers\[)/u.test(field.path) && !/[\[\]{}]/u.test(field.path))
@@ -33,16 +36,26 @@ export function normalizeNndConfigurationOperations(input) {
     }
     if (!record(operation) || !['set', 'reset'].includes(operation.op)
       || Object.keys(operation).some((key) => !['op', 'field', 'value'].includes(key))) throw invalid();
-    const descriptor = FIELDS.get(operation.field);
-    if (!descriptor || seen.has(operation.field)
-      || (MEMORY_PAIR.includes(operation.field) && MEMORY_PAIR.some((field) => seen.has(field)))) throw invalid();
-    seen.add(operation.field);
+    // Why: routes.primary.deadline_ms is a compatibility alias for the global
+    // provider_timeout_ms, never a separate persisted key. Normalizing the field
+    // here keeps one concept = one persisted meaning for every generic entry point,
+    // while withRouteDeadline (src/provider/route-configuration.js) stays the pair
+    // authority and needs no duplicated check here.
+    // Compatibility: both advertised paths stay admitted, so the settings catalog
+    // advertisement does not change; typed value and bound checks run on the
+    // canonical pair descriptor.
+    const path = operation.field === PRIMARY_DEADLINE_PATHS[1] && FIELDS.has(PRIMARY_DEADLINE_PATHS[1])
+      ? PRIMARY_DEADLINE_PATHS[0] : operation.field;
+    const descriptor = FIELDS.get(path);
+    if (!descriptor || seen.has(path)
+      || (MEMORY_PAIR.includes(path) && MEMORY_PAIR.some((field) => seen.has(field)))) throw invalid();
+    seen.add(path);
     if (operation.op === 'reset') {
       if (Object.hasOwn(operation, 'value')) throw invalid();
-      return Object.freeze({ op: 'reset', field: operation.field });
+      return Object.freeze({ op: 'reset', field: path });
     }
     if (!Object.hasOwn(operation, 'value') || !typedValue(descriptor, operation.value)) throw invalid();
-    return Object.freeze({ op: 'set', field: operation.field, value: structuredClone(operation.value) });
+    return Object.freeze({ op: 'set', field: path, value: structuredClone(operation.value) });
   });
 }
 
@@ -53,6 +66,21 @@ export function applyNndConfigurationOperations(manifest, operations) {
       { path: `routes.${operation.role}.model`, value: operation.model },
     ];
     const { op, field, value } = operation;
+    // Why: the normalized pair member (or a stale alias-shaped operation) must
+    // reproduce withRouteDeadline semantics on the raw document: one value stored
+    // under provider_timeout_ms, the routes.primary.deadline_ms alias cleared.
+    // This mirrors the canonical write from the second entry point, so both entry
+    // points end in identical persisted state.
+    if (field === PRIMARY_DEADLINE_PATHS[0] || field === PRIMARY_DEADLINE_PATHS[1]) {
+      const changes = [{ path: PRIMARY_DEADLINE_PATHS[0], value: op === 'reset' ? undefined : value }];
+      // Clear the alias only when its parent object exists; the set() helper would
+      // otherwise create an empty routes.primary container that the canonical write
+      // never produces.
+      if (record(manifest.routes) && record(manifest.routes.primary)) {
+        changes.push({ path: PRIMARY_DEADLINE_PATHS[1], value: undefined });
+      }
+      return changes;
+    }
     const changes = [{ path: field, value: op === 'reset' ? undefined : value }];
     if (op === 'set' && field === 'memory.enabled' && value === false) {
       changes.push({ path: 'memory.required', value: false });
@@ -67,6 +95,9 @@ export function nndConfigurationOperationPaths(operation) {
   if (operation.op === 'bind_route') return [`routes.${operation.role}.provider_id`, `routes.${operation.role}.model`];
   if (operation.op === 'set' && operation.field === 'memory.enabled' && operation.value === false) return MEMORY_PAIR;
   if (operation.op === 'set' && operation.field === 'memory.required' && operation.value === true) return MEMORY_PAIR;
+  // A provider-deadline write touches the pair: the canonical key it persists and
+  // the alias key it clears, so both go through the project-shadow check.
+  if (operation.field === PRIMARY_DEADLINE_PATHS[0] || operation.field === PRIMARY_DEADLINE_PATHS[1]) return PRIMARY_DEADLINE_PATHS;
   return [operation.field];
 }
 

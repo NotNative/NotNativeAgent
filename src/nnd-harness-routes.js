@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId, requireExternalId } from './ids.js';
+import { VERSION } from './product.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { sseOpen } from './opencode/protocol.js';
@@ -233,7 +234,12 @@ async function dispatchBootstrapRequest(request, response, context) {
     if (!context.nndEngineHost?.pendingRequests) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');
     return send(response, 200, context.nndEngineHost.pendingRequests(context.principal));
   }
-  if (path === '/global/health') return send(response, 200, { healthy: true, version: '1.18.31' });
+  // Why: this field identifies the responding NNA build to the desktop client;
+  // consumers (probe()/globalHealth) gate only on `healthy`, so nothing pins a
+  // protocol value here. Compatibility: it previously carried the stale '1.18.31'
+  // pin (no owning module, name only in this route + its test), which read as a
+  // harness protocol version; the field is the NNA product version.
+  if (path === '/global/health') return send(response, 200, { healthy: true, version: VERSION });
   if (path === '/path') {
     const binding = await context.nndEngineHost?.primaryWorkspaceBinding?.();
     if (binding && binding.configured_root !== workspace) {
@@ -304,6 +310,18 @@ function assertConfiguredSelection(body, model) {
   }
   if (body?.agent !== undefined && body.agent !== 'nna') {
     throw new ContractError('nnd_agent_override_unsupported', 'NNA owns agent routing; per-prompt agent override is unavailable');
+  }
+  // Why: NND's prompt body carries variant (model effort) and delivery ('steer'|'queue'),
+  // but NNA's request path reads only content/attachments (ingress -> Engine.submit) and
+  // takes reasoning effort from the configured provider route, while steer/queue have no
+  // root-session path here (child steering is a separate grant route, nnd-session-registry).
+  // Silently dropping them would show the operator a machine state that never applies.
+  // Compatibility: NND must stop sending variant/delivery until NNA gains per-prompt controls.
+  if (body?.variant !== undefined) {
+    throw new ContractError('nnd_variant_override_unsupported', 'NNA uses its configured model effort; per-prompt variant is unavailable');
+  }
+  if (body?.delivery !== undefined) {
+    throw new ContractError('nnd_delivery_override_unsupported', 'NNA submits each prompt directly to the session; per-prompt delivery (steer/queue) is unavailable');
   }
 }
 
