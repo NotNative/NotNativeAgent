@@ -13,7 +13,7 @@ import { DeletedActivityWindow } from './deleted-activity-window.tsx';
 
 export function ActivitySurface({ store, directory, sessionID, expanded, onReviewPath, onOpenSubagent }: {
   store: StoreApi<DirectoryStore>; directory: string; sessionID: string | null; expanded: boolean;
-  onReviewPath: (path: string) => void; onOpenSubagent: (sessionID: string) => void;
+  onReviewPath?: (path: string) => void; onOpenSubagent: (sessionID: string) => void;
 }): ReactNode {
   const intlLocale = useCurrentIntlLocale();
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
@@ -96,9 +96,9 @@ export function ActivitySurface({ store, directory, sessionID, expanded, onRevie
             && snapshot.session.some((session) => session.id === record.childSessionID && session.parentID === record.sessionID)
             ? <button type="button" className="mt-1 text-sky-300 hover:underline"
               onClick={() => onOpenSubagent(record.childSessionID!)}>Open subagent transcript</button> : null}
-          {record.status === 'completed' && record.toolEvidence?.reviewPath
+          {onReviewPath && record.status === 'completed' && record.toolEvidence?.reviewPath
             && record.toolEvidence.reviewDirectory === directory ? <button type="button"
-            className="mt-1 text-sky-300 hover:underline" onClick={() => onReviewPath(record.toolEvidence!.reviewPath!)}>
+            className="mt-1 text-sky-300 hover:underline" onClick={() => onReviewPath?.(record.toolEvidence!.reviewPath!)}>
             Review file in Changes</button> : null}
           {(record.evidenceMessageID || record.toolEvidence?.turnRequestID)
             && snapshot.message[record.sessionID]?.some((message) => message.id === (record.evidenceMessageID || record.toolEvidence?.turnRequestID))

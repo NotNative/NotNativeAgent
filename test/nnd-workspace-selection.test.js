@@ -26,7 +26,7 @@ test('selected admitted root binds engine, catalog and replay; revocation blocks
   const principal = { subjectId: 'operator', workspaceIds: [primary.id, selected.id] };
   let turnPrincipal;
   const createHost = () => new NndEngineHost({ catalogPath, primaryWorkspaceBinding: resolver,
-    createEngine: async input => ({ config: { workspaceRoot: input.workspaceBinding.configured_root },
+    createEngine: async input => ({ config: { workspaceRoot: input.workspaceBinding.configured_root, attachments: { enabled: true, maxBytes: 1000 } },
       async initialize() {}, async shutdown() {},
       async submit(_command, actor) { turnPrincipal = actor; return { accepted: true }; } }) });
   const first = createHost();
@@ -73,18 +73,18 @@ test('native session HTTP selects only an admitted identity and projects both ro
   } };
   let localOperator = true;
   const host = new NndEngineHost({ primaryWorkspaceBinding: createNndWorkspaceBindingResolver(primaryRoot, service),
-    createEngine: async input => ({ config: { workspaceRoot: input.workspaceBinding.configured_root },
+    createEngine: async input => ({ config: { workspaceRoot: input.workspaceBinding.configured_root, attachments: { enabled: true, maxBytes: 1000 } },
       async initialize() {}, async shutdown() {} }) });
   const server = await startIntegrationServer({ activation: createNndLocalIntegrationActivation(),
     token: 'workspace-selection-http-token-36-characters', port: 0,
     nndEngineHost: host, nndWorkspaceRoot: primaryRoot, nndWorkspaceAdmissionService: service,
     resolvePrincipal: () => ({ subjectId: localOperator ? 'nnd-local-operator' : 'scoped-user',
       platformRole: 'operator', workspaceIds: [primary.id],
-      permissions: ['nnd.workspace.read', 'nnd.workspace.manage', 'nnd.read', 'nnd.session.create'] }) });
+      permissions: ['nnd.workspace.read', 'nnd.workspace.manage', 'nnd.read', 'nnd.session.create', 'nnd.session.update', 'nnd.session.submit'] }) });
   t.after(async () => { server.server.closeAllConnections(); await server.close(); await host.shutdown(); });
   const base = `http://127.0.0.1:${server.address.port}`;
-  const call = async (path, body) => {
-    const response = await fetch(base + path, { method: body ? 'POST' : 'GET',
+  const call = async (path, body, method = body ? 'POST' : 'GET') => {
+    const response = await fetch(base + path, { method,
       headers: { authorization: 'Bearer workspace-selection-http-token-36-characters',
         ...(body ? { 'content-type': 'application/json' } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}) });
@@ -96,7 +96,16 @@ test('native session HTTP selects only an admitted identity and projects both ro
   assert.equal(created.status, 201);
   assert.equal(created.value.directory, selectedRoot);
   assert.equal(created.value.projectID, selected.id);
+  const reviewPath = `/v1/nnd/sessions/${created.value.id}/review-mode`;
+  const mode = await call(reviewPath);
+  assert.equal(mode.status, 200);
+  const changed = await call(reviewPath, { mode: 'unattended', expected_revision: mode.value.revision }, 'PUT');
+  assert.equal(changed.status, 200); assert.equal(changed.value.effective, 'unattended');
+  const upload = await call(`/v1/nnd/sessions/${created.value.id}/attachments`, { upload_id: 'probe', filename: 'probe.txt', mime_type: 'text/plain', data_url: 'data:text/plain;base64,aGVsbG8=' });
+  assert.equal(upload.status, 201); assert.equal(upload.value.upload_id, 'probe');
   localOperator = false;
+  assert.notEqual((await call(reviewPath)).status, 200);
+  assert.equal((await call(`/v1/nnd/sessions/${created.value.id}/attachments`, { name: 'probe.txt' })).value.error.code, 'nnd_session_unavailable');
   assert.deepEqual((await call('/project')).value.map(row => row.id), ['nna_workspace']);
   assert.notEqual((await call('/session', { workspace_id: selected.id, directory: selectedRoot })).status, 201);
   localOperator = true;

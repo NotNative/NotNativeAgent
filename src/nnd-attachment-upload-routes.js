@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Authenticated upload admission precedes any native prompt acknowledgement. */
+import { admittedWorkspaceContext } from './nnd-workspace-request-context.js';
 import { ContractError, requireExternalId } from './ids.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { readJsonBody, send } from './secret-broker-server.js';
@@ -10,6 +11,7 @@ const BODY_BYTES = 1_400_000;
 export async function dispatchNndAttachmentUploadRequest(request, response, context) {
   const match = ROUTE.exec(context.url.pathname);
   if (!match) return false;
+  context = await admittedWorkspaceContext(context);
   if (request.method !== 'POST') return send(response, 405,
     { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
   requireIntegrationPermission(context.principal, 'nnd.session.submit');

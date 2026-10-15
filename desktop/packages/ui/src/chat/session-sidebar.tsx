@@ -6,7 +6,7 @@
  * delete), search with exact-ID rule, draft targeting, and the archived
  * split view from the global sessions cache.
  */
-import { useEffect, useSyncExternalStore, useMemo, useRef, useState, type ReactNode, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useSyncExternalStore, useMemo, useRef, useState, type ReactNode, type ChangeEvent } from 'react';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore } from '../sync/global-stores.ts';
@@ -35,6 +35,7 @@ import { SidebarIcon } from './sidebar-icon.tsx';
 import { SidebarRow } from './session-sidebar-row.tsx';
 import { useWorkspaceAddition } from './use-workspace-addition.tsx';
 
+import { useSidebarInteractions, moveWorkspaceOrder, workspaceOrderList } from './sidebar-interactions.tsx';
 const AVATAR_LIMIT = 50;
 
 function subscribeRuntimeKey(notify: () => void): () => void {
@@ -68,7 +69,9 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [collapsedZones, setCollapsedZones] = useSidebarPreference<Record<string, true>>('collapsed', {}, collapsedMap);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [sortBy, setSortBy] = useSidebarPreference<'activity' | 'name'>('sort', 'activity', oneOf('activity', 'name'));
+  const [sortBy, setSortBy] = useSidebarPreference<'activity' | 'name' | 'manual'>('sort', 'activity', oneOf('activity', 'name', 'manual'));
+  const [manualOrder, setManualOrder] = useSidebarPreference<string[]>('workspace-order', [], workspaceOrderList);
+  const sidebar = useSidebarInteractions(useCallback(() => setFilterOpen(false), []));
   const [groupBy, setGroupBy] = useSidebarPreference<'workspace' | 'list'>('group', 'workspace', oneOf('workspace', 'list'));
   const [archiveMode, setArchiveMode] = useSidebarPreference<'active' | 'all' | 'archived'>('archive', 'active', oneOf('active', 'all', 'archived'));
   const [listLimit, setListLimit] = useState(AVATAR_LIMIT);
@@ -206,8 +209,12 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
     nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
   }
 
+  const compareZones = ([left, a]: [string, Session[]], [right, b]: [string, Session[]]) => sortBy === 'manual' ? (manualOrder.indexOf(left) < 0 ? 256 : manualOrder.indexOf(left)) - (manualOrder.indexOf(right) < 0 ? 256 : manualOrder.indexOf(right)) || left.localeCompare(right)
+    : sortBy === 'name' ? (workspaceDisplay(left, workspaceDisplays).label || shortDirectory(left)).localeCompare(workspaceDisplay(right, workspaceDisplays).label || shortDirectory(right)) || left.localeCompare(right)
+      : Math.max(0, ...b.map(row => row.time.updated)) - Math.max(0, ...a.map(row => row.time.updated)) || left.localeCompare(right);
   return (
-    <aside className="flex w-72 min-w-64 flex-col border-r border-white/10 bg-[#171719]" data-testid="session-sidebar">
+    <aside ref={sidebar.root} style={{ width: sidebar.width }} className="relative flex shrink-0 flex-col border-r border-white/10 bg-[#171719]" data-testid="session-sidebar">
+      {sidebar.grip}
       <nav className="relative border-b border-white/10 px-3 pb-3 pt-4">
         <div className="mb-3 flex items-center justify-between gap-2">
           <span className="text-[13px] font-medium text-neutral-200">Workspaces</span>
@@ -228,6 +235,8 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => setArchiveMode('archived')}>Archived only {archiveMode === 'archived' ? '✓' : ''}</button>
           <div className="mt-2 border-t border-white/10 pt-2" />
           <div className="px-2 pb-1 text-[11px] text-neutral-400">Order workspaces</div>
+          <button type="button" className="w-full rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => { setSortBy('manual'); setFilterOpen(false); }}>Manual {sortBy === 'manual' ? '✓' : ''}</button>
+          {props.nativeAlpha ? <button type="button" data-testid="sidebar-select-toggle" aria-pressed={selecting} className="w-full px-2 py-1.5 text-left hover:bg-white/10" onClick={() => { setSelecting(!selecting); clearSelected(); setFilterOpen(false); }}>{selecting ? 'Exit selection' : 'Select sessions'}</button> : null}
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => { setSortBy('activity'); setFilterOpen(false); }}>Recent activity {sortBy === 'activity' ? '✓' : ''}</button>
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => { setSortBy('name'); setFilterOpen(false); }}>Name {sortBy === 'name' ? '✓' : ''}</button>
         </div> : null}
@@ -240,9 +249,9 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
         <button type="button" data-testid="sidebar-new-session" className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-[13px] font-medium text-neutral-100 hover:bg-white/15" onClick={event => { if (event.detail < 2) props.actions.openDraft(props.currentDirectory); }}>
           <SidebarIcon name="plus" /> New conversation
         </button>
-        <button type="button" data-testid="sidebar-select-toggle" aria-pressed={selecting} className="mt-2 w-full rounded-lg px-2 py-1.5 text-left text-[12px] text-neutral-400 hover:bg-white/5 hover:text-neutral-200" onClick={() => { setSelecting(!selecting); clearSelected(); }}>
+        {!props.nativeAlpha || selecting ? <button type="button" data-testid="sidebar-select-toggle" aria-pressed={selecting} className="mt-2 w-full rounded-lg px-2 py-1.5 text-left text-[12px] text-neutral-400 hover:bg-white/5 hover:text-neutral-200" onClick={() => { setSelecting(!selecting); clearSelected(); }}>
           {selecting ? 'Exit selection' : 'Select sessions'}
-        </button>
+        </button> : null}
       </nav>
       {selecting ? <div className="border-y border-white/10 px-3 py-2 text-[11px] text-neutral-400" data-testid="sidebar-bulk-actions">
         <div>{selected.length} selected <span className="text-neutral-600">· parent sessions; children follow their parent</span></div>
@@ -279,14 +288,13 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           {filtered.length > listLimit ? <li><button type="button" className="w-full rounded px-3 py-2 text-left text-xs text-sky-300 hover:bg-white/5" onClick={() => setListLimit(limit => limit + AVATAR_LIMIT)}>Show {Math.min(AVATAR_LIMIT, filtered.length - listLimit)} more conversations</button></li> : null}
         </ul> : [...zones.entries()]
           .filter(([directory]) => filteredDirectories.has(directory) && (query.trim() || showHidden || !workspaceDisplay(directory, workspaceDisplays).hidden))
-          .sort(([left, leftSessions], [right, rightSessions]) => left === currentWorkspace ? -1 : right === currentWorkspace ? 1
-            : sortBy === 'name' ? left.localeCompare(right)
-              : Math.max(0, ...rightSessions.map(session => session.time.updated)) - Math.max(0, ...leftSessions.map(session => session.time.updated)) || left.localeCompare(right))
+          .sort(compareZones)
           .map(([directory, sessions]) => (
             <Zone
               key={directory}
               showDrafts={archiveMode !== 'archived' && !query.trim()}
               display={workspaceDisplay(directory, workspaceDisplays)}
+              onMove={distance => { setManualOrder(moveWorkspaceOrder([...zones.entries()].sort(compareZones).map(([path]) => path), directory, distance)); setSortBy('manual'); }}
               directory={directory}
               sessions={filtered.filter((session) => normalizeDirectory(session.directory ?? 'global') === directory)}
               statusById={statusById}
@@ -316,7 +324,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
             />
           ))}
       </div>
-      {archiveMode === 'active' ? <div className="border-t border-white/10 px-2 py-2" data-testid="sidebar-archive">
+      {archiveMode === 'active' ? props.nativeAlpha ? <button type="button" className="border-t border-white/10 px-4 py-3 text-left text-xs text-neutral-400 hover:bg-white/5" onClick={() => setArchiveMode('archived')}>Archived conversations ({sessionsGlobal.archived.length})</button> : <div className="border-t border-white/10 px-2 py-2" data-testid="sidebar-archive">
         {props.onOpenArchive ? <button type="button" data-testid="sidebar-archive-view" className="w-full rounded px-2 py-1 text-left text-[11px] text-neutral-400 hover:bg-white/5 hover:text-neutral-100" onClick={props.onOpenArchive}>
           View all archived sessions ({sessionsGlobal.archived.length})
         </button> : null}
@@ -343,7 +351,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   );
 }
 
-function Zone({ showDrafts, display, directory, sessions, statusById, ranks, pinnedIds, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName, selecting, selectedIds, onToggleSelected, sessionListStatus, onRunFusion, allowFolders, expandedIds, onToggleExpanded }: { showDrafts?: boolean; display?: { id: string | null; label: string; hidden: boolean }; directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; pinnedIds: ReadonlySet<string>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean; selecting: boolean; selectedIds: ReadonlySet<string>; onToggleSelected: (ids: string[]) => void; sessionListStatus: 'idle' | 'loading' | 'ready' | 'error'; onRunFusion?: (session: Session) => void; allowFolders: boolean; expandedIds: ReadonlySet<string>; onToggleExpanded: (id: string) => void }): ReactNode {
+function Zone({ onMove, showDrafts, display, directory, sessions, statusById, ranks, pinnedIds, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName, selecting, selectedIds, onToggleSelected, sessionListStatus, onRunFusion, allowFolders, expandedIds, onToggleExpanded }: { onMove: (distance: -1 | 1) => void; showDrafts?: boolean; display?: { id: string | null; label: string; hidden: boolean }; directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; pinnedIds: ReadonlySet<string>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean; selecting: boolean; selectedIds: ReadonlySet<string>; onToggleSelected: (ids: string[]) => void; sessionListStatus: 'idle' | 'loading' | 'ready' | 'error'; onRunFusion?: (session: Session) => void; allowFolders: boolean; expandedIds: ReadonlySet<string>; onToggleExpanded: (id: string) => void }): ReactNode {
   const zoneOpen = forceOpen || !zoneCollapsed;
   // Lifecycle ordering per doc 04 §F.10: baseline desc → created desc → id asc.
   const ordered = orderSessionsByLifecycleWrap(sessions);
@@ -413,7 +421,8 @@ function Zone({ showDrafts, display, directory, sessions, statusById, ranks, pin
           <button type="button" aria-label={`New draft session in ${directory || 'general'}`} title="New conversation" className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-neutral-100" onClick={event => { if (event.detail < 2) actions.openDraft(directory); }}><SidebarIcon name="plus" /></button>
           <details className="relative">
             <summary aria-label={`More actions for ${directory || 'general'} workspace`} title="Workspace actions" className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-neutral-100"><SidebarIcon name="more" /></summary>
-            <div className="absolute right-0 top-9 z-30 w-44 rounded-xl border border-white/15 bg-neutral-800 p-1.5 shadow-xl">
+            <div className="absolute right-0 top-9 z-30 w-44 rounded-xl border border-white/15 bg-neutral-800 p-1.5 shadow-xl" onClick={event => { if ((event.target as Element).closest('button')) event.currentTarget.closest('details')?.removeAttribute('open'); }}>
+              <button type="button" className="w-full rounded px-3 py-2 text-left text-xs hover:bg-white/10" onClick={() => onMove(-1)}>Move workspace up</button><button type="button" className="w-full rounded px-3 py-2 text-left text-xs hover:bg-white/10" onClick={() => onMove(1)}>Move workspace down</button>
               <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-xs text-neutral-100 hover:bg-white/10" onClick={() => actions.openDraft(directory)}>New conversation</button>
               {display?.id ? <WorkspaceMenu id={display.id} label={display.label || shortDirectory(directory)} hidden={display.hidden} /> : null}
               <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-xs text-neutral-300 hover:bg-white/10" onClick={() => {

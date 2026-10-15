@@ -1299,3 +1299,17 @@ describe('OperatorRail', () => {
     expect((document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
   });
 });
+
+
+it('native workspace panels hide unsupported actions and ignore a saved terminal selection', () => {
+  vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+  localStorage.setItem('nnd.operator-rail.surface:D:/work', 'terminal');
+  container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+  act(() => rootHandle!.render(<I18nProvider><OperatorRail nativeAlpha store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
+  const labels = [...container.querySelectorAll('nav[aria-label="Operator surfaces"] button')].map(button => button.getAttribute('aria-label'));
+  expect(labels).toEqual(['Context', 'Activity', 'Walkthrough', 'Customize operator panels']);
+  expect(container.querySelector('[data-testid="terminal-keepalive-controller"]')).toBeNull();
+  act(() => (container!.querySelector('[aria-label="Customize operator panels"]') as HTMLButtonElement).click());
+  expect(container.querySelector('[aria-label="Show Terminal"]')).toBeNull();
+  expect(container.querySelector('[aria-label="Show Files"]')).toBeNull();
+});

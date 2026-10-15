@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { harnessClient } from '../lib/nnd/client.ts';
 import { useConversationDraftStore } from '../stores/useConversationDraftStore.ts';
 import { readDraft } from './drafts.ts';
@@ -13,6 +13,9 @@ export function ConversationSettings({ directory, draftId, model, onModel }: {
   const draft = useConversationDraftStore(state => state.drafts.find(row => row.id === draftId));
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const discovery = useRef(0);
+  const [discovering, setDiscovering] = useState(false);
+  useEffect(() => () => { discovery.current += 1; }, []);
   const [models, setModels] = useState<string[]>([]);
   const selected = draft?.model ?? model;
   const locked = Boolean(readDraft(directory, draftId).start);
@@ -39,19 +42,21 @@ export function ConversationSettings({ directory, draftId, model, onModel }: {
       try { useConversationDraftStore.getState().update(draft.id, { reviewMode: event.target.value as 'auto-review' | 'unattended' }); } catch (failure) { toast.error(String(failure)); }
     }}><option value="auto-review">Auto-review</option><option value="unattended">Unattended review</option></select> : <span>Auto-review</span>}
     <select aria-label="Provider profile" disabled={locked} value={selected.providerID} className="rounded bg-neutral-800 px-2 py-1.5" onChange={event => {
-      const profile = profiles.find(row => row.profile_id === event.target.value); if (profile) { setModels([]); change({ providerID: profile.profile_id, modelID: profile.model }); }
+      const profile = profiles.find(row => row.profile_id === event.target.value); if (profile) { discovery.current += 1; setDiscovering(false); setModels([]); change({ providerID: profile.profile_id, modelID: profile.model }); }
     }}>
       {!profiles.some(row => row.profile_id === selected.providerID) ? <option value={selected.providerID}>{selected.providerID}</option> : null}
       {profiles.map(profile => <option key={profile.profile_id} value={profile.profile_id}>{profile.display_name || profile.profile_id}</option>)}
     </select>
     <input aria-label="Provider model" disabled={locked} list={`models-${draftId}`} maxLength={256} value={selected.modelID} className="min-w-24 max-w-56 rounded bg-neutral-800 px-2 py-1.5" onChange={event => change({ ...selected, modelID: event.target.value })} />
     <datalist id={`models-${draftId}`}>{models.map(name => <option key={name} value={name} />)}</datalist>
-    <button type="button" disabled={locked} title="Discover models for the selected profile" onClick={() => {
+    <button type="button" disabled={locked || discovering} title="Discover models for the selected profile" onClick={() => {
+      const request = ++discovery.current; setDiscovering(true);
       void harnessClient.discoverProviderModels(selected.providerID).then(response => {
+        if (request !== discovery.current) return;
         if (response.error) { toast.error(response.error); return; }
         setModels((response.data?.models ?? []).map(value => typeof value === 'string' ? value : (value as { id?: string })?.id).filter((value): value is string => !!value).slice(0, 256));
-      }).catch(() => toast.error('Could not discover models. You can enter a model name.'));
-    }}>Find models</button>
+      }).catch(() => { if (request === discovery.current) toast.error('Could not discover models. You can enter a model name.'); }).finally(() => { if (request === discovery.current) setDiscovering(false); });
+    }}>{discovering ? 'Finding models…' : 'Find models'}</button>
     {error ? <span role="status" className="text-amber-300">{error}</span> : null}
   </div>;
 }

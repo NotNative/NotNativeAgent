@@ -36,3 +36,5 @@ The draft persists its start snapshot before creation. First-message retries ret
 session and message ID, revalidate their directory and model, and resend the original snapshot.
 Definite pre-creation refusals allow edits. Unknown outcomes retain the snapshot for recovery.
 Navigation during a start does not select the completed session or overwrite another draft.
+
+Operator controls and uploads resolve the same authenticated admitted workspace scope as session creation. Sidebar width, manual ordering, grouping, and expansion are presentation preferences. Native operator panels expose Context, Activity, and Walkthrough; unsupported mutation surfaces are hidden.

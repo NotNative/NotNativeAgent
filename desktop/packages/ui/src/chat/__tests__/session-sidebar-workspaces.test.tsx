@@ -103,9 +103,7 @@ it('lists admitted empty workspaces and opens a new conversation in the selected
   });
   const { node, openDraft } = mount('D:/work', vi.fn(), true);
   await act(async () => { await Promise.resolve(); });
-  expect([...node.querySelectorAll('[data-testid="workspace-zone"]')].map(zone => zone.textContent)).toEqual([
-    expect.stringContaining('work'), expect.stringContaining('other'),
-  ]);
+  expect([...node.querySelectorAll('[data-workspace-directory]')].map(row => row.getAttribute('data-workspace-directory'))).toEqual(['D:/other', 'D:/work']);
   act(() => node.querySelector<HTMLButtonElement>('[aria-label="New draft session in D:/other"]')!.click());
   expect(openDraft).toHaveBeenCalledWith('D:/other');
 });
@@ -141,7 +139,7 @@ it('opens search from the header and applies the workspace order filter', () => 
   act(() => ([...node.querySelectorAll<HTMLButtonElement>('[data-testid="sidebar-filter-menu"] button')]
     .find(button => button.textContent?.includes('Name'))!).click());
   const names = [...node.querySelectorAll('[data-testid="workspace-zone"]')].map(zone => zone.querySelector('[data-workspace-directory]')?.getAttribute('data-workspace-directory'));
-  expect(names).toEqual(['D:/work', 'D:/alpha', 'D:/zeta']);
+  expect(names).toEqual(['D:/alpha', 'D:/work', 'D:/zeta']);
 });
 
 it('shows archived conversations in a flat list and offers restore', () => {
@@ -298,6 +296,7 @@ it('does not offer folder actions that the native service cannot save', async ()
   await act(async () => { await Promise.resolve(); });
   expect(node.querySelector('[aria-label="New folder in D:/work"]')).toBeNull();
   expect(node.querySelector('[data-testid="session-file-into"]')).toBeNull();
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Filter conversations"]')!.click());
   act(() => node.querySelector<HTMLButtonElement>('[data-testid="sidebar-select-toggle"]')!.click());
   expect(node.textContent).not.toContain('Move to folder');
 });
@@ -348,20 +347,20 @@ it('opens a readable conversation menu and forks through the existing session ac
   expect(fork).toHaveBeenCalledExactlyOnceWith('source', 'D:/work');
 });
 
-it('puts the active workspace first and folds its sessions without hiding its actions', () => {
+it('keeps workspace order stable and folds sessions without hiding actions', () => {
   useGlobalSessionsStore.setState({ active: [session('s-other', 'D:/other', 'Other chat'), session('s-current', 'D:/work', 'Current chat')] });
   const { node } = mount('D:/work');
   const zones = [...node.querySelectorAll('[data-testid="workspace-zone"]')];
   expect(zones).toHaveLength(2);
-  expect(zones[0]?.textContent).toContain('work');
-  const toggle = zones[0]!.querySelector('[data-testid="workspace-zone-toggle"]') as HTMLButtonElement;
+  expect(zones[0]?.querySelector('[data-workspace-directory]')?.getAttribute('data-workspace-directory')).toBe('D:/other');
+  const toggle = zones[1]!.querySelector('[data-testid="workspace-zone-toggle"]') as HTMLButtonElement;
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
   act(() => toggle.click());
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
-  expect(zones[0]!.querySelector('[data-testid="session-row"]')).toBeNull();
-  expect(zones[0]!.querySelector('[aria-label="New draft session in D:/work"]')).toBeTruthy();
+  expect(zones[1]!.querySelector('[data-testid="session-row"]')).toBeNull();
+  expect(zones[1]!.querySelector('[aria-label="New draft session in D:/work"]')).toBeTruthy();
   act(() => toggle.click());
-  expect(zones[0]!.querySelector('[data-testid="session-row"]')?.textContent).toContain('Current chat');
+  expect(zones[1]!.querySelector('[data-testid="session-row"]')?.textContent).toContain('Current chat');
 });
 
 it('reveals a matching session in a collapsed workspace during search', () => {
@@ -601,4 +600,24 @@ it('restores the grouping preference after the sidebar remounts', () => {
   act(() => root!.unmount()); container!.remove();
   ({ node } = mount('D:/work'));
   expect(node.querySelector('[data-testid="sidebar-flat-list"]')).toBeTruthy();
+});
+
+
+it('resizes the workspace sidebar with the keyboard and saves its width', () => {
+  const { node } = mount('D:/work');
+  const grip = node.querySelector('[aria-label="Resize workspace sidebar"]')!;
+  act(() => grip.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
+  expect(grip.getAttribute('aria-valuenow')).toBe('312');
+  expect(localStorage.getItem('nnd.sidebar.v1:local:width')).toBe('312');
+});
+it('saves manual workspace ordering and closes an action menu', () => {
+  useGlobalSessionsStore.setState({ active: [session('a', 'D:/alpha', 'First'), session('b', 'D:/work', 'Second')] });
+  const { node } = mount('D:/work');
+  const workspace = node.querySelector('[data-workspace-directory="D:/work"]')!.closest('section')!;
+  const menu = workspace.querySelector('details')!;
+  act(() => (menu.querySelector('summary') as HTMLElement).click());
+  act(() => ([...menu.querySelectorAll('button')].find(button => button.textContent === 'Move workspace up')!).click());
+  expect(menu.open).toBe(false);
+  expect([...node.querySelectorAll('[data-workspace-directory]')].map(row => row.getAttribute('data-workspace-directory'))).toEqual(['D:/work', 'D:/alpha']);
+  expect(JSON.parse(localStorage.getItem('nnd.sidebar.v1:local:workspace-order')!)).toEqual(['D:/work', 'D:/alpha']);
 });

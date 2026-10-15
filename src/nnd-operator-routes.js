@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { admittedWorkspaceContext } from './nnd-workspace-request-context.js';
 import { ContractError, requireExternalId } from './ids.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
@@ -20,6 +21,7 @@ export async function dispatchNndOperatorRequest(request, response, context) {
   const walkthrough = WALKTHROUGH_ROUTE.exec(context.url.pathname);
   const review = REVIEW_ROUTE.exec(context.url.pathname);
   if (!capability && !steer && !goal && !goalEvidence && !goalAudit && !walkthrough && !review) return false;
+  context = await admittedWorkspaceContext(context);
   const encoded = (capability ?? steer ?? goal ?? goalEvidence ?? goalAudit ?? walkthrough ?? review)[1];
   let sessionId;
   try { sessionId = decodeURIComponent(encoded); requireExternalId(sessionId, 'session_id'); }

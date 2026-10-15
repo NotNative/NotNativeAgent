@@ -8,6 +8,7 @@ import { sseOpen } from './opencode/protocol.js';
 import { dispatchNndQuestionRequest } from './nnd-question-routes.js';
 import { dispatchNndNotificationRequest } from './nnd-notification-routes.js';
 import { dispatchNndAssistRequest } from './nnd-assist-routes.js';
+import { admittedWorkspaceContext } from './nnd-workspace-request-context.js';
 import { conversationCreation } from './nnd-conversation-start.js';
 import { modelRouteFromBody } from './nnd-session-model-route.js';
 const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort|fork|revert|unrevert))?$/u;
@@ -117,30 +118,6 @@ async function updateSession(request, response, context, host, id) {
     return send(response, 200, await host.setArchived(id, context.principal, body.time.archived));
   }
   throw new ContractError('request_invalid', 'NND session update supports title or archived time');
-}
-
-async function admittedWorkspaceContext(context) {
-  const path = context.url.pathname;
-  const workspaceRoute = path === '/project' || path === '/project/current'
-    || path === '/session' || path.startsWith('/session/') || path === '/session/status'
-    || path === '/global/event' || path === '/event' || path === '/v1/nnd/pending'
-    || path === ACTIVITY_TOMBSTONES_ROUTE || ACTIVITY_HISTORY_ROUTE.test(path);
-  if (workspaceRoute && context.nndWorkspaceAdmissionService
-    && context.principal.subjectId === 'nnd-local-operator'
-    && context.principal.platformRole === 'operator'
-    && context.principal.permissions.includes('nnd.workspace.manage')) {
-    let inventory;
-    try { inventory = await context.nndWorkspaceAdmissionService.inventory(context.principal); }
-    catch (error) {
-      // Why: an unavailable admitted root must not disable the attached root.
-      if (error?.code === 'nnd_workspace_admission_identity_mismatch') return context;
-      throw error;
-    }
-    return { ...context, workspaceInventory: inventory,
-      principal: { ...context.principal, workspaceIds: [...new Set([
-        ...context.principal.workspaceIds, ...inventory.admitted.map(row => row.id)])] } };
-  }
-  return context;
 }
 
 /** Owner-scoped deletion receipts, never a complete history or a foreign-session lookup. */

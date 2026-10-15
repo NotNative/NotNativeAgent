@@ -352,9 +352,7 @@ export function MainLayout(): ReactNode {
       </header> : null}
       <AuthExpiredBanner />
       {defaultWorkspaceError ? <p role="alert" className="px-3 py-2 text-xs text-amber-300">{defaultWorkspaceError}</p> : null}
-      {nativeAlpha ? <div role="status" data-testid="native-alpha-notice" className="border-b border-amber-800/50 bg-amber-950/30 px-3 py-1 text-xs text-amber-200">
-        Native alpha: chat and NNA review are available. File, Git, queue, and other workspace actions are waiting for native review support.
-      </div> : null}
+
         {miniChat ? <ChatView services={services} currentDirectory={activeDirectory} nativeAlpha={nativeAlpha} /> : null}
         {!miniChat ? <main className="flex min-w-0 flex-1" aria-label="Workspace content">{filesOpen ? (
           <FilesView key={JSON.stringify([runtimeKey, activeDirectory])} directory={activeDirectory} visible />

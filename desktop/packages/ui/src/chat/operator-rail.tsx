@@ -31,6 +31,7 @@ import { useContextRoute } from '../components/use-context-route.ts';
 export { resolveContextProjectId } from './operator-context-project.ts';
 
 type Surface = 'context' | 'activity' | 'changes' | 'files' | 'worktrees' | 'walkthrough' | 'notes' | 'browser' | 'terminal';
+const NATIVE_SURFACES: readonly Surface[] = ['context', 'activity', 'walkthrough'];
 const SURFACES: readonly { id: Surface; label: string }[] = [
   { id: 'context', label: 'Context' },
   { id: 'activity', label: 'Activity' },
@@ -48,9 +49,9 @@ const DEFAULT_PANEL_PREFERENCES: PanelPreferences = {
   order: SURFACES.map((item) => item.id), visible: SURFACES.map((item) => item.id),
 };
 
-export function OperatorRail({ store, engine, directory, displayedSessionID, compactOpen = false, suppressed = false, onCloseCompact }: {
+export function OperatorRail({ store, engine, directory, displayedSessionID, nativeAlpha = false, compactOpen = false, suppressed = false, onCloseCompact }: {
   store: StoreApi<DirectoryStore>; engine: SyncEngine; directory: string; displayedSessionID?: string | null;
-  compactOpen?: boolean; suppressed?: boolean; onCloseCompact?: () => void;
+  nativeAlpha?: boolean; compactOpen?: boolean; suppressed?: boolean; onCloseCompact?: () => void;
 }): ReactNode {
   // Keep the rail paired with the displayed chat during a cold switch.
   const walkthroughSessionId = useSessionViewStore((state) => displayedSessionID !== undefined
@@ -106,7 +107,9 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, com
   const selectionKey = surfaceSelectionKey(storageKey);
   const preferencesKey = panelPreferencesKey(storageKey);
   const [panelState, setPanelState] = useState(() => ({ key: preferencesKey, value: readPanelPreferences(preferencesKey) }));
-  const panels = panelState.key === preferencesKey ? panelState.value : readPanelPreferences(preferencesKey);
+  const savedPanels = panelState.key === preferencesKey ? panelState.value : readPanelPreferences(preferencesKey);
+  const nativeVisible = savedPanels.visible.filter(id => NATIVE_SURFACES.includes(id));
+  const panels = nativeAlpha ? { order: savedPanels.order.filter(id => NATIVE_SURFACES.includes(id)), visible: nativeVisible.length ? nativeVisible : ['context'] as Surface[] } : savedPanels;
   const [customizing, setCustomizing] = useState(false);
   const [reviewRequest, setReviewRequest] = useState<ReviewRequest | null>(null);
   const [diffRoute, setDiffRoute] = useState<{ identity: string; path: string | null; revision: number } | null>(null);
@@ -155,6 +158,7 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, com
   useContextRoute(directory, walkthroughSessionId, (request) => {
     if (request.tab === 'chat') { setPanelOpen(false); return; }
     const requested: Surface = request.tab === 'git' || request.tab === 'diff' ? 'changes' : request.tab;
+    if (nativeAlpha && !NATIVE_SURFACES.includes(requested)) return;
     if (!panels.visible.includes(requested)) changePanels({ ...panels, visible: [...panels.visible, requested] });
     setSelection({ key: selectionKey, surface: requested });
     setPanelOpen(true);
@@ -166,7 +170,7 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, com
   // exists for the governed bridge actions (F7).
   useEffect(() => {
     const request = () => {
-      if (selection.key !== selectionKey) return;
+      if (nativeAlpha || selection.key !== selectionKey) return;
       if (!panels.visible.includes('browser')) changePanels({ ...panels, visible: [...panels.visible, 'browser'] });
       setBrowserOpenedKey(storageKey);
       setPanelOpen(true);
@@ -174,7 +178,7 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, com
     };
     window.addEventListener('nnd-browser-pane-request', request);
     return () => window.removeEventListener('nnd-browser-pane-request', request);
-  }, [selection.key, selectionKey, panels, changePanels, storageKey]); // panelOpen setter is stable
+  }, [selection.key, selectionKey, panels, changePanels, storageKey, nativeAlpha]); // panelOpen setter is stable
   // Keep opened views mounted across rail surfaces. A project switch remounts
   // Notes, while the single dirty-draft lease above survives that remount.
   const [terminalOpenedKey, setTerminalOpenedKey] = useState<string | null>(() => selection.surface === 'terminal' ? storageKey : null);
@@ -316,12 +320,12 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, com
           persistLastActiveSession(sessionID, directory);
           useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
           if (compactOpen) onCloseCompact?.();
-        }} onReviewPath={(path) => {
+        }} onReviewPath={nativeAlpha ? undefined : (path) => {
           setChangesMode('git');
           setReviewRequest({ directory, path, id: Date.now(), runtimeKey: getRuntimeKey() });
           setSelection({ key: selectionKey, surface: 'changes' });
         }} /> : null}
-        {changesOpenedKey === changesIdentity || surface === 'changes' ? <div className={surface === 'changes' ? 'h-full min-h-0' : 'hidden'}>
+        {!nativeAlpha && (changesOpenedKey === changesIdentity || surface === 'changes') ? <div className={surface === 'changes' ? 'h-full min-h-0' : 'hidden'}>
           <div className={routedDiff || surface !== 'changes' ? 'hidden' : 'h-full min-h-0'}><GitView key={changesIdentity} directory={directory} draftScope={commitDraftScope(getRuntimeKey(), directory)} visible={surface === 'changes' && paneVisible && !routedDiff} compact reviewRequest={reviewRequest?.runtimeKey === getRuntimeKey() ? reviewRequest : null}
             activityStore={store} sessionID={walkthroughSessionId}
           onOpenWalkthrough={() => {
@@ -330,12 +334,12 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, com
           }} /></div>
           {retainedDiff ? <div className={routedDiff ? 'h-full min-h-0' : 'hidden'}><DiffView key={changesIdentity} directory={directory} visible={surface === 'changes' && paneVisible && routedDiff} focusPath={diffRoute.path} focusRevision={diffRoute.revision} /></div> : null}
         </div> : null}
-        {filesOpenedKey === changesIdentity || surface === 'files' ? <div className={surface === 'files' ? 'h-full min-h-0' : 'hidden'}><OperatorFiles key={changesIdentity} directory={directory} visible={surface === 'files' && paneVisible} /></div> : null}
-        {worktreesOpenedKey === changesIdentity || surface === 'worktrees' ? <div className={surface === 'worktrees' ? 'h-full min-h-0' : 'hidden'}>
+        {!nativeAlpha && (filesOpenedKey === changesIdentity || surface === 'files') ? <div className={surface === 'files' ? 'h-full min-h-0' : 'hidden'}><OperatorFiles key={changesIdentity} directory={directory} visible={surface === 'files' && paneVisible} /></div> : null}
+        {!nativeAlpha && (worktreesOpenedKey === changesIdentity || surface === 'worktrees') ? <div className={surface === 'worktrees' ? 'h-full min-h-0' : 'hidden'}>
           <WorktreesView key={changesIdentity} projectRoot={directory} embedded visible={surface === 'worktrees' && paneVisible} />
         </div> : null}
         {surface === 'walkthrough' ? <WalkthroughPreviewSurface directory={directory} sessionId={walkthroughSessionId} visible={paneVisible} /> : null}
-        {notesOpenedKey === storageKey || surface === 'notes' ? (
+        {!nativeAlpha && (notesOpenedKey === storageKey || surface === 'notes') ? (
           <div className={surface === 'notes' ? 'h-full min-h-0' : 'hidden'}>
             <ProjectNotes key={storageKey} directory={directory} directoryKey={storageKey} projectId={projectId} visible={surface === 'notes' && paneVisible}
               contextDraft={projectId ? contextDrafts[projectId] : undefined} onContextDraftChange={retainContextDraft}
@@ -354,12 +358,12 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, com
               draftLease={notesDraft} setDraftLease={setNotesDraft} />
           </div>
         ) : null}
-        {terminalOpenedKey === storageKey || surface === 'terminal' ? (
+        {!nativeAlpha && (terminalOpenedKey === storageKey || surface === 'terminal') ? (
           <div className={surface === 'terminal' ? 'flex h-full min-h-0' : 'hidden'}>
             <TerminalView directory={directory} visible={surface === 'terminal' && paneVisible} compact />
           </div>
         ) : null}
-        {browserOpenedKey === storageKey || surface === 'browser' ? (
+        {!nativeAlpha && (browserOpenedKey === storageKey || surface === 'browser') ? (
           <div className={surface === 'browser' ? 'h-full min-h-0' : 'hidden'}>
             <BrowserSurface key={storageKey} visible={surface === 'browser' && paneVisible} />
           </div>
