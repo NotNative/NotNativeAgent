@@ -113,8 +113,10 @@ same installer when a newer release is available, so it upgrades a registered
 desktop component too. If desktop is not registered, an interactive `nna update`
 asks whether to install it. Answering Yes builds and registers the component;
 answering No leaves it uninstalled. A failed desktop upgrade makes the installer and
-`nna update` report failure; inspect `%USERPROFILE%\.nna\logs\nna-desktop-install.log`
-and rerun the installer after correcting the cause. `nna update --check` only
+`nna update` report failure; inspect the desktop install log path printed by the
+installer. Each attempt writes a new `nna-desktop-install-<id>.log` under the NNA
+data root's `logs` directory, with matching `.errors.log` and `.handoff.log`
+files. Rerun the installer after correcting the cause. `nna update --check` only
 checks for a newer repository version and does not install anything.
 
 No machine-wide files, services, scheduled tasks, or administrator settings are

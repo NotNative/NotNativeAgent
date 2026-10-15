@@ -882,7 +882,12 @@ Write-InstallerOk $InstalledVersion
 # here 2026-10-14).
 $NndRegistrationPath = Join-Path $DataRoot 'config\nnd-package.json'
 $DesktopRegistered = Test-Path -LiteralPath $NndRegistrationPath
-$DesktopInstallLog = Join-Path $DataRoot 'logs\nna-desktop-install.log'
+function New-DesktopInstallLogPath([string]$Root) {
+    # Invariant: the restarted service may retain the previous installer log
+    # handle. Each attempt must use a new file for status, build, and handoff.
+    return Join-Path (Join-Path $Root 'logs') ('nna-desktop-install-{0}.log' -f [Guid]::NewGuid().ToString('N'))
+}
+$DesktopInstallLog = New-DesktopInstallLogPath $DataRoot
 $DesktopInstallErrorLog = [IO.Path]::ChangeExtension($DesktopInstallLog, '.errors.log')
 $DesktopHandoffLog = [IO.Path]::ChangeExtension($DesktopInstallLog, '.handoff.log')
 function Invoke-DesktopInstaller {

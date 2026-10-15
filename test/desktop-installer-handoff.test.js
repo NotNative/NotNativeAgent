@@ -35,6 +35,25 @@ if ($script:prompts -ne 2) { throw 'Prompt count was incorrect' }
     assert.equal(run.status, 0, run.stdout + run.stderr);
   });
 
+test('desktop installer allocates a fresh log for every upgrade',
+  { skip: process.platform !== 'win32' }, () => {
+    const script = `$ErrorActionPreference = 'Stop'
+$tokens = $null; $errors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile(${literal(resolve('install.ps1'))}, [ref]$tokens, [ref]$errors)
+if ($errors.Count) { throw 'Root installer does not parse' }
+$fn = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'New-DesktopInstallLogPath' }, $true)
+if (!$fn) { throw 'Desktop log allocator is missing' }
+Invoke-Expression $fn.Extent.Text
+$first = New-DesktopInstallLogPath 'C:\\NNA data'
+$second = New-DesktopInstallLogPath 'C:\\NNA data'
+if ($first -eq $second -or $first -notmatch 'nna-desktop-install-[0-9a-f]{32}\\.log$' -or
+    $second -notmatch 'nna-desktop-install-[0-9a-f]{32}\\.log$') { throw 'Desktop logs are reused' }
+`;
+    const run = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      { encoding: 'utf8', timeout: 30000, windowsHide: true });
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+  });
+
 test('desktop handoff creates its log and preserves custom NNA and NND roots',
   { skip: process.platform !== 'win32' }, async t => {
     const fixture = await mkdtemp(join(tmpdir(), 'nna-desktop-handoff-'));
@@ -42,13 +61,16 @@ test('desktop handoff creates its log and preserves custom NNA and NND roots',
     const installRoot = join(fixture, 'custom NNA install');
     const dataRoot = join(fixture, 'custom NNA data');
     const desktopRoot = join(fixture, 'custom NND install');
-    const log = join(dataRoot, 'logs', 'nna-desktop-install.log');
+    const log = join(dataRoot, 'logs', 'nna-desktop-install-new.log');
+    const priorLog = join(dataRoot, 'logs', 'nna-desktop-install.log');
     const fakeInstaller = join(fixture, 'desktop.cmd');
     const fakeNpm = join(fixture, 'npm.cmd');
     const bootstrapMarker = join(fixture, 'pnpm-bootstrap-ran');
     const target = join(installRoot, 'installed');
     await mkdir(installRoot);
     await mkdir(desktopRoot);
+    await mkdir(join(dataRoot, 'logs'), { recursive: true });
+    await writeFile(priorLog, 'prior install output\n');
     await writeFile(join(desktopRoot, 'VERSION'), '20261014-9\n');
     await mkdir(join(target, 'src'), { recursive: true });
     await writeFile(join(target, 'src', 'cli.js'),
@@ -73,7 +95,8 @@ $Target = ${literal(target)}
 $DesktopRegistered = $true
 $Version = '20261014-9'
 $priorPath = $env:PATH
-$result = Invoke-DesktopInstaller
+$priorLogHandle = [IO.File]::Open(${literal(priorLog)}, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+try { $result = Invoke-DesktopInstaller } finally { $priorLogHandle.Dispose() }
 if ($result -ne 0) { throw "Desktop installer returned $result; log: $(Get-Content -LiteralPath $DesktopInstallLog -Raw)" }
 if ($env:PATH -cne $priorPath) { throw 'Desktop handoff did not restore PATH' }
 `;
