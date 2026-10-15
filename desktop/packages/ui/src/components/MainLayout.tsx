@@ -47,7 +47,6 @@ import { CommandPalette, openCommandPalette } from '../chat/command-palette.tsx'
 import { usePushPresence } from './push-presence.tsx';
 import { mountSessionRoute, notifySessionRouteNavigation } from '../lib/session-route.ts';
 import { useWorkspaceRoute } from './use-workspace-route.ts';
-import { WorkspaceToolRail, type WorkspaceTool } from './WorkspaceToolRail.tsx';
 
 function subscribeRuntimeKey(notify: () => void): () => void {
   window.addEventListener('notnative:runtime-endpoint-changed', notify);
@@ -88,15 +87,6 @@ export function MainLayout(): ReactNode {
 
   const showChat = useCallback(() => { setFilesOpen(false); setReviewPane(''); setArchiveOpen(false); }, []);
   const showArchive = (): void => { setFilesOpen(false); setReviewPane(''); setArchiveOpen(true); };
-  const selectTool = (tool: WorkspaceTool): void => {
-    if (tool === 'chat') { showChat(); return; }
-    if (tool === 'files') {
-      setReviewPane(''); setArchiveOpen(false); setFilesOpen(!filesOpen);
-      return;
-    }
-    setFilesOpen(false); setArchiveOpen(false);
-    setReviewPane(reviewPane === tool ? '' : tool);
-  };
   const { settingsPage, closeSettings, openSettings } = useWorkspaceRoute(runtimeKey, showChat);
   const [scheduledOpen, setScheduledOpen] = useState(false);
   const [multiRunOpen, setMultiRunOpen] = useState(false);
@@ -233,6 +223,7 @@ export function MainLayout(): ReactNode {
       persistLastActiveSession(null, directory); // draft intent clears the pointer
       useSessionViewStore.setState({ currentSessionId: null, activeDirectory: directory });
       notifySessionRouteNavigation();
+      requestAnimationFrame(() => window.dispatchEvent(new Event('nnd:focus-new-conversation')));
     },
     openSession: (sessionID: string, directory: string) => {
       showChat();
@@ -296,13 +287,18 @@ export function MainLayout(): ReactNode {
           <button type="button" aria-label={t('shell.minichat.pinAria')} title={t('shell.minichat.pin')} className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string }} onClick={() => { void togglePinned(); }}>⌖</button>
           <button type="button" aria-label={t('shell.minichat.closeAria')} title={t('shell.minichat.close')} className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string }} onClick={closeMiniChat}>×</button>
         </header>
-      ) : (
-      <header className="flex min-w-0 items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
+      ) : null}
+      <div className={`flex min-h-0 flex-1${miniChat ? ' overflow-hidden' : ''}`}>
+        {!miniChat ? <div id="session-sidebar-panel" className={sidebarOpen ? 'flex min-h-0 shrink-0' : 'hidden'} aria-hidden={!sidebarOpen}>
+          <ChatSidebar engine={engine} nativeAlpha={nativeAlpha} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} onOpenArchive={showArchive} onRunFusion={nativeAlpha ? undefined : openFusion} />
+        </div> : null}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {!miniChat ? <header className="flex min-w-0 items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
         <button type="button" aria-label="Toggle session sidebar" title="Toggle session sidebar"
           aria-expanded={sidebarOpen} aria-controls="session-sidebar-panel" onClick={() => setSidebarOpen(!sidebarOpen)}
           className="rounded px-2 py-1 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100">☰</button>
         <div className="text-[11px] uppercase tracking-widest text-amber-400/80">NotNative</div>
-        <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={runtimeKey} onOpenDraft={actions.openDraft} />
+        <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={runtimeKey} />
         <SessionTabs key={runtimeKey} engine={engine} directory={activeDirectory} onActivate={(session) => {
           if (session) actions.openSession(session.id, session.directory ?? activeDirectory);
           else actions.openDraft(activeDirectory);
@@ -322,29 +318,12 @@ export function MainLayout(): ReactNode {
         >
           ⚙
         </button>
-      </header>
-      )}
+      </header> : null}
       <AuthExpiredBanner />
       {nativeAlpha ? <div role="status" data-testid="native-alpha-notice" className="border-b border-amber-800/50 bg-amber-950/30 px-3 py-1 text-xs text-amber-200">
         Native alpha: chat and NNA review are available. File, Git, queue, and other workspace actions are waiting for native review support.
       </div> : null}
-      <div className={`flex min-h-0 flex-1${miniChat ? ' overflow-hidden' : ''}`}>
         {miniChat ? <ChatView services={services} currentDirectory={activeDirectory} /> : null}
-        {!miniChat ? <WorkspaceToolRail
-          active={filesOpen ? 'files' : reviewPane || (archiveOpen ? 'archive' : 'chat')}
-          nativeAlpha={nativeAlpha} terminalUnavailable={terminalUnavailable}
-          labels={{
-            chat: 'Chat', files: t('shell.nav.files'), diff: t('shell.nav.changes'),
-            git: t('shell.nav.git'), plan: t('shell.nav.plan'), terminal: t('terminal.title'),
-            'agent-groups': t('shell.nav.agentGroups'), scheduled: t('shell.nav.scheduledTasks'),
-            worktrees: t('shell.nav.worktrees'), multirun: t('shell.nav.multiRun'),
-          }}
-          onSelect={selectTool} onScheduled={openScheduled}
-          onWorktrees={() => setWorktreesOpen(true)} onMultiRun={() => setMultiRunOpen(true)}
-        /> : null}
-        {!miniChat ? <div id="session-sidebar-panel" className={sidebarOpen ? 'flex min-h-0 shrink-0' : 'hidden'} aria-hidden={!sidebarOpen}>
-          <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} onOpenArchive={showArchive} onRunFusion={nativeAlpha ? undefined : openFusion} />
-        </div> : null}
         {!miniChat ? <main className="flex min-w-0 flex-1" aria-label="Workspace content">{filesOpen ? (
           <FilesView key={JSON.stringify([runtimeKey, activeDirectory])} directory={activeDirectory} visible />
         ) : reviewPane === 'diff' ? (
@@ -371,6 +350,7 @@ export function MainLayout(): ReactNode {
         ) : (
           <ChatView services={services} currentDirectory={activeDirectory} />
         )}</main> : null}
+        </div>
       </div>
       {settingsPage !== null ? (
         <SettingsWindow initialPage={settingsPage} onPageChange={openSettings} onClose={closeSettings} nativeAlpha={nativeAlpha} />

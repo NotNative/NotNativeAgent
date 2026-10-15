@@ -10,6 +10,13 @@ import { useSessionFoldersStore } from '../../stores/useSessionFoldersStore.ts';
 import { useSessionPinnedStore } from '../../stores/useSessionPinnedStore.ts';
 import { useSessionExpansionStore } from '../../stores/useSessionExpansionStore.ts';
 import { initializeRuntimeEndpoint, switchRuntimeEndpoint } from '../../lib/runtime-switch.ts';
+import { addNativeWorkspace, readNativeWorkspaceAdmissions } from '../../lib/nnd/workspace-admission.ts';
+import { pickWorkspaceDirectory } from '../../lib/nnd/workspace-picker.ts';
+
+vi.mock('../../lib/nnd/workspace-admission.ts', () => ({
+  addNativeWorkspace: vi.fn(), readNativeWorkspaceAdmissions: vi.fn(),
+}));
+vi.mock('../../lib/nnd/workspace-picker.ts', () => ({ pickWorkspaceDirectory: vi.fn() }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 initializeRuntimeEndpoint({ apiBaseUrl: 'http://127.0.0.1:61776', runtimeKey: 'local' });
@@ -19,6 +26,13 @@ let originalLoad: () => Promise<void>;
 let originalSessionLoad: () => Promise<void>;
 
 beforeEach(() => {
+  vi.mocked(readNativeWorkspaceAdmissions).mockReset();
+  vi.mocked(addNativeWorkspace).mockReset();
+  vi.mocked(pickWorkspaceDirectory).mockReset();
+  vi.mocked(readNativeWorkspaceAdmissions).mockResolvedValue({
+    installation_id: 'install', data_id: 'data', revision: 'absent', selection_enabled: true,
+    attached: { root: 'D:/work', id: `ws_${'a'.repeat(24)}` }, admitted: [], unavailable: [],
+  });
   localStorage.clear();
   useSessionPinnedStore.setState({ pins: {} });
   useSessionExpansionStore.setState({ expanded: {} });
@@ -42,11 +56,11 @@ function session(id: string, directory: string, title: string): Session {
   return { id, directory, title, time: { created: 1, updated: 1 } } as Session;
 }
 
-function mount(currentDirectory: string, openDraft = vi.fn()): { node: HTMLDivElement; openDraft: ReturnType<typeof vi.fn> } {
+function mount(currentDirectory: string, openDraft = vi.fn(), nativeAlpha = false): { node: HTMLDivElement; openDraft: ReturnType<typeof vi.fn> } {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
-  act(() => root!.render(<ChatSidebar engine={{} as never} currentDirectory={currentDirectory} currentSessionId={null}
+  act(() => root!.render(<ChatSidebar engine={{} as never} nativeAlpha={nativeAlpha} currentDirectory={currentDirectory} currentSessionId={null}
     actions={{ openDraft, openSession: () => undefined, rename: async () => undefined,
       archive: async () => undefined, restore: async () => undefined, deleteSession: async () => undefined }} />));
   return { node: container, openDraft };
@@ -59,6 +73,62 @@ it('keeps the active workspace visible even before its first session', () => {
   expect(zone.querySelector('[data-testid="zone-empty"]')).toBeTruthy();
   act(() => (zone.querySelector('[aria-label="New draft session in D:/work/Empty"]') as HTMLButtonElement).click());
   expect(openDraft).toHaveBeenCalledWith('D:/work/Empty');
+});
+
+it('lists admitted empty workspaces and opens a new conversation in the selected root', async () => {
+  vi.mocked(readNativeWorkspaceAdmissions).mockResolvedValue({
+    installation_id: 'install', data_id: 'data', revision: 'absent', selection_enabled: true,
+    attached: { root: 'D:/work', id: `ws_${'a'.repeat(24)}` },
+    admitted: [{ root: 'D:/other', id: `ws_${'b'.repeat(24)}`, operation_id: 'prior' }], unavailable: [],
+  });
+  const { node, openDraft } = mount('D:/work', vi.fn(), true);
+  await act(async () => { await Promise.resolve(); });
+  const options = [...node.querySelectorAll<HTMLSelectElement>('select[aria-label="Workspace"] option')];
+  expect(options.map(option => option.value)).toEqual(['D:/work', 'D:/other']);
+  expect([...node.querySelectorAll('[data-testid="workspace-zone"]')].map(zone => zone.textContent)).toEqual([
+    expect.stringContaining('work'), expect.stringContaining('other'),
+  ]);
+  act(() => { const select = node.querySelector<HTMLSelectElement>('select[aria-label="Workspace"]')!;
+    select.value = 'D:/other'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(openDraft).toHaveBeenCalledWith('D:/other');
+});
+
+it('opens the admitted workspace even when the project projection is unavailable', async () => {
+  const { node, openDraft } = mount('D:/work', vi.fn(), true);
+  await act(async () => { await Promise.resolve(); });
+  vi.mocked(pickWorkspaceDirectory).mockResolvedValue('D:/new');
+  vi.mocked(addNativeWorkspace).mockResolvedValue('D:/new');
+  vi.mocked(readNativeWorkspaceAdmissions).mockResolvedValue({
+    installation_id: 'install', data_id: 'data', revision: 'absent', selection_enabled: true,
+    attached: { root: 'D:/work', id: `ws_${'a'.repeat(24)}` },
+    admitted: [{ root: 'D:/new', id: `ws_${'c'.repeat(24)}`, operation_id: 'new' }], unavailable: [],
+  });
+  await act(async () => { node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click();
+    await Promise.resolve(); await Promise.resolve(); });
+  expect(openDraft).toHaveBeenCalledWith('D:/new');
+  expect(node.querySelector('option[value="D:/new"]')).toBeTruthy();
+});
+
+it('keeps an admitted workspace selected when a later inventory refresh fails', async () => {
+  const { node, openDraft } = mount('D:/work', vi.fn(), true);
+  await act(async () => { await Promise.resolve(); });
+  vi.mocked(pickWorkspaceDirectory).mockResolvedValue('D:/new');
+  vi.mocked(addNativeWorkspace).mockResolvedValue('D:/new');
+  vi.mocked(readNativeWorkspaceAdmissions).mockRejectedValueOnce(new Error('offline'));
+  await act(async () => { node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click();
+    await Promise.resolve(); await Promise.resolve(); });
+  expect(openDraft).toHaveBeenCalledWith('D:/new');
+  expect(node.querySelector('[role="alert"]')?.textContent).toContain('Workspace list unavailable');
+});
+
+it('does not offer folder actions that the native service cannot save', async () => {
+  useGlobalSessionsStore.setState({ active: [session('s1', 'D:/work', 'Existing conversation')] });
+  const { node } = mount('D:/work', vi.fn(), true);
+  await act(async () => { await Promise.resolve(); });
+  expect(node.querySelector('[aria-label="New folder in D:/work"]')).toBeNull();
+  expect(node.querySelector('[data-testid="session-file-into"]')).toBeNull();
+  act(() => node.querySelector<HTMLButtonElement>('[data-testid="sidebar-select-toggle"]')!.click());
+  expect(node.textContent).not.toContain('Move to folder');
 });
 
 it('distinguishes loading from failed session refresh and offers an explicit retry', () => {

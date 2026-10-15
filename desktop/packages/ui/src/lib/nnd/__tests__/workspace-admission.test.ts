@@ -10,6 +10,7 @@ const root = 'C:\\Repos\\Second';
 const id = `ws_${'a'.repeat(24)}`;
 const inventory = (operationId?: string) => ({ installation_id: 'install', data_id: 'data',
   revision: 'absent', selection_enabled: true,
+  attached: { root: 'C:\\Repos\\Primary', id: `ws_${'b'.repeat(24)}` },
   admitted: operationId ? [{ root, id, operation_id: operationId }] : [] });
 
 it('uses native revision and operation identity, then selects the readback root', async () => {
@@ -51,5 +52,11 @@ it('keeps a rejected admission rejected when no receipt exists', async () => {
 it('repairs a lost create response by selecting an already admitted canonical root', async () => {
   vi.mocked(runtimeFetch).mockResolvedValue(new Response(JSON.stringify(inventory('prior_operation'))));
   expect(await addNativeWorkspace('c:/repos/second')).toBe(root);
+  expect(vi.mocked(runtimeFetch).mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+});
+
+it('selects the attached workspace without trying to admit it again', async () => {
+  vi.mocked(runtimeFetch).mockResolvedValue(new Response(JSON.stringify(inventory())));
+  expect(await addNativeWorkspace('c:/repos/primary')).toBe('C:\\Repos\\Primary');
   expect(vi.mocked(runtimeFetch).mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
 });

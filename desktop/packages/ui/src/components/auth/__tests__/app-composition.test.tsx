@@ -146,26 +146,19 @@ afterEach(() => {
 });
 
 describe('renderMainApp gate composition (doc 01 tree + §6.6)', () => {
-  it('keeps session navigation available while a workspace tool is open', async () => {
+  it('keeps the workspace sidebar mounted and opens a new conversation', async () => {
     routes = [liveSession()];
     await mountApp();
     await settleTurns();
     const sidebar = document.querySelector('[data-testid="session-sidebar"]');
     expect(sidebar).toBeTruthy();
-    expect(document.querySelector('[aria-label="Workspace tools"]')?.nextElementSibling?.id).toBe('session-sidebar-panel');
-    const diff = document.querySelector<HTMLButtonElement>('[data-testid="diff-toggle"]');
-    expect(diff).toBeTruthy();
-    await act(async () => { diff!.click(); });
-    expect(document.querySelector('[data-testid="session-sidebar"]')).toBe(sidebar);
-    expect(diff!.getAttribute('aria-current')).toBe('page');
-    const chat = document.querySelector<HTMLButtonElement>('[data-testid="chat-toggle"]');
-    const newSession = Array.from(sidebar!.querySelectorAll('button')).find((button) => button.textContent?.includes('New session'));
+    expect(document.querySelector('#session-sidebar-panel')?.nextElementSibling?.querySelector('[data-testid="app-header"]')).toBeTruthy();
+    expect(document.querySelector('[aria-label="Workspace tools"]')).toBeNull();
+    const newSession = sidebar!.querySelector<HTMLButtonElement>('[data-testid="sidebar-new-session"]');
     expect(newSession).toBeTruthy();
     await act(async () => { newSession!.click(); });
-    expect(chat!.getAttribute('aria-current')).toBe('page');
-    await act(async () => { diff!.click(); });
-    await act(async () => { chat!.click(); });
-    expect(chat!.getAttribute('aria-current')).toBe('page');
+    expect(document.querySelector('[data-testid="chat-draft-landing"]')).toBeTruthy();
+    expect(document.querySelector('[data-testid="composer-editor"]')).toBeTruthy();
     expect(document.querySelector('[data-testid="session-sidebar"]')).toBe(sidebar);
     const toggle = document.querySelector<HTMLButtonElement>('[aria-label="Toggle session sidebar"]');
     await act(async () => { toggle!.click(); });

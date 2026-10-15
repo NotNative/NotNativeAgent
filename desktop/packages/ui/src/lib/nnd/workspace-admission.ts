@@ -7,7 +7,7 @@ const WORKSPACE_ID = /^ws_[a-f0-9]{24}$/u;
 const ID = /^[A-Za-z0-9_-]{1,128}$/u;
 type Row = { root: string; id: string; operation_id: string };
 export type WorkspaceAdmissions = { installation_id: string; data_id: string;
-  revision: string; selection_enabled: true; admitted: Row[];
+  revision: string; selection_enabled: true; attached: { root: string; id: string }; admitted: Row[];
   unavailable: { root: string; id: string; reason: string }[] };
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -17,7 +17,9 @@ function record(value: unknown): value is Record<string, unknown> {
 function parseInventory(value: unknown): WorkspaceAdmissions {
   if (!record(value) || !ID.test(String(value.installation_id)) || !ID.test(String(value.data_id))
     || value.selection_enabled !== true || typeof value.revision !== 'string'
-    || !/^(?:absent|[a-f0-9]{64})$/u.test(value.revision) || !Array.isArray(value.admitted)) {
+    || !/^(?:absent|[a-f0-9]{64})$/u.test(value.revision) || !Array.isArray(value.admitted)
+    || !record(value.attached) || typeof value.attached.root !== 'string'
+    || !WORKSPACE_ID.test(String(value.attached.id))) {
     throw new Error('NNA workspace inventory is unavailable.');
   }
   const admitted = value.admitted.map((item: unknown): Row => {
@@ -31,7 +33,8 @@ function parseInventory(value: unknown): WorkspaceAdmissions {
     return { root: item.root, id: String(item.id), reason: item.reason };
   });
   return { installation_id: String(value.installation_id), data_id: String(value.data_id),
-    revision: value.revision, selection_enabled: true, admitted, unavailable };
+    revision: value.revision, selection_enabled: true,
+    attached: { root: value.attached.root, id: String(value.attached.id) }, admitted, unavailable };
 }
 
 async function responseJson(response: Response): Promise<unknown> {
@@ -61,6 +64,7 @@ export async function addNativeWorkspace(root: string): Promise<string> {
   const runtime = getRuntimeKey();
   const before = await readNativeWorkspaceAdmissions();
   if (getRuntimeKey() !== runtime) throw new Error('Connection changed; refresh workspaces.');
+  if (sameWorkspace(before.attached.root, root)) return before.attached.root;
   const existing = before.admitted.find(row => sameWorkspace(row.root, root));
   if (existing) return existing.root;
   const operationId = crypto.randomUUID();

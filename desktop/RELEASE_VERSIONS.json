@@ -2076,6 +2076,10 @@
     {
       "version": "20261014-12",
       "content_sha256": "14fe5af17b7e7190d96dfa098c45736aa3a5b13dd4f6a808dd6de71ef580452c"
+    },
+    {
+      "version": "20261014-13",
+      "content_sha256": "18dd2a2b80b889ea72c42e21d252b97b7d1fa2d781b9b712cb18760fa74380ed"
     }
   ]
 }
