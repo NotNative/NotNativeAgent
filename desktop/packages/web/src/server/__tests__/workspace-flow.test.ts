@@ -43,6 +43,13 @@ it('merges concurrent workspace names and visibility without changing files', as
   expect((await save('invalid', 'Invalid', false)).status).toBe(400);
 });
 
+it('prepares an idempotent default workspace under the selected data root', async () => {
+  const first = await (await app.request('/api/workspace-default', { method: 'POST' })).json() as { directory: string };
+  const second = await (await app.request('/api/workspace-default', { method: 'POST' })).json();
+  expect(first.directory).toBe(join(scratch, 'workspaces', 'default'));
+  expect(second).toEqual(first);
+});
+
 it('refuses to replace a corrupt presentation document', async () => {
   const path = join(scratch, 'workspace-presentation.json');
   await writeFile(path, '{broken');

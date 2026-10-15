@@ -9,13 +9,14 @@ import { create } from 'zustand';
 interface SessionViewState {
   activeDirectory: string;
   currentSessionId: string | null;
+  currentDraftId: string | null;
   setActiveDirectory: (directory: string) => void;
   setCurrentSession: (sessionID: string | null) => void;
 }
 
 export const useSessionViewStore = create<SessionViewState>((set) => ({
   activeDirectory: '',
-  currentSessionId: null,
+  currentSessionId: null, currentDraftId: null,
   setActiveDirectory: (directory) => set({ activeDirectory: directory }),
   setCurrentSession: (sessionID) => set({ currentSessionId: sessionID }),
 }));

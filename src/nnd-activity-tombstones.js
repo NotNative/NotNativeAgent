@@ -127,9 +127,12 @@ export class NndActivityTombstones {
       return { changed: true };
     });
   }
-  async beforeCreate(sessionId, principal, contexts) {
+  async beforeCreate(sessionId, principal, contexts, preventReuse = false) {
     if (!this.catalogPath) return;
     await this.#mutate(principal, (journal) => {
+      if (preventReuse && journal.entries.some(entry => entry.sessionId === sessionId)) {
+        throw new ContractError('nnd_session_unavailable', 'This conversation was deleted. Start a new conversation.');
+      }
       let changed = false;
       for (const entry of journal.entries) {
         if (entry.sessionId !== sessionId || entry.state !== 'intent') continue;

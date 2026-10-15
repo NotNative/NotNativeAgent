@@ -316,7 +316,7 @@ export const harnessClient = {
     const query = parts.length ? `?${parts.join('&')}` : '';
     return request('listSessions', `/session${query}`, undefined, undefined, opts?.directory);
   },
-  async createSession(input: { title?: string; directory?: string; parentID?: string; workspace_id?: string }): Promise<HarnessResult<HarnessSession>> {
+  async createSession(input: { title?: string; directory?: string; parentID?: string; workspace_id?: string; providerID?: string; model?: string; reviewMode?: 'auto-review' | 'unattended'; operation_id?: string; start_fingerprint?: string }): Promise<HarnessResult<HarnessSession>> {
     return request('createSession', '/session', post(input), undefined, input.directory);
   },
   async getSession(sessionId: string, opts?: DirOption): Promise<HarnessResult<HarnessSession>> {

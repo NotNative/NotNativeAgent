@@ -11,6 +11,9 @@ import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore } from '../sync/global-stores.ts';
 import { useWorkspaceDisplayStore, workspaceDisplay } from '../stores/useWorkspaceDisplayStore.ts';
+import { readDraft, subscribeDraftChanges, getDraftRevision } from './drafts.ts';
+import { ConversationDraftRows } from './conversation-draft-rows.tsx';
+import { useConversationDraftStore } from '../stores/useConversationDraftStore.ts';
 import { WorkspaceMenu } from './workspace-menu.tsx';
 import { useSidebarPreference, oneOf, collapsedMap } from './sidebar-preferences.ts';
 import { useWorkspaceStore } from '../stores/useWorkspaceStore.ts';
@@ -47,7 +50,7 @@ export interface ChatSidebarProps {
   onOpenArchive?: () => void;
   onRunFusion?: (session: Session) => void;
   actions: {
-    openDraft: (directory: string) => void;
+    openDraft: (directory: string, draftId?: string) => void;
     openSession: (sessionID: string, directory: string) => void;
     rename: (sessionID: string, title: string) => Promise<void>;
     archive: (sessionID: string, directory: string) => Promise<void>;
@@ -71,6 +74,8 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const [listLimit, setListLimit] = useState(AVATAR_LIMIT);
   const [showSearch, setShowSearch] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const draftRevision = useSyncExternalStore(subscribeDraftChanges, getDraftRevision);
+  const conversationDrafts = useConversationDraftStore(state => state.drafts);
   const workspaceDisplays = useWorkspaceDisplayStore(state => state.rows);
   const displayError = useWorkspaceDisplayStore(state => state.error);
   const [showHidden, setShowHidden] = useState(false);
@@ -158,9 +163,10 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
     return () => window.removeEventListener('storage', refresh);
   }, []);
 
+  const pendingSessionIds = useMemo(() => new Set(conversationDrafts.map(draft => readDraft(draft.directory, draft.id).start?.sessionID).filter(Boolean)), [conversationDrafts, draftRevision]);
   const visibleSessions = useMemo(() => archiveMode === 'archived' ? sessionsGlobal.archived
-    : archiveMode === 'all' ? [...sessionsGlobal.active, ...sessionsGlobal.archived] : sessionsGlobal.active,
-  [archiveMode, sessionsGlobal.active, sessionsGlobal.archived]);
+    : archiveMode === 'all' ? [...sessionsGlobal.active, ...sessionsGlobal.archived] : sessionsGlobal.active.filter(session => !pendingSessionIds.has(session.id)),
+  [archiveMode, sessionsGlobal.active, sessionsGlobal.archived, pendingSessionIds]);
   const zones = useMemo(() => {
     const grouped = new Map<string, Session[]>();
     for (const session of visibleSessions) {
@@ -172,12 +178,12 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
     if (archiveMode !== 'archived') {
       const current = normalizeDirectory(props.currentDirectory);
       if (current && !grouped.has(current)) grouped.set(current, []);
-      for (const root of [workspaceInventory?.attached.root, ...(workspaceInventory?.admitted.map(row => row.root) ?? [])]) {
+      for (const root of [...conversationDrafts.map(draft => draft.directory), workspaceInventory?.attached.root, ...(workspaceInventory?.admitted.map(row => row.root) ?? [])]) {
         if (root) { const directory = normalizeDirectory(root); if (!grouped.has(directory)) grouped.set(directory, []); }
       }
     }
     return grouped;
-  }, [visibleSessions, props.currentDirectory, workspaceInventory, archiveMode]);
+  }, [visibleSessions, props.currentDirectory, workspaceInventory, archiveMode, conversationDrafts]);
 
   const filtered = useMemo(() => filterSessions(visibleSessions, query), [visibleSessions, query]);
   const filteredDirectories = new Set(filtered.map((session) => normalizeDirectory(session.directory ?? 'global')));
@@ -191,6 +197,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
     workspaceOptions.unshift({ directory: currentWorkspace, label: currentWorkspace });
   }
   if (!query.trim() && archiveMode !== 'archived' && props.currentDirectory) filteredDirectories.add(normalizeDirectory(props.currentDirectory));
+  if (!query.trim() && archiveMode !== 'archived') for (const draft of conversationDrafts) filteredDirectories.add(draft.directory);
   if (!query.trim() && archiveMode !== 'archived') for (const directory of workspaceOptions) filteredDirectories.add(directory.directory);
   const archivedInDirectory = sessionsGlobal.archived.filter((session) => normalizeDirectory(session.directory ?? 'global') === normalizeDirectory(props.currentDirectory));
   const nameCounts = new Map<string, number>();
@@ -230,7 +237,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           void useWorkspaceStore.getState().load(true);
         }}>Retry</button></div> : null}
         {props.nativeAlpha ? <WorkspaceRecoveryControls runtimeKey={runtimeKey} refreshKey={workspaceRefreshKey} /> : null}
-        <button type="button" data-testid="sidebar-new-session" className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-[13px] font-medium text-neutral-100 hover:bg-white/15" onClick={() => props.actions.openDraft(props.currentDirectory)}>
+        <button type="button" data-testid="sidebar-new-session" className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-[13px] font-medium text-neutral-100 hover:bg-white/15" onClick={event => { if (event.detail < 2) props.actions.openDraft(props.currentDirectory); }}>
           <SidebarIcon name="plus" /> New conversation
         </button>
         <button type="button" data-testid="sidebar-select-toggle" aria-pressed={selecting} className="mt-2 w-full rounded-lg px-2 py-1.5 text-left text-[12px] text-neutral-400 hover:bg-white/5 hover:text-neutral-200" onClick={() => { setSelecting(!selecting); clearSelected(); }}>
@@ -262,6 +269,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           Could not refresh sessions. <button type="button" className="underline" onClick={() => void useGlobalSessionsStore.getState().loadSessions()}>Try again</button>
         </div> : null}
         {groupBy === 'list' ? <ul data-testid="sidebar-flat-list">
+          {archiveMode !== 'archived' && !query.trim() ? <ConversationDraftRows onOpen={props.actions.openDraft} /> : null}
           {[...filtered].sort((left, right) => right.time.updated - left.time.updated || left.id.localeCompare(right.id)).slice(0, listLimit).map(session =>
             <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={props.currentSessionId}
               actions={props.actions} pinned={pinnedSessionIds(pins, normalizeDirectory(session.directory ?? 'global')).has(session.id)}
@@ -277,6 +285,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           .map(([directory, sessions]) => (
             <Zone
               key={directory}
+              showDrafts={archiveMode !== 'archived' && !query.trim()}
               display={workspaceDisplay(directory, workspaceDisplays)}
               directory={directory}
               sessions={filtered.filter((session) => normalizeDirectory(session.directory ?? 'global') === directory)}
@@ -334,7 +343,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   );
 }
 
-function Zone({ display, directory, sessions, statusById, ranks, pinnedIds, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName, selecting, selectedIds, onToggleSelected, sessionListStatus, onRunFusion, allowFolders, expandedIds, onToggleExpanded }: { display?: { id: string | null; label: string; hidden: boolean }; directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; pinnedIds: ReadonlySet<string>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean; selecting: boolean; selectedIds: ReadonlySet<string>; onToggleSelected: (ids: string[]) => void; sessionListStatus: 'idle' | 'loading' | 'ready' | 'error'; onRunFusion?: (session: Session) => void; allowFolders: boolean; expandedIds: ReadonlySet<string>; onToggleExpanded: (id: string) => void }): ReactNode {
+function Zone({ showDrafts, display, directory, sessions, statusById, ranks, pinnedIds, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName, selecting, selectedIds, onToggleSelected, sessionListStatus, onRunFusion, allowFolders, expandedIds, onToggleExpanded }: { showDrafts?: boolean; display?: { id: string | null; label: string; hidden: boolean }; directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; pinnedIds: ReadonlySet<string>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean; selecting: boolean; selectedIds: ReadonlySet<string>; onToggleSelected: (ids: string[]) => void; sessionListStatus: 'idle' | 'loading' | 'ready' | 'error'; onRunFusion?: (session: Session) => void; allowFolders: boolean; expandedIds: ReadonlySet<string>; onToggleExpanded: (id: string) => void }): ReactNode {
   const zoneOpen = forceOpen || !zoneCollapsed;
   // Lifecycle ordering per doc 04 §F.10: baseline desc → created desc → id asc.
   const ordered = orderSessionsByLifecycleWrap(sessions);
@@ -389,9 +398,9 @@ function Zone({ display, directory, sessions, statusById, ranks, pinnedIds, acti
         <button type="button" aria-expanded={zoneOpen} aria-label={`${zoneOpen ? 'Collapse' : 'Expand'} ${directory || 'general'} workspace`} data-testid="workspace-zone-toggle" disabled={forceOpen}
           className="flex h-8 w-6 shrink-0 items-center justify-center rounded text-[12px] text-neutral-400 hover:bg-white/10 hover:text-neutral-100"
           onClick={onToggleZone} title={forceOpen ? 'Search results keep this workspace open' : directory}>{zoneOpen ? '▾' : '▸'}</button>
-        <button type="button" aria-label={`Open ${directory || 'general'} workspace`} aria-current={active ? 'page' : undefined}
+        <button type="button" data-workspace-directory={directory} aria-label={`Workspace ${display?.label || shortDirectory(directory)}`} aria-expanded={zoneOpen} aria-current={active ? 'page' : undefined}
           className={`flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-1.5 text-left text-[13px] hover:text-white ${active ? 'font-medium text-neutral-100' : 'text-neutral-300'}`}
-          onClick={() => actions.openDraft(directory)} title={directory}>
+          onClick={onToggleZone} title={`Expand or collapse ${directory}`}>
           <span className={active ? 'text-sky-400' : 'text-neutral-500'}><SidebarIcon name="folder" /></span>
           <span className="truncate font-medium">{display?.label || shortDirectory(directory)}</span>
           {duplicateName ? <span className="truncate text-[10px] text-neutral-500">{directory}</span> : null}
@@ -401,7 +410,7 @@ function Zone({ display, directory, sessions, statusById, ranks, pinnedIds, acti
             const name = prompt('New folder name', 'Folder'); // eslint-disable-line no-alert
             if (name !== null && name.trim()) createFolder(name);
           }}>▤+</button> : null}
-          <button type="button" aria-label={`New draft session in ${directory || 'general'}`} title="New conversation" className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-neutral-100" onClick={() => actions.openDraft(directory)}><SidebarIcon name="plus" /></button>
+          <button type="button" aria-label={`New draft session in ${directory || 'general'}`} title="New conversation" className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-neutral-100" onClick={event => { if (event.detail < 2) actions.openDraft(directory); }}><SidebarIcon name="plus" /></button>
           <details className="relative">
             <summary aria-label={`More actions for ${directory || 'general'} workspace`} title="Workspace actions" className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-neutral-100"><SidebarIcon name="more" /></summary>
             <div className="absolute right-0 top-9 z-30 w-44 rounded-xl border border-white/15 bg-neutral-800 p-1.5 shadow-xl">
@@ -416,6 +425,7 @@ function Zone({ display, directory, sessions, statusById, ranks, pinnedIds, acti
         </div>
       </header>
       {zoneOpen ? <ul>
+        {showDrafts ? <ConversationDraftRows directory={directory} onOpen={actions.openDraft} /> : null}
         {folders.map((folder) => {
           const isCollapsed = !forceOpen && Boolean(collapsed[folder.id]);
           const inside = hierarchy

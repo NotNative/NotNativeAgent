@@ -10,6 +10,9 @@ import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import { toast } from 'sonner';
 import { activeTrigger, commandRegistry, replaceTriggerToken, skillInstructionFrom, tokenizePrompt, type AutocompleteTrigger, type PromptToken } from './prompt-language.ts';
 import { shouldSubmitEnter, recallDirection } from './keyboard-policy.ts';
+import { ConversationSettings } from './conversation-settings.tsx';
+import { useConversationDraftStore } from '../stores/useConversationDraftStore.ts';
+import { subscribeDraftChanges, getDraftRevision } from './drafts.ts';
 import { draftKey, readDraft, saveDraft, flushDraftsNow, type DraftAttachment, type QueuedMessage } from './drafts.ts';
 import { recordSend, recallList, recallDirectionResult, type HistoryEntry } from './input-history.ts';
 import { planSend, sendErrorKind, type PlannedSend } from './send-planner.ts';
@@ -51,6 +54,11 @@ export interface ComposerProps {
 
 export function Composer(props: ComposerProps): ReactNode {
   const { services, sessionID, directory, sessionKey } = props;
+  useSyncExternalStore(subscribeDraftChanges, getDraftRevision);
+  const draft = useConversationDraftStore(state => state.drafts.find(row => row.id === sessionKey));
+  const startingRef = useRef(false);
+  const [starting, setStarting] = useState(false);
+  const pendingStart = sessionID === null ? readDraft(directory, sessionKey).start : undefined;
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<DraftAttachment[]>([]);
   const [agent, setAgent] = useState('build');
@@ -73,7 +81,7 @@ export function Composer(props: ComposerProps): ReactNode {
   const store = services.store(directory);
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const providerCatalog = useSyncExternalStore(store.subscribe, () => store.getState().provider);
-  const { configUnavailable, nnaConfigured, nnaModel, sendAgent, modelLabel, model } = useComposerModel(snapshot, props.modelSelection, agent, sessionID);
+  const { configUnavailable, nnaConfigured, nnaModel, sendAgent, modelLabel, model } = useComposerModel(snapshot, sessionID === null && draft?.model ? { ...draft.model, variant: null } : props.modelSelection, agent, sessionID);
   const commandSet = useMemo(() => commandRegistry(snapshot.command, BUILTIN_COMMANDS), [snapshot.command]);
   const agentNames = useMemo(() => snapshot.agent.map((entry) => entry.name), [snapshot.agent]);
   const snippets = useSyncExternalStore(snippetSubscribe, snippetMap); // P9-4e-ii: the config-entity roster
@@ -107,7 +115,7 @@ export function Composer(props: ComposerProps): ReactNode {
     saveDraft(directory, sessionKey, {
       text: nextText,
       attachments: nextAttachments,
-      queue: queue ?? (sessionKey === 'draft' ? readDraft(directory, 'draft').queue : readDraft(directory, sessionID ?? '').queue),
+      queue: queue ?? readDraft(directory, sessionKey).queue,
     });
   }, [directory, sessionKey, sessionID]);
 
@@ -228,6 +236,7 @@ export function Composer(props: ComposerProps): ReactNode {
   }
 
   const applyDraftStarter = (nextText: string): void => {
+    if (pendingStart || starting) return;
     updateText(nextText, nextText.length);
     editorRef.current?.focus();
   };
@@ -327,13 +336,18 @@ export function Composer(props: ComposerProps): ReactNode {
       }
       if (!sessionID) {
         // draft send failure returns the column to the draft and keeps the prompt
-        useSessionViewStore.getState().setCurrentSession(null);
-        saveDraft(directory, 'draft', { text: restoreSnapshot.current.text, attachments: restoreSnapshot.current.attachments, queue: readDraft(directory, 'draft').queue });
+        saveDraft(directory, sessionKey, { text: restoreSnapshot.current.text, attachments: restoreSnapshot.current.attachments, queue: readDraft(directory, sessionKey).queue });
       }
       delivery.restoreDraft();
       describeSendFailure(error, restoreSnapshot.current.attachments.length > 0);
     }
   }
+
+  const submitOnce = async (): Promise<void> => {
+    if (startingRef.current) return;
+    startingRef.current = true; setStarting(true);
+    try { await submit(); } finally { startingRef.current = false; setStarting(false); }
+  };
 
   function onKey(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
     if (picker) {
@@ -347,7 +361,7 @@ export function Composer(props: ComposerProps): ReactNode {
     }
     if (event.key === 'Enter' && shouldSubmitEnter({ isExpanded: Boolean(props.expanded), enterToSend: null, isMobile: false, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey })) {
       event.preventDefault();
-      void submit();
+      void submitOnce();
       return;
     }
     if (event.key === 'Escape' && shell) {
@@ -363,6 +377,7 @@ export function Composer(props: ComposerProps): ReactNode {
   }
 
   function onHistoryKey(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
+    if (pendingStart || starting) return;
     const direction = recallDirection(editorRef.current?.selectionStart ?? 0, text.length, event.key);
     if (!direction) return;
     event.preventDefault();
@@ -390,6 +405,7 @@ export function Composer(props: ComposerProps): ReactNode {
   }
 
   function attachFiles(event: ChangeEvent<HTMLInputElement>): void {
+    if (pendingStart || starting) { toast.message('Recover the original start before changing attachments.'); return; }
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
     if (files.length === 0) return;
@@ -407,7 +423,7 @@ export function Composer(props: ComposerProps): ReactNode {
   const authStatus = useAuthSessionStore((state) => state.status);
   // Invariant: a failed or pending config request cannot silently select the mock route for NNA.
   const nativeWorkspacePending = nnaConfigured && sessionID === null && (!directory || directory === GLOBAL_DIRECTORY);
-  const sendBlocked = authSessionBlocksSend(authStatus) || configUnavailable || (nnaConfigured && !nnaModel) || nativeWorkspacePending;
+  const sendBlocked = starting || !model.modelID.trim() || authSessionBlocksSend(authStatus) || configUnavailable || (nnaConfigured && !nnaModel) || nativeWorkspacePending;
   // §6.7 step 3: the send guard blocks while the session expiry is confirmed.
   const canSend = (text.trim().length > 0 || attachments.length > 0) && !sendBlocked;
   // Fresh each render like the inline delivery closures it replaces: the
@@ -418,10 +434,10 @@ export function Composer(props: ComposerProps): ReactNode {
   return (<>
     <form className="relative rounded-xl border border-white/10 bg-neutral-900/90 p-2 focus-within:border-white/25" data-testid="composer" data-shell={shell ? 'true' : undefined}
       data-send-blocked={authSessionBlocksSend(authStatus) ? 'auth-expired' : (configUnavailable ? 'model-config-unavailable' : nnaConfigured && !nnaModel ? 'nna-model-unavailable' : nativeWorkspacePending ? 'nna-workspace-unavailable' : undefined)}
-      onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+      onSubmit={(event) => { event.preventDefault(); void submitOnce(); }}>
       {nativeWorkspacePending ? <p role="status" className="px-2 text-[11px] text-amber-300">Waiting for the native workspace before sending.</p> : null}
       {sessionID !== null ? <QueueChipsRow directory={directory} sessionID={sessionID} onPop={(popText) => { setText(popText); persist(popText, attachments); }} /> : null}
-      {sessionKey === 'draft' && queueChips.length > 0 ? <div className="px-1 pt-1 text-[11px] text-amber-300" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
+      {sessionID === null && queueChips.length > 0 ? <div className="px-1 pt-1 text-[11px] text-amber-300" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
       <AttachmentChips attachments={attachments} onRemove={(next) => { setAttachments(next); persist(text, next); }} />
       <PickerPopup picker={picker} />
       {modelPickerOpen && !nnaConfigured && !configUnavailable ? (
@@ -432,12 +448,15 @@ export function Composer(props: ComposerProps): ReactNode {
           onOpenAddProvider={() => { setModelPickerOpen(false); props.onAddProvider?.(); }}
         />
       ) : null}
-      <textarea ref={editorRef} value={text} onChange={changed} onKeyDown={onKey}
+      {starting ? <p role="status" className="px-2 text-xs text-sky-300">{sessionID === null ? 'Starting conversation…' : 'Sending…'}</p> : null}
+      {pendingStart && !starting ? <p role="status" className="px-2 text-xs text-amber-300">Start needs recovery. Send retries the original message in the same conversation.</p> : null}
+      <textarea readOnly={!!pendingStart || starting} ref={editorRef} value={text} onChange={changed} onKeyDown={onKey}
         rows={rows} placeholder={shell ? 'bash command…' : 'Message the agent…'}
         data-testid="composer-editor"
         className={`w-full resize-none rounded-lg bg-transparent p-2 text-sm outline-none placeholder:text-neutral-600 ${shell ? 'font-mono text-amber-200' : 'text-neutral-100'} focus:outline-none`} />
       <div className="flex items-center rounded-lg bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-300" title={nnaConfigured ? 'Primary model configured in NNA' : 'Model and agent settings'}>
-        {nnaConfigured || configUnavailable ? <span aria-label="Configured model" data-testid="model-trigger">{modelLabel}</span>
+        {nnaConfigured && sessionID === null ? <ConversationSettings directory={directory} draftId={sessionKey} model={model} onModel={value => props.onModelSelection?.({ ...value, variant: null })} />
+          : nnaConfigured || configUnavailable ? <span aria-label="Configured model" data-testid="model-trigger">{modelLabel}</span>
           : <button type="button" aria-label="Model selector" data-testid="model-trigger" className="rounded px-1 py-0.5 hover:bg-white/10" onClick={() => setModelPickerOpen(!modelPickerOpen)}>{modelLabel} ▾</button>}
         {props.onToggleExpanded ? <button type="button" aria-label={props.expanded ? 'Collapse expanded editor' : 'Focus mode'} className="ml-auto text-[11px] text-neutral-500" onClick={props.onToggleExpanded}>⛶</button> : null}
       </div>
@@ -457,10 +476,11 @@ export function Composer(props: ComposerProps): ReactNode {
         agents={agentNames}
         onAgent={setAgent}
         configuredByNna={nnaConfigured}
+        locked={!!pendingStart || starting}
         onFiles={(files) => attachFiles({ target: { files, value: '' } } as never)}
       />
     </form>
-    {sessionKey === 'draft' ? <DraftStarterChips directory={directory} currentText={text} starters={starterList} onApply={applyDraftStarter} /> : null}
+    {sessionID === null ? <DraftStarterChips directory={directory} currentText={text} starters={starterList} onApply={applyDraftStarter} /> : null}
   </>);
 }
 

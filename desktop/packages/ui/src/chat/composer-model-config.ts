@@ -61,7 +61,7 @@ export function resolveComposerModel(config: HarnessConfig | null | undefined, s
   const configUnavailable = config == null;
   const nnaConfigured = nnd?.engine === 'nna';
   const nnaModel = nnaConfigured ? sessionSelected ? sessionModel : (typeof nnd.primaryModel?.providerID === 'string' && typeof nnd.primaryModel.modelID === 'string'
-    ? { providerID: nnd.primaryModel.providerID, modelID: nnd.primaryModel.modelID } : null) : null;
+    ? selection ? { providerID: selection.providerID, modelID: selection.modelID } : { providerID: nnd.primaryModel.providerID, modelID: nnd.primaryModel.modelID } : null) : null;
   return {
     configUnavailable, nnaConfigured, nnaModel,
     model: nnaModel ?? (selection ? { providerID: selection.providerID, modelID: selection.modelID } : FALLBACK_MODEL),

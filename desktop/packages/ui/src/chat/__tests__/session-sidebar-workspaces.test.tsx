@@ -106,7 +106,7 @@ it('lists admitted empty workspaces and opens a new conversation in the selected
   expect([...node.querySelectorAll('[data-testid="workspace-zone"]')].map(zone => zone.textContent)).toEqual([
     expect.stringContaining('work'), expect.stringContaining('other'),
   ]);
-  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Open D:/other workspace"]')!.click());
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="New draft session in D:/other"]')!.click());
   expect(openDraft).toHaveBeenCalledWith('D:/other');
 });
 
@@ -125,7 +125,7 @@ it('opens the admitted workspace even when the project projection is unavailable
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   expect(pickWorkspaceDirectory).toHaveBeenCalledOnce();
   expect(openDraft).toHaveBeenCalledWith('D:/new');
-  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+  expect(node.querySelector('[data-workspace-directory="D:/new"]')).toBeTruthy();
 });
 
 it('opens search from the header and applies the workspace order filter', () => {
@@ -140,8 +140,8 @@ it('opens search from the header and applies the workspace order filter', () => 
   expect(node.querySelector('[data-testid="sidebar-filter-menu"]')).toBeTruthy();
   act(() => ([...node.querySelectorAll<HTMLButtonElement>('[data-testid="sidebar-filter-menu"] button')]
     .find(button => button.textContent?.includes('Name'))!).click());
-  const names = [...node.querySelectorAll('[data-testid="workspace-zone"]')].map(zone => zone.querySelector('[aria-label^="Open "]')?.getAttribute('aria-label'));
-  expect(names).toEqual(['Open D:/work workspace', 'Open D:/alpha workspace', 'Open D:/zeta workspace']);
+  const names = [...node.querySelectorAll('[data-testid="workspace-zone"]')].map(zone => zone.querySelector('[data-workspace-directory]')?.getAttribute('data-workspace-directory'));
+  expect(names).toEqual(['D:/work', 'D:/alpha', 'D:/zeta']);
 });
 
 it('shows archived conversations in a flat list and offers restore', () => {
@@ -217,7 +217,7 @@ it('shows the confirmed workspace when the recovery controls cannot refresh', as
   await act(async () => { node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click();
     await Promise.resolve(); await Promise.resolve(); });
   expect(openDraft).toHaveBeenCalledWith('D:/new');
-  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+  expect(node.querySelector('[data-workspace-directory="D:/new"]')).toBeTruthy();
   expect(node.querySelector('[role="alert"]')).toBeNull();
 });
 
@@ -236,7 +236,7 @@ it('keeps admission errors visible and retries the selected path', async () => {
   expect(pickWorkspaceDirectory).toHaveBeenCalledTimes(1);
   expect(addNativeWorkspace).toHaveBeenCalledTimes(2);
   expect(openDraft).toHaveBeenCalledWith('D:/new');
-  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+  expect(node.querySelector('[data-workspace-directory="D:/new"]')).toBeTruthy();
 });
 
 it('shows progress until admission finishes and prevents another picker', async () => {
@@ -251,7 +251,7 @@ it('shows progress until admission finishes and prevents another picker', async 
   expect(node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')?.disabled).toBe(true);
   await act(async () => { resolveAdmission(admittedSelection('D:/new')); await Promise.resolve(); });
   expect(node.querySelector('[data-testid="workspace-add-progress"]')).toBeNull();
-  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+  expect(node.querySelector('[data-workspace-directory="D:/new"]')).toBeTruthy();
 });
 
 it('reveals the new workspace when search, grouping, and archive filters hid it', async () => {
@@ -272,7 +272,7 @@ it('reveals the new workspace when search, grouping, and archive filters hid it'
     await Promise.resolve(); await Promise.resolve(); });
   expect(openDraft).toHaveBeenCalledWith('D:/new');
   expect(node.querySelector('[data-testid="sidebar-flat-list"]')).toBeNull();
-  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+  expect(node.querySelector('[data-workspace-directory="D:/new"]')).toBeTruthy();
   expect(input.value).toBe('');
 });
 
@@ -285,11 +285,11 @@ it('does not let an older inventory response erase a newly confirmed workspace',
   await act(async () => { node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click();
     await Promise.resolve(); await Promise.resolve(); });
   expect(openDraft).toHaveBeenCalledWith('D:/new');
-  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+  expect(node.querySelector('[data-workspace-directory="D:/new"]')).toBeTruthy();
   await act(async () => resolveInitial({ installation_id: 'install', data_id: 'data', revision: 'absent',
     selection_enabled: true, attached: { root: 'D:/work', id: `ws_${'a'.repeat(24)}` },
     admitted: [], unavailable: [] }));
-  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+  expect(node.querySelector('[data-workspace-directory="D:/new"]')).toBeTruthy();
 });
 
 it('does not offer folder actions that the native service cannot save', async () => {
@@ -580,7 +580,7 @@ it('renames a workspace through its menu and keeps its path unchanged', async ()
   const input = document.querySelector<HTMLInputElement>('[aria-label="Workspace name"]')!;
   act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'My workspace'); input.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { document.querySelector<HTMLFormElement>('[aria-label="Rename workspace"]')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await Promise.resolve(); });
-  expect(node.querySelector('[aria-label="Open D:/work workspace"]')?.textContent).toContain('My workspace');
+  expect(node.querySelector('[data-workspace-directory="D:/work"]')?.textContent).toContain('My workspace');
   expect(document.querySelector('[aria-label="Workspace name"]')).toBeNull();
 });
 

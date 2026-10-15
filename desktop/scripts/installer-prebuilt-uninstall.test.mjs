@@ -144,3 +144,20 @@ test('uninstall evidence requires exact native registration and guard identity',
     `Assert-NndUninstallRegistrationStatus $status '${join(root, 'slot').replaceAll("'", "''")}' '20261004-4'`, true).stderr,
   /expected registered NND package/u);
 });
+
+
+test('source repair accepts a missing registered package while uninstall still refuses it', { skip: process.platform !== 'win32' }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nnd-missing-package-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const cli = join(root, 'missing.mjs');
+  const status = { registered: true, valid: false, root: join(root, 'missing'), version: '20261014-18', reason: 'nnd_package_root_invalid' };
+  await writeFile(cli, `process.stdout.write(JSON.stringify(${JSON.stringify(status)}))`);
+  const helper = resolve('scripts/installer-prebuilt-uninstall-evidence.ps1');
+  const invoke = repair => spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-Command',
+    `. $env:NND_TEST_EVIDENCE;$ErrorActionPreference='Stop';$nna=@{Node='node';Cli=$env:NND_TEST_CLI;DataRoot=$env:TEMP};$status=Get-NndRegistrationStatus $nna${repair ? ' -AllowInvalidForRepair' : ''};[Console]::Out.WriteLine($status.reason)`
+  ], { encoding: 'utf8', windowsHide: true, timeout: 12000, env: { ...process.env, NND_TEST_EVIDENCE: helper, NND_TEST_CLI: cli } });
+  assert.match(invoke(false).stderr, /status is unavailable/u);
+  const result = invoke(true);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /nnd_package_root_invalid/u);
+});

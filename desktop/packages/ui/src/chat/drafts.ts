@@ -27,7 +27,15 @@ export interface QueuedMessage {
   queuedAt: number;
 }
 
+export interface ConversationStart {
+  operationId: string; messageID: string; sessionID?: string; fingerprint?: string;
+  title: string; model: { providerID: string; modelID: string };
+  reviewMode: 'auto-review' | 'unattended';
+  parts: ({ type: 'text'; text: string; synthetic?: boolean } | { type: 'file'; url?: string; filename?: string; mime?: string })[];
+}
+
 export interface DraftRecord {
+  start?: ConversationStart;
   text: string;
   attachments: DraftAttachment[];
   queue: QueuedMessage[];
@@ -42,6 +50,11 @@ type DraftStore = Record<string, DraftRecord | { tombstone: true }>;
 
 let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 let storeCache: DraftStore | null = null;
+let draftRevision = 0;
+const draftListeners = new Set<() => void>();
+function changed(): void { draftRevision += 1; for (const listener of draftListeners) listener(); }
+export function subscribeDraftChanges(listener: () => void): () => void { draftListeners.add(listener); return () => { draftListeners.delete(listener); }; }
+export function getDraftRevision(): number { return draftRevision; }
 
 function readStore(): DraftStore {
   if (storeCache) return storeCache;
@@ -79,10 +92,12 @@ export function saveDraft(directory: string, sessionKey: DraftSessionKey,
   const { autoAccept: _legacyPermissionSwitch, ...record } = partial as Omit<DraftRecord, 'updatedAt'> & { autoAccept?: unknown };
   const store = readStore();
   store[draftKey(directory, sessionKey)] = {
+    ...(readDraft(directory, sessionKey).start ? { start: readDraft(directory, sessionKey).start } : {}),
     ...record,
     projectContextPins: record.projectContextPins ?? readDraft(directory, sessionKey).projectContextPins,
     updatedAt: Date.now(),
   };
+  changed();
   if (pendingTimer) {
     clearTimeout(pendingTimer);
     pendingTimer = null;
@@ -158,4 +173,11 @@ if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushDraftsNow();
   });
+}
+
+/** Persist the recovery identity before any native create or send operation. */
+export function saveConversationStart(directory: string, sessionKey: string, start: ConversationStart | undefined): void {
+  const store = { ...readStore(), [draftKey(directory, sessionKey)]: { ...readDraft(directory, sessionKey), start } };
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(store));
+  storeCache = store; changed();
 }

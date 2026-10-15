@@ -32,7 +32,7 @@ import { publishNndProjection } from './nnd-projection.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
 import { ownedPendingRequests } from './nnd-pending-requests.js';
 import { listNndQuestions, settleNndQuestion, observeNndQuestion } from './nnd-questions.js';
-import { requirePrincipal, samePrincipal, scopedPrincipal, validCatalogRecord, restoreNndContexts, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
+import { replayConversation, requirePrincipal, samePrincipal, scopedPrincipal, validCatalogRecord, restoreNndContexts, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
 import { partitionNndCatalog } from './nnd-catalog-admission.js';
 import { resolveContextBinding, initializeBoundEngine, assertLiveNndWorkspaceBinding } from './nnd-workspace-binding.js';
 import { NndWorkspaceRevocationGuard } from './nnd-workspace-revocation-guard.js';
@@ -96,7 +96,7 @@ export class NndEngineHost {
       throw error;
     }
   }
-  async create(sessionId, principal, options = {}) { return this.#createContext(sessionId, principal, options, false); }
+  async create(sessionId, principal, options = {}) { return replayConversation(this.#contexts.get(sessionId), options, () => this.assertWorkspaceBound(sessionId, principal), () => this.#createContext(sessionId, principal, options, false)); }
   async #createContext(sessionId, principal, options, restoring) {
     requireExternalId(sessionId, 'session_id');
     requirePrincipal(principal);
@@ -109,9 +109,9 @@ export class NndEngineHost {
     this.#creating.add(sessionId);
     let engine;
     try {
-      if (!restoring) await this.tombstones.beforeCreate(sessionId, principal, this.#contexts);
       if (!restoring) await removeActivity(this.catalogPath, sessionId); // Remove a crash-left prior incarnation.
       const binding = await resolveContextBinding(this.primaryWorkspaceBinding, principal, options, restoring);
+      if (!restoring) await this.tombstones.beforeCreate(sessionId, binding ? { ...principal, workspaceIds: [binding.id] } : principal, this.#contexts, Boolean(options.creationFingerprint));
       if (this.#workspaceRevocations.has(binding)) {
         throw new ContractError('nnd_workspace_in_use', 'Workspace admission is being revoked.');
       }
@@ -120,10 +120,10 @@ export class NndEngineHost {
         attachmentUploadRead: (uploadId, mimeType) => this.#uploads.resolve(sessionId, uploadId, mimeType), output: (record) => this.observeOutput(sessionId, record) });
       if (!engine || typeof engine.initialize !== 'function') { throw new ContractError('nnd_engine_invalid', 'NND engine factory returned an invalid engine'); }
       await initializeBoundEngine(engine, this.primaryWorkspaceBinding, binding, principal, options, restoring);
-      if (restoring) engine.reviewPosture = options.reviewMode === 'unattended' ? 'unattended' : 'auto-review';
+      if (restoring || options.reviewMode !== undefined) engine.reviewPosture = options.reviewMode === 'unattended' ? 'unattended' : 'auto-review';
       const createdAt = restoring ? options.createdAt : Date.now();
       const activity = restoring ? await loadActivity(this.catalogPath, sessionId, createdAt) : [];
-      const context = { sessionId, subjectId: principal.subjectId,
+      const context = { sessionId, subjectId: principal.subjectId, creationFingerprint: options.creationFingerprint, modelRoute: options.modelRoute,
         workspaceIds: new Set(binding ? [binding.id] : principal.workspaceIds), engine,
         ...(binding ? { workspaceBinding: binding } : {}),
         title: titleOf(options.title), directory: directoryOf(engine.config?.workspaceRoot) || directoryOf(options.directory), createdAt,

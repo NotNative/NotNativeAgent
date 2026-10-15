@@ -71,6 +71,7 @@ export interface ComposerFooterProps {
   onAgent: (agent: string) => void;
   configuredByNna: boolean;
   onFiles: (files: FileList) => void;
+  locked?: boolean;
 }
 
 export function ComposerFooter(props: ComposerFooterProps): ReactNode {
@@ -86,7 +87,7 @@ export function ComposerFooter(props: ComposerFooterProps): ReactNode {
       <div className="flex items-center gap-2">
         <label className="flex cursor-pointer items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-[12px] text-neutral-300 hover:border-white/25 hover:bg-white/5" title="Attach files">
           <span aria-hidden className="text-base leading-none">+</span> Attach files
-          <input type="file" multiple className="hidden" onChange={(event) => {
+          <input type="file" disabled={props.locked} multiple className="hidden" onChange={(event) => {
             if (event.target.files && event.target.files.length > 0) props.onFiles(event.target.files);
             event.target.value = '';
           }} />

@@ -24,6 +24,7 @@ vi.mock('../../lib/project-context-api.ts', async (original) => ({
 
 vi.mock('../../lib/nnd/client.ts', () => ({
   normalizeDirectory: (value: string) => value.replace(/[\\/]+$/u, ''),
+  ascendingId: (prefix: string) => `${prefix}_test-start`,
   harnessClient: {
     createSession: vi.fn(),
     getSession: vi.fn(),

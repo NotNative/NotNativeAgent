@@ -21,7 +21,7 @@ it('closes NND-owned mutations but leaves native chat, setup, review, and reads 
   }
   for (const path of ['/api/session', '/api/session/s1/prompt_async', '/api/file',
     '/api/permission/p1/reply', '/api/v1/nnd/setup/activate', '/api/v1/nnd/configuration',
-    '/api/browser-control/request']) {
+    '/api/browser-control/request', '/api/workspace-presentation', '/api/workspace-default']) {
     expect(nativeAlphaMutationUnavailable('POST', path), path).toBe(false);
   }
   expect(nativeAlphaMutationUnavailable('GET', '/api/git/status')).toBe(false);
@@ -83,6 +83,8 @@ it('accounts for every literal NND-owned mutating route in the installed alpha',
     '/api/browser-control/request', // NNA child-secret callback, registered before the API gate.
     '/api/system/probe-url', // Read-only loopback reachability probe for the browser bridge guest.
     '/api/agent-tool/callback', // NNA child-secret callback, registered before the API gate.
+    '/api/workspace-presentation', // Authenticated display names and visibility; no execution authority.
+    '/api/workspace-default', // First-use folder inside the service data root; native admission remains separate.
   ]);
   const uncovered: string[] = [];
   const scan = (directory: string) => {

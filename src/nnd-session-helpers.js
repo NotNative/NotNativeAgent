@@ -2,6 +2,7 @@
 import { ContractError, newId, requireExternalId } from './ids.js';
 import { validatedNndGoal } from './nnd-goal.js';
 import { validNndContextObservation } from './nnd-context-observation.js';
+import { modelRouteFromBody } from './nnd-session-model-route.js';
 import { directoryFor } from './nnd-session-description.js';
 
 export function catalogRecord(context) {
@@ -10,6 +11,8 @@ export function catalogRecord(context) {
     ...(context.workspaceBinding ? { workspaceBinding: context.workspaceBinding } : {}),
     title: context.title, directory: directoryFor(context), createdAt: context.createdAt,
     updatedAt: context.updatedAt, archivedAt: context.archivedAt, goalRevision: context.goalRevision,
+    ...(context.creationFingerprint ? { creationFingerprint: context.creationFingerprint } : {}),
+    ...(context.modelRoute ? { modelRoute: context.modelRoute } : {}),
     reviewMode: context.reviewMode, reviewRevision: context.reviewRevision,
     ...(context.contextUsage ? { contextUsage: context.contextUsage } : {}),
     ...(context.goal ? { goal: context.goal } : {}),
@@ -24,6 +27,7 @@ export async function restoreNndContexts(records, createContext) {
       ...(record.workspaceBinding ? { workspaceBinding: record.workspaceBinding } : {}),
       updatedAt: record.updatedAt ?? record.createdAt, archivedAt: record.archivedAt ?? 0,
       goal: record.goal ?? null, goalRevision: record.goalRevision ?? 0, contextUsage: record.contextUsage ?? null,
+      creationFingerprint: record.creationFingerprint, modelRoute: record.modelRoute,
       reviewMode: record.reviewMode ?? 'default', reviewRevision: record.reviewRevision ?? 0,
     });
   }
@@ -49,6 +53,10 @@ export function validCatalogRecord(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
   try { requireExternalId(record.sessionId, 'session_id'); requirePrincipal(record); }
   catch { return false; }
+  if (record.creationFingerprint !== undefined && !/^[a-f0-9]{64}$/u.test(record.creationFingerprint)) return false;
+  if (record.modelRoute !== undefined) {
+    try { if (!modelRouteFromBody({ providerID: record.modelRoute?.providerId, model: record.modelRoute?.model })) return false; } catch { return false; }
+  }
   if (record.goal !== undefined) {
     try { validatedNndGoal(record.goal); } catch { return false; }
   }
@@ -70,3 +78,5 @@ export async function shutdownAfterFailedCreate(engine, initializationFailure) {
     throw new ContractError('nnd_setup_cleanup_failed', 'NND engine cleanup failed. Restart the native process before retrying.', { cause });
   }
 }
+
+export { replayConversation } from './nnd-conversation-start.js';

@@ -96,6 +96,7 @@ export async function optimisticSend(
   input: {
     directory: string;
     sessionID: string;
+    messageID?: string;
     delivery?: 'steer' | 'queue';
     parts: Array<
       { type: 'text'; text: string; synthetic?: boolean; systemContext?: string } |
@@ -114,7 +115,7 @@ export async function optimisticSend(
   const sendInput: optimisticSendInput = knowledge === undefined
     ? input
     : { ...input, parts: [knowledge.part, ...input.parts] };
-  const messageID = ascendingId('msg');
+  const messageID = input.messageID ?? ascendingId('msg');
   addOptimisticDraft(engine, store, directory, {
     ...sendInput,
   }, messageID);

@@ -61,3 +61,14 @@ it('selects the attached workspace without trying to admit it again', async () =
   expect(await addNativeWorkspace('c:/repos/primary')).toMatchObject({ directory: 'C:\\Repos\\Primary', added: false });
   expect(vi.mocked(runtimeFetch).mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
 });
+
+
+it('selects a root concurrently admitted by another window after a revision conflict', async () => {
+  let written = false;
+  vi.mocked(runtimeFetch).mockImplementation(async (url, init) => {
+    if (init) { written = true; return new Response('{}', { status: 409 }); }
+    if (String(url).includes('/operations/')) return new Response('{}', { status: 404 });
+    return new Response(JSON.stringify(inventory(written ? 'other-window' : undefined)));
+  });
+  expect(await addNativeWorkspace(root)).toMatchObject({ directory: root, added: false });
+});

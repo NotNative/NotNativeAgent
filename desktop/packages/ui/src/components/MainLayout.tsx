@@ -3,11 +3,13 @@ import { useCallback, useEffect, useState, useSyncExternalStore, type CSSPropert
 import { Toaster, toast } from 'sonner';
 import { useI18n } from '../lib/i18n/context.tsx';
 import { mountEngine } from '../chat/app-engine.ts';
+import { useInitialConversation } from '../chat/use-initial-conversation.ts';
 import { ChatView } from '../chat/chat-view.tsx';
 import { ChatSidebar } from '../chat/session-sidebar.tsx';
 import { ArchiveView } from '../chat/archive-view.tsx';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { nnaOwnsPermissionReview } from '../lib/nnd/permission-policy.ts';
+import { useConversationDraftStore, rememberConversationDraft, selectedConversationDraft } from '../stores/useConversationDraftStore.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { defaultHarnessDirectory } from '../sync/engine-support.ts';
@@ -216,15 +218,40 @@ export function MainLayout(): ReactNode {
     }).catch(() => undefined);
   }, [view.activeDirectory, harnessDirectory]);
 
+  useEffect(() => {
+    useConversationDraftStore.getState().load();
+    try {
+      const selected = selectedConversationDraft();
+      if (selected && !useSessionViewStore.getState().currentSessionId) {
+        useSessionViewStore.setState({ activeDirectory: selected.directory, currentSessionId: null, currentDraftId: selected.id });
+        notifySessionRouteNavigation();
+      }
+    } catch { toast.message('Conversation drafts could not be restored.'); }
+  }, [runtimeKey]);
+
+  useEffect(() => {
+    if (!view.currentSessionId) return;
+    useSessionViewStore.setState({ currentDraftId: null });
+    try { rememberConversationDraft(null); } catch { toast.message('Could not remember the selected conversation.'); }
+  }, [view.currentSessionId]);
+
   const actions = {
-    openDraft: (directory: string) => {
+    openDraft: (directory: string, draftId?: string) => {
+      let draft;
+      try {
+        draft = draftId ? useConversationDraftStore.getState().drafts.find(row => row.id === draftId) : useConversationDraftStore.getState().create(directory);
+        if (!draft) return;
+        directory = draft.directory;
+        rememberConversationDraft(draft.id);
+      } catch (error) { toast.error(String(error)); return; }
       showChat();
       persistLastActiveSession(null, directory); // draft intent clears the pointer
-      useSessionViewStore.setState({ currentSessionId: null, activeDirectory: directory });
+      useSessionViewStore.setState({ currentSessionId: null, currentDraftId: draft.id, activeDirectory: directory });
       notifySessionRouteNavigation();
       requestAnimationFrame(() => window.dispatchEvent(new Event('nnd:focus-new-conversation')));
     },
     openSession: (sessionID: string, directory: string) => {
+      try { rememberConversationDraft(null); } catch { toast.message('Could not remember the selected conversation.'); }
       showChat();
       // F.4: navigation NEVER denies pending requests — dismiss is authority
       // of the send path and the explicit card buttons only.
@@ -254,6 +281,8 @@ export function MainLayout(): ReactNode {
       notifySessionRouteNavigation();
     },
   } as const;
+
+  const defaultWorkspaceError = useInitialConversation(nativeAlpha && !miniChat, runtimeKey, actions.openDraft);
 
   useEffect(() => window.__NOTNATIVE_DESKTOP_EVENTS__?.onOpenSession(({ sessionId, directory }) => {
     actions.openSession(sessionId, directory ?? useSessionViewStore.getState().activeDirectory);
@@ -322,6 +351,7 @@ export function MainLayout(): ReactNode {
         </button>
       </header> : null}
       <AuthExpiredBanner />
+      {defaultWorkspaceError ? <p role="alert" className="px-3 py-2 text-xs text-amber-300">{defaultWorkspaceError}</p> : null}
       {nativeAlpha ? <div role="status" data-testid="native-alpha-notice" className="border-b border-amber-800/50 bg-amber-950/30 px-3 py-1 text-xs text-amber-200">
         Native alpha: chat and NNA review are available. File, Git, queue, and other workspace actions are waiting for native review support.
       </div> : null}

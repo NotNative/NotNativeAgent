@@ -37,15 +37,23 @@ export interface EngineServices {
 
 /** §F.1 createSession: routing pre-register, child insert, loader claim, select. */
 export async function createSession(engine: EngineServices, input: { directory: string; title?: string; parentID?: string;
-  projectContextPins?: ProjectContextPinTargets; select?: boolean }): Promise<Session> {
+  projectContextPins?: ProjectContextPinTargets; select?: boolean; model?: { providerID: string; modelID: string }; reviewMode?: 'auto-review' | 'unattended'; operationId?: string; startFingerprint?: string }): Promise<Session> {
   const requested = normalizeDirectory(input.directory);
-  const selected = await nativeWorkspaceForCreate(requested);
+  const selected = await nativeWorkspaceForCreate(requested).catch(error => {
+    throw Object.assign(error instanceof Error ? error : new Error(String(error)), { creationNotApplied: true });
+  });
   // Native admission is async; a replay gap discovered during it closes writes.
   assertFreshAuthority();
   const result = await harnessClient.createSession({ title: input.title, directory: selected.directory,
     ...(selected.workspace_id ? { workspace_id: selected.workspace_id } : {}),
+    ...(input.model ? { providerID: input.model.providerID, model: input.model.modelID } : {}),
+    ...(input.reviewMode ? { reviewMode: input.reviewMode } : {}),
+    ...(input.operationId ? { operation_id: input.operationId } : {}),
+    ...(input.startFingerprint ? { start_fingerprint: input.startFingerprint } : {}),
     ...(input.parentID ? { parentID: input.parentID } : {}) });
-  if (result.error || !result.data) throw new Error(result.error ?? 'createSession failed');
+  if (result.error || !result.data) throw Object.assign(new Error(result.error ?? 'createSession failed'), {
+    creationNotApplied: [400, 401, 403, 422].includes(result.response?.status ?? 0),
+  });
   const session = result.data;
   assertCreatedSessionAuthority(session.id);
   // A configuration transition can race the read-only preflight. Preserve a

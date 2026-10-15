@@ -8,6 +8,7 @@ import { sseOpen } from './opencode/protocol.js';
 import { dispatchNndQuestionRequest } from './nnd-question-routes.js';
 import { dispatchNndNotificationRequest } from './nnd-notification-routes.js';
 import { dispatchNndAssistRequest } from './nnd-assist-routes.js';
+import { conversationCreation } from './nnd-conversation-start.js';
 import { modelRouteFromBody } from './nnd-session-model-route.js';
 const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort|fork|revert|unrevert))?$/u;
 const COMMAND_ROUTE = '/command';
@@ -34,7 +35,8 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     const body = await readJsonBody(request);
     const options = { ...createOptions(body),
       directory: body?.workspace_id ? body.directory : trustedWorkspace(context.nndWorkspaceRoot) };
-    const made = await host.create(newId('ses'), context.principal, options);
+    const creation = conversationCreation(context.principal, options, body.operation_id);
+    const made = await host.create(creation.sessionId, context.principal, creation.options);
     return send(response, 201, host.get(made.sessionId, context.principal));
   }
   if (request.method === 'POST' && id && match[2] === 'prompt_async') {
@@ -378,8 +380,14 @@ function createOptions(body) {
     || !/^ws_[a-f0-9]{24}$/u.test(body.workspace_id))) {
     throw new ContractError('request_invalid', 'NND workspace selection is invalid');
   }
+  if (body.reviewMode !== undefined && !['default', 'auto-review', 'unattended'].includes(body.reviewMode)) {
+    throw new ContractError('request_invalid', 'Conversation review mode is invalid');
+  }
+  if (body.start_fingerprint !== undefined && (typeof body.start_fingerprint !== 'string' || !/^[a-f0-9]{64}$/u.test(body.start_fingerprint))) {
+    throw new ContractError('request_invalid', 'Conversation start fingerprint is invalid');
+  }
   const modelRoute = modelRouteFromBody(body);
   return { ...(typeof body.title === 'string' ? { title: body.title } : {}),
     ...(body.workspace_id ? { workspace_id: body.workspace_id } : {}),
-    ...(modelRoute ? { modelRoute } : {}) };
+    ...(modelRoute ? { modelRoute } : {}), ...(body.reviewMode ? { reviewMode: body.reviewMode } : {}), ...(body.start_fingerprint ? { startFingerprint: body.start_fingerprint } : {}) };
 }

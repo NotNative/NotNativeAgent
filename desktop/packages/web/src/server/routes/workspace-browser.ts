@@ -1,12 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
-import { opendir, realpath } from 'node:fs/promises';
+import { opendir, realpath, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import type { Hono } from 'hono';
+import { ENV } from '../env.ts';
 
 /** Directory names for the authenticated operator's folder chooser; this grants no execution access. */
 export function registerWorkspaceBrowserRoutes(app: Hono): void {
+  app.post('/api/workspace-default', async context => {
+    const directory = resolve(ENV.dataDir, 'workspaces', 'default');
+    await mkdir(directory, { recursive: true });
+    const canonical = await realpath(directory);
+    if ((process.platform === 'win32' ? canonical.toLowerCase() !== directory.toLowerCase() : canonical !== directory)) {
+      return context.json({ error: 'The default workspace must use its original folder, without links.' }, 400);
+    }
+    return context.json({ directory: canonical });
+  });
   app.get('/api/workspace-browser', async context => {
     const requested = context.req.query('path') || homedir();
     if (requested.length > 4096 || !isAbsolute(requested) || /[\u0000-\u001f]/u.test(requested)) {

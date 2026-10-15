@@ -106,6 +106,9 @@ export async function assertLiveNndWorkspaceBinding(context, resolver, principal
 export async function initializeBoundEngine(engine, resolver, binding, principal, options, restoring) {
   assertBoundEngineWorkspace(engine, binding);
   await engine.initialize();
+  if (!restoring && options.creationFingerprint && engine.transcript?.length > 0) {
+    throw new ContractError('nnd_session_unavailable', 'Conversation history exists without its creation record. Start a new conversation.');
+  }
   // Security: durable journal replay can change the engine root during initialize().
   assertBoundEngineWorkspace(engine, binding);
   await recheckContextBinding(resolver, binding, principal, options, restoring);

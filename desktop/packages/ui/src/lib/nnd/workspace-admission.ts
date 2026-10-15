@@ -81,7 +81,13 @@ export async function addNativeWorkspace(root: string): Promise<WorkspaceAdmissi
     if (getRuntimeKey() !== runtime) throw new Error('Connection changed; check NNA before retrying.');
     const response = await runtimeFetch(`${BASE}/operations/${operationId}`);
     receipt = response.ok ? await responseJson(response) : null;
-    if (!record(receipt) || receipt.persistence !== 'saved') throw error;
+    if (!record(receipt) || receipt.persistence !== 'saved') {
+      const latest = await readNativeWorkspaceAdmissions();
+      if (getRuntimeKey() !== runtime || latest.installation_id !== before.installation_id || latest.data_id !== before.data_id) throw error;
+      const concurrent = latest.admitted.find(row => sameWorkspace(row.root, root));
+      if (concurrent) return { directory: concurrent.root, inventory: latest, added: false };
+      throw error;
+    }
   }
   if (!record(receipt) || receipt.operation_id !== operationId || receipt.persistence !== 'saved'
     || getRuntimeKey() !== runtime) throw new Error('Workspace admission outcome needs a refresh.');

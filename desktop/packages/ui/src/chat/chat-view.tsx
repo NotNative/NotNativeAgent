@@ -32,6 +32,8 @@ import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useContextRoute } from '../components/use-context-route.ts';
 import { CompletionAffordance } from './completion-affordance.tsx';
+import { useConversationDraftStore } from '../stores/useConversationDraftStore.ts';
+import { readDraft, saveDraft, flushDraftsNow, subscribeDraftChanges, getDraftRevision } from './drafts.ts';
 import { DraftWorkspacePicker } from './draft-workspace-picker.tsx';
 import { notifySessionRouteNavigation } from '../lib/session-route.ts';
 
@@ -79,6 +81,7 @@ interface ChatColumnSession {
 }
 
 export function ChatView(props: ChatViewProps): ReactNode {
+  useSyncExternalStore(subscribeDraftChanges, getDraftRevision);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const globalSessions = useSyncExternalStore(useGlobalSessionsStore.subscribe, useGlobalSessionsStore.getState);
   const goalEnabled = useSettingsStore((state) => state.doc.sessionGoalEnabled === true);
@@ -161,7 +164,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
   }, [view.activeDirectory]);
 
   useEffect(() => {
-    const keyNow = `${view.activeDirectory}\n${view.currentSessionId ?? 'draft'}`;
+    const keyNow = `${view.activeDirectory}\n${view.currentSessionId ?? view.currentDraftId ?? 'draft'}`;
     if (shown && shown.key === keyNow) return;
     const store = props.services.engine.childStoreOf(view.activeDirectory) ?? props.services.engine.manager.ensureChild(view.activeDirectory);
     // §A.2: swap as one unit. Hold only when the target session has NO loaded
@@ -177,13 +180,13 @@ export function ChatView(props: ChatViewProps): ReactNode {
     holdRef.current = setTimeout(() => {
       holdRef.current = null;
       const latest = useSessionViewStore.getState();
-      setShown({ sessionID: latest.currentSessionId, store, directory: latest.activeDirectory, key: `${latest.activeDirectory}\n${latest.currentSessionId ?? 'draft'}` });
+      setShown({ sessionID: latest.currentSessionId, store, directory: latest.activeDirectory, key: `${latest.activeDirectory}\n${latest.currentSessionId ?? latest.currentDraftId ?? 'draft'}` });
     }, SESSION_SWITCH_HOLD_MS);
     return () => {
       if (holdRef.current !== null) clearTimeout(holdRef.current);
       holdRef.current = null;
     };
-  }, [view.currentSessionId, view.activeDirectory, props.services.engine, shown]);
+  }, [view.currentSessionId, view.currentDraftId, view.activeDirectory, props.services.engine, shown]);
 
   const runBtw = (parentSessionID: string, input: BtwInvocation): void => {
     const current = shown;
@@ -292,22 +295,27 @@ export function ChatView(props: ChatViewProps): ReactNode {
             <p className="mt-2 text-xs text-neutral-500">Choose where this conversation belongs, then describe what you want to work on.</p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
               {props.nativeAlpha ? <DraftWorkspacePicker directory={shownRef.directory} onSelect={directory => {
+                if (readDraft(shownRef.directory, view.currentDraftId ?? 'draft').start) { toast.error('Recover the current start before changing its workspace.'); return; }
+                if (view.currentDraftId) {
+                  try { useConversationDraftStore.getState().move(view.currentDraftId, directory); } catch (error) { toast.error(String(error)); return; }
+                } else { saveDraft(directory, 'draft', readDraft(shownRef.directory, 'draft')); flushDraftsNow(); }
                 persistLastActiveSession(null, directory);
                 useSessionViewStore.setState({ activeDirectory: directory, currentSessionId: null });
                 notifySessionRouteNavigation();
               }} /> : <span className="text-sm text-neutral-200">{workspaceName}</span>}
-              {props.nativeAlpha ? <span className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-neutral-400" title="Agent and review controls become available when NNA creates the conversation">NNA configured agent and review</span> : null}
+
             </div>
             <p className="mt-3 text-xs text-neutral-600" title={shownRef.directory} data-testid="landing-workspace-path">{shownRef.directory}</p>
           </div> : null}
           <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
           {goalEnabled && shownRef.sessionID && !isChildSession && !sessionMetadataLoading ? <SessionGoalControls key={shownRef.sessionID} sessionID={shownRef.sessionID} store={shownRef.store} externalRevision={typeof globalGoalRevision === 'number' && Number.isSafeInteger(globalGoalRevision) && globalGoalRevision >= 0 ? globalGoalRevision : 0} /> : null}
           {!focusMode && recap ? <RecapNote pair={recap} /> : null}
-          {sessionMetadataLoading ? <div className="text-xs text-neutral-500" data-testid="session-metadata-loading">Session access metadata is loading.</div> : <Composer
+          {sessionMetadataLoading ? <div className="text-xs text-neutral-500" data-testid="session-metadata-loading">Session access metadata is loading.</div> : props.nativeAlpha && shownRef.sessionID === null && !view.currentDraftId ? <p role="status" className="text-sm text-neutral-400">Preparing conversation… You can also choose New conversation.</p> : <Composer
+            key={`${shownRef.directory}\n${shownRef.sessionID ?? view.currentDraftId ?? 'draft'}`}
             services={props.services}
             sessionID={shownRef.sessionID}
             directory={shownRef.directory}
-            sessionKey={shownRef.sessionID ?? 'draft'}
+            sessionKey={shownRef.sessionID ?? view.currentDraftId ?? 'draft'}
             expanded={focusMode}
             onToggleExpanded={() => { setCompactSurfaceOpen(false); setExpanded((value) => !value); }}
             onRunBtw={runBtw}

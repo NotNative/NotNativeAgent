@@ -72,14 +72,13 @@ afterEach(() => {
 });
 
 describe('NNA configured composer model', () => {
-  it('shows the configured primary route, hides unsupported controls, and sends its exact model', async () => {
+  it('offers the configured route for a draft and sends its exact model', async () => {
     snapshot = { ...base, config: { model: 'primary/test', default_agent: 'nna', nnd: {
       engine: 'nna', modelSelection: 'configured', primaryModel: { providerID: 'primary', modelID: 'test' },
     } } } as unknown as DirectoryStore;
     await render();
-    const trigger = document.querySelector('[data-testid="model-trigger"]') as HTMLElement;
-    expect(trigger.textContent).toBe('primary · test');
-    expect(trigger.tagName).toBe('SPAN');
+    expect(document.querySelector<HTMLSelectElement>('[aria-label="Provider profile"]')?.value).toBe('primary');
+    expect(document.querySelector<HTMLInputElement>('[aria-label="Provider model"]')?.value).toBe('test');
     expect(document.querySelector('[aria-label="Agent persona"]')).toBeNull();
     expect(document.querySelector('[aria-label="Enable permission auto-accept"]')).toBeNull();
     expect(document.body.textContent).toContain('NNA governed');
@@ -101,7 +100,7 @@ describe('NNA configured composer model', () => {
     }));
   });
 
-  it('uses the route reported by a newly created session despite an activation race', async () => {
+  it('refuses to send when creation reports a different route from the captured choice', async () => {
     snapshot = { ...base, config: { nnd: {
       engine: 'nna', primaryModel: { providerID: 'old', modelID: 'old-model' },
     } } } as unknown as DirectoryStore;
@@ -110,9 +109,8 @@ describe('NNA configured composer model', () => {
     } } }));
     await render();
     await submit('new session');
-    expect(send).toHaveBeenCalledWith(expect.objectContaining({
-      sessionID: 'session_1', model: { providerID: 'new', modelID: 'new-model' },
-    }));
+    expect(send).not.toHaveBeenCalled();
+    expect(document.querySelector<HTMLTextAreaElement>('[data-testid="composer-editor"]')?.value).toBe('new session');
   });
 
   it('shows the activated global route when a warm directory still has its old config', async () => {
@@ -123,7 +121,7 @@ describe('NNA configured composer model', () => {
       engine: 'nna', primaryModel: { providerID: 'new', modelID: 'new-model' },
     } } });
     await render();
-    expect(document.querySelector('[data-testid="model-trigger"]')?.textContent).toBe('new · new-model');
+    expect(document.querySelector<HTMLInputElement>('[aria-label="Provider model"]')?.value).toBe('new-model');
   });
 
   it('uses an authenticated global native route while directory config is absent', async () => {
@@ -135,7 +133,7 @@ describe('NNA configured composer model', () => {
       engine: 'nna', primaryModel: { providerID: 'ready', modelID: 'test' },
     } } });
     await render();
-    expect(document.querySelector('[data-testid="model-trigger"]')?.textContent).toBe('ready · test');
+    expect(document.querySelector<HTMLSelectElement>('[aria-label="Provider profile"]')?.value).toBe('ready');
     await submit('native route');
     expect(send).toHaveBeenCalledWith(expect.objectContaining({
       model: { providerID: 'ready', modelID: 'test' }, agent: 'nna',
