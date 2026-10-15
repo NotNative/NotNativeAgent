@@ -2,7 +2,9 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { addNativeWorkspace, type WorkspaceAdmissionSelection } from '../lib/nnd/workspace-admission.ts';
 import { hasNativeWorkspacePicker, pickWorkspaceDirectory } from '../lib/nnd/workspace-picker.ts';
-import { WorkspacePathDialog } from './workspace-path-dialog.tsx';
+import { useWorkspaceStore } from '../stores/useWorkspaceStore.ts';
+import { useWorkspaceDisplayStore, workspaceDisplay } from '../stores/useWorkspaceDisplayStore.ts';
+import { WorkspaceBrowserDialog } from './workspace-browser-dialog.tsx';
 
 type Feedback = { kind: 'error' | 'success'; message: string; path: string | null };
 
@@ -15,7 +17,6 @@ export function useWorkspaceAddition(onAdded: (selection: WorkspaceAdmissionSele
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState<'choosing' | 'adding' | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
-  const [manualPath, setManualPath] = useState('');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
   const add = async (path: string): Promise<void> => {
@@ -26,9 +27,11 @@ export function useWorkspaceAddition(onAdded: (selection: WorkspaceAdmissionSele
     setFeedback(null);
     try {
       const selected = await addNativeWorkspace(path.trim());
+      useWorkspaceStore.getState().adopt(selected.inventory);
+      const display = workspaceDisplay(selected.directory, useWorkspaceDisplayStore.getState().rows);
+      if (display.id && display.hidden) await useWorkspaceDisplayStore.getState().save(display.id, { label: display.label, hidden: false });
       onAdded(selected);
       setManualOpen(false);
-      setManualPath('');
       setFeedback({ kind: 'success', path: null,
         message: `${selected.added ? 'Workspace added' : 'Workspace already available'}: ${selected.directory}` });
     } catch (error) {
@@ -66,8 +69,7 @@ export function useWorkspaceAddition(onAdded: (selection: WorkspaceAdmissionSele
         {feedback.path ? <button type="button" disabled={busy} className="underline disabled:opacity-50" onClick={() => void choose()}>Choose another folder</button> : null}
       </div> : null}
     </div> : null}
-    {manualOpen ? <WorkspacePathDialog path={manualPath} busy={busy} onPathChange={setManualPath}
-      onSubmit={() => void add(manualPath)} onClose={() => setManualOpen(false)} /> : null}
+    {manualOpen ? <WorkspaceBrowserDialog busy={busy} onPick={path => void add(path)} onClose={() => setManualOpen(false)} /> : null}
   </>;
   return { choose, busy, controls };
 }

@@ -13,6 +13,8 @@ import { createClientAuthPublicRoutes, registerClientAuthRoutes } from './routes
 import { createNotNativeRoutes } from './routes/notnative.ts';
 import { registerRelayRoutes } from './routes/relay.ts';
 import { registerTunnelRoutes } from './routes/tunnel.ts';
+import { registerWorkspaceBrowserRoutes } from './routes/workspace-browser.ts';
+import { registerWorkspacePresentationRoutes } from './routes/workspace-presentation.ts';
 import { registerFsRoutes } from './routes/fs.ts';
 import { registerFsReadRoutes } from './routes/fs-read.ts';
 import { registerGitDiffRoutes } from './routes/git-diff.ts';
@@ -378,6 +380,8 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime, harnessPort?:
   app.route('/', createNotificationRoutes(notificationServices));
   registerMessageQueueRoutes(app); // §D.3 wiring: BEFORE the harness proxy
   registerNativeWorkspaceAdmissionRoute(app);
+  registerWorkspaceBrowserRoutes(app);
+  registerWorkspacePresentationRoutes(app);
   registerObjectiveRoutes(app); // §B.1 objective files: auth-gated NND surface
   // §5.17 session orchestration: server-side create/send/fork/archive.
   registerOpenChamberSessionRoutes(app);

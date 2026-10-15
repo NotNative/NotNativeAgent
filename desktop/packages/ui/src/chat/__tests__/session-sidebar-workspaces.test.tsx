@@ -1,3 +1,5 @@
+import { runtimeFetch } from '../../lib/runtime-fetch.ts';
+import { useWorkspaceDisplayStore } from '../../stores/useWorkspaceDisplayStore.ts';
 import { useWorkspaceStore } from '../../stores/useWorkspaceStore.ts';
 // SPDX-License-Identifier: Apache-2.0
 /** @vitest-environment jsdom */
@@ -20,6 +22,8 @@ vi.mock('../../lib/nnd/workspace-admission.ts', () => ({
 }));
 vi.mock('../../lib/nnd/workspace-picker.ts', () => ({ hasNativeWorkspacePicker: vi.fn(), pickWorkspaceDirectory: vi.fn() }));
 
+vi.mock('../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
+
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 initializeRuntimeEndpoint({ apiBaseUrl: 'http://127.0.0.1:61776', runtimeKey: 'local' });
 let root: Root | null = null;
@@ -28,6 +32,10 @@ let originalLoad: () => Promise<void>;
 let originalSessionLoad: () => Promise<void>;
 
 beforeEach(() => {
+  useWorkspaceDisplayStore.setState({ rows: {}, error: null });
+  vi.mocked(runtimeFetch).mockImplementation(async path => new Response(JSON.stringify(String(path).includes('workspace-browser')
+    ? { path: 'D:/browser', parent: 'D:/', roots: ['D:/'], home: 'D:/', entries: [], truncated: false }
+    : { version: 1, workspaces: {} })));
   useWorkspaceStore.getState().reset();
   vi.mocked(readNativeWorkspaceAdmissions).mockReset();
   vi.mocked(addNativeWorkspace).mockReset();
@@ -173,32 +181,28 @@ it('leaves the workspace unchanged when the folder picker is cancelled', async (
   expect(openDraft).not.toHaveBeenCalled();
 });
 
-it('accepts an absolute path when opened outside the desktop shell', async () => {
+it('browses a folder when opened outside the desktop shell', async () => {
   vi.mocked(hasNativeWorkspacePicker).mockReturnValue(false);
   const { node, openDraft } = mount('D:/work', vi.fn(), true);
   await act(async () => { await Promise.resolve(); });
   vi.mocked(addNativeWorkspace).mockResolvedValue(admittedSelection('D:/browser'));
   act(() => node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click());
   expect(pickWorkspaceDirectory).not.toHaveBeenCalled();
-  const input = node.querySelector<HTMLInputElement>('[aria-label="Workspace folder path"]')!;
-  act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'D:/browser');
-    input.dispatchEvent(new Event('input', { bubbles: true })); });
-  await act(async () => { node.querySelector<HTMLFormElement>('[role="dialog"]')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  await act(async () => { [...node.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(button => button.textContent === 'Select folder')!.click();
     await Promise.resolve(); await Promise.resolve(); });
   expect(addNativeWorkspace).toHaveBeenCalledWith('D:/browser');
   expect(openDraft).toHaveBeenCalledWith('D:/browser');
 });
 
-it('shows a failed browser path admission outside the path dialog', async () => {
+it('shows a failed browser folder admission outside the picker', async () => {
   vi.mocked(hasNativeWorkspacePicker).mockReturnValue(false);
   const { node } = mount('D:/work', vi.fn(), true);
   await act(async () => { await Promise.resolve(); });
   vi.mocked(addNativeWorkspace).mockRejectedValue(new Error('NNA refused this path.'));
   act(() => node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click());
-  const input = node.querySelector<HTMLInputElement>('[aria-label="Workspace folder path"]')!;
-  act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'D:/browser');
-    input.dispatchEvent(new Event('input', { bubbles: true })); });
-  await act(async () => { node.querySelector<HTMLFormElement>('[role="dialog"]')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  await act(async () => { [...node.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(button => button.textContent === 'Select folder')!.click();
     await Promise.resolve(); });
   expect(node.querySelector('[role="dialog"]')).toBeNull();
   expect(node.querySelector('[data-testid="workspace-add-feedback"]')?.textContent).toContain('NNA refused this path.');
@@ -562,4 +566,39 @@ it('clears known descendant pins after a successful bulk parent delete', async (
   expect(deleteSession).toHaveBeenCalledExactlyOnceWith('parent', 'D:/work');
   expect(useSessionPinnedStore.getState().pins).toEqual({});
   confirmSpy.mockRestore();
+});
+
+
+it('renames a workspace through its menu and keeps its path unchanged', async () => {
+  vi.mocked(runtimeFetch).mockImplementation(async (_path, options) => {
+    const body = options?.body ? JSON.parse(String(options.body)) : null;
+    return new Response(JSON.stringify({ version: 1, workspaces: body ? { [body.id]: { label: body.label, hidden: body.hidden } } : {} }));
+  });
+  const { node } = mount('D:/work', vi.fn(), true);
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  act(() => [...node.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'Rename workspace')!.click());
+  const input = document.querySelector<HTMLInputElement>('[aria-label="Workspace name"]')!;
+  act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'My workspace'); input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { document.querySelector<HTMLFormElement>('[aria-label="Rename workspace"]')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await Promise.resolve(); });
+  expect(node.querySelector('[aria-label="Open D:/work workspace"]')?.textContent).toContain('My workspace');
+  expect(document.querySelector('[aria-label="Workspace name"]')).toBeNull();
+});
+
+it('removes a workspace from the grouped sidebar and reveals it on request', async () => {
+  const { node } = mount('D:/work', vi.fn(), true);
+  await act(async () => { await Promise.resolve(); });
+  act(() => useWorkspaceDisplayStore.setState({ rows: { [`ws_${'a'.repeat(24)}`]: { label: 'Saved', hidden: true } } }));
+  expect(node.querySelector('[data-testid="workspace-zone"]')).toBeNull();
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Filter conversations"]')!.click());
+  act(() => [...node.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'Show removed workspaces')!.click());
+  expect(node.querySelector('[data-testid="workspace-zone"]')?.textContent).toContain('Saved');
+});
+
+it('restores the grouping preference after the sidebar remounts', () => {
+  let { node } = mount('D:/work');
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Filter conversations"]')!.click());
+  act(() => [...node.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.startsWith('One list'))!.click());
+  act(() => root!.unmount()); container!.remove();
+  ({ node } = mount('D:/work'));
+  expect(node.querySelector('[data-testid="sidebar-flat-list"]')).toBeTruthy();
 });

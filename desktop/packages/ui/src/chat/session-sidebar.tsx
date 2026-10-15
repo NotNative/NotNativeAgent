@@ -10,6 +10,9 @@ import { useEffect, useSyncExternalStore, useMemo, useRef, useState, type ReactN
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore } from '../sync/global-stores.ts';
+import { useWorkspaceDisplayStore, workspaceDisplay } from '../stores/useWorkspaceDisplayStore.ts';
+import { WorkspaceMenu } from './workspace-menu.tsx';
+import { useSidebarPreference, oneOf, collapsedMap } from './sidebar-preferences.ts';
 import { useWorkspaceStore } from '../stores/useWorkspaceStore.ts';
 import { WorkspaceRecoveryControls } from './workspace-recovery-controls.tsx';
 import { useSessionOrderingStore } from '../sync/session-ordering.ts';
@@ -60,14 +63,17 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [collapsedZones, setCollapsedZones] = useState<Record<string, true>>({});
+  const [collapsedZones, setCollapsedZones] = useSidebarPreference<Record<string, true>>('collapsed', {}, collapsedMap);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [sortBy, setSortBy] = useState<'activity' | 'name'>('activity');
-  const [groupBy, setGroupBy] = useState<'workspace' | 'list'>('workspace');
-  const [archiveMode, setArchiveMode] = useState<'active' | 'all' | 'archived'>('active');
+  const [sortBy, setSortBy] = useSidebarPreference<'activity' | 'name'>('sort', 'activity', oneOf('activity', 'name'));
+  const [groupBy, setGroupBy] = useSidebarPreference<'workspace' | 'list'>('group', 'workspace', oneOf('workspace', 'list'));
+  const [archiveMode, setArchiveMode] = useSidebarPreference<'active' | 'all' | 'archived'>('archive', 'active', oneOf('active', 'all', 'archived'));
   const [listLimit, setListLimit] = useState(AVATAR_LIMIT);
   const [showSearch, setShowSearch] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const workspaceDisplays = useWorkspaceDisplayStore(state => state.rows);
+  const displayError = useWorkspaceDisplayStore(state => state.error);
+  const [showHidden, setShowHidden] = useState(false);
   const workspaceInventory = useWorkspaceStore(state => state.inventory);
   const workspaceError = useWorkspaceStore(state => state.phase === 'error');
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
@@ -141,7 +147,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
 
   useEffect(() => { void useSessionFoldersStore.getState().load(); }, []);
   useEffect(() => {
-    if (props.nativeAlpha) void useWorkspaceStore.getState().load();
+    if (props.nativeAlpha) { void useWorkspaceStore.getState().load(); void useWorkspaceDisplayStore.getState().load(); }
   }, [runtimeKey, props.nativeAlpha]);
   useEffect(() => {
     if (!useGlobalSessionsStore.getState().hasLoaded) void useGlobalSessionsStore.getState().loadSessions();
@@ -205,6 +211,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           </div>
         </div>
         {filterOpen ? <div className="absolute right-3 top-12 z-40 w-56 rounded-xl border border-white/10 bg-neutral-800 p-2 text-xs text-neutral-200 shadow-2xl" data-testid="sidebar-filter-menu">
+          <button type="button" className="w-full px-2 py-1.5 text-left" onClick={() => setShowHidden(value => !value)}>{showHidden ? 'Hide removed workspaces' : 'Show removed workspaces'}</button>
           <div className="px-2 pb-1 text-[11px] text-neutral-400">Group conversations</div>
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => setGroupBy('workspace')}>By workspace {groupBy === 'workspace' ? '✓' : ''}</button>
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => setGroupBy('list')}>One list {groupBy === 'list' ? '✓' : ''}</button>
@@ -218,6 +225,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => { setSortBy('name'); setFilterOpen(false); }}>Name {sortBy === 'name' ? '✓' : ''}</button>
         </div> : null}
         {workspaceAddition.controls}
+        {displayError ? <p role="status" className="text-xs text-amber-300">Workspace names unavailable. <button onClick={() => void useWorkspaceDisplayStore.getState().load()}>Retry names</button></p> : null}
         {workspaceError ? <div role="alert" className="mb-2 text-[11px] text-amber-300">Workspace list unavailable. <button type="button" className="underline" onClick={() => {
           void useWorkspaceStore.getState().load(true);
         }}>Retry</button></div> : null}
@@ -262,13 +270,14 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
               onRunFusion={props.onRunFusion} allowFolders={false} />)}
           {filtered.length > listLimit ? <li><button type="button" className="w-full rounded px-3 py-2 text-left text-xs text-sky-300 hover:bg-white/5" onClick={() => setListLimit(limit => limit + AVATAR_LIMIT)}>Show {Math.min(AVATAR_LIMIT, filtered.length - listLimit)} more conversations</button></li> : null}
         </ul> : [...zones.entries()]
-          .filter(([directory]) => filteredDirectories.has(directory))
+          .filter(([directory]) => filteredDirectories.has(directory) && (query.trim() || showHidden || !workspaceDisplay(directory, workspaceDisplays).hidden))
           .sort(([left, leftSessions], [right, rightSessions]) => left === currentWorkspace ? -1 : right === currentWorkspace ? 1
             : sortBy === 'name' ? left.localeCompare(right)
               : Math.max(0, ...rightSessions.map(session => session.time.updated)) - Math.max(0, ...leftSessions.map(session => session.time.updated)) || left.localeCompare(right))
           .map(([directory, sessions]) => (
             <Zone
               key={directory}
+              display={workspaceDisplay(directory, workspaceDisplays)}
               directory={directory}
               sessions={filtered.filter((session) => normalizeDirectory(session.directory ?? 'global') === directory)}
               statusById={statusById}
@@ -325,7 +334,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   );
 }
 
-function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName, selecting, selectedIds, onToggleSelected, sessionListStatus, onRunFusion, allowFolders, expandedIds, onToggleExpanded }: { directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; pinnedIds: ReadonlySet<string>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean; selecting: boolean; selectedIds: ReadonlySet<string>; onToggleSelected: (ids: string[]) => void; sessionListStatus: 'idle' | 'loading' | 'ready' | 'error'; onRunFusion?: (session: Session) => void; allowFolders: boolean; expandedIds: ReadonlySet<string>; onToggleExpanded: (id: string) => void }): ReactNode {
+function Zone({ display, directory, sessions, statusById, ranks, pinnedIds, actions, currentSessionId, folders, collapsed, active, forceOpen, zoneCollapsed, onToggleZone, duplicateName, selecting, selectedIds, onToggleSelected, sessionListStatus, onRunFusion, allowFolders, expandedIds, onToggleExpanded }: { display?: { id: string | null; label: string; hidden: boolean }; directory: string; sessions: Session[]; statusById: Record<string, SessionStatus>; ranks: Record<string, number>; pinnedIds: ReadonlySet<string>; actions: ChatSidebarProps['actions']; currentSessionId: string | null; folders: import('../lib/session-folders.ts').SessionFolder[]; collapsed: Record<string, true>; active: boolean; forceOpen: boolean; zoneCollapsed: boolean; onToggleZone: () => void; duplicateName: boolean; selecting: boolean; selectedIds: ReadonlySet<string>; onToggleSelected: (ids: string[]) => void; sessionListStatus: 'idle' | 'loading' | 'ready' | 'error'; onRunFusion?: (session: Session) => void; allowFolders: boolean; expandedIds: ReadonlySet<string>; onToggleExpanded: (id: string) => void }): ReactNode {
   const zoneOpen = forceOpen || !zoneCollapsed;
   // Lifecycle ordering per doc 04 §F.10: baseline desc → created desc → id asc.
   const ordered = orderSessionsByLifecycleWrap(sessions);
@@ -384,7 +393,7 @@ function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, curr
           className={`flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-1.5 text-left text-[13px] hover:text-white ${active ? 'font-medium text-neutral-100' : 'text-neutral-300'}`}
           onClick={() => actions.openDraft(directory)} title={directory}>
           <span className={active ? 'text-sky-400' : 'text-neutral-500'}><SidebarIcon name="folder" /></span>
-          <span className="truncate font-medium">{shortDirectory(directory)}</span>
+          <span className="truncate font-medium">{display?.label || shortDirectory(directory)}</span>
           {duplicateName ? <span className="truncate text-[10px] text-neutral-500">{directory}</span> : null}
         </button>
         <div className="flex items-center gap-0.5">
@@ -397,6 +406,7 @@ function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, curr
             <summary aria-label={`More actions for ${directory || 'general'} workspace`} title="Workspace actions" className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-neutral-100"><SidebarIcon name="more" /></summary>
             <div className="absolute right-0 top-9 z-30 w-44 rounded-xl border border-white/15 bg-neutral-800 p-1.5 shadow-xl">
               <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-xs text-neutral-100 hover:bg-white/10" onClick={() => actions.openDraft(directory)}>New conversation</button>
+              {display?.id ? <WorkspaceMenu id={display.id} label={display.label || shortDirectory(directory)} hidden={display.hidden} /> : null}
               <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-xs text-neutral-300 hover:bg-white/10" onClick={() => {
                 if (!navigator.clipboard) { toast.error('Clipboard is unavailable'); return; }
                 void navigator.clipboard.writeText(directory).then(() => toast.success('Workspace path copied')).catch(() => toast.error('Could not copy workspace path'));
