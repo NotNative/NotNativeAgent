@@ -6,7 +6,6 @@ import { mountEngine } from '../chat/app-engine.ts';
 import { ChatView } from '../chat/chat-view.tsx';
 import { ChatSidebar } from '../chat/session-sidebar.tsx';
 import { ArchiveView } from '../chat/archive-view.tsx';
-import { SessionTabs } from '../chat/session-tabs.tsx';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { nnaOwnsPermissionReview } from '../lib/nnd/permission-policy.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
@@ -306,10 +305,6 @@ export function MainLayout(): ReactNode {
           className="rounded px-2 py-1 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100">☰</button>
         <div className="text-[11px] uppercase tracking-widest text-amber-400/80">NotNative</div>
         <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={runtimeKey} />
-        <SessionTabs key={runtimeKey} engine={engine} directory={activeDirectory} onActivate={(session) => {
-          if (session) actions.openSession(session.id, session.directory ?? activeDirectory);
-          else actions.openDraft(activeDirectory);
-        }} />
         <button type="button" data-testid="mini-chat-open" title={t('shell.minichat.openAria')} aria-label={t('shell.minichat.openAria')}
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100" onClick={openMiniChat}>▣</button>
         <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] ${connected ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/40 text-red-300'}`} data-testid="connection-pill">

@@ -449,15 +449,15 @@ export function createInvokeFace(input, dependencies) {
       return { ok: true, result: input.bootInfo() };
     }
     // Workspace model (b): native open-directory chooser for adding a
-    // workspace. Sender framing is already checked by the caller; the dialog
-    // is app-modal to the main window and never writes anything.
+    // workspace. Only the desktop main frame may open this app-modal dialog.
     if (command === 'desktop_pick_directory') {
-      if (!dependencies.dialog) return { ok: false, error: 'dialog-unavailable' };
-      const window = dependencies.windowForSender?.(event) ?? undefined;
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.dialog) return { ok: false, error: 'dialog-unavailable' };
+      const window = input.windowForSender?.(event) ?? undefined;
       const options = { properties: ['openDirectory', 'createDirectory'], title: 'Choose a workspace folder' };
       const result = window
-        ? await dependencies.dialog.showOpenDialog(window, options)
-        : await dependencies.dialog.showOpenDialog(options);
+        ? await input.dialog.showOpenDialog(window, options)
+        : await input.dialog.showOpenDialog(options);
       if (result.canceled || !Array.isArray(result.filePaths) || result.filePaths.length === 0) {
         return { ok: true, result: null };
       }

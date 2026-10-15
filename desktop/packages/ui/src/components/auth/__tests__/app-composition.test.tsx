@@ -153,6 +153,7 @@ describe('renderMainApp gate composition (doc 01 tree + §6.6)', () => {
     const sidebar = document.querySelector('[data-testid="session-sidebar"]');
     expect(sidebar).toBeTruthy();
     expect(document.querySelector('#session-sidebar-panel')?.nextElementSibling?.querySelector('[data-testid="app-header"]')).toBeTruthy();
+    expect(document.querySelector('[data-testid="session-tabs"]')).toBeNull();
     expect(document.querySelector('[aria-label="Workspace tools"]')).toBeNull();
     const newSession = sidebar!.querySelector<HTMLButtonElement>('[data-testid="sidebar-new-session"]');
     expect(newSession).toBeTruthy();

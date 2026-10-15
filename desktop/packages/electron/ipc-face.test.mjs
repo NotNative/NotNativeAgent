@@ -528,8 +528,10 @@ test('relay pairing completion accepts responses only from the desktop local mai
 test('desktop_pick_directory opens the native chooser and honours cancellation', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const dialogCalls = [];
+  const parentWindow = {};
   let pickResult = { canceled: false, filePaths: ['D:/work/alpha'] };
-  const invoke = registeredInvoke({ contents }, { dialog: { showOpenDialog: async (windowOrOptions, maybeOptions) => {
+  const invoke = registeredInvoke({ contents, windowForSender: () => parentWindow, dialog: { showOpenDialog: async (windowOrOptions, maybeOptions) => {
+    assert.equal(windowOrOptions, parentWindow);
     dialogCalls.push(maybeOptions ?? windowOrOptions);
     return pickResult;
   } } });
@@ -548,4 +550,9 @@ test('desktop_pick_directory opens the native chooser and honours cancellation',
   const refused = await noDialog(ipcEvent(contents, 'notnative-ui://app/index.html'), 'desktop_pick_directory');
   assert.equal(refused.ok, false);
   assert.equal(refused.error, 'dialog-unavailable');
+  const child = ipcEvent(contents, 'notnative-ui://app/index.html');
+  child.senderFrame = { processId: 2, routingId: 2, url: 'notnative-ui://app/index.html' };
+  const blocked = await invoke(child, 'desktop_pick_directory');
+  assert.equal(blocked.error, 'desktop-main-frame-required');
+  assert.equal(dialogCalls.length, 2);
 });

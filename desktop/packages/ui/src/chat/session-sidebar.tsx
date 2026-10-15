@@ -11,7 +11,7 @@ import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore } from '../sync/global-stores.ts';
 import { addNativeWorkspace, readNativeWorkspaceAdmissions, type WorkspaceAdmissions } from '../lib/nnd/workspace-admission.ts';
-import { pickWorkspaceDirectory } from '../lib/nnd/workspace-picker.ts';
+import { hasNativeWorkspacePicker, pickWorkspaceDirectory } from '../lib/nnd/workspace-picker.ts';
 import { WorkspaceRecoveryControls } from './workspace-recovery-controls.tsx';
 import { useSessionOrderingStore } from '../sync/session-ordering.ts';
 import { useSessionFoldersStore, unsortedSessionIds } from '../stores/useSessionFoldersStore.ts';
@@ -28,6 +28,7 @@ import { filterSessions, orderSessionsByLifecycleWrap, sessionDepths, shortDirec
 import { ArchivedRow, FolderActions } from './session-sidebar-actions.tsx';
 import { SidebarIcon } from './sidebar-icon.tsx';
 import { SidebarRow } from './session-sidebar-row.tsx';
+import { WorkspacePathDialog } from './workspace-path-dialog.tsx';
 
 const AVATAR_LIMIT = 50;
 
@@ -71,8 +72,9 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const [workspaceInventory, setWorkspaceInventory] = useState<WorkspaceAdmissions | null>(null);
   const [workspaceError, setWorkspaceError] = useState(false);
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
-  const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
-  const [newWorkspacePath, setNewWorkspacePath] = useState('');
+  const [workspacePickerBusy, setWorkspacePickerBusy] = useState(false);
+  const [manualPathOpen, setManualPathOpen] = useState(false);
+  const [manualPath, setManualPath] = useState('');
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
   const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
   const projects = useGlobalSyncStore((state) => state.projects);
@@ -189,8 +191,8 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
     try {
       const directory = await addNativeWorkspace(path.trim());
       props.actions.openDraft(normalizeDirectory(directory));
-      setWorkspaceDialogOpen(false);
-      setNewWorkspacePath('');
+      setManualPathOpen(false);
+      setManualPath('');
       try {
         setWorkspaceInventory(await readNativeWorkspaceAdmissions());
         setWorkspaceError(false);
@@ -202,6 +204,17 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
       }
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not add workspace.'); }
     finally { setWorkspaceBusy(false); }
+  };
+  const chooseWorkspace = async (): Promise<void> => {
+    if (workspacePickerBusy || workspaceBusy) return;
+    if (!hasNativeWorkspacePicker()) { setManualPathOpen(true); return; }
+    setWorkspacePickerBusy(true);
+    try {
+      const path = await pickWorkspaceDirectory();
+      if (path) await addWorkspace(path);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not open the folder picker.');
+    } finally { setWorkspacePickerBusy(false); }
   };
   if (!query.trim() && archiveMode !== 'archived' && props.currentDirectory) filteredDirectories.add(normalizeDirectory(props.currentDirectory));
   if (!query.trim() && archiveMode !== 'archived') for (const directory of workspaceOptions) filteredDirectories.add(directory.directory);
@@ -220,7 +233,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           <div className="flex items-center gap-0.5">
             <button type="button" aria-label="Search conversations" title="Search conversations" className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-white" onClick={() => { setShowSearch(true); requestAnimationFrame(() => searchRef.current?.focus()); }}><SidebarIcon name="search" /></button>
             <button type="button" aria-label="Filter conversations" title="Filter conversations" aria-expanded={filterOpen} className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-white" onClick={() => setFilterOpen(value => !value)}><SidebarIcon name="filter" /></button>
-            {props.nativeAlpha ? <button type="button" aria-label="Add workspace" title="Add workspace" className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-300 hover:bg-white/10 hover:text-white" onClick={() => setWorkspaceDialogOpen(true)}><SidebarIcon name="folder-plus" /></button> : null}
+            {props.nativeAlpha ? <button type="button" aria-label="Add workspace" title="Add workspace" disabled={workspacePickerBusy || workspaceBusy} className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-300 hover:bg-white/10 hover:text-white disabled:opacity-50" onClick={() => void chooseWorkspace()}><SidebarIcon name="folder-plus" /></button> : null}
           </div>
         </div>
         {filterOpen ? <div className="absolute right-3 top-12 z-40 w-56 rounded-xl border border-white/10 bg-neutral-800 p-2 text-xs text-neutral-200 shadow-2xl" data-testid="sidebar-filter-menu">
@@ -341,22 +354,8 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           </ul>
         ) : null}
       </div> : null}
-      {workspaceDialogOpen ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !workspaceBusy) setWorkspaceDialogOpen(false); }}>
-        <form role="dialog" aria-modal="true" aria-label="Add workspace" className="w-full max-w-md rounded-2xl border border-white/15 bg-neutral-900 p-5 shadow-2xl" onKeyDown={event => { if (event.key === 'Escape' && !workspaceBusy) setWorkspaceDialogOpen(false); }} onSubmit={event => { event.preventDefault(); if (newWorkspacePath.trim()) void addWorkspace(newWorkspacePath); }}>
-          <h2 className="text-base font-semibold text-neutral-100">Add workspace</h2>
-          <p className="mt-1 text-xs text-neutral-400">Choose an existing folder for conversations in this workspace.</p>
-          <label className="mt-5 block text-xs text-neutral-300">Folder path
-            <input aria-label="Workspace folder path" autoFocus value={newWorkspacePath} onChange={event => setNewWorkspacePath(event.target.value)} placeholder="D:\\Projects\\MyWorkspace" className="mt-2 w-full rounded-lg border border-white/15 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-sky-500" />
-          </label>
-          <div className="mt-4 flex items-center justify-between gap-2">
-            <button type="button" className="rounded-lg border border-white/15 px-3 py-2 text-xs text-neutral-200 hover:bg-white/10" onClick={() => void pickWorkspaceDirectory().then(path => { if (path) setNewWorkspacePath(path); }).catch(() => toast.error('Could not open the folder picker'))}>Browse folders</button>
-            <div className="flex gap-2">
-              <button type="button" disabled={workspaceBusy} className="rounded-lg px-3 py-2 text-xs text-neutral-300 hover:bg-white/10" onClick={() => setWorkspaceDialogOpen(false)}>Cancel</button>
-              <button type="submit" disabled={workspaceBusy || !newWorkspacePath.trim()} className="rounded-lg bg-sky-500 px-3 py-2 text-xs font-medium text-neutral-950 hover:bg-sky-400 disabled:opacity-40">{workspaceBusy ? 'Adding…' : 'Add workspace'}</button>
-            </div>
-          </div>
-        </form>
-      </div> : null}
+      {manualPathOpen ? <WorkspacePathDialog path={manualPath} busy={workspaceBusy} onPathChange={setManualPath}
+        onSubmit={() => void addWorkspace(manualPath)} onClose={() => setManualPathOpen(false)} /> : null}
     </aside>
   );
 }
