@@ -11,6 +11,7 @@ import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { nnaOwnsPermissionReview } from '../lib/nnd/permission-policy.ts';
 import { connectSidebarServicePreferences } from '../chat/sidebar-service-preferences.ts';
 import { useConversationDraftStore, rememberConversationDraft, selectedConversationDraft } from '../stores/useConversationDraftStore.ts';
+import { newConversationWorkspace } from '../chat/active-workspaces.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { defaultHarnessDirectory } from '../sync/engine-support.ts';
@@ -242,9 +243,10 @@ export function MainLayout(): ReactNode {
   }, [view.currentSessionId]);
 
   const actions = {
-    openDraft: (directory: string, draftId?: string) => {
+    openDraft: async (directory: string, draftId?: string) => {
       let draft;
       try {
+        if (nativeAlpha && !draftId) directory = await newConversationWorkspace(directory);
         draft = draftId ? useConversationDraftStore.getState().drafts.find(row => row.id === draftId) : useConversationDraftStore.getState().create(directory);
         if (!draft) return;
         directory = draft.directory;

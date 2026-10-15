@@ -257,7 +257,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
   return (
     <section ref={chatRoot} tabIndex={-1} className={`relative flex h-full min-w-0 flex-1 flex-row ${focusMode ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
       <div className={`relative min-w-0 flex-1 flex-col ${compactSurfaceOpen && !focusMode ? 'hidden min-[1100px]:flex' : 'flex'}`}>
-        {!focusMode ? <div className="flex justify-end border-b border-white/10 px-3 py-1 min-[1100px]:hidden">
+        {!focusMode && !(props.nativeAlpha && draftLanding) ? <div className="flex justify-end border-b border-white/10 px-3 py-1 min-[1100px]:hidden">
           <button ref={compactOpenButton} type="button" data-testid="open-operator-surfaces" className="rounded px-2 py-1 text-xs text-neutral-300 hover:bg-white/10" onClick={() => { focusReturnOnOpen.current = true; setCompactSurfaceOpen(true); }}>Surfaces</button>
         </div> : null}
         {isChildSession && selected && shownRef.sessionID ? <header className="border-b border-white/10 bg-neutral-950 px-4 py-3" data-testid="child-transcript-header">
@@ -290,10 +290,9 @@ export function ChatView(props: ChatViewProps): ReactNode {
         <PromptNavigatorRail store={shownRef.store} sessionID={shownRef.sessionID} />
         {!isChildSession ? <div className={`relative z-10 px-4 ${draftLanding ? 'flex min-h-0 flex-1 overflow-y-auto py-6' : 'border-t border-white/5 bg-neutral-950/80 py-3'}`} data-composer-bound>
           <div className={`${draftLanding ? 'my-auto' : ''} mx-auto w-full max-w-3xl`}>
-          {draftLanding ? <div className="mb-7" data-testid="chat-draft-landing">
-            <h1 className="text-2xl font-medium tracking-tight text-neutral-200 sm:text-3xl">New conversation</h1>
-            <p className="mt-2 text-xs text-neutral-500">Choose where this conversation belongs, then describe what you want to work on.</p>
-            <div className="mt-5 flex flex-wrap items-center gap-3">
+          {draftLanding ? <div className="mb-2" data-testid="chat-draft-landing">
+            <h1 className="mb-8 text-center text-2xl font-medium tracking-tight text-neutral-200 sm:text-3xl">What would you like to work on?</h1>
+            <div className="flex flex-wrap items-center gap-5 px-2">
               {props.nativeAlpha ? <DraftWorkspacePicker directory={shownRef.directory} onSelect={directory => {
                 if (readDraft(shownRef.directory, view.currentDraftId ?? 'draft').start) { toast.error('Recover the current start before changing its workspace.'); return; }
                 if (view.currentDraftId) {
@@ -303,9 +302,8 @@ export function ChatView(props: ChatViewProps): ReactNode {
                 useSessionViewStore.setState({ activeDirectory: directory, currentSessionId: null });
                 notifySessionRouteNavigation();
               }} /> : <span className="text-sm text-neutral-200">{workspaceName}</span>}
-
+              {props.nativeAlpha ? <span className="text-xs text-neutral-300" title="NNA's standard agent, with mandatory reviewer governance">Standard mode</span> : null}
             </div>
-            <p className="mt-3 text-xs text-neutral-600" title={shownRef.directory} data-testid="landing-workspace-path">{shownRef.directory}</p>
           </div> : null}
           <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
           {goalEnabled && shownRef.sessionID && !isChildSession && !sessionMetadataLoading ? <SessionGoalControls key={shownRef.sessionID} sessionID={shownRef.sessionID} store={shownRef.store} externalRevision={typeof globalGoalRevision === 'number' && Number.isSafeInteger(globalGoalRevision) && globalGoalRevision >= 0 ? globalGoalRevision : 0} /> : null}
@@ -320,7 +318,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
             onToggleExpanded={() => { setCompactSurfaceOpen(false); setExpanded((value) => !value); }}
             onRunBtw={runBtw}
             onOpenTimeline={() => setTimelineOpen(true)}
-            starters={shownRef.sessionID === null ? starters : []}
+            starters={shownRef.sessionID === null && !props.nativeAlpha ? starters : []}
             modelSelection={modelSelection}
             onModelSelection={setModelSelection}
             onAddProvider={() => toast('Provider management opens with the settings pages (P5)')}
@@ -328,10 +326,10 @@ export function ChatView(props: ChatViewProps): ReactNode {
           </div>
         </div> : null}
       </div>
-      <OperatorRail nativeAlpha={props.nativeAlpha} store={shownRef.store} engine={props.services.engine} directory={shownRef.directory}
+      {!(props.nativeAlpha && draftLanding) ? <OperatorRail nativeAlpha={props.nativeAlpha} store={shownRef.store} engine={props.services.engine} directory={shownRef.directory}
         displayedSessionID={shownRef.sessionID}
         compactOpen={compactSurfaceOpen} suppressed={focusMode}
-        onCloseCompact={() => { returnToChatFocus.current = true; setCompactSurfaceOpen(false); }} />
+        onCloseCompact={() => { returnToChatFocus.current = true; setCompactSurfaceOpen(false); }} /> : null}
       {timelineOpen && shownRef.sessionID ? (
         <TimelineDialog store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} onClose={() => setTimelineOpen(false)} />
       ) : null}

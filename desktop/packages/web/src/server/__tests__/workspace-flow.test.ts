@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { Hono } from 'hono';
 import { mkdtemp, mkdir, readFile, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -14,11 +14,12 @@ registerWorkspaceBrowserRoutes(app); registerWorkspacePresentationRoutes(app);
 beforeAll(async () => {
   scratch = await mkdtemp(join(tmpdir(), 'nna-workspace-flow-'));
   (ENV as { dataDir: string }).dataDir = scratch;
+  vi.stubEnv('NNA_HOME', scratch);
   await mkdir(join(scratch, 'Folder'));
   await writeFile(join(scratch, 'file.txt'), 'not a directory');
   await symlink(join(scratch, 'Folder'), join(scratch, 'alias'), process.platform === 'win32' ? 'junction' : 'dir');
 });
-afterAll(async () => { (ENV as { dataDir: string }).dataDir = previous; await rm(scratch, { recursive: true, force: true }); });
+afterAll(async () => { vi.unstubAllEnvs(); (ENV as { dataDir: string }).dataDir = previous; await rm(scratch, { recursive: true, force: true }); });
 const browse = (path: string) => app.request(`/api/workspace-browser?path=${encodeURIComponent(path)}`);
 const save = (id: string, label: string, hidden: boolean) => app.request('/api/workspace-presentation', {
   method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, label, hidden }),
@@ -46,7 +47,7 @@ it('merges concurrent workspace names and visibility without changing files', as
 it('prepares an idempotent default workspace under the selected data root', async () => {
   const first = await (await app.request('/api/workspace-default', { method: 'POST' })).json() as { directory: string };
   const second = await (await app.request('/api/workspace-default', { method: 'POST' })).json();
-  expect(first.directory).toBe(join(scratch, 'workspaces', 'default'));
+  expect(first.directory).toBe(join(scratch, 'workspace'));
   expect(second).toEqual(first);
 });
 

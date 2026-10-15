@@ -9,7 +9,7 @@ import { ENV } from '../env.ts';
 /** Directory names for the authenticated operator's folder chooser; this grants no execution access. */
 export function registerWorkspaceBrowserRoutes(app: Hono): void {
   app.post('/api/workspace-default', async context => {
-    const directory = resolve(ENV.dataDir, 'workspaces', 'default');
+    const directory = resolve(process.env.NNA_HOME || resolve(homedir(), '.nna'), 'workspace');
     await mkdir(directory, { recursive: true });
     const canonical = await realpath(directory);
     if ((process.platform === 'win32' ? canonical.toLowerCase() !== directory.toLowerCase() : canonical !== directory)) {

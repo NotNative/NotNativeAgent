@@ -23,9 +23,11 @@ Grouping and expansion are device preferences scoped to the current runtime.
 
 Each new conversation has a durable browser draft ID, workspace, configured provider/model,
 review mode, prompt, and attachments. The native engine currently exposes Standard agent mode.
-Auto-review and unattended review use the existing mandatory NNA reviewer. The first-use default
-folder is `<desktop data root>/workspaces/default` and goes through normal native admission.
-Existing conversations and workspace choices take precedence over first-use initialization.
+Auto-review and unattended review use the existing mandatory NNA reviewer. The fallback folder is `~/.nna/workspace` (`<NNA_HOME>/workspace` for a selected data root) and goes through normal native admission.
+The composer lists only visible, admitted workspaces. With none visible, New conversation prepares
+and reveals the fallback folder. Hiding a workspace preserves its files and existing conversations.
+A single searchable model picker groups saved and discovered models by configured provider;
+provider discovery failures preserve saved choices. Profile configuration stays in Settings.
 
 Native session creation accepts an optional bounded `operation_id` and SHA-256
 `start_fingerprint`. The operation ID derives a session identity scoped to the authenticated

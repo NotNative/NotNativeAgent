@@ -454,13 +454,13 @@ export function Composer(props: ComposerProps): ReactNode {
         rows={rows} placeholder={shell ? 'bash command…' : 'Message the agent…'}
         data-testid="composer-editor"
         className={`w-full resize-none rounded-lg bg-transparent p-2 text-sm outline-none placeholder:text-neutral-600 ${shell ? 'font-mono text-amber-200' : 'text-neutral-100'} focus:outline-none`} />
-      <div className="flex items-center rounded-lg bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-300" title={nnaConfigured ? 'Primary model configured in NNA' : 'Model and agent settings'}>
-        {nnaConfigured && sessionID === null ? <ConversationSettings directory={directory} draftId={sessionKey} model={model} onModel={value => props.onModelSelection?.({ ...value, variant: null })} />
-          : nnaConfigured || configUnavailable ? <span aria-label="Configured model" data-testid="model-trigger">{modelLabel}</span>
+      {!(nnaConfigured && sessionID === null) ? <div className="flex items-center rounded-lg bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-300" title={nnaConfigured ? 'Primary model configured in NNA' : 'Model and agent settings'}>
+        {nnaConfigured || configUnavailable ? <span aria-label="Configured model" data-testid="model-trigger">{modelLabel}</span>
           : <button type="button" aria-label="Model selector" data-testid="model-trigger" className="rounded px-1 py-0.5 hover:bg-white/10" onClick={() => setModelPickerOpen(!modelPickerOpen)}>{modelLabel} ▾</button>}
         {props.onToggleExpanded ? <button type="button" aria-label={props.expanded ? 'Collapse expanded editor' : 'Focus mode'} className="ml-auto text-[11px] text-neutral-500" onClick={props.onToggleExpanded}>⛶</button> : null}
-      </div>
+      </div> : null}
       <ComposerFooter
+        controls={nnaConfigured && sessionID === null ? <ConversationSettings directory={directory} draftId={sessionKey} model={model} onModel={value => props.onModelSelection?.({ ...value, variant: null })} /> : undefined}
         busy={busy}
         canSend={canSend}
         onStop={() => {

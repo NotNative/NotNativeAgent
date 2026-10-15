@@ -77,11 +77,11 @@ describe('NNA configured composer model', () => {
       engine: 'nna', modelSelection: 'configured', primaryModel: { providerID: 'primary', modelID: 'test' },
     } } } as unknown as DirectoryStore;
     await render();
-    expect(document.querySelector<HTMLSelectElement>('[aria-label="Provider profile"]')?.value).toBe('primary');
-    expect(document.querySelector<HTMLInputElement>('[aria-label="Provider model"]')?.value).toBe('test');
+    expect(document.querySelector('[aria-label="Choose model"]')?.getAttribute('title')).toBe('primary · test');
+    expect(document.querySelector('[aria-label="Choose model"]')?.textContent).toContain('test');
     expect(document.querySelector('[aria-label="Agent persona"]')).toBeNull();
     expect(document.querySelector('[aria-label="Enable permission auto-accept"]')).toBeNull();
-    expect(document.body.textContent).toContain('NNA governed');
+    expect(document.body.textContent).toContain('Auto-review');
     await submit('hello NNA');
     expect(send).toHaveBeenCalledWith(expect.objectContaining({
       model: { providerID: 'primary', modelID: 'test' }, agent: 'nna',
@@ -121,7 +121,7 @@ describe('NNA configured composer model', () => {
       engine: 'nna', primaryModel: { providerID: 'new', modelID: 'new-model' },
     } } });
     await render();
-    expect(document.querySelector<HTMLInputElement>('[aria-label="Provider model"]')?.value).toBe('new-model');
+    expect(document.querySelector('[aria-label="Choose model"]')?.textContent).toContain('new-model');
   });
 
   it('uses an authenticated global native route while directory config is absent', async () => {
@@ -133,7 +133,7 @@ describe('NNA configured composer model', () => {
       engine: 'nna', primaryModel: { providerID: 'ready', modelID: 'test' },
     } } });
     await render();
-    expect(document.querySelector<HTMLSelectElement>('[aria-label="Provider profile"]')?.value).toBe('ready');
+    expect(document.querySelector('[aria-label="Choose model"]')?.getAttribute('title')).toBe('ready · test');
     await submit('native route');
     expect(send).toHaveBeenCalledWith(expect.objectContaining({
       model: { providerID: 'ready', modelID: 'test' }, agent: 'nna',

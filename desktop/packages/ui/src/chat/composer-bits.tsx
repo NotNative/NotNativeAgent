@@ -5,7 +5,7 @@
  * orchestrator stays under the GUI matrix caps (ADR 0017). The server queue
  * chips row (doc 12 §D.6/§D.7) reads the messageQueueStore projection.
  */
-import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
+import { useMemo, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import type { AutocompleteTrigger } from './prompt-language.ts';
 import type { DraftAttachment } from './drafts.ts';
 import { useMessageQueueStore, queueKey, normalizeFollowUpBehavior } from '../stores/useMessageQueueStore.ts';
@@ -72,33 +72,33 @@ export interface ComposerFooterProps {
   configuredByNna: boolean;
   onFiles: (files: FileList) => void;
   locked?: boolean;
+  controls?: ReactNode;
 }
 
 export function ComposerFooter(props: ComposerFooterProps): ReactNode {
+  const fileInput = useRef<HTMLInputElement>(null);
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-1">
-      <div className="flex items-center gap-2 text-[12px] text-neutral-400">
-        {props.configuredByNna ? <span title="Agent routing is governed by NNA">NNA governed</span> : (
+      <button type="button" aria-label="Attach files" title="Attach files" disabled={props.locked} onClick={() => fileInput.current?.click()} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-xl text-neutral-300 hover:bg-white/10 disabled:opacity-40">+</button>
+      <div className="flex min-w-0 flex-1 items-center gap-2 text-[12px] text-neutral-400">
+        {props.controls ?? (props.configuredByNna ? <span title="Agent routing is governed by NNA">NNA governed</span> : (
           <select aria-label="Agent persona" value={props.agent} onChange={(event) => props.onAgent(event.target.value)} className="rounded bg-neutral-800 px-1.5 py-0.5 text-[11px] text-indigo-300">
             {props.agents.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
-        )}
+        ))}
       </div>
       <div className="flex items-center gap-2">
-        <label className="flex cursor-pointer items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-[12px] text-neutral-300 hover:border-white/25 hover:bg-white/5" title="Attach files">
-          <span aria-hidden className="text-base leading-none">+</span> Attach files
-          <input type="file" disabled={props.locked} multiple className="hidden" onChange={(event) => {
+          <input ref={fileInput} type="file" disabled={props.locked} multiple className="hidden" onChange={(event) => {
             if (event.target.files && event.target.files.length > 0) props.onFiles(event.target.files);
             event.target.value = '';
           }} />
-        </label>
         {props.busy ? (
           <button type="button" aria-label="Stop generating" className="rounded px-2 py-1 text-[11px] text-red-400 hover:bg-red-500/10" onClick={props.onStop}>
             stop
           </button>
         ) : null}
-        <button type="submit" disabled={!props.canSend} aria-label="Send message" className="rounded bg-white/90 px-3 py-1.5 text-[11px] font-medium text-black disabled:opacity-40">
-          send
+        <button type="submit" disabled={!props.canSend} aria-label="Send message" title="Send message" className="h-8 w-8 shrink-0 rounded-full bg-sky-400 text-xl text-neutral-950 disabled:opacity-40">
+          ↑
         </button>
       </div>
     </div>
