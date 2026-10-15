@@ -7,6 +7,7 @@
  * throw raw — every path answers { ok, error }.
  */
 import { matchesDesktopLocalOrigin, matchesTrustedOrigin } from './trusted-origin.mjs';
+import { createDirectoryPicker } from './directory-picker.mjs';
 
 // Native alpha permits shell chrome, attachment reads, and status observation.
 // New desktop commands remain closed until their native ownership is reviewed.
@@ -40,6 +41,7 @@ function stringifyError(error) {
 export function createInvokeFace(input, dependencies) {
   if (!dependencies?.ipcMain || !dependencies?.shell) throw new TypeError('ipcMain and shell dependencies are required');
   const browserReleases = new Map();
+  const pickDirectory = createDirectoryPicker(input.dialog);
 
   function isDesktopMainSender(event) {
     const contents = input.mainContents();
@@ -453,15 +455,7 @@ export function createInvokeFace(input, dependencies) {
     if (command === 'desktop_pick_directory') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       if (!input.dialog) return { ok: false, error: 'dialog-unavailable' };
-      const window = input.windowForSender?.(event) ?? undefined;
-      const options = { properties: ['openDirectory', 'createDirectory'], title: 'Choose a workspace folder' };
-      const result = window
-        ? await input.dialog.showOpenDialog(window, options)
-        : await input.dialog.showOpenDialog(options);
-      if (result.canceled || !Array.isArray(result.filePaths) || result.filePaths.length === 0) {
-        return { ok: true, result: null };
-      }
-      return { ok: true, result: result.filePaths[0] };
+      return pickDirectory(input.windowForSender?.(event) ?? undefined, event.sender);
     }
     return { ok: false, error: 'unknown-command' }; // never throws raw (§11.1)
   }

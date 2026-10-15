@@ -6,6 +6,10 @@ successful admission supersedes earlier reads; responses from a previous connect
 A failed refresh preserves the last snapshot and exposes a retry state. Presentation metadata
 must not grant workspace authority or replace native filesystem identity checks.
 
+Native folder selection has no elapsed-time deadline. Concurrent requests from one window share
+one dialog. Selection or cancellation settles the request. Closing the owner, losing its renderer,
+or navigating its main frame cancels the pending selection; late dialog results are discarded.
+
 The desktop and browser share conversation controls. Directory selection is a host capability:
 desktop uses its native chooser, and web uses an authenticated server directory browser.
 Workspace registration, conversation drafts, engine sessions, and submitted messages have distinct

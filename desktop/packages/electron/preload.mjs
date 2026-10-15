@@ -23,6 +23,14 @@ const INVOKE_TIMEOUT_MS = 10_000;
 
 const pending = new Map();
 let sequence = 0;
+let directoryPick = null;
+
+window.addEventListener('unload', () => {
+  for (const [seq, waiter] of pending) {
+    clearTimeout(waiter.timer); pending.delete(seq);
+    waiter.resolve({ ok: false, error: 'window-closed' });
+  }
+}, { once: true });
 
 ipcRenderer.on(REPLY_CHANNEL, (_event, envelope) => {
   const seq = envelope && typeof envelope.seq === 'number' ? envelope.seq : -1;
@@ -35,13 +43,15 @@ ipcRenderer.on(REPLY_CHANNEL, (_event, envelope) => {
 });
 
 function invoke(command, payload) {
-  return new Promise((resolve) => {
+  if (command === 'desktop_pick_directory' && directoryPick) return directoryPick;
+  const operation = new Promise((resolve) => {
     sequence += 1;
     const seq = sequence;
     const timeoutMs = command === 'desktop_updater_download' ? 30 * 60_000
       : command === 'desktop_updater_install' ? 30_000
       : command === 'desktop_retry_server' ? 25_000 : INVOKE_TIMEOUT_MS;
-    const timer = setTimeout(() => {
+    // Why: choosing a folder ends on selection, cancellation, or owner teardown.
+    const timer = command === 'desktop_pick_directory' ? null : setTimeout(() => {
       pending.delete(seq);
       resolve({ ok: false, error: 'invoke-timeout' });
     }, timeoutMs);
@@ -54,6 +64,11 @@ function invoke(command, payload) {
       resolve({ ok: false, error: String(error?.message ?? error) });
     }
   });
+  if (command === 'desktop_pick_directory') {
+    directoryPick = operation;
+    void operation.finally(() => { if (directoryPick === operation) directoryPick = null; });
+  }
+  return operation;
 }
 
 contextBridge.exposeInMainWorld('__NOTNATIVE_DESKTOP_INVOKE__', async (command, payload) => {
