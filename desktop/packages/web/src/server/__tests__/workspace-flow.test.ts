@@ -49,6 +49,7 @@ it('prepares an idempotent default workspace under the selected data root', asyn
   const second = await (await app.request('/api/workspace-default', { method: 'POST' })).json();
   expect(first.directory).toBe(join(scratch, 'workspace'));
   expect(second).toEqual(first);
+  expect(await (await app.request('/api/workspace-presentation')).json()).toMatchObject({ default_directory: join(scratch, 'workspace') });
 });
 
 it('persists sidebar choices independently of workspace names with revision checks', async () => {

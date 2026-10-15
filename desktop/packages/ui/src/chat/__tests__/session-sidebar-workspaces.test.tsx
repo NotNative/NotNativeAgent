@@ -621,3 +621,16 @@ it('saves manual workspace ordering and closes an action menu', () => {
   expect([...node.querySelectorAll('[data-workspace-directory]')].map(row => row.getAttribute('data-workspace-directory'))).toEqual(['D:/work', 'D:/alpha']);
   expect(JSON.parse(localStorage.getItem('nnd.sidebar.v1:local:workspace-order')!)).toEqual(['D:/work', 'D:/alpha']);
 });
+
+it('keeps default workspace actions available without removal and orders with keyboard drag handles', () => {
+  useWorkspaceStore.getState().adopt({ installation_id: 'install', data_id: 'data', revision: 'absent', selection_enabled: true,
+    attached: { root: 'D:/work', id: `ws_${'a'.repeat(24)}` }, admitted: [], unavailable: [] });
+  useWorkspaceDisplayStore.setState({ defaultDirectory: 'D:/work' });
+  useGlobalSessionsStore.setState({ active: [session('a', 'D:/alpha', 'First'), session('b', 'D:/work', 'Second')] });
+  const { node } = mount('D:/work');
+  const workspace = node.querySelector('[data-workspace-directory="D:/work"]')!.closest('section')!;
+  expect(workspace.textContent).not.toContain('Remove from sidebar');
+  expect(workspace.textContent).toContain('Rename workspace');
+  act(() => workspace.querySelector('[aria-label="Reorder workspace Default workspace"]')!.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowUp' })));
+  expect([...node.querySelectorAll('[data-workspace-directory]')].map(row => row.getAttribute('data-workspace-directory'))).toEqual(['D:/work', 'D:/alpha']);
+});

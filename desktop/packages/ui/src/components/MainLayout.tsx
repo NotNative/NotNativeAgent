@@ -11,7 +11,7 @@ import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { nnaOwnsPermissionReview } from '../lib/nnd/permission-policy.ts';
 import { connectSidebarServicePreferences } from '../chat/sidebar-service-preferences.ts';
 import { useConversationDraftStore, rememberConversationDraft, selectedConversationDraft } from '../stores/useConversationDraftStore.ts';
-import { newConversationWorkspace } from '../chat/active-workspaces.ts';
+import { newConversationWorkspace, ensureDefaultWorkspace } from '../chat/active-workspaces.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { defaultHarnessDirectory } from '../sync/engine-support.ts';
@@ -241,6 +241,10 @@ export function MainLayout(): ReactNode {
     useSessionViewStore.setState({ currentDraftId: null });
     try { rememberConversationDraft(null); } catch { toast.message('Could not remember the selected conversation.'); }
   }, [view.currentSessionId]);
+
+  useEffect(() => {
+    if (nativeAlpha) void ensureDefaultWorkspace().catch(error => toast.error(String(error)));
+  }, [nativeAlpha, runtimeKey]);
 
   const actions = {
     openDraft: async (directory: string, draftId?: string) => {

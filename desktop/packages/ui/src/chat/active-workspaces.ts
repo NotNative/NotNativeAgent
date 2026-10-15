@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useWorkspaceStore } from '../stores/useWorkspaceStore.ts';
-import { useWorkspaceDisplayStore } from '../stores/useWorkspaceDisplayStore.ts';
+import { useWorkspaceDisplayStore, workspaceDisplay, isDefaultWorkspace } from '../stores/useWorkspaceDisplayStore.ts';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { addNativeWorkspace } from '../lib/nnd/workspace-admission.ts';
 import { runtimeFetch } from '../lib/runtime-fetch.ts';
@@ -8,10 +8,10 @@ import { getRuntimeKey } from '../lib/runtime-switch.ts';
 
 export function activeWorkspaceRoots(): string[] {
   const inventory = useWorkspaceStore.getState().inventory, rows = useWorkspaceDisplayStore.getState().rows;
-  return inventory ? [inventory.attached, ...inventory.admitted].filter(row => !rows[row.id]?.hidden)
+  return inventory ? [inventory.attached, ...inventory.admitted].filter(row => !workspaceDisplay(row.root, rows).hidden)
     .map(row => normalizeDirectory(row.root)) : [];
 }
-const same = (a: string, b: string) => /^[A-Z]:\//u.test(a) ? a.toLowerCase() === b.toLowerCase() : a === b;
+const same = (a: string, b: string) => /^[A-Za-z]:\//u.test(a) ? a.toLowerCase() === b.toLowerCase() : a === b;
 let preparing: { runtime: string; promise: Promise<string> } | null = null;
 export async function newConversationWorkspace(preferred: string): Promise<string> {
   const runtime = getRuntimeKey();
@@ -20,6 +20,14 @@ export async function newConversationWorkspace(preferred: string): Promise<strin
   if (useWorkspaceStore.getState().phase !== 'ready' || !useWorkspaceDisplayStore.getState().ready || useWorkspaceDisplayStore.getState().error) throw new Error('Could not load active workspaces. Refresh the workspace list and retry.');
   const roots = activeWorkspaceRoots(), chosen = roots.find(root => same(root, normalizeDirectory(preferred)));
   if (roots.length) return chosen ?? roots[0]!;
+  return ensureDefaultWorkspace();
+}
+export async function ensureDefaultWorkspace(): Promise<string> {
+  const runtime = getRuntimeKey();
+  await Promise.all([useWorkspaceStore.getState().load(), useWorkspaceDisplayStore.getState().load()]);
+  if (runtime !== getRuntimeKey()) throw new Error('Connection changed. Retry workspace setup.');
+  const existing = activeWorkspaceRoots().find(isDefaultWorkspace);
+  if (existing) return existing;
   if (preparing?.runtime === runtime) return preparing.promise;
   const promise = prepareDefault(runtime).finally(() => { if (preparing?.promise === promise) preparing = null; });
   preparing = { runtime, promise }; return promise;

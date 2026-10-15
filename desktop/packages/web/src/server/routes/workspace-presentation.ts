@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile, mkdir, writeFile, rename, stat } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import type { Hono } from 'hono';
 import { ENV } from '../env.ts';
@@ -12,6 +13,7 @@ type Preference = { revision: number; value: string };
 type Document = { version: 1; workspaces: Record<string, WorkspaceDisplay>; preferences?: Record<string, Preference> };
 const PREFERENCE = /^(?:sidebar\.(?:width|sort|group|archive|collapsed|workspace-order)|pins)$/u;
 const ID = /^ws_[a-f0-9]{24}$/u;
+const defaultDirectory = () => resolve(process.env.NNA_HOME || resolve(homedir(), '.nna'), 'workspace');
 function validRow(value: unknown): value is WorkspaceDisplay {
   const row = value as WorkspaceDisplay | null;
   return Boolean(row && typeof row.label === 'string' && row.label.length <= 120
@@ -44,7 +46,7 @@ async function persist(path: string, document: Document): Promise<void> {
 /** Presentation metadata is independent of native workspace admission and session ownership. */
 export function registerWorkspacePresentationRoutes(app: Hono): void {
   const file = () => join(ENV.dataDir, 'workspace-presentation.json');
-  app.get('/api/workspace-presentation', async context => context.json(await read(file())));
+  app.get('/api/workspace-presentation', async context => context.json({ ...await read(file()), default_directory: defaultDirectory() }));
   app.get('/api/workspace-preferences', async context => context.json((await read(file())).preferences ?? {}));
   app.post('/api/workspace-preferences', async context => {
     const body = await readJsonBodyBounded(context.req.raw, 40_000);
@@ -72,6 +74,6 @@ export function registerWorkspacePresentationRoutes(app: Hono): void {
       await persist(path, document);
       return document;
     });
-    return context.json(updated);
+    return context.json({ ...updated, default_directory: defaultDirectory() });
   });
 }

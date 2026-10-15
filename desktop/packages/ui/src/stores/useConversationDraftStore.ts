@@ -61,6 +61,11 @@ export const useConversationDraftStore = create<State>((set, get) => ({
   create: directory => {
     if (get().phase === 'loading' || get().phase === 'error') throw new Error('Conversation drafts are not ready. Retry draft recovery first.');
     if (get().error) throw new Error(get().error!);
+    const existing = selectedConversationDraft() ?? get().drafts.at(-1);
+    if (existing) {
+      if (!readDraft(existing.directory, existing.id).start) get().move(existing.id, directory);
+      return get().drafts.find(row => row.id === existing.id)!;
+    }
     if (get().drafts.length >= 64) throw new Error('Finish or discard a draft before creating another conversation.');
     const draft: ConversationDraft = { id: `draft_${crypto.randomUUID()}`, directory: normalizeDirectory(directory),
       createdAt: Date.now(), title: 'New conversation', model: null, reviewMode: 'auto-review' };

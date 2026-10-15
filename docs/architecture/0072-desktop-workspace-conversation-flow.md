@@ -29,6 +29,14 @@ and reveals the fallback folder. Hiding a workspace preserves its files and exis
 A single searchable model picker groups saved and discovered models by configured provider;
 provider discovery failures preserve saved choices. Profile configuration stays in Settings.
 
+New conversation reuses the unfinished draft across workspace choices, preserving its prompt,
+attachments, model, and review policy. A pending start stays in its original workspace for recovery.
+Legacy blank draft rows appear as one entry; saved text, attachments, queues, and context pins remain
+available. The default folder is always admitted during native UI initialization, stays visible,
+and has no remove action. Its protection follows the service-supplied folder path, not its label.
+Workspace drag handles reorder the same saved manual order as the keyboard and menu controls.
+Dropping outside the workspace list, cancelling a drag, or changing connections does not reorder it.
+
 Native session creation accepts an optional bounded `operation_id` and SHA-256
 `start_fingerprint`. The operation ID derives a session identity scoped to the authenticated
 actor. A durable creation fingerprint binds the workspace, route, review mode, initial title,

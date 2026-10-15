@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { useWorkspaceDisplayStore } from '../stores/useWorkspaceDisplayStore.ts';
 
-export function WorkspaceMenu({ id, label, hidden }: { id: string; label: string; hidden: boolean }) {
+export function WorkspaceMenu({ id, label, hidden, permanent = false }: { id: string; label: string; hidden: boolean; permanent?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(label);
   const [busy, setBusy] = useState(false);
@@ -20,12 +20,12 @@ export function WorkspaceMenu({ id, label, hidden }: { id: string; label: string
       const details = event.currentTarget.closest('details'); if (details) details.open = false;
       setName(label); setEditing(true);
     }}>Rename workspace</button>
-    <button type="button" disabled={busy} className="w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-white/10" onClick={event => {
+    {!permanent ? <button type="button" disabled={busy} className="w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-white/10" onClick={event => {
       const details = event.currentTarget.closest('details'); if (details) details.open = false;
       void save({ label, hidden: !hidden }).then(saved => {
         if (saved) toast.message(hidden ? 'Workspace shown' : 'Workspace removed from sidebar. Files and conversations are preserved.');
       });
-    }}>{hidden ? 'Show workspace' : 'Remove from sidebar'}</button>
+    }}>{hidden ? 'Show workspace' : 'Remove from sidebar'}</button> : null}
     {error && !editing ? <p role="alert" className="px-3 text-xs text-red-300">{error}</p> : null}
     {editing ? createPortal(<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <form role="dialog" aria-modal="true" aria-label="Rename workspace" className="w-full max-w-md rounded-xl border border-white/15 bg-neutral-900 p-5"

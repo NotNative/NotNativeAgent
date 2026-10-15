@@ -64,7 +64,7 @@ it('does not navigate away from a conversation selected during the first send', 
   expect(useSessionViewStore.getState()).toMatchObject({ currentSessionId: 'ses_other', activeDirectory: '/other' });
 });
 
-it('moves and restores independent drafts with their attachments', () => {
+it('reuses and restores one unfinished draft with its attachments', () => {
   const first = useConversationDraftStore.getState().create('/workspace');
   saveDraft('/workspace', first.id, { text: 'Keep this', attachments: [{ name: 'file.txt', mime: 'text/plain', dataUrl: 'data:text/plain;base64,YQ==' }], queue: [] });
   const second = useConversationDraftStore.getState().create('/workspace');
@@ -73,7 +73,8 @@ it('moves and restores independent drafts with their attachments', () => {
   expect(readDraft('/other', first.id).text).toBe('Keep this');
   expect(readDraft('/other', first.id).attachments[0]?.name).toBe('file.txt');
   expect(readDraft('/workspace', second.id).text).toBe('');
-  expect(useConversationDraftStore.getState().drafts).toHaveLength(2);
+  expect(second.id).toBe(first.id);
+  expect(useConversationDraftStore.getState().drafts).toHaveLength(1);
 });
 
 

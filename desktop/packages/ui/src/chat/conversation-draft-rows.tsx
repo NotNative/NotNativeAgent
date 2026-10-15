@@ -5,12 +5,13 @@ import { useSessionViewStore } from '../sync/view-store.ts';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { dropDraft, readDraft, subscribeDraftChanges, getDraftRevision } from './drafts.ts';
 import { toast } from 'sonner';
+import { visibleConversationDrafts } from './visible-conversation-drafts.ts';
 
 export function ConversationDraftRows({ directory, onOpen }: { directory?: string; onOpen: (directory: string, id?: string) => void }) {
   useSyncExternalStore(subscribeDraftChanges, getDraftRevision);
   const drafts = useConversationDraftStore(state => state.drafts);
   const active = useSessionViewStore(state => state.currentSessionId === null ? state.currentDraftId : null);
-  return <>{drafts.filter(draft => directory === undefined || normalizeDirectory(draft.directory) === normalizeDirectory(directory)).map(draft =>
+  return <>{visibleConversationDrafts(drafts, active).filter(draft => directory === undefined || normalizeDirectory(draft.directory) === normalizeDirectory(directory)).map(draft =>
     <li key={draft.id} className={`mb-1 flex items-center rounded-md ${active === draft.id ? 'bg-white/10' : 'hover:bg-white/5'}`}>
       <button type="button" className="min-w-0 flex-1 px-3 py-2 text-left text-[13px]" aria-current={active === draft.id ? 'page' : undefined}
         onClick={() => onOpen(draft.directory, draft.id)}><span className="block truncate">{(draft.title === 'New conversation' ? readDraft(draft.directory, draft.id).text.trim().split('\n')[0]?.slice(0, 80) || draft.title : draft.title)}</span><span className="text-[11px] text-neutral-500">Draft</span></button>
