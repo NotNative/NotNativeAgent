@@ -32,7 +32,7 @@ if ($script:prompts -ne 2) { throw 'Prompt count was incorrect' }
 `;
     const run = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
       { encoding: 'utf8', timeout: 30000, windowsHide: true });
-    assert.equal(run.status, 0, run.stderr || run.stdout);
+    assert.equal(run.status, 0, run.stdout + run.stderr);
   });
 
 test('desktop handoff creates its log and preserves custom NNA and NND roots',
@@ -53,7 +53,7 @@ test('desktop handoff creates its log and preserves custom NNA and NND roots',
     await mkdir(join(target, 'src'), { recursive: true });
     await writeFile(join(target, 'src', 'cli.js'),
       'console.log(JSON.stringify({registered:true,valid:true,root:process.env.NND_EXPECTED_ROOT,version:"20261014-9"}));\n');
-    await writeFile(fakeInstaller, '@echo off\r\necho %1^|%2^|%3^|%4^|%5^|%6\r\nexit /b 0\r\n');
+    await writeFile(fakeInstaller, '@echo off\r\necho Existing NND 20261014-9 service is running; stopping it for the in-place replacement.\r\necho Copying source\r\necho   source copied\r\necho Building shell artifacts\r\necho   build green\r\necho Starting previously running NND service\r\necho   Previously running NND service restarted\r\necho NotNativeDesktop installed\r\necho %1^|%2^|%3^|%4^|%5^|%6\r\nexit /b 0\r\n');
     await writeFile(fakeNpm, `@echo off\r\necho bootstrapped > "${bootstrapMarker}"\r\nexit /b 0\r\n`);
     const script = `$ErrorActionPreference = 'Stop'
 $tokens = $null; $errors = $null
@@ -74,15 +74,16 @@ $DesktopRegistered = $true
 $Version = '20261014-9'
 $priorPath = $env:PATH
 $result = Invoke-DesktopInstaller
-if ($result -ne 0) { throw "Desktop installer returned $result" }
+if ($result -ne 0) { throw "Desktop installer returned $result; log: $(Get-Content -LiteralPath $DesktopInstallLog -Raw)" }
 if ($env:PATH -cne $priorPath) { throw 'Desktop handoff did not restore PATH' }
 `;
     const run = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
       { encoding: 'utf8', timeout: 30000, windowsHide: true,
         env: { ...process.env, NND_EXPECTED_ROOT: desktopRoot } });
-    assert.equal(run.status, 0, run.stderr || run.stdout);
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+    assert.match(run.stdout, /Service running - stopping service[\s\S]*New desktop files copied[\s\S]*Desktop build ready[\s\S]*Service ready on updated package/u);
     assert.match(await readFile(bootstrapMarker, 'utf8'), /bootstrapped/u);
-    const output = (await readFile(log)).toString('utf16le');
+    const output = await readFile(log, 'utf8');
     assert.match(output,
       /-NnaInstallRoot\|.*custom NNA install"?\|-NnaDataRoot\|.*custom NNA data"?\|-InstallDir\|.*custom NND install/u);
   });
@@ -116,13 +117,58 @@ $NodePath = ${literal(process.execPath)}
 $Target = ${literal(target)}
 $DesktopRegistered = $false
 $Version = '20261014-9'
-if ((Invoke-DesktopInstaller) -ne 1) { throw 'Stale desktop package was accepted' }
+if ((Invoke-DesktopInstaller) -ne 1) { throw "Stale desktop package was accepted; log: $(Get-Content -LiteralPath $DesktopInstallLog -Raw)" }
 `;
     const run = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
       { encoding: 'utf8', timeout: 30000, windowsHide: true,
         env: { ...process.env, NND_EXPECTED_ROOT: desktopRoot } });
-    assert.equal(run.status, 0, run.stderr || run.stdout);
-    assert.match((await readFile(log)).toString('utf8'), /did not register the expected version/u);
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+    assert.match(await readFile(log.replace(/\.log$/u, '.handoff.log'), 'utf8'), /did not register the expected version/u);
+  });
+
+test('desktop handoff finishes when a restarted child retains the install log handle',
+  { skip: process.platform !== 'win32' }, async t => {
+    const fixture = await mkdtemp(join(tmpdir(), 'nna-desktop-handle-'));
+    t.after(async () => {
+      await new Promise(resolve => setTimeout(resolve, 3200));
+      await rm(fixture, { recursive: true, force: true });
+    });
+    const target = join(fixture, 'installed');
+    const desktopRoot = join(fixture, 'desktop');
+    const log = join(fixture, 'data', 'logs', 'nna-desktop-install.log');
+    const fakeInstaller = join(fixture, 'desktop.cmd');
+    const completionMarker = join(fixture, 'completed-at.txt');
+    await mkdir(join(target, 'src'), { recursive: true });
+    await mkdir(desktopRoot);
+    await writeFile(join(desktopRoot, 'VERSION'), '20261014-9\n');
+    await writeFile(join(target, 'src', 'cli.js'),
+      'console.log(JSON.stringify({registered:true,valid:true,root:process.env.NND_EXPECTED_ROOT,version:"20261014-9"}));\n');
+    await writeFile(fakeInstaller, `@echo off\r\necho NotNativeDesktop installed\r\nstart "" /b "${process.execPath}" -e "setTimeout(() => {}, 3000)"\r\nexit /b 0\r\n`);
+    const script = `$ErrorActionPreference = 'Stop'
+$tokens = $null; $errors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile(${literal(resolve('install.ps1'))}, [ref]$tokens, [ref]$errors)
+if ($errors.Count) { throw 'Root installer does not parse' }
+$fn = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-DesktopInstaller' }, $true)
+Invoke-Expression $fn.Extent.Text
+function Get-Command { param($Name) if ($Name -eq 'pnpm') { return 'pnpm' }; throw 'Unexpected command probe' }
+$DesktopScript = ${literal(fakeInstaller)}
+$DesktopInstallLog = ${literal(log)}
+$InstallRoot = ${literal(fixture)}
+$DataRoot = ${literal(join(fixture, 'data'))}
+$NodePath = ${literal(process.execPath)}
+$Target = ${literal(target)}
+$DesktopRegistered = $false
+$Version = '20261014-9'
+if ((Invoke-DesktopInstaller) -ne 0) { throw 'Desktop installer did not finish' }
+[IO.File]::WriteAllText(${literal(completionMarker)}, [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds().ToString())
+`;
+    const started = Date.now();
+    const run = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      { encoding: 'utf8', timeout: 6000, windowsHide: true,
+        env: { ...process.env, NND_EXPECTED_ROOT: desktopRoot } });
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+    const completedAt = Number(await readFile(completionMarker, 'utf8'));
+    assert.ok(completedAt - started < 2500, 'handoff waited for the background child to close the log');
   });
 
 test('desktop handoff refuses a malformed registered root before invoking the installer',
@@ -156,5 +202,5 @@ if (Test-Path -LiteralPath ${literal(marker)}) { throw 'Desktop installer was in
     const run = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
       { encoding: 'utf8', timeout: 30000, windowsHide: true });
     assert.equal(run.status, 0, run.stderr || run.stdout);
-    assert.match((await readFile(log)).toString('utf8'), /registered desktop package root is invalid/u);
+    assert.match(await readFile(log.replace(/\.log$/u, '.handoff.log'), 'utf8'), /registered desktop package root is invalid/u);
   });

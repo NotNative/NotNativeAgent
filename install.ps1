@@ -883,10 +883,15 @@ Write-InstallerOk $InstalledVersion
 $NndRegistrationPath = Join-Path $DataRoot 'config\nnd-package.json'
 $DesktopRegistered = Test-Path -LiteralPath $NndRegistrationPath
 $DesktopInstallLog = Join-Path $DataRoot 'logs\nna-desktop-install.log'
+$DesktopInstallErrorLog = [IO.Path]::ChangeExtension($DesktopInstallLog, '.errors.log')
+$DesktopHandoffLog = [IO.Path]::ChangeExtension($DesktopInstallLog, '.handoff.log')
 function Invoke-DesktopInstaller {
     # Invariant: the component must register against this install's verified
     # NNA identity, including custom install and data roots.
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $DesktopInstallLog) | Out-Null
+    $desktopErrorLog = [IO.Path]::ChangeExtension($DesktopInstallLog, '.errors.log')
+    $handoffLog = [IO.Path]::ChangeExtension($DesktopInstallLog, '.handoff.log')
+    Remove-Item -LiteralPath $handoffLog -Force -ErrorAction SilentlyContinue
     $previous = $ErrorActionPreference
     $priorPath = $env:PATH
     $ErrorActionPreference = 'Continue'
@@ -917,13 +922,72 @@ function Invoke-DesktopInstaller {
             if ($LASTEXITCODE -ne 0) { throw "Desktop pnpm setup failed (exit $LASTEXITCODE); see $DesktopInstallLog" }
             $env:PATH = "$(Join-Path $buildTools 'node_modules\.bin');$env:PATH"
         }
-        & $DesktopScript @desktopArguments 1>$DesktopInstallLog 2>&1
-        if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+        # Invariant: wait for install.cmd itself, not EOF on a PowerShell
+        # redirection pipe. The restarted service may inherit a write handle
+        # and keep that pipe open after the installer has exited.
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $startInfo.FileName = Join-Path $env:SystemRoot 'System32\cmd.exe'
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        # CMD opens ordinary files rather than a PowerShell pipeline. Values
+        # enter as environment data so spaces and CMD metacharacters in a
+        # custom installation path cannot become command syntax.
+        $startInfo.EnvironmentVariables['NNA_DESKTOP_SCRIPT'] = $DesktopScript
+        $startInfo.EnvironmentVariables['NNA_DESKTOP_NNA_INSTALL'] = $InstallRoot
+        $startInfo.EnvironmentVariables['NNA_DESKTOP_NNA_DATA'] = $DataRoot
+        $startInfo.EnvironmentVariables['NNA_DESKTOP_LOG'] = $DesktopInstallLog
+        $startInfo.EnvironmentVariables['NNA_DESKTOP_ERRORS'] = $desktopErrorLog
+        $command = '""%NNA_DESKTOP_SCRIPT%" -NnaInstallRoot "%NNA_DESKTOP_NNA_INSTALL%" -NnaDataRoot "%NNA_DESKTOP_NNA_DATA%"'
+        if ($DesktopRegistered) {
+            $startInfo.EnvironmentVariables['NNA_DESKTOP_TARGET'] = $status.root
+            $command += ' -InstallDir "%NNA_DESKTOP_TARGET%"'
+        }
+        $startInfo.Arguments = '/d /v:off /s /c ' + $command + ' 1>"%NNA_DESKTOP_LOG%" 2>"%NNA_DESKTOP_ERRORS%""'
+        $desktopProcess = [System.Diagnostics.Process]::Start($startInfo)
+        Write-Host "  Desktop installer started; detailed log: $DesktopInstallLog"
+        $milestones = @(
+            @{ Pattern = 'service is running; stopping it'; Message = 'Service running - stopping service' },
+            @{ Pattern = 'service is not running and will remain stopped'; Message = 'Service already stopped' },
+            @{ Pattern = 'Copying source'; Message = 'Copying desktop files' },
+            @{ Pattern = 'source copied'; Message = 'New desktop files copied' },
+            @{ Pattern = 'Installing dependencies|Dependencies already installed'; Message = 'Checking desktop dependencies' },
+            @{ Pattern = 'Building shell artifacts'; Message = 'Building desktop app' },
+            @{ Pattern = 'build green|verified build reused'; Message = 'Desktop build ready' },
+            @{ Pattern = 'Registering NND package with NNA'; Message = 'Registering desktop package' },
+            @{ Pattern = 'Creating shortcuts'; Message = 'Creating desktop shortcuts' },
+            @{ Pattern = 'Starting previously running NND service'; Message = 'Starting service' },
+            @{ Pattern = 'Previously running NND service restarted'; Message = 'Service ready on updated package' },
+            @{ Pattern = 'NotNativeDesktop installed'; Message = 'Desktop script finished; verifying installed package' }
+        )
+        $reported = @{}
+        $startedAt = Get-Date
+        $lastReport = $startedAt
+        do {
+            $exited = $desktopProcess.WaitForExit(1000)
+            $logText = if (Test-Path -LiteralPath $DesktopInstallLog) {
+                try { (Get-Content -LiteralPath $DesktopInstallLog -Tail 120 -ErrorAction Stop) -join "`n" } catch { '' }
+            } else { '' }
+            foreach ($milestone in $milestones) {
+                if (!$reported.ContainsKey($milestone.Message) -and $logText -match $milestone.Pattern) {
+                    Write-Host "  $($milestone.Message)"
+                    $reported[$milestone.Message] = $true
+                    $lastReport = Get-Date
+                }
+            }
+            if (!$exited -and ((Get-Date) - $lastReport).TotalSeconds -ge 30) {
+                $elapsed = [int]((Get-Date) - $startedAt).TotalSeconds
+                Write-Host "  Desktop installer still working (${elapsed}s elapsed); log: $DesktopInstallLog"
+                $lastReport = Get-Date
+            }
+        } while (!$exited)
+        if ($desktopProcess.ExitCode -ne 0) { return $desktopProcess.ExitCode }
         # Invariant: an installer exit alone cannot prove the selected desktop package was registered at this release.
         $priorNnaHome = $env:NNA_HOME
         $env:NNA_HOME = $DataRoot
         try {
-            $statusText = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') nnd package status 2>>$DesktopInstallLog
+            # The restarted service may still hold the installer log open.
+            # Verification must not append to either inherited file handle.
+            $statusText = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') nnd package status 2>$null
             if ($LASTEXITCODE -ne 0) { throw 'The installed desktop package could not be inspected.' }
             $status = $statusText | ConvertFrom-Json
             if ($status.registered -ne $true -or $status.valid -ne $true -or $status.version -cne $Version -or
@@ -934,7 +998,7 @@ function Invoke-DesktopInstaller {
         } finally { $env:NNA_HOME = $priorNnaHome }
         return 0
     } catch {
-        Add-Content -LiteralPath $DesktopInstallLog -Value $_.Exception.Message
+        Add-Content -LiteralPath $handoffLog -Value $_.Exception.Message
         return 1
     } finally { $env:PATH = $priorPath; $ErrorActionPreference = $previous }
 }
@@ -943,6 +1007,16 @@ function Show-DesktopInstallTail([int]$Lines = 12) {
         Get-Content -LiteralPath $DesktopInstallLog -Tail $Lines -ErrorAction SilentlyContinue |
             ForEach-Object { Write-InstallerLine "  $_" DarkGray }
         Write-InstallerLine "  full log: $DesktopInstallLog" DarkGray
+    }
+    if (Test-Path -LiteralPath $DesktopInstallErrorLog) {
+        Get-Content -LiteralPath $DesktopInstallErrorLog -Tail $Lines -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-InstallerLine "  $_" DarkGray }
+        Write-InstallerLine "  error log: $DesktopInstallErrorLog" DarkGray
+    }
+    if (Test-Path -LiteralPath $DesktopHandoffLog) {
+        Get-Content -LiteralPath $DesktopHandoffLog -Tail $Lines -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-InstallerLine "  $_" DarkGray }
+        Write-InstallerLine "  handoff log: $DesktopHandoffLog" DarkGray
     }
 }
 function Confirm-DesktopInstallation([bool]$Requested, [bool]$InputRedirected) {

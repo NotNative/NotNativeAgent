@@ -387,10 +387,10 @@ function Resolve-NndInstallPlan($SelectedNna, [string]$Root) {
         $wasRunning = ($LASTEXITCODE -eq 0)
     } finally { $ErrorActionPreference = $oldPreference }
     if ($wasRunning) {
-        Write-Host "  Existing NND $status.version service is running; stopping it for the in-place replacement."
+        Write-Host "  Existing NND $($status.version) service is running; stopping it for the in-place replacement."
         Request-NndServiceStopForUninstall $SelectedNna (Join-Path $Source 'scripts\installer-wait-stopped.mjs')
     } else {
-        Write-Host "  Existing NND $status.version registration found; the service is not running and will remain stopped."
+        Write-Host "  Existing NND $($status.version) registration found; the service is not running and will remain stopped."
     }
     # Transactional refinement: the previous package stays registered until the
     # replacement is built and validated, so a copy/build failure leaves the
@@ -403,6 +403,7 @@ function Restore-NndRunningService($Plan, $SelectedNna) {
     if ($Plan.WasRunning -ne $true) { return }
     # Invariant: only a service observed running before replacement is restarted,
     # and only after the new package has been activated and shortcuts installed.
+    Write-Host '  Starting previously running NND service on the updated package.'
     $previousHome = $env:NNA_HOME
     $previousPreference = $ErrorActionPreference
     $env:NNA_HOME = $SelectedNna.DataRoot
