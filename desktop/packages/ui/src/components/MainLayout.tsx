@@ -47,6 +47,7 @@ import { CommandPalette, openCommandPalette } from '../chat/command-palette.tsx'
 import { usePushPresence } from './push-presence.tsx';
 import { mountSessionRoute, notifySessionRouteNavigation } from '../lib/session-route.ts';
 import { useWorkspaceRoute } from './use-workspace-route.ts';
+import { WorkspaceToolRail, type WorkspaceTool } from './WorkspaceToolRail.tsx';
 
 function subscribeRuntimeKey(notify: () => void): () => void {
   window.addEventListener('notnative:runtime-endpoint-changed', notify);
@@ -78,6 +79,7 @@ export function MainLayout(): ReactNode {
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
   const terminalUnavailable = global.config === null || nnaOwnsPermissionReview(global.config);
   const connected = useSyncExternalStore(useConfigStore.subscribe, () => useConfigStore.getState().isConnected);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [filesOpen, setFilesOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [reviewPane, setReviewPane] = useState<'' | 'diff' | 'git' | 'plan' | 'terminal' | 'agent-groups'>('');
@@ -85,6 +87,16 @@ export function MainLayout(): ReactNode {
   const [harnessDirectory, setHarnessDirectory] = useState('');
 
   const showChat = useCallback(() => { setFilesOpen(false); setReviewPane(''); setArchiveOpen(false); }, []);
+  const showArchive = (): void => { setFilesOpen(false); setReviewPane(''); setArchiveOpen(true); };
+  const selectTool = (tool: WorkspaceTool): void => {
+    if (tool === 'chat') { showChat(); return; }
+    if (tool === 'files') {
+      setReviewPane(''); setArchiveOpen(false); setFilesOpen(!filesOpen);
+      return;
+    }
+    setFilesOpen(false); setArchiveOpen(false);
+    setReviewPane(reviewPane === tool ? '' : tool);
+  };
   const { settingsPage, closeSettings, openSettings } = useWorkspaceRoute(runtimeKey, showChat);
   const [scheduledOpen, setScheduledOpen] = useState(false);
   const [multiRunOpen, setMultiRunOpen] = useState(false);
@@ -217,17 +229,18 @@ export function MainLayout(): ReactNode {
 
   const actions = {
     openDraft: (directory: string) => {
+      showChat();
       persistLastActiveSession(null, directory); // draft intent clears the pointer
       useSessionViewStore.setState({ currentSessionId: null, activeDirectory: directory });
       notifySessionRouteNavigation();
     },
     openSession: (sessionID: string, directory: string) => {
+      showChat();
       // F.4: navigation NEVER denies pending requests — dismiss is authority
       // of the send path and the explicit card buttons only.
       persistLastActiveSession(sessionID, directory); // remember for next boot
       useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
       notifySessionRouteNavigation();
-      setArchiveOpen(false);
     },
     rename: (sessionID: string, title: string): Promise<void> => {
       const trimmed = title.trim();
@@ -285,130 +298,20 @@ export function MainLayout(): ReactNode {
         </header>
       ) : (
       <header className="flex min-w-0 items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
+        <button type="button" aria-label="Toggle session sidebar" title="Toggle session sidebar"
+          aria-expanded={sidebarOpen} aria-controls="session-sidebar-panel" onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="rounded px-2 py-1 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100">☰</button>
         <div className="text-[11px] uppercase tracking-widest text-amber-400/80">NotNative</div>
         <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={runtimeKey} onOpenDraft={actions.openDraft} />
-        <SessionTabs engine={engine} directory={activeDirectory} />
+        <SessionTabs key={runtimeKey} engine={engine} directory={activeDirectory} onActivate={(session) => {
+          if (session) actions.openSession(session.id, session.directory ?? activeDirectory);
+          else actions.openDraft(activeDirectory);
+        }} />
         <button type="button" data-testid="mini-chat-open" title={t('shell.minichat.openAria')} aria-label={t('shell.minichat.openAria')}
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100" onClick={openMiniChat}>▣</button>
         <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] ${connected ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/40 text-red-300'}`} data-testid="connection-pill">
           {connected ? t('shell.status.connected') : t('shell.status.reconnecting')}
         </span>
-        <button
-          type="button"
-          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-          data-testid="diff-toggle"
-          title={t('shell.nav.changes')}
-          aria-label={t('shell.nav.changes')}
-          onClick={() => {
-            setFilesOpen(false);
-            setReviewPane(reviewPane === 'diff' ? '' : 'diff');
-          }}
-        >
-          ⇆
-        </button>
-        <button
-          type="button"
-          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-          data-testid="git-toggle"
-          title={nativeAlpha ? 'Git actions are unavailable in the native alpha' : t('shell.nav.git')}
-          aria-label={t('shell.nav.git')}
-          disabled={nativeAlpha}
-          onClick={() => {
-            setFilesOpen(false);
-            setReviewPane(reviewPane === 'git' ? '' : 'git');
-          }}
-        >
-          ⑂
-        </button>
-        <button
-          type="button"
-          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-          data-testid="plan-toggle"
-          title={nativeAlpha ? 'Plans are unavailable in the native alpha' : t('shell.nav.plan')}
-          aria-label={t('shell.nav.plan')}
-          disabled={nativeAlpha}
-          onClick={() => {
-            setFilesOpen(false);
-            setReviewPane(reviewPane === 'plan' ? '' : 'plan');
-          }}
-        >
-          ▤
-        </button>
-        <button
-          type="button"
-          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-40"
-          data-testid="terminal-toggle"
-          title={terminalUnavailable ? 'Terminal is unavailable for native sessions' : t('terminal.title')}
-          aria-label={t('terminal.title')}
-          disabled={terminalUnavailable}
-          onClick={() => {
-            setFilesOpen(false);
-            setReviewPane(reviewPane === 'terminal' ? '' : 'terminal');
-          }}
-        >
-          &gt;_
-        </button>
-        <button
-          type="button"
-          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-          data-testid="scheduled-tasks-toggle"
-          title={nativeAlpha ? 'Scheduled tasks are unavailable in the native alpha' : t('shell.nav.scheduledTasks')}
-          aria-label={t('shell.nav.scheduledTasks')}
-          disabled={nativeAlpha}
-          onClick={openScheduled}
-        >
-          ◷
-        </button>
-        <button
-          type="button"
-          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-          data-testid="agent-groups-toggle"
-          title={nativeAlpha ? 'Agent groups are unavailable in the native alpha' : t('shell.nav.agentGroups')}
-          aria-label={t('shell.nav.agentGroups')}
-          disabled={nativeAlpha}
-          onClick={() => {
-            setFilesOpen(false);
-            setReviewPane(reviewPane === 'agent-groups' ? '' : 'agent-groups');
-          }}
-        >
-          ▦
-        </button>
-        <button
-          type="button"
-          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-          data-testid="worktrees-toggle"
-          title={nativeAlpha ? 'Worktrees are unavailable in the native alpha' : t('shell.nav.worktrees')}
-          aria-label={t('shell.nav.worktrees')}
-          disabled={nativeAlpha}
-          onClick={() => setWorktreesOpen(!worktreesOpen)}
-        >
-          ⌥
-        </button>
-        <button
-          type="button"
-          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-          data-testid="multirun-toggle"
-          title={nativeAlpha ? 'Multi-run is unavailable in the native alpha' : t('shell.nav.multiRun')}
-          aria-label={t('shell.nav.multiRun')}
-          disabled={nativeAlpha}
-          onClick={() => setMultiRunOpen(true)}
-        >
-          ⧉
-        </button>
-        <button
-          type="button"
-          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-          data-testid="files-toggle"
-          title={nativeAlpha ? 'File editing is unavailable in the native alpha' : t('shell.nav.files')}
-          aria-label={t('shell.nav.files')}
-          disabled={nativeAlpha}
-          onClick={() => {
-            setReviewPane('');
-            setFilesOpen(!filesOpen);
-          }}
-        >
-          <svg aria-hidden="true" className="inline-block align-middle" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="M3 9h18" /></svg>
-        </button>
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
@@ -427,7 +330,22 @@ export function MainLayout(): ReactNode {
       </div> : null}
       <div className={`flex min-h-0 flex-1${miniChat ? ' overflow-hidden' : ''}`}>
         {miniChat ? <ChatView services={services} currentDirectory={activeDirectory} /> : null}
-        {!miniChat ? (filesOpen ? (
+        {!miniChat ? <WorkspaceToolRail
+          active={filesOpen ? 'files' : reviewPane || (archiveOpen ? 'archive' : 'chat')}
+          nativeAlpha={nativeAlpha} terminalUnavailable={terminalUnavailable}
+          labels={{
+            chat: 'Chat', files: t('shell.nav.files'), diff: t('shell.nav.changes'),
+            git: t('shell.nav.git'), plan: t('shell.nav.plan'), terminal: t('terminal.title'),
+            'agent-groups': t('shell.nav.agentGroups'), scheduled: t('shell.nav.scheduledTasks'),
+            worktrees: t('shell.nav.worktrees'), multirun: t('shell.nav.multiRun'),
+          }}
+          onSelect={selectTool} onScheduled={openScheduled}
+          onWorktrees={() => setWorktreesOpen(true)} onMultiRun={() => setMultiRunOpen(true)}
+        /> : null}
+        {!miniChat ? <div id="session-sidebar-panel" className={sidebarOpen ? 'flex min-h-0 shrink-0' : 'hidden'} aria-hidden={!sidebarOpen}>
+          <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} onOpenArchive={showArchive} onRunFusion={nativeAlpha ? undefined : openFusion} />
+        </div> : null}
+        {!miniChat ? <main className="flex min-w-0 flex-1" aria-label="Workspace content">{filesOpen ? (
           <FilesView key={JSON.stringify([runtimeKey, activeDirectory])} directory={activeDirectory} visible />
         ) : reviewPane === 'diff' ? (
           <DiffView directory={activeDirectory} visible />
@@ -444,18 +362,15 @@ export function MainLayout(): ReactNode {
             projectRoot={activeDirectory}
             currentDirectory={activeDirectory}
             onClose={() => setReviewPane('')}
-            onOpenSession={(session) => actions.openSession(session.id, session.directory ?? '')}
+            onOpenSession={(session) => actions.openSession(session.id, session.directory ?? activeDirectory)}
             services={services}
           />
         ) : archiveOpen ? (
           <ArchiveView currentDirectory={activeDirectory} onClose={() => setArchiveOpen(false)}
             onOpenSession={actions.openSession} onRestore={actions.restore} onDelete={actions.deleteSession} />
         ) : (
-          <>
-            <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} onOpenArchive={() => setArchiveOpen(true)} onRunFusion={nativeAlpha ? undefined : openFusion} />
-            <ChatView services={services} currentDirectory={activeDirectory} />
-          </>
-        )) : null}
+          <ChatView services={services} currentDirectory={activeDirectory} />
+        )}</main> : null}
       </div>
       {settingsPage !== null ? (
         <SettingsWindow initialPage={settingsPage} onPageChange={openSettings} onClose={closeSettings} nativeAlpha={nativeAlpha} />
@@ -484,7 +399,7 @@ export function MainLayout(): ReactNode {
         />
       ) : null}
       {!miniChat ? <CommandPalette actions={actions} currentDirectory={activeDirectory}
-        onOpenArchive={() => setArchiveOpen(true)} onOpenSettings={() => window.dispatchEvent(new Event(settingsOpenEventName))} /> : null}
+        onOpenArchive={showArchive} onOpenSettings={() => window.dispatchEvent(new Event(settingsOpenEventName))} /> : null}
       <Toaster position="bottom-right" />
     </div>
   );

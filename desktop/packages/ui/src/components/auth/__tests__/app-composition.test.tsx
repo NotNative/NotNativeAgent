@@ -146,6 +146,34 @@ afterEach(() => {
 });
 
 describe('renderMainApp gate composition (doc 01 tree + §6.6)', () => {
+  it('keeps session navigation available while a workspace tool is open', async () => {
+    routes = [liveSession()];
+    await mountApp();
+    await settleTurns();
+    const sidebar = document.querySelector('[data-testid="session-sidebar"]');
+    expect(sidebar).toBeTruthy();
+    expect(document.querySelector('[aria-label="Workspace tools"]')?.nextElementSibling?.id).toBe('session-sidebar-panel');
+    const diff = document.querySelector<HTMLButtonElement>('[data-testid="diff-toggle"]');
+    expect(diff).toBeTruthy();
+    await act(async () => { diff!.click(); });
+    expect(document.querySelector('[data-testid="session-sidebar"]')).toBe(sidebar);
+    expect(diff!.getAttribute('aria-current')).toBe('page');
+    const chat = document.querySelector<HTMLButtonElement>('[data-testid="chat-toggle"]');
+    const newSession = Array.from(sidebar!.querySelectorAll('button')).find((button) => button.textContent?.includes('New session'));
+    expect(newSession).toBeTruthy();
+    await act(async () => { newSession!.click(); });
+    expect(chat!.getAttribute('aria-current')).toBe('page');
+    await act(async () => { diff!.click(); });
+    await act(async () => { chat!.click(); });
+    expect(chat!.getAttribute('aria-current')).toBe('page');
+    expect(document.querySelector('[data-testid="session-sidebar"]')).toBe(sidebar);
+    const toggle = document.querySelector<HTMLButtonElement>('[aria-label="Toggle session sidebar"]');
+    await act(async () => { toggle!.click(); });
+    expect(document.querySelector('#session-sidebar-panel')?.classList.contains('hidden')).toBe(true);
+    await act(async () => { toggle!.click(); });
+    expect(document.querySelector('[data-testid="session-sidebar"]')).toBe(sidebar);
+  });
+
   it('a locked visitor never mounts the app: gate screen, no header', async () => {
     routes = [lockedSession()];
     await mountApp();
