@@ -1,3 +1,4 @@
+import { useWorkspaceStore } from '../../stores/useWorkspaceStore.ts';
 // SPDX-License-Identifier: Apache-2.0
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -27,6 +28,7 @@ let originalLoad: () => Promise<void>;
 let originalSessionLoad: () => Promise<void>;
 
 beforeEach(() => {
+  useWorkspaceStore.getState().reset();
   vi.mocked(readNativeWorkspaceAdmissions).mockReset();
   vi.mocked(addNativeWorkspace).mockReset();
   vi.mocked(pickWorkspaceDirectory).mockReset();

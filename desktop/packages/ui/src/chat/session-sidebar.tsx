@@ -10,7 +10,7 @@ import { useEffect, useSyncExternalStore, useMemo, useRef, useState, type ReactN
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore } from '../sync/global-stores.ts';
-import { readNativeWorkspaceAdmissions, type WorkspaceAdmissions } from '../lib/nnd/workspace-admission.ts';
+import { useWorkspaceStore } from '../stores/useWorkspaceStore.ts';
 import { WorkspaceRecoveryControls } from './workspace-recovery-controls.tsx';
 import { useSessionOrderingStore } from '../sync/session-ordering.ts';
 import { useSessionFoldersStore, unsortedSessionIds } from '../stores/useSessionFoldersStore.ts';
@@ -68,14 +68,11 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const [listLimit, setListLimit] = useState(AVATAR_LIMIT);
   const [showSearch, setShowSearch] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const [workspaceInventory, setWorkspaceInventory] = useState<WorkspaceAdmissions | null>(null);
-  const [workspaceError, setWorkspaceError] = useState(false);
+  const workspaceInventory = useWorkspaceStore(state => state.inventory);
+  const workspaceError = useWorkspaceStore(state => state.phase === 'error');
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
-  const inventoryReadRef = useRef(0);
   const workspaceAddition = useWorkspaceAddition(({ directory, inventory }) => {
-    inventoryReadRef.current += 1;
-    setWorkspaceInventory(inventory);
-    setWorkspaceError(false);
+    useWorkspaceStore.getState().adopt(inventory);
     setWorkspaceRefreshKey(key => key + 1);
     setGroupBy('workspace');
     setArchiveMode('active');
@@ -84,7 +81,6 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
     const normalized = normalizeDirectory(directory);
     setCollapsedZones(current => { const next = { ...current }; delete next[normalized]; return next; });
     props.actions.openDraft(normalized);
-    window.dispatchEvent(new Event('nnd:workspace-added'));
   });
   const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
   const projects = useGlobalSyncStore((state) => state.projects);
@@ -145,15 +141,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
 
   useEffect(() => { void useSessionFoldersStore.getState().load(); }, []);
   useEffect(() => {
-    let live = true;
-    const read = ++inventoryReadRef.current;
-    setWorkspaceInventory(null);
-    setWorkspaceError(false);
-    if (!props.nativeAlpha) return () => { live = false; };
-    void readNativeWorkspaceAdmissions().then((inventory) => {
-      if (live && read === inventoryReadRef.current) { setWorkspaceInventory(inventory); setWorkspaceError(false); }
-    }).catch(() => { if (live && read === inventoryReadRef.current) setWorkspaceError(true); });
-    return () => { live = false; };
+    if (props.nativeAlpha) void useWorkspaceStore.getState().load();
   }, [runtimeKey, props.nativeAlpha]);
   useEffect(() => {
     if (!useGlobalSessionsStore.getState().hasLoaded) void useGlobalSessionsStore.getState().loadSessions();
@@ -231,10 +219,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
         </div> : null}
         {workspaceAddition.controls}
         {workspaceError ? <div role="alert" className="mb-2 text-[11px] text-amber-300">Workspace list unavailable. <button type="button" className="underline" onClick={() => {
-          const read = ++inventoryReadRef.current;
-          void readNativeWorkspaceAdmissions().then((inventory) => {
-            if (read === inventoryReadRef.current) { setWorkspaceInventory(inventory); setWorkspaceError(false); }
-          }).catch(() => { if (read === inventoryReadRef.current) setWorkspaceError(true); });
+          void useWorkspaceStore.getState().load(true);
         }}>Retry</button></div> : null}
         {props.nativeAlpha ? <WorkspaceRecoveryControls runtimeKey={runtimeKey} refreshKey={workspaceRefreshKey} /> : null}
         <button type="button" data-testid="sidebar-new-session" className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-[13px] font-medium text-neutral-100 hover:bg-white/15" onClick={() => props.actions.openDraft(props.currentDirectory)}>

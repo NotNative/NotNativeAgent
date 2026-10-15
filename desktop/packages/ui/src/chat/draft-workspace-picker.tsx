@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
-import { readNativeWorkspaceAdmissions, type WorkspaceAdmissions } from '../lib/nnd/workspace-admission.ts';
+import { useWorkspaceStore } from '../stores/useWorkspaceStore.ts';
 import { getRuntimeKey } from '../lib/runtime-switch.ts';
 import { shortDirectory } from './session-sidebar-utils.ts';
 import { SidebarIcon } from './sidebar-icon.tsx';
@@ -12,22 +12,10 @@ function subscribeRuntime(notify: () => void): () => void {
 }
 
 export function DraftWorkspacePicker({ directory, onSelect }: { directory: string; onSelect: (directory: string) => void }): ReactNode {
-  const [inventory, setInventory] = useState<WorkspaceAdmissions | null>(null);
-  const [error, setError] = useState(false);
+  const inventory = useWorkspaceStore(state => state.inventory);
+  const error = useWorkspaceStore(state => state.phase === 'error');
   const runtimeKey = useSyncExternalStore(subscribeRuntime, getRuntimeKey);
-  useEffect(() => {
-    let live = true;
-    setInventory(null);
-    setError(false);
-    const refresh = (): void => {
-      void readNativeWorkspaceAdmissions().then(result => {
-        if (live && getRuntimeKey() === runtimeKey) { setInventory(result); setError(false); }
-      }).catch(() => { if (live) setError(true); });
-    };
-    refresh();
-    window.addEventListener('nnd:workspace-added', refresh);
-    return () => { live = false; window.removeEventListener('nnd:workspace-added', refresh); };
-  }, [runtimeKey]);
+  useEffect(() => { void useWorkspaceStore.getState().load(); }, [runtimeKey]);
   const current = normalizeDirectory(directory);
   const roots = inventory ? [inventory.attached.root, ...inventory.admitted.map(row => row.root)] : [];
   if (!roots.some(root => normalizeDirectory(root) === current)) roots.unshift(directory);

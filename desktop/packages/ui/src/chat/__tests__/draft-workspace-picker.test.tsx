@@ -1,3 +1,4 @@
+import { useWorkspaceStore } from '../../stores/useWorkspaceStore.ts';
 // SPDX-License-Identifier: Apache-2.0
 /** @vitest-environment jsdom */
 import { afterEach, expect, it, vi } from 'vitest';
@@ -12,7 +13,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 initializeRuntimeEndpoint({ apiBaseUrl: 'http://127.0.0.1:61776', runtimeKey: 'local' });
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
-afterEach(() => { act(() => root?.unmount()); container?.remove(); root = null; container = null; vi.resetAllMocks(); });
+afterEach(() => { act(() => root?.unmount()); container?.remove(); root = null; container = null; vi.resetAllMocks(); useWorkspaceStore.getState().reset(); });
 
 function mount(onSelect = vi.fn()): HTMLDivElement {
   container = document.createElement('div'); document.body.appendChild(container);
