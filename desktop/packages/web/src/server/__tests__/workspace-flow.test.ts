@@ -50,6 +50,16 @@ it('prepares an idempotent default workspace under the selected data root', asyn
   expect(second).toEqual(first);
 });
 
+it('persists sidebar choices independently of workspace names with revision checks', async () => {
+  const update = (expected_revision: number, value: string) => app.request('/api/workspace-preferences', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: 'sidebar.width', expected_revision, value }) });
+  expect((await update(0, '312')).status).toBe(200);
+  expect((await update(0, '480')).status).toBe(409);
+  const preferences = await (await app.request('/api/workspace-preferences')).json();
+  expect(preferences).toMatchObject({ 'sidebar.width': { revision: 1, value: '312' } });
+  const document = await (await app.request('/api/workspace-presentation')).json() as { workspaces: Record<string, unknown> };
+  expect(Object.keys(document.workspaces)).toHaveLength(2);
+});
+
 it('refuses to replace a corrupt presentation document', async () => {
   const path = join(scratch, 'workspace-presentation.json');
   await writeFile(path, '{broken');

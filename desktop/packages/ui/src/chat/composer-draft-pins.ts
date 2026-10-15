@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Draft-only project pin handoff at first material delivery. */
+import { flushConversationDraftPersistence } from './conversation-draft-persistence.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { readDraft, saveDraft, saveConversationStart, dropDraft, type ConversationStart } from './drafts.ts';
 import { parseProjectContextPins, type ProjectContextPinTargets } from './project-context-pins.ts';
@@ -29,6 +30,8 @@ export interface NewSessionDeliveryInput {
 }
 
 async function startFor(input: NewSessionDeliveryInput): Promise<ConversationStart> {
+  const state = useConversationDraftStore.getState();
+  if (input.nnaConfigured && input.sourceKey.startsWith('draft_') && (state.phase === 'loading' || state.phase === 'error' || !state.drafts.some(row => row.id === input.sourceKey))) throw new Error('Restore this conversation draft before sending.');
   const stored = readDraft(input.directory, input.sourceKey).start;
   if (stored) return stored;
   const draft = useConversationDraftStore.getState().drafts.find(row => row.id === input.sourceKey);
@@ -75,7 +78,8 @@ async function materialize(input: NewSessionDeliveryInput, start: ConversationSt
 }
 
 export async function deliverToNewSession(input: NewSessionDeliveryInput): Promise<void> {
-  const start = await materialize(input, await startFor(input));
+  const prepared = await startFor(input); await flushConversationDraftPersistence();
+  const start = await materialize(input, prepared); await flushConversationDraftPersistence();
   await input.services.engine.actions.send({ directory: input.directory, sessionID: start.sessionID!, messageID: start.messageID,
     parts: start.parts, model: start.model, agent: input.sendAgent });
   const view = useSessionViewStore.getState();
@@ -85,7 +89,7 @@ export async function deliverToNewSession(input: NewSessionDeliveryInput): Promi
     persistLastActiveSession(start.sessionID!, input.directory);
     try { rememberConversationDraft(null); } catch { toast.message('Conversation started; selection could not be saved.'); }
   }
-  try { useConversationDraftStore.getState().remove(input.sourceKey); }
+  try { await useConversationDraftStore.getState().remove(input.sourceKey); }
   catch { toast.message('Conversation started; draft cleanup needs a refresh.'); }
   const draft = readDraft(input.directory, input.sourceKey);
   saveDraft(input.directory, input.sourceKey, { ...draft, projectContextPins: { notes: [], plans: [] } });

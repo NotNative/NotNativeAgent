@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-/** Device-local session pins, isolated by runtime and normalized directory. */
+/** Session pins, isolated by runtime and normalized directory; native UI saves them with the service. */
+import { queueSidebarPreference } from '../chat/sidebar-service-preferences.ts';
 import { create } from 'zustand';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { getRuntimeKey, isTransientRuntimeKey } from '../lib/runtime-switch.ts';
@@ -30,6 +31,9 @@ function read(): PinMap {
 
 function write(pins: PinMap): void {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(pins)); } catch { /* in-memory pins remain usable */ }
+  const scoped: PinMap = {};
+  for (const [encoded, time] of Object.entries(pins)) { try { const [runtime, directory, id] = JSON.parse(encoded); if (runtime === getRuntimeKey()) scoped[JSON.stringify([directory, id])] = time; } catch { /* malformed device entry */ } }
+  queueSidebarPreference('pins', JSON.stringify(scoped));
 }
 
 interface PinnedState {
@@ -71,3 +75,5 @@ export function pinnedSessionIds(pins: PinMap, directory: string, runtimeKey = g
   }
   return ids;
 }
+
+if (typeof window !== 'undefined') window.addEventListener('nnd:sidebar-preferences-restored', () => useSessionPinnedStore.getState().reload());

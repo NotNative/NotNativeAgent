@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 /** @vitest-environment jsdom */
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { deliverToNewSession, type NewSessionDeliveryInput } from '../composer-draft-pins.ts';
 import { __resetDraftStoreForTests, readDraft, saveDraft } from '../drafts.ts';
 import { useConversationDraftStore } from '../../stores/useConversationDraftStore.ts';
 import { initializeRuntimeEndpoint } from '../../lib/runtime-switch.ts';
 import { harnessClient } from '../../lib/nnd/client.ts';
+import * as runtimeTransport from '../../lib/runtime-fetch.ts';
+import { disconnectConversationDraftPersistence } from '../conversation-draft-persistence.ts';
 import { useSessionViewStore } from '../../sync/view-store.ts';
 
 initializeRuntimeEndpoint({ apiBaseUrl: 'http://127.0.0.1:61776', runtimeKey: 'local' });
+afterEach(disconnectConversationDraftPersistence);
 beforeEach(() => {
+  disconnectConversationDraftPersistence();
+  useConversationDraftStore.setState({ phase: 'local', syncError: null });
   vi.restoreAllMocks();
   vi.spyOn(harnessClient, 'getSession').mockResolvedValue({ data: { id: 'ses_created', directory: '/workspace', metadata: { nnd: { configuredModel: { providerID: 'selected', modelID: 'chosen' } } } } as never });
   localStorage.clear(); __resetDraftStoreForTests(); useConversationDraftStore.getState().load();
@@ -69,4 +74,21 @@ it('moves and restores independent drafts with their attachments', () => {
   expect(readDraft('/other', first.id).attachments[0]?.name).toBe('file.txt');
   expect(readDraft('/workspace', second.id).text).toBe('');
   expect(useConversationDraftStore.getState().drafts).toHaveLength(2);
+});
+
+
+it('does not create an engine session until its start snapshot is durably saved', async () => {
+  const { input, createSession, send, draft } = setup(); let failing = false, revision = 0;
+  vi.spyOn(runtimeTransport, 'runtimeFetch').mockImplementation(async (_path, init) => {
+    if (!init || init.method === 'GET') return new Response(JSON.stringify({ version: 1, drafts: {} }));
+    if (failing) return new Response(JSON.stringify({ error: 'Disk unavailable' }), { status: 503 });
+    return new Response(JSON.stringify({ revision: ++revision, value: JSON.parse(String(init.body)).value }));
+  });
+  await useConversationDraftStore.getState().connect(); failing = true;
+  await expect(deliverToNewSession(input)).rejects.toThrow('Disk unavailable');
+  expect(createSession).not.toHaveBeenCalled(); expect(send).not.toHaveBeenCalled();
+  const prepared = readDraft(input.directory, draft.id).start;
+  expect(prepared?.operationId).toBe(draft.id);
+  failing = false; await deliverToNewSession(input);
+  expect(createSession).toHaveBeenCalledOnce(); expect(send).toHaveBeenCalledWith(expect.objectContaining({ messageID: prepared!.messageID }));
 });

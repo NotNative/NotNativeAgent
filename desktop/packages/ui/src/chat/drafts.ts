@@ -4,6 +4,7 @@
  * until the doc-03 server queue lands; keys already namespaced per doc 04 §G).
  * Identity = (runtimeKey, directory, sessionKey); tombstones beat echoes.
  */
+import { hasConversationDraftPersistence } from './conversation-draft-persistence.ts';
 import { getRuntimeKey } from '../lib/runtime-switch.ts';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import type { Part } from '../lib/nnd/types.ts';
@@ -178,6 +179,12 @@ if (typeof window !== 'undefined') {
 /** Persist the recovery identity before any native create or send operation. */
 export function saveConversationStart(directory: string, sessionKey: string, start: ConversationStart | undefined): void {
   const store = { ...readStore(), [draftKey(directory, sessionKey)]: { ...readDraft(directory, sessionKey), start } };
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(store));
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(store)); }
+  catch (error) { if (!hasConversationDraftPersistence()) throw error; }
   storeCache = store; changed();
+}
+
+/** Restore service-backed bytes without manufacturing a new edit timestamp. */
+export function restoreDraft(directory: string, sessionKey: string, content: DraftRecord): void {
+  readStore()[draftKey(directory, sessionKey)] = content; flushDraftsNow(); changed();
 }

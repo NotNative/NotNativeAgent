@@ -16,11 +16,13 @@ export function useInitialConversation(enabled: boolean, runtime: string, open: 
   const inventory = useWorkspaceStore(state => state.inventory);
   const sessions = useGlobalSessionsStore();
   const drafts = useConversationDraftStore(state => state.drafts);
+  const phase = useConversationDraftStore(state => state.phase);
+  const syncError = useConversationDraftStore(state => state.syncError);
   const draftError = useConversationDraftStore(state => state.error);
   const attempted = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    if (draftError || !enabled || !inventory || sessions.status !== 'ready' || attempted.current === runtime) return;
+    if (phase === 'loading' || phase === 'error' || draftError || !enabled || !inventory || sessions.status !== 'ready' || attempted.current === runtime) return;
     const before = view;
     if (!before.activeDirectory || before.activeDirectory === 'global' || before.currentSessionId || before.currentDraftId) return;
     const pointer = readLastActiveSession();
@@ -42,6 +44,6 @@ export function useInitialConversation(enabled: boolean, runtime: string, open: 
       if (current.currentSessionId === null && current.currentDraftId === null && current.activeDirectory === before.activeDirectory) open(selected.directory);
     };
     void initialize().catch(failure => { if (getRuntimeKey() === runtime) setError(String(failure)); });
-  }, [enabled, runtime, inventory, sessions.status, sessions.active.length, sessions.archived.length, drafts.length, draftError, open, view.activeDirectory, view.currentSessionId, view.currentDraftId]);
-  return error ?? draftError;
+  }, [enabled, runtime, inventory, sessions.status, sessions.active.length, sessions.archived.length, drafts.length, draftError, phase, open, view.activeDirectory, view.currentSessionId, view.currentDraftId]);
+  return error ?? draftError ?? syncError;
 }

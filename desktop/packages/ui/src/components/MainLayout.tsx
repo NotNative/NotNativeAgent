@@ -9,6 +9,7 @@ import { ChatSidebar } from '../chat/session-sidebar.tsx';
 import { ArchiveView } from '../chat/archive-view.tsx';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { nnaOwnsPermissionReview } from '../lib/nnd/permission-policy.ts';
+import { connectSidebarServicePreferences } from '../chat/sidebar-service-preferences.ts';
 import { useConversationDraftStore, rememberConversationDraft, selectedConversationDraft } from '../stores/useConversationDraftStore.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
@@ -219,15 +220,20 @@ export function MainLayout(): ReactNode {
   }, [view.activeDirectory, harnessDirectory]);
 
   useEffect(() => {
+    let live = true;
     useConversationDraftStore.getState().load();
-    try {
-      const selected = selectedConversationDraft();
-      if (selected && !useSessionViewStore.getState().currentSessionId) {
-        useSessionViewStore.setState({ activeDirectory: selected.directory, currentSessionId: null, currentDraftId: selected.id });
-        notifySessionRouteNavigation();
-      }
-    } catch { toast.message('Conversation drafts could not be restored.'); }
-  }, [runtimeKey]);
+    const restore = async () => {
+      if (nativeAlpha) await Promise.all([useConversationDraftStore.getState().connect(), connectSidebarServicePreferences()]);
+      if (!live) return;
+      try {
+        const selected = selectedConversationDraft();
+        if (selected && !useSessionViewStore.getState().currentSessionId) {
+          useSessionViewStore.setState({ activeDirectory: selected.directory, currentSessionId: null, currentDraftId: selected.id }); notifySessionRouteNavigation();
+        }
+      } catch { toast.message('Conversation drafts could not be restored.'); }
+    };
+    void restore(); return () => { live = false; };
+  }, [runtimeKey, nativeAlpha]);
 
   useEffect(() => {
     if (!view.currentSessionId) return;

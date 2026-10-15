@@ -38,3 +38,7 @@ Definite pre-creation refusals allow edits. Unknown outcomes retain the snapshot
 Navigation during a start does not select the completed session or overwrite another draft.
 
 Operator controls and uploads resolve the same authenticated admitted workspace scope as session creation. Sidebar width, manual ordering, grouping, and expansion are presentation preferences. Native operator panels expose Context, Activity, and Walkthrough; unsupported mutation surfaces are hidden.
+
+New conversation drafts are mirrored to the authenticated desktop service with per-draft compare-and-swap revisions and atomic writes. Their workspace, prompt, attachments, route, review mode, and start snapshot survive a service restart that changes the browser origin. Creation and first submission wait for the saved start snapshot. Deletion keeps a bounded receipt so a delayed window cannot restore a removed draft. Conflicts and storage failures preserve local input and expose retry guidance. Browser storage remains a cache; a full cache cannot bypass the required service save.
+
+Native sidebar width, grouping, filters, expansion, manual workspace ordering, and conversation pins also have service-backed presentation storage. Their revisions are independent of workspace names and execution authority.

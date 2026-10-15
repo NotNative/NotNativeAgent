@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { queueSidebarPreference } from './sidebar-service-preferences.ts';
 import { getRuntimeKey } from '../lib/runtime-switch.ts';
 
 /** Browser presentation choices do not change native workspace authority. */
@@ -10,10 +11,11 @@ export function useSidebarPreference<T>(name: string, initial: T, valid: (value:
     catch { return initial; }
   };
   const [value, setValue] = useState<T>(read);
-  useEffect(() => { setValue(read()); }, [key]);
+  useEffect(() => { setValue(read()); const restore = () => setValue(read()); window.addEventListener('nnd:sidebar-preferences-restored', restore); return () => window.removeEventListener('nnd:sidebar-preferences-restored', restore); }, [key]);
   const save: Dispatch<SetStateAction<T>> = update => setValue(current => {
     const next = typeof update === 'function' ? (update as (current: T) => T)(current) : update;
     try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* Compatibility: unavailable storage preserves the current window's choice. */ }
+    queueSidebarPreference(`sidebar.${name}`, JSON.stringify(next));
     return next;
   });
   return [value, save];

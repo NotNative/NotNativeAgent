@@ -12,6 +12,7 @@ import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore } from '../sync/global-stores.ts';
 import { useWorkspaceDisplayStore, workspaceDisplay } from '../stores/useWorkspaceDisplayStore.ts';
 import { readDraft, subscribeDraftChanges, getDraftRevision } from './drafts.ts';
+import { DraftPersistenceStatus } from './draft-persistence-status.tsx';
 import { ConversationDraftRows } from './conversation-draft-rows.tsx';
 import { useConversationDraftStore } from '../stores/useConversationDraftStore.ts';
 import { WorkspaceMenu } from './workspace-menu.tsx';
@@ -241,6 +242,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => { setSortBy('name'); setFilterOpen(false); }}>Name {sortBy === 'name' ? '✓' : ''}</button>
         </div> : null}
         {workspaceAddition.controls}
+        {props.nativeAlpha ? <DraftPersistenceStatus /> : null}
         {displayError ? <p role="status" className="text-xs text-amber-300">Workspace names unavailable. <button onClick={() => void useWorkspaceDisplayStore.getState().load()}>Retry names</button></p> : null}
         {workspaceError ? <div role="alert" className="mb-2 text-[11px] text-amber-300">Workspace list unavailable. <button type="button" className="underline" onClick={() => {
           void useWorkspaceStore.getState().load(true);
