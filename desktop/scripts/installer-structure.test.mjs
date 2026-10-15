@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Structural pins for both installers: the dumb-copy order, the lifecycle
- *  ownership boundary (the installer never starts the service), and the
+ *  ownership boundary (only a previously running service restarts), and the
  *  NNA-branded shortcuts. Content assertions only; no process spawning. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,8 +17,8 @@ test('installer.ps1 follows the dumb-copy shape: plan, copy, build, register, sh
   const success = source.indexOf('Write-Heading "NotNativeDesktop installed"');
   assert.ok(initial > 0 && initial < resolved && resolved < copy && copy < register
     && register < shortcuts && shortcuts < success);
-  // The install path owns no native guard and never starts the service; the
-  // desktop shortcut and `nna desktop start` own the lifecycle.
+  // The install path owns no native guard. Fresh installs and upgrades of a
+  // stopped service leave it stopped; only a running upgrade restores it.
   assert.ok(!source.includes('$installationGuard = Start-NndInstallationGuard $nna'));
   assert.ok(!source.includes('Invoke-NndInstallVerification'));
   assert.ok(!source.includes('Invoke-NndFreshVerification'));
@@ -32,6 +32,9 @@ test('installer.ps1 follows the dumb-copy shape: plan, copy, build, register, sh
   assert.ok(copyAt > 0 && deactivateAt > copyAt && deactivateAt > registerAt
     && deactivateAt < source.indexOf('Invoke-NndRegistration \'activate\''));
   assert.ok(source.includes('function Write-NndTransactionRecord'));
+  assert.ok(source.includes('WasRunning = $wasRunning'));
+  assert.ok(source.indexOf('Restore-NndRunningService $installPlan $nna') > shortcuts);
+  assert.ok(source.indexOf('Restore-NndRunningService $installPlan $nna') < success);
   assert.ok(source.includes('install-transaction.json'));
   assert.ok(source.includes('"/IS", "/IT"'));
   assert.ok(source.includes('"build-stamp.json"'));

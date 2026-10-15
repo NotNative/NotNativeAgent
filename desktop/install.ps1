@@ -24,7 +24,8 @@
 # This source-build path performs a fresh install on a clean machine and an
 # NNA-shaped in-place upgrade when a registration already exists: the running
 # service is stopped, the old package is deactivated, and the copy/build/
-# activate flow replaces it; a service that was not running stays stopped.
+# activate flow replaces it, and a previously running service restarts after
+# successful activation. A service that was not running stays stopped.
 # A non-empty fresh target with no registration still requires diagnosis; this
 # script never treats a merge-copy as a safe upgrade. Immutable prebuilt staging
 # remains a separate operation and does not activate the staged slot.
@@ -359,9 +360,8 @@ function Invoke-NndRegistration([string]$Action, [string]$Root, $SelectedNna) {
 
 # The dumb installer shape: a clean machine gets a plain copy; an existing
 # registration is replaced in place - stop the running service first, then
-# deactivate the old package and fall through to copy/build/activate. The
-# service is never started here; the desktop shortcut and `nna nnd start` own
-# that. A non-empty fresh target with no registration is still refused.
+# deactivate the old package and fall through to copy/build/activate. A
+# non-empty fresh target with no registration is still refused.
 function Resolve-NndInstallPlan($SelectedNna, [string]$Root) {
     $status = Get-NndRegistrationStatus $SelectedNna -AllowInvalidForRepair
     if ($status.registered -ne $true) {
@@ -369,7 +369,7 @@ function Resolve-NndInstallPlan($SelectedNna, [string]$Root) {
             throw 'Fresh NND target already exists without a registration; remove it or recover the previous installation explicitly. No files were copied.'
         }
         Write-Good 'Fresh target confirmed'
-        return @{ Mode = 'fresh'; PreviousVersion = $null }
+        return @{ Mode = 'fresh'; PreviousVersion = $null; WasRunning = $false }
     }
     if (!$status.root) { throw 'Native registration exists but is unreadable; resolve it explicitly before installing NND.' }
     # Invariant: only the same registered target may be repaired in place.
@@ -390,13 +390,31 @@ function Resolve-NndInstallPlan($SelectedNna, [string]$Root) {
         Write-Host "  Existing NND $status.version service is running; stopping it for the in-place replacement."
         Request-NndServiceStopForUninstall $SelectedNna (Join-Path $Source 'scripts\installer-wait-stopped.mjs')
     } else {
-        Write-Host "  Existing NND $status.version registration found; the service is not running and will not be started."
+        Write-Host "  Existing NND $status.version registration found; the service is not running and will remain stopped."
     }
     # Transactional refinement: the previous package stays registered until the
     # replacement is built and validated, so a copy/build failure leaves the
     # prior registration active (execution guide 02 L5). The unguarded window
     # shrinks to deactivate-then-activate immediately before the swap.
-    return @{ Mode = 'upgrade'; PreviousVersion = $status.version; PreviousRoot = $status.root }
+    return @{ Mode = 'upgrade'; PreviousVersion = $status.version; PreviousRoot = $status.root; WasRunning = $wasRunning }
+}
+
+function Restore-NndRunningService($Plan, $SelectedNna) {
+    if ($Plan.WasRunning -ne $true) { return }
+    # Invariant: only a service observed running before replacement is restarted,
+    # and only after the new package has been activated and shortcuts installed.
+    $previousHome = $env:NNA_HOME
+    $previousPreference = $ErrorActionPreference
+    $env:NNA_HOME = $SelectedNna.DataRoot
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $SelectedNna.Node $SelectedNna.Cli nnd service start $SelectedNna.InstallRoot | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Updated NND service failed to restart (exit $LASTEXITCODE)." }
+    } finally {
+        $ErrorActionPreference = $previousPreference
+        $env:NNA_HOME = $previousHome
+    }
+    Write-Good 'Previously running NND service restarted on the updated package'
 }
 
 # Prepared-transaction evidence for an interrupted upgrade: the previous
@@ -658,8 +676,8 @@ Assert-NndSelectedPin $nna $nnaCapabilities
 Write-Good "NNA native NND protocol $($nnaCapabilities.protocol) is compatible"
 Invoke-NndRegistration 'status' $targetPath $nna
 
-# The plan may stop a running service. The copy/build/activate flow owns the
-# rest; the service is started later by the shortcut or `nna nnd start`.
+# The plan may stop a running service. Restart it only after successful
+# copy/build/activation; an initially stopped service remains stopped.
 $installPlan = Resolve-NndInstallPlan $nna $targetPath
 Write-NndTransactionRecord 'prepared' $installPlan
 
@@ -905,7 +923,8 @@ $installationComplete = $true
     }
 }
 
-# The package is registered but the service is intentionally not started here.
+Restore-NndRunningService $installPlan $nna
+
 Write-Heading "NotNativeDesktop installed"
 Write-Host "  version   : $((Get-Content -LiteralPath (Join-Path $InstallDir 'VERSION') -Raw).Trim())"
 Write-Host "  start     : desktop or Start Menu shortcut (starts the service + tray), or: nna desktop start"
