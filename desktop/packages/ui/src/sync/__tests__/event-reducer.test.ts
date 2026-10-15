@@ -95,6 +95,18 @@ describe('session upsert events', () => {
     expect(draft.message.s1).toBeUndefined(); // cleanupSessionCaches dropped the bucket key
   });
 
+  it('archiving a fork preserves inherited prompt parts still referenced by its parent', () => {
+    const draft = freshState({ session: [session('fork', 100), session('parent', 100)] });
+    const user = (sessionID: string) => ({ id: 'shared-request', sessionID, role: 'user' as const, time: { created: 1 }, agent: 'nna', model: { providerID: 'p', modelID: 'm' } });
+    draft.message.parent = [user('parent')]; draft.message.fork = [user('fork')];
+    draft.part['shared-request'] = [{ id: 'part', sessionID: 'parent', messageID: 'shared-request', type: 'text', text: 'Keep my prompt' }];
+    apply(draft, eventOf('session.updated', { info: { ...session('fork', 300), time: { created: 100, updated: 300, archived: 300 } } }));
+    expect(draft.message.fork).toBeUndefined();
+    expect(draft.part['shared-request']?.[0]).toMatchObject({ text: 'Keep my prompt' });
+    apply(draft, eventOf('session.deleted', { sessionID: 'parent' }));
+    expect(draft.part['shared-request']).toBeUndefined();
+  });
+
   it('session.deleted tombstones and removes routes', () => {
     const draft = freshState({ session: [session('s1', 200)] });
     draft.permission.s1 = [];

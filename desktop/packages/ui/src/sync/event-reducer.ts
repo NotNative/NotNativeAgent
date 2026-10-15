@@ -300,7 +300,10 @@ export function cleanupSessionCaches(draft: SyncState, sessionID: string, api: R
   api.ensure('question');
   const messages = draft.message[sessionID];
   if (messages) {
-    for (const message of messages) delete draft.part[message.id];
+    // Why: native forks retain inherited user IDs; another session may still render their parts.
+    const retained = new Set(Object.entries(draft.message).filter(([id]) => id !== sessionID)
+      .flatMap(([, rows]) => rows.map(message => message.id)));
+    for (const message of messages) if (!retained.has(message.id)) delete draft.part[message.id];
     delete draft.message[sessionID];
   }
   delete draft.todo[sessionID];

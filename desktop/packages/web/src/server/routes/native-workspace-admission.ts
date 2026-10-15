@@ -238,6 +238,22 @@ async function readNativePath(): Promise<unknown> {
   try { return await response.json(); } catch { throw new WorkspaceAdmissionError('NNA returned an invalid workspace identity.', 503); }
 }
 
+async function forkWorkspaceSelection(request: Request, body: Record<string, unknown>, raw: unknown,
+  forward: (request: Request) => Promise<Response>): Promise<{ directory: string; workspace_id: string } | null> {
+  const url = new URL(request.url); url.pathname = url.pathname.slice(0, -5);
+  const response = await forward(new Request(url, { headers: request.headers, signal: AbortSignal.timeout(NATIVE_OTHER_TIMEOUT_MS) }));
+  if (!response.ok) throw new WorkspaceAdmissionError('The parent conversation is unavailable. Refresh before forking.', response.status);
+  const parent = await response.json() as { directory?: unknown; projectID?: unknown };
+  if (body.directory !== undefined && !sameWorkspacePath(body.directory, parent.directory)
+    || body.workspace_id !== undefined && body.workspace_id !== parent.projectID) {
+    throw new WorkspaceAdmissionError('A fork must use its parent conversation workspace.');
+  }
+  if (parent.projectID === undefined) {
+    await admitNativeWorkspace(parent.directory, async () => raw); return null;
+  }
+  return admitSelectedWorkspace(parent.directory, parent.projectID, async () => raw);
+}
+
 /** Shared server boundary for browser proxy, orchestration, and scheduled jobs.
  * NNA's response remains authoritative; a race-created session is preserved. */
 export async function handleNativeSessionCreation(request: Request,
@@ -249,8 +265,8 @@ export async function handleNativeSessionCreation(request: Request,
     const body = await request.clone().json().catch(() => null) as Record<string, unknown> | null;
     if (!body || typeof body !== 'object' || Array.isArray(body)) return harnessError('Session create body is invalid.', 400, 'session_create_request_invalid');
     const raw = await readPath();
-    const selected = body.workspace_id === undefined ? null
-      : await admitSelectedWorkspace(body.directory, body.workspace_id, async () => raw);
+    const selected = path.endsWith('/fork') ? await forkWorkspaceSelection(request, body, raw, forward)
+      : body.workspace_id === undefined ? null : await admitSelectedWorkspace(body.directory, body.workspace_id, async () => raw);
     const native = selected?.directory ?? await admitNativeWorkspace(raw && typeof raw === 'object'
       ? (raw as Record<string, unknown>).directory : null, async () => raw);
     let header = request.headers.get(DIRECTORY_HEADER);
@@ -269,7 +285,7 @@ export async function handleNativeSessionCreation(request: Request,
       }
     }
     const forwarding = selected ? new Request(request, {
-      body: JSON.stringify({ ...body, directory: native }),
+      body: JSON.stringify({ ...body, directory: native, workspace_id: selected.workspace_id }),
     }) : request;
     const response = await forward(forwarding);
     if (!response.ok) return response;

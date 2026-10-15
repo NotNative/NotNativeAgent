@@ -73,6 +73,28 @@ function services(overrides: Partial<LegacyServices> = {}): LegacyServices {
 
 beforeEach(() => configureHarness({}));
 
+it('forks a background sidebar conversation in its explicit workspace instead of the selected workspace', async () => {
+  configureHarness({ forkSession: () => ({ id: 'forked' }) });
+  const ports = services({ directoryForSession: () => 'D:/stale' });
+  const actions = createSessionActions(ports, () => new Map());
+  expect(await actions.fork('background', undefined, 'D:/other')).toBe('forked');
+  expect(callsFor('forkSession')[0]?.directory).toBe('D:/other');
+});
+
+it('restoring an archived session reloads the invalidated transcript in its workspace', async () => {
+  configureHarness({ updateSession: () => ({ id: 'restored' }) });
+  const registerSessionRoute = vi.fn(), loaderRefreshTail = vi.fn(async () => undefined);
+  const ports = services({ registerSessionRoute, loaderRefreshTail });
+  const actions = createSessionActions(ports, () => new Map());
+  await actions.restore('restored', 'D:/other');
+  expect(registerSessionRoute).toHaveBeenCalledWith('restored', 'D:/other');
+  expect(loaderRefreshTail).toHaveBeenCalledWith('D:/other', 'restored', ports.peekChild('D:/other'));
+  configureHarness({ updateSession: () => ({ error: 'offline' }) });
+  loaderRefreshTail.mockClear();
+  await expect(actions.restore('restored', 'D:/other')).rejects.toThrow('offline');
+  expect(loaderRefreshTail).not.toHaveBeenCalled();
+});
+
 it('blocks prompt, create, fork, rename, and question decisions while native authority is stale', async () => {
   const actions = createSessionActions(services(), () => new Map());
   const token = beginAuthorityRecovery('test-runtime');

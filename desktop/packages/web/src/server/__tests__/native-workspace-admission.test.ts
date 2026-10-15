@@ -61,7 +61,7 @@ it('guards direct and internal session creation before forwarding, including for
   expect((await create('/api/session', rootB)).status).toBe(409);
   expect(seen).toEqual(['/api/path']);
   expect((await create('/api/session/ses_1/fork', rootB)).status).toBe(409);
-  expect(seen).toEqual(['/api/path', '/api/path']);
+  expect(seen).toEqual(['/api/path', '/api/path', '/api/session/ses_1']);
   expect((await create('/api/session', rootA)).status).toBe(200);
   expect(seen.at(-1)).toBe('/api/session');
   const encoded = await callHarness(new Request('http://local/api/session', {
@@ -134,6 +134,34 @@ it('accepts the reported attached workspace ID and refuses a mismatched ID', asy
   attachedRoot = rootB;
   expect((await create(attachedId)).status).toBe(409);
   expect(seen).toEqual([attachedId, attachedId]);
+});
+
+it('forks in the admitted parent workspace and refuses conflicting selection before mutation', async () => {
+  const id = `ws_${'b'.repeat(24)}`;
+  let writes = 0, available = true;
+  registerHarnessAdapter({ handle: async request => {
+    const path = new URL(request.url).pathname;
+    if (path === '/api/path') return Response.json({ directory: rootA, worktree: rootA });
+    if (path === '/api/v1/nnd/workspaces/admissions') return Response.json({ selection_enabled: true,
+      attached: { root: rootA }, admitted: [{ root: rootB, id }] });
+    if (path === '/api/session/parent' && request.method === 'GET') return available
+      ? Response.json({ id: 'parent', directory: rootB, projectID: id }) : new Response(null, { status: 404 });
+    if (path === '/api/session/parent/fork') {
+      writes += 1;
+      expect(await request.json()).toEqual({ directory: rootB, workspace_id: id });
+      return Response.json({ id: 'fork', directory: rootB, projectID: id });
+    }
+    return new Response(null, { status: 404 });
+  } });
+  const fork = (directory: string, body = {}) => callHarness(new Request('http://local/api/session/parent/fork', {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-nnd-directory': directory }, body: JSON.stringify(body),
+  }));
+  expect((await fork(rootB)).status).toBe(200);
+  expect((await fork(rootA)).status).toBe(409);
+  expect((await fork(rootB, { directory: rootA })).status).toBe(409);
+  available = false;
+  expect((await fork(rootB)).status).toBe(404);
+  expect(writes).toBe(1);
 });
 
 it('uses the native admitted ID for a second root and checks the created session', async () => {

@@ -59,7 +59,7 @@ export const harnessClient: Record<string, unknown> & {
   getSession: (id: string, opts?: { directory?: string }) => handle('getSession', `/session/${id}`, 'GET', undefined, opts?.directory, opts as unknown as Record<string, unknown>),
   updateSession: (id: string, patch: unknown, opts?: { directory?: string }) => handle('updateSession', `/session/${id}`, 'PATCH', patch, opts?.directory, opts as unknown as Record<string, unknown>),
   deleteSession: (id: string, opts?: { directory?: string }) => handle('deleteSession', `/session/${id}`, 'DELETE', undefined, opts?.directory, opts as unknown as Record<string, unknown>),
-  forkSession: (id: string, messageID?: string) => handle('forkSession', `/session/${id}/fork`, 'POST', { messageID }),
+  forkSession: (id: string, messageID?: string, opts?: { directory?: string }) => handle('forkSession', `/session/${id}/fork`, 'POST', { messageID }, opts?.directory),
   abortSession: (id: string) => handle('abortSession', `/session/${id}/abort`, 'POST', {}),
   sessionStatus: (opts?: { directory?: string }) => handle('sessionStatus', '/session/status', 'GET', undefined, opts?.directory, opts as unknown as Record<string, unknown>),
   listMessages: (id: string, limit?: number, opts?: { directory?: string }) => handle('listMessages', `/session/${id}/message`, 'GET', undefined, opts?.directory, { ...(opts ?? {}), limit }),

@@ -22,7 +22,7 @@ export type SessionActionsApi = {
   abort: (sessionID: string) => Promise<void>;
   runShell: (sessionID: string, command: string) => Promise<void>;
   rename: (sessionID: string, title: string) => Promise<void>;
-  fork: (sessionID: string, messageID: string | undefined) => Promise<string>;
+  fork: (sessionID: string, messageID: string | undefined, directory?: string) => Promise<string>;
   revert: (sessionID: string, messageID: string) => Promise<void>;
   unrevert: (sessionID: string) => Promise<void>;
   replyPermission: (sessionID: string, request: PermissionRequest, reply: 'once' | 'always' | 'reject') => Promise<void>;
@@ -38,16 +38,16 @@ export function createSessionActions(
     send: (input) => { assertFreshAuthority(); return optimisticSend(services, input); },
     createSession: (input) => { assertFreshAuthority(); return createSession(services, input); },
     archive: (sessionID, directory) => { assertFreshAuthority(); return archiveSessionAction(sessionID, directory); },
-    restore: (sessionID, directory) => { assertFreshAuthority(); return restoreSessionAction(sessionID, directory); },
+    restore: (sessionID, directory) => restoreConversation(services, sessionID, directory),
     deleteSession: (sessionID, directory) => { assertFreshAuthority(); return deleteSessionAction(services, sessionID, directory); },
     rename: async (sessionID, title) => {
       assertFreshAuthority();
       const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
       await renameSessionAction(sessionID, title, directory);
     },
-    fork: async (sessionID, messageID) => {
+    fork: async (sessionID, messageID, directoryOverride) => {
       assertFreshAuthority();
-      const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
+      const directory = directoryOverride ?? services.directoryForSession?.(sessionID) ?? services.activeDirectory();
       const childID = await forkSessionAction(sessionID, messageID, directory);
       try { assertFreshAuthority(); } catch {
         throw new Error(`NNA created fork ${childID} while native authority was resynchronizing. `
@@ -88,3 +88,13 @@ export function createSessionActions(
 }
 
 export type { QuestionRequest, PermissionRequest };
+
+async function restoreConversation(services: EngineServices, sessionID: string, directory: string): Promise<void> {
+  assertFreshAuthority();
+  await restoreSessionAction(sessionID, directory);
+  assertFreshAuthority();
+  // Why: archive invalidates the transcript loader even if selection stays on this session.
+  services.registerSessionRoute(sessionID, directory);
+  const store = services.ensureChild(directory);
+  await services.loaderRefreshTail(directory, sessionID, store);
+}

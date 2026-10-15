@@ -989,8 +989,12 @@ test('native fork seeds a new session from the parent journal prefix', async () 
       { method: 'POST', body: { messageID: `${sessionId}:message:9` } })).status, 404);
     assert.equal((await request(base, `/session/${sessionId}/fork`, principal(['nnd.read']),
       { method: 'POST', body: { messageID: `${sessionId}:message:1` } })).status, 403);
+    const whole = await request(base, `/session/${sessionId}/fork`, owner, { method: 'POST', body: {} });
+    assert.equal(whole.status, 201);
+    assert.notEqual(whole.value.id, sessionId);
+    assert.equal(ingests.at(-1).boundaryMessageId, `${sessionId}:message:1`);
     assert.equal((await request(base, `/session/${sessionId}/fork`, owner,
-      { method: 'POST', body: {} })).status, 400);
+      { method: 'POST', body: { messageID: '' } })).status, 400);
   } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
 });
 

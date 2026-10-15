@@ -280,7 +280,7 @@ export function MainLayout(): ReactNode {
     restore: engine.actions.restore,
     deleteSession: engine.actions.deleteSession,
     fork: async (sessionID: string, directory: string): Promise<void> => {
-      const forked = await engine.actions.fork(sessionID, undefined);
+      const forked = await engine.actions.fork(sessionID, undefined, directory);
       showChat();
       persistLastActiveSession(forked, directory);
       useSessionViewStore.setState({ currentSessionId: forked, activeDirectory: directory });
