@@ -32,6 +32,8 @@ import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useContextRoute } from '../components/use-context-route.ts';
 import { CompletionAffordance } from './completion-affordance.tsx';
+import { DraftWorkspacePicker } from './draft-workspace-picker.tsx';
+import { notifySessionRouteNavigation } from '../lib/session-route.ts';
 
 /** H.2/E.3/E.4 band: recap text and/or suggestion chip; chips only fill. */
 function RecapNote({ pair }: { pair: { recap: string | null; suggestion: string | null } }): ReactNode {
@@ -66,6 +68,7 @@ const SESSION_SWITCH_HOLD_MS = 400;
 export interface ChatViewProps {
   services: ComposerServices;
   currentDirectory: string;
+  nativeAlpha?: boolean;
 }
 
 interface ChatColumnSession {
@@ -285,8 +288,16 @@ export function ChatView(props: ChatViewProps): ReactNode {
         {!isChildSession ? <div className={`relative z-10 px-4 ${draftLanding ? 'flex min-h-0 flex-1 overflow-y-auto py-6' : 'border-t border-white/5 bg-neutral-950/80 py-3'}`} data-composer-bound>
           <div className={`${draftLanding ? 'my-auto' : ''} mx-auto w-full max-w-3xl`}>
           {draftLanding ? <div className="mb-7" data-testid="chat-draft-landing">
-            <h1 className="text-2xl font-medium tracking-tight text-neutral-200 sm:text-3xl">What should we work on in {workspaceName}?</h1>
-            <p className="mt-2 text-xs text-neutral-500">Your workspace is ready. Start with a message or choose a suggestion.</p>
+            <h1 className="text-2xl font-medium tracking-tight text-neutral-200 sm:text-3xl">New conversation</h1>
+            <p className="mt-2 text-xs text-neutral-500">Choose where this conversation belongs, then describe what you want to work on.</p>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              {props.nativeAlpha ? <DraftWorkspacePicker directory={shownRef.directory} onSelect={directory => {
+                persistLastActiveSession(null, directory);
+                useSessionViewStore.setState({ activeDirectory: directory, currentSessionId: null });
+                notifySessionRouteNavigation();
+              }} /> : <span className="text-sm text-neutral-200">{workspaceName}</span>}
+              {props.nativeAlpha ? <span className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-neutral-400" title="Agent and review controls become available when NNA creates the conversation">NNA configured agent and review</span> : null}
+            </div>
             <p className="mt-3 text-xs text-neutral-600" title={shownRef.directory} data-testid="landing-workspace-path">{shownRef.directory}</p>
           </div> : null}
           <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />

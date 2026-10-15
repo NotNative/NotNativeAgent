@@ -69,16 +69,14 @@ export interface ComposerFooterProps {
   agent: string;
   agents: string[];
   onAgent: (agent: string) => void;
-  modelLabel: string;
   configuredByNna: boolean;
   onFiles: (files: FileList) => void;
 }
 
 export function ComposerFooter(props: ComposerFooterProps): ReactNode {
   return (
-    <div className="flex items-center justify-between px-1 pb-1">
-      <div className="flex items-center gap-2 text-[11px] text-neutral-500">
-        <span>{props.modelLabel}</span>
+    <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-1">
+      <div className="flex items-center gap-2 text-[12px] text-neutral-400">
         {props.configuredByNna ? <span title="Agent routing is governed by NNA">NNA governed</span> : (
           <select aria-label="Agent persona" value={props.agent} onChange={(event) => props.onAgent(event.target.value)} className="rounded bg-neutral-800 px-1.5 py-0.5 text-[11px] text-indigo-300">
             {props.agents.map((name) => <option key={name} value={name}>{name}</option>)}
@@ -86,8 +84,8 @@ export function ComposerFooter(props: ComposerFooterProps): ReactNode {
         )}
       </div>
       <div className="flex items-center gap-2">
-        <label className="cursor-pointer rounded px-2 py-1 text-[11px] text-neutral-400 hover:text-neutral-200" title="Add attachment">
-          +
+        <label className="flex cursor-pointer items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-[12px] text-neutral-300 hover:border-white/25 hover:bg-white/5" title="Attach files">
+          <span aria-hidden className="text-base leading-none">+</span> Attach files
           <input type="file" multiple className="hidden" onChange={(event) => {
             if (event.target.files && event.target.files.length > 0) props.onFiles(event.target.files);
             event.target.value = '';

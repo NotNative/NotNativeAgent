@@ -6,7 +6,7 @@
  * delete), search with exact-ID rule, draft targeting, and the archived
  * split view from the global sessions cache.
  */
-import { useEffect, useSyncExternalStore, useMemo, useState, type ReactNode, type ChangeEvent } from 'react';
+import { useEffect, useSyncExternalStore, useMemo, useRef, useState, type ReactNode, type ChangeEvent } from 'react';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore } from '../sync/global-stores.ts';
@@ -18,17 +18,16 @@ import { useSessionFoldersStore, unsortedSessionIds } from '../stores/useSession
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import type { Session, SessionStatus } from '../lib/nnd/types.ts';
 import { toast } from 'sonner';
-import { formatRelative } from './time-format.ts';
 import { sidebarHierarchy } from './session-sidebar-hierarchy.ts';
 import { childActivityPhrase, sessionAttention } from './session-row-evidence.ts';
 import { pinnedSessionIds, useSessionPinnedStore } from '../stores/useSessionPinnedStore.ts';
 import { getRuntimeKey } from '../lib/runtime-switch.ts';
 import { clearKnownSessionTreePins } from './session-pin-cleanup.ts';
 import { expandedParentIds, useSessionExpansionStore } from '../stores/useSessionExpansionStore.ts';
-import { fusionIdentityFromSession } from '../lib/multirun/fusion.ts';
 import { filterSessions, orderSessionsByLifecycleWrap, sessionDepths, shortDirectory } from './session-sidebar-utils.ts';
-import { suggestAndApplyRename } from './suggest-name.ts';
 import { ArchivedRow, FolderActions } from './session-sidebar-actions.tsx';
+import { SidebarIcon } from './sidebar-icon.tsx';
+import { SidebarRow } from './session-sidebar-row.tsx';
 
 const AVATAR_LIMIT = 50;
 
@@ -51,6 +50,7 @@ export interface ChatSidebarProps {
     archive: (sessionID: string, directory: string) => Promise<void>;
     restore: (sessionID: string, directory: string) => Promise<void>;
     deleteSession: (sessionID: string, directory: string) => Promise<void>;
+    fork?: (sessionID: string, directory: string) => Promise<void>;
   };
 }
 
@@ -61,10 +61,18 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [collapsedZones, setCollapsedZones] = useState<Record<string, true>>({});
-  const [canAddWorkspace, setCanAddWorkspace] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<'activity' | 'name'>('activity');
+  const [groupBy, setGroupBy] = useState<'workspace' | 'list'>('workspace');
+  const [archiveMode, setArchiveMode] = useState<'active' | 'all' | 'archived'>('active');
+  const [listLimit, setListLimit] = useState(AVATAR_LIMIT);
+  const [showSearch, setShowSearch] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [workspaceInventory, setWorkspaceInventory] = useState<WorkspaceAdmissions | null>(null);
   const [workspaceError, setWorkspaceError] = useState(false);
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
+  const [newWorkspacePath, setNewWorkspacePath] = useState('');
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
   const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
   const projects = useGlobalSyncStore((state) => state.projects);
@@ -126,13 +134,12 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   useEffect(() => { void useSessionFoldersStore.getState().load(); }, []);
   useEffect(() => {
     let live = true;
-    setCanAddWorkspace(false);
     setWorkspaceInventory(null);
     setWorkspaceError(false);
     if (!props.nativeAlpha) return () => { live = false; };
     void readNativeWorkspaceAdmissions().then((inventory) => {
-      if (live) { setWorkspaceInventory(inventory); setCanAddWorkspace(true); setWorkspaceError(false); }
-    }).catch(() => { if (live) { setCanAddWorkspace(false); setWorkspaceError(true); } });
+      if (live) { setWorkspaceInventory(inventory); setWorkspaceError(false); }
+    }).catch(() => { if (live) setWorkspaceError(true); });
     return () => { live = false; };
   }, [runtimeKey, props.nativeAlpha]);
   useEffect(() => {
@@ -144,23 +151,28 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
     return () => window.removeEventListener('storage', refresh);
   }, []);
 
+  const visibleSessions = useMemo(() => archiveMode === 'archived' ? sessionsGlobal.archived
+    : archiveMode === 'all' ? [...sessionsGlobal.active, ...sessionsGlobal.archived] : sessionsGlobal.active,
+  [archiveMode, sessionsGlobal.active, sessionsGlobal.archived]);
   const zones = useMemo(() => {
     const grouped = new Map<string, Session[]>();
-    for (const session of sessionsGlobal.active) {
+    for (const session of visibleSessions) {
       const directory = normalizeDirectory(session.directory ?? 'global');
       const list = grouped.get(directory) ?? [];
       list.push(session);
       grouped.set(directory, list);
     }
-    const current = normalizeDirectory(props.currentDirectory);
-    if (current && !grouped.has(current)) grouped.set(current, []);
-    for (const root of [workspaceInventory?.attached.root, ...(workspaceInventory?.admitted.map(row => row.root) ?? [])]) {
-      if (root) { const directory = normalizeDirectory(root); if (!grouped.has(directory)) grouped.set(directory, []); }
+    if (archiveMode !== 'archived') {
+      const current = normalizeDirectory(props.currentDirectory);
+      if (current && !grouped.has(current)) grouped.set(current, []);
+      for (const root of [workspaceInventory?.attached.root, ...(workspaceInventory?.admitted.map(row => row.root) ?? [])]) {
+        if (root) { const directory = normalizeDirectory(root); if (!grouped.has(directory)) grouped.set(directory, []); }
+      }
     }
     return grouped;
-  }, [sessionsGlobal.active, props.currentDirectory, workspaceInventory]);
+  }, [visibleSessions, props.currentDirectory, workspaceInventory, archiveMode]);
 
-  const filtered = useMemo(() => filterSessions([...sessionsGlobal.active], query), [sessionsGlobal.active, query]);
+  const filtered = useMemo(() => filterSessions(visibleSessions, query), [visibleSessions, query]);
   const filteredDirectories = new Set(filtered.map((session) => normalizeDirectory(session.directory ?? 'global')));
   const workspaceOptions = workspaceInventory
     ? [workspaceInventory.attached, ...workspaceInventory.admitted].map((row) => ({ directory: normalizeDirectory(row.root), label: shortDirectory(row.root) }))
@@ -171,18 +183,19 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   if (currentWorkspace && !workspaceOptions.some((item) => item.directory === currentWorkspace)) {
     workspaceOptions.unshift({ directory: currentWorkspace, label: currentWorkspace });
   }
-  const addWorkspace = async (): Promise<void> => {
+  const addWorkspace = async (path: string): Promise<void> => {
     if (workspaceBusy) return;
-    const path = await pickWorkspaceDirectory();
-    if (path === null) return;
     setWorkspaceBusy(true);
     try {
-      const directory = await addNativeWorkspace(path);
+      const directory = await addNativeWorkspace(path.trim());
       props.actions.openDraft(normalizeDirectory(directory));
+      setWorkspaceDialogOpen(false);
+      setNewWorkspacePath('');
       try {
         setWorkspaceInventory(await readNativeWorkspaceAdmissions());
         setWorkspaceError(false);
         setWorkspaceRefreshKey(key => key + 1);
+        window.dispatchEvent(new Event('nnd:workspace-added'));
       } catch {
         setWorkspaceError(true);
         toast.message('Workspace added. Refresh the workspace list when the connection recovers.');
@@ -190,8 +203,8 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not add workspace.'); }
     finally { setWorkspaceBusy(false); }
   };
-  if (!query.trim() && props.currentDirectory) filteredDirectories.add(normalizeDirectory(props.currentDirectory));
-  if (!query.trim()) for (const directory of workspaceOptions) filteredDirectories.add(directory.directory);
+  if (!query.trim() && archiveMode !== 'archived' && props.currentDirectory) filteredDirectories.add(normalizeDirectory(props.currentDirectory));
+  if (!query.trim() && archiveMode !== 'archived') for (const directory of workspaceOptions) filteredDirectories.add(directory.directory);
   const archivedInDirectory = sessionsGlobal.archived.filter((session) => normalizeDirectory(session.directory ?? 'global') === normalizeDirectory(props.currentDirectory));
   const nameCounts = new Map<string, number>();
   for (const directory of zones.keys()) {
@@ -200,29 +213,39 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   }
 
   return (
-    <aside className="flex w-72 min-w-64 flex-col border-r border-white/10 bg-neutral-950" data-testid="session-sidebar">
-      <nav className="border-b border-white/10 p-3">
-        <div className="mb-3 flex items-center justify-between"><span className="text-xs font-semibold tracking-wide text-neutral-200">Workspaces</span>
-          {canAddWorkspace ? <button type="button" aria-label="Add workspace" disabled={workspaceBusy}
-            className="rounded px-2 py-1 text-lg leading-none text-neutral-400 hover:bg-white/10 hover:text-neutral-100 disabled:opacity-40"
-            onClick={() => void addWorkspace()}>+</button> : null}</div>
+    <aside className="flex w-72 min-w-64 flex-col border-r border-white/10 bg-[#171719]" data-testid="session-sidebar">
+      <nav className="relative border-b border-white/10 px-3 pb-3 pt-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <span className="text-[13px] font-medium text-neutral-200">Workspaces</span>
+          <div className="flex items-center gap-0.5">
+            <button type="button" aria-label="Search conversations" title="Search conversations" className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-white" onClick={() => { setShowSearch(true); requestAnimationFrame(() => searchRef.current?.focus()); }}><SidebarIcon name="search" /></button>
+            <button type="button" aria-label="Filter conversations" title="Filter conversations" aria-expanded={filterOpen} className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-white" onClick={() => setFilterOpen(value => !value)}><SidebarIcon name="filter" /></button>
+            {props.nativeAlpha ? <button type="button" aria-label="Add workspace" title="Add workspace" className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-300 hover:bg-white/10 hover:text-white" onClick={() => setWorkspaceDialogOpen(true)}><SidebarIcon name="folder-plus" /></button> : null}
+          </div>
+        </div>
+        {filterOpen ? <div className="absolute right-3 top-12 z-40 w-56 rounded-xl border border-white/10 bg-neutral-800 p-2 text-xs text-neutral-200 shadow-2xl" data-testid="sidebar-filter-menu">
+          <div className="px-2 pb-1 text-[11px] text-neutral-400">Group conversations</div>
+          <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => setGroupBy('workspace')}>By workspace {groupBy === 'workspace' ? '✓' : ''}</button>
+          <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => setGroupBy('list')}>One list {groupBy === 'list' ? '✓' : ''}</button>
+          <div className="mt-2 border-t border-white/10 px-2 pb-1 pt-2 text-[11px] text-neutral-400">Show conversations</div>
+          <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => setArchiveMode('active')}>Active {archiveMode === 'active' ? '✓' : ''}</button>
+          <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => setArchiveMode('all')}>All {archiveMode === 'all' ? '✓' : ''}</button>
+          <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => setArchiveMode('archived')}>Archived only {archiveMode === 'archived' ? '✓' : ''}</button>
+          <div className="mt-2 border-t border-white/10 pt-2" />
+          <div className="px-2 pb-1 text-[11px] text-neutral-400">Order workspaces</div>
+          <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => { setSortBy('activity'); setFilterOpen(false); }}>Recent activity {sortBy === 'activity' ? '✓' : ''}</button>
+          <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => { setSortBy('name'); setFilterOpen(false); }}>Name {sortBy === 'name' ? '✓' : ''}</button>
+        </div> : null}
         {workspaceError ? <div role="alert" className="mb-2 text-[11px] text-amber-300">Workspace list unavailable. <button type="button" className="underline" onClick={() => {
           void readNativeWorkspaceAdmissions().then((inventory) => {
-            setWorkspaceInventory(inventory); setCanAddWorkspace(true); setWorkspaceError(false);
+            setWorkspaceInventory(inventory); setWorkspaceError(false);
           }).catch(() => setWorkspaceError(true));
         }}>Retry</button></div> : null}
-        {workspaceOptions.length > 0 ? <label className="mb-2 block text-[11px] text-neutral-500">
-          Active workspace
-          <select aria-label="Workspace" value={currentWorkspace} className="mt-1 w-full rounded bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-200"
-            onChange={(event) => props.actions.openDraft(event.target.value)}>
-            {workspaceOptions.map((item) => <option key={item.directory} value={item.directory}>{item.label}</option>)}
-          </select>
-        </label> : null}
         {props.nativeAlpha ? <WorkspaceRecoveryControls runtimeKey={runtimeKey} refreshKey={workspaceRefreshKey} /> : null}
-        <button type="button" data-testid="sidebar-new-session" className="w-full rounded-lg bg-amber-500 px-3 py-2 text-left text-[13px] font-medium text-neutral-950 hover:bg-amber-400" onClick={() => props.actions.openDraft(props.currentDirectory)}>
-          + New conversation
+        <button type="button" data-testid="sidebar-new-session" className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-[13px] font-medium text-neutral-100 hover:bg-white/15" onClick={() => props.actions.openDraft(props.currentDirectory)}>
+          <SidebarIcon name="plus" /> New conversation
         </button>
-        <button type="button" data-testid="sidebar-select-toggle" aria-pressed={selecting} className="mt-1 w-full rounded-lg px-3 py-1 text-left text-[11px] text-neutral-500 hover:bg-white/5 hover:text-neutral-200" onClick={() => { setSelecting(!selecting); clearSelected(); }}>
+        <button type="button" data-testid="sidebar-select-toggle" aria-pressed={selecting} className="mt-2 w-full rounded-lg px-2 py-1.5 text-left text-[12px] text-neutral-400 hover:bg-white/5 hover:text-neutral-200" onClick={() => { setSelecting(!selecting); clearSelected(); }}>
           {selecting ? 'Exit selection' : 'Select sessions'}
         </button>
       </nav>
@@ -234,14 +257,15 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           <button type="button" disabled={bulkBusy || selected.length === 0} className="text-red-400" onClick={() => void bulkLifecycle('delete')}>Delete</button>
         </div>
       </div> : null}
-      <div className="px-3">
+      <div className={`px-3 pt-2 ${showSearch ? '' : 'hidden'}`}>
         <input
+          ref={searchRef}
           value={query}
           onChange={(event: ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)}
           placeholder="Search sessions…"
           aria-label="Search sessions"
           data-testid="sidebar-search"
-          className="w-full rounded-lg border border-white/10 bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-200 outline-none focus:border-white/25"
+          className="w-full rounded-lg border border-white/10 bg-neutral-900 px-3 py-2 text-[12px] text-neutral-200 outline-none focus:border-white/25"
         />
         {query.length > 0 ? <div className="mt-1 text-[10px] text-neutral-600">{filtered.length} match{filtered.length === 1 ? '' : 'es'}</div> : null}
       </div>
@@ -249,9 +273,19 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
         {sessionsGlobal.status === 'error' ? <div role="alert" className="mb-2 rounded-lg border border-amber-800/50 px-2 py-2 text-[11px] text-amber-300" data-testid="sidebar-sessions-error">
           Could not refresh sessions. <button type="button" className="underline" onClick={() => void useGlobalSessionsStore.getState().loadSessions()}>Try again</button>
         </div> : null}
-        {[...zones.entries()]
+        {groupBy === 'list' ? <ul data-testid="sidebar-flat-list">
+          {[...filtered].sort((left, right) => right.time.updated - left.time.updated || left.id.localeCompare(right.id)).slice(0, listLimit).map(session =>
+            <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={props.currentSessionId}
+              actions={props.actions} pinned={pinnedSessionIds(pins, normalizeDirectory(session.directory ?? 'global')).has(session.id)}
+              selecting={selecting} selected={selectedIds.has(session.id)} onToggleSelected={() => toggleSelected([session.id])}
+              hasChildren={false} expanded={false} onToggleExpanded={() => undefined}
+              onRunFusion={props.onRunFusion} allowFolders={false} />)}
+          {filtered.length > listLimit ? <li><button type="button" className="w-full rounded px-3 py-2 text-left text-xs text-sky-300 hover:bg-white/5" onClick={() => setListLimit(limit => limit + AVATAR_LIMIT)}>Show {Math.min(AVATAR_LIMIT, filtered.length - listLimit)} more conversations</button></li> : null}
+        </ul> : [...zones.entries()]
           .filter(([directory]) => filteredDirectories.has(directory))
-          .sort(([left], [right]) => left === normalizeDirectory(props.currentDirectory) ? -1 : right === normalizeDirectory(props.currentDirectory) ? 1 : left.localeCompare(right))
+          .sort(([left, leftSessions], [right, rightSessions]) => left === currentWorkspace ? -1 : right === currentWorkspace ? 1
+            : sortBy === 'name' ? left.localeCompare(right)
+              : Math.max(0, ...rightSessions.map(session => session.time.updated)) - Math.max(0, ...leftSessions.map(session => session.time.updated)) || left.localeCompare(right))
           .map(([directory, sessions]) => (
             <Zone
               key={directory}
@@ -284,7 +318,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
             />
           ))}
       </div>
-      <div className="border-t border-white/10 px-2 py-2" data-testid="sidebar-archive">
+      {archiveMode === 'active' ? <div className="border-t border-white/10 px-2 py-2" data-testid="sidebar-archive">
         {props.onOpenArchive ? <button type="button" data-testid="sidebar-archive-view" className="w-full rounded px-2 py-1 text-left text-[11px] text-neutral-400 hover:bg-white/5 hover:text-neutral-100" onClick={props.onOpenArchive}>
           View all archived sessions ({sessionsGlobal.archived.length})
         </button> : null}
@@ -306,7 +340,23 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
             ))}
           </ul>
         ) : null}
-      </div>
+      </div> : null}
+      {workspaceDialogOpen ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !workspaceBusy) setWorkspaceDialogOpen(false); }}>
+        <form role="dialog" aria-modal="true" aria-label="Add workspace" className="w-full max-w-md rounded-2xl border border-white/15 bg-neutral-900 p-5 shadow-2xl" onKeyDown={event => { if (event.key === 'Escape' && !workspaceBusy) setWorkspaceDialogOpen(false); }} onSubmit={event => { event.preventDefault(); if (newWorkspacePath.trim()) void addWorkspace(newWorkspacePath); }}>
+          <h2 className="text-base font-semibold text-neutral-100">Add workspace</h2>
+          <p className="mt-1 text-xs text-neutral-400">Choose an existing folder for conversations in this workspace.</p>
+          <label className="mt-5 block text-xs text-neutral-300">Folder path
+            <input aria-label="Workspace folder path" autoFocus value={newWorkspacePath} onChange={event => setNewWorkspacePath(event.target.value)} placeholder="D:\\Projects\\MyWorkspace" className="mt-2 w-full rounded-lg border border-white/15 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-sky-500" />
+          </label>
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <button type="button" className="rounded-lg border border-white/15 px-3 py-2 text-xs text-neutral-200 hover:bg-white/10" onClick={() => void pickWorkspaceDirectory().then(path => { if (path) setNewWorkspacePath(path); }).catch(() => toast.error('Could not open the folder picker'))}>Browse folders</button>
+            <div className="flex gap-2">
+              <button type="button" disabled={workspaceBusy} className="rounded-lg px-3 py-2 text-xs text-neutral-300 hover:bg-white/10" onClick={() => setWorkspaceDialogOpen(false)}>Cancel</button>
+              <button type="submit" disabled={workspaceBusy || !newWorkspacePath.trim()} className="rounded-lg bg-sky-500 px-3 py-2 text-xs font-medium text-neutral-950 hover:bg-sky-400 disabled:opacity-40">{workspaceBusy ? 'Adding…' : 'Add workspace'}</button>
+            </div>
+          </div>
+        </form>
+      </div> : null}
     </aside>
   );
 }
@@ -361,24 +411,34 @@ function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, curr
   const createFolder = (name: string): void => { void useSessionFoldersStore.getState().createFolder(directory, name); };
 
   return (
-    <section className="mb-3" data-testid="workspace-zone" data-active={active ? 'true' : undefined}>
-      <header className="mb-1 flex items-center justify-between px-2">
+    <section className="mb-2" data-testid="workspace-zone" data-active={active ? 'true' : undefined}>
+      <header className={`group mb-1 flex items-center justify-between rounded-lg px-1 py-0.5 hover:bg-white/5 ${active ? 'bg-white/5' : ''}`}>
         <button type="button" aria-expanded={zoneOpen} aria-label={`${zoneOpen ? 'Collapse' : 'Expand'} ${directory || 'general'} workspace`} data-testid="workspace-zone-toggle" disabled={forceOpen}
-          className="shrink-0 rounded px-1 py-1 text-[11px] text-neutral-500 hover:bg-white/10 hover:text-neutral-200"
+          className="flex h-8 w-6 shrink-0 items-center justify-center rounded text-[12px] text-neutral-400 hover:bg-white/10 hover:text-neutral-100"
           onClick={onToggleZone} title={forceOpen ? 'Search results keep this workspace open' : directory}>{zoneOpen ? '▾' : '▸'}</button>
         <button type="button" aria-label={`Open ${directory || 'general'} workspace`} aria-current={active ? 'page' : undefined}
-          className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-1 text-left text-[11px] hover:bg-white/5 hover:text-neutral-200 ${active ? 'font-semibold text-amber-300' : 'text-neutral-400'}`}
+          className={`flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-1.5 text-left text-[13px] hover:text-white ${active ? 'font-medium text-neutral-100' : 'text-neutral-300'}`}
           onClick={() => actions.openDraft(directory)} title={directory}>
+          <span className={active ? 'text-sky-400' : 'text-neutral-500'}><SidebarIcon name="folder" /></span>
           <span className="truncate font-medium">{shortDirectory(directory)}</span>
-          {duplicateName ? <span className="truncate text-[10px] text-neutral-700">{directory}</span> : null}
-          <span className="shrink-0 text-neutral-700">{sessions.length}</span>
+          {duplicateName ? <span className="truncate text-[10px] text-neutral-500">{directory}</span> : null}
         </button>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {allowFolders ? <button type="button" aria-label={`New folder in ${directory || 'general'}`} data-testid={`folder-create-${directory.replace(/[^\w]/g, '_')}`} className="text-[11px] text-neutral-600 hover:text-neutral-300" onClick={() => {
             const name = prompt('New folder name', 'Folder'); // eslint-disable-line no-alert
             if (name !== null && name.trim()) createFolder(name);
           }}>▤+</button> : null}
-          <button type="button" aria-label={`New draft session in ${directory || 'general'}`} className="text-[11px] text-neutral-600 hover:text-neutral-300" onClick={() => actions.openDraft(directory)}>+</button>
+          <button type="button" aria-label={`New draft session in ${directory || 'general'}`} title="New conversation" className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-neutral-100" onClick={() => actions.openDraft(directory)}><SidebarIcon name="plus" /></button>
+          <details className="relative">
+            <summary aria-label={`More actions for ${directory || 'general'} workspace`} title="Workspace actions" className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-neutral-100"><SidebarIcon name="more" /></summary>
+            <div className="absolute right-0 top-9 z-30 w-44 rounded-xl border border-white/15 bg-neutral-800 p-1.5 shadow-xl">
+              <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-xs text-neutral-100 hover:bg-white/10" onClick={() => actions.openDraft(directory)}>New conversation</button>
+              <button type="button" className="w-full rounded-lg px-3 py-2 text-left text-xs text-neutral-300 hover:bg-white/10" onClick={() => {
+                if (!navigator.clipboard) { toast.error('Clipboard is unavailable'); return; }
+                void navigator.clipboard.writeText(directory).then(() => toast.success('Workspace path copied')).catch(() => toast.error('Could not copy workspace path'));
+              }}>Copy path</button>
+            </div>
+          </details>
         </div>
       </header>
       {zoneOpen ? <ul>
@@ -433,64 +493,6 @@ function Zone({ directory, sessions, statusById, ranks, pinnedIds, actions, curr
       {zoneOpen && folders.length > 0 ? <div className="px-2 pt-1 text-[10px] text-neutral-700">{foldersState.status === 'error' ? 'folder store error' : `${folders.length} folder(s)`}</div> : null}
     </section>
   );
-}
-
-function SidebarRow({ session, status, currentSessionId, actions, pinned, folderId, depth = 0, selecting, selected, onToggleSelected, hasChildren, expanded, onToggleExpanded, hiddenAttention, onRunFusion, allowFolders }: { session: Session; status: SessionStatus | undefined; currentSessionId: string | null; actions: ChatSidebarProps['actions']; pinned: boolean; folderId?: string; depth?: number; selecting: boolean; selected: boolean; onToggleSelected: () => void; hasChildren: boolean; expanded: boolean; onToggleExpanded: () => void; hiddenAttention?: string[]; onRunFusion?: (session: Session) => void; allowFolders: boolean }): ReactNode {
-  const active = status && status.type !== 'idle';
-  const attention = sessionAttention(session);
-  const activity = !attention ? childActivityPhrase(session.metadata) : null;
-  return (
-    <li className={`group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-white/5 ${depth > 0 ? 'border-l border-white/10' : ''}`} style={depth > 0 ? { marginLeft: `${depth * 16}px` } : undefined} data-child-session={session.parentID ? 'true' : undefined} data-child-depth={depth > 0 ? depth : undefined} data-attention={attention ?? undefined}>
-      {hasChildren ? <button type="button" aria-label={`${expanded ? 'Collapse' : 'Expand'} ${session.title || 'session'} subtasks`} aria-expanded={expanded} className="shrink-0 text-[11px] text-neutral-500 hover:text-neutral-200" onClick={onToggleExpanded}>{expanded ? '▾' : '▸'}</button> : null}
-      {selecting && !session.parentID ? <input type="checkbox" aria-label={`Select ${session.title || 'session'}`} checked={selected} onChange={onToggleSelected} /> : null}
-      <button type="button" className="min-w-0 flex-1 text-left" onClick={() => selecting && !session.parentID ? onToggleSelected() : actions.openSession(session.id, session.directory ?? '')} data-testid="session-row">
-        <div className="flex items-center gap-1.5">
-          <span aria-hidden className={`inline-block h-1.5 w-1.5 rounded-full ${attention || hiddenAttention?.length ? 'bg-amber-400' : active ? 'bg-sky-400' : 'bg-neutral-700'}`} />
-          {session.parentID ? <span className="text-[10px] text-neutral-600" aria-label="Child session">↳</span> : null}
-          <span className={`min-w-0 flex-1 truncate text-[13px] ${currentSessionId === session.id ? 'text-neutral-100' : 'text-neutral-300'}`}>{session.title || 'Untitled Session'}</span>
-          {pinned ? <span aria-label="Pinned session" className="text-[10px] text-amber-400">◆</span> : null}
-        </div>
-        <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{session.parentID && session.agent ? <span> · {session.agent}</span> : null}{session.directory ? <span data-testid="session-workspace-label" title={session.directory}> · {shortDirectory(session.directory)}</span> : null}{attention ? <span className="text-amber-300"> · {attention}</span> : null}{hiddenAttention?.length ? <span className="text-amber-300" data-testid="collapsed-subtask-attention"> · {hiddenAttention.length} subtask{hiddenAttention.length === 1 ? ' needs' : 's need'} attention</span> : null}{activity ? <span className="text-sky-300" data-testid={session.parentID ? 'child-current-activity' : 'session-current-activity'}> · {activity}</span> : null}</div>
-      </button>
-      {!selecting ? <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
-        <button type="button" aria-label={`${pinned ? 'Unpin' : 'Pin'} ${session.title || 'session'}`} className="hover:text-amber-300" onClick={() => useSessionPinnedStore.getState().toggle(session.directory ?? 'global', session.id)}>{pinned ? '◆' : '◇'}</button>
-        {!session.parentID ? <>
-        <button type="button" aria-label={`Rename ${session.title || 'session'}`} data-testid="session-rename" className="hover:text-neutral-200" onClick={() => {
-          const title = prompt('Rename session', session.title ?? ''); // eslint-disable-line no-alert
-          if (title !== null) void actions.rename(session.id, title);
-        }}>✎</button>
-        <button type="button" aria-label={`Suggest a name for ${session.title || 'session'}`} data-testid="session-suggest-name" className="hover:text-sky-300" onClick={() => suggestAndApplyRename(session.id, session.directory ?? '', actions.rename)}>✶</button>
-        <button type="button" aria-label={`Archive ${session.title || 'session'}`} className="hover:text-neutral-200" onClick={() => void actions.archive(session.id, session.directory ?? '').catch(() => toast.error('Failed to archive the session'))}>🗄</button>
-        {fusionTarget(session) ? <button type="button" aria-label={`Run fusion on ${session.title || 'session'}`} data-testid="run-fusion" className="hover:text-sky-300" onClick={() => onRunFusion?.(session)}>⨁</button> : null}
-        {allowFolders ? <button type="button" aria-label={`File ${session.title || 'session'} into a folder`} data-testid="session-file-into" className="hover:text-neutral-200" onClick={() => {
-          const folders = foldersOfSession(session);
-          if (folders.length === 0) { toast.message('Create a folder first (+ ▤+ in the workspace header)'); return; }
-          const pick = prompt(`File into folder:\n${folders.map((folder, at) => `${at + 1}. ${folder.name}`).join('\n')}`, '1'); // eslint-disable-line no-alert
-          const index = Number((pick ?? '').trim()) - 1;
-          const target = Number.isInteger(index) && folders[index] ? folders[index] : null;
-          if (target) void useSessionFoldersStore.getState().assignSession(session.directory ?? '', target.id, session.id);
-        }}>▤</button> : null}
-        </> : null}
-        {allowFolders && folderId ? <button type="button" aria-label="Unfile from folder" onClick={() => void useSessionFoldersStore.getState().unassignSession(session.directory ?? '', session.id)}>⤫</button> : null}
-        {!session.parentID ? <button type="button" aria-label={`Delete ${session.title || 'session'}`} className="hover:text-red-400" onClick={() => {
-          if (!confirm(`Delete ${session.title || 'session'} and its subtasks?`)) return; // eslint-disable-line no-alert
-          const runtimeKey = getRuntimeKey();
-          const known = [...useGlobalSessionsStore.getState().active, ...useGlobalSessionsStore.getState().archived];
-          void actions.deleteSession(session.id, session.directory ?? '').then(() => clearKnownSessionTreePins(session, known, runtimeKey)).catch(() => toast.error('Failed to delete the session'));
-        }}>🗑</button> : null}
-      </div> : null}
-    </li>
-  );
-}
-
-function fusionTarget(session: Session): boolean {
-  return fusionIdentityFromSession(session) !== null;
-}
-
-/** Folders that live in the session's directory (the assignment key). */
-function foldersOfSession(session: Session): import('../lib/session-folders.ts').SessionFolder[] {
-  const directory = normalizeDirectory(session.directory ?? '');
-  return useSessionFoldersStore.getState().foldersByDirectory[directory] ?? [];
 }
 
 export { toast, sessionAttention, childActivityPhrase };

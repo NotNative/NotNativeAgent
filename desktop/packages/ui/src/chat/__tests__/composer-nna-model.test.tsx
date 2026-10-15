@@ -77,9 +77,9 @@ describe('NNA configured composer model', () => {
       engine: 'nna', modelSelection: 'configured', primaryModel: { providerID: 'primary', modelID: 'test' },
     } } } as unknown as DirectoryStore;
     await render();
-    const trigger = document.querySelector('[data-testid="model-trigger"]') as HTMLButtonElement;
+    const trigger = document.querySelector('[data-testid="model-trigger"]') as HTMLElement;
     expect(trigger.textContent).toBe('primary · test');
-    expect(trigger.disabled).toBe(true);
+    expect(trigger.tagName).toBe('SPAN');
     expect(document.querySelector('[aria-label="Agent persona"]')).toBeNull();
     expect(document.querySelector('[aria-label="Enable permission auto-accept"]')).toBeNull();
     expect(document.body.textContent).toContain('NNA governed');
@@ -195,8 +195,8 @@ describe('NNA configured composer model', () => {
   it('does not select the mock route while configuration is unavailable', async () => {
     snapshot = { ...base, config: null } as unknown as DirectoryStore;
     await render();
-    const trigger = document.querySelector('[data-testid="model-trigger"]') as HTMLButtonElement;
-    expect(trigger.disabled).toBe(true);
+    const trigger = document.querySelector('[data-testid="model-trigger"]') as HTMLElement;
+    expect(trigger.tagName).toBe('SPAN');
     expect(trigger.textContent).toBe('Model config unavailable');
     await submit('do not create a misrouted session');
     expect(document.querySelector('[data-send-blocked]')?.getAttribute('data-send-blocked')).toBe('model-config-unavailable');
@@ -208,6 +208,6 @@ describe('NNA configured composer model', () => {
     await render();
     const trigger = document.querySelector('[data-testid="model-trigger"]') as HTMLButtonElement;
     expect(trigger.disabled).toBe(false);
-    expect(trigger.textContent).toBe('mock · mock-smart');
+    expect(trigger.textContent).toContain('mock · mock-smart');
   });
 });

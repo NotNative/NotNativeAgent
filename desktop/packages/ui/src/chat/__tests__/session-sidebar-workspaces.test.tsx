@@ -83,13 +83,10 @@ it('lists admitted empty workspaces and opens a new conversation in the selected
   });
   const { node, openDraft } = mount('D:/work', vi.fn(), true);
   await act(async () => { await Promise.resolve(); });
-  const options = [...node.querySelectorAll<HTMLSelectElement>('select[aria-label="Workspace"] option')];
-  expect(options.map(option => option.value)).toEqual(['D:/work', 'D:/other']);
   expect([...node.querySelectorAll('[data-testid="workspace-zone"]')].map(zone => zone.textContent)).toEqual([
     expect.stringContaining('work'), expect.stringContaining('other'),
   ]);
-  act(() => { const select = node.querySelector<HTMLSelectElement>('select[aria-label="Workspace"]')!;
-    select.value = 'D:/other'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Open D:/other workspace"]')!.click());
   expect(openDraft).toHaveBeenCalledWith('D:/other');
 });
 
@@ -103,10 +100,59 @@ it('opens the admitted workspace even when the project projection is unavailable
     attached: { root: 'D:/work', id: `ws_${'a'.repeat(24)}` },
     admitted: [{ root: 'D:/new', id: `ws_${'c'.repeat(24)}`, operation_id: 'new' }], unavailable: [],
   });
-  await act(async () => { node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click();
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click());
+  expect(node.querySelector('[role="dialog"][aria-label="Add workspace"]')).toBeTruthy();
+  await act(async () => { node.querySelector<HTMLButtonElement>('[role="dialog"] button')!.click(); await Promise.resolve(); });
+  await act(async () => { node.querySelector<HTMLFormElement>('[role="dialog"]')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await Promise.resolve(); await Promise.resolve(); });
   expect(openDraft).toHaveBeenCalledWith('D:/new');
-  expect(node.querySelector('option[value="D:/new"]')).toBeTruthy();
+  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+});
+
+it('opens search from the header and applies the workspace order filter', () => {
+  useGlobalSessionsStore.setState({ active: [session('a', 'D:/zeta', 'Old'),
+    { ...session('b', 'D:/alpha', 'New'), time: { created: 2, updated: 20 } }] });
+  const { node } = mount('D:/work');
+  const search = node.querySelector<HTMLInputElement>('[data-testid="sidebar-search"]')!;
+  expect(search.closest('.hidden')).toBeTruthy();
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Search conversations"]')!.click());
+  expect(search.closest('.hidden')).toBeNull();
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Filter conversations"]')!.click());
+  expect(node.querySelector('[data-testid="sidebar-filter-menu"]')).toBeTruthy();
+  act(() => ([...node.querySelectorAll<HTMLButtonElement>('[data-testid="sidebar-filter-menu"] button')]
+    .find(button => button.textContent?.includes('Name'))!).click());
+  const names = [...node.querySelectorAll('[data-testid="workspace-zone"]')].map(zone => zone.querySelector('[aria-label^="Open "]')?.getAttribute('aria-label'));
+  expect(names).toEqual(['Open D:/work workspace', 'Open D:/alpha workspace', 'Open D:/zeta workspace']);
+});
+
+it('shows archived conversations in a flat list and offers restore', () => {
+  useGlobalSessionsStore.setState({ active: [session('live', 'D:/work', 'Current')],
+    archived: [{ ...session('old', 'D:/other', 'Prior'), time: { created: 1, updated: 2, archived: 3 } }] });
+  const { node } = mount('D:/work');
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Filter conversations"]')!.click());
+  act(() => ([...node.querySelectorAll<HTMLButtonElement>('[data-testid="sidebar-filter-menu"] button')]
+    .find(button => button.textContent?.includes('One list'))!).click());
+  act(() => ([...node.querySelectorAll<HTMLButtonElement>('[data-testid="sidebar-filter-menu"] button')]
+    .find(button => button.textContent?.includes('Archived only'))!).click());
+  expect(node.querySelector('[data-testid="sidebar-flat-list"]')?.textContent).toContain('Prior');
+  expect(node.querySelector('[data-testid="sidebar-flat-list"]')?.textContent).not.toContain('Current');
+  expect(node.querySelector('[aria-label="Restore Prior"]')).toBeTruthy();
+  expect(node.querySelector('[data-testid="sidebar-archive"]')).toBeNull();
+});
+
+it('admits a typed workspace from the visible add dialog', async () => {
+  const { node, openDraft } = mount('D:/work', vi.fn(), true);
+  await act(async () => { await Promise.resolve(); });
+  vi.mocked(addNativeWorkspace).mockResolvedValue('D:/typed');
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click());
+  const input = node.querySelector<HTMLInputElement>('[aria-label="Workspace folder path"]')!;
+  act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'D:/typed');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { node.querySelector<HTMLFormElement>('[role="dialog"]')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await Promise.resolve(); await Promise.resolve(); });
+  expect(addNativeWorkspace).toHaveBeenCalledWith('D:/typed');
+  expect(openDraft).toHaveBeenCalledWith('D:/typed');
+  expect(node.querySelector('[role="dialog"]')).toBeNull();
 });
 
 it('keeps an admitted workspace selected when a later inventory refresh fails', async () => {
@@ -115,7 +161,9 @@ it('keeps an admitted workspace selected when a later inventory refresh fails', 
   vi.mocked(pickWorkspaceDirectory).mockResolvedValue('D:/new');
   vi.mocked(addNativeWorkspace).mockResolvedValue('D:/new');
   vi.mocked(readNativeWorkspaceAdmissions).mockRejectedValueOnce(new Error('offline'));
-  await act(async () => { node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click();
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click());
+  await act(async () => { node.querySelector<HTMLButtonElement>('[role="dialog"] button')!.click(); await Promise.resolve(); });
+  await act(async () => { node.querySelector<HTMLFormElement>('[role="dialog"]')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await Promise.resolve(); await Promise.resolve(); });
   expect(openDraft).toHaveBeenCalledWith('D:/new');
   expect(node.querySelector('[role="alert"]')?.textContent).toContain('Workspace list unavailable');
@@ -161,6 +209,20 @@ it('pins a session without a directory in the displayed global workspace', () =>
   act(() => (row.parentElement!.querySelector('[aria-label="Pin Global chat"]') as HTMLButtonElement).click());
   expect(row.querySelector('[aria-label="Pinned session"]')).toBeTruthy();
   expect(row.parentElement!.querySelector('[aria-label="Unpin Global chat"]')).toBeTruthy();
+});
+
+it('opens a readable conversation menu and forks through the existing session action', async () => {
+  useGlobalSessionsStore.setState({ active: [session('source', 'D:/work', 'Design review')] });
+  const fork = vi.fn(async () => undefined);
+  const { node } = mount('D:/work');
+  await act(async () => root!.render(<ChatSidebar engine={{} as never} currentDirectory="D:/work" currentSessionId={null}
+    actions={{ openDraft: () => undefined, openSession: () => undefined, rename: async () => undefined,
+      archive: async () => undefined, restore: async () => undefined, deleteSession: async () => undefined, fork }} />));
+  const menu = node.querySelector<HTMLDetailsElement>('[data-testid="session-row"] + details')!;
+  act(() => (menu.querySelector('summary') as HTMLElement).click());
+  expect(menu.open).toBe(true);
+  await act(async () => (menu.querySelector('[aria-label="Fork Design review"]') as HTMLButtonElement).click());
+  expect(fork).toHaveBeenCalledExactlyOnceWith('source', 'D:/work');
 });
 
 it('puts the active workspace first and folds its sessions without hiding its actions', () => {

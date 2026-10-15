@@ -436,10 +436,9 @@ export function Composer(props: ComposerProps): ReactNode {
         rows={rows} placeholder={shell ? 'bash command…' : 'Message the agent…'}
         data-testid="composer-editor"
         className={`w-full resize-none rounded-lg bg-transparent p-2 text-sm outline-none placeholder:text-neutral-600 ${shell ? 'font-mono text-amber-200' : 'text-neutral-100'} focus:outline-none`} />
-      <div className="flex items-center rounded-lg bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-300 hover:bg-neutral-800" title={nnaConfigured ? 'Configured primary model in NNA' : 'Model and agent settings'}>
-        <button type="button" aria-label="Model selector" data-testid="model-trigger" disabled={nnaConfigured || configUnavailable} onClick={() => setModelPickerOpen(!modelPickerOpen)}>
-          {modelLabel}
-        </button>
+      <div className="flex items-center rounded-lg bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-300" title={nnaConfigured ? 'Primary model configured in NNA' : 'Model and agent settings'}>
+        {nnaConfigured || configUnavailable ? <span aria-label="Configured model" data-testid="model-trigger">{modelLabel}</span>
+          : <button type="button" aria-label="Model selector" data-testid="model-trigger" className="rounded px-1 py-0.5 hover:bg-white/10" onClick={() => setModelPickerOpen(!modelPickerOpen)}>{modelLabel} ▾</button>}
         {props.onToggleExpanded ? <button type="button" aria-label={props.expanded ? 'Collapse expanded editor' : 'Focus mode'} className="ml-auto text-[11px] text-neutral-500" onClick={props.onToggleExpanded}>⛶</button> : null}
       </div>
       <ComposerFooter
@@ -457,7 +456,6 @@ export function Composer(props: ComposerProps): ReactNode {
         agent={agent}
         agents={agentNames}
         onAgent={setAgent}
-        modelLabel={modelLabel}
         configuredByNna={nnaConfigured}
         onFiles={(files) => attachFiles({ target: { files, value: '' } } as never)}
       />

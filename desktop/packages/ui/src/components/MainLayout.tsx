@@ -247,6 +247,13 @@ export function MainLayout(): ReactNode {
     archive: engine.actions.archive,
     restore: engine.actions.restore,
     deleteSession: engine.actions.deleteSession,
+    fork: async (sessionID: string, directory: string): Promise<void> => {
+      const forked = await engine.actions.fork(sessionID, undefined);
+      showChat();
+      persistLastActiveSession(forked, directory);
+      useSessionViewStore.setState({ currentSessionId: forked, activeDirectory: directory });
+      notifySessionRouteNavigation();
+    },
   } as const;
 
   useEffect(() => window.__NOTNATIVE_DESKTOP_EVENTS__?.onOpenSession(({ sessionId, directory }) => {
@@ -323,7 +330,7 @@ export function MainLayout(): ReactNode {
       {nativeAlpha ? <div role="status" data-testid="native-alpha-notice" className="border-b border-amber-800/50 bg-amber-950/30 px-3 py-1 text-xs text-amber-200">
         Native alpha: chat and NNA review are available. File, Git, queue, and other workspace actions are waiting for native review support.
       </div> : null}
-        {miniChat ? <ChatView services={services} currentDirectory={activeDirectory} /> : null}
+        {miniChat ? <ChatView services={services} currentDirectory={activeDirectory} nativeAlpha={nativeAlpha} /> : null}
         {!miniChat ? <main className="flex min-w-0 flex-1" aria-label="Workspace content">{filesOpen ? (
           <FilesView key={JSON.stringify([runtimeKey, activeDirectory])} directory={activeDirectory} visible />
         ) : reviewPane === 'diff' ? (
@@ -348,7 +355,7 @@ export function MainLayout(): ReactNode {
           <ArchiveView currentDirectory={activeDirectory} onClose={() => setArchiveOpen(false)}
             onOpenSession={actions.openSession} onRestore={actions.restore} onDelete={actions.deleteSession} />
         ) : (
-          <ChatView services={services} currentDirectory={activeDirectory} />
+          <ChatView services={services} currentDirectory={activeDirectory} nativeAlpha={nativeAlpha} />
         )}</main> : null}
         </div>
       </div>
