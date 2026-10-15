@@ -2,15 +2,16 @@
 # NotNativeDesktop tray host: the tray icon is coupled to the SERVICE, never to
 # the desktop client. The supervised service child spawns this script after the
 # readiness frame; the icon lives exactly as long as the service generation it
-# belongs to. "Open NND Desktop" launches the desktop client (which starts the
-# service first if it is down); "Quit NND" asks the supervisor's controller to
+# belongs to. "Open NNA Desktop" launches the desktop client (which starts the
+# service first if it is down); "Quit NNA" asks the supervisor's controller to
 # stop the service, then exits once this generation's discovery record goes
 # away. Deliberately NOT Electron: a tray must not cost a Chromium boot.
 
 param(
   [Parameter(Mandatory = $true)][string]$DataRoot,
   [Parameter(Mandatory = $true)][string]$InstallRoot,
-  [Parameter(Mandatory = $true)][string]$NodePath
+  [Parameter(Mandatory = $true)][string]$NodePath,
+  [string]$Generation
 )
 
 $ErrorActionPreference = 'Stop'
@@ -24,7 +25,8 @@ Add-Type -AssemblyName System.Drawing
 # the mutex name needs: uniqueness per data root on this machine.
 $mutexName = 'Local\NotNativeDesktopTray-' + ($DataRoot.ToUpperInvariant().GetHashCode() -as [string])
 $mutex = New-Object System.Threading.Mutex($false, $mutexName)
-if (-not $mutex.WaitOne(0)) { exit 0 }
+# A retiring generation can own the mutex for one watchdog tick after the new service is ready.
+try { if (-not $mutex.WaitOne(10000)) { exit 0 } } catch [System.Threading.AbandonedMutexException] { }
 
 $runtimeDir = Join-Path $DataRoot 'runtime\nnd'
 function Read-CurrentRecord {
@@ -32,6 +34,7 @@ function Read-CurrentRecord {
   if (-not (Test-Path $currentPath)) { return $null }
   try {
     $current = Get-Content $currentPath -Raw | ConvertFrom-Json
+    if ($Generation -and $current.instance_id -cne $Generation) { return $null }
     $generationPath = Join-Path $runtimeDir ('generation-' + $current.instance_id + '.json')
     if (-not (Test-Path $generationPath)) { return $null }
     $generation = Get-Content $generationPath -Raw | ConvertFrom-Json
@@ -83,11 +86,22 @@ function Open-Desktop {
     -WorkingDirectory $InstallRoot -WindowStyle Hidden
 }
 
+function Invoke-TrayAction([string]$Action) {
+  $helper = Join-Path $InstallRoot 'scripts\tray-action.mjs'
+  try {
+    Start-Process -FilePath $NodePath -ArgumentList @('--disable-warning=ExperimentalWarning', ('"' + $helper + '"'), $Action) -WorkingDirectory $InstallRoot -WindowStyle Hidden
+  } catch { [void][System.Windows.Forms.MessageBox]::Show('NNA could not launch the tray action.', 'NNA') }
+}
+
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
-$openItem = $menu.Items.Add('Open NND Desktop')
+$openItem = $menu.Items.Add('Open NNA Desktop')
 $openItem.add_Click({ Open-Desktop })
+$browserItem = $menu.Items.Add('Open in browser')
+$browserItem.add_Click({ Invoke-TrayAction 'browser' })
+$restartItem = $menu.Items.Add('Restart NNA')
+$restartItem.add_Click({ Invoke-TrayAction 'restart' })
 [void]$menu.Items.Add('-')
-$quitItem = $menu.Items.Add('Quit NND')
+$quitItem = $menu.Items.Add('Quit NNA')
 $quitItem.add_Click({ if (Stop-Service) { Exit-Tray } })
 
 $assetsDir = Join-Path $InstallRoot 'packages\electron\assets'
@@ -97,7 +111,7 @@ if ($icon) { $notifyIcon.Icon = $icon } else {
   $fallback = [System.Drawing.SystemIcons]::Application
   $notifyIcon.Icon = $fallback
 }
-$notifyIcon.Text = 'NotNativeDesktop service'
+$notifyIcon.Text = 'NotNativeAgent (NNA)'
 $notifyIcon.ContextMenuStrip = $menu
 $notifyIcon.Visible = $true
 $notifyIcon.add_DoubleClick({ Open-Desktop })

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -108,8 +108,8 @@ test('the default Windows tray launch executes its PowerShell host', windows, as
   const root = await fixture(t);
   const marker = join(root, 'tray-spawned');
   await writeFile(join(root, 'scripts/nnd-tray-host.ps1'),
-    "param([string]$DataRoot,[string]$InstallRoot,[string]$NodePath)\n" +
-    "[IO.File]::WriteAllText((Join-Path $InstallRoot 'tray-spawned'), 'ok')\n");
+    "param([string]$DataRoot,[string]$InstallRoot,[string]$NodePath,[string]$Generation)\n" +
+    "[IO.File]::WriteAllText((Join-Path $InstallRoot 'tray-spawned'), $Generation)\n");
   const run = launch(root);
   t.after(() => run.child.kill());
   const boot = await bootstrap(root);
@@ -124,6 +124,7 @@ test('the default Windows tray launch executes its PowerShell host', windows, as
       await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
+  assert.equal(await readFile(marker, 'utf8'), boot.generation);
   run.send({ type: 'stop', protocol: '1.0', generation: boot.generation, request_id: 'stop' });
   assert.equal((await run.next()).type, 'stopped');
 });

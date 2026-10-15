@@ -14,8 +14,10 @@ import { renderMainApp } from '@notnative/ui/main';
 import { createWebAPIs } from './api/createWebAPIs.ts';
 import { registerPwaUpdateUX } from './pwa/update-ux.ts';
 import { registerPwaInstallUX } from './pwa/install-ux.ts';
+import { captureNativeBrowserLaunch } from '@notnative/ui/lib/native-browser-launch.ts';
 
 
+captureNativeBrowserLaunch();
 const surface = resolveHostedSurface();
 stampHostedSurface(surface);
 

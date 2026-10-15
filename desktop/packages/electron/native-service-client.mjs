@@ -142,6 +142,12 @@ export async function requestNativeServiceStop(selection) {
   return command(runtime, 'stop');
 }
 
+export async function requestNativeServiceStatus(selection) {
+  const runtime = readSelectedNativeRuntime(typeof selection === 'string' ? selection : selection?.installRoot);
+  assertPinnedInstallation(selection, runtime);
+  return command(runtime, 'status', 5000);
+}
+
 async function verifyNndCapabilities(runtime) {
   const capabilities = await command(runtime, 'capabilities');
   if (!identityMatches(capabilities, runtime) || capabilities.native_version !== runtime.version

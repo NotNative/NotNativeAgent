@@ -4,6 +4,8 @@ import { getRuntimeKey, onRuntimeEndpointChanged } from '../../lib/runtime-switc
 import { markGateAuthenticated, readJsonRecord, type SessionGateRuntime } from '../../lib/sessionAuthGateState.ts';
 import type { GateText } from './gateText.ts';
 import { clearCachedUrlAuthToken, setRuntimeBearerToken } from '../../lib/runtime-auth.ts';
+import { consumeNativeBrowserLaunch, peekNativeBrowserLaunch } from '../../lib/native-browser-launch.ts';
+import { getApiBaseUrl } from '../../lib/runtime-url.ts';
 
 interface Props { runtime: SessionGateRuntime; text: GateText; onAuthenticated(): Promise<void> }
 
@@ -23,12 +25,13 @@ export async function redeemNativeBootstrap(runtime: SessionGateRuntime, ticket:
 }
 
 function useBootstrapForm({ runtime, onAuthenticated }: Props) {
-  const [ticket, setTicket] = useState('');
+  const [ticket, setTicket] = useState(() => peekNativeBrowserLaunch(getApiBaseUrl()));
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const active = useRef<AbortController | null>(null);
   const generation = useRef(0);
   useEffect(() => {
+    consumeNativeBrowserLaunch(getApiBaseUrl());
     const cancel = (): void => { generation.current += 1; active.current?.abort(); active.current = null; };
     const off = onRuntimeEndpointChanged(() => { cancel(); setTicket(''); setBusy(false); setFailed(false); });
     return () => { off(); cancel(); };

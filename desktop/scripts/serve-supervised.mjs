@@ -174,7 +174,7 @@ export async function runSupervisedService({ input = process.stdin, output = pro
         // root (identity.data_root), not under nnd_data_root (<data>/nnd, the
         // service's own state). Passing nnd_data_root made the tray's timer
         // never find the record and exit immediately (no tray icon).
-        '-DataRoot', bootstrap.nna_data_root, '-InstallRoot', root, '-NodePath', process.execPath],
+        '-DataRoot', bootstrap.nna_data_root, '-InstallRoot', root, '-NodePath', process.execPath, '-Generation', bootstrap.generation],
         // Neutral CWD: a live process locks its working directory, and the
         // tray must never pin the install root against cleanup or upgrade.
         { cwd: process.env.SystemRoot ?? null, windowsHide: true, stdio: 'ignore' });
