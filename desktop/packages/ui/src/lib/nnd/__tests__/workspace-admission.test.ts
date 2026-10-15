@@ -22,7 +22,8 @@ it('uses native revision and operation identity, then selects the readback root'
     expect(body).toMatchObject({ expected_revision: 'absent', root });
     return new Response(JSON.stringify({ operation_id: operationId, persistence: 'saved' }));
   });
-  expect(await addNativeWorkspace(root)).toBe(root);
+  expect(await addNativeWorkspace(root)).toMatchObject({ directory: root, added: true,
+    inventory: { admitted: [{ root }] } });
   expect(operationId).toMatch(/^[a-f0-9-]{36}$/u);
 });
 
@@ -35,7 +36,7 @@ it('recovers a lost acknowledgement by operation lookup without submitting twice
     if (String(url).includes('/operations/')) return new Response(JSON.stringify({ operation_id: operationId, persistence: 'saved' }));
     return new Response(JSON.stringify(inventory(operationId || undefined)));
   });
-  expect(await addNativeWorkspace(root)).toBe(root);
+  expect(await addNativeWorkspace(root)).toMatchObject({ directory: root, added: true });
   expect(writes).toBe(1);
 });
 
@@ -51,12 +52,12 @@ it('keeps a rejected admission rejected when no receipt exists', async () => {
 
 it('repairs a lost create response by selecting an already admitted canonical root', async () => {
   vi.mocked(runtimeFetch).mockResolvedValue(new Response(JSON.stringify(inventory('prior_operation'))));
-  expect(await addNativeWorkspace('c:/repos/second')).toBe(root);
+  expect(await addNativeWorkspace('c:/repos/second')).toMatchObject({ directory: root, added: false });
   expect(vi.mocked(runtimeFetch).mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
 });
 
 it('selects the attached workspace without trying to admit it again', async () => {
   vi.mocked(runtimeFetch).mockResolvedValue(new Response(JSON.stringify(inventory())));
-  expect(await addNativeWorkspace('c:/repos/primary')).toBe('C:\\Repos\\Primary');
+  expect(await addNativeWorkspace('c:/repos/primary')).toMatchObject({ directory: 'C:\\Repos\\Primary', added: false });
   expect(vi.mocked(runtimeFetch).mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
 });

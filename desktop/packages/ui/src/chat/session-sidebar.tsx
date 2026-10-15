@@ -10,8 +10,7 @@ import { useEffect, useSyncExternalStore, useMemo, useRef, useState, type ReactN
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore } from '../sync/global-stores.ts';
-import { addNativeWorkspace, readNativeWorkspaceAdmissions, type WorkspaceAdmissions } from '../lib/nnd/workspace-admission.ts';
-import { hasNativeWorkspacePicker, pickWorkspaceDirectory } from '../lib/nnd/workspace-picker.ts';
+import { readNativeWorkspaceAdmissions, type WorkspaceAdmissions } from '../lib/nnd/workspace-admission.ts';
 import { WorkspaceRecoveryControls } from './workspace-recovery-controls.tsx';
 import { useSessionOrderingStore } from '../sync/session-ordering.ts';
 import { useSessionFoldersStore, unsortedSessionIds } from '../stores/useSessionFoldersStore.ts';
@@ -28,7 +27,7 @@ import { filterSessions, orderSessionsByLifecycleWrap, sessionDepths, shortDirec
 import { ArchivedRow, FolderActions } from './session-sidebar-actions.tsx';
 import { SidebarIcon } from './sidebar-icon.tsx';
 import { SidebarRow } from './session-sidebar-row.tsx';
-import { WorkspacePathDialog } from './workspace-path-dialog.tsx';
+import { useWorkspaceAddition } from './use-workspace-addition.tsx';
 
 const AVATAR_LIMIT = 50;
 
@@ -71,11 +70,22 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const searchRef = useRef<HTMLInputElement>(null);
   const [workspaceInventory, setWorkspaceInventory] = useState<WorkspaceAdmissions | null>(null);
   const [workspaceError, setWorkspaceError] = useState(false);
-  const [workspaceBusy, setWorkspaceBusy] = useState(false);
-  const [workspacePickerBusy, setWorkspacePickerBusy] = useState(false);
-  const [manualPathOpen, setManualPathOpen] = useState(false);
-  const [manualPath, setManualPath] = useState('');
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
+  const inventoryReadRef = useRef(0);
+  const workspaceAddition = useWorkspaceAddition(({ directory, inventory }) => {
+    inventoryReadRef.current += 1;
+    setWorkspaceInventory(inventory);
+    setWorkspaceError(false);
+    setWorkspaceRefreshKey(key => key + 1);
+    setGroupBy('workspace');
+    setArchiveMode('active');
+    setQuery('');
+    setShowSearch(false);
+    const normalized = normalizeDirectory(directory);
+    setCollapsedZones(current => { const next = { ...current }; delete next[normalized]; return next; });
+    props.actions.openDraft(normalized);
+    window.dispatchEvent(new Event('nnd:workspace-added'));
+  });
   const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
   const projects = useGlobalSyncStore((state) => state.projects);
   const sessionsGlobal = useSyncExternalStore(useGlobalSessionsStore.subscribe, useGlobalSessionsStore.getState);
@@ -136,12 +146,13 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   useEffect(() => { void useSessionFoldersStore.getState().load(); }, []);
   useEffect(() => {
     let live = true;
+    const read = ++inventoryReadRef.current;
     setWorkspaceInventory(null);
     setWorkspaceError(false);
     if (!props.nativeAlpha) return () => { live = false; };
     void readNativeWorkspaceAdmissions().then((inventory) => {
-      if (live) { setWorkspaceInventory(inventory); setWorkspaceError(false); }
-    }).catch(() => { if (live) setWorkspaceError(true); });
+      if (live && read === inventoryReadRef.current) { setWorkspaceInventory(inventory); setWorkspaceError(false); }
+    }).catch(() => { if (live && read === inventoryReadRef.current) setWorkspaceError(true); });
     return () => { live = false; };
   }, [runtimeKey, props.nativeAlpha]);
   useEffect(() => {
@@ -185,37 +196,6 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   if (currentWorkspace && !workspaceOptions.some((item) => item.directory === currentWorkspace)) {
     workspaceOptions.unshift({ directory: currentWorkspace, label: currentWorkspace });
   }
-  const addWorkspace = async (path: string): Promise<void> => {
-    if (workspaceBusy) return;
-    setWorkspaceBusy(true);
-    try {
-      const directory = await addNativeWorkspace(path.trim());
-      props.actions.openDraft(normalizeDirectory(directory));
-      setManualPathOpen(false);
-      setManualPath('');
-      try {
-        setWorkspaceInventory(await readNativeWorkspaceAdmissions());
-        setWorkspaceError(false);
-        setWorkspaceRefreshKey(key => key + 1);
-        window.dispatchEvent(new Event('nnd:workspace-added'));
-      } catch {
-        setWorkspaceError(true);
-        toast.message('Workspace added. Refresh the workspace list when the connection recovers.');
-      }
-    } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not add workspace.'); }
-    finally { setWorkspaceBusy(false); }
-  };
-  const chooseWorkspace = async (): Promise<void> => {
-    if (workspacePickerBusy || workspaceBusy) return;
-    if (!hasNativeWorkspacePicker()) { setManualPathOpen(true); return; }
-    setWorkspacePickerBusy(true);
-    try {
-      const path = await pickWorkspaceDirectory();
-      if (path) await addWorkspace(path);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not open the folder picker.');
-    } finally { setWorkspacePickerBusy(false); }
-  };
   if (!query.trim() && archiveMode !== 'archived' && props.currentDirectory) filteredDirectories.add(normalizeDirectory(props.currentDirectory));
   if (!query.trim() && archiveMode !== 'archived') for (const directory of workspaceOptions) filteredDirectories.add(directory.directory);
   const archivedInDirectory = sessionsGlobal.archived.filter((session) => normalizeDirectory(session.directory ?? 'global') === normalizeDirectory(props.currentDirectory));
@@ -233,7 +213,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           <div className="flex items-center gap-0.5">
             <button type="button" aria-label="Search conversations" title="Search conversations" className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-white" onClick={() => { setShowSearch(true); requestAnimationFrame(() => searchRef.current?.focus()); }}><SidebarIcon name="search" /></button>
             <button type="button" aria-label="Filter conversations" title="Filter conversations" aria-expanded={filterOpen} className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-white/10 hover:text-white" onClick={() => setFilterOpen(value => !value)}><SidebarIcon name="filter" /></button>
-            {props.nativeAlpha ? <button type="button" aria-label="Add workspace" title="Add workspace" disabled={workspacePickerBusy || workspaceBusy} className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-300 hover:bg-white/10 hover:text-white disabled:opacity-50" onClick={() => void chooseWorkspace()}><SidebarIcon name="folder-plus" /></button> : null}
+            {props.nativeAlpha ? <button type="button" aria-label="Add workspace" title="Add workspace" disabled={workspaceAddition.busy} className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-300 hover:bg-white/10 hover:text-white disabled:opacity-50" onClick={() => void workspaceAddition.choose()}><SidebarIcon name="folder-plus" /></button> : null}
           </div>
         </div>
         {filterOpen ? <div className="absolute right-3 top-12 z-40 w-56 rounded-xl border border-white/10 bg-neutral-800 p-2 text-xs text-neutral-200 shadow-2xl" data-testid="sidebar-filter-menu">
@@ -249,10 +229,12 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => { setSortBy('activity'); setFilterOpen(false); }}>Recent activity {sortBy === 'activity' ? '✓' : ''}</button>
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-white/10" onClick={() => { setSortBy('name'); setFilterOpen(false); }}>Name {sortBy === 'name' ? '✓' : ''}</button>
         </div> : null}
+        {workspaceAddition.controls}
         {workspaceError ? <div role="alert" className="mb-2 text-[11px] text-amber-300">Workspace list unavailable. <button type="button" className="underline" onClick={() => {
+          const read = ++inventoryReadRef.current;
           void readNativeWorkspaceAdmissions().then((inventory) => {
-            setWorkspaceInventory(inventory); setWorkspaceError(false);
-          }).catch(() => setWorkspaceError(true));
+            if (read === inventoryReadRef.current) { setWorkspaceInventory(inventory); setWorkspaceError(false); }
+          }).catch(() => { if (read === inventoryReadRef.current) setWorkspaceError(true); });
         }}>Retry</button></div> : null}
         {props.nativeAlpha ? <WorkspaceRecoveryControls runtimeKey={runtimeKey} refreshKey={workspaceRefreshKey} /> : null}
         <button type="button" data-testid="sidebar-new-session" className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-[13px] font-medium text-neutral-100 hover:bg-white/15" onClick={() => props.actions.openDraft(props.currentDirectory)}>
@@ -354,8 +336,6 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           </ul>
         ) : null}
       </div> : null}
-      {manualPathOpen ? <WorkspacePathDialog path={manualPath} busy={workspaceBusy} onPathChange={setManualPath}
-        onSubmit={() => void addWorkspace(manualPath)} onClose={() => setManualPathOpen(false)} /> : null}
     </aside>
   );
 }

@@ -12,6 +12,7 @@ import { useSessionExpansionStore } from '../../stores/useSessionExpansionStore.
 import { initializeRuntimeEndpoint, switchRuntimeEndpoint } from '../../lib/runtime-switch.ts';
 import { addNativeWorkspace, readNativeWorkspaceAdmissions } from '../../lib/nnd/workspace-admission.ts';
 import { hasNativeWorkspacePicker, pickWorkspaceDirectory } from '../../lib/nnd/workspace-picker.ts';
+import type { WorkspaceAdmissionSelection } from '../../lib/nnd/workspace-admission.ts';
 
 vi.mock('../../lib/nnd/workspace-admission.ts', () => ({
   addNativeWorkspace: vi.fn(), readNativeWorkspaceAdmissions: vi.fn(),
@@ -57,6 +58,14 @@ function session(id: string, directory: string, title: string): Session {
   return { id, directory, title, time: { created: 1, updated: 1 } } as Session;
 }
 
+function admittedSelection(directory: string, added = true): WorkspaceAdmissionSelection {
+  return { directory, added, inventory: {
+    installation_id: 'install', data_id: 'data', revision: 'absent', selection_enabled: true,
+    attached: { root: 'D:/work', id: `ws_${'a'.repeat(24)}` },
+    admitted: [{ root: directory, id: `ws_${'c'.repeat(24)}`, operation_id: 'new' }], unavailable: [],
+  } };
+}
+
 function mount(currentDirectory: string, openDraft = vi.fn(), nativeAlpha = false): { node: HTMLDivElement; openDraft: ReturnType<typeof vi.fn> } {
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -95,7 +104,7 @@ it('opens the admitted workspace even when the project projection is unavailable
   const { node, openDraft } = mount('D:/work', vi.fn(), true);
   await act(async () => { await Promise.resolve(); });
   vi.mocked(pickWorkspaceDirectory).mockResolvedValue('D:/new');
-  vi.mocked(addNativeWorkspace).mockResolvedValue('D:/new');
+  vi.mocked(addNativeWorkspace).mockResolvedValue(admittedSelection('D:/new'));
   vi.mocked(readNativeWorkspaceAdmissions).mockResolvedValue({
     installation_id: 'install', data_id: 'data', revision: 'absent', selection_enabled: true,
     attached: { root: 'D:/work', id: `ws_${'a'.repeat(24)}` },
@@ -144,7 +153,7 @@ it('opens the folder picker directly and admits the chosen workspace', async () 
   const { node, openDraft } = mount('D:/work', vi.fn(), true);
   await act(async () => { await Promise.resolve(); });
   vi.mocked(pickWorkspaceDirectory).mockResolvedValue('D:/typed');
-  vi.mocked(addNativeWorkspace).mockResolvedValue('D:/typed');
+  vi.mocked(addNativeWorkspace).mockResolvedValue(admittedSelection('D:/typed'));
   await act(async () => { node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click();
     await Promise.resolve(); await Promise.resolve(); });
   expect(addNativeWorkspace).toHaveBeenCalledWith('D:/typed');
@@ -166,7 +175,7 @@ it('accepts an absolute path when opened outside the desktop shell', async () =>
   vi.mocked(hasNativeWorkspacePicker).mockReturnValue(false);
   const { node, openDraft } = mount('D:/work', vi.fn(), true);
   await act(async () => { await Promise.resolve(); });
-  vi.mocked(addNativeWorkspace).mockResolvedValue('D:/browser');
+  vi.mocked(addNativeWorkspace).mockResolvedValue(admittedSelection('D:/browser'));
   act(() => node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click());
   expect(pickWorkspaceDirectory).not.toHaveBeenCalled();
   const input = node.querySelector<HTMLInputElement>('[aria-label="Workspace folder path"]')!;
@@ -178,16 +187,103 @@ it('accepts an absolute path when opened outside the desktop shell', async () =>
   expect(openDraft).toHaveBeenCalledWith('D:/browser');
 });
 
-it('keeps an admitted workspace selected when a later inventory refresh fails', async () => {
+it('shows a failed browser path admission outside the path dialog', async () => {
+  vi.mocked(hasNativeWorkspacePicker).mockReturnValue(false);
+  const { node } = mount('D:/work', vi.fn(), true);
+  await act(async () => { await Promise.resolve(); });
+  vi.mocked(addNativeWorkspace).mockRejectedValue(new Error('NNA refused this path.'));
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click());
+  const input = node.querySelector<HTMLInputElement>('[aria-label="Workspace folder path"]')!;
+  act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'D:/browser');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { node.querySelector<HTMLFormElement>('[role="dialog"]')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await Promise.resolve(); });
+  expect(node.querySelector('[role="dialog"]')).toBeNull();
+  expect(node.querySelector('[data-testid="workspace-add-feedback"]')?.textContent).toContain('NNA refused this path.');
+});
+
+it('shows the confirmed workspace when the recovery controls cannot refresh', async () => {
   const { node, openDraft } = mount('D:/work', vi.fn(), true);
   await act(async () => { await Promise.resolve(); });
   vi.mocked(pickWorkspaceDirectory).mockResolvedValue('D:/new');
-  vi.mocked(addNativeWorkspace).mockResolvedValue('D:/new');
+  vi.mocked(addNativeWorkspace).mockResolvedValue(admittedSelection('D:/new'));
   vi.mocked(readNativeWorkspaceAdmissions).mockRejectedValueOnce(new Error('offline'));
   await act(async () => { node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click();
     await Promise.resolve(); await Promise.resolve(); });
   expect(openDraft).toHaveBeenCalledWith('D:/new');
-  expect(node.querySelector('[role="alert"]')?.textContent).toContain('Workspace list unavailable');
+  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+  expect(node.querySelector('[role="alert"]')).toBeNull();
+});
+
+it('keeps admission errors visible and retries the selected path', async () => {
+  const { node, openDraft } = mount('D:/work', vi.fn(), true);
+  await act(async () => { await Promise.resolve(); });
+  vi.mocked(pickWorkspaceDirectory).mockResolvedValue('D:/new');
+  vi.mocked(addNativeWorkspace).mockRejectedValueOnce(new Error('NNA could not verify this directory.'))
+    .mockResolvedValueOnce(admittedSelection('D:/new'));
+  await act(async () => { node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click();
+    await Promise.resolve(); await Promise.resolve(); });
+  expect(openDraft).not.toHaveBeenCalled();
+  expect(node.querySelector('[data-testid="workspace-add-feedback"]')?.textContent).toContain('NNA could not verify this directory.');
+  await act(async () => { node.querySelector<HTMLButtonElement>('[data-testid="workspace-add-feedback"] button')!.click();
+    await Promise.resolve(); await Promise.resolve(); });
+  expect(pickWorkspaceDirectory).toHaveBeenCalledTimes(1);
+  expect(addNativeWorkspace).toHaveBeenCalledTimes(2);
+  expect(openDraft).toHaveBeenCalledWith('D:/new');
+  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+});
+
+it('shows progress until admission finishes and prevents another picker', async () => {
+  let resolveAdmission!: (value: WorkspaceAdmissionSelection) => void;
+  const { node } = mount('D:/work', vi.fn(), true);
+  await act(async () => { await Promise.resolve(); });
+  vi.mocked(pickWorkspaceDirectory).mockResolvedValue('D:/new');
+  vi.mocked(addNativeWorkspace).mockImplementationOnce(() => new Promise(resolve => { resolveAdmission = resolve; }));
+  await act(async () => { node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click();
+    await Promise.resolve(); });
+  expect(node.querySelector('[data-testid="workspace-add-progress"]')?.textContent).toContain('Adding workspace in NNA');
+  expect(node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')?.disabled).toBe(true);
+  await act(async () => { resolveAdmission(admittedSelection('D:/new')); await Promise.resolve(); });
+  expect(node.querySelector('[data-testid="workspace-add-progress"]')).toBeNull();
+  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+});
+
+it('reveals the new workspace when search, grouping, and archive filters hid it', async () => {
+  const { node, openDraft } = mount('D:/work', vi.fn(), true);
+  await act(async () => { await Promise.resolve(); });
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Filter conversations"]')!.click());
+  act(() => ([...node.querySelectorAll<HTMLButtonElement>('[data-testid="sidebar-filter-menu"] button')]
+    .find(button => button.textContent?.includes('One list'))!).click());
+  act(() => ([...node.querySelectorAll<HTMLButtonElement>('[data-testid="sidebar-filter-menu"] button')]
+    .find(button => button.textContent?.includes('Archived only'))!).click());
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Search conversations"]')!.click());
+  const input = node.querySelector<HTMLInputElement>('[data-testid="sidebar-search"]')!;
+  act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'unrelated');
+    input.dispatchEvent(new Event('input', { bubbles: true })); });
+  vi.mocked(pickWorkspaceDirectory).mockResolvedValue('D:/new');
+  vi.mocked(addNativeWorkspace).mockResolvedValue(admittedSelection('D:/new'));
+  await act(async () => { node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click();
+    await Promise.resolve(); await Promise.resolve(); });
+  expect(openDraft).toHaveBeenCalledWith('D:/new');
+  expect(node.querySelector('[data-testid="sidebar-flat-list"]')).toBeNull();
+  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+  expect(input.value).toBe('');
+});
+
+it('does not let an older inventory response erase a newly confirmed workspace', async () => {
+  let resolveInitial!: (value: WorkspaceAdmissionSelection['inventory']) => void;
+  vi.mocked(readNativeWorkspaceAdmissions).mockImplementationOnce(() => new Promise(resolve => { resolveInitial = resolve; }));
+  const { node, openDraft } = mount('D:/work', vi.fn(), true);
+  vi.mocked(pickWorkspaceDirectory).mockResolvedValue('D:/new');
+  vi.mocked(addNativeWorkspace).mockResolvedValue(admittedSelection('D:/new'));
+  await act(async () => { node.querySelector<HTMLButtonElement>('[aria-label="Add workspace"]')!.click();
+    await Promise.resolve(); await Promise.resolve(); });
+  expect(openDraft).toHaveBeenCalledWith('D:/new');
+  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
+  await act(async () => resolveInitial({ installation_id: 'install', data_id: 'data', revision: 'absent',
+    selection_enabled: true, attached: { root: 'D:/work', id: `ws_${'a'.repeat(24)}` },
+    admitted: [], unavailable: [] }));
+  expect(node.querySelector('[aria-label="Open D:/new workspace"]')).toBeTruthy();
 });
 
 it('does not offer folder actions that the native service cannot save', async () => {

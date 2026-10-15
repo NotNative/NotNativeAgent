@@ -9,6 +9,7 @@ type Row = { root: string; id: string; operation_id: string };
 export type WorkspaceAdmissions = { installation_id: string; data_id: string;
   revision: string; selection_enabled: true; attached: { root: string; id: string }; admitted: Row[];
   unavailable: { root: string; id: string; reason: string }[] };
+export type WorkspaceAdmissionSelection = { directory: string; inventory: WorkspaceAdmissions; added: boolean };
 
 function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -60,13 +61,13 @@ export async function readNativeWorkspaceAdmissions(): Promise<WorkspaceAdmissio
 
 /** A lost acknowledgement is looked up by operation ID; it is never blindly
  * resubmitted. The new root comes from native readback, not the typed path. */
-export async function addNativeWorkspace(root: string): Promise<string> {
+export async function addNativeWorkspace(root: string): Promise<WorkspaceAdmissionSelection> {
   const runtime = getRuntimeKey();
   const before = await readNativeWorkspaceAdmissions();
   if (getRuntimeKey() !== runtime) throw new Error('Connection changed; refresh workspaces.');
-  if (sameWorkspace(before.attached.root, root)) return before.attached.root;
+  if (sameWorkspace(before.attached.root, root)) return { directory: before.attached.root, inventory: before, added: false };
   const existing = before.admitted.find(row => sameWorkspace(row.root, root));
-  if (existing) return existing.root;
+  if (existing) return { directory: existing.root, inventory: before, added: false };
   const operationId = crypto.randomUUID();
   const body = { installation_id: before.installation_id, data_id: before.data_id,
     expected_revision: before.revision, operation_id: operationId, root };
@@ -88,7 +89,7 @@ export async function addNativeWorkspace(root: string): Promise<string> {
   if (getRuntimeKey() !== runtime) throw new Error('Connection changed; refresh workspaces.');
   const selected = after.admitted.find(row => row.operation_id === operationId);
   if (!selected) throw new Error('NNA saved the workspace; refresh its inventory before opening it.');
-  return selected.root;
+  return { directory: selected.root, inventory: after, added: true };
 }
 
 /** Only a native unavailable row can be removed here. NNA also refuses the
