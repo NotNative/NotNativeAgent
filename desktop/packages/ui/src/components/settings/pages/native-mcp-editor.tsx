@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsLeave } from '../edit-boundary.tsx';
 /** Native user-manifest MCP intents; running sessions are unchanged until NNA applies them. */
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { authorityState, subscribeAuthority } from '../../../sync/authority-sync.ts';
@@ -10,6 +11,7 @@ const BUTTON = 'rounded border border-border px-2 py-1 text-xs disabled:opacity-
 const DEADLINES = ['timeout_ms', 'connect_timeout_ms', 'list_timeout_ms', 'call_timeout_ms', 'shutdown_timeout_ms'] as const;
 
 export function NativeMcpEditor(): ReactNode {
+  const leave = useSettingsLeave();
   const model = useNativeMcpModel();
   const authority = useSyncExternalStore(subscribeAuthority, authorityState);
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
@@ -19,7 +21,7 @@ export function NativeMcpEditor(): ReactNode {
   return <section className="mb-4 space-y-2 rounded-lg border border-border/35 p-3 text-xs" aria-label="Native MCP configuration">
     <div className="flex items-center justify-between gap-3">
       <SettingsGroupTitle>Native MCP configuration</SettingsGroupTitle>
-      <button type="button" className={BUTTON} onClick={() => void model.load()} disabled={model.busy || model.auth !== 'ok'}>Refresh</button>
+      <button type="button" className={BUTTON} onClick={() => leave(() => { void model.load(); })} disabled={model.busy || model.auth !== 'ok'}>Refresh</button>
     </div>
     <p>NNA owns these user-manifest servers. Commands, destinations, credentials and headers remain private inside NNA.</p>
     <p role="status">Saving changes the user manifest. Existing sessions keep their MCP configuration. Restart NNA before creating a conversation that uses saved changes.</p>

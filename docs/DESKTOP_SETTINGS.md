@@ -166,6 +166,51 @@ Full suites passed: core 2,513 passed / 8 skipped, UI 2,241 passed, web 1,557 pa
 tests cover ownership changes, authentication recovery, late reads, failed acknowledgements, archive
 restoration, bounded multipage export, cancellation, diagnostic redaction and download MIME.
 
+## Settings cohesion
+
+Version `20261016-2` adds a shared edit boundary to the settings shell. Form owners report only their
+label and dirty/operation state. The boundary never reads field values or stores credentials. Page,
+tab, search and close transitions offer Keep editing or Discard changes for unsaved forms. Refresh
+actions that replace the search/fetch, gateway, compatibility, MCP or agent/file draft use the same
+decision. In-flight or unconfirmed publications require returning to the editor to check the outcome.
+Known unpublished receipts do not permanently trap the operator. Runtime/authentication changes
+cancel queued navigation; browser unload receives a native unsaved-change warning. All native page
+forms remount on a connection key/origin change, preventing drafts from carrying into another host.
+
+The owner registrations cover configuration/repair and agent/file editors, provider connections,
+primary/subagent/role routing, MCP definitions, WebSearch/WebFetch, gateway/compatibility configuration,
+secret drafts and managed MCP credential drafts. Explicit Cancel edit closes an agent/file editor
+without publication. Reloading MCP definitions now clears a discarded draft. No settings write or
+service operation is triggered by navigation. Native preview, revision checks, durable operation
+recovery and application timing remain with their existing owners.
+
+Provider and operational tabs share roving keyboard focus: Left/Right wrap and Home/End select the
+first/last section. Dirty-state protection also applies to keyboard selection. Controls share native
+settings sizing, borders, disabled states and visible focus styles, with a narrow-window layout.
+Interface-preference save status appears on preference pages and the Models preference section;
+configuration editors retain their own publication receipts. General now directs operators to
+Services and updates rather than the previous Advanced destination.
+
+The installed acceptance command exercises real tab/page/close/search/refresh decisions, retained
+and discarded drafts, keyboard focus, native file preview/cancellation, and unchanged search revision:
+
+```powershell
+node desktop/scripts/electron-installed-settings-cohesion-smoke.mjs ABSOLUTE_REGISTERED_DESKTOP_ROOT ABSOLUTE_EVIDENCE_DIRECTORY
+```
+
+Dedicated Trust and secrets navigation, full field-level search, additional host preferences and
+restart/reconnection controls remain separate follow-up slices. This pass preserves existing native
+save protocols rather than replacing them with a second writer.
+
+Acceptance passed in the browser and the registered installed Electron payload after the main
+installer rebuilt version `20261016-2`. The 17-section operational check also passed. Agent acceptance
+repeated all 18 previews and three real publications/restorations. Operator settings were restored;
+Gateway stayed stopped and disabled. Full suites: core 2,513 passed / 8 skipped, UI 2,251 passed,
+web 1,557 passed. Both quality gates passed. New tests cover actual WebSearch draft retention and
+discard, pending publication, a publication starting during a discard decision, focus restoration,
+keyboard tabs, page-scroll reset, status placement and same-key origin changes. The installed agent
+harness now checks inherited fieldset disablement with `:disabled`, rather than a button-only flag.
+
 ## Interface preference persistence
 
 `GET/PUT /api/ui-preferences` uses the application's authenticated API boundary. The server accepts

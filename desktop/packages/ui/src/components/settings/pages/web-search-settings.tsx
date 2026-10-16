@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsEdit, useSettingsLeave } from '../edit-boundary.tsx';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { getRuntimeKey, onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
 import { getApiBaseUrl } from '../../../lib/runtime-url.ts';
@@ -56,6 +57,7 @@ function composeOperations(view: NativeWebSearchView, draft: WebSearchDraft): Na
 
 export function WebSearchSettings(): ReactNode {
   const auth = useAuthSessionStore(state => state.status);
+  const leave = useSettingsLeave();
   const authority = useSyncExternalStore(subscribeAuthority, authorityState);
   const [view, setView] = useState<NativeWebSearchView | null>(null);
   const [draft, setDraft] = useState<WebSearchDraft | null>(null);
@@ -66,6 +68,8 @@ export function WebSearchSettings(): ReactNode {
   const [busy, setBusy] = useState(false);
   const active = useRef<AbortController | null>(null);
   const pendingRef = useRef<PendingNativeWebSearchOperation | null>(null);
+  useSettingsEdit('Web search', Boolean(view && draft && receipt?.persistence !== 'saved' &&
+    (composeOperations(view, draft).length || draft.add_name || draft.add_endpoint)), Boolean(pending && (!receipt || receipt.persistence === 'unknown')));
   const run = (work: (signal: AbortSignal, current: () => boolean) => Promise<void>) => {
     if (active.current || auth !== 'ok' || authorityState() !== 'ready') return;
     const controller = new AbortController(); active.current = controller;
@@ -151,7 +155,7 @@ export function WebSearchSettings(): ReactNode {
   return <SettingsSection item="native-web-search.settings">
     <div className="flex items-center justify-between gap-3">
       <SettingsGroupTitle>NNA web search settings</SettingsGroupTitle>
-      <button type="button" className={BUTTON} onClick={load} disabled={busy || auth !== 'ok' || authority !== 'ready'}>Refresh</button>
+      <button type="button" className={BUTTON} onClick={() => leave(load)} disabled={busy || auth !== 'ok' || authority !== 'ready'}>Refresh</button>
     </div>
     <p className="text-xs">WebSearch runs over your SearXNG instances. Choose whether it is enabled and which endpoints it
       may query; the search tool reloads this configuration on every search, so a saved change is honored by the next web

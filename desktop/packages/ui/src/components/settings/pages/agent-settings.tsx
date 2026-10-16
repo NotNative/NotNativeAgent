@@ -4,6 +4,7 @@ import { ReviewModeControl } from '../../../chat/review-mode-control.tsx';
 import { useGlobalSessionsStore, useGlobalSessionStatusStore } from '../../../sync/global-stores.ts';
 import { useAgentConfiguration } from './use-agent-configuration.ts';
 import { AgentSettingsEditor } from './agent-settings-editor.tsx';
+import { useSettingsLeave } from '../edit-boundary.tsx';
 
 function ConversationReviewSettings(): ReactNode {
   const sessions = useGlobalSessionsStore(state => state.active);
@@ -24,6 +25,7 @@ function ConversationReviewSettings(): ReactNode {
 }
 
 export function AgentSettingsPage({ page }: { page: 'agent-policy' | 'agent-context' }): ReactNode {
+  const leave = useSettingsLeave();
   const state = useAgentConfiguration();
   const policy = page === 'agent-policy';
   return <div className="space-y-5" data-testid={page}>
@@ -31,7 +33,7 @@ export function AgentSettingsPage({ page }: { page: 'agent-policy' | 'agent-cont
       <p className="text-xs text-muted-foreground">Scope: user configuration, resolved with the service workspace sources. Project overrides can take precedence.
         Saving does not change running engines. Restart NNA to load these defaults when engines are constructed, including reopened conversations.</p>
       <button type="button" disabled={state.loading || !state.authorized} className="rounded border border-border px-3 py-2 text-xs"
-        onClick={() => { void state.load(); }}>Reload values (discard edit)</button>
+        onClick={() => leave(() => { void state.load(); })}>Reload values</button>
     </header>
     {!state.authorized ? <p role="alert">Reconnect to NNA before editing settings.</p> : null}
     {state.loading ? <p role="status">Loading native settings…</p> : null}

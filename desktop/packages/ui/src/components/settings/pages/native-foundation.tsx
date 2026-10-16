@@ -86,7 +86,7 @@ function General(): ReactNode {
     <p>NNA runs locally. Desktop and browser connect to the same background runtime.</p>
     <h3 className="font-semibold">Desktop and browser</h3>
     <p>The NNA tray opens the desktop or your system’s default browser. Closing the desktop window leaves the service running. Quit NNA stops it; Restart NNA restarts this runtime.</p>
-    <p>Service startup, login wiring and update diagnostics are available under Advanced. Gateway and OpenCode are managed separately.</p>
+    <p>Service status, login wiring and update diagnostics are available under Services and updates. Gateway and OpenCode are managed separately.</p>
     <h3 className="font-semibold">About</h3>
     {error ? <p role="alert">{error}</p> : health ? <dl className="grid grid-cols-[auto_1fr] gap-3"><dt>Desktop/web version</dt><dd>{String(health.version ?? 'Unavailable')}</dd><dt>Runtime</dt><dd>{health.runtime === 'service' ? 'NNA background service' : 'Web'}</dd></dl> : <p role="status">Reading service version…</p>}
     <InstallationObservationPanel />

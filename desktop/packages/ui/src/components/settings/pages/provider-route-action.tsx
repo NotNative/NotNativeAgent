@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsEdit } from '../edit-boundary.tsx';
 /** A deliberate manifest route change. Running NNA is never silently updated. */
 import { useEffect, useState, type ReactNode } from 'react';
 import { harnessClient } from '../../../lib/nnd/client.ts';
@@ -20,6 +21,7 @@ export function ProviderRouteAction({ profileId, defaultModel, configuredModel, 
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { setModel(proposedModel ?? configuredModel ?? defaultModel); setError(null); }, [configuredModel, defaultModel, proposedModel]);
   const target = model.trim();
+  useSettingsEdit('Primary provider route', model !== (configuredModel ?? defaultModel), busy);
   const apply = async (): Promise<void> => {
     if (!target || target === configuredModel) return;
     setBusy(true);

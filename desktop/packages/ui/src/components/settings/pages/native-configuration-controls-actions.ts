@@ -8,14 +8,16 @@ import { lookupNativeConfigurationOperation, nativeChange, nativeRouteBindingCha
 import type { NativeRouteRole } from '../../../lib/nnd/configuration-mutation.ts';
 import { errorCode, invalidateNativePreview, runNativeConfigurationWork, type ControlsModel } from './native-configuration-controls-model.ts';
 
-export function chooseNativeField(model: ControlsModel, view: NativeConfigurationView, path: string): void {
+export function chooseNativeField(model: ControlsModel, view: NativeConfigurationView, path: string, initialDraft?: string): void {
   if (model.pendingOperationRef.current) return;
+  model.leave(() => {
   invalidateNativePreview(model); model.setFieldPath(path); model.setReceipt(null); model.setPendingOperation(null);
   model.setError(null); model.setMode('set');
   const row = view.fields.find(item => item.path === path);
   const value = row?.explicit.present && 'value' in row.explicit ? row.explicit.value
     : row?.effective.present && 'value' in row.effective ? row.effective.value : '';
-  model.setDraft(JSON.stringify(value));
+  model.setDraft(initialDraft ?? JSON.stringify(value));
+  });
 }
 
 export function previewNativeField(model: ControlsModel, view: NativeConfigurationView): void {

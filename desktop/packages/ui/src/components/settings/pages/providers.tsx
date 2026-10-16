@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsLeave } from '../edit-boundary.tsx';
+import { SettingsTabs } from '../section-tabs.tsx';
 /** NNA-owned provider route inventory. Configuration writes remain in NNA. */
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { NativeSetupPanel } from './native-setup.tsx';
@@ -125,6 +127,7 @@ function endpointDisplay(endpoint: string): { key: I18nKey; origin?: string } {
 }
 
 export function ProvidersPage({ onOpenConfiguration }: { onOpenConfiguration?: () => void } = {}): ReactNode {
+  const leave = useSettingsLeave();
   const { t } = useI18n();
   const [profiles, setProfiles] = useState<ProviderProfile[] | null>(null);
   const [configuredRoute, setConfiguredRoute] = useState<RuntimeRoute | null>(null);
@@ -170,14 +173,13 @@ export function ProvidersPage({ onOpenConfiguration }: { onOpenConfiguration?: (
 
   return (
     <SettingsSection item="providers.inventory">
-      <div role="tablist" aria-label="Provider management" className="mb-3 flex gap-2 border-b border-border/40 pb-2">
-        {(['connections', 'models', 'routing'] as const).map(item => <button key={item} type="button" role="tab" aria-selected={tab === item}
-          className={`rounded px-3 py-2 text-sm capitalize ${tab === item ? 'bg-primary/15 text-primary' : 'hover:bg-muted'}`} onClick={() => setTab(item)}>{item}</button>)}
-      </div>
+      <h2 className="mb-3 text-lg font-semibold">Providers and models</h2>
+      <SettingsTabs label="Provider management" items={['connections', 'models', 'routing'].map(id => ({ id, title: id[0]!.toUpperCase() + id.slice(1) }))}
+        value={tab} onChange={id => setTab(id as typeof tab)} />
       {tab === 'routing' ? <NativeRoutesPage /> : <>
       <div className="flex items-center justify-between gap-3">
         <SettingsGroupTitle>{t('settings.providers.inventory.title')}</SettingsGroupTitle>
-        <button type="button" data-testid="providers-refresh" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground disabled:opacity-50" onClick={refresh} disabled={loading}>{t('settings.providers.inventory.refresh')}</button>
+        <button type="button" data-testid="providers-refresh" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground disabled:opacity-50" onClick={() => leave(refresh)} disabled={loading}>{t('settings.providers.inventory.refresh')}</button>
       </div>
       <p className="text-xs text-muted-foreground">{t('settings.providers.inventory.description')}</p>
       {tab === 'connections' ? <ProviderProfileEditor key={catalogOwner()} onSaved={refresh} /> : null}

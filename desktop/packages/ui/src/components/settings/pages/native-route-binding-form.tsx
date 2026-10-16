@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsEdit, useSettingsLeave } from '../edit-boundary.tsx';
 import { useState, type ReactNode } from 'react';
 import type { NativeConfigurationView, NativeValue } from '../../../lib/nnd/configuration.ts';
 import type { NativeRouteRole } from '../../../lib/nnd/configuration-mutation.ts';
@@ -39,6 +40,9 @@ export function NativeRouteBindingForm({ model, view }: { model: ControlsModel; 
   const [providerId, setProviderId] = useState(initial.provider ?? providers[0]?.id ?? '');
   const [modelId, setModelId] = useState(initial.model ?? providers.find(item => item.id === providerId)?.model ?? '');
   const selectedProvider = providers.find(item => item.id === providerId);
+  const leave = useSettingsLeave();
+  useSettingsEdit('Provider role binding', model.receipt?.persistence !== 'saved' &&
+    (providerId !== (initial.provider ?? providers[0]?.id ?? '') || modelId !== (initial.model ?? providers.find(item => item.id === providerId)?.model ?? '')));
   const preview = model.preview?.request.operations[0]?.op === 'bind_route'
     && model.preview.request.operations[0].role === role ? model.preview : null;
   if (!roles.length) return null;
@@ -56,7 +60,7 @@ export function NativeRouteBindingForm({ model, view }: { model: ControlsModel; 
     <p>{t('settings.nativeRoutes.bindingScope')}</p>
     <label className="block">{t('settings.nativeRoutes.bindingRole')}
       <select aria-label={t('settings.nativeRoutes.bindingRole')} value={role} disabled={disabled}
-        onChange={event => chooseRole(event.target.value as NativeRouteRole)}>
+        onChange={event => { const next = event.target.value as NativeRouteRole; leave(() => chooseRole(next)); }}>
         {roles.map(item => <option key={item} value={item}>{item}</option>)}
       </select>
     </label>

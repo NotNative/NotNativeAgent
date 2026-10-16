@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsEdit } from '../edit-boundary.tsx';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { getRuntimeKey, onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
 import { getApiBaseUrl } from '../../../lib/runtime-url.ts';
@@ -33,6 +34,7 @@ export function SecretActionsConsole(): ReactNode {
   const [editPatch, setEditPatch] = useState<{ label: string; scoped: boolean; scopeKind: string;
     scopeId: string; metadataName: string; metadataValue: string }>(() => emptyEdit());
   const active = useRef<AbortController | null>(null);
+  useSettingsEdit('Secret editor', JSON.stringify(draft) !== JSON.stringify(emptyDraft()) || Boolean(editing || rotating), busy);
   const resetView = useCallback(() => { active.current?.abort(); active.current = null;
     setSecrets(null); setAudit(null); setError(null); setReceipt(null); setBusy(false); }, []);
   const load = useCallback(() => runOnce(auth, active, setBusy, setError, async (signal) => {

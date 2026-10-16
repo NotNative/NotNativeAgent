@@ -6,6 +6,7 @@ import { readBrokerSecrets, type PublicSecret } from '../../../lib/nnd/secret-ac
 import { useI18n } from '../../I18nProvider.tsx';
 import type { I18nKey } from '../../../lib/i18n/messages/en.ts';
 import { ProviderProfileDialog } from './provider-profile-dialog.tsx';
+import { useSettingsEdit, useSettingsLeave } from '../edit-boundary.tsx';
 
 interface EditableProfile {
   profile_revision?: string;
@@ -259,6 +260,12 @@ export function ProviderProfileEditor({ profile, onSaved }: {
   const { t } = useI18n();
   const draft = useDrafts(profile);
   const [open, setOpen] = useState(false);
+  const leave = useSettingsLeave();
+  const changed = Boolean(draft.id || draft.name !== (profile?.display_name ?? '') || draft.endpoint
+    || draft.model !== (profile?.model ?? '') || draft.credentialEnv || draft.choice || draft.secretIndex || draft.secretField
+    || draft.contextLimit !== (profile?.context_limit_bytes != null ? String(profile.context_limit_bytes) : '')
+    || draft.outputLimit !== (profile?.output_limit_tokens != null ? String(profile.output_limit_tokens) : '') || draft.toolCallMode);
+  useSettingsEdit('Provider connection', open && changed, draft.busy);
   const { roster, rosterError } = useRoster(open, draft.choice);
   const editing = Boolean(profile);
   const secretOptions = (roster ?? []).filter((secret) => secret.enabled);
@@ -272,7 +279,11 @@ export function ProviderProfileEditor({ profile, onSaved }: {
       {open ? t('settings.providers.profile.cancel') : editing ? t('settings.providers.profile.edit') : t('settings.providers.profile.add')}
     </button>
     {open ? <ProviderProfileDialog title={editing ? t('settings.providers.profile.edit') : t('settings.providers.profile.add')}
-      busy={draft.busy} onClose={() => { setOpen(false); draft.setFeedback(null); }}>
+      busy={draft.busy} onClose={() => leave(() => { setOpen(false); draft.setFeedback(null);
+        draft.setId(''); draft.setName(profile?.display_name ?? ''); draft.setEndpoint(''); draft.setModel(profile?.model ?? '');
+        draft.setCredentialEnv(''); draft.setChoice(''); draft.setSecretIndex(''); draft.setSecretField('');
+        draft.setContextLimit(profile?.context_limit_bytes != null ? String(profile.context_limit_bytes) : '');
+        draft.setOutputLimit(profile?.output_limit_tokens != null ? String(profile.output_limit_tokens) : ''); draft.setToolCallMode(''); })}>
       <ProfileFields editing={editing} id={draft.id} name={draft.name} endpoint={draft.endpoint} model={draft.model} credentialEnv={draft.credentialEnv}
         choice={draft.choice} secretIndex={draft.secretIndex} secretField={draft.secretField} roster={roster === null ? null : secretOptions} rosterError={rosterError}
         onChoice={(next) => { draft.setChoice(next); if (next !== 'secret') { draft.setSecretIndex(''); draft.setSecretField(''); } }}

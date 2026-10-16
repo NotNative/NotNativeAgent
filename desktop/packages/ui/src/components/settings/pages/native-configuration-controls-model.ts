@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsEdit, useSettingsLeave } from '../edit-boundary.tsx';
 import { useEffect, useRef, useState } from 'react';
 import { getRuntimeKey } from '../../../lib/runtime-switch.ts';
 import { getApiBaseUrl } from '../../../lib/runtime-url.ts';
@@ -29,6 +30,7 @@ function useNativeConfigurationCatalog() {
 }
 
 export function useNativeConfigurationControlsModel(view: NativeConfigurationView) {
+  const leave = useSettingsLeave();
   const recovered = useRef(pendingNativeConfigurationOperation(view));
   const { catalog, catalogError, isSameRuntime } = useNativeConfigurationCatalog();
   const [fieldPath, setFieldPath] = useState('');
@@ -48,7 +50,12 @@ export function useNativeConfigurationControlsModel(view: NativeConfigurationVie
   const fields = catalog?.fields.filter(field => view.fields.some(row => row.path === field.path)) ?? [];
   const selected = fields.find(field => field.path === fieldPath) ?? null;
   const selectedRow = view.fields.find(field => field.path === fieldPath);
-  return { catalog, catalogError, fieldPath, setFieldPath, mode, setMode, draft, setDraft, preview, setPreview,
+  const value = selectedRow?.explicit.present && 'value' in selectedRow.explicit ? selectedRow.explicit.value
+    : selectedRow?.effective.present && 'value' in selectedRow.effective ? selectedRow.effective.value : '';
+  useSettingsEdit('Native configuration', receipt?.persistence !== 'saved' && Boolean(preview ||
+    selectedRow && (mode === 'reset' || draft !== JSON.stringify(value)) || repairDraft !== repairStarter),
+    Boolean(pendingOperation && (!receipt || receipt.persistence === 'unknown')));
+  return { leave, catalog, catalogError, fieldPath, setFieldPath, mode, setMode, draft, setDraft, preview, setPreview,
     repairDraft, setRepairDraft, repairConfirmed, setRepairConfirmed, receipt, setReceipt, pendingOperation,
     setPendingOperation, error, setError, busy, setBusy, currentWork, pendingOperationRef, isCurrent,
     fields, selected, selectedRow };

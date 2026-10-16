@@ -24,6 +24,7 @@ import { NativeEnvironment } from './native-environment.tsx';
 import { DiagnosticSummary } from './operational-diagnostics.tsx';
 import { ConversationData } from './operational-conversations.tsx';
 import { FileSettings } from './operational-files.tsx';
+import { SettingsTabs } from '../section-tabs.tsx';
 
 const PANELS: Record<string, () => ReactNode> = {
   'operations-tools/servers': () => <NativeMcpEditor />,
@@ -65,10 +66,7 @@ export function OperationalSettingsPage({ page, focusItem }: { page: Operational
   const ready = auth === 'ok' && authority === 'ready';
   return <div className="space-y-4" data-testid={page}>
     <h2 className="text-lg font-semibold">{definition.title}</h2>
-    <div role="tablist" aria-label={`${definition.title} sections`} className="flex flex-wrap gap-2 border-b border-border pb-3">
-      {definition.sections.map(row => <button type="button" role="tab" key={row.id} aria-selected={section.id === row.id}
-        onClick={() => setSelected(row.id)} className={`rounded px-3 py-2 text-xs ${section.id === row.id ? 'bg-primary/15 text-primary' : 'hover:bg-muted'}`}>{row.title}</button>)}
-    </div>
+    <SettingsTabs label={`${definition.title} sections`} items={definition.sections} value={section.id} onChange={setSelected} />
     {!ready ? <p role="alert">{auth !== 'ok' ? 'Reconnect to NNA to use these controls.' : 'Native authority is resynchronizing. Controls are paused.'}</p>
       : <section key={`${scope}:${page}:${section.id}`} role="tabpanel" aria-label={section.title} data-settings-item={section.anchor}>
         {PANELS[`${page}/${section.id}`]?.()}

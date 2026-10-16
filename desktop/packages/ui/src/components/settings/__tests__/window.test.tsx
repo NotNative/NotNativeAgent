@@ -91,6 +91,18 @@ afterEach(() => {
 });
 
 describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
+  it('resets page scroll and scopes interface save feedback to preference pages', async () => {
+    await renderWindow('appearance');
+    await act(async () => rootHandle!.render(<I18nProvider><ThemeProvider>
+      <SettingsWindow initialPage="appearance" nativeAlpha onClose={() => undefined} />
+    </ThemeProvider></I18nProvider>));
+    expect(document.querySelector('[data-testid="settings-window"]')?.textContent).toMatch(/interface preferences/i);
+    const nav = document.querySelector('[aria-label="Settings pages"]')!, pane = nav.nextElementSibling as HTMLDivElement;
+    pane.scrollTop = 480;
+    await act(async () => [...nav.querySelectorAll('button')].find(button => button.textContent === 'Providers and models')!.click());
+    expect(pane.scrollTop).toBe(0);
+    expect(document.querySelector('[data-testid="settings-window"]')?.textContent).not.toMatch(/interface preferences saved/i);
+  });
   it('limits native navigation and search to supported pages and opens General for unsupported links', async () => {
     await renderWindow('general');
     await act(async () => rootHandle!.render(<I18nProvider><ThemeProvider>

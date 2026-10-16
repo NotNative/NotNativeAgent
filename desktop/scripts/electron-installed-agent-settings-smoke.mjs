@@ -11,7 +11,8 @@ async function agentSettingsScenario() {
     Object.getOwnPropertyDescriptor(prototype, 'value').set.call(node, value); node.dispatchEvent(new Event('input', { bubbles: true })); };
   const edit = async label => { button(`Edit ${label}`).click(); return wait(() => document.querySelector(`section[aria-label="Edit ${label}"]`), label); };
   const preview = async () => { button('Preview change').click(); await wait(() => button('Save to NNA'), 'resolved preview'); };
-  const reload = async () => { const prior = document.querySelector('[data-testid="agent-settings-editor"]'); button('Reload values (discard edit)').click();
+  const reload = async () => { const prior = document.querySelector('[data-testid="agent-settings-editor"]'), cancel = button('Cancel edit');
+    if (cancel && !cancel.matches(':disabled')) { cancel.click(); await wait(() => !button('Cancel edit'), 'cancel before reload'); } button('Reload values').click();
     await wait(() => { const current = document.querySelector('[data-testid="agent-settings-editor"]'); return current !== prior && current?.querySelector('fieldset button:not(:disabled)'); }, 'reloaded editable settings'); };
   const original = await read();
   (await wait(() => document.querySelector('[data-testid="settings-gear"]'), 'Settings')).click();
@@ -24,7 +25,7 @@ async function agentSettingsScenario() {
     else if (control?.tagName === 'TEXTAREA') change(control, 'Installed UI verification instructions.');
     else if (control?.type === 'number') change(control, control.value || '0');
     else if (control?.tagName === 'SELECT') { control.value = control.value === 'durable' ? 'ephemeral' : 'durable'; control.dispatchEvent(new Event('change', { bubbles: true })); }
-    await preview(); verified.push(label);
+    await preview(); verified.push(label); button('Cancel edit').click(); await wait(() => !button('Cancel edit'), 'cancel preview');
   }
   for (const label of ['Application instructions', 'Conversation persistence', 'Maximum model steps', 'Local retry limit', 'Turn time limit (ms)', 'Approval wait (ms)', 'Concurrent tools', 'Recovery actions']) await probe(label);
   async function publishAndRestore(path, label, value) {

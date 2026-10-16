@@ -7,7 +7,7 @@
  * render their registered-phase note — never a silent gap. The window
  * refuses to close while a nested recording dialog owns input (§G.1).
  */
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { suspendShortcutRegistry } from '../../lib/shortcuts/registry.ts';
 import { useI18n } from '../I18nProvider.tsx';
 import type { I18nKey } from '../../lib/i18n/messages/en.ts';
@@ -36,6 +36,10 @@ import { AgentSettingsPage } from './pages/agent-settings.tsx';
 import { AGENT_SETTINGS_SEARCH } from './pages/agent-settings-fields.ts';
 import { OperationalSettingsPage } from './pages/operational-settings.tsx';
 import { isOperationalPage, OPERATIONAL_SEARCH } from './pages/operational-registry.ts';
+import { SettingsEditBoundary, useSettingsLeave } from './edit-boundary.tsx';
+import './settings-cohesion.css';
+import { onRuntimeEndpointChanged } from '../../lib/runtime-switch.ts';
+import { nativeObservationScope } from './pages/use-native-observation.ts';
 
 export { PAGE_TITLE_KEYS };
 
@@ -108,13 +112,18 @@ const availablePage = (page: SettingsPageSlug | undefined, nativeAlpha: boolean)
 let highlightTimer: number | null = null;
 
 export function SettingsWindow({ initialPage, onClose, onPageChange, nativeAlpha = false }: { initialPage?: SettingsPageSlug; onClose: () => void; onPageChange?: (page: SettingsPageSlug) => void; nativeAlpha?: boolean }): ReactNode {
+  return <SettingsEditBoundary><SettingsWindowContent initialPage={initialPage} onClose={onClose} onPageChange={onPageChange} nativeAlpha={nativeAlpha} /></SettingsEditBoundary>;
+}
+
+function SettingsWindowContent({ initialPage, onClose, onPageChange, nativeAlpha }: { initialPage?: SettingsPageSlug; onClose: () => void; onPageChange?: (page: SettingsPageSlug) => void; nativeAlpha: boolean }): ReactNode {
   const { t } = useI18n();
+  const leave = useSettingsLeave();
   const [page, setPage] = useState<SettingsPageSlug>(availablePage(initialPage, nativeAlpha));
   useEffect(() => { setPage(availablePage(initialPage, nativeAlpha)); }, [initialPage, nativeAlpha]);
   const navigate = useCallback((next: SettingsPageSlug): void => {
     const selected = availablePage(next, nativeAlpha);
-    setPage(selected); onPageChange?.(selected);
-  }, [nativeAlpha, onPageChange]);
+    if (selected !== page) leave(() => { setPage(selected); onPageChange?.(selected); });
+  }, [nativeAlpha, onPageChange, leave, page]);
   const [query, setQuery] = useState('');
   const [pendingJump, setPendingJump] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
@@ -138,13 +147,13 @@ export function SettingsWindow({ initialPage, onClose, onPageChange, nativeAlpha
   // §G.1: refuse to close while a nested machine (recorder) owns input.
   const requestClose = useCallback((): void => {
     if (document.querySelector('[data-nnd-recording-overlay]') !== null) return;
-    onClose();
-  }, [onClose]);
+    leave(onClose);
+  }, [onClose, leave]);
 
   return (
     <SettingsDialog
       page={page}
-      query={{ query, setQuery, searchResults: results, jumpTo, setPage: navigate }}
+      query={{ query, setQuery: value => { if (!query && value) leave(() => setQuery(value)); else setQuery(value); }, searchResults: results, jumpTo, setPage: navigate }}
       requestClose={requestClose}
       highlight={highlight}
       pendingJump={pendingJump}
@@ -197,6 +206,9 @@ function SettingsDialog({
 }): ReactNode {
   const { t } = useI18n();
   const searching = query.query.trim().length > 0;
+  const scope = useSyncExternalStore(onRuntimeEndpointChanged, nativeObservationScope);
+  const content = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (content.current) content.current.scrollTop = 0; }, [page]);
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-[var(--oc-glass-blur)]"
@@ -206,16 +218,16 @@ function SettingsDialog({
         if (event.target === event.currentTarget) requestClose();
       }}
     >
-      <div className="flex h-[85vh] max-h-[900px] w-[90vw] max-w-[1200px] flex-col rounded-xl border border-border/60 bg-background shadow-2xl" data-testid="settings-window">
+      <div className="flex h-[85vh] max-h-[900px] w-[90vw] max-w-[1200px] flex-col rounded-xl border border-border/60 bg-background shadow-2xl" data-testid="settings-window" data-native-settings={nativeAlpha || undefined}>
         <SettingsHeader search={query} requestClose={requestClose} />
-        {nativeAlpha ? <NativePreferenceStatus /> : null}
+        {nativeAlpha && ['general', 'appearance', 'chat', 'notifications', 'shortcuts'].includes(page) ? <NativePreferenceStatus /> : null}
         {searching ? (
           <SearchResultsPanel results={query.searchResults} onJump={query.jumpTo} />
         ) : (
           <div className="flex min-h-0 flex-1">
             <SettingsNav page={page} onNavigate={query.setPage} nativeAlpha={nativeAlpha} />
-            <div className="min-w-0 flex-1 overflow-y-auto px-4 py-3" data-highlight={highlight ?? undefined}>
-              <ErrorBoundary>
+            <div ref={content} className="min-w-0 flex-1 overflow-y-auto px-4 py-3" data-highlight={highlight ?? undefined}>
+              <ErrorBoundary key={nativeAlpha ? scope : 'compatibility'}>
                 {renderPage(page, t, query.setPage, nativeAlpha, pendingJump)}
               </ErrorBoundary>
             </div>

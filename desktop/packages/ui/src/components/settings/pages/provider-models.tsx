@@ -5,6 +5,7 @@ import { setSettingsField, useSettingsStore } from '../../../lib/settings/store.
 import { useNativePreferenceState } from '../../../lib/settings/native-preferences.ts';
 import { ProviderDiagnostics } from './provider-diagnostics.tsx';
 import { ProviderRouteAction } from './provider-route-action.tsx';
+import { NativePreferenceStatus } from './native-foundation.tsx';
 
 type Profile = { profile_id: string; display_name?: string; model: string };
 function profileNames(profile: Profile, configuredModel: string | null, catalog: Record<string, string[]>, doc: Record<string, unknown>) {
@@ -19,6 +20,7 @@ export function ProviderModels({ profiles, configured, onSaved }: {
   const visible = profiles.filter(profile => profileNames(profile, configured?.providerID === profile.profile_id ? configured.modelID : null, catalog, doc)
     .some(name => `${profile.display_name || profile.profile_id} ${name}`.toLowerCase().includes(query.toLowerCase())));
   return <div className="space-y-4" data-settings-item="providers.models">
+    <NativePreferenceStatus />
     <p className="text-xs text-muted-foreground">Favorites appear first in the conversation model picker. Hiding a model only changes the picker; existing conversations keep their selected model.</p>
     <input aria-label="Search configured models" placeholder="Search models or providers…" value={query} maxLength={256}
       onChange={event => setQuery(event.target.value)} className="w-full rounded border border-border/60 bg-background p-2 text-sm" />

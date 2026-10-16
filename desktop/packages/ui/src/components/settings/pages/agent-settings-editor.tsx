@@ -48,6 +48,9 @@ function AgentSettingForm({ field, model, view, fields }: {
     <button type="button" className="rounded border border-border px-3 py-2 text-sm" disabled={model.mode === 'set'
       && (!agentDraftValid(field, model.draft) || field.type === 'array' && !ladderDraftValid(model.draft, localRetryLimit(view)))}
       onClick={() => previewNativeField(model, view)}>Preview change</button>
+    <button type="button" className="ml-3 rounded border border-border px-3 py-2 text-sm" onClick={() => {
+      invalidateNativePreview(model); model.setFieldPath(''); model.setDraft(''); model.setMode('set'); model.setError(null); model.setReceipt(null);
+    }}>Cancel edit</button>
     {model.preview ? <AgentPreview model={model} view={view} fields={fields} /> : null}
   </section>;
 }
@@ -61,8 +64,8 @@ function AgentSettingRow({ field, view, model }: { field: AgentSetting; view: Na
       <h3 className="text-sm font-medium">{field.label}</h3><p className="mt-1 text-xs text-muted-foreground">{field.help}</p>
       <p className="mt-2 whitespace-pre-wrap break-words text-xs">{agentValue(row?.effective)}</p>
     </div><button type="button" aria-label={`Edit ${field.label}`} disabled={!editable} aria-pressed={model.fieldPath === field.path}
-      onClick={() => { chooseNativeField(model, view, field.path);
-        if (field.zero && row?.effective.present && 'value' in row.effective && row.effective.value === null) model.setDraft('0'); }}
+      onClick={() => { if (model.fieldPath !== field.path) chooseNativeField(model, view, field.path,
+        field.zero && row?.effective.present && 'value' in row.effective && row.effective.value === null ? '0' : undefined); }}
       className="rounded border border-border px-3 py-1 text-xs">Edit</button></div>
     {!editable ? <p className="mt-1 text-xs text-muted-foreground">Editing is unavailable from this runtime.</p> : null}
     <details className="mt-2 text-xs text-muted-foreground"><summary>Source and user override</summary>

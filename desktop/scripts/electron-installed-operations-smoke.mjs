@@ -41,6 +41,7 @@ async function operationsScenario() {
       const edit = await wait(() => { const found = panel.querySelector(`button[aria-label="Edit ${label}"]`); return found && !found.disabled && found; }, label); edit.click();
       await wait(() => panel.querySelector(`section[aria-label="Edit ${label}"]`), label); button(panel, 'Preview change').click();
       await wait(() => button(panel, 'Save to NNA'), `${label} preview`);
+      button(panel, 'Cancel edit').click(); await wait(() => !button(panel, 'Cancel edit'), 'cancel preview');
     }
     verified.push(`${page}/${tab}`);
   }

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsEdit, useSettingsLeave } from '../edit-boundary.tsx';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { getRuntimeKey, onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
 import { getApiBaseUrl } from '../../../lib/runtime-url.ts';
@@ -30,6 +31,7 @@ type CompatibilityDraft = { enabled: boolean; hostname: string; port: string; us
 
 export function CompatibilityServiceSettings(): ReactNode {
   const auth = useAuthSessionStore(state => state.status);
+  const leave = useSettingsLeave();
   const authority = useSyncExternalStore(subscribeAuthority, authorityState);
   const [view, setView] = useState<NativeCompatibilityView | null>(null);
   const [draft, setDraft] = useState<CompatibilityDraft | null>(null);
@@ -40,6 +42,9 @@ export function CompatibilityServiceSettings(): ReactNode {
   const [busy, setBusy] = useState(false);
   const active = useRef<AbortController | null>(null);
   const pendingRef = useRef<PendingNativeCompatibilityOperation | null>(null);
+  useSettingsEdit('OpenCode service configuration', Boolean(view && draft && receipt?.persistence !== 'saved' &&
+    (draft.enabled !== view.enabled || draft.hostname !== view.hostname || draft.port !== String(view.port)
+      || draft.username !== view.username || draft.password_action !== 'keep' || draft.password_value)), Boolean(pending && (!receipt || receipt.persistence === 'unknown')));
   const run = (work: (signal: AbortSignal, current: () => boolean) => Promise<void>) => {
     if (active.current || auth !== 'ok' || authorityState() !== 'ready') return;
     const controller = new AbortController(); active.current = controller;
@@ -134,7 +139,7 @@ export function CompatibilityServiceSettings(): ReactNode {
   return <SettingsSection item="native-compatibility.settings">
     <div className="flex items-center justify-between gap-3">
       <SettingsGroupTitle>NNA compatibility service settings</SettingsGroupTitle>
-      <button type="button" className={BUTTON} onClick={load} disabled={busy || auth !== 'ok' || authority !== 'ready'}>Refresh</button>
+      <button type="button" className={BUTTON} onClick={() => leave(load)} disabled={busy || auth !== 'ok' || authority !== 'ready'}>Refresh</button>
     </div>
     <p className="text-xs">The compatibility service is the native OpenCode wiring surface: login auto-start plus the
       fixed wire identity and its Basic auth credentials. It reads this configuration at its next start, so a saved

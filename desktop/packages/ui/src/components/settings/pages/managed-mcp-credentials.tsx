@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsEdit, useSettingsLeave } from '../edit-boundary.tsx';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { getRuntimeKey, onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
 import { getApiBaseUrl } from '../../../lib/runtime-url.ts';
@@ -24,6 +25,7 @@ type StagedSave = { server_id: string; token: string };
 type StagedDelete = { reference: string };
 
 export function ManagedMcpCredentialsSettings(): ReactNode {
+  const leave = useSettingsLeave();
   const auth = useAuthSessionStore(state => state.status);
   const authority = useSyncExternalStore(subscribeAuthority, authorityState);
   const [view, setView] = useState<NativeMcpCredentialList | null>(null);
@@ -33,6 +35,8 @@ export function ManagedMcpCredentialsSettings(): ReactNode {
   const [pending, setPending] = useState<PendingNativeMcpCredentialOperation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [inputDirty, setInputDirty] = useState(false);
+  useSettingsEdit('MCP credential editor', inputDirty || Boolean(draft || deleteDraft), Boolean(pending));
   const active = useRef<AbortController | null>(null);
   const pendingRef = useRef<PendingNativeMcpCredentialOperation | null>(null);
   const run = (work: (signal: AbortSignal, current: () => boolean) => Promise<void>) => {
@@ -48,7 +52,9 @@ export function ManagedMcpCredentialsSettings(): ReactNode {
   const reload = async (signal: AbortSignal, current: () => boolean) => {
     const [next] = await Promise.all([readNativeMcpCredentialList(signal), readNativeMcpCredentialCatalog(signal)]);
     if (!current()) return null;
-    setView(next); setDraft(null); setDeleteDraft(null); setReceipt(null);
+    setView(next); setDraft(null); setDeleteDraft(null); setReceipt(null); setInputDirty(false);
+    if (mcpServerText.current) mcpServerText.current.value = '';
+    if (mcpTokenText.current) mcpTokenText.current.value = '';
     pendingRef.current = pendingNativeMcpCredentialOperation(next);
     if (pendingRef.current !== null && pendingRef.current.reference !== undefined
       && !next.credentials.some(item => item.reference === pendingRef.current?.reference)) {
@@ -130,7 +136,7 @@ export function ManagedMcpCredentialsSettings(): ReactNode {
   return <SettingsSection item="native-mcp-credentials.settings">
     <div className="flex items-center justify-between gap-3">
       <SettingsGroupTitle>NNA managed MCP credentials</SettingsGroupTitle>
-      <button type="button" className={BUTTON} onClick={load} disabled={busy || auth !== 'ok' || authority !== 'ready'}>Refresh</button>
+      <button type="button" className={BUTTON} onClick={() => leave(load)} disabled={busy || auth !== 'ok' || authority !== 'ready'}>Refresh</button>
     </div>
     <p className="text-xs">NNA stores MCP server tokens as NNA_MCP_MANAGED_…_TOKEN references and feeds them to the
       engine host's server environments. Values never render here: the list shows references and whether each one is
@@ -154,11 +160,11 @@ export function ManagedMcpCredentialsSettings(): ReactNode {
         <div className="text-xs space-y-1">
           <label>Server id <input className={INPUT} data-testid="mcp-server"
             ref={element => { mcpServerText.current = element; }}
-            placeholder="filesystem-mcp" onChange={() => setDraft(null)} /></label>
+            placeholder="filesystem-mcp" onChange={event => { setDraft(null); setInputDirty(Boolean(event.target.value || mcpTokenText.current?.value)); }} /></label>
           {' '}
           <label>Token <input className={INPUT} data-testid="mcp-token" type="password" autoComplete="off"
             ref={element => { mcpTokenText.current = element; }}
-            onChange={() => setDraft(null)} /> (at most 16,384 characters, no line breaks)</label>
+            onChange={event => { setDraft(null); setInputDirty(Boolean(event.target.value || mcpServerText.current?.value)); }} /> (at most 16,384 characters, no line breaks)</label>
         </div>
         <button type="button" className={BUTTON} data-testid="mcp-stage-save" onClick={stageSave}
           disabled={disabled}>Stage the credential</button>

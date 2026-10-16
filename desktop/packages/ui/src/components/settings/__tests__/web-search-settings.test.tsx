@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // @vitest-environment jsdom
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest';
 
@@ -13,6 +13,7 @@ vi.mock('../../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
 import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
 import { WebSearchSettings } from '../pages/web-search-settings.tsx';
+import { SettingsEditBoundary, useSettingsLeave } from '../edit-boundary.tsx';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const fetchMock = runtimeFetch as unknown as Mock;
@@ -34,8 +35,12 @@ const catalog = { schema_version: '1.0', source: 'web_search', scope: 'user', fi
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 let container: HTMLDivElement; let root: Root;
 async function settle() { await act(async () => { for (let i = 0; i < 8; i += 1) await Promise.resolve(); }); }
-async function mount() { container = document.createElement('div'); document.body.append(container); root = createRoot(container);
-  await act(async () => root.render(<WebSearchSettings />)); await settle(); }
+function SearchNavigation() {
+  const [open, setOpen] = useState(true), leave = useSettingsLeave();
+  return open ? <><button onClick={() => leave(() => setOpen(false))}>Leave editor</button><WebSearchSettings /></> : <p>Other settings</p>;
+}
+async function mount(guarded = false) { container = document.createElement('div'); document.body.append(container); root = createRoot(container);
+  await act(async () => root.render(guarded ? <SettingsEditBoundary><SearchNavigation /></SettingsEditBoundary> : <WebSearchSettings />)); await settle(); }
 async function click(label: string) { const button = [...container.querySelectorAll('button')]
   .filter(item => item.textContent === label).at(-1);
   if (!button) throw new Error('missing ' + label); await act(async () => button.click()); await settle(); }
@@ -62,6 +67,18 @@ const previewOf = (over: Record<string, unknown>) => ({ valid: true, expected_re
 beforeEach(() => { fetchMock.mockReset(); sessionStorage.clear(); runtime.key = 'native-runtime';
   useAuthSessionStore.getState().markOk(); });
 afterEach(() => { if (root) act(() => root.unmount()); container?.remove(); runtime.listeners.clear(); });
+
+it('preserves staged edits on Keep editing and discards only after explicit navigation or refresh decisions', async () => {
+  fetchMock.mockImplementation((path: string) => Promise.resolve(json(path.endsWith('/catalog') ? catalog : view)));
+  await mount(true); await type('[data-testid="websearch-name-add"]', 'Unsaved search');
+  await click('Leave editor'); expect(container.querySelector('[aria-label="Unsaved settings"]')).not.toBeNull();
+  await click('Keep editing'); expect(container.querySelector<HTMLInputElement>('[data-testid="websearch-name-add"]')?.value).toBe('Unsaved search');
+  await click('Refresh'); expect(container.querySelector('[aria-label="Unsaved settings"]')).not.toBeNull();
+  await click('Discard changes'); expect(container.querySelector<HTMLInputElement>('[data-testid="websearch-name-add"]')?.value).toBe('');
+  await addProfile(); await click('Leave editor'); await click('Discard changes');
+  expect(container.textContent).toContain('Other settings');
+  expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
+});
 
 it('renders the managed flag NNA derives for its own deployments as a badge, not a control', async () => {
   // NNA stamps managed:true only on a profile its own machinery created or

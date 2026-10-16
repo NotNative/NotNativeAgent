@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsEdit } from '../edit-boundary.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getRuntimeKey, onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
 import { getApiBaseUrl } from '../../../lib/runtime-url.ts';
@@ -22,13 +23,15 @@ const safePrecommit = new Set(['nnd_mcp_request_invalid', 'nnd_mcp_conflict', 'm
   'nnd_configuration_resolution_conflict', 'configuration_source_shadowed', 'integration_permission_denied']);
 type NativeMcpAuth = 'ok' | 'expired' | 'reauthenticating';
 type Task = (signal: AbortSignal, current: () => boolean) => Promise<void>;
+function ownsMcpTask(active: { current: AbortController | null }, controller: AbortController, runtime: string, origin: string): boolean {
+  return active.current === controller && !controller.signal.aborted && runtime === getRuntimeKey() && origin === getApiBaseUrl();
+}
 async function runNativeMcpTask(active: { current: AbortController | null }, auth: NativeMcpAuth,
   setBusy: (value: boolean) => void, setError: (value: string | null) => void, work: Task): Promise<void> {
   if (active.current || auth !== 'ok' || authorityState() !== 'ready') return;
   const controller = new AbortController(); active.current = controller;
   const runtime = getRuntimeKey(), origin = getApiBaseUrl();
-  const current = () => active.current === controller && !controller.signal.aborted
-    && runtime === getRuntimeKey() && origin === getApiBaseUrl();
+  const current = () => ownsMcpTask(active, controller, runtime, origin);
   setBusy(true); setError(null);
   try { await work(controller.signal, current); }
   catch (failure) { if (current()) setError(safeError(failure)); }
@@ -73,15 +76,15 @@ export function useNativeMcpModel() {
   const [pending, setPending] = useState<PendingNativeMcpOperation | null>(null);
   const [error, setError] = useState<string | null>(null), [busy, setBusy] = useState(false);
   const active = useRef<AbortController | null>(null), pendingRef = useRef<PendingNativeMcpOperation | null>(null);
+  useSettingsEdit('MCP server definition', JSON.stringify(draft) !== JSON.stringify(emptyDraft()) && receipt?.persistence !== 'saved', Boolean(pending && (!receipt || receipt.persistence === 'unknown')));
   const load = useCallback(async () => {
     if (active.current || auth !== 'ok') return;
     const controller = new AbortController(); active.current = controller;
     const runtime = getRuntimeKey(), origin = getApiBaseUrl();
-    const current = () => active.current === controller && !controller.signal.aborted
-      && runtime === getRuntimeKey() && origin === getApiBaseUrl();
+    const current = () => ownsMcpTask(active, controller, runtime, origin);
     setBusy(true); setError(null); setPreview(null); setReceipt(null);
     try { const result = await readNativeMcp(controller.signal);
-      if (current()) { setView(result); pendingRef.current = pendingNativeMcpOperation(result); setPending(pendingRef.current); } }
+      if (current()) { setView(result); setDraft(emptyDraft()); pendingRef.current = pendingNativeMcpOperation(result); setPending(pendingRef.current); } }
     catch (failure) { if (current()) { setView(null); setError(safeError(failure)); } }
     finally { if (current()) { setBusy(false); active.current = null; } }
   }, [auth]);

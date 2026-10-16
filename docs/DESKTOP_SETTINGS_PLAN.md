@@ -1,12 +1,28 @@
 # NNA desktop settings integration plan
 
-Status: proposed implementation plan. The tray changes in slice 0 are implemented with this plan;
-the settings redesign below is a proposal for subsequent verified slices.
+Status: active delivery plan, reconciled for version `20261016-2`. The mapping below describes
+the target experience; it must not be read as a list of shipped controls.
 
 Implementation progress: the first native settings foundation is documented in
 [Desktop and web settings](DESKTOP_SETTINGS.md). It provides supported preference pages, shared
 revision-checked persistence, working consumers, keyboard editing and successful-turn feedback.
 The remaining options in the mapping below are the roadmap, not claims of shipped controls.
+
+## Delivery status
+
+| Area | Status | Remaining scope |
+| --- | --- | --- |
+| Tray and launch | Delivered | General launch preferences and complete lifecycle UI |
+| Settings foundation | Delivered for supported preferences | OS/browser notifications, sound and additional host adapters |
+| Providers and models | Delivered for the native adapter | Additional adapters and capability-backed presets as supported |
+| Agent policy and context | Delivered for native defaults and session review | Workspace instruction editing, saved-memory CRUD and editable delegation limits need native owners |
+| Operational capabilities and data | Delivered supported management/observations | Full support bundles, import, attachment inventory/cleanup and retention need native contracts |
+| Settings cohesion | Implemented in this slice; acceptance recorded in DESKTOP_SETTINGS.md | Dedicated Trust and secrets, lifecycle workflow and complete field-level search remain next |
+| Optional media and knowledge | Deferred | STT/TTS, images, indexing/retrieval and sandboxed artifacts require separate adapters |
+
+Next sequence: finish Trust and secrets and simplify Advanced; then General/lifecycle preferences,
+restart/reconnection and complete `nna update` acquisition acceptance. Add optional media/knowledge
+after these existing flows are coherent. Every new control must have a native owner and behavior test.
 
 ## Purpose and decisions
 
@@ -37,7 +53,7 @@ provider choices, or disabled services. Conditional source review did not enable
 The adjacent [source inventory](DESKTOP_SETTINGS_REFERENCE_INDEX.json) identifies the reviewed files
 and their setting labels. It contains no configured values, credentials, or implementation code.
 
-Important NNA facts:
+Historical NNA state at the initial reference review (superseded by the delivery status above):
 
 1. Native settings currently expose only Providers, Native Configuration, and Installed Skills.
    `desktop/packages/ui/src/components/settings/window.tsx` restricts the native page registry to
@@ -321,12 +337,12 @@ registered desktop upgrade, while Gateway remained stopped and disabled. `nna up
 its own complete acceptance run. A desktop-only installer or source main-installer success must
 not be reported as proof of the updater command's acquisition and execution path.
 
-## First settings implementation to approve
+## Original foundation scope (delivered)
 
-Start with slice 1: a native-only settings registry and a clean General, Appearance, Conversations,
+Slice 1 established a native-only settings registry and General, Appearance, Conversations,
 Notifications, Keyboard and About experience, while preserving the existing Provider, Skills and
-Advanced configuration workflows. This provides visible improvement without inventing new engines.
-Then complete provider/model management before adding optional voice, image or retrieval infrastructure.
+Advanced configuration workflows. Provider/model management and native agent/operational settings
+followed. Optional voice, image and retrieval infrastructure remains a later capability decision.
 
 ## Delivered agent policy and context settings
 

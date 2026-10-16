@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsEdit, useSettingsLeave } from '../edit-boundary.tsx';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { getRuntimeKey, onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
 import { getApiBaseUrl } from '../../../lib/runtime-url.ts';
@@ -49,6 +50,7 @@ function composeOperations(view: NativeGatewayView, draft: GatewayDraft): Native
 
 export function NativeGatewayTimeout(): ReactNode {
   const auth = useAuthSessionStore(state => state.status);
+  const leave = useSettingsLeave();
   const authority = useSyncExternalStore(subscribeAuthority, authorityState);
   const [view, setView] = useState<NativeGatewayView | null>(null);
   const [draft, setDraft] = useState<GatewayDraft | null>(null);
@@ -59,6 +61,8 @@ export function NativeGatewayTimeout(): ReactNode {
   const [busy, setBusy] = useState(false);
   const active = useRef<AbortController | null>(null);
   const pendingRef = useRef<PendingNativeGatewayOperation | null>(null);
+  useSettingsEdit('Telegram gateway', Boolean(view && draft && receipt?.persistence !== 'saved' &&
+    (composeOperations(view, draft).length || draft.user_add || !validTimeoutDraft(draft.polling_timeout_seconds))), Boolean(pending && (!receipt || receipt.persistence === 'unknown')));
   const run = (work: (signal: AbortSignal, current: () => boolean) => Promise<void>) => {
     if (active.current || auth !== 'ok' || authorityState() !== 'ready') return;
     const controller = new AbortController(); active.current = controller;
@@ -143,7 +147,7 @@ export function NativeGatewayTimeout(): ReactNode {
   return <SettingsSection item="native-gateway.timeout">
     <div className="flex items-center justify-between gap-3">
       <SettingsGroupTitle>NNA gateway settings</SettingsGroupTitle>
-      <button type="button" className={BUTTON} onClick={load} disabled={busy || auth !== 'ok' || authority !== 'ready'}>Refresh</button>
+      <button type="button" className={BUTTON} onClick={() => leave(load)} disabled={busy || auth !== 'ok' || authority !== 'ready'}>Refresh</button>
     </div>
     <p className="text-xs">Edit the enabled flag, Telegram token, token environment name, workspace root, polling
       bounds, and the authorized user allowlist of the selected NNA installation in one checked change. Saved

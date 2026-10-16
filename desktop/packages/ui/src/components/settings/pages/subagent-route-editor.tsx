@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsEdit } from '../edit-boundary.tsx';
 /** Saved specialist routing is configuration; activation affects future sessions only. */
 import { useEffect, useState, type ReactNode } from 'react';
 import type { HarnessResult } from '../../../lib/nnd/client.ts';
@@ -136,6 +137,7 @@ export function SubagentRouteEditor({ runningRoute: suppliedRoute, onApplied }: 
     finally { setBusy(false); }
   };
   const changed = configured?.providerID !== providerId || configured?.modelID !== model.trim();
+  useSettingsEdit('Subagent route', Boolean(configured && changed), busy);
   return <div className="mt-3 rounded-md border border-border/40 p-3 text-xs">
     <div className="font-medium text-foreground">{t('settings.agents.route.title')}</div>
     <p className="mt-1 text-muted-foreground">{runningRoute ? t('settings.agents.route.running', { route: `${runningRoute.providerID}/${runningRoute.modelID}` }) : 'Running subagent route was not reported.'}</p>

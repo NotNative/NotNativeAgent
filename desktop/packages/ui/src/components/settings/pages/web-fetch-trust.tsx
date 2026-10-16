@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useSettingsEdit, useSettingsLeave } from '../edit-boundary.tsx';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { getRuntimeKey, onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
 import { getApiBaseUrl } from '../../../lib/runtime-url.ts';
@@ -33,6 +34,7 @@ function composeOperations(view: NativeWebFetchView, draft: WebFetchDraft): Nati
 
 export function WebFetchTrust(): ReactNode {
   const auth = useAuthSessionStore(state => state.status);
+  const leave = useSettingsLeave();
   const authority = useSyncExternalStore(subscribeAuthority, authorityState);
   const [view, setView] = useState<NativeWebFetchView | null>(null);
   const [draft, setDraft] = useState<WebFetchDraft | null>(null);
@@ -43,6 +45,8 @@ export function WebFetchTrust(): ReactNode {
   const [busy, setBusy] = useState(false);
   const active = useRef<AbortController | null>(null);
   const pendingRef = useRef<PendingNativeWebFetchOperation | null>(null);
+  useSettingsEdit('Web fetch trust', Boolean(view && draft && receipt?.persistence !== 'saved' &&
+    (composeOperations(view, draft).length || draft.origin_add)), Boolean(pending && (!receipt || receipt.persistence === 'unknown')));
   const run = (work: (signal: AbortSignal, current: () => boolean) => Promise<void>) => {
     if (active.current || auth !== 'ok' || authorityState() !== 'ready') return;
     const controller = new AbortController(); active.current = controller;
@@ -125,7 +129,7 @@ export function WebFetchTrust(): ReactNode {
   return <SettingsSection item="native-web-fetch.trust">
     <div className="flex items-center justify-between gap-3">
       <SettingsGroupTitle>NNA web fetch trust</SettingsGroupTitle>
-      <button type="button" className={BUTTON} onClick={load} disabled={busy || auth !== 'ok' || authority !== 'ready'}>Refresh</button>
+      <button type="button" className={BUTTON} onClick={() => leave(load)} disabled={busy || auth !== 'ok' || authority !== 'ready'}>Refresh</button>
     </div>
     <p className="text-xs">Trust is an authority grant, not a preference: add exact credential-free HTTP(S) origins whose
       private destinations you accept the WebFetch tool to load. Saved grants are honored by the next web fetch; reading
