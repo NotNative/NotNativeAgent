@@ -46,6 +46,14 @@ beforeEach(() => { fetchMock.mockReset(); sessionStorage.clear(); runtime.key = 
   useAuthSessionStore.getState().markOk(); });
 afterEach(() => { if (root) act(() => root.unmount()); container?.remove(); runtime.listeners.clear(); });
 
+it('renders missing optional credentials as absent rather than failing the whole environment read', async () => {
+  fetchMock.mockImplementation(async (path: string) => json(String(path).endsWith('/catalog') ? catalog
+    : live({ NNA_TELEGRAM_BOT_TOKEN: { present: false }, OPENCODE_SERVER_PASSWORD: { present: false } })));
+  await mount(); expect(container.querySelector('[role="alert"]')).toBeNull();
+  expect(container.querySelector('[data-testid="native-environment-nna_telegram_bot_token"]')?.textContent).toContain('not set');
+  expect(container.querySelector('[data-testid="native-environment-opencode_server_password"]')?.textContent).toContain('not set');
+});
+
 it('reads the observation with withheld credential values and honest empty/absent rows', async () => {
   fetchMock.mockImplementation((path: string) => {
     if (path.endsWith('/environment')) return Promise.resolve(json(live({
@@ -86,10 +94,11 @@ it('maps errors to specific sentences and pauses for auth and authority', async 
   expect(container.textContent).toContain('exceeded the projection bound');
   await act(async () => root.unmount()); container.remove();
   fetchMock.mockImplementation(() => Promise.reject(new Error('offline')));
-  await act(async () => useAuthSessionStore.setState({ status: 'signed-out' } as never));
+  await act(async () => useAuthSessionStore.setState({ status: 'expired' }));
   await mount();
   expect(container.textContent).toContain('Sign in to read the native environment observation.');
-  useAuthSessionStore.getState().markOk();
+  fetchMock.mockImplementation(async (path: string) => json(String(path).endsWith('/catalog') ? catalog : view));
+  await act(async () => useAuthSessionStore.getState().markOk());
   await settle();
-  expect(container.querySelector('[data-testid="native-environment-table"]')).toBeNull();
+  expect(container.querySelector('[data-testid="native-environment-table"]')).not.toBeNull();
 });

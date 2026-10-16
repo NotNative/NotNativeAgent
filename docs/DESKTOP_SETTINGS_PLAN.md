@@ -341,3 +341,24 @@ Saving non-provider defaults requires an NNA restart before newly constructed en
 The UI explains this limitation. Fixed delegation rules are descriptive; editable child limits,
 per-workspace instruction editing, and saved-memory content management need dedicated native owners
 before they can be exposed. No unsupported control is presented as a working setting.
+
+## Delivered operational capabilities and data
+
+Version `20261016-1` provides dedicated native Tools and integrations, Skills and hooks, Search and
+browsing, Services and updates, and Data and diagnostics pages. The 17 sections reuse native owners,
+with one mounted section and connection/authentication guards. Diagnostic metadata export, bounded
+conversation text export, archive/restore and attachment defaults are functional. Update checks are
+explicit; installation remains the platform updater's responsibility. See [desktop settings](DESKTOP_SETTINGS.md)
+for exact bounds, application timing, acceptance commands and results.
+
+The main source installer upgraded the registered installation. Browser and installed Electron
+acceptance exercised reads, previews, publication/restoration and local downloads. Temporary MCP
+definitions were removed and verification conversations archived. Gateway remained stopped and
+disabled. Full core, UI and web suites passed. Incorrect optional-credential and authentication-recovery
+test assumptions were repaired, with additional failure-path coverage.
+
+Full evidence/support bundles, authority-free import, bulk permanent deletion and additional remote
+adapters remain deferred until dedicated native contracts exist. Transcript exports must never
+become imported execution authority. Global costs are not inferred from estimated context; the
+existing conversation context panel remains the usage surface. Separate full `nna update` acceptance
+is still required for its release acquisition path.

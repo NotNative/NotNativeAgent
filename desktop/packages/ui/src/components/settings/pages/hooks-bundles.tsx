@@ -9,7 +9,7 @@ import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
 import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 
 const safeError = (error: unknown) => error instanceof NativeHooksFailure ? error.code : 'nnd_hooks_unavailable';
-const CAPTION = 'These are the native hook bundles the NNA reads from its configured hooks directory — one manifest per bundle with the nine census fields (bundles carry name, version, subscriptions; subscriptions carry event, phase, command, blocking, priority, timeout_ms, max_concurrent). The view applies or activates nothing: runtime execution stays with the hook runner, and authoring a manifest belongs to the hook-store mutation story, so every field is refused for editing natively. Malformed bundles surface here as their own skipped diagnostics and over-cap stores report the omitted count.';
+const CAPTION = 'Installed hook bundles and their subscriptions are read from the native hooks directory. Hook execution stays with NNA. Edit bundle manifests through the native installation workflow; this page observes them. Malformed bundles are listed as skipped diagnostics.';
 
 export function HooksBundleSettings(): ReactNode {
   const auth = useAuthSessionStore(state => state.status);
@@ -76,8 +76,8 @@ function Catalog({ hooks }: { hooks: HooksList }): ReactNode {
   if (hooks.source_state === 'absent') {
     return <p className="text-xs" role="status">The native hooks directory does not exist yet, so no bundles are loaded.</p>;
   }
-  if (hooks.count === 0) {
-    return <p className="text-xs" role="status">The hooks directory exists but every candidate bundle failed discovery.</p>;
+  if (hooks.count === 0 && hooks.diagnostics.length === 0) {
+    return <p className="text-xs" role="status">No hook bundles are installed in the hooks directory.</p>;
   }
   return <ul className="text-xs" data-testid="hooks-roster">
     {hooks.diagnostics.map((entry, index) => <li key={index} data-testid="hook-diagnostic">

@@ -22,7 +22,7 @@ export function NativeMcpEditor(): ReactNode {
       <button type="button" className={BUTTON} onClick={() => void model.load()} disabled={model.busy || model.auth !== 'ok'}>Refresh</button>
     </div>
     <p>NNA owns these user-manifest servers. Commands, destinations, credentials and headers remain private inside NNA.</p>
-    <p role="status">Saving changes the manifest only. It does not apply to current sessions; activate setup or restart the native service for future sessions.</p>
+    <p role="status">Saving changes the user manifest. Existing sessions keep their MCP configuration. Restart NNA before creating a conversation that uses saved changes.</p>
     {model.auth !== 'ok' ? <p role="alert">Sign in before editing native MCP settings.</p> : null}
     {authority !== 'ready' ? <p role="alert">Native authority is resynchronizing. Editing is paused.</p> : null}
     {model.busy ? <p role="status">Working…</p> : null}

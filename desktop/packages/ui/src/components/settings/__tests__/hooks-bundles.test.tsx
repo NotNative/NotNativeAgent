@@ -35,6 +35,13 @@ async function click(label: string) { const button = [...container.querySelector
   if (!button) throw new Error('missing ' + label); await act(async () => button.click()); await settle(); }
 beforeEach(() => { fetchMock.mockReset(); sessionStorage.clear(); runtime.key = 'native-runtime';
   useAuthSessionStore.getState().markOk(); });
+it.each([{ diagnostics: [] }, { diagnostics: [{ bundle: 'broken', status: 'skipped', code: 'invalid_hook_manifest' }] }])('distinguishes an empty directory from skipped discovery', async ({ diagnostics }) => {
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({ ...list(), count: 0, hooks: [], diagnostics })));
+  await mount();
+  if (diagnostics.length) { expect(container.querySelector('[data-testid="hook-diagnostic"]')?.textContent).toContain('broken');
+    expect(container.textContent).not.toContain('No hook bundles are installed'); }
+  else expect(container.textContent).toContain('No hook bundles are installed');
+});
 afterEach(() => { act(() => { if (root) root.unmount(); }); container?.remove(); root = undefined; runtime.listeners.clear(); });
 
 it('renders the discovery honesty verbatim: cap, skips, subscriptions, and absence honesty', async () => {

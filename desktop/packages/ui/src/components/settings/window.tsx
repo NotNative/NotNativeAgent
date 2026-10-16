@@ -34,6 +34,8 @@ import { NATIVE_SETTINGS_PAGES } from '../../lib/settings/native-registry.ts';
 import { NativeFoundationPage, NativePreferenceStatus, NATIVE_FOUNDATION_SEARCH } from './pages/native-foundation.tsx';
 import { AgentSettingsPage } from './pages/agent-settings.tsx';
 import { AGENT_SETTINGS_SEARCH } from './pages/agent-settings-fields.ts';
+import { OperationalSettingsPage } from './pages/operational-settings.tsx';
+import { isOperationalPage, OPERATIONAL_SEARCH } from './pages/operational-registry.ts';
 
 export { PAGE_TITLE_KEYS };
 
@@ -75,6 +77,10 @@ const PAGE_TITLE_KEYS: Record<SettingsPageSlug, I18nKey> = {
   providers: 'settings.page.providers.title',
   'agent-policy': 'settings.page.agentPolicy.title',
   'agent-context': 'settings.page.agentContext.title',
+  'operations-tools': 'settings.page.operationalTools.title',
+  'operations-search': 'settings.page.operationalSearch.title',
+  'operations-services': 'settings.page.operationalServices.title',
+  'operations-data': 'settings.page.operationalData.title',
   'native-configuration': 'settings.page.nativeConfiguration.title',
   'native-tui': 'settings.page.nativeTui.title',
   'native-routes': 'settings.page.nativeRoutes.title',
@@ -141,6 +147,7 @@ export function SettingsWindow({ initialPage, onClose, onPageChange, nativeAlpha
       query={{ query, setQuery, searchResults: results, jumpTo, setPage: navigate }}
       requestClose={requestClose}
       highlight={highlight}
+      pendingJump={pendingJump}
       nativeAlpha={nativeAlpha}
     />
   );
@@ -179,13 +186,14 @@ function useSettingsHighlight(pendingJump: string | null, page: SettingsPageSlug
 }
 
 function SettingsDialog({
-  page, query, requestClose, highlight, nativeAlpha,
+  page, query, requestClose, highlight, nativeAlpha, pendingJump,
 }: {
   page: SettingsPageSlug;
   query: HeaderSearch;
   requestClose: () => void;
   highlight: string | null;
   nativeAlpha: boolean;
+  pendingJump: string | null;
 }): ReactNode {
   const { t } = useI18n();
   const searching = query.query.trim().length > 0;
@@ -208,7 +216,7 @@ function SettingsDialog({
             <SettingsNav page={page} onNavigate={query.setPage} nativeAlpha={nativeAlpha} />
             <div className="min-w-0 flex-1 overflow-y-auto px-4 py-3" data-highlight={highlight ?? undefined}>
               <ErrorBoundary>
-                {renderPage(page, t, query.setPage, nativeAlpha)}
+                {renderPage(page, t, query.setPage, nativeAlpha, pendingJump)}
               </ErrorBoundary>
             </div>
           </div>
@@ -222,7 +230,7 @@ function matchesFor(query: string, t: (key: I18nKey) => string, nativeAlpha: boo
   const needle = query.trim().toLowerCase();
   if (needle.length === 0) return [];
   if (nativeAlpha) {
-    const fields = [...NATIVE_FOUNDATION_SEARCH, ...AGENT_SETTINGS_SEARCH].filter(item => `${item.title} ${item.keywords}`.toLowerCase().includes(needle))
+    const fields = [...NATIVE_FOUNDATION_SEARCH, ...AGENT_SETTINGS_SEARCH, ...OPERATIONAL_SEARCH].filter(item => `${item.title} ${item.keywords}`.toLowerCase().includes(needle))
       .map(item => ({ id: item.id, page: item.page as SettingsPageSlug, title: item.title }));
     const pages = NATIVE_SETTINGS_PAGES.filter(item => !fields.some(field => field.page === item.slug) && `${item.title} ${item.keywords}`.toLowerCase().includes(needle))
       .map(item => ({ id: `native.page.${item.slug}`, page: item.slug as SettingsPageSlug, title: item.title }));
@@ -297,7 +305,9 @@ function SearchResultsPanel({
 }
 
 function renderPage(slug: SettingsPageSlug, t: (key: I18nKey) => string,
-  navigate: (page: SettingsPageSlug) => void, nativeAlpha: boolean): ReactNode {
+  navigate: (page: SettingsPageSlug) => void, nativeAlpha: boolean, pendingJump?: string | null): ReactNode {
+  if (nativeAlpha && isOperationalPage(slug)) return <OperationalSettingsPage key={slug} page={slug} focusItem={pendingJump} />;
+  if (nativeAlpha && slug === 'native-configuration') return <NativeConfigurationPage nativeOnly />;
   if (nativeAlpha && ['general', 'appearance', 'chat', 'notifications'].includes(slug)) return <NativeFoundationPage page={slug} />;
   if (nativeAlpha && slug === 'shortcuts') return <ShortcutsPage native />;
   const built = PAGE_COMPONENTS[slug];

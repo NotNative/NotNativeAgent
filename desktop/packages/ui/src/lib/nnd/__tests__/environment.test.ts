@@ -17,6 +17,13 @@ const catalog = () => ({ schema_version: '1.0', source: 'environment', scope: 'u
     classification: SECRETS.has(name) ? 'operator_credential' : 'operator_setting',
     application: 'restart_service', editability: { available: false, scope: 'user', reason: 'process_environment' } })) });
 
+it.each(['NNA_TELEGRAM_BOT_TOKEN', 'OPENCODE_SERVER_PASSWORD'])('accepts absent %s while refusing credential values in either presence state', name => {
+  const observed = NAMES.map(member => entry(member, member !== name));
+  expect(parseNativeEnvironmentView(view({ observed })).observed.find(row => row.name === name)).toEqual({ name, secret: true, present: false, value: null });
+  for (const present of [false, true]) expect(() => parseNativeEnvironmentView(view({ observed: observed.map(row => row.name === name
+    ? { ...row, present, value: 'credential-must-not-cross' } : row) }))).toThrow('nnd_environment_request_invalid');
+});
+
 it('environment parser rebuilds the observation and catalog without private fields', () => {
   const parsed = parseNativeEnvironmentView({ ...view(), private_future_field: 'FUTURE' });
   expect(Object.keys(parsed)).toEqual(['schema_version', 'installation_id', 'data_id', 'scope',
@@ -48,7 +55,7 @@ it('environment parser mirrors redaction and absence exactly like the native sur
     view({ observed: (view().observed as Array<Record<string, unknown>>).map((item) => item.name
       === 'NNA_TELEGRAM_BOT_TOKEN' ? { ...item, value: 'leak' } : item) }),
     view({ observed: (view().observed as Array<Record<string, unknown>>).map((item) => item.name
-      === 'NNA_TELEGRAM_BOT_TOKEN' ? { ...item, present: false } : item) }),
+      === 'NNA_TELEGRAM_BOT_TOKEN' ? { ...item, secret: false } : item) }),
     view({ observed: (view().observed as Array<Record<string, unknown>>).map((item) => item.name
       === 'NNA_HOME' ? { ...item, present: false } : item) }),
     view({ environment_scope: 'login_scope' }),

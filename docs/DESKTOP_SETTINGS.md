@@ -108,6 +108,64 @@ checks after the main installer upgraded the registered application. Test values
 Gateway remained stopped and disabled. Tests now verify usable preview outcomes as well as request
 payloads, covering the reset-validation defect that a request-only assertion missed.
 
+## Operational capabilities and data
+
+Version `20261016-1` adds five native destinations with 17 sections:
+
+| Destination | Sections |
+| --- | --- |
+| Tools and integrations | MCP servers, Runtime inventory, References |
+| Skills and hooks | Skills, Hooks |
+| Search and browsing | Web search, Web fetch, Managed browser, SearXNG deployment |
+| Services and updates | NNA desktop, Telegram gateway, OpenCode service, Updates |
+| Data and diagnostics | Diagnostic summary, Conversations, Files, Environment |
+
+These compose existing native owners. Only the selected section mounts. Authentication or authority
+loss removes its controls; connection identity includes both key and origin. Pending reads cancel
+and late results are discarded when ownership changes. Optional service absence remains a setup
+state. Opening Updates makes no release-source request: Check now does. Installation uses `nna update`;
+the unsupported install action is removed.
+
+Diagnostic JSON downloads contain an explicit metadata allowlist and environment names/presence,
+with no environment values, prompts, credentials, configuration or evidence. Local storage paths
+require opt-in. This is not a backup or full support bundle. Conversation data supports title/workspace
+search, archive filtering, archive/restore and Markdown text export. The list is bounded to 1,000
+parent conversations. Export requires an idle conversation with unchanged metadata and retrieves
+at most 50 pages / 5,000 messages / 8 MiB. Failed, duplicate, foreign, partial or changed reads refuse
+download. Tool payloads and synthetic/ignored text are excluded. Exports cannot restore execution
+authority. Usage remains in each conversation's existing context panel.
+
+Files exposes native attachment enabled, retained-copy and byte-ceiling defaults through existing
+preview, revision comparison, reset and publication receipts. Retention concerns managed copies,
+not source files or evidence deletion. Saved engine defaults require restart. MCP definitions also
+require restart before newly constructed desktop engines consume them; existing sessions retain
+initialized tools. The Console's between-turn reload behavior does not apply to the desktop engine.
+
+Confirmed defects corrected here include absent optional credentials rejecting environment reads,
+empty hook directories reported as failed discovery, successful restore reported as failed when the
+native reply omitted the cleared archive timestamp, and missing reload after authentication recovery.
+Tests that encoded incorrect credential/recovery behavior were corrected in place.
+
+Verification used the main source installer in the normal registered application and desktop locations.
+Browser checks exercised real downloads, search publication/restoration, three file previews and an
+explicit update check. Installed Electron traversed all 17 sections, performed a disabled temporary
+MCP create/timeout-edit/remove cycle, and exercised diagnostics, archive/restore, filtering and
+transcript downloads. Test conversations remain archived; operator settings were restored and
+Gateway stayed stopped and disabled. Credentials, trust grants and optional service startup settings
+were preserved. This does not certify the acquisition/execution path of `nna update` itself.
+
+Installed acceptance commands use the same absolute arguments as the settings smoke command below:
+
+```powershell
+node desktop/scripts/electron-installed-operations-smoke.mjs ABSOLUTE_REGISTERED_DESKTOP_ROOT ABSOLUTE_EVIDENCE_DIRECTORY
+node desktop/scripts/electron-installed-mcp-settings-smoke.mjs ABSOLUTE_REGISTERED_DESKTOP_ROOT ABSOLUTE_EVIDENCE_DIRECTORY
+node desktop/scripts/electron-installed-data-smoke.mjs ABSOLUTE_REGISTERED_DESKTOP_ROOT ABSOLUTE_EVIDENCE_DIRECTORY
+```
+
+Full suites passed: core 2,513 passed / 8 skipped, UI 2,241 passed, web 1,557 passed. Added behavior
+tests cover ownership changes, authentication recovery, late reads, failed acknowledgements, archive
+restoration, bounded multipage export, cancellation, diagnostic redaction and download MIME.
+
 ## Interface preference persistence
 
 `GET/PUT /api/ui-preferences` uses the application's authenticated API boundary. The server accepts

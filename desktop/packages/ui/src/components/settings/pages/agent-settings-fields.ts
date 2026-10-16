@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Presentation metadata only. The native catalog and preview remain authoritative. */
 export interface AgentSetting {
-  path: string; label: string; help: string; group: 'policy' | 'context' | 'memory';
+  path: string; label: string; help: string; group: 'policy' | 'context' | 'memory' | 'files';
   type: 'integer' | 'number' | 'boolean' | 'string' | 'enum' | 'array';
   min?: number; max?: number; zero?: boolean;
 }
 export const AGENT_SETTINGS: AgentSetting[] = [
+  { path: 'attachments.enabled', label: 'Allow attachments', group: 'files', type: 'boolean', help: 'Allows native attachment admission. It does not bypass file validation or review.' },
+  { path: 'attachments.retain', label: 'Retain managed attachment copies', group: 'files', type: 'boolean', help: 'Retains managed copies for the native attachment lifecycle. Original source files are unchanged.' },
+  { path: 'attachments.max_bytes', label: 'Attachment byte ceiling', group: 'files', type: 'integer', min: 1024, max: 104857600,
+    help: 'Maximum admitted attachment bytes. Plain-text files also have a separate 64 KiB bound.' },
   { path: 'application_system_prompt', label: 'Application instructions', group: 'policy', type: 'string',
     help: 'Operator instructions in the user configuration. These do not grant tool authority or replace mandatory review.' },
   { path: 'persistence', label: 'Conversation persistence', group: 'policy', type: 'enum',
@@ -43,7 +47,7 @@ export const AGENT_SETTINGS: AgentSetting[] = [
   { path: 'memory.max_bytes', label: 'Maximum retrieved bytes', group: 'memory', type: 'integer', min: 1024, max: 262144,
     help: 'Bounds admitted memory content. Retrieved content cannot grant authority.' },
 ];
-export const AGENT_SETTINGS_SEARCH = AGENT_SETTINGS.map(field => ({ id: `agent.${field.path}`,
+export const AGENT_SETTINGS_SEARCH = AGENT_SETTINGS.filter(field => field.group !== 'files').map(field => ({ id: `agent.${field.path}`,
   page: field.group === 'policy' ? 'agent-policy' as const : 'agent-context' as const,
   title: field.label, keywords: `${field.path} ${field.help} ${field.group}` }));
 

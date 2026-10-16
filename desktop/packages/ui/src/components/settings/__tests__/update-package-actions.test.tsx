@@ -83,17 +83,16 @@ beforeEach(() => { fetchMock.mockReset(); requests.length = 0; sessionStorage.cl
 afterEach(() => { act(() => { if (root) root.unmount(); }); container?.remove(); root = undefined;
   runtime.listeners.clear(); });
 
-it('drives the forced update check and learns the installer refusal verbatim', async () => {
+it('runs the native update check only on click and exposes terminal installation guidance', async () => {
   await mount(() => <UpdateActionsPanel />);
+  expect(requests).toHaveLength(0);
+  await click('Check now');
   const view = () => container.querySelector('[data-testid="update-check-view"]')?.textContent ?? '';
   const call = requests.find(([path]) => String(path).endsWith('/update/actions/check'));
   expect(call?.[1]).toBe('POST');
-  expect(view()).toContain('status ready · current 20261006-3 · update available 20261006-9');
-  await click('Install available update…');
-  expect(requests.find(([path]) => String(path).endsWith('/update/actions/install'))).toBeTruthy();
-  const note = () => container.querySelector('[data-testid="update-install-note"]')?.textContent ?? '';
-  expect(note()).toContain('nnd_update_install_unsupported');
-  expect(note()).toContain('refused on this surface');
+  expect(view()).toContain('Current version20261006-3'); expect(view()).toContain('Latest version20261006-9');
+  expect(container.querySelector('[data-testid="update-install"]')).toBeNull();
+  expect(container.textContent).toContain('nna update'); expect(requests).toHaveLength(1);
 });
 
 it('registers and unregisters the package root through the runtime registry', async () => {

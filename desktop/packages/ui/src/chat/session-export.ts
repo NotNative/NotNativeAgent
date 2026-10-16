@@ -38,7 +38,11 @@ function textOf(parts: PartLite[]): string {
 }
 
 export function downloadSessionMarkdown(fileName: string, content: string): void {
-  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+  downloadTextDocument(fileName, content, 'text/markdown;charset=utf-8');
+}
+
+export function downloadTextDocument(fileName: string, content: string, mime: 'application/json' | 'text/markdown;charset=utf-8'): void {
+  const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;

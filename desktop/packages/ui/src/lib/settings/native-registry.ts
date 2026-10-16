@@ -13,7 +13,11 @@ export const NATIVE_SETTINGS_PAGES = [
   { slug: 'providers', title: 'Providers and models', group: 'Agent', keywords: 'api key endpoint profile credential model route' },
   { slug: 'agent-policy', title: 'Agent policy', group: 'Agent', keywords: 'review permissions instructions recovery retry delegation subagent cancellation persistence' },
   { slug: 'agent-context', title: 'Memory and context', group: 'Agent', keywords: 'memory context compression compaction budgets instructions sources' },
-  { slug: 'skills.installed', title: 'Installed skills', group: 'Capabilities', keywords: 'skills instructions catalog' },
+  { slug: 'operations-tools', title: 'Tools and integrations', group: 'Capabilities', keywords: 'mcp tools connections references deadlines' },
+  { slug: 'skills.installed', title: 'Skills and hooks', group: 'Capabilities', keywords: 'skills hooks instructions catalog bundles provenance' },
+  { slug: 'operations-search', title: 'Search and browsing', group: 'Capabilities', keywords: 'searxng web search fetch trust playwright chromium browser' },
+  { slug: 'operations-services', title: 'Services and updates', group: 'System', keywords: 'desktop gateway opencode compatibility service updates tray restart login' },
+  { slug: 'operations-data', title: 'Data and diagnostics', group: 'System', keywords: 'data diagnostics storage export archives conversations files usage environment' },
   { slug: 'native-configuration', title: 'Advanced', group: 'System', keywords: 'configuration trust secrets mcp login gateway opencode services updates diagnostics' },
 ] as const;
 

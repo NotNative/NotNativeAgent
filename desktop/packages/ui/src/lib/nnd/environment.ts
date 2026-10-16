@@ -65,7 +65,7 @@ function strictObject(value: unknown): Record<string, unknown> {
       || (secret !== true && secret !== false)) throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
     if (present === false && entry.value !== null) throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
     if (SECRETS.has(name)) {
-      if (secret !== true || present !== true || entry.value !== null) {
+      if (secret !== true || entry.value !== null) {
         throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
       }
     } else if (present === true && typeof entry.value !== 'string') {

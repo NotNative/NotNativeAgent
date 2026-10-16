@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 export const enNativeConfiguration = {
+  'settings.page.operationalTools.title': 'Tools and integrations',
+  'settings.page.operationalSearch.title': 'Search and browsing',
+  'settings.page.operationalServices.title': 'Services and updates',
+  'settings.page.operationalData.title': 'Data and diagnostics',
   'settings.page.agentPolicy.title': 'Agent policy',
   'settings.page.agentContext.title': 'Memory and context',
   'settings.page.nativeConfiguration.title': 'NNA configuration',

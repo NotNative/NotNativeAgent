@@ -7,28 +7,16 @@ import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
 import { useI18n } from '../../I18nProvider.tsx';
 import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 import { NativeConfigurationControls } from './native-configuration-controls.tsx';
-import { NativeGatewayTimeout } from './native-gateway-timeout.tsx';
-import { WebFetchTrust } from './web-fetch-trust.tsx';
-import { WebSearchSettings } from './web-search-settings.tsx';
-import { NativeEnvironment } from './native-environment.tsx';
-import { NativeUpdateState } from './native-update-state.tsx';
+import { LegacyOperationalSections } from './operational-settings.tsx';
 import { TrustWorkspaces } from './trust-workspaces.tsx';
 import { CompatibilityServiceSettings } from './compatibility-service.tsx';
 import { ManagedMcpCredentialsSettings } from './managed-mcp-credentials.tsx';
 import { SecretsMetadataSettings } from './secrets-metadata.tsx';
-import { HooksBundleSettings } from './hooks-bundles.tsx';
 import { SecretActionsConsole } from './secret-console.tsx';
-import { UpdateActionsPanel } from './update-actions.tsx';
 import { PackageActionsPanel } from './package-actions.tsx';
-import { InstallationObservationPanel } from './installation-observation.tsx';
 import { ProviderObservationPanel } from './provider-observation.tsx';
-import { BrowserObservationPanel } from './browser-observation.tsx';
-import { NativeSkillsPanel } from './native-skills.tsx';
 import { LegacyCredentialsPanel } from './legacy-credentials.tsx';
-import { GatewayRuntimePanel } from './gateway-runtime.tsx';
-import { SearxngDeploymentPanel } from './searxng-deployment.tsx';
 import { InvocationVocabularyPanel } from './invocation.tsx';
-import { ServiceLifecycleControls } from './service-lifecycle.tsx';
 
 function showValue(value: NativeValue, t: ReturnType<typeof useI18n>['t']): string {
   if (!value.present) return t('settings.nativeConfiguration.absent');
@@ -37,7 +25,7 @@ function showValue(value: NativeValue, t: ReturnType<typeof useI18n>['t']): stri
   return JSON.stringify(value.value);
 }
 
-export function NativeConfigurationPage(): ReactNode {
+export function NativeConfigurationPage({ nativeOnly = false }: { nativeOnly?: boolean }): ReactNode {
   const { t } = useI18n();
   const auth = useAuthSessionStore(state => state.status);
   const [view, setView] = useState<NativeConfigurationView | null>(null);
@@ -148,5 +136,5 @@ export function NativeConfigurationPage(): ReactNode {
       <NativeConfigurationControls key={`${view.installation_id}:${view.data_id}:${view.source_revision}:${view.resolution_revision}`}
         view={view} onReload={() => { void load(); }} />
     </> : null}
-  </SettingsSection><NativeGatewayTimeout /><WebFetchTrust /><WebSearchSettings /><NativeEnvironment /><NativeUpdateState /><TrustWorkspaces /><CompatibilityServiceSettings /><ServiceLifecycleControls /><ManagedMcpCredentialsSettings /><SecretsMetadataSettings /><HooksBundleSettings /><SecretActionsConsole /><UpdateActionsPanel /><PackageActionsPanel /><InstallationObservationPanel /><ProviderObservationPanel /><BrowserObservationPanel /><NativeSkillsPanel /><LegacyCredentialsPanel /><GatewayRuntimePanel /><SearxngDeploymentPanel /><InvocationVocabularyPanel /></>;
+  </SettingsSection>{nativeOnly ? null : <LegacyOperationalSections />}<TrustWorkspaces /><CompatibilityServiceSettings /><ManagedMcpCredentialsSettings /><SecretsMetadataSettings /><SecretActionsConsole /><PackageActionsPanel /><ProviderObservationPanel /><LegacyCredentialsPanel /><InvocationVocabularyPanel /></>;
 }
