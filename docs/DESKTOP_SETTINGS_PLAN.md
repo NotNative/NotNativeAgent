@@ -327,3 +327,17 @@ Start with slice 1: a native-only settings registry and a clean General, Appeara
 Notifications, Keyboard and About experience, while preserving the existing Provider, Skills and
 Advanced configuration workflows. This provides visible improvement without inventing new engines.
 Then complete provider/model management before adding optional voice, image or retrieval infrastructure.
+
+## Delivered agent policy and context settings
+
+Version `20261015-14` exposes the supported native policy, recovery, context and optional-memory
+settings in dedicated Agent pages. Conversation review policy remains conversation-scoped and uses
+the native revision contract. Editors show source details, native previews, explicit resets and
+publication receipts. Revision refusals retain edits; unknown saves retain operation recovery.
+Search waits for native fields to load. See [desktop settings](DESKTOP_SETTINGS.md) for exact controls,
+application timing, test results and the installed acceptance commands.
+
+Saving non-provider defaults requires an NNA restart before newly constructed engines consume them.
+The UI explains this limitation. Fixed delegation rules are descriptive; editable child limits,
+per-workspace instruction editing, and saved-memory content management need dedicated native owners
+before they can be exposed. No unsupported control is presented as a working setting.

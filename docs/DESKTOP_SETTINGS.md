@@ -51,7 +51,64 @@ selection, and Apply saved provider routing explicitly makes it available to new
 sessions keep their route. Routing exposes the native role bindings and supported tuning controls
 with preview, revision checks and publication receipts. Unsupported adapter options are not exposed.
 
-## Persistence and recovery
+## Agent policy, memory and context
+
+Version `20261015-14` adds Agent policy and Memory and context to native Settings.
+Agent policy contains application instructions, conversation persistence, recovery steps/retries,
+ordered recovery actions, turn time, approval wait, and tool concurrency. Review policy is scoped
+to a selected existing idle conversation, with the same native revision checks as the conversation
+panel. New conversations choose review policy in the composer. Review is mandatory in every mode;
+Unattended denies unresolved escalations. Child sessions inherit their runtime constraints.
+
+Memory and context contains the root context byte ceiling, four ordered compression/compaction
+thresholds, optional memory enablement/requirement, and retrieval time/item/byte limits. Provider
+and route ceilings still constrain context. Enabling Require memory also enables retrieval;
+disabling retrieval also clears Require memory. Native preview shows the resolved pair and all
+thresholds before publication. These controls configure an optional adapter; they do not install
+one, delete saved memory, or edit local project files. AGENTS.md directory instructions and NNA.md
+project memory are explained separately. Retrieved content cannot grant execution authority.
+
+Each editor opens directly below its setting. Source details show the resolved value's provenance
+and the user override. Unsupported or unreadable values cannot be edited as invented empty values.
+Reset removes only the named user override and requires preview. Save sends the exact previewed
+request with native source and resolution revisions, then shows the publication receipt. A native
+revision or source-ownership refusal preserves the draft and releases the rejected pending handle.
+An unknown transport outcome keeps its handle for Check save outcome. Reload values explicitly
+discards the editor. Search waits for asynchronous native fields before scrolling/highlighting.
+
+Application timing is explicit: saving these user defaults does not update running engines. The
+desktop service captures non-provider configuration when its host starts. Restart NNA to load saved
+defaults when engines are constructed, including reopened conversations. This differs from the
+explicit provider-route activation flow and from interface preferences that apply immediately.
+The configuration view resolves user defaults with the service workspace sources; it is not a
+per-workspace instruction editor. Project overrides retain precedence and can refuse a user write.
+
+Delegation rules are shown as runtime information, with no ineffective sliders: foreground child
+work, no nested subagents, mandatory review, inherited scope, durable lineage, parent cancellation,
+and the native agent_run timeout/output bounds. The subagent model remains under Providers and
+models / Routing. Editable delegation limits and saved-memory CRUD require their own native owners.
+
+Installed acceptance commands use the actual registered service and selected Electron payload:
+
+```powershell
+node desktop/scripts/electron-installed-agent-settings-smoke.mjs ABSOLUTE_REGISTERED_DESKTOP_ROOT ABSOLUTE_EVIDENCE_DIRECTORY
+node desktop/scripts/electron-installed-review-policy-smoke.mjs ABSOLUTE_REGISTERED_DESKTOP_ROOT ABSOLUTE_EVIDENCE_DIRECTORY
+```
+
+The first previews all 18 native settings, checks invalid bounds and source details, and publishes
+and restores policy, context and memory limits. The second changes a conversation's review policy,
+checks the native revision, restores the original mode, and verifies Refresh. Both capture installed
+Electron evidence and confirm that closing the test shell leaves its service generation running.
+
+Version `20261015-14` passed the full core suite (2,513 passed, 8 skipped), UI suite (2,216 passed),
+and web suite (1,557 passed), plus both repository quality gates. Browser checks exercised all
+18 editors, real publication/restoration, reset previews, a revision conflict, conversation review
+save/restoration, and asynchronous search. Installed Electron repeated the native editor and review
+checks after the main installer upgraded the registered application. Test values were restored;
+Gateway remained stopped and disabled. Tests now verify usable preview outcomes as well as request
+payloads, covering the reset-validation defect that a request-only assertion missed.
+
+## Interface preference persistence
 
 `GET/PUT /api/ui-preferences` uses the application's authenticated API boundary. The server accepts
 only the shared presentation preference registry. It stores `ui-preferences.json` under the native

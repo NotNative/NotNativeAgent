@@ -32,6 +32,8 @@ import { RemoteInstancesPage } from './pages/remote-instances.tsx';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';
 import { NATIVE_SETTINGS_PAGES } from '../../lib/settings/native-registry.ts';
 import { NativeFoundationPage, NativePreferenceStatus, NATIVE_FOUNDATION_SEARCH } from './pages/native-foundation.tsx';
+import { AgentSettingsPage } from './pages/agent-settings.tsx';
+import { AGENT_SETTINGS_SEARCH } from './pages/agent-settings-fields.ts';
 
 export { PAGE_TITLE_KEYS };
 
@@ -43,6 +45,8 @@ const PAGE_COMPONENTS: Partial<Record<SettingsPageSlug, (navigate: (page: Settin
   shortcuts: () => <ShortcutsPage />,
   general: () => <GeneralPage />,
   providers: navigate => <ProvidersPage onOpenConfiguration={() => navigate('native-configuration')} />,
+  'agent-policy': () => <AgentSettingsPage page="agent-policy" />,
+  'agent-context': () => <AgentSettingsPage page="agent-context" />,
   'native-configuration': () => <NativeConfigurationPage />,
   'native-tui': () => <NativeTuiPreferencesPage />,
   'native-routes': () => <NativeRoutesPage />,
@@ -69,6 +73,8 @@ const PAGE_TITLE_KEYS: Record<SettingsPageSlug, I18nKey> = {
   tunnel: 'settings.page.tunnel.title',
   git: 'settings.page.git.title',
   providers: 'settings.page.providers.title',
+  'agent-policy': 'settings.page.agentPolicy.title',
+  'agent-context': 'settings.page.agentContext.title',
   'native-configuration': 'settings.page.nativeConfiguration.title',
   'native-tui': 'settings.page.nativeTui.title',
   'native-routes': 'settings.page.nativeRoutes.title',
@@ -142,13 +148,18 @@ export function SettingsWindow({ initialPage, onClose, onPageChange, nativeAlpha
 
 function useSettingsHighlight(pendingJump: string | null, page: SettingsPageSlug,
   setHighlight: (value: string | null) => void, setPendingJump: (value: string | null) => void): void {
-  // §G.6: rAF-wait for the page DOM, scroll to the anchor, highlight 1600 ms.
+  // Why: native pages load their fields asynchronously; one frame can precede their controls.
   useEffect(() => {
     if (pendingJump === null) return;
     const id = pendingJump;
-    const frame = requestAnimationFrame(() => {
+    let finished = false;
+    const observer = new MutationObserver(() => locate());
+    const deadline = window.setTimeout(() => { finished = true; observer.disconnect(); setPendingJump(null); }, 26000);
+    const locate = () => {
+      if (finished) return;
       const target = document.getElementById(`jump-target-${id}`) ?? document.querySelector(`[data-settings-item="${cssEscape(id)}"]`);
       if (target instanceof HTMLElement) {
+        finished = true; observer.disconnect(); window.clearTimeout(deadline);
         if (typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'center' });
         target.setAttribute('data-settings-search-highlight', 'true');
         setHighlight(id);
@@ -158,10 +169,12 @@ function useSettingsHighlight(pendingJump: string | null, page: SettingsPageSlug
           setHighlight(null);
           target.removeAttribute('data-settings-search-highlight');
         }, 1600);
+        setPendingJump(null);
       }
-      setPendingJump(null);
-    });
-    return () => cancelAnimationFrame(frame);
+    };
+    observer.observe(document.body, { childList: true, subtree: true });
+    const frame = requestAnimationFrame(locate);
+    return () => { finished = true; observer.disconnect(); window.clearTimeout(deadline); cancelAnimationFrame(frame); };
   }, [pendingJump, page]);
 }
 
@@ -209,7 +222,7 @@ function matchesFor(query: string, t: (key: I18nKey) => string, nativeAlpha: boo
   const needle = query.trim().toLowerCase();
   if (needle.length === 0) return [];
   if (nativeAlpha) {
-    const fields = NATIVE_FOUNDATION_SEARCH.filter(item => `${item.title} ${item.keywords}`.toLowerCase().includes(needle))
+    const fields = [...NATIVE_FOUNDATION_SEARCH, ...AGENT_SETTINGS_SEARCH].filter(item => `${item.title} ${item.keywords}`.toLowerCase().includes(needle))
       .map(item => ({ id: item.id, page: item.page as SettingsPageSlug, title: item.title }));
     const pages = NATIVE_SETTINGS_PAGES.filter(item => !fields.some(field => field.page === item.slug) && `${item.title} ${item.keywords}`.toLowerCase().includes(needle))
       .map(item => ({ id: `native.page.${item.slug}`, page: item.slug as SettingsPageSlug, title: item.title }));

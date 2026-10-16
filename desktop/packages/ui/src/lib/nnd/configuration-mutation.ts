@@ -161,8 +161,8 @@ export async function previewNativeConfiguration(request: NativeChangeRequest, s
   const view = parseNativeConfigurationView(raw.view);
   if (!view || view.installation_id !== request.installation_id || view.data_id !== request.data_id) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
   const memory = request.operations[0];
-  const pairedValue = memory?.op === 'set' && (memory.field === 'memory.enabled' && memory.value === false
-    ? false : memory.field === 'memory.required' && memory.value === true ? true : null);
+  const pairedValue = memory?.op === 'set' ? (memory.field === 'memory.enabled' && memory.value === false
+    ? false : memory.field === 'memory.required' && memory.value === true ? true : null) : null;
   if (pairedValue !== null && MEMORY_PAIR.some(path => {
     const row = view.fields.find(field => field.path === path);
     return !row?.effective.present || !('value' in row.effective) || row.effective.value !== pairedValue;

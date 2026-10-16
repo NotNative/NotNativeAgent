@@ -98,7 +98,7 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     </ThemeProvider></I18nProvider>));
     const nav = document.querySelector('[data-testid="settings-window"] nav')!;
     expect([...nav.querySelectorAll('button')].map(button => button.textContent)).toEqual([
-      'General', 'Appearance', 'Conversations', 'Notifications', 'Keyboard', 'Providers and models', 'Installed skills', 'Advanced',
+      'General', 'Appearance', 'Conversations', 'Notifications', 'Keyboard', 'Providers and models', 'Agent policy', 'Memory and context', 'Installed skills', 'Advanced',
     ]);
     expect(nav.textContent).not.toContain('Remote instances');
     expect(nav.querySelector('[aria-current="page"]')?.textContent).toBe('General');
@@ -129,6 +129,26 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     await act(async () => appearance.click());
     expect(changed).toHaveBeenCalledWith('appearance');
     expect(document.querySelector('[data-settings-item="appearance.interface-font-size"]')).not.toBeNull();
+  });
+  it('waits for native settings to load before highlighting a searched field', async () => {
+    let finish!: (value: Response) => void;
+    fetchMock.mockImplementation((url: string) => url === '/api/v1/nnd/configuration'
+      ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(new Response(JSON.stringify({ schema_version: '1.0', authority: 'descriptive_only', fields: [] }))));
+    await renderWindow('general');
+    await act(async () => rootHandle!.render(<I18nProvider><ThemeProvider><SettingsWindow nativeAlpha onClose={() => undefined} /></ThemeProvider></I18nProvider>));
+    const search = document.querySelector('input[placeholder^="Search settings"]') as HTMLInputElement;
+    await act(async () => { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(search, 'context byte ceiling');
+      search.dispatchEvent(new Event('input', { bubbles: true })); });
+    const result = [...document.querySelectorAll('button')].find(row => row.textContent?.startsWith('Context byte ceiling'))!;
+    await act(async () => { result.click(); await new Promise(done => setTimeout(done, 60)); });
+    expect(document.querySelector('[data-settings-item="agent.context_limit_bytes"]')).toBeNull();
+    await act(async () => { finish(new Response(JSON.stringify({ schema_version: '1.0', installation_id: 'nna_test', data_id: 'data_test', scope: 'user',
+      source_state: 'present', source_revision: 'a'.repeat(64), resolution_revision: 'b'.repeat(64), source_revisions: [], application: 'not_applied',
+      fields: [{ path: 'context_limit_bytes', catalog_path: 'context_limit_bytes', explicit: { present: false },
+        effective: { present: true, value: 2097152, source: 'compiled_default' }, application: 'not_applied' }] }))); });
+    expect(document.querySelector('nav [aria-current="page"]')?.textContent).toBe('Memory and context');
+    expect(document.querySelector('[data-settings-item="agent.context_limit_bytes"]')?.getAttribute('data-settings-search-highlight')).toBe('true');
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
   });
   it('mounts the dialog chrome with the grouped nav', async () => {
     await renderWindow('appearance');

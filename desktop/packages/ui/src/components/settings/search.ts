@@ -26,6 +26,8 @@ export type SettingsPageSlug =
   | 'tunnel'
   | 'git'
   | 'providers'
+  | 'agent-policy'
+  | 'agent-context'
   | 'native-configuration'
   | 'native-tui'
   | 'native-routes'

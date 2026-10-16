@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 export const enNativeConfiguration = {
+  'settings.page.agentPolicy.title': 'Agent policy',
+  'settings.page.agentContext.title': 'Memory and context',
   'settings.page.nativeConfiguration.title': 'NNA configuration',
   'settings.nativeAttachments.title': 'NNA attachments',
   'settings.nativeAttachments.description': 'Edit native attachment enablement, size limit, and retention in the selected NNA user manifest. Preview before saving; saved changes are not applied to running work.',

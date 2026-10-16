@@ -63,6 +63,20 @@ it('uses the exact read revision and resolution for preview and the same request
   expect(() => nativeChange(view, field, 'set', '"false"')).toThrow();
   expect(nativeChange(view, field, 'reset', '').operations).toEqual([{ op: 'reset', field: 'streaming' }]);
 });
+it.each(['context_limit_bytes', 'memory.max_items', 'memory.enabled', 'memory.required'])(
+  'accepts a valid reset preview for %s without inventing a memory-disable operation', async path => {
+    const memoryView = { ...view, fields: [...view.fields,
+      ...(['memory.enabled', 'memory.required'] as const).map(member => ({ path: member, catalog_path: member,
+        explicit: { present: false as const }, effective: { present: true as const, value: member === 'memory.enabled', source: 'compiled_default' },
+        application: 'not_applied' as const }))] };
+    const request = { installation_id: view.installation_id, data_id: view.data_id, scope: 'user' as const,
+      expected_revision: digest, expected_resolution_revision: 'b'.repeat(64), operations: [{ op: 'reset' as const, field: path }] };
+    vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify({ valid: true, expected_revision: digest,
+      resolution_revision: request.expected_resolution_revision, application: 'not_applied', view: memoryView })));
+    const preview = await previewNativeConfiguration(request, signal);
+    expect(preview.view.fields.find(row => row.path === 'memory.enabled')?.effective).toMatchObject({ value: true });
+    expect(JSON.parse(String(vi.mocked(runtimeFetch).mock.calls[0]?.[1]?.body)).operations).toEqual([{ op: 'reset', field: path }]);
+  });
 it('constructs bounded typed attachment intents without elevating authority', () => {
   const enabled = { ...field, path: 'attachments.enabled' };
   const maximum = { ...field, path: 'attachments.max_bytes', type: 'integer' as const };

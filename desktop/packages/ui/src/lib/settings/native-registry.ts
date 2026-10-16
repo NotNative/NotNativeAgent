@@ -11,6 +11,8 @@ export const NATIVE_SETTINGS_PAGES = [
   { slug: 'notifications', title: 'Notifications', group: 'Preferences', keywords: 'completion indicator celebration' },
   { slug: 'shortcuts', title: 'Keyboard', group: 'Preferences', keywords: 'shortcuts keybind rebind conflicts' },
   { slug: 'providers', title: 'Providers and models', group: 'Agent', keywords: 'api key endpoint profile credential model route' },
+  { slug: 'agent-policy', title: 'Agent policy', group: 'Agent', keywords: 'review permissions instructions recovery retry delegation subagent cancellation persistence' },
+  { slug: 'agent-context', title: 'Memory and context', group: 'Agent', keywords: 'memory context compression compaction budgets instructions sources' },
   { slug: 'skills.installed', title: 'Installed skills', group: 'Capabilities', keywords: 'skills instructions catalog' },
   { slug: 'native-configuration', title: 'Advanced', group: 'System', keywords: 'configuration trust secrets mcp login gateway opencode services updates diagnostics' },
 ] as const;

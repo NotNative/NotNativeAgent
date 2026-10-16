@@ -54,7 +54,18 @@ export function publishNativeField(model: ControlsModel, view: NativeConfigurati
   const preview = model.preview, entry = reserveOperation(model, view, preview.request.expected_revision);
   if (!entry) return;
   void runNativeConfigurationWork(model, async signal => {
-    const result = await saveNativeConfiguration(preview.request, entry.operation_id, signal);
+    let result;
+    try { result = await saveNativeConfiguration(preview.request, entry.operation_id, signal); }
+    catch (failure) {
+      // Why: native revision and source-ownership refusals occur before publication.
+      // Unknown transport outcomes must retain their recovery handle instead.
+      if (model.currentWork.current?.signal === signal && model.isCurrent(model.currentWork.current)
+        && ['manifest_revision_conflict', 'nnd_configuration_resolution_conflict', 'configuration_source_shadowed'].includes(errorCode(failure))) {
+        clearNativeConfigurationOperation(entry); model.pendingOperationRef.current = null;
+        model.setPendingOperation(null); model.setPreview(null);
+      }
+      throw failure;
+    }
     if (model.currentWork.current?.signal === signal && model.isCurrent(model.currentWork.current)) {
       if (result.persistence === 'saved') clearNativeConfigurationOperation(entry);
       model.setReceipt(result); model.setPreview(null);
