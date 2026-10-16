@@ -11,7 +11,7 @@ import { formatRelative } from './time-format.ts';
 import { shortDirectory } from './session-sidebar-utils.ts';
 
 export function FolderActions({ directory, folderId, folderName, hasSessions }: { directory: string; folderId: string; folderName: string; hasSessions: boolean }): ReactNode {
-  return <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
+  return <div className="flex items-center gap-1 text-[10px] text-muted-foreground opacity-0 transition group-hover:opacity-100">
     <button type="button" aria-label={`Rename folder ${folderName}`} onClick={() => {
       const name = prompt('Rename folder', folderName); // eslint-disable-line no-alert
       if (name !== null) void useSessionFoldersStore.getState().renameFolder(directory, folderId, name);
@@ -24,13 +24,13 @@ export function FolderActions({ directory, folderId, folderName, hasSessions }: 
 }
 
 export function ArchivedRow({ session, actions }: { session: Session; actions: ChatSidebarProps['actions'] }): ReactNode {
-  return <li className="group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-white/5">
+  return <li className="group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/50">
     <button type="button" className="min-w-0 flex-1 text-left" onClick={() => actions.openSession(session.id, session.directory ?? '')} data-testid="archived-row">
-      <div className="truncate text-[13px] text-neutral-500">{session.title || 'Untitled Session'}</div>
+      <div className="truncate text-[13px] text-muted-foreground">{session.title || 'Untitled Session'}</div>
       <div className="text-[10px] text-neutral-700">archived {formatRelative(session.time.archived ?? session.time.updated)}{session.directory ? <> · <span data-testid="archived-workspace-label" title={session.directory}>{shortDirectory(session.directory)}</span></> : null}</div>
     </button>
-    {!session.parentID ? <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
-      <button type="button" aria-label={`Restore ${session.title || 'session'}`} data-testid="restore-session" className="hover:text-neutral-200" onClick={() => void actions.restore(session.id, session.directory ?? '').catch(() => toast.error('Failed to restore the session'))}>↩</button>
+    {!session.parentID ? <div className="flex items-center gap-1 text-[10px] text-muted-foreground opacity-0 transition group-hover:opacity-100">
+      <button type="button" aria-label={`Restore ${session.title || 'session'}`} data-testid="restore-session" className="hover:text-foreground" onClick={() => void actions.restore(session.id, session.directory ?? '').catch(() => toast.error('Failed to restore the session'))}>↩</button>
       <button type="button" aria-label={`Delete ${session.title || 'session'}`} className="hover:text-red-400" onClick={() => {
         if (!confirm(`Delete ${session.title || 'session'} permanently?`)) return; // eslint-disable-line no-alert
         const runtimeKey = getRuntimeKey();

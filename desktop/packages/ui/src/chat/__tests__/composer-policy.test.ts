@@ -11,23 +11,23 @@ import { recallDirectionResult, recallList, recordSend, scopedKey } from '../inp
 
 const noBlockers = { blockedByPermission: false, blockedByQuestion: false };
 
-describe('keyboard policy (§B.5 exact algorithm)', () => {
-  it('expanded mode sends ONLY via Ctrl/Cmd+Enter', () => {
-    expect(shouldSubmitEnter({ isExpanded: true, enterToSend: null, isMobile: false, shiftKey: false, ctrlKey: false, metaKey: false })).toBe(false);
-    expect(shouldSubmitEnter({ isExpanded: true, enterToSend: null, isMobile: false, shiftKey: false, ctrlKey: true, metaKey: false })).toBe(true);
-  });
-
-  it('unconfigured desktop: Enter sends, Shift+Enter newlines, mobile waits for Ctrl/Cmd', () => {
-    expect(shouldSubmitEnter({ isExpanded: false, enterToSend: null, isMobile: false, shiftKey: false, ctrlKey: false, metaKey: false })).toBe(true);
-    expect(shouldSubmitEnter({ isExpanded: false, enterToSend: null, isMobile: false, shiftKey: true, ctrlKey: false, metaKey: false })).toBe(false);
-    expect(shouldSubmitEnter({ isExpanded: false, enterToSend: null, isMobile: true, shiftKey: false, ctrlKey: false, metaKey: false })).toBe(false);
-    expect(shouldSubmitEnter({ isExpanded: false, enterToSend: null, isMobile: true, shiftKey: false, ctrlKey: true, metaKey: false })).toBe(true);
-  });
-
-  it('configured: enterToSend flips plain Enter; Ctrl/Cmd always sends', () => {
-    expect(shouldSubmitEnter({ isExpanded: false, enterToSend: true, isMobile: true, shiftKey: false, ctrlKey: false, metaKey: false })).toBe(true);
-    expect(shouldSubmitEnter({ isExpanded: false, enterToSend: false, isMobile: false, shiftKey: false, ctrlKey: false, metaKey: false })).toBe(false);
-    expect(shouldSubmitEnter({ isExpanded: false, enterToSend: false, isMobile: false, shiftKey: false, ctrlKey: true, metaKey: false })).toBe(true);
+describe('keyboard send policy', () => {
+  it.each([
+    // expanded, preference, mobile, shift, ctrl, meta, sends
+    [true, null, false, false, false, false, false],
+    [true, null, false, false, true, false, true],
+    [false, null, false, false, false, false, true],
+    [false, null, false, true, false, false, false],
+    [false, null, true, false, false, false, false],
+    [false, null, true, false, true, false, true],
+    [false, true, true, false, false, false, true],
+    [false, true, false, true, false, false, false],
+    [false, false, false, false, false, false, false],
+    [false, false, false, true, false, false, false],
+    [false, false, false, false, true, false, true],
+    [false, false, false, false, false, true, true],
+  ] as const)('expanded=%s preference=%s mobile=%s shift=%s ctrl=%s meta=%s sends=%s', (isExpanded, enterToSend, isMobile, shiftKey, ctrlKey, metaKey, expected) => {
+    expect(shouldSubmitEnter({ isExpanded, enterToSend, isMobile, shiftKey, ctrlKey, metaKey })).toBe(expected);
   });
 });
 

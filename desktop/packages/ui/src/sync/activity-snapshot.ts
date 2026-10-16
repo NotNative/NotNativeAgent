@@ -62,6 +62,6 @@ function sameRows(left: readonly ActivityRecord[], right: readonly ActivityRecor
     const other = right[index];
     return !!other && item.id === other.id && item.sessionID === other.sessionID && item.time === other.time
       && item.kind === other.kind && item.status === other.status && item.summary === other.summary
-      && item.evidenceMessageID === other.evidenceMessageID && sameToolEvidence(item.toolEvidence, other.toolEvidence);
+      && item.evidenceMessageID === other.evidenceMessageID && item.turnOutcome === other.turnOutcome && sameToolEvidence(item.toolEvidence, other.toolEvidence);
   });
 }

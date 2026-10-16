@@ -1,87 +1,49 @@
 // SPDX-License-Identifier: Apache-2.0
-/** W-96 completion celebration affordance: settings + reduced motion honored. */
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { CompletionAffordance } from '../completion-affordance.tsx';
 import { createDirectoryStore } from '../../sync/child-store.ts';
-import type { DirectoryStore } from '../../sync/types.ts';
 import { useSettingsStore } from '../../lib/settings/store.ts';
-
+import type { AssistantMessage } from '../../lib/nnd/types.ts';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-
-type Status = { type: 'busy' } | { type: 'idle' } | { type: 'retry'; attempt: number; message: string };
-
-function mount(status: Status, sessionID = 's1'): { node: HTMLDivElement; store: ReturnType<typeof createDirectoryStore>; set: (s: Status) => void } {
-  const container = document.createElement('div');
-  document.body.appendChild(container);
-  const root = createRoot(container);
-  const store = createDirectoryStore({ session_status: { [sessionID]: status }, session: [], message: {}, part: {}, permission: {}, question: {} } as unknown as Partial<DirectoryStore>);
-  act(() => root.render(<CompletionAffordance store={store} sessionID={sessionID} />));
-  return { node: container, store, set: (next) => act(() => store.setState({ session_status: { [sessionID]: next } } as Partial<DirectoryStore>)) };
+let root: Root, node: HTMLDivElement;
+const message = (id: string, finish = 'stop'): AssistantMessage => ({ id, sessionID: 's1', role: 'assistant', modelID: 'm', providerID: 'p', time: { created: 1, completed: 2 }, finish });
+function mount(pref = 'pulse', reduced = false) {
+  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: reduced, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  useSettingsStore.setState({ doc: { celebrationPreference: pref } });
+  const store = createDirectoryStore({ session_status: { s1: { type: 'busy' } }, message: { s1: [] } });
+  const render = (id = 's1') => act(() => root.render(<CompletionAffordance store={store} sessionID={id} />));
+  render();
+  const complete = (finish = 'stop', id = 'a1') => act(() => store.setState({ session_status: { s1: { type: 'idle' } }, message: { s1: [message(id, finish)] } }));
+  return { store, render, complete };
 }
-
-describe('completion celebration affordance (W-96)', () => {
-  let root: Root | null = null;
-  let container: HTMLDivElement | null = null;
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() } as unknown as MediaQueryList)));
-    act(() => { useSettingsStore.setState({ doc: {} }); });
-    window.history.replaceState(null, '', window.location.pathname);
-  });
-  afterEach(() => {
-    act(() => { vi.runOnlyPendingTimers(); });
-    vi.unstubAllGlobals();
-    vi.useRealTimers();
-    if (root !== null) { const r = root; root = null; act(() => { r.unmount(); }); }
-    container?.remove();
-    container = null;
-    act(() => { useSettingsStore.setState({ doc: {} }); });
-  });
-
-  it('pulse (default): busy→idle fires a self-clearing pulse; idle→busy re-arms', () => {
-    const mounted = mount({ type: 'busy' });
-    container = mounted.node; root = null;
-    expect(mounted.node.querySelector('[data-testid="completion-affordance"]')).toBeNull();
-    mounted.set({ type: 'idle' });
-    const badge = mounted.node.querySelector('[data-testid="completion-affordance"]');
-    expect(badge?.textContent).toContain('Session completed');
-    expect(badge?.className).toContain('completion-pulse');
-    act(() => { vi.advanceTimersByTime(4000); });
-    expect(mounted.node.querySelector('[data-testid="completion-affordance"]')).toBeNull();
-    mounted.set({ type: 'busy' });
-    mounted.set({ type: 'idle' });
-    expect(mounted.node.querySelector('[data-testid="completion-affordance"]')).toBeTruthy(); // re-armed
-  });
-
-  it('never fires without a busy→idle transition; idle start stays silent', () => {
-    const mounted = mount({ type: 'idle' });
-    expect(mounted.node.querySelector('[data-testid="completion-affordance"]')).toBeNull();
-  });
-
-  it("preference 'off' renders nothing; 'static' renders without the animation class", () => {
-    act(() => { useSettingsStore.setState({ doc: { celebrationPreference: 'off' } }); });
-    const off = mount({ type: 'busy' });
-    off.set({ type: 'idle' });
-    expect(off.node.querySelector('[data-testid="completion-affordance"]')).toBeNull();
-    act(() => { useSettingsStore.setState({ doc: { celebrationPreference: 'static' } }); });
-    const staticMount = mount({ type: 'busy' });
-    staticMount.set({ type: 'idle' });
-    const badge = staticMount.node.querySelector('[data-testid="completion-affordance"]');
-    expect(badge?.textContent).toContain('Session completed');
-    expect(badge?.className).not.toContain('completion-pulse');
-  });
-
-  it('prefers-reduced-motion forces the static rendering even on pulse', () => {
-    const match = vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() } as unknown as MediaQueryList));
-    vi.stubGlobal('matchMedia', match);
-    const mounted = mount({ type: 'busy' });
-    mounted.set({ type: 'idle' });
-    const badge = mounted.node.querySelector('[data-testid="completion-affordance"]');
-    expect(badge?.textContent).toContain('Session completed');
-    expect(badge?.className).not.toContain('completion-pulse');
-    vi.unstubAllGlobals();
-  });
+beforeEach(() => { vi.useFakeTimers(); node = document.createElement('div'); document.body.appendChild(node); root = createRoot(node); });
+afterEach(() => { act(() => root.unmount()); node.remove(); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); useSettingsStore.setState({ doc: {} }); });
+it.each([['pulse', false, true], ['pulse', true, false], ['static', false, false], ['off', false, false]] as const)('successful turn honors %s and reduced motion %s', (pref, reduced, animated) => {
+  const view = mount(pref, reduced); view.complete();
+  expect(node.textContent).toBe(pref === 'off' ? '' : 'Turn completed');
+  expect(node.querySelector('.completion-pulse') !== null).toBe(animated);
+  act(() => vi.advanceTimersByTime(4000)); expect(node.textContent).toBe('');
+});
+it.each(['abort', 'error', 'tool-calls', 'length'])('does not report %s as successful completion', finish => { const view = mount(); view.complete(finish); expect(node.textContent).toBe(''); });
+it.each(['completed', 'cancelled', 'needs_input', 'failed', 'unknown'] as const)('uses the native %s outcome when transcript messages have no compatibility finish', turnOutcome => {
+  const view = mount('static');
+  act(() => view.store.setState({ session_status: { s1: { type: 'idle' } }, activity: [{ id: 'native-turn', sessionID: 's1', kind: 'turn', status: 'completed', summary: 'Turn completed', time: 2, turnOutcome }] }));
+  expect(node.textContent).toBe(turnOutcome === 'completed' ? 'Turn completed' : '');
+});
+it('waits for successful message evidence after idle and consumes it once', () => {
+  const view = mount(); act(() => view.store.setState({ session_status: { s1: { type: 'idle' } } })); expect(node.textContent).toBe('');
+  view.complete(); expect(node.textContent).toBe('Turn completed');
+  act(() => vi.advanceTimersByTime(4000));
+  act(() => view.store.setState({ session_status: { s1: { type: 'idle' } } })); expect(node.textContent).toBe('');
+});
+it('does not replay an old successful turn on idle or a session switch', () => {
+  const view = mount(); view.complete();
+  view.render('s2'); expect(node.textContent).toBe('');
+  view.render(); expect(node.textContent).toBe('');
+  act(() => view.store.setState({ session_status: { s1: { type: 'busy' } } }));
+  act(() => view.store.setState({ session_status: { s1: { type: 'idle' } } })); expect(node.textContent).toBe('');
+  act(() => view.store.setState({ session_status: { s1: { type: 'busy' } } })); view.complete('stop', 'a2'); expect(node.textContent).toBe('Turn completed');
 });

@@ -28,6 +28,7 @@ import { useSessionOrgStore } from '../stores/useSessionOrgStore.ts';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { btwRiderFor } from './btw-context.ts';
 import { btwStateMerged } from './btw-org.ts';
+import { useSettingsStore } from '../lib/settings/store.ts';
 
 export interface TranscriptProps {
   store: StoreApi<DirectoryStore>;
@@ -37,6 +38,7 @@ export interface TranscriptProps {
 }
 
 export function Transcript(props: TranscriptProps): ReactNode {
+  const wide = useSettingsStore(state => state.doc.wideChatLayoutEnabled === true);
   const { store, engine, sessionID, directory } = props;
   const orgRecord = useSessionOrgStore((state) =>
     state.recordsByDirectory[normalizeDirectory(directory)]?.[sessionID ?? '']);
@@ -118,13 +120,13 @@ export function Transcript(props: TranscriptProps): ReactNode {
     return () => { active = false; };
   }, [engine.loader, store, directory, sessionID, loadKey, retry]);
   if (!sessionID) {
-    return <div className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-neutral-600" data-testid="chat-empty">No session selected — open the sidebar to start.</div>;
+    return <div className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-muted-foreground" data-testid="chat-empty">No session selected — open the sidebar to start.</div>;
   }
   if (snapshot.message[sessionID] === undefined || snapshot.message[sessionID]?.length === 0) {
     if (failedKey === loadKey) {
-      return <div className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-neutral-400" data-testid="chat-load-error">
+      return <div className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-muted-foreground" data-testid="chat-load-error">
         <p>Could not load this session’s messages.</p>
-        <button type="button" className="mt-3 rounded border border-white/15 px-3 py-1.5 text-neutral-200 hover:bg-white/10"
+        <button type="button" className="mt-3 rounded border border-border/60 px-3 py-1.5 text-foreground hover:bg-muted"
           onClick={() => { setFailedKey(null); setRetry((value) => ({ key: loadKey, count: value.key === loadKey ? value.count + 1 : 1 })); }}>Retry</button>
       </div>;
     }
@@ -133,7 +135,7 @@ export function Transcript(props: TranscriptProps): ReactNode {
     return <Skeleton />;
   }
   if ((snapshot.message[sessionID]?.length ?? 0) === 0) {
-    return <div className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-neutral-600" data-testid="chat-empty">Session is open, nothing has been sent yet.</div>;
+    return <div className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-muted-foreground" data-testid="chat-empty">Session is open, nothing has been sent yet.</div>;
   }
   const sessionRow = snapshot.session.find((session) => session.id === sessionID);
   const btwState = btwStateMerged(sessionRow?.metadata, orgRecord);
@@ -180,16 +182,16 @@ export function Transcript(props: TranscriptProps): ReactNode {
     }
   };
   return (
-    <div ref={transcriptRef} className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 pt-4" data-testid="chat-transcript">
+    <div ref={transcriptRef} className={`mx-auto flex w-full ${wide ? 'max-w-none' : 'max-w-3xl'} flex-col gap-3 px-4 pt-4`} data-testid="chat-transcript">
       {canLoadOlder ? <div className="flex flex-col items-center gap-1 text-xs">
         <button type="button" disabled={olderBusyKey === loadKey} onClick={() => { void loadOlder(); }}
-          className="rounded border border-white/15 px-3 py-1.5 text-neutral-300 hover:bg-white/10 disabled:opacity-50"
+          className="rounded border border-border/60 px-3 py-1.5 text-muted-foreground hover:bg-muted disabled:opacity-50"
           data-testid="load-older-messages">{olderBusyKey === loadKey ? 'Loading older messages…' : 'Load older messages'}</button>
         {olderFailedKey === loadKey ? <span role="alert" className="text-rose-400">Could not load older messages. Retry above.</span> : null}
       </div> : null}
       {hiddenCount > 0 ? (
         <button type="button" onClick={() => setExpandedTurns(Number.MAX_SAFE_INTEGER)}
-          className="mx-auto rounded border border-white/15 px-3 py-1 text-xs text-neutral-300 hover:bg-white/10"
+          className="mx-auto rounded border border-border/60 px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
           data-testid="show-older-turns">Show {hiddenCount} older turns</button>
       ) : null}
       {visibleTurns.map((turn, index) => {
@@ -241,7 +243,7 @@ function ContextPinButton({ pin, message, variant }: {  pin: ContextPinTarget;
     }
   };
   return (
-    <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-neutral-400 hover:bg-white/10 hover:text-neutral-200 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400 disabled:opacity-50"
+    <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400 disabled:opacity-50"
       aria-pressed={pinned} disabled={busy} data-testid={`chat-context-pin-${message.id}`}
       onClick={() => void toggle()}>
       {pinned ? `${variant === 'user' ? 'Unpin message' : 'Unpin'}` : `${variant === 'user' ? 'Pin message' : 'Pin'}`}
@@ -259,9 +261,9 @@ function Skeleton(): ReactNode {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-3 px-4 pt-6" data-chat-hydration-skeleton>
       {[0, 1, 2].map((row) => (
-        <div key={row} className="animate-pulse rounded-lg bg-white/5 p-3">
-          <div className="mb-2 h-2 w-24 rounded bg-white/10" />
-          <div className="h-2 w-3/4 rounded bg-white/10" />
+        <div key={row} className="animate-pulse rounded-lg bg-muted/50 p-3">
+          <div className="mb-2 h-2 w-24 rounded bg-muted" />
+          <div className="h-2 w-3/4 rounded bg-muted" />
         </div>
       ))}
     </div>
@@ -285,7 +287,7 @@ function TurnRow({ turn, engine, tailID, pin }: { turn: ChatTurn; engine: SyncEn
       <UserBubble parts={partsOf(turn.userMessage.id)} anchorID={turn.userMessage.id}
         message={turn.userMessage as unknown as ContextPinMessage} pin={pin} />
       {settled && inline.length > 1 ? (
-        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="self-start rounded-full bg-white/5 px-3 py-1 text-[11px] text-neutral-400 hover:text-neutral-200">
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="self-start rounded-full bg-muted/50 px-3 py-1 text-[11px] text-muted-foreground hover:text-foreground">
           Activity ({inline.length}) {open ? 'âˆ’' : '+'}
         </button>
       ) : null}
@@ -302,12 +304,13 @@ function presentationOf(message: import('../lib/nnd/types.ts').Message): import(
 
 function UserBubble({ parts, anchorID, message, pin }: { parts: PartLite[]; anchorID: string;
   message: ContextPinMessage; pin: ContextPinTarget }): ReactNode {
+  const markdown = useSettingsStore(state => state.doc.userMessageRenderingMode !== 'plain');
   const text = parts.filter((part) => part.type === 'text' && !part.synthetic && !part.ignored).map((part) => part.text ?? '').join('');
   return (
     <div id={`message-${anchorID}`} className="flex scroll-mt-16 justify-end">
-      <div className={`max-w-[85%] rounded-lg border border-white/5 px-3 py-2 text-sm text-neutral-100 ${text.startsWith('!') || text.startsWith('/') ? 'bg-neutral-800/80 font-mono text-[13px]' : 'bg-stone-900/80'}`}>
+      <div className={`max-w-[85%] rounded-lg border border-border/30 px-3 py-2 text-sm text-foreground ${text.startsWith('!') || text.startsWith('/') ? 'bg-muted/80 font-mono text-[13px]' : 'bg-muted/80'}`}>
         {text.startsWith('!') ? <span aria-hidden className="mr-1 text-amber-300">$</span> : null}
-        {text || '[No text content]'}
+        {markdown && text ? renderMarkdown(text) : <span className="whitespace-pre-wrap">{text || '[No text content]'}</span>}
       </div>
       <ContextPinButton pin={pin} message={message} variant="user" />
     </div>
@@ -320,7 +323,7 @@ function AssistantRow({ message, parts, live, anchorID, pin }: { message: import
     <article id={anchorID ? `message-${anchorID}` : undefined} className="flex flex-col gap-1 scroll-mt-16" data-testid="chat-assistant-row">
       {visible.map((part, index) => <PartView key={index} part={part} sessionID={pin.sessionID} directory={pin.directory} messageId={message.id} />)}
       {message.error ? <ErrorCallout message={message.error} /> : null}
-      <footer className="flex items-center gap-2 px-1 text-[10px] text-neutral-600">
+      <footer className="flex items-center gap-2 px-1 text-[10px] text-muted-foreground">
         <span>{[message.modelID, message.providerID].filter(Boolean).join(' · ')}</span>
         <span>{formatDuration(message.time.created, message.time.completed)}</span>
         <span>{formatRelative(message.time.completed ?? message.time.created)}</span>
@@ -344,7 +347,7 @@ function PartView({ part, sessionID, directory, messageId }: { part: PartLite; s
     case 'subtask':
       return <SubtaskCard description={typeof part.description === 'string' ? part.description : ''} />;
     case 'file':
-      return <span className="text-[11px] text-neutral-500">[attachment {String((part as { filename?: string }).filename ?? 'file')}]</span>;
+      return <span className="text-[11px] text-muted-foreground">[attachment {String((part as { filename?: string }).filename ?? 'file')}]</span>;
     default:
       return null; // unknown part types never throw and never render (doc 05 §0.3)
   }
@@ -387,13 +390,13 @@ function ReasoningBlock({ body }: { body: string }): ReactNode {
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="text-[11px] uppercase tracking-wide text-indigo-300/80">
         Reasoning {open ? 'âˆ’' : '+'}
       </button>
-      {open ? <p className="whitespace-pre-wrap text-[13px] leading-6 text-neutral-400">{body}</p> : null}
+      {open ? <p className="whitespace-pre-wrap text-[13px] leading-6 text-muted-foreground">{body}</p> : null}
     </div>
   );
 }
 
 function SubtaskCard({ description }: { description: string }): ReactNode {
-  return <div className="rounded-lg border border-white/10 bg-neutral-900/70 p-3 text-[12px] text-neutral-300">Delegated task{description ? ` — ${description}` : ''}</div>;
+  return <div className="rounded-lg border border-border/50 bg-card/70 p-3 text-[12px] text-muted-foreground">Delegated task{description ? ` — ${description}` : ''}</div>;
 }
 
 function ErrorCallout({ message }: { message: { name?: string; message?: string; data?: { message?: string } } | undefined }): ReactNode {
@@ -411,7 +414,7 @@ function StreamingTailRow({ parts, messageID, sessionID, directory }: { parts: P
   const phrase = live ? (live.kind === 'thinking' ? 'thinking' : live.kind === 'tool' ? toolPhrase(live.tool) : 'composing') : workingPhrase(messageID);
   const visible = parts.filter((part) => !SKIP_KIND.has(part.type) && !part.synthetic && !part.ignored);
   return (
-    <article className="rounded-lg bg-neutral-900/60 p-3" data-testid="chat-streaming-tail" data-streaming="true">
+    <article className="rounded-lg bg-card/60 p-3" data-testid="chat-streaming-tail" data-streaming="true">
       <div className="mb-1 flex items-center gap-2 text-[10px] uppercase tracking-wide text-amber-400/80">
         <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
         {phrase}
@@ -446,7 +449,7 @@ export function StatusChip({ store, sessionID }: { store: StoreApi<DirectoryStor
   if (status?.type === 'busy') {
     const working = live?.kind === 'thinking' ? 'thinking' : live?.kind === 'tool' ? toolPhrase(live.tool) : live?.kind === 'composing' ? 'composing' : workingPhrase(messageID ?? 'idle');
     const source = isNnaActivitySource(store) ? 'NNA' : 'mock-smart';
-    return <aside data-testid="status-chip" className="absolute bottom-full left-4 mb-2 rounded-full bg-neutral-800/90 px-3 py-1 text-[11px] text-neutral-300">{source} is {working}<BusyDots /></aside>;
+    return <aside data-testid="status-chip" className="absolute bottom-full left-4 mb-2 rounded-full bg-muted/90 px-3 py-1 text-[11px] text-muted-foreground">{source} is {working}<BusyDots /></aside>;
   }
   return null;
 }

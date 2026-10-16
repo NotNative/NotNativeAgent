@@ -92,7 +92,7 @@ export function observeChildLifecycle({ type, child, payload, streams, activity,
     }
     const result = turnActivity(state?.outcome ?? payload?.outcome, false);
     publish('nnd.activity', { id: `${child.id}:turn`, sessionID: child.id,
-      kind: 'turn', status: result.status, summary: result.summary, time: Date.now() });
+      kind: 'turn', status: result.status, summary: result.summary, turnOutcome: result.turnOutcome, time: Date.now() });
     publish('session.status', { sessionID: child.id, status: { type: 'idle' } });
     publish('session.idle', { sessionID: child.id });
     publish('session.updated', { sessionID: child.id, info: child }, true);
@@ -109,9 +109,10 @@ export function activityStatus(value) {
   return 'failed';
 }
 export function turnActivity(outcome, rejected) {
-  if (rejected) return { status: 'failed', summary: 'Turn failed' };
-  if (outcome === 'cancelled') return { status: 'completed', summary: 'Turn cancelled' };
-  if (outcome === 'needs_input') return { status: 'attention', summary: 'Turn needs input' };
-  if (outcome && outcome !== 'completed') return { status: 'failed', summary: 'Turn failed' };
-  return { status: 'completed', summary: 'Turn completed' };
+  if (rejected) return { status: 'failed', summary: 'Turn failed', turnOutcome: 'failed' };
+  if (outcome === 'cancelled') return { status: 'completed', summary: 'Turn cancelled', turnOutcome: 'cancelled' };
+  if (outcome === 'needs_input') return { status: 'attention', summary: 'Turn needs input', turnOutcome: 'needs_input' };
+  if (outcome && outcome !== 'completed') return { status: 'failed', summary: 'Turn failed', turnOutcome: 'failed' };
+  // Compatibility: retain the legacy display status; absent outcome never proves success to new consumers.
+  return { status: 'completed', summary: 'Turn completed', turnOutcome: outcome === 'completed' ? 'completed' : 'unknown' };
 }

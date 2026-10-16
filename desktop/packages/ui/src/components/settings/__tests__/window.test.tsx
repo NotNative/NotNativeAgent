@@ -91,16 +91,17 @@ afterEach(() => {
 });
 
 describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
-  it('keeps native alpha settings on native configuration and read-only inventory pages', async () => {
+  it('limits native navigation and search to supported pages and opens General for unsupported links', async () => {
     await renderWindow('general');
     await act(async () => rootHandle!.render(<I18nProvider><ThemeProvider>
       <SettingsWindow initialPage="remote-instances" nativeAlpha onClose={() => undefined} />
     </ThemeProvider></I18nProvider>));
     const nav = document.querySelector('[data-testid="settings-window"] nav')!;
-    expect(nav.textContent).toContain('NNA configuration');
-    expect(nav.textContent).toContain('Providers');
+    expect([...nav.querySelectorAll('button')].map(button => button.textContent)).toEqual([
+      'General', 'Appearance', 'Conversations', 'Notifications', 'Keyboard', 'Providers and models', 'Installed skills', 'Advanced',
+    ]);
     expect(nav.textContent).not.toContain('Remote instances');
-    expect(nav.textContent).not.toContain('General');
+    expect(nav.querySelector('[aria-current="page"]')?.textContent).toBe('General');
     expect(document.querySelector('[data-settings-item="general.startup.launch-at-login"]')).toBeNull();
     const search = document.querySelector('input[placeholder^="Search settings"]') as HTMLInputElement;
     await act(async () => {
@@ -108,6 +109,14 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
       search.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(document.querySelector('[data-testid="settings-window"]')?.textContent).not.toContain('Remote instances');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(search, 'api key');
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const providerResult = [...document.querySelectorAll('button')].find(button => button.textContent?.startsWith('Providers and models'));
+    expect(providerResult).toBeTruthy();
+    await act(async () => providerResult!.click());
+    expect(document.querySelector('nav [aria-current="page"]')?.textContent).toBe('Providers and models');
   });
   it('reflects route page changes in a retained dialog and reports sidebar navigation', async () => {
     await renderWindow('appearance');

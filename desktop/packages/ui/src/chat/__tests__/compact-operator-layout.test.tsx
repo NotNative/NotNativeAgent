@@ -123,9 +123,9 @@ it('foregrounds compact operator surfaces and returns focus to chat without remo
 it('reveals a focused rail when the viewport shrinks and restores the chat column when it grows', async () => {
   let wide = true;
   let change: ((event: MediaQueryListEvent) => void) | undefined;
-  Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({
+  Object.defineProperty(window, 'matchMedia', { configurable: true, value: (query: string) => ({
     get matches() { return wide; },
-    addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => { change = listener; },
+    addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => { if (query === '(min-width: 1100px)') change = listener; },
     removeEventListener: () => undefined,
   }) });
   const store = createDirectoryStore();

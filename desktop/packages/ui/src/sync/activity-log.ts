@@ -15,6 +15,7 @@ export interface ActivityRecord {
   status: 'started' | 'completed' | 'attention' | 'failed' | 'redacted';
   evidenceMessageID?: string;
   childSessionID?: string;
+  turnOutcome?: 'completed' | 'cancelled' | 'needs_input' | 'failed' | 'unknown';
   toolEvidence?: ToolEvidence;
 }
 
@@ -56,13 +57,16 @@ export function activityRecordFromEvent(event: HarnessEvent): ActivityRecord | n
   if (rawEvidence !== undefined && (typeof rawEvidence !== 'string' || rawEvidence.length < 1 || rawEvidence.length > 256
     || /[\u0000-\u001f\u007f]/u.test(rawEvidence) || kind !== 'turn' && kind !== 'state' && kind !== 'subagent')) return null;
   const toolEvidence = parseToolEvidence(props.toolEvidence);
+  const turnOutcome = props.turnOutcome;
+  if (turnOutcome !== undefined && (kind !== 'turn' || typeof turnOutcome !== 'string' || !['completed', 'cancelled', 'needs_input', 'failed', 'unknown'].includes(turnOutcome))) return null;
   if (props.toolEvidence !== undefined && (kind !== 'tool' || !toolEvidence)) return null;
   const childSessionID = props.childSessionID;
   if (childSessionID !== undefined && (kind !== 'subagent' || typeof childSessionID !== 'string'
     || childSessionID.length < 1 || childSessionID.length > 128 || /[\u0000-\u001f\u007f]/u.test(childSessionID))) return null;
   return { id, sessionID, time, kind, summary, status,
     ...(typeof rawEvidence === 'string' ? { evidenceMessageID: rawEvidence } : {}),
-    ...(toolEvidence ? { toolEvidence } : {}), ...(typeof childSessionID === 'string' ? { childSessionID } : {}) };
+    ...(toolEvidence ? { toolEvidence } : {}), ...(typeof childSessionID === 'string' ? { childSessionID } : {}),
+    ...(turnOutcome !== undefined ? { turnOutcome: turnOutcome as ActivityRecord['turnOutcome'] } : {}) };
 }
 
 /** Upserts corrections/redactions by stable evidence id and remains bounded. */
@@ -85,6 +89,7 @@ function sameActivityRecord(left: ActivityRecord, right: ActivityRecord): boolea
     && left.status === right.status
     && left.evidenceMessageID === right.evidenceMessageID
     && left.childSessionID === right.childSessionID
+    && left.turnOutcome === right.turnOutcome
     && sameToolEvidence(left.toolEvidence, right.toolEvidence);
 }
 

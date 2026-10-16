@@ -7,6 +7,7 @@ import { createDirectoryStore } from '../../sync/child-store.ts';
 import { Transcript } from '../transcript.tsx';
 import type { SyncEngine } from '../../sync/sync-engine.ts';
 import type { Message, Part } from '../../lib/nnd/types.ts';
+import { useSettingsStore } from '../../lib/settings/store.ts';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root: Root | null = null;
@@ -17,6 +18,19 @@ afterEach(() => {
   container?.remove();
   root = null;
   container = null;
+  useSettingsStore.setState({ doc: {} });
+});
+
+it('applies message format and conversation width to the live transcript', async () => {
+  const store = createDirectoryStore({ message: { s1: [{ id: 'u1', sessionID: 's1', role: 'user', time: { created: 1 } } as Message] },
+    part: { u1: [{ id: 'p1', sessionID: 's1', messageID: 'u1', type: 'text', text: '**Sample**\nSecond line' } as Part] } });
+  const engine = { loader: { ensure: async () => undefined, getState: () => ({ status: 'ready' }) } } as unknown as SyncEngine;
+  await mount(engine, store);
+  expect(container?.querySelector('#message-u1 strong')?.textContent).toBe('Sample');
+  await act(async () => useSettingsStore.setState({ doc: { userMessageRenderingMode: 'plain', wideChatLayoutEnabled: true } }));
+  expect(container?.querySelector('#message-u1 strong')).toBeNull();
+  expect(container?.querySelector('#message-u1')?.textContent).toContain('**Sample**\nSecond line');
+  expect(container?.querySelector('[data-testid="chat-transcript"]')?.classList.contains('max-w-none')).toBe(true);
 });
 
 async function mount(engine: SyncEngine, store = createDirectoryStore()): Promise<typeof store> {

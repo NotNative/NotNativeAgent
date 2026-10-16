@@ -449,7 +449,7 @@ export class NndEngineHost {
       for (const part of entry.parts) this.#publish(context, 'message.part.updated', { sessionID: context.sessionId, part }, true);
     }
     const result = turnActivity(turn.outcome, rejected);
-    this.#activity(context, turn.activityId, 'turn', result.status, result.summary, turn.requestId);
+    this.#activity(context, turn.activityId, 'turn', result.status, result.summary, turn.requestId, undefined, result.turnOutcome);
     if (context.liveTurn === turn) {
       context.liveTurn = null;
       context.turnState = 'idle';
@@ -463,9 +463,9 @@ export class NndEngineHost {
         'notice', 'failed', 'Context estimate could not be saved');
     });
   }
-  #activity(context, id, kind, status, summary, evidenceMessageID, toolEvidence) {
+  #activity(context, id, kind, status, summary, evidenceMessageID, toolEvidence, turnOutcome) {
     this.#publish(context, 'nnd.activity', { id, sessionID: context.sessionId, kind, status, summary, time: Date.now(),
-      ...(evidenceMessageID ? { evidenceMessageID } : {}), ...(toolEvidence ? { toolEvidence } : {}) });
+      ...(evidenceMessageID ? { evidenceMessageID } : {}), ...(toolEvidence ? { toolEvidence } : {}), ...(turnOutcome ? { turnOutcome } : {}) });
   }
   #observeChildEvent(type, child, payload) {
     const parent = this.#contexts.get(child.parentID);

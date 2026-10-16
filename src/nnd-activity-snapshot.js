@@ -17,6 +17,7 @@ const ACTIVITY_ID_LIMIT = 264; // 128-char session + ':turn:' + 128-char request
 const FILE_LIMIT_BYTES = 2_097_152;
 const KINDS = new Set(['turn', 'tool', 'notice', 'state', 'subagent']);
 const STATUSES = new Set(['started', 'completed', 'attention', 'failed', 'redacted']);
+const TURN_OUTCOMES = new Set(['completed', 'cancelled', 'needs_input', 'failed', 'unknown']);
 
 export function activityPath(catalogPath, sessionId) {
   return join(`${catalogPath}.activity`, `${Buffer.from(sessionId, 'utf8').toString('hex')}.json`);
@@ -68,6 +69,7 @@ export async function readActivitySnapshot(catalogPath, sessionId, createdAt) {
     ...(record.evidenceMessageID ? { evidenceMessageID: record.evidenceMessageID } : {}),
     ...(record.toolEvidence ? { toolEvidence: record.toolEvidence } : {}),
     ...(record.childSessionID ? { childSessionID: record.childSessionID } : {}),
+    ...(record.turnOutcome ? { turnOutcome: record.turnOutcome } : {}),
   })) };
 }
 
@@ -135,9 +137,10 @@ function sanitizeRecord(value) {
     ? value.evidenceMessageID : undefined;
   const toolEvidence = value.kind === 'tool' ? sanitizeToolEvidence(value.toolEvidence) : null;
   const childSessionID = value.kind === 'subagent' && validChildSessionID(value.childSessionID) ? value.childSessionID : undefined;
+  const turnOutcome = value.kind === 'turn' && TURN_OUTCOMES.has(value.turnOutcome) ? value.turnOutcome : undefined;
   return { id: value.id, sessionID: value.sessionID, time: Date.now(), kind: value.kind,
     status: value.status, summary, ...(evidenceMessageID ? { evidenceMessageID } : {}),
-    ...(toolEvidence ? { toolEvidence } : {}), ...(childSessionID ? { childSessionID } : {}) };
+    ...(toolEvidence ? { toolEvidence } : {}), ...(childSessionID ? { childSessionID } : {}), ...(turnOutcome ? { turnOutcome } : {}) };
 }
 
 /** Only NNA-authored, display-classified fields survive; never persist args or output. */
@@ -210,5 +213,6 @@ export function validActivityRecord(value, sessionId) {
     && !/[\u0000-\u001f\u007f]/u.test(value.summary)
     && (value.evidenceMessageID === undefined || (value.kind === 'turn' || value.kind === 'state' || value.kind === 'subagent') && validEvidenceMessageID(value.evidenceMessageID))
     && (value.toolEvidence === undefined || value.kind === 'tool' && validToolEvidence(value.toolEvidence))
-    && (value.childSessionID === undefined || value.kind === 'subagent' && validChildSessionID(value.childSessionID));
+    && (value.childSessionID === undefined || value.kind === 'subagent' && validChildSessionID(value.childSessionID))
+    && (value.turnOutcome === undefined || value.kind === 'turn' && TURN_OUTCOMES.has(value.turnOutcome));
 }

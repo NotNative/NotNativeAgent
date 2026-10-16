@@ -10,6 +10,17 @@ import { activityPath, appendActivity, persistActivity } from '../src/nnd-activi
 const owner = { subjectId: 'operator', workspaceIds: ['primary', 'second'] };
 const engine = () => ({ config: { executionManifest: null }, async initialize() {}, async shutdown() {} });
 
+test('turn outcomes survive durable history without treating cancelled activity as success', async t => {
+  const f = await fixture(t), records = [];
+  for (const outcome of ['completed', 'cancelled', 'needs_input', 'failed', 'unknown']) {
+    appendActivity(records, { id: outcome, sessionID: 'session_a', kind: 'turn', status: 'completed', summary: 'Display text is not outcome evidence', turnOutcome: outcome });
+  }
+  await f.save(records);
+  const reloaded = f.createHost(); await reloaded.initialize();
+  assert.deepEqual(reloaded.activity('session_a', owner).map(row => row.turnOutcome), ['completed', 'cancelled', 'needs_input', 'failed', 'unknown']);
+  await reloaded.shutdown(); await f.host.shutdown();
+});
+
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'nna-activity-history-'));
   t.after(() => rm(root, { recursive: true, force: true }));

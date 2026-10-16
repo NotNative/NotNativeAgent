@@ -35,7 +35,6 @@ afterEach(() => {
 
 describe('settings store (optimistic setField + engine rules)', () => {
   it('merges writes locally and forwards to the debounced engine', async () => {
-    bindAppearanceAppliers();
     setSettingsField('chatRenderMode', 'sorted');
     expect(useSettingsStore.getState().doc.chatRenderMode).toBe('sorted');
     const pending = await import('../persistence.ts');

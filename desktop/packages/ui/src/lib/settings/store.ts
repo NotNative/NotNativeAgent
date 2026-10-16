@@ -18,21 +18,29 @@ export interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>(() => ({ doc: {}, loading: true, loadError: false }));
+let nativeWriter: ((key: string, value: unknown) => void) | null = null;
+export function installNativeSettingsWriter(writer: (key: string, value: unknown) => void): () => void {
+  nativeWriter = writer;
+  return () => { if (nativeWriter === writer) nativeWriter = null; };
+}
 
 /** Wire once at app boot: bootstrap-grade sync + synced-event adoption. */
-export function bindSettingsBridge(): void {
+export function bindSettingsBridge(): () => void {
+  let active = true;
   void startSettingsSync({ bootstrap: true, adoptTheme: true })
     .then((doc) => {
-      if (doc === null) useSettingsStore.setState({ loading: false, loadError: true });
+      if (active && doc === null) useSettingsStore.setState({ loading: false, loadError: true });
     });
-  onSettingsSynced((detail: SettingsSyncDetail) => {
+  const off = onSettingsSynced((detail: SettingsSyncDetail) => {
+    if (!active) return;
     useSettingsStore.setState({ doc: detail.settings, loading: false, loadError: false });
   });
   void loadDesktopSettings().then((doc) => {
-    if (doc !== null && useSettingsStore.getState().loading) {
+    if (active && doc !== null && useSettingsStore.getState().loading) {
       useSettingsStore.setState({ doc, loading: false, loadError: false });
     }
   });
+  return () => { active = false; off(); };
 }
 
 /** Test isolation. */
@@ -46,6 +54,7 @@ export function settingsValue<T>(key: string): T | undefined {
 
 /** Optimistic write: merge locally, then the debounced PUT carries it. */
 export function setSettingsField(key: string, value: unknown): void {
+  if (nativeWriter) { nativeWriter(key, value); return; }
   const field = getSettingsField(key);
   const { doc } = useSettingsStore.getState();
   if (!field) return; // unregisterable keys never persist (§K2)

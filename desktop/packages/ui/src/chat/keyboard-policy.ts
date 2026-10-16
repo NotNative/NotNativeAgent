@@ -19,8 +19,8 @@ export function shouldSubmitEnter(input: KeyboardPolicyInput): boolean {
   if (input.enterToSend === null) {
     return !input.shiftKey && !input.isMobile ? true : isCtrlEnter;
   }
-  // configured: send = (enterToSend ? !shift : shift); Ctrl/Cmd always sends
-  const sends = input.enterToSend ? !input.shiftKey : input.shiftKey;
+  // Invariant: modifier-only mode leaves both Enter and Shift+Enter available for new lines.
+  const sends = input.enterToSend && !input.shiftKey;
   return isCtrlEnter || sends;
 }
 

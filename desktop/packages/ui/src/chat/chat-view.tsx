@@ -40,10 +40,10 @@ import { notifySessionRouteNavigation } from '../lib/session-route.ts';
 /** H.2/E.3/E.4 band: recap text and/or suggestion chip; chips only fill. */
 function RecapNote({ pair }: { pair: { recap: string | null; suggestion: string | null } }): ReactNode {
   return (
-    <div className="mb-2 flex flex-col gap-1 rounded-lg bg-white/5 px-3 py-2" data-testid="recap-note">
+    <div className="mb-2 flex flex-col gap-1 rounded-lg bg-muted/50 px-3 py-2" data-testid="recap-note">
       {pair.recap ? (
-        <div className="text-[11px] text-neutral-400">
-          <span className="text-neutral-500">Recap: </span>
+        <div className="text-[11px] text-muted-foreground">
+          <span className="text-muted-foreground">Recap: </span>
           {pair.recap}
         </div>
       ) : null}
@@ -53,12 +53,12 @@ function RecapNote({ pair }: { pair: { recap: string | null; suggestion: string 
             type="button"
             title="Use suggested message"
             aria-label="Use suggested message"
-            className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-neutral-200 hover:border-white/25"
+            className="rounded-full border border-border/50 px-2 py-0.5 text-[11px] text-foreground hover:border-white/25"
             onClick={() => window.dispatchEvent(new CustomEvent('nnd:composer-fill', { detail: { text: pair.suggestion } }))}
           >
             {pair.suggestion}
           </button>
-          <span className="text-[10px] text-neutral-600">fills the composer — nothing sends without you</span>
+          <span className="text-[10px] text-muted-foreground">fills the composer — nothing sends without you</span>
         </div>
       ) : null}
     </div>
@@ -87,6 +87,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
   const goalEnabled = useSettingsStore((state) => state.doc.sessionGoalEnabled === true);
   const recapEnabled = useSettingsStore((state) => state.doc.sessionRecapEnabled !== false);
   const suggestionEnabled = useSettingsStore((state) => state.doc.sessionSuggestionEnabled !== false);
+  const wide = useSettingsStore(state => state.doc.wideChatLayoutEnabled === true);
   const [shown, setShown] = useState<ChatColumnSession | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   useEffect(() => {
@@ -212,7 +213,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
     ? state.recordsByDirectory[normalizeDirectory(shownRef.directory)]?.[shownRef.sessionID ?? '']?.btwChildOf
     : undefined);
   if (!shownRef || !shownRef.store) {
-    return <div className="flex h-full min-w-0 flex-1 items-center justify-center text-sm text-neutral-600" data-testid="chat-view">Preparing…</div>;
+    return <div className="flex h-full min-w-0 flex-1 items-center justify-center text-sm text-muted-foreground" data-testid="chat-view">Preparing…</div>;
   }
   const selected = shownRef.sessionID
     ? shownRef.store.getState().session.find((session) => session.id === shownRef.sessionID)
@@ -255,22 +256,22 @@ export function ChatView(props: ChatViewProps): ReactNode {
     : undefined;
 
   return (
-    <section ref={chatRoot} tabIndex={-1} className={`relative flex h-full min-w-0 flex-1 flex-row ${focusMode ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
+    <section ref={chatRoot} tabIndex={-1} className={`relative flex h-full min-w-0 flex-1 flex-row ${focusMode ? 'bg-background' : ''}`} data-testid="chat-view">
       <div className={`relative min-w-0 flex-1 flex-col ${compactSurfaceOpen && !focusMode ? 'hidden min-[1100px]:flex' : 'flex'}`}>
-        {!focusMode && !(props.nativeAlpha && draftLanding) ? <div className="flex justify-end border-b border-white/10 px-3 py-1 min-[1100px]:hidden">
-          <button ref={compactOpenButton} type="button" data-testid="open-operator-surfaces" className="rounded px-2 py-1 text-xs text-neutral-300 hover:bg-white/10" onClick={() => { focusReturnOnOpen.current = true; setCompactSurfaceOpen(true); }}>Surfaces</button>
+        {!focusMode && !(props.nativeAlpha && draftLanding) ? <div className="flex justify-end border-b border-border/50 px-3 py-1 min-[1100px]:hidden">
+          <button ref={compactOpenButton} type="button" data-testid="open-operator-surfaces" className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted" onClick={() => { focusReturnOnOpen.current = true; setCompactSurfaceOpen(true); }}>Surfaces</button>
         </div> : null}
-        {isChildSession && selected && shownRef.sessionID ? <header className="border-b border-white/10 bg-neutral-950 px-4 py-3" data-testid="child-transcript-header">
+        {isChildSession && selected && shownRef.sessionID ? <header className="border-b border-border/50 bg-background px-4 py-3" data-testid="child-transcript-header">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0"><span className="text-[10px] uppercase tracking-wide text-neutral-500">Subagent transcript{selected.agent ? ` · ${selected.agent}` : ''}</span>
-                <h2 className="truncate text-sm text-neutral-200">{selected.title || 'Subagent'}</h2></div>
-              {parentSession ? <button type="button" className="rounded border border-white/15 px-2 py-1 text-xs text-neutral-300 hover:border-white/30"
+              <div className="min-w-0"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Subagent transcript{selected.agent ? ` · ${selected.agent}` : ''}</span>
+                <h2 className="truncate text-sm text-foreground">{selected.title || 'Subagent'}</h2></div>
+              {parentSession ? <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-muted-foreground hover:border-white/30"
                 data-testid="return-to-parent" onClick={() => {
                   persistLastActiveSession(parentSession.id, shownRef.directory);
                   useSessionViewStore.setState({ currentSessionId: parentSession.id, activeDirectory: shownRef.directory });
                 }}>← Return to {parentSession.title || 'parent session'}</button>
-                : <span className="text-xs text-neutral-500" data-testid="parent-unavailable">Parent session unavailable</span>}
+                : <span className="text-xs text-muted-foreground" data-testid="parent-unavailable">Parent session unavailable</span>}
             </div>
             <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
             <ChildSessionControls key={`${shownRef.directory}\n${shownRef.sessionID}`} sessionID={shownRef.sessionID} directory={shownRef.directory} />
@@ -288,10 +289,10 @@ export function ChatView(props: ChatViewProps): ReactNode {
           <CompletionAffordance store={shownRef.store} sessionID={shownRef.sessionID} />
         </div>
         <PromptNavigatorRail store={shownRef.store} sessionID={shownRef.sessionID} />
-        {!isChildSession ? <div className={`relative z-10 px-4 ${draftLanding ? 'flex min-h-0 flex-1 overflow-y-auto py-6' : 'border-t border-white/5 bg-neutral-950/80 py-3'}`} data-composer-bound>
-          <div className={`${draftLanding ? 'my-auto' : ''} mx-auto w-full max-w-3xl`}>
+        {!isChildSession ? <div className={`relative z-10 px-4 ${draftLanding ? 'flex min-h-0 flex-1 overflow-y-auto py-6' : 'border-t border-border/30 bg-background/80 py-3'}`} data-composer-bound>
+          <div className={`${draftLanding ? 'my-auto' : ''} mx-auto w-full ${wide ? 'max-w-none' : 'max-w-3xl'}`}>
           {draftLanding ? <div className="mb-2" data-testid="chat-draft-landing">
-            <h1 className="mb-8 text-center text-2xl font-medium tracking-tight text-neutral-200 sm:text-3xl">What would you like to work on?</h1>
+            <h1 className="mb-8 text-center text-2xl font-medium tracking-tight text-foreground sm:text-3xl">What would you like to work on?</h1>
             <div className="flex flex-wrap items-center gap-5 px-2">
               {props.nativeAlpha ? <DraftWorkspacePicker directory={shownRef.directory} onSelect={directory => {
                 if (readDraft(shownRef.directory, view.currentDraftId ?? 'draft').start) { toast.error('Recover the current start before changing its workspace.'); return; }
@@ -301,14 +302,14 @@ export function ChatView(props: ChatViewProps): ReactNode {
                 persistLastActiveSession(null, directory);
                 useSessionViewStore.setState({ activeDirectory: directory, currentSessionId: null });
                 notifySessionRouteNavigation();
-              }} /> : <span className="text-sm text-neutral-200">{workspaceName}</span>}
-              {props.nativeAlpha ? <span className="text-xs text-neutral-300" title="NNA's standard agent, with mandatory reviewer governance">Standard mode</span> : null}
+              }} /> : <span className="text-sm text-foreground">{workspaceName}</span>}
+              {props.nativeAlpha ? <span className="text-xs text-muted-foreground" title="NNA's standard agent, with mandatory reviewer governance">Standard mode</span> : null}
             </div>
           </div> : null}
           <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
           {goalEnabled && shownRef.sessionID && !isChildSession && !sessionMetadataLoading ? <SessionGoalControls key={shownRef.sessionID} sessionID={shownRef.sessionID} store={shownRef.store} externalRevision={typeof globalGoalRevision === 'number' && Number.isSafeInteger(globalGoalRevision) && globalGoalRevision >= 0 ? globalGoalRevision : 0} /> : null}
           {!focusMode && recap ? <RecapNote pair={recap} /> : null}
-          {sessionMetadataLoading ? <div className="text-xs text-neutral-500" data-testid="session-metadata-loading">Session access metadata is loading.</div> : props.nativeAlpha && shownRef.sessionID === null && !view.currentDraftId ? <p role="status" className="text-sm text-neutral-400">Preparing conversation… You can also choose New conversation.</p> : <Composer
+          {sessionMetadataLoading ? <div className="text-xs text-muted-foreground" data-testid="session-metadata-loading">Session access metadata is loading.</div> : props.nativeAlpha && shownRef.sessionID === null && !view.currentDraftId ? <p role="status" className="text-sm text-muted-foreground">Preparing conversation… You can also choose New conversation.</p> : <Composer
             key={`${shownRef.directory}\n${shownRef.sessionID ?? view.currentDraftId ?? 'draft'}`}
             services={props.services}
             sessionID={shownRef.sessionID}

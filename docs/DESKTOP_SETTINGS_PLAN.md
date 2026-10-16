@@ -3,6 +3,11 @@
 Status: proposed implementation plan. The tray changes in slice 0 are implemented with this plan;
 the settings redesign below is a proposal for subsequent verified slices.
 
+Implementation progress: the first native settings foundation is documented in
+[Desktop and web settings](DESKTOP_SETTINGS.md). It provides supported preference pages, shared
+revision-checked persistence, working consumers, keyboard editing and successful-turn feedback.
+The remaining options in the mapping below are the roadmap, not claims of shipped controls.
+
 ## Purpose and decisions
 
 Give NNA one understandable settings interface shared by desktop and web. Use OpenWebUI's
@@ -311,9 +316,10 @@ by replacing the settings window wholesale or exposing all dormant pages.
    fresh optional-desktop installation, installed desktop upgrade, restart failure and recovery.
 6. For each change, verify source tests and the built installed artifact. A source-only success is not installed acceptance.
 
-The main NNA installer and `nna update` still need a successful complete platform lifecycle
-acceptance run. A successful desktop-only installer must not be reported as that proof. The
-disabled-gateway installer issue already observed belongs in the operational lifecycle work.
+The source main installer completed a full upgrade acceptance run for `20261015-11`, including the
+registered desktop upgrade, while Gateway remained stopped and disabled. `nna update` still needs
+its own complete acceptance run. A desktop-only installer or source main-installer success must
+not be reported as proof of the updater command's acquisition and execution path.
 
 ## First settings implementation to approve
 

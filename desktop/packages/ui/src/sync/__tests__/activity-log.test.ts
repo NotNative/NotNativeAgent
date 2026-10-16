@@ -17,9 +17,16 @@ describe('operator activity evidence', () => {
 
   it('does not publish a false update for an exact replay', () => {
     const record = activityRecordFromEvent({ type: 'nnd.activity', properties: { id: 'a1', sessionID: 's1', kind: 'turn', status: 'started', summary: 'Turn started', time: 10 } })!;
-    expect(mergeActivityRecord([record], record)).toBeTruthy();
     const records = [record];
     expect(mergeActivityRecord(records, { ...record })).toBe(records);
+  });
+  it('retains a classified turn outcome and observes corrections without trusting summary text', () => {
+    const base = { id: 't1', sessionID: 's1', kind: 'turn', status: 'completed', summary: 'Turn completed', time: 10 };
+    const completed = activityRecordFromEvent({ type: 'nnd.activity', properties: { ...base, turnOutcome: 'completed' } })!;
+    const cancelled = activityRecordFromEvent({ type: 'nnd.activity', properties: { ...base, turnOutcome: 'cancelled' } })!;
+    expect(cancelled.turnOutcome).toBe('cancelled');
+    expect(mergeActivityRecord([completed], cancelled)[0]).toEqual(cancelled);
+    for (const turnOutcome of ['success', 1, {}, null]) expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...base, turnOutcome } })).toBeNull();
   });
 
   it('accepts only bounded turn-to-message evidence references and tracks corrections', () => {

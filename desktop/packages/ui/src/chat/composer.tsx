@@ -10,6 +10,7 @@ import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import { toast } from 'sonner';
 import { activeTrigger, commandRegistry, replaceTriggerToken, skillInstructionFrom, tokenizePrompt, type AutocompleteTrigger, type PromptToken } from './prompt-language.ts';
 import { shouldSubmitEnter, recallDirection } from './keyboard-policy.ts';
+import { useSettingsStore } from '../lib/settings/store.ts';
 import { ConversationSettings } from './conversation-settings.tsx';
 import { useConversationDraftStore } from '../stores/useConversationDraftStore.ts';
 import { subscribeDraftChanges, getDraftRevision } from './drafts.ts';
@@ -53,6 +54,8 @@ export interface ComposerProps {
 }
 
 export function Composer(props: ComposerProps): ReactNode {
+  const enterToSend = useSettingsStore(state => state.doc.enterToSendConfigured === true ? state.doc.enterToSend === true : null);
+  const spellcheck = useSettingsStore(state => state.doc.inputSpellcheckEnabled !== false);
   const { services, sessionID, directory, sessionKey } = props;
   useSyncExternalStore(subscribeDraftChanges, getDraftRevision);
   const draft = useConversationDraftStore(state => state.drafts.find(row => row.id === sessionKey));
@@ -350,6 +353,7 @@ export function Composer(props: ComposerProps): ReactNode {
   };
 
   function onKey(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
+    if (event.nativeEvent.isComposing) return;
     if (picker) {
       if (event.key === 'Enter' || event.key === 'Tab') event.preventDefault();
       return;
@@ -359,7 +363,7 @@ export function Composer(props: ComposerProps): ReactNode {
       props.onToggleExpanded?.();
       return;
     }
-    if (event.key === 'Enter' && shouldSubmitEnter({ isExpanded: Boolean(props.expanded), enterToSend: null, isMobile: false, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey })) {
+    if (event.key === 'Enter' && shouldSubmitEnter({ isExpanded: Boolean(props.expanded), enterToSend, isMobile: window.matchMedia?.('(pointer: coarse)').matches ?? false, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey })) {
       event.preventDefault();
       void submitOnce();
       return;
@@ -432,7 +436,7 @@ export function Composer(props: ComposerProps): ReactNode {
   const starterList = props.starters ?? [];
 
   return (<>
-    <form className="relative rounded-xl border border-white/10 bg-neutral-900/90 p-2 focus-within:border-white/25" data-testid="composer" data-shell={shell ? 'true' : undefined}
+    <form className="relative rounded-xl border border-border/50 bg-card/90 p-2 focus-within:border-white/25" data-testid="composer" data-shell={shell ? 'true' : undefined}
       data-send-blocked={authSessionBlocksSend(authStatus) ? 'auth-expired' : (configUnavailable ? 'model-config-unavailable' : nnaConfigured && !nnaModel ? 'nna-model-unavailable' : nativeWorkspacePending ? 'nna-workspace-unavailable' : undefined)}
       onSubmit={(event) => { event.preventDefault(); void submitOnce(); }}>
       {nativeWorkspacePending ? <p role="status" className="px-2 text-[11px] text-amber-300">Waiting for the native workspace before sending.</p> : null}
@@ -450,14 +454,14 @@ export function Composer(props: ComposerProps): ReactNode {
       ) : null}
       {starting ? <p role="status" className="px-2 text-xs text-sky-300">{sessionID === null ? 'Starting conversation…' : 'Sending…'}</p> : null}
       {pendingStart && !starting ? <p role="status" className="px-2 text-xs text-amber-300">Start needs recovery. Send retries the original message in the same conversation.</p> : null}
-      <textarea readOnly={!!pendingStart || starting} ref={editorRef} value={text} onChange={changed} onKeyDown={onKey}
+      <textarea spellCheck={spellcheck} readOnly={!!pendingStart || starting} ref={editorRef} value={text} onChange={changed} onKeyDown={onKey}
         rows={rows} placeholder={shell ? 'bash command…' : 'Message the agent…'}
         data-testid="composer-editor"
-        className={`w-full resize-none rounded-lg bg-transparent p-2 text-sm outline-none placeholder:text-neutral-600 ${shell ? 'font-mono text-amber-200' : 'text-neutral-100'} focus:outline-none`} />
-      {!(nnaConfigured && sessionID === null) ? <div className="flex items-center rounded-lg bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-300" title={nnaConfigured ? 'Primary model configured in NNA' : 'Model and agent settings'}>
+        className={`w-full resize-none rounded-lg bg-transparent p-2 text-sm outline-none placeholder:text-muted-foreground ${shell ? 'font-mono text-amber-200' : 'text-foreground'} focus:outline-none`} />
+      {!(nnaConfigured && sessionID === null) ? <div className="flex items-center rounded-lg bg-card px-2 py-1.5 text-[12px] text-muted-foreground" title={nnaConfigured ? 'Primary model configured in NNA' : 'Model and agent settings'}>
         {nnaConfigured || configUnavailable ? <span aria-label="Configured model" data-testid="model-trigger">{modelLabel}</span>
-          : <button type="button" aria-label="Model selector" data-testid="model-trigger" className="rounded px-1 py-0.5 hover:bg-white/10" onClick={() => setModelPickerOpen(!modelPickerOpen)}>{modelLabel} ▾</button>}
-        {props.onToggleExpanded ? <button type="button" aria-label={props.expanded ? 'Collapse expanded editor' : 'Focus mode'} className="ml-auto text-[11px] text-neutral-500" onClick={props.onToggleExpanded}>⛶</button> : null}
+          : <button type="button" aria-label="Model selector" data-testid="model-trigger" className="rounded px-1 py-0.5 hover:bg-muted" onClick={() => setModelPickerOpen(!modelPickerOpen)}>{modelLabel} ▾</button>}
+        {props.onToggleExpanded ? <button type="button" aria-label={props.expanded ? 'Collapse expanded editor' : 'Focus mode'} className="ml-auto text-[11px] text-muted-foreground" onClick={props.onToggleExpanded}>⛶</button> : null}
       </div> : null}
       <ComposerFooter
         controls={nnaConfigured && sessionID === null ? <ConversationSettings directory={directory} draftId={sessionKey} model={model} onModel={value => props.onModelSelection?.({ ...value, variant: null })} /> : undefined}

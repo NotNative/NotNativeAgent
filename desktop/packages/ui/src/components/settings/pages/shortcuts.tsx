@@ -13,6 +13,9 @@ import { SHORTCUT_SCHEMA, type ShortcutCategory, type ShortcutDecl } from '../..
 import { displayCombo, effectiveBinding, parseCombo, UNASSIGNED_SHORTCUT } from '../../../lib/shortcuts/bindings.ts';
 import { ShortcutRecordingDialog } from '../recorder-dialog.tsx';
 import type { I18nKey } from '../../../lib/i18n/messages/en.ts';
+import { NATIVE_SHORTCUT_IDS } from '../../../lib/settings/native-registry.ts';
+import { useNativePreferenceState } from '../../../lib/settings/native-preferences.ts';
+import { useSettingsStore } from '../../../lib/settings/store.ts';
 
 const CATEGORY_TITLE_KEYS: Record<ShortcutCategory, I18nKey> = {
   session: 'settings.search.shortcutsSession',
@@ -22,18 +25,20 @@ const CATEGORY_TITLE_KEYS: Record<ShortcutCategory, I18nKey> = {
   application: 'settings.search.shortcutsApplication',
 };
 
-export function ShortcutsPage(): ReactNode {
+export function ShortcutsPage({ native = false }: { native?: boolean }): ReactNode {
   const { t } = useI18n();
   const overridesField = useSettingsField<Record<string, string>>('shortcutOverrides');
   const overrides = useMemo(() => overridesField.value ?? {}, [overridesField.value]);
   const [recording, setRecording] = useState<ShortcutDecl | null>(null);
+  const status = useNativePreferenceState(s => s.status);
+  const loadError = useSettingsStore(s => s.loadError);
 
   const groups = useMemo(() => SHORTCUT_SCHEMA, []);
 
   // §I.3: customize-only page registry — internals never render as rows.
   const rendered = useMemo(
-    () => groups.map((group) => ({ category: group.category, entries: group.entries.filter((entry) => entry.customizable) })),
-    [groups],
+    () => groups.map((group) => ({ category: group.category, entries: group.entries.filter((entry) => entry.customizable && (!native || NATIVE_SHORTCUT_IDS.includes(entry.id as typeof NATIVE_SHORTCUT_IDS[number]))) })).filter(group => group.entries.length),
+    [groups, native],
   );
 
   const applyOverrides = (next: Record<string, string>): void => {
@@ -48,7 +53,7 @@ export function ShortcutsPage(): ReactNode {
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <fieldset disabled={native && (loadError || ['loading', 'conflict'].includes(status))} className="flex min-w-0 flex-col gap-3">
       {rendered.map((group, groupIndex) => (
         <SettingsSection key={group.category} item={`shortcuts.${group.category}`}>
           <div className="flex items-center justify-between">
@@ -82,7 +87,7 @@ export function ShortcutsPage(): ReactNode {
           onCancel={() => setRecording(null)}
         />
       ) : null}
-    </div>
+    </fieldset>
   );
 }
 

@@ -116,6 +116,10 @@ export function onSettingsSynced(listener: SyncListener): () => void {
   return () => syncedListeners.delete(listener);
 }
 
+export function adoptNativePreferences(settings: Record<string, unknown>): void {
+  emitSynced(settings, true, true);
+}
+
 function emitSynced(settings: Record<string, unknown>, bootstrap: boolean, adoptTheme: boolean): void {
   const detail: SettingsSyncDetail = { settings, bootstrap, adoptTheme };
   for (const listener of syncedListeners) listener(detail);

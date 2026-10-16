@@ -223,6 +223,7 @@ test('a failed context estimate save is visible but does not fail the governed t
   await host.catalogWrites.catch(() => undefined);
   assert.equal(host.activity('session_a', owner).some((row) => row.summary === 'Context estimate could not be saved'), true);
   assert.equal(host.activity('session_a', owner).some((row) => row.summary === 'Turn completed'), true);
+  assert.equal(host.activity('session_a', owner).findLast(row => row.kind === 'turn').turnOutcome, 'unknown');
   await host.shutdown();
 });
 
@@ -1115,6 +1116,7 @@ test('NND engine host streams text and tool activity before authoritative comple
   const canonical = events.findIndex((event, index) => index > removed && event.type === 'message.updated' && event.properties.info.id === 'session_a:message:1');
   assert.ok(removed > 0 && canonical > removed);
   assert.equal(events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'turn').at(-1).properties.status, 'completed');
+  assert.equal(events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'turn').at(-1).properties.turnOutcome, 'completed');
 });
 
 test('NND live turn cannot be replaced before the engine marks itself active', async () => {
@@ -1187,6 +1189,7 @@ test('NND activity does not label an intentional cancellation as a failure', asy
   const terminal = events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'turn').at(-1).properties;
   assert.equal(terminal.status, 'completed');
   assert.equal(terminal.summary, 'Turn cancelled');
+  assert.equal(terminal.turnOutcome, 'cancelled');
 });
 
 test('NND activity marks a governed needs-input outcome for operator attention', async () => {
@@ -1208,6 +1211,7 @@ test('NND activity marks a governed needs-input outcome for operator attention',
   const terminal = events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'turn').at(-1).properties;
   assert.equal(terminal.status, 'attention');
   assert.equal(terminal.summary, 'Turn needs input');
+  assert.equal(terminal.turnOutcome, 'needs_input');
   assert.equal(host.activity('session_a', owner).filter((record) => record.kind === 'turn').at(-1).status, 'attention');
   assert.deepEqual(host.get('session_a', owner).metadata.nnd.attention, { kind: 'needs_input' });
   await host.shutdown();

@@ -9,6 +9,7 @@ import { __resetDraftStoreForTests } from '../drafts.ts';
 import { __resetAuthExpiryForTests } from '../../lib/runtime-auth-expiry.ts';
 import type { DirectoryStore } from '../../sync/types.ts';
 import { useGlobalSyncStore } from '../../sync/global-stores.ts';
+import { useSettingsStore } from '../../lib/settings/store.ts';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -62,6 +63,7 @@ beforeEach(() => {
     configuredModel: { providerID: 'primary', modelID: 'test' },
   } } }));
   snapshot = base as unknown as DirectoryStore;
+  useSettingsStore.setState({ doc: {} });
 });
 
 afterEach(() => {
@@ -72,6 +74,23 @@ afterEach(() => {
 });
 
 describe('NNA configured composer model', () => {
+  it('applies live send-key and spellcheck preferences to the actual editor', async () => {
+    snapshot = { ...base, config: { nnd: { engine: 'nna', primaryModel: { providerID: 'primary', modelID: 'test' } } } } as unknown as DirectoryStore;
+    useSettingsStore.setState({ doc: { enterToSendConfigured: true, enterToSend: false, inputSpellcheckEnabled: false } });
+    await render();
+    const editor = document.querySelector('[data-testid="composer-editor"]') as HTMLTextAreaElement;
+    expect(editor.getAttribute('spellcheck')).toBe('false');
+    await act(async () => { nativeSet.call(editor, 'keyboard test'); editor.dispatchEvent(new Event('input', { bubbles: true })); });
+    for (const init of [{}, { shiftKey: true }, { isComposing: true, ctrlKey: true }]) {
+      await act(async () => { editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, ...init })); });
+      expect(send).not.toHaveBeenCalled(); expect(createSession).not.toHaveBeenCalled();
+    }
+    await act(async () => { useSettingsStore.setState({ doc: { enterToSendConfigured: true, enterToSend: true, inputSpellcheckEnabled: true } }); });
+    expect(editor.getAttribute('spellcheck')).toBe('true');
+    await act(async () => { editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ parts: expect.arrayContaining([expect.objectContaining({ type: 'text', text: 'keyboard test' })]) }));
+  });
   it('offers the configured route for a draft and sends its exact model', async () => {
     snapshot = { ...base, config: { model: 'primary/test', default_agent: 'nna', nnd: {
       engine: 'nna', modelSelection: 'configured', primaryModel: { providerID: 'primary', modelID: 'test' },

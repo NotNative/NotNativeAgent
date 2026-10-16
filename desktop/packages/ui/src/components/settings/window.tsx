@@ -30,6 +30,8 @@ import { AgentsPage } from './pages/agents.tsx';
 import { SnippetsPage } from './pages/snippets.tsx';
 import { RemoteInstancesPage } from './pages/remote-instances.tsx';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';
+import { NATIVE_SETTINGS_PAGES } from '../../lib/settings/native-registry.ts';
+import { NativeFoundationPage, NativePreferenceStatus, NATIVE_FOUNDATION_SEARCH } from './pages/native-foundation.tsx';
 
 export { PAGE_TITLE_KEYS };
 
@@ -87,9 +89,9 @@ interface SearchResult {
   title: string;
 }
 
-const NATIVE_ALPHA_PAGES = new Set<SettingsPageSlug>(['providers', 'native-configuration', 'skills.installed']);
+const NATIVE_ALPHA_PAGES = new Set<SettingsPageSlug>(NATIVE_SETTINGS_PAGES.map(page => page.slug));
 const availablePage = (page: SettingsPageSlug | undefined, nativeAlpha: boolean): SettingsPageSlug =>
-  nativeAlpha && (!page || !NATIVE_ALPHA_PAGES.has(page)) ? 'native-configuration' : page ?? 'general';
+  nativeAlpha && (!page || !NATIVE_ALPHA_PAGES.has(page)) ? 'general' : page ?? 'general';
 
 let highlightTimer: number | null = null;
 
@@ -185,6 +187,7 @@ function SettingsDialog({
     >
       <div className="flex h-[85vh] max-h-[900px] w-[90vw] max-w-[1200px] flex-col rounded-xl border border-border/60 bg-background shadow-2xl" data-testid="settings-window">
         <SettingsHeader search={query} requestClose={requestClose} />
+        {nativeAlpha ? <NativePreferenceStatus /> : null}
         {searching ? (
           <SearchResultsPanel results={query.searchResults} onJump={query.jumpTo} />
         ) : (
@@ -192,7 +195,7 @@ function SettingsDialog({
             <SettingsNav page={page} onNavigate={query.setPage} nativeAlpha={nativeAlpha} />
             <div className="min-w-0 flex-1 overflow-y-auto px-4 py-3" data-highlight={highlight ?? undefined}>
               <ErrorBoundary>
-                {renderPage(page, t, query.setPage)}
+                {renderPage(page, t, query.setPage, nativeAlpha)}
               </ErrorBoundary>
             </div>
           </div>
@@ -205,6 +208,13 @@ function SettingsDialog({
 function matchesFor(query: string, t: (key: I18nKey) => string, nativeAlpha: boolean): SearchResult[] {
   const needle = query.trim().toLowerCase();
   if (needle.length === 0) return [];
+  if (nativeAlpha) {
+    const fields = NATIVE_FOUNDATION_SEARCH.filter(item => `${item.title} ${item.keywords}`.toLowerCase().includes(needle))
+      .map(item => ({ id: item.id, page: item.page as SettingsPageSlug, title: item.title }));
+    const pages = NATIVE_SETTINGS_PAGES.filter(item => !fields.some(field => field.page === item.slug) && `${item.title} ${item.keywords}`.toLowerCase().includes(needle))
+      .map(item => ({ id: `native.page.${item.slug}`, page: item.slug as SettingsPageSlug, title: item.title }));
+    return [...fields, ...pages];
+  }
   return searchIndex()
     .filter((item) => !nativeAlpha || NATIVE_ALPHA_PAGES.has(item.page))
     .filter((item) => {
@@ -239,7 +249,7 @@ function SettingsHeader({ search, requestClose }: { search: HeaderSearch; reques
           }}
         />
       </div>
-      <button type="button" className="ml-auto rounded px-2 py-1 text-muted-foreground hover:text-foreground" onClick={requestClose}>
+      <button type="button" aria-label="Close settings" className="ml-auto rounded px-2 py-1 text-muted-foreground hover:text-foreground" onClick={requestClose}>
         ✕
       </button>
     </header>
@@ -274,7 +284,9 @@ function SearchResultsPanel({
 }
 
 function renderPage(slug: SettingsPageSlug, t: (key: I18nKey) => string,
-  navigate: (page: SettingsPageSlug) => void): ReactNode {
+  navigate: (page: SettingsPageSlug) => void, nativeAlpha: boolean): ReactNode {
+  if (nativeAlpha && ['general', 'appearance', 'chat', 'notifications'].includes(slug)) return <NativeFoundationPage page={slug} />;
+  if (nativeAlpha && slug === 'shortcuts') return <ShortcutsPage native />;
   const built = PAGE_COMPONENTS[slug];
   if (built !== undefined) return built(navigate);
   return (
@@ -287,6 +299,14 @@ function renderPage(slug: SettingsPageSlug, t: (key: I18nKey) => string,
 
 function SettingsNav({ page, onNavigate, nativeAlpha }: { page: SettingsPageSlug; onNavigate: (slug: SettingsPageSlug) => void; nativeAlpha: boolean }): ReactNode {
   const { t } = useI18n();
+  if (nativeAlpha) return <nav aria-label="Settings pages" className="w-48 shrink-0 overflow-y-auto border-r border-border/50 p-3">
+    {['Preferences', 'Agent', 'Capabilities', 'System'].map(group => <div key={group} className="mb-5">
+      <h2 className="mb-2 text-xs font-semibold text-muted-foreground">{group}</h2>
+      {NATIVE_SETTINGS_PAGES.filter(item => item.group === group).map(item => <button key={item.slug} type="button" aria-current={page === item.slug ? 'page' : undefined}
+        className={`mb-1 block w-full rounded px-2 py-2 text-left text-sm ${page === item.slug ? 'bg-primary/15 text-primary' : 'hover:bg-interactive-hover/40'}`}
+        onClick={() => onNavigate(item.slug)}>{item.title}</button>)}
+    </div>)}
+  </nav>;
   const groups = ['general', 'projects', 'opencode', 'content'] as const;
   return (
     <nav className="w-56 shrink-0 overflow-y-auto border-r border-border/50 px-2 py-3">

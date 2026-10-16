@@ -84,6 +84,7 @@ it('accounts for every literal NND-owned mutating route in the installed alpha',
     '/api/system/probe-url', // Read-only loopback reachability probe for the browser bridge guest.
     '/api/agent-tool/callback', // NNA child-secret callback, registered before the API gate.
     '/api/workspace-preferences', // Authenticated sidebar presentation only.
+    '/api/ui-preferences', // Validated presentation allowlist with CAS; no execution configuration.
     '/api/conversation-drafts', // Authenticated draft storage; native admission remains separate.
     '/api/workspace-presentation', // Authenticated display names and visibility; no execution authority.
     '/api/workspace-default', // First-use folder inside the service data root; native admission remains separate.

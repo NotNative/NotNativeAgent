@@ -71,11 +71,7 @@ export async function loadChildSnapshots(catalogPath, parents, limit) {
       throw new ContractError('nnd_child_snapshot_invalid', 'NND child snapshot owner does not match its parent');
     }
     assertChildWorkspace(snapshot, parent);
-    restored.push({ snapshot: { ...snapshot, activity: (snapshot.activity ?? []).map((record) => ({
-      id: record.id, sessionID: record.sessionID, time: record.time, kind: record.kind,
-      status: record.status, summary: record.summary,
-      ...(record.toolEvidence ? { toolEvidence: record.toolEvidence } : {}),
-    })) }, path });
+    restored.push({ snapshot: { ...snapshot, activity: (snapshot.activity ?? []).map(childActivityProjection) }, path });
     if (restored.length > limit) {
       // Why: a crash can leave the file for a child evicted from the bounded display cache.
       restored.sort(snapshotOrder);
@@ -152,6 +148,13 @@ function sameWorkspaceIds(left, right) {
     && left.every((id) => right.includes(id));
 }
 
+function childActivityProjection(record) {
+  return { id: record.id, sessionID: record.sessionID, time: record.time, kind: record.kind,
+    status: record.status, summary: record.summary,
+    ...(record.turnOutcome ? { turnOutcome: record.turnOutcome } : {}),
+    ...(record.toolEvidence ? { toolEvidence: record.toolEvidence } : {}) };
+}
+
 /** Observational writes stay ordered so a late completion cannot undo child eviction or parent close. */
 export class NndChildSnapshotStore {
   #writes = Promise.resolve();
@@ -170,9 +173,7 @@ export class NndChildSnapshotStore {
       return;
     }
     const snapshot = type === 'completed' ? registry.completedSnapshot?.(child.id, parent.createdAt) : null;
-    if (snapshot) snapshot.activity = activity.map((record) => ({ id: record.id, sessionID: record.sessionID,
-      time: record.time, kind: record.kind, status: record.status, summary: record.summary,
-      ...(record.toolEvidence ? { toolEvidence: record.toolEvidence } : {}) }));
+    if (snapshot) snapshot.activity = activity.map(childActivityProjection);
     this.#schedule(parent, () => snapshot
       ? persistChildSnapshot(this.catalogPath, snapshot, this.writer)
       : removeChildSnapshot(this.catalogPath, child.id));

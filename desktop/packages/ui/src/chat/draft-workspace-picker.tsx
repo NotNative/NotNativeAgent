@@ -35,10 +35,10 @@ export function DraftWorkspacePicker({ directory, onSelect }: { directory: strin
       .catch(error => { if (live) setFailure(String(error)); });
     return () => { live = false; };
   }, [current, signature, ready, runtimeKey, Boolean(inventory), retry]);
-  return <div className="flex flex-wrap items-center gap-2 text-[12px] text-neutral-300" data-testid="draft-workspace-picker">
+  return <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground" data-testid="draft-workspace-picker">
     <span className="text-sky-400"><SidebarIcon name="folder" /></span>
     <select aria-label="New conversation workspace" value={roots.includes(current) ? current : ''} disabled={!roots.length}
-      className="max-w-72 cursor-pointer rounded-md border-0 bg-transparent py-1 pr-2 text-neutral-200 outline-none hover:bg-white/5 [&>option]:bg-neutral-900"
+      className="max-w-72 cursor-pointer rounded-md border-0 bg-transparent py-1 pr-2 text-foreground outline-none hover:bg-muted/50 [&>option]:bg-card"
       onChange={event => onSelect(event.target.value)}>
       {!roots.includes(current) ? <option value="">{ready ? 'Preparing workspace…' : 'Loading workspaces…'}</option> : null}
       {roots.map(root => <option key={root} value={root}>{workspaceDisplay(root, displays).label || shortDirectory(root)}</option>)}

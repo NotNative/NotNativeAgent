@@ -7,6 +7,7 @@ import type { Hono } from 'hono';
 import { ENV } from '../env.ts';
 import { withConfigLock } from '../scheduled/config-lock.ts';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
+import { registerUiPreferenceRoutes } from './ui-preferences.ts';
 
 type WorkspaceDisplay = { label: string; hidden: boolean };
 type Preference = { revision: number; value: string };
@@ -45,6 +46,7 @@ async function persist(path: string, document: Document): Promise<void> {
 
 /** Presentation metadata is independent of native workspace admission and session ownership. */
 export function registerWorkspacePresentationRoutes(app: Hono): void {
+  registerUiPreferenceRoutes(app);
   const file = () => join(ENV.dataDir, 'workspace-presentation.json');
   app.get('/api/workspace-presentation', async context => context.json({ ...await read(file()), default_directory: defaultDirectory() }));
   app.get('/api/workspace-preferences', async context => context.json((await read(file())).preferences ?? {}));

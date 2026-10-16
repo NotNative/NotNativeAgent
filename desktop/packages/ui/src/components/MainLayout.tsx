@@ -38,9 +38,8 @@ import type { Session } from '../lib/nnd/types.ts';
 import { useScheduledShellWiring } from './scheduled/scheduled-shell-wiring.tsx';
 import { useFilesViewTabsStore } from '../lib/files/tabs-store.ts';
 import { getRuntimeKey } from '../lib/runtime-switch.ts';
-import { runtimeFetch } from '../lib/runtime-fetch.ts';
 import { type SettingsPageSlug } from './settings/search.ts';
-import { bindSettingsBridge } from '../lib/settings/store.ts';
+import { useSettingsRuntime, PendingSettingsRuntime } from './settings/use-settings-runtime.tsx';
 import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
 import { WorkspaceIdentity } from './workspace-identity.tsx';
 import type { ComposerServices } from '../chat/composer.tsx';
@@ -65,17 +64,8 @@ export function MainLayout(): ReactNode {
   const miniChat = readMiniChatLaunch(typeof window === 'undefined' ? '' : window.location.search).enabled;
   const { t } = useI18n();
   const runtimeKey = useSyncExternalStore(subscribeRuntimeKey, getRuntimeKey);
-  const [nativeAlpha, setNativeAlpha] = useState(false);
-  useEffect(() => {
-    const controller = new AbortController();
-    setNativeAlpha(false);
-    void runtimeFetch('/health', { signal: controller.signal }).then(async response => {
-      if (!response.ok) return;
-      const health = await response.json() as { runtime?: unknown };
-      if (!controller.signal.aborted) setNativeAlpha(health.runtime === 'service');
-    }).catch(() => {});
-    return () => controller.abort();
-  }, [runtimeKey]);
+  const settingsRuntime = useSettingsRuntime(runtimeKey);
+  const { nativeAlpha } = settingsRuntime;
   useEffect(() => mountSessionRoute(() => toast.error('Could not open the linked session.')), [runtimeKey]);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
@@ -119,8 +109,7 @@ export function MainLayout(): ReactNode {
   }, [nativeAlpha]);
 
   useEffect(() => {
-    bindSettingsBridge();
-    bindAppearanceAppliers();
+    return bindAppearanceAppliers();
   }, []);
 
   useEffect(() => {
@@ -314,6 +303,9 @@ export function MainLayout(): ReactNode {
   };
   useKeybind('new_mini_chat', openMiniChat);
   useKeybind('open_command_palette', () => { if (!miniChat) openCommandPalette(); });
+  useKeybind('new_chat', () => { void actions.openDraft(view.activeDirectory); });
+  useKeybind('toggle_sidebar', () => setSidebarOpen(value => !value));
+  useKeybind('focus_input', () => { document.querySelector<HTMLTextAreaElement>('[data-testid="composer-editor"]')?.focus(); });
   const closeMiniChat = (): void => { void window.__NOTNATIVE_DESKTOP_INVOKE__?.('desktop_close_current_window'); };
   const togglePinned = async (): Promise<void> => {
     const invoke = window.__NOTNATIVE_DESKTOP_INVOKE__;
@@ -324,15 +316,15 @@ export function MainLayout(): ReactNode {
   };
 
   return (
-    <div className={`flex h-screen flex-col flex-1 bg-neutral-900 text-neutral-100${miniChat ? ' nnd-mini-chat' : ''}`} data-testid={miniChat ? 'mini-chat-layout' : undefined}>
+    <div className={`flex h-screen flex-col flex-1 bg-card text-foreground${miniChat ? ' nnd-mini-chat' : ''}`} data-testid={miniChat ? 'mini-chat-layout' : undefined}>
       {!miniChat && !terminalUnavailable ? <TerminalKeepaliveOwner /> : null}
       {!miniChat ? <ShellShortcuts /> : null}
       {miniChat ? (
-        <header className="flex h-10 shrink-0 items-center gap-2 border-b border-white/10 bg-neutral-950/80 px-3" data-testid="mini-chat-header" style={{ WebkitAppRegion: 'drag' } as CSSProperties & { WebkitAppRegion: string }}>
-          <span className="text-xs font-medium text-neutral-200">NotNative Mini Chat</span>
+        <header className="flex h-10 shrink-0 items-center gap-2 border-b border-border/50 bg-background/80 px-3" data-testid="mini-chat-header" style={{ WebkitAppRegion: 'drag' } as CSSProperties & { WebkitAppRegion: string }}>
+          <span className="text-xs font-medium text-foreground">NotNative Mini Chat</span>
           <span className="ml-auto" />
-          <button type="button" aria-label={t('shell.minichat.pinAria')} title={t('shell.minichat.pin')} className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string }} onClick={() => { void togglePinned(); }}>⌖</button>
-          <button type="button" aria-label={t('shell.minichat.closeAria')} title={t('shell.minichat.close')} className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string }} onClick={closeMiniChat}>×</button>
+          <button type="button" aria-label={t('shell.minichat.pinAria')} title={t('shell.minichat.pin')} className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string }} onClick={() => { void togglePinned(); }}>⌖</button>
+          <button type="button" aria-label={t('shell.minichat.closeAria')} title={t('shell.minichat.close')} className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string }} onClick={closeMiniChat}>×</button>
         </header>
       ) : null}
       <div className={`flex min-h-0 flex-1${miniChat ? ' overflow-hidden' : ''}`}>
@@ -340,20 +332,20 @@ export function MainLayout(): ReactNode {
           <ChatSidebar engine={engine} nativeAlpha={nativeAlpha} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} onOpenArchive={showArchive} onRunFusion={nativeAlpha ? undefined : openFusion} />
         </div> : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {!miniChat ? <header className="flex min-w-0 items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
+      {!miniChat ? <header className="flex min-w-0 items-center gap-2 border-b border-border/50 bg-background/70 px-3 py-1.5" data-testid="app-header">
         <button type="button" aria-label="Toggle session sidebar" title="Toggle session sidebar"
           aria-expanded={sidebarOpen} aria-controls="session-sidebar-panel" onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="rounded px-2 py-1 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100">☰</button>
-        <div className="text-[11px] uppercase tracking-widest text-amber-400/80">NotNative</div>
+          className="rounded px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">☰</button>
+        <div className="text-[11px] uppercase tracking-widest text-primary">NotNative</div>
         <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={runtimeKey} />
         <button type="button" data-testid="mini-chat-open" title={t('shell.minichat.openAria')} aria-label={t('shell.minichat.openAria')}
-          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100" onClick={openMiniChat}>▣</button>
+          className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground" onClick={openMiniChat}>▣</button>
         <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] ${connected ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/40 text-red-300'}`} data-testid="connection-pill">
           {connected ? t('shell.status.connected') : t('shell.status.reconnecting')}
         </span>
         <button
           type="button"
-          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
           data-testid="settings-gear"
           title={t('shell.nav.settingsShortcut')}
           aria-label={t('shell.nav.settings')}
@@ -376,7 +368,7 @@ export function MainLayout(): ReactNode {
           <PlanView directory={activeDirectory} visible />
         ) : reviewPane === 'terminal' ? (
           terminalUnavailable
-            ? <div role="status" className="p-4 text-sm text-neutral-400">Terminal is unavailable for native sessions.</div>
+            ? <div role="status" className="p-4 text-sm text-muted-foreground">Terminal is unavailable for native sessions.</div>
             : <TerminalView directory={activeDirectory} visible />
         ) : reviewPane === 'agent-groups' ? (
           <AgentManagerView
@@ -395,7 +387,8 @@ export function MainLayout(): ReactNode {
         </div>
       </div>
       {settingsPage !== null ? (
-        <SettingsWindow initialPage={settingsPage} onPageChange={openSettings} onClose={closeSettings} nativeAlpha={nativeAlpha} />
+        settingsRuntime.status === 'ready' ? <SettingsWindow initialPage={settingsPage} onPageChange={openSettings} onClose={closeSettings} nativeAlpha={nativeAlpha} />
+          : <PendingSettingsRuntime failed={settingsRuntime.status === 'error'} retry={settingsRuntime.retry} close={closeSettings} />
       ) : null}
       {worktreesOpen ? (
         <WorktreesView projectRoot={activeDirectory} onClose={() => setWorktreesOpen(false)} />

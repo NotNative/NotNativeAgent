@@ -40,7 +40,7 @@ export function WorkspaceIdentity({ directory, engine, runtimeKey }: {
 
   return <div className="flex min-w-0 max-w-56 items-center gap-1.5 border-l border-white/10 pl-3 text-[11px] text-neutral-500" data-testid="workspace-identity" title={directory}>
     <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" className="h-3.5 w-3.5 shrink-0"><path d="M1.5 4.5h4l1.3 1.4h7.7v7.5h-13z"/><path d="M1.5 5V3.4h4.2l1.1 1.1"/></svg>
-    <span className="truncate text-neutral-300">{label || workspaceName(directory, i18n?.t('workspaceUi.workspaceFallback') ?? 'Workspace')}</span>
-    {branch ? <span className="flex min-w-0 items-center gap-1 text-neutral-600"><span aria-hidden="true">⑂</span><span className="truncate">{branch}</span></span> : null}
+    <span className="truncate text-muted-foreground">{label || workspaceName(directory, i18n?.t('workspaceUi.workspaceFallback') ?? 'Workspace')}</span>
+    {branch ? <span className="flex min-w-0 items-center gap-1 text-muted-foreground"><span aria-hidden="true">⑂</span><span className="truncate">{branch}</span></span> : null}
   </div>;
 }
