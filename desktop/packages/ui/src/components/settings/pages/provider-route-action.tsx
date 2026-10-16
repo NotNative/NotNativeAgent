@@ -11,14 +11,14 @@ function routeMatches(value: unknown, providerId: string, target: string): boole
     && route.modelID === target;
 }
 
-export function ProviderRouteAction({ profileId, defaultModel, configuredModel, onApplied }: {
-  profileId: string; defaultModel: string; configuredModel: string | null; onApplied: () => void;
+export function ProviderRouteAction({ profileId, defaultModel, configuredModel, proposedModel, onApplied }: {
+  profileId: string; defaultModel: string; configuredModel: string | null; proposedModel?: string; onApplied: () => void;
 }): ReactNode {
   const { t } = useI18n();
-  const [model, setModel] = useState(configuredModel ?? defaultModel);
+  const [model, setModel] = useState(proposedModel ?? configuredModel ?? defaultModel);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { setModel(configuredModel ?? defaultModel); setError(null); }, [configuredModel, defaultModel]);
+  useEffect(() => { setModel(proposedModel ?? configuredModel ?? defaultModel); setError(null); }, [configuredModel, defaultModel, proposedModel]);
   const target = model.trim();
   const apply = async (): Promise<void> => {
     if (!target || target === configuredModel) return;

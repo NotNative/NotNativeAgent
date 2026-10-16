@@ -4,16 +4,19 @@ import { useState, type ReactNode } from 'react';
 import { harnessClient } from '../../../lib/nnd/client.ts';
 import { useI18n } from '../../I18nProvider.tsx';
 import { useGlobalSyncStore } from '../../../sync/global-stores.ts';
+import { catalogOwner } from '../../../chat/configured-model-catalog.ts';
 
 export function ProviderRouteActivation({ onApplied }: { onApplied: () => void }): ReactNode {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const apply = async (): Promise<void> => {
+    const owner = catalogOwner();
     setBusy(true);
     setError(null);
     try {
       const result = await harnessClient.activatePrimaryProviderRoute();
+      if (owner !== catalogOwner()) return;
       const route = result.data?.runtime_route as Record<string, unknown> | undefined;
       if (result.error || typeof route?.providerID !== 'string' || !route.providerID.trim()
         || typeof route.modelID !== 'string' || !route.modelID.trim()

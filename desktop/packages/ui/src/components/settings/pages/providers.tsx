@@ -11,8 +11,13 @@ import { ProviderRouteAction } from './provider-route-action.tsx';
 import { ProviderRouteActivation } from './provider-route-activation.tsx';
 import { ProviderProfileEditor } from './provider-profile-editor.tsx';
 import type { I18nKey } from '../../../lib/i18n/messages/en.ts';
+import { ProviderModels } from './provider-models.tsx';
+import { NativeRoutesPage } from './native-routes.tsx';
+import { getApiBaseUrlActive, getRuntimeKey, onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
+import { catalogOwner } from '../../../chat/configured-model-catalog.ts';
 
 interface ProviderProfile {
+  profile_revision?: string;
   profile_id: string;
   display_name?: string;
   endpoint: string;
@@ -82,7 +87,8 @@ function credentialIsSafe(value: unknown): boolean {
 function providerProfile(value: unknown): value is ProviderProfile {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
-  if (!boundedText(item.profile_id, MAX_TEXT_LENGTH) || item.active !== true) return false;
+  if (!boundedText(item.profile_id, MAX_TEXT_LENGTH) || typeof item.active !== 'boolean') return false;
+  if (item.profile_revision !== undefined && (typeof item.profile_revision !== 'string' || !/^[a-f0-9]{64}$/u.test(item.profile_revision))) return false;
   if (item.display_name !== undefined && (typeof item.display_name !== 'string'
     || item.display_name.length > MAX_TEXT_LENGTH)) return false;
   if (!credentialIsSafe(item.credential)) return false;
@@ -127,13 +133,18 @@ export function ProvidersPage({ onOpenConfiguration }: { onOpenConfiguration?: (
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [loading, setLoading] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [tab, setTab] = useState<'connections' | 'models' | 'routing'>('connections');
+  const [setupOpen, setSetupOpen] = useState(false);
+  useEffect(() => onRuntimeEndpointChanged(() => { setProfiles(null); setRevision(value => value + 1); }), []);
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
 
   useEffect(() => {
     let current = true;
+    const runtime = getRuntimeKey(), origin = getApiBaseUrlActive();
+    const isCurrent = () => current && runtime === getRuntimeKey() && origin === getApiBaseUrlActive();
     setLoading(true);
     void harnessClient.listProviderProfiles().then((result) => {
-      if (!current) return;
+      if (!isCurrent()) return;
       const list = providerProfiles(result.data?.profiles);
       if (result.error || list === null) {
         setProfiles(null);
@@ -151,26 +162,31 @@ export function ProvidersPage({ onOpenConfiguration }: { onOpenConfiguration?: (
         setFeedback(null);
       }
     }).catch(() => {
-      if (current) { setProfiles(null); setConfiguredRoute(null); setRoute(null); setRoutingPending(null);
+      if (isCurrent()) { setProfiles(null); setConfiguredRoute(null); setRoute(null); setRoutingPending(null);
         setFeedback({ kind: 'key', key: 'settings.providers.inventory.unavailable' }); }
-    }).finally(() => { if (current) setLoading(false); });
+    }).finally(() => { if (isCurrent()) setLoading(false); });
     return () => { current = false; };
   }, [revision]);
 
   return (
     <SettingsSection item="providers.inventory">
-      <NativeSetupPanel onOpenConfiguration={onOpenConfiguration} onActivated={refreshAfterNativeActivation} guided />
+      <div role="tablist" aria-label="Provider management" className="mb-3 flex gap-2 border-b border-border/40 pb-2">
+        {(['connections', 'models', 'routing'] as const).map(item => <button key={item} type="button" role="tab" aria-selected={tab === item}
+          className={`rounded px-3 py-2 text-sm capitalize ${tab === item ? 'bg-primary/15 text-primary' : 'hover:bg-muted'}`} onClick={() => setTab(item)}>{item}</button>)}
+      </div>
+      {tab === 'routing' ? <NativeRoutesPage /> : <>
       <div className="flex items-center justify-between gap-3">
         <SettingsGroupTitle>{t('settings.providers.inventory.title')}</SettingsGroupTitle>
         <button type="button" data-testid="providers-refresh" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground disabled:opacity-50" onClick={refresh} disabled={loading}>{t('settings.providers.inventory.refresh')}</button>
       </div>
       <p className="text-xs text-muted-foreground">{t('settings.providers.inventory.description')}</p>
-      <ProviderProfileEditor onSaved={refresh} />
+      {tab === 'connections' ? <ProviderProfileEditor key={catalogOwner()} onSaved={refresh} /> : null}
       {loading ? <p role="status" className="text-xs text-muted-foreground">{t('settings.providers.inventory.loading')}</p> : null}
       {!loading && feedback ? <p role="alert" className="text-xs text-destructive">{feedback.kind === 'raw' ? feedback.message : t(feedback.key)}</p> : null}
       {!loading && profiles?.length === 0 ? <p className="text-xs text-muted-foreground">{t('settings.providers.inventory.empty')}</p> : null}
       {!loading && profiles ? <RuntimeRouteStatus configured={configuredRoute} route={route} pending={routingPending} onApplied={refresh} /> : null}
-      {!loading && profiles?.map((profile) => (
+      {!loading && profiles && tab === 'models' ? <ProviderModels profiles={profiles} configured={configuredRoute} onSaved={refresh} /> : null}
+      {!loading && tab === 'connections' && profiles?.map((profile) => (
         <div key={`${profile.profile_id}:${revision}`} className="rounded-md border border-border/40 p-3 text-xs" data-testid="provider-profile">
           <div className="flex items-center gap-2 font-medium text-foreground">
             <span>{profile.display_name || profile.profile_id}</span>
@@ -191,6 +207,10 @@ export function ProvidersPage({ onOpenConfiguration }: { onOpenConfiguration?: (
           <ProviderDiagnostics profileId={profile.profile_id} />
         </div>
       ))}
+      </>}
+      <details open={setupOpen} onToggle={event => setSetupOpen(event.currentTarget.open)} className="mt-4 rounded border border-border/40 p-2"><summary className="cursor-pointer text-xs">Service readiness and activation</summary>
+        {setupOpen ? <NativeSetupPanel onOpenConfiguration={onOpenConfiguration} onActivated={refreshAfterNativeActivation} guided /> : null}
+      </details>
     </SettingsSection>
   );
 }

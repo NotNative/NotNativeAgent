@@ -7,6 +7,7 @@ import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
 import { useI18n } from '../../I18nProvider.tsx';
 import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 import { NativeConfigurationControls } from './native-configuration-controls.tsx';
+import { SubagentRouteEditor } from './subagent-route-editor.tsx';
 
 function useNativeRouteView(auth: string) {
   const [view, setView] = useState<NativeConfigurationView | null>(null);
@@ -72,6 +73,7 @@ function RoleBinding({ view, role }: { view: NativeConfigurationView; role: Rout
     <p className="text-muted-foreground">{ROUTE_BINDING_ROLES.includes(role)
       ? t('settings.nativeRoutes.bindingReadOnly')
       : t('settings.nativeRoutes.bindingProviderRoute')}</p>
+    <details className="mt-2"><summary className="cursor-pointer text-muted-foreground">Effective settings and sources</summary>
     <dl aria-label={t('settings.nativeRoutes.members')} className="mt-1 grid grid-cols-[auto_1fr] gap-x-3">
       {ROUTE_MEMBERS.map(key => {
         const field = view.fields.find(item => item.path === `routes.${role}.${key}`);
@@ -83,12 +85,13 @@ function RoleBinding({ view, role }: { view: NativeConfigurationView; role: Rout
               {field?.effective.source ?? t('settings.nativeConfiguration.originUnknown')}</span></dd>
         </Fragment>;
       })}
-    </dl>
+    </dl></details>
   </div>;
 }
 
 export function NativeRoutesPage(): ReactNode {
   const { t } = useI18n(), auth = useAuthSessionStore(state => state.status);
+  const [subagentOpen, setSubagentOpen] = useState(false);
   const { view, loading, error, load } = useNativeRouteView(auth);
   return <SettingsSection item="native-routes.tuning">
     <div className="flex items-center justify-between gap-3">
@@ -104,6 +107,10 @@ export function NativeRoutesPage(): ReactNode {
       <p className="text-xs text-muted-foreground">{t('settings.nativeConfiguration.installation')}: {view.installation_id};
         {' '}{t('settings.nativeConfiguration.data')}: {view.data_id}</p>
       {ROUTE_ROLES.map(role => <RoleBinding key={role} view={view} role={role} />)}
+      <details open={subagentOpen} onToggle={event => setSubagentOpen(event.currentTarget.open)}>
+        <summary className="cursor-pointer text-sm">Subagent model binding</summary>
+        {subagentOpen ? <SubagentRouteEditor onApplied={() => { void load(); }} /> : null}
+      </details>
       <p role="status" className="text-xs text-amber-500">{t('settings.nativeConfiguration.notApplied')}</p>
       <NativeConfigurationControls key={`${view.installation_id}:${view.data_id}:${view.source_revision}:${view.resolution_revision}`}
         view={view} onReload={() => { void load(); }} family="routes" />

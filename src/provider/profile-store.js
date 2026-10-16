@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
@@ -12,7 +12,7 @@ const CREATE_FIELDS = new Set([
   'profile_id', 'display_name', 'endpoint', 'model', 'credential', 'credential_env',
   'context_limit_bytes', 'output_limit_tokens', 'tool_call_mode',
 ]);
-const UPDATE_FIELDS = new Set([...CREATE_FIELDS].filter((field) => field !== 'profile_id'));
+const UPDATE_FIELDS = new Set([...CREATE_FIELDS].filter((field) => field !== 'profile_id').concat('expected_revision'));
 
 export class ProviderProfileStore {
   #tail = Promise.resolve();
@@ -56,7 +56,13 @@ export class ProviderProfileStore {
   }
 
   update(id, input) {
-    return this.#mutate((config) => withUpdatedProvider(config, id, normalizeInput(input, false)), { profileId: id });
+    const normalized = normalizeInput(input, false);
+    return this.#mutate((config) => {
+      if (input.expected_revision !== undefined && publicProfile(requireProfile(config, id)).profile_revision !== input.expected_revision) {
+        throw new ContractError('provider_revision_conflict', 'Provider changed in another window. Your edits remain here. Close this editor and refresh before editing again.');
+      }
+      return withUpdatedProvider(config, id, normalized);
+    }, { profileId: id });
   }
 
   remove(id) {
@@ -139,7 +145,7 @@ export class ProviderProfileStore {
 }
 
 export function publicProfile(profile, active = false) {
-  return Object.freeze({
+  const row = {
     profile_id: profile.id, display_name: profile.displayName, endpoint: profile.endpoint,
     model: profile.model,
     credential: profile.credential?.source === 'secret' ? credentialManifest(profile.credential) : null,
@@ -147,8 +153,8 @@ export function publicProfile(profile, active = false) {
     context_limit_bytes: profile.contextLimitBytes ?? null,
     output_limit_tokens: profile.outputLimitTokens ?? null,
     tool_call_mode: profile.toolCallMode,
-    active,
-  });
+  };
+  return Object.freeze({ ...row, active, profile_revision: createHash('sha256').update(JSON.stringify(row)).digest('hex') });
 }
 
 function normalizeInput(input, creating) {
@@ -175,6 +181,9 @@ function normalizeInput(input, creating) {
 }
 
 function validateInputValues(input, creating) {
+  if (input.expected_revision !== undefined && (typeof input.expected_revision !== 'string' || !/^[a-f0-9]{64}$/u.test(input.expected_revision))) {
+    throw new ContractError('provider_request_invalid', 'expected_revision must be a profile revision');
+  }
   const requiredStrings = creating ? ['profile_id', 'endpoint', 'model'] : [];
   if (requiredStrings.some((key) => typeof input[key] !== 'string' || !input[key].trim())) {
     throw new ContractError('provider_request_invalid', 'profile_id, endpoint, and model must be non-empty strings');

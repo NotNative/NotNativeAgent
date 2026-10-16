@@ -192,39 +192,43 @@ const sid = (id: string) => encodeURIComponent(id);
 // create); the shared shape keeps both call sites honest about the optional
 // reference-only credential binding and the bounded scalar limits.
 export type ProviderProfileMutation = {
+  expected_revision?: string;
   profile_id?: string; display_name?: string; endpoint?: string; model?: string; credential_env?: string;
   credential?: { source: 'secret'; secret_id: string; field: string } | null;
   context_limit_bytes?: number; output_limit_tokens?: number; tool_call_mode?: 'single' | 'batch';
 };
+function providerRequest<T>(operation: string, path: string, init?: RequestInit): Promise<HarnessResult<T>> {
+  return request(operation, path, { ...init, signal: AbortSignal.timeout(20000) });
+}
 export const harnessClient = {
   async listProviderProfiles(): Promise<HarnessResult<{ profiles: unknown[]; configured_primary_route?: unknown; runtime_route?: unknown; provider_routing_pending?: boolean | null }>> {
-    return request('listProviderProfiles', '/v1/provider-profiles');
+    return providerRequest('listProviderProfiles', '/v1/provider-profiles');
   },
   async createProviderProfile(input: ProviderProfileMutation): Promise<HarnessResult<{ profile: unknown }>> {
-    return request('createProviderProfile', '/v1/provider-profiles', post(input));
+    return providerRequest('createProviderProfile', '/v1/provider-profiles', post(input));
   },
   async updateProviderProfile(id: string, input: ProviderProfileMutation): Promise<HarnessResult<{ profile: unknown }>> {
-    return request('updateProviderProfile', `/v1/provider-profiles/${sid(id)}`, PATCH(input));
+    return providerRequest('updateProviderProfile', `/v1/provider-profiles/${sid(id)}`, PATCH(input));
   },
   async setPrimaryProviderRoute(providerId: string, model: string): Promise<HarnessResult<{ configured_primary_route: unknown; runtime_route: unknown }>> {
-    return request('setPrimaryProviderRoute', '/v1/provider-route', PATCH({ provider_id: providerId, model }));
+    return providerRequest('setPrimaryProviderRoute', '/v1/provider-route', PATCH({ provider_id: providerId, model }));
   },
   async getSubagentProviderRoute(): Promise<HarnessResult<{ configured_route: unknown; runtime_route: unknown }>> {
-    return request('getSubagentProviderRoute', '/v1/provider-route/subagent');
+    return providerRequest('getSubagentProviderRoute', '/v1/provider-route/subagent');
   },
   async setSubagentProviderRoute(providerId: string, model: string): Promise<HarnessResult<{ configured_route: unknown; runtime_route: unknown }>> {
-    return request('setSubagentProviderRoute', '/v1/provider-route/subagent', PATCH({ provider_id: providerId, model }));
+    return providerRequest('setSubagentProviderRoute', '/v1/provider-route/subagent', PATCH({ provider_id: providerId, model }));
   },
   async activatePrimaryProviderRoute(): Promise<HarnessResult<{ runtime_route: unknown; existing_sessions_unchanged: boolean }>> {
-    return request('activatePrimaryProviderRoute', '/v1/provider-route/activate', post({}));
+    return providerRequest('activatePrimaryProviderRoute', '/v1/provider-route/activate', post({}));
   },
   async discoverProviderModels(profileId: string): Promise<HarnessResult<{ profile_id: string; models: unknown[] }>> {
-    return request('discoverProviderModels', `/v1/provider-profiles/${sid(profileId)}/discover`, post({}));
+    return providerRequest('discoverProviderModels', `/v1/provider-profiles/${sid(profileId)}/discover`, post({}));
   },
   async testProviderProfile(profileId: string): Promise<HarnessResult<{
     profile_id: string; status: string; selected_model: string; discovered_models: number;
   }>> {
-    return request('testProviderProfile', `/v1/provider-profiles/${sid(profileId)}/test`, post({}));
+    return providerRequest('testProviderProfile', `/v1/provider-profiles/${sid(profileId)}/test`, post({}));
   },
   async getNnaMcpInventory(): Promise<HarnessResult<{ version: number; state: string; servers: unknown[] }>> {
     return request('getNnaMcpInventory', '/v1/nnd/mcp');

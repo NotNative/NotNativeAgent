@@ -23,6 +23,34 @@ OS notifications, sounds, font downloads, persistent browser selection and unsup
 preferences are not exposed by this foundation. They need their own complete adapter and acceptance
 slice. The broader [settings plan](DESKTOP_SETTINGS_PLAN.md) remains the roadmap.
 
+## Providers and models
+
+These controls ship in version `20261015-13`.
+
+Provider management has Connections, Models and Routing views. Connections use the native
+OpenAI-compatible provider adapter. Add and Edit open a focused dialog; credentials are environment
+references or existing Secret Broker bindings. The broker's public labels and field names identify
+the selection. Secret values are never fetched or displayed. A save must confirm the requested
+fields and binding. Existing profiles carry a revision; an outdated editor receives a conflict
+and retains its input. Close the editor and refresh to load the newer profile.
+
+The `active` profile flag identifies the saved primary provider; other profiles remain available.
+Discovery and connection tests run on explicit clicks in Settings. A successful catalog test confirms
+model presence, not inference. Discovered catalogs are shared with the composer and scoped to the
+current service connection. Failed discovery retains profile defaults and remembered favorites.
+
+Models supports search, favorites and picker visibility. Preferences use provider/model pairs, so
+identically named models on separate providers remain distinct. Favorites sort first within each
+provider. Hidden models remain available to existing conversations, and the current selected model
+stays visible. Favorites and hidden choices persist in the installation's interface preferences;
+they do not enable providers or redirect execution. The complete settings document stays below
+32 KiB; an oversized update is rejected before replacement.
+
+Choosing a model in Models only prefills the primary-route form. Save primary route publishes the
+selection, and Apply saved provider routing explicitly makes it available to new sessions. Existing
+sessions keep their route. Routing exposes the native role bindings and supported tuning controls
+with preview, revision checks and publication receipts. Unsupported adapter options are not exposed.
+
 ## Persistence and recovery
 
 `GET/PUT /api/ui-preferences` uses the application's authenticated API boundary. The server accepts
@@ -67,3 +95,20 @@ document effect, restores the original scale, reloads the renderer, checks resto
 screenshot and confirms that closing the shell leaves the same service generation running. Run it
 while other windows are not editing preferences; a concurrent revision refuses restoration instead
 of overwriting another window's changes. Its evidence directory is a local test artifact.
+
+Provider acceptance against the same registered installation uses:
+
+```powershell
+node desktop/scripts/electron-installed-providers-smoke.mjs ABSOLUTE_REGISTERED_DESKTOP_ROOT ABSOLUTE_EVIDENCE_DIRECTORY
+```
+
+This checks the real installed editor, temporarily saves and restores a provider display name,
+performs diagnostics, saves and restores a favorite, filters models, and opens native routing.
+It verifies server acknowledgements, records an Electron screenshot, and checks that closing the
+shell leaves the same background service running. Run it without concurrent provider/preference edits.
+
+The version `20261015-13` acceptance also used the main installer in the registered application and
+desktop locations. Browser checks covered creation, correction of invalid limits, an actual stale
+editor conflict, failed discovery with a saved model, persisted picker preferences, primary-route
+save/activation/restoration, and native tuning publication/restoration. Temporary providers were
+removed. Gateway stayed stopped and disabled. The full core, UI and web suites passed.

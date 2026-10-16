@@ -25,6 +25,16 @@ it('serializes simultaneous revisions and rejects the stale writer without losin
   const winner = await results.find(row => row.status === 200)!.json();
   expect(await (await app.request('/api/ui-preferences')).json()).toEqual(winner);
 });
+it('persists provider/model identities and refuses accumulated storage overflow without corrupting saved choices', async () => {
+  const favoriteModels = Array.from({ length: 64 }, (_, index) => `provider${index}/${'m'.repeat(256)}`);
+  expect((await save({ favoriteModels })).status).toBe(200);
+  const before = await readFile(join(scratch, 'ui-preferences.json'), 'utf8');
+  const hiddenModels = Array.from({ length: 64 }, (_, index) => `secondary${index}/${'h'.repeat(256)}`);
+  expect((await save({ hiddenModels }, 1)).status).toBe(400);
+  expect(await readFile(join(scratch, 'ui-preferences.json'), 'utf8')).toBe(before);
+  const reopened = new Hono(); registerUiPreferenceRoutes(reopened);
+  expect(await (await reopened.request('/api/ui-preferences')).json()).toMatchObject({ revision: 1, settings: { favoriteModels, hiddenModels: [] } });
+});
 it.each([{ opencodeBinary: 'untrusted.exe' }, { fontSize: 1000 }, { enterToSend: 'yes' }, { lightThemeId: 'notnative-dark' }, { shortcutOverrides: { toggle_terminal: 'mod+x' } }, { shortcutOverrides: { new_chat: 'mod+x y z' } }, { desktopUiPassword: 'secret' }])('rejects invalid or non-presentation input atomically: %j', async patch => {
   expect((await save({ fontSize: 125, ...patch })).status).toBe(400);
   expect(await (await app.request('/api/ui-preferences')).json()).toMatchObject({ revision: 0 });

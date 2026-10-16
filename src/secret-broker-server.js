@@ -145,7 +145,7 @@ function failureStatus(code) {
   if (['nnd_install_descriptor_unavailable', 'nnd_install_descriptor_invalid', 'nnd_install_runtime_unavailable', 'nnd_skills_catalog_unavailable'].includes(code)) return 503;
   if (code === 'nnd_setup_activation_timeout' || code === 'nnd_setup_shutdown_timeout') return 504;
   if (code === 'nnd_setup_required' || code === 'nnd_setup_stopped' || code === 'nnd_setup_cleanup_failed') return 503;
-  if (code === 'nnd_setup_busy' || code === 'secret_in_use' || code === 'nnd_session_exists') return 409;
+  if (code === 'nnd_setup_busy' || code === 'secret_in_use' || code === 'nnd_session_exists' || code === 'provider_revision_conflict') return 409;
   // The manifest may already have been published. The caller must inspect its
   // original operation ID before deciding whether any retry is safe.
   if (['manifest_publication_unknown', 'manifest_publication_failed', 'manifest_cleanup_failed'].includes(code)) return 503;

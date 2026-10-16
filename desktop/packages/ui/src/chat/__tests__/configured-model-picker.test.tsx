@@ -5,16 +5,20 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { harnessClient } from '../../lib/nnd/client.ts';
 import { ConfiguredModelPicker } from '../configured-model-picker.tsx';
+import { catalogOwner, useModelCatalog } from '../configured-model-catalog.ts';
+import { useSettingsStore } from '../../lib/settings/store.ts';
 vi.mock('../../lib/nnd/client.ts', () => ({ harnessClient: { listProviderProfiles: vi.fn(), discoverProviderModels: vi.fn() } }));
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root: Root;
 beforeEach(() => {
   vi.resetAllMocks(); document.body.innerHTML = '<div id="root"></div>';
+  useModelCatalog.setState({ owner: catalogOwner(), models: {} });
+  useSettingsStore.setState({ doc: {}, loading: false });
   root = createRoot(document.querySelector('#root')!);
   vi.mocked(harnessClient.listProviderProfiles).mockResolvedValue({ data: { profiles: [
     { profile_id: 'one', display_name: 'First', model: 'saved' }, { profile_id: 'two', display_name: 'Second', model: 'saved' },
   ] } } as never);
-  vi.mocked(harnessClient.discoverProviderModels).mockImplementation(async id => id === 'one' ? { data: { models: ['discovered'] } } as never : { error: 'offline' } as never);
+  vi.mocked(harnessClient.discoverProviderModels).mockImplementation(async id => id === 'one' ? { data: { profile_id: id, models: ['discovered'] } } as never : { error: 'offline' } as never);
 });
 afterEach(() => { act(() => root.unmount()); });
 async function mount(disabled = false) {
@@ -52,4 +56,21 @@ it('shows a retry on profile failure and disables selection during a pending sta
   expect(document.body.textContent).toContain('No configured providers');
   await mount(true);
   expect(document.querySelector<HTMLButtonElement>('[aria-label="Choose model"]')!.disabled).toBe(true);
+});
+it('keeps favorite identity provider-qualified, preserves offline favorites, and retains the selected hidden model', async () => {
+  useSettingsStore.setState({ doc: { favoriteModels: ['two/remembered'], hiddenModels: ['one/discovered', 'one/saved'] } });
+  const pick = await mount(); await open();
+  expect(document.querySelector('[aria-label="Use discovered from First"]')).toBeNull();
+  expect(document.querySelector('[aria-label="Use saved from First"]')).not.toBeNull();
+  const offline = document.querySelector<HTMLButtonElement>('[aria-label="Use remembered from Second"]')!;
+  expect(offline.textContent).toContain('★');
+  act(() => offline.click());
+  expect(pick).toHaveBeenCalledWith({ providerID: 'two', modelID: 'remembered' });
+});
+it('does not accept another provider catalog as this provider and offers recovery', async () => {
+  vi.mocked(harnessClient.discoverProviderModels).mockResolvedValue({ data: { profile_id: 'other', models: ['foreign-model'] } } as never);
+  await mount(); await open();
+  expect(document.body.textContent).not.toContain('foreign-model');
+  expect(document.body.textContent).toContain('Saved models are still available');
+  expect(document.querySelector('[aria-label="Use saved from First"]')).not.toBeNull();
 });

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Explicit provider probes; NNA keeps credentials and performs all network I/O. */
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { harnessClient } from '../../../lib/nnd/client.ts';
 import { useI18n } from '../../I18nProvider.tsx';
 import type { I18nKey } from '../../../lib/i18n/messages/en.ts';
+import { catalogModels, catalogOwner, rememberCatalog } from '../../../chat/configured-model-catalog.ts';
 
 type Diagnostic =
   | { kind: 'test'; status: 'ready' | 'model_unavailable'; selectedModel: string; discovered: number }
@@ -18,19 +19,23 @@ function validModels(value: unknown): value is string[] {
     && model.length > 0 && model.length <= 256 && model.trim().length > 0);
 }
 
-export function ProviderDiagnostics({ profileId }: { profileId: string }): ReactNode {
+export function ProviderDiagnostics({ profileId, showCatalog = true }: { profileId: string; showCatalog?: boolean }): ReactNode {
   const { t } = useI18n();
   const [busy, setBusy] = useState<'test' | 'discover' | null>(null);
   const [diagnostic, setDiagnostic] = useState<Diagnostic | null>(null);
   const [feedback, setFeedback] = useState<Feedback>(null);
+  const live = useRef(true);
+  useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
 
   async function run(kind: 'test' | 'discover'): Promise<void> {
+    const owner = catalogOwner();
     setBusy(kind);
     setFeedback(null);
     setDiagnostic(null);
     try {
       if (kind === 'test') {
         const result = await harnessClient.testProviderProfile(profileId);
+        if (!live.current || owner !== catalogOwner()) return;
         const value = result.data;
         if (result.error || value?.profile_id !== profileId || !['ready', 'model_unavailable'].includes(value.status)
           || typeof value.selected_model !== 'string' || !Number.isSafeInteger(value.discovered_models)
@@ -46,13 +51,16 @@ export function ProviderDiagnostics({ profileId }: { profileId: string }): React
         }
       } else {
         const result = await harnessClient.discoverProviderModels(profileId);
+        if (!live.current || owner !== catalogOwner()) return;
         const value = result.data;
         if (result.error || value?.profile_id !== profileId || !validModels(value.models)) {
           setFeedback(result.error
             ? { kind: 'raw', message: result.error }
             : { kind: 'key', key: 'settings.providers.diagnostics.invalidCatalog' });
         } else {
-          setDiagnostic({ kind, models: value.models });
+          const models = catalogModels(value, profileId);
+          rememberCatalog(profileId, models, owner);
+          setDiagnostic({ kind, models });
         }
       }
     } catch {
@@ -75,10 +83,10 @@ export function ProviderDiagnostics({ profileId }: { profileId: string }): React
       </p> : null}
       {diagnostic?.kind === 'discover' ? (
         <div className="mt-2 text-muted-foreground" data-testid="provider-models">
-          <p>{t('settings.providers.diagnostics.found', { count: diagnostic.models.length })}</p>
-          <ul className="mt-1 max-h-40 overflow-y-auto pl-4">
+          <p>{showCatalog ? t('settings.providers.diagnostics.found', { count: diagnostic.models.length }) : `${diagnostic.models.length} models discovered.`}</p>
+          {showCatalog ? <ul className="mt-1 max-h-40 overflow-y-auto pl-4">
             {diagnostic.models.slice(0, 50).map((model, index) => <li key={`${index}:${model}`} className="list-disc break-all">{model}</li>)}
-          </ul>
+          </ul> : null}
         </div>
       ) : null}
     </div>

@@ -67,3 +67,21 @@ test('independent profile stores retain both edits without materializing unrelat
   assert.equal(saved.tui, undefined);
   assert.equal(saved.providers.find(provider => provider.id === 'original').tool_call_mode, undefined);
 });
+
+test('competing provider editors reject a stale snapshot and preserve the winner and unrelated providers', async t => {
+  const paths = await fixture(t), path = join(paths.config, 'manifest.json');
+  await fs.writeFile(path, JSON.stringify({ provider: { id: 'original', endpoint: 'http://127.0.0.1:1234/v1', model: 'base', trust_zone: 'loopback' } }));
+  const first = new ProviderProfileStore({ path }), second = new ProviderProfileStore({ path });
+  const snapshot = await first.get('original');
+  await second.create({ profile_id: 'other', endpoint: 'http://127.0.0.1:5678/v1', model: 'base' });
+  await first.update('original', { display_name: 'winner', expected_revision: snapshot.profile_revision });
+  const before = await fs.readFile(path, 'utf8');
+  await assert.rejects(second.update('original', { model: 'stale-model', expected_revision: snapshot.profile_revision }), { code: 'provider_revision_conflict' });
+  assert.equal(await fs.readFile(path, 'utf8'), before);
+  const current = await second.get('original');
+  assert.equal(current.display_name, 'winner');
+  assert.notEqual(current.profile_revision, snapshot.profile_revision);
+  await second.update('original', { model: 'fresh-model', expected_revision: current.profile_revision });
+  assert.equal((await first.get('original')).model, 'fresh-model');
+  assert.equal((await first.get('other')).model, 'base');
+});

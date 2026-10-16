@@ -128,8 +128,8 @@ async function saveTuiBinding() {
 }
 async function saveReviewerTemperature() {
   const nav = await waitFor('[data-testid="settings-window"] nav');
-  button(nav, 'NNA reviewer and vision routes').click();
-  const section = await waitFor('section[aria-label="NNA reviewer and vision routes"]', node =>
+  button(nav, 'Routes and model tuning').click();
+  const section = await waitFor('section[aria-label="Routes and model tuning"]', node =>
     [...node.querySelectorAll('option')].some(item => item.value === 'routes.reviewer.temperature'));
   const options = [...section.querySelectorAll('option')].map(item => item.value);
   if (options.includes('routes.reviewer.provider_id') || options.includes('routes.vision.model')) {
@@ -137,13 +137,13 @@ async function saveReviewerTemperature() {
   }
   const before = await readConfiguration();
   setValue(section.querySelector('select'), 'routes.reviewer.temperature');
-  const editor = await waitFor('section[aria-label="NNA reviewer and vision routes"] textarea');
+  const editor = await waitFor('section[aria-label="Routes and model tuning"] textarea');
   setValue(editor, '0.35');
   button(section, 'Preview change').click();
-  await waitFor('section[aria-label="NNA reviewer and vision routes"]', node =>
+  await waitFor('section[aria-label="Routes and model tuning"]', node =>
     [...node.querySelectorAll('button')].some(item => item.textContent?.trim() === 'Save to NNA' && !item.disabled));
   button(section, 'Save to NNA').click();
-  await waitFor('section[aria-label="NNA reviewer and vision routes"]', node =>
+  await waitFor('section[aria-label="Routes and model tuning"]', node =>
     node.textContent.includes('NNA operation receipt') && node.textContent.includes('saved')
       && node.textContent.includes('not applied'));
   const id = /[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}/.exec(section.textContent)?.[0];

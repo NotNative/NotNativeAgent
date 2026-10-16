@@ -23,6 +23,7 @@ export const NATIVE_PREFERENCE_DEFAULTS: Record<string, unknown> = {
   enterToSend: true, enterToSendConfigured: false, inputSpellcheckEnabled: true,
   wideChatLayoutEnabled: false, userMessageRenderingMode: 'markdown',
   celebrationPreference: 'off', shortcutOverrides: {},
+  favoriteModels: [], hiddenModels: [],
 };
 export const NATIVE_SHORTCUT_IDS = ['open_settings', 'cycle_theme', 'focus_input', 'new_chat', 'toggle_sidebar'] as const;
 
@@ -45,6 +46,9 @@ export function parseNativePreferencePatch(value: unknown): Record<string, unkno
         try { if (binding !== UNASSIGNED_SHORTCUT && parseCombo(binding).chords.some(chord => chord.prefix)) return null; }
         catch { return null; }
       }
+    }
+    if (key === 'favoriteModels' || key === 'hiddenModels') {
+      if ((parsed as string[]).some(ref => ref.length > 321 || !/^[A-Za-z0-9_-]{1,64}\/.{1,256}$/u.test(ref))) return null;
     }
     result[key] = parsed;
   }

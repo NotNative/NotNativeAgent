@@ -112,16 +112,12 @@ export const enNativeConfiguration = {
   'settings.nativeSearxngDeployment.title': 'NNA managed SearXNG deployment',
   'settings.nativeInvocationVocabulary.title': 'NNA invocation vocabulary',
   'settings.page.nativeTui.title': 'NNA terminal preferences',
-  // Title stays 'NNA reviewer and vision routes': desktop/scripts/
-  // electron-native-configuration-browser.mjs clicks this nav label and pins
-  // its section aria-label, and that script sits outside the settings lane —
-  // changing it belongs with a change to that script in one slice.
-  'settings.page.nativeRoutes.title': 'NNA reviewer and vision routes',
+  'settings.page.nativeRoutes.title': 'Routes and model tuning',
   'settings.nativeRoutes.description': 'Tune supported scalar and list route settings for every route role in the selected NNA user manifest. Saved changes are not applied to running work.',
   'settings.nativeRoutes.provider': 'Provider',
   'settings.nativeRoutes.model': 'Model',
   'settings.nativeRoutes.bindingReadOnly': 'Provider and model changes are offered below when NNA supports paired native binding.',
-  'settings.nativeRoutes.bindingProviderRoute': 'Bound through the provider route authority (PATCH /v1/provider-route, and /v1/provider-route/subagent for the subagent role). This page changes reviewer and vision bindings only.',
+  'settings.nativeRoutes.bindingProviderRoute': 'Choose the primary model in Connections. Choose the subagent model in Subagent model binding below.',
   'settings.nativeRoutes.bindingTitle': 'Provider and model binding',
   'settings.nativeRoutes.bindingScope': 'Choose a provider from the selected user manifest. NNA validates both fields together; saving does not apply them to running work.',
   'settings.nativeRoutes.bindingRole': 'Route to bind',

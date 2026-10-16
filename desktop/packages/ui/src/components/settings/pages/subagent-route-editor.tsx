@@ -70,13 +70,13 @@ function RouteControls({ profiles, providerId, model, busy, changed, onProviderC
 }
 
 function RouteContent({ runningRoute, configured, profiles, providerId, model, busy, changed, pending, onProviderChange, onModelChange, onSave, onApplied }: {
-  runningRoute: Route; configured: Route; profiles: Profile[]; providerId: string; model: string;
+  runningRoute: Route | null; configured: Route; profiles: Profile[]; providerId: string; model: string;
   busy: boolean; changed: boolean; pending: boolean | null; onProviderChange: (id: string) => void;
   onModelChange: (model: string) => void; onSave: () => void; onApplied: () => void;
 }): ReactNode {
   const { t } = useI18n();
   const savedRoute = `${configured.providerID}/${configured.modelID}`;
-  const drift = configured.providerID !== runningRoute.providerID || configured.modelID !== runningRoute.modelID;
+  const drift = runningRoute && (configured.providerID !== runningRoute.providerID || configured.modelID !== runningRoute.modelID);
   return <>
     <p className="mt-1 text-muted-foreground">{t('settings.agents.route.saved', { route: savedRoute })}</p>
     <RouteControls profiles={profiles} providerId={providerId} model={model} busy={busy} changed={changed}
@@ -88,8 +88,8 @@ function RouteContent({ runningRoute, configured, profiles, providerId, model, b
   </>;
 }
 
-export function SubagentRouteEditor({ runningRoute, onApplied }: {
-  runningRoute: Route; onApplied: () => void;
+export function SubagentRouteEditor({ runningRoute: suppliedRoute, onApplied }: {
+  runningRoute?: Route; onApplied: () => void;
 }): ReactNode {
   const { t } = useI18n();
   const [configured, setConfigured] = useState<Route | null>(null);
@@ -101,6 +101,8 @@ export function SubagentRouteEditor({ runningRoute, onApplied }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
+  const [observedRoute, setObservedRoute] = useState<Route | null>(null);
+  const runningRoute = suppliedRoute ?? observedRoute;
   const refresh = (): void => setRevision((value) => value + 1);
 
   useEffect(() => {
@@ -109,6 +111,7 @@ export function SubagentRouteEditor({ runningRoute, onApplied }: {
     void Promise.all([harnessClient.getSubagentProviderRoute(), harnessClient.listProviderProfiles()])
       .then(([routeResult, profilesResult]) => {
         if (!current) return;
+        setObservedRoute(routeOf(routeResult.data?.runtime_route));
         const load = subagentRouteLoad(routeResult, profilesResult,
           t('settings.agents.route.invalid'), t('settings.agents.route.unavailable'));
         setConfigured(load.configured); setProfiles(load.profiles); setPending(load.pending);
@@ -133,10 +136,9 @@ export function SubagentRouteEditor({ runningRoute, onApplied }: {
     finally { setBusy(false); }
   };
   const changed = configured?.providerID !== providerId || configured?.modelID !== model.trim();
-  const drift = configured && (configured.providerID !== runningRoute.providerID || configured.modelID !== runningRoute.modelID);
   return <div className="mt-3 rounded-md border border-border/40 p-3 text-xs">
     <div className="font-medium text-foreground">{t('settings.agents.route.title')}</div>
-    <p className="mt-1 text-muted-foreground">{t('settings.agents.route.running', { route: `${runningRoute.providerID}/${runningRoute.modelID}` })}</p>
+    <p className="mt-1 text-muted-foreground">{runningRoute ? t('settings.agents.route.running', { route: `${runningRoute.providerID}/${runningRoute.modelID}` }) : 'Running subagent route was not reported.'}</p>
     <p className="mt-1 text-muted-foreground">{t('settings.agents.route.permission')}</p>
     {loading ? <p role="status">{t('settings.agents.route.loading')}</p> : null}
     {error ? <p role="alert" className="text-destructive">{error}</p> : null}

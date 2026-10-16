@@ -79,13 +79,17 @@ afterEach(() => {
 });
 
 describe('NNA provider profiles and diagnostics', () => {
-  it('renders a valid profile and refuses duplicate provider IDs', async () => {
+  it('keeps primary and non-primary profiles with identical model names distinct and refuses duplicate IDs', async () => {
     const inventory = vi.spyOn(harnessClient, 'listProviderProfiles')
-      .mockResolvedValueOnce({ data: { profiles: [PROFILE], configured_primary_route: { providerID: 'profile', modelID: 'configured' } } } as never)
+      .mockResolvedValueOnce({ data: { profiles: [PROFILE, { ...PROFILE, profile_id: 'secondary', active: false }], configured_primary_route: { providerID: 'profile', modelID: 'configured' } } } as never)
       .mockResolvedValueOnce({ data: { profiles: [{ ...PROFILE }, PROFILE] } } as never);
     mount(<ProvidersPage />);
     await act(async () => { await settle(); });
-    expect(document.querySelectorAll('[data-testid="provider-profile"]').length).toBe(1);
+    expect(document.querySelectorAll('[data-testid="provider-profile"]').length).toBe(2);
+    const cards = [...document.querySelectorAll('[data-testid="provider-profile"]')];
+    expect(cards[0]!.textContent).toContain('Configured primary');
+    expect(cards[1]!.textContent).toContain('secondary');
+    expect(cards[1]!.textContent).not.toContain('Configured primary');
     click('providers-refresh');
     await act(async () => { await settle(); });
     expect(document.querySelectorAll('[data-testid="provider-profile"]').length).toBe(0);
@@ -94,7 +98,6 @@ describe('NNA provider profiles and diagnostics', () => {
   });
 
   it('creates only after an exact profile echo and preserves the secret discipline', async () => {
-    const saved = vi.fn();
     const inventory = vi.spyOn(harnessClient, 'listProviderProfiles').mockResolvedValue({ data: { profiles: [] } } as never);
     const create = vi.spyOn(harnessClient, 'createProviderProfile')
       .mockResolvedValueOnce({ data: { profile: { profile_id: 'new-profile', model: 'wrong' } } } as never)
@@ -143,7 +146,7 @@ describe('NNA provider profiles and diagnostics', () => {
     expect(result.mock.calls.length).toBe(2);
   });
 
-  it('discovers and shows only the first 50 models', async () => {
+  it('deduplicates discovery before showing the first 50 models', async () => {
     vi.spyOn(harnessClient, 'listProviderProfiles').mockResolvedValue({ data: { profiles: [PROFILE] } } as never);
     vi.spyOn(harnessClient, 'discoverProviderModels').mockResolvedValue({ data: { profile_id: 'profile', models: ['m-0', 'm-0', ...Array.from({ length: 49 }, (_, index) => `m-${index + 1}`)] } } as never);
     mount(<ProvidersPage />);
@@ -152,11 +155,12 @@ describe('NNA provider profiles and diagnostics', () => {
     await act(async () => { await settle(); });
     const result = document.querySelector('[data-testid="provider-models"]');
     expect(result?.querySelectorAll('li').length).toBe(50);
-    expect(result?.textContent).toContain('51');
+    expect(result?.textContent).toContain('50 models found');
+    expect(new Set([...result!.querySelectorAll('li')].map(row => row.textContent)).size).toBe(50);
   });
 
   it('updates display names only after an exact optional-field echo', async () => {
-    const namedProfile = { ...PROFILE, display_name: 'Old name' };
+    const namedProfile = { ...PROFILE, display_name: 'Old name', profile_revision: 'a'.repeat(64) };
     const updatedProfile = { ...namedProfile, display_name: 'Updated' };
     vi.spyOn(harnessClient, 'listProviderProfiles')
       .mockResolvedValueOnce({ data: { profiles: [namedProfile] } } as never)
@@ -172,11 +176,23 @@ describe('NNA provider profiles and diagnostics', () => {
     clickScoped('provider-profile-save', '[data-testid="provider-profile"]');
     await act(async () => { await settle(); });
     expect(document.querySelector('[role="alert"]')?.textContent).toBe('NNA did not confirm the profile change.');
-    expect(update.mock.calls[0]?.[1]).toEqual({ display_name: 'Updated', endpoint: 'https://provider.example.com/v1/path', model: 'configured' });
+    expect(update.mock.calls[0]?.[1]).toEqual({ expected_revision: 'a'.repeat(64), display_name: 'Updated', endpoint: 'https://provider.example.com/v1/path', model: 'configured' });
     clickScoped('provider-profile-save', '[data-testid="provider-profile"]');
     await act(async () => { await settle(); });
     expect(document.querySelector('[role="alert"]')).toBeNull();
     expect(document.body.textContent).toContain('Updated');
+  });
+  it('retains the edited profile and its original revision after a conflict instead of reporting success', async () => {
+    vi.spyOn(harnessClient, 'listProviderProfiles').mockResolvedValue({ data: { profiles: [{ ...PROFILE, profile_revision: 'b'.repeat(64) }] } } as never);
+    const update = vi.spyOn(harnessClient, 'updateProviderProfile').mockResolvedValue({ error: 'Provider changed in another window.' } as never);
+    mount(<ProvidersPage />); await act(async () => { await settle(); });
+    clickScoped('provider-profile-toggle', '[data-testid="provider-profile"]');
+    await setValue('provider-profile-name', 'My pending name'); clickScoped('provider-profile-save', '[data-testid="provider-profile"]');
+    await act(async () => { await settle(); });
+    expect(document.querySelector('[role="alert"]')?.textContent).toBe('Provider changed in another window.');
+    expect(document.querySelector<HTMLInputElement>('[data-testid="provider-profile-name"]')!.value).toBe('My pending name');
+    expect(update.mock.calls[0]?.[1]).toMatchObject({ expected_revision: 'b'.repeat(64), display_name: 'My pending name' });
+    expect(document.querySelector('dialog')).not.toBeNull();
   });
 
   it('rejects HTTP 200 inventories with empty or malformed operational fields', async () => {
@@ -260,10 +276,11 @@ describe('NNA provider profiles and diagnostics', () => {
   });
 
   it('binds a profile to a redacted Secret Broker reference', async () => {
-    vi.mocked(readBrokerSecrets).mockResolvedValue([{ id: 'sec_abc-123', label: 'Zeta-vault-label', fields: ['api_key', 'token'], enabled: true }] as never);
+    vi.mocked(readBrokerSecrets).mockResolvedValue([{ id: 'sec_abc-123', label: 'Zeta-vault-label', kind: 'api_key', fields: ['api_key', 'token'], enabled: true }] as never);
     vi.spyOn(harnessClient, 'listProviderProfiles').mockResolvedValue({ data: { profiles: [PROFILE] } } as never);
     const update = vi.spyOn(harnessClient, 'updateProviderProfile')
-      .mockResolvedValue({ data: { profile: PROFILE } } as never);
+      .mockResolvedValueOnce({ data: { profile: PROFILE } } as never)
+      .mockResolvedValueOnce({ data: { profile: { ...PROFILE, credential: { source: 'secret', secret_id: 'sec_abc-123', field: 'api_key' }, credential_env: null } } } as never);
     mount(<ProvidersPage />);
     await act(async () => { await settle(); });
     clickScoped('provider-profile-toggle', '[data-testid="provider-profile"]');
@@ -278,9 +295,13 @@ describe('NNA provider profiles and diagnostics', () => {
       endpoint: 'https://provider.example.com/v1/path', model: 'configured',
       credential: { source: 'secret', secret_id: 'sec_abc-123', field: 'api_key' },
     });
-    // The DOM stays anonymous: neither the broker label nor the secret id renders.
-    expect(document.body.textContent).not.toContain('Zeta-vault-label');
+    expect(document.querySelector('[role="alert"]')?.textContent).toBe('NNA did not confirm the profile change.');
+    expect(document.body.textContent).toContain('Zeta-vault-label');
     expect(document.body.textContent).not.toContain('sec_abc-123');
+    clickScoped('provider-profile-save', '[data-testid="provider-profile"]');
+    await act(async () => { await settle(); });
+    expect(document.querySelector('[role="alert"]')).toBeNull();
+    expect(document.querySelector('dialog')).toBeNull();
   });
 
   it('keeps environment binding available when the secret broker is unavailable', async () => {
@@ -295,6 +316,17 @@ describe('NNA provider profiles and diagnostics', () => {
     expect(document.body.textContent).toContain('The native secret broker is unavailable.');
     await setSelectValue('provider-profile-credential-source', 'environment');
     expect(document.querySelector('[data-testid="provider-profile-credential-env"]')).not.toBeNull();
+  });
+  it('explains an empty enabled secret roster and disables its selector without claiming a broker failure', async () => {
+    vi.mocked(readBrokerSecrets).mockResolvedValue([]);
+    vi.spyOn(harnessClient, 'listProviderProfiles').mockResolvedValue({ data: { profiles: [PROFILE] } } as never);
+    mount(<ProvidersPage />); await act(async () => { await settle(); });
+    clickScoped('provider-profile-toggle', '[data-testid="provider-profile"]');
+    await setSelectValue('provider-profile-credential-source', 'secret');
+    await act(async () => { await settle(); });
+    expect(document.body.textContent).toContain('No enabled secrets are available.');
+    expect(document.querySelector<HTMLSelectElement>('[data-testid="provider-profile-secret-select"]')!.disabled).toBe(true);
+    expect(document.body.textContent).not.toContain('The native secret broker is unavailable.');
   });
 
   it('refuses an inventory whose credential reference smuggles a value', async () => {

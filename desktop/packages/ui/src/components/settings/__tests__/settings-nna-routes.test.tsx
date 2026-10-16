@@ -3,7 +3,7 @@
 /** Pins NNA routing copy: raw refusals, stale results, drift, and confirmation validation. */
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { harnessClient } from '../../../lib/nnd/client.ts';
 import { I18nProvider } from '../../../lib/i18n/context.tsx';
@@ -25,6 +25,12 @@ const PROFILES = { profiles: [{ profile_id: 'profile-a', model: 'model-one' },
 
 let container: HTMLDivElement | null = null;
 let rootHandle: Root | null = null;
+beforeEach(() => {
+  vi.spyOn(harnessClient, 'listProviderProfiles').mockResolvedValue({ data: PROFILES } as never);
+  vi.spyOn(harnessClient, 'getSubagentProviderRoute').mockResolvedValue({ data: {
+    configured_route: { providerID: 'profile-a', modelID: 'model-one' },
+  } } as never);
+});
 
 function settle(ms = 20): Promise<void> {
   return new Promise((resolvePromise) => { setTimeout(resolvePromise, ms); });

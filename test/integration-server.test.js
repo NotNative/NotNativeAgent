@@ -67,6 +67,11 @@ test('integration service authenticates exact principals and manages provider pr
     assert.equal((await request(base, '/v1/provider-profiles/narrow', profileWriter, {
       method: 'PATCH', body: { display_name: 'Narrow writer' },
     })).value.profile.display_name, 'Narrow writer');
+    const conflict = await request(base, '/v1/provider-profiles/narrow', profileWriter, {
+      method: 'PATCH', body: { display_name: 'Stale writer', expected_revision: narrowCreate.value.profile.profile_revision },
+    });
+    assert.equal(conflict.status, 409);
+    assert.equal(conflict.value.error.code, 'provider_revision_conflict');
     assert.equal((await request(base, '/v1/provider-profiles/narrow', profileWriter, { method: 'DELETE' })).status, 403);
     assert.equal((await request(base, '/v1/provider-route', routeManager, {
       method: 'PATCH', body: { provider_id: 'missing', model: 'x' },

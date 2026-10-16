@@ -5,8 +5,10 @@ import { harnessClient } from '../../../lib/nnd/client.ts';
 import { readBrokerSecrets, type PublicSecret } from '../../../lib/nnd/secret-actions.ts';
 import { useI18n } from '../../I18nProvider.tsx';
 import type { I18nKey } from '../../../lib/i18n/messages/en.ts';
+import { ProviderProfileDialog } from './provider-profile-dialog.tsx';
 
 interface EditableProfile {
+  profile_revision?: string;
   profile_id: string; display_name?: string; endpoint?: string; model: string;
   credential?: { source: 'secret'; secret_id: string; field: string } | null;
   credential_env?: string | null;
@@ -17,6 +19,7 @@ interface EditableProfile {
 type CredentialChoice = '' | 'environment' | 'secret' | 'clear';
 
 interface ProfileFieldsPayload {
+  expected_revision?: string;
   display_name?: string; endpoint?: string; model?: string; credential_env?: string;
   credential?: { source: 'secret'; secret_id: string; field: string } | null;
   context_limit_bytes?: number; output_limit_tokens?: number; tool_call_mode?: 'single' | 'batch';
@@ -41,9 +44,8 @@ function boundedInteger(value: string, bounds: { min: number; max: number }): Li
   return parsed >= bounds.min && parsed <= bounds.max ? { ok: true, value: parsed } : { ok: false };
 }
 
-// Reference KIND only. Names, secret ids, and fields stay in state and on the
-// wire; the rendered page never echoes credential material of any kind
-// (window.test.tsx pins credential_env inventories against DOM leakage).
+// Security: the saved-binding summary shows its kind. The selector uses public
+// broker labels and field names; secret values and IDs are never displayed.
 function bindingKind(profile: EditableProfile): 'secret' | 'environment' | null {
   if (profile.credential) return 'secret';
   if (typeof profile.credential_env === 'string' && profile.credential_env) return 'environment';
@@ -75,11 +77,10 @@ function profileRequest({ profile, id, name, endpoint, model, credentialEnv, cho
   const context = boundedInteger(contextLimit, CONTEXT_LIMIT);
   const output = boundedInteger(outputLimit, OUTPUT_LIMIT);
   if (!context.ok || !output.ok) return { fields: {}, expected: {}, problem: 'settings.providers.profile.limitInvalid' };
-  const credential = profile
-    ? credentialPayload(choice, credentialEnv, secretId, secretField)
-    : credentialPayload(credentialEnv.trim() ? 'environment' : '', credentialEnv, '', '');
+  const credential = credentialPayload(choice || (credentialEnv.trim() ? 'environment' : ''), credentialEnv, secretId, secretField);
   if (credential.problem) return { fields: {}, expected: {}, problem: credential.problem };
   const fields: ProfileFieldsPayload = {
+    ...(profile?.profile_revision ? { expected_revision: profile.profile_revision } : {}),
     ...(displayName ? { display_name: displayName } : {}),
     ...(effectiveEndpoint ? { endpoint: effectiveEndpoint } : {}),
     model,
@@ -97,9 +98,7 @@ function profileRequest({ profile, id, name, endpoint, model, credentialEnv, cho
     ...(fields.output_limit_tokens !== undefined ? { output_limit_tokens: fields.output_limit_tokens } : {}),
     ...(fields.tool_call_mode !== undefined ? { tool_call_mode: fields.tool_call_mode } : {}),
     ...(fields.credential_env !== undefined ? { credential_env: fields.credential_env } : {}),
-    // A secret binding echo is an object; profileEcho compares scalars only,
-    // and NNA rejects malformed bindings at its own contract boundary.
-    // Clearing must land BOTH reference channels null.
+    ...(fields.credential ? { credential: fields.credential, credential_env: null } : {}),
     ...(fields.credential === null ? { credential: null, credential_env: null } : {}),
   };
   return { fields, expected };
@@ -120,21 +119,21 @@ function ProfileFields({ editing, id, name, endpoint, model, credentialEnv, choi
     <Field label={editing ? t('settings.providers.profile.editEndpoint') : t('settings.providers.profile.endpoint')}
       value={endpoint} onChange={onEndpoint} maxLength={4096} testId="provider-profile-endpoint" />
     <Field label={t('settings.providers.profile.model')} value={model} onChange={onModel} maxLength={4096} testId="provider-profile-model" />
-    {editing ? <label className="flex flex-col gap-1 text-muted-foreground">{t('settings.providers.profile.credentialSource')}
+    <label className="flex flex-col gap-1 text-muted-foreground">{t('settings.providers.profile.credentialSource')}
       <select data-testid="provider-profile-credential-source" value={choice} className="w-52 rounded border border-border/60 bg-background px-2 py-1 text-foreground"
         onChange={(event) => onChoice(event.target.value as CredentialChoice)}>
-        <option value="">{t('settings.providers.profile.credentialKeep')}</option>
+        <option value="">{editing ? t('settings.providers.profile.credentialKeep') : 'No credential'}</option>
         <option value="environment">{t('settings.providers.profile.credentialEnvironment')}</option>
         <option value="secret">{t('settings.providers.profile.credentialSecret')}</option>
         <option value="clear">{t('settings.providers.profile.credentialClear')}</option>
-      </select></label> : null}
+    </select></label>
     {choice === 'secret' ? <div className="flex w-full flex-wrap gap-2">
       <label className="flex flex-col gap-1 text-muted-foreground">{t('settings.providers.profile.secretRoster')}
-        <select data-testid="provider-profile-secret-select" value={secretIndex} className="w-52 rounded border border-border/60 bg-background px-2 py-1 text-foreground"
+        <select data-testid="provider-profile-secret-select" value={secretIndex} disabled={!roster?.length} className="w-52 rounded border border-border/60 bg-background px-2 py-1 text-foreground disabled:opacity-50"
           onChange={(event) => { onSecretIndex(event.target.value); onSecretField(''); }}>
           <option value=""></option>
           {(roster ?? []).map((secret, index) => <option key={secret.id} value={String(index + 1)}
-            data-testid="provider-profile-secret-option">{index + 1}</option>)}
+            data-testid="provider-profile-secret-option">{secret.label || `Secret ${index + 1}`} ({secret.kind})</option>)}
         </select></label>
       {selected ? <label className="flex flex-col gap-1 text-muted-foreground">{t('settings.providers.profile.secretField')}
         <select data-testid="provider-profile-secret-field" value={secretField} className="w-52 rounded border border-border/60 bg-background px-2 py-1 text-foreground"
@@ -143,6 +142,8 @@ function ProfileFields({ editing, id, name, endpoint, model, credentialEnv, choi
           {selected.fields.map((field) => <option key={field} value={field}>{field}</option>)}
         </select></label> : null}
       {rosterError ? <p className="w-full text-muted-foreground">{t('settings.providers.profile.brokerUnavailable')}</p> : null}
+      {!rosterError && roster === null ? <p role="status" className="w-full text-muted-foreground">Loading available secrets…</p> : null}
+      {!rosterError && roster?.length === 0 ? <p role="status" className="w-full text-muted-foreground">No enabled secrets are available. Add or enable a secret under Advanced before choosing a binding.</p> : null}
     </div> : null}
     {choice !== 'secret' && choice !== 'clear' ? <>
       <Field label={editing ? t('settings.providers.profile.credentialEdit') : t('settings.providers.profile.credential')}
@@ -270,16 +271,17 @@ export function ProviderProfileEditor({ profile, onSaved }: {
       className="rounded border border-border/60 px-2 py-1 text-foreground disabled:opacity-50">
       {open ? t('settings.providers.profile.cancel') : editing ? t('settings.providers.profile.edit') : t('settings.providers.profile.add')}
     </button>
-    {open ? <div className="mt-2 flex flex-wrap items-end gap-2 rounded border border-border/40 p-2">
+    {open ? <ProviderProfileDialog title={editing ? t('settings.providers.profile.edit') : t('settings.providers.profile.add')}
+      busy={draft.busy} onClose={() => { setOpen(false); draft.setFeedback(null); }}>
       <ProfileFields editing={editing} id={draft.id} name={draft.name} endpoint={draft.endpoint} model={draft.model} credentialEnv={draft.credentialEnv}
-        choice={draft.choice} secretIndex={draft.secretIndex} secretField={draft.secretField} roster={secretOptions} rosterError={rosterError}
+        choice={draft.choice} secretIndex={draft.secretIndex} secretField={draft.secretField} roster={roster === null ? null : secretOptions} rosterError={rosterError}
         onChoice={(next) => { draft.setChoice(next); if (next !== 'secret') { draft.setSecretIndex(''); draft.setSecretField(''); } }}
         onSecretIndex={draft.setSecretIndex} onSecretField={draft.setSecretField}
         onCredentialEnv={(value) => {
           // Typed environment text must never be silently discarded: editing the
           // box while 'Keep the current binding' is selected switches to it.
           draft.setCredentialEnv(value);
-          if (editing && value.trim() && draft.choice === '') draft.setChoice('environment');
+          if (value.trim() && draft.choice === '') draft.setChoice('environment');
         }}
         onId={draft.setId} onName={draft.setName} onEndpoint={draft.setEndpoint} onModel={draft.setModel} />
       <LimitFields contextLimit={draft.contextLimit} outputLimit={draft.outputLimit} toolCallMode={draft.toolCallMode}
@@ -289,14 +291,21 @@ export function ProviderProfileEditor({ profile, onSaved }: {
         {draft.busy ? t('settings.providers.profile.saving') : editing ? t('settings.providers.profile.save') : t('settings.providers.profile.create')}
       </button>
       {draft.feedback ? <p role="alert" className="w-full text-destructive">{draft.feedback.kind === 'raw' ? draft.feedback.message : t(draft.feedback.key)}</p> : null}
-    </div> : null}
+    </ProviderProfileDialog> : null}
   </div>;
 }
 
 function profileEcho(value: unknown, expected: Record<string, unknown>): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const profile = value as Record<string, unknown>;
-  return Object.entries(expected).every(([key, expectedValue]) => profile[key] === expectedValue);
+  return Object.entries(expected).every(([key, expectedValue]) => key === 'credential' && expectedValue
+    ? credentialEcho(profile[key], expectedValue as Record<string, unknown>) : profile[key] === expectedValue);
+}
+
+function credentialEcho(value: unknown, expected: Record<string, unknown>): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  return Object.keys(row).length === 3 && Object.entries(expected).every(([key, item]) => row[key] === item);
 }
 
 function Field({ label, value, onChange, maxLength, testId }: {

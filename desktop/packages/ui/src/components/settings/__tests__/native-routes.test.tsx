@@ -76,8 +76,8 @@ it('shows all four route bindings with the authority that actually changes each 
   expect(card('subagent')).toContain('cheap');
   expect(card('subagent')).toContain('sub-model');
   // The notes must not promise an editor that NNA does not offer for these roles.
-  expect(card('primary')).toContain('provider route authority');
-  expect(card('subagent')).toContain('provider route authority');
+  expect(card('primary')).toContain('primary model in Connections');
+  expect(card('subagent')).toContain('Subagent model binding below');
   expect(card('reviewer')).toContain('paired native binding');
   expect(card('vision')).toContain('paired native binding');
 });

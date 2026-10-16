@@ -36,12 +36,14 @@ export function registerUiPreferenceRoutes(app: Hono): void {
       const current = await read(path);
       if (current.revision !== body!.expected_revision) return null;
       const next = { revision: current.revision + 1, settings: { ...current.settings, ...patch } };
+      if (Buffer.byteLength(JSON.stringify(next), 'utf8') > 32768) return 'too_large' as const;
       await mkdir(ENV.dataDir, { recursive: true });
       const temporary = `${path}.${randomUUID()}.tmp`;
       await writeFile(temporary, JSON.stringify(next), { encoding: 'utf8', mode: 0o600 });
       await rename(temporary, path);
       return next;
     });
+    if (result === 'too_large') return c.json({ error: 'UI preferences exceed the 32 KiB storage limit. Remove some saved model preferences before retrying.' }, 400);
     return result ? c.json(result) : c.json({ error: 'Settings changed in another window. Reload saved settings before editing again.' }, 409);
   });
 }
