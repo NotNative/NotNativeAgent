@@ -442,7 +442,7 @@ function Zone({ dragHandle, dropTarget, onMove, showDrafts, display, directory, 
           </details>
         </div>
       </header>
-      {zoneOpen ? <ul>
+      {zoneOpen ? <ul className="ml-9 border-l border-border/30 pl-2" aria-label={`Conversations in ${display?.label || shortDirectory(directory)}`}>
         {showDrafts ? <ConversationDraftRows directory={directory} onOpen={actions.openDraft} /> : null}
         {folders.map((folder) => {
           const isCollapsed = !forceOpen && Boolean(collapsed[folder.id]);

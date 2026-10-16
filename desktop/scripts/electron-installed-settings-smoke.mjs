@@ -18,6 +18,11 @@ async function browserScenario() {
   }
   const read = async () => { const response = await fetch('/api/ui-preferences'); if (!response.ok) throw new Error('Preference read failed'); return response.json(); };
   const before = await read();
+  await waitFor(() => document.querySelector('[data-workspace-root] > ul'), 'workspace conversations');
+  for (const zone of document.querySelectorAll('[data-workspace-root]')) {
+    const list = zone.querySelector(':scope > ul');
+    if (list && list.getBoundingClientRect().left < zone.querySelector('header').getBoundingClientRect().left + 24) throw new Error('Workspace conversations are not indented');
+  }
   (await waitFor(() => document.querySelector('[data-testid="settings-gear"]'), 'settings button')).click();
   const nav = await waitFor(() => document.querySelector('[aria-label="Settings pages"]'), 'native navigation');
   const button = name => { const target = [...nav.querySelectorAll('button')].find(item => item.textContent === name); if (!target) throw new Error(`Missing page ${name}`); target.click(); };
