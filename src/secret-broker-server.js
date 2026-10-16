@@ -30,11 +30,7 @@ export async function startSecretBrokerServer(options) {
 
 export async function dispatchSecretBrokerRequest(request, response, context) {
   const { broker, principal, url } = context;
-  if (request.method === 'GET' && url.pathname === '/v1/secrets/audit') {
-    requireIntegrationPermission(principal, 'secret.audit');
-    const events = await broker.auditEvents(Number(url.searchParams.get('limit') ?? 500));
-    return send(response, 200, { events: events.filter((event) => canAccessSecretScope(principal, event.scope)) });
-  }
+  if (await dispatchSecretObservation(request, response, context)) return true;
   const match = /^\/v1\/secrets(?:\/([^/]+))?(?:\/(values|status|use))?$/u.exec(url.pathname);
   if (!match) return false;
   const id = match[1] ? decodeURIComponent(match[1]) : null;
@@ -85,6 +81,37 @@ export async function dispatchSecretBrokerRequest(request, response, context) {
     return send(response, 200, { fields: await broker.withSecret(id, body, async (values) => values) });
   }
   return send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
+}
+
+async function dispatchSecretObservation(request, response, { broker, principal, url }) {
+  if (request.method !== 'GET') return false;
+  if (url.pathname === '/v1/secrets/scopes') {
+    requireIntegrationPermission(principal, 'secret.read');
+    return send(response, 200, { scopes: manageableScopes(principal, broker.realm),
+      can_manage: ['*', 'secret.*', 'secret.manage'].some(permission => principal.permissions.includes(permission)) });
+  }
+  if (url.pathname === '/v1/secrets/audit') {
+    requireIntegrationPermission(principal, 'secret.audit');
+    const events = await broker.auditEvents(Number(url.searchParams.get('limit') ?? 500));
+    return send(response, 200, { events: events.filter(event => canAccessSecretScope(principal, event.scope)) });
+  }
+  return false;
+}
+
+function manageableScopes(principal, realm) {
+  const candidates = [{ kind: 'user', id: principal.subjectId },
+    ...(principal.workspaceIds ?? []).map(id => ({ kind: 'workspace', id })),
+    ...(principal.groupIds ?? []).map(id => ({ kind: 'group', id })),
+    ...principal.permissions.filter(permission => permission.startsWith('secret.scope.role:'))
+      .map(permission => ({ kind: 'role', id: permission.slice('secret.scope.role:'.length) })),
+    { kind: 'deployment', id: realm }];
+  // Security: this reports finite existing scope access; it never modifies the principal or grants authority.
+  const unique = new Map();
+  for (const scope of candidates) {
+    if (typeof scope.id === 'string' && scope.id.length > 0 && scope.id.length <= 128 && canAccessSecretScope(principal, scope))
+      unique.set(`${scope.kind}:${scope.id}`, scope);
+  }
+  return [...unique.values()];
 }
 
 export async function readJsonBody(request, maxBytes = BODY_LIMIT) {

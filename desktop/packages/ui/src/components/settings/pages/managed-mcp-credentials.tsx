@@ -173,7 +173,7 @@ export function ManagedMcpCredentialsSettings(): ReactNode {
         <p data-testid="mcp-stage-content">Stage a credential for server id {draft.server_id}: NNA will upsert a
           reference derived from it. The token stays in this tab until the save posts; it is never shown again.</p>
         <button type="button" className={BUTTON} data-testid="mcp-save" onClick={save} disabled={disabled}>Save credential</button>
-        <button type="button" className={BUTTON} onClick={() => setDraft(null)} disabled={disabled}>Discard stage</button>
+        <button type="button" className={BUTTON} onClick={() => { setDraft(null); setInputDirty(false); if (mcpServerText.current) mcpServerText.current.value = ''; }} disabled={disabled}>Discard stage</button>
       </div> : null}
       {deleteDraft ? <div role="status" className="rounded border border-border p-2 text-xs">
         <p data-testid="mcp-stage-delete">Stage the delete of {deleteDraft.reference}. NNA reports 'absent' when

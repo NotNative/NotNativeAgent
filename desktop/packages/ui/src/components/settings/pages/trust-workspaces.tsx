@@ -1,117 +1,65 @@
 // SPDX-License-Identifier: Apache-2.0
-/** Trusted workspaces section (authority grants).
- * Why: the census classifies the three trust rows as the canonical workspace grants
- * governing project configuration and skills admission; the settings GUI grants and
- * revokes THROUGH the native trust functions, so canonicalization and admission
- * semantics stay native, and receipts show the canonical root the grant recorded.
- * Invariant: only existing roots can be granted (the native admission check refuses
- * a missing target), a corrupt or unreadable store is surfaced honestly (it never
- * claims which roots are trusted), and a revoke is always receivable (a gone root is
- * an honest no-op).
- */
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { getRuntimeKey, onRuntimeEndpointChanged } from '../../../lib/runtime-switch.ts';
-import { getApiBaseUrl } from '../../../lib/runtime-url.ts';
+import { useEffect, useRef, useState } from 'react';
+import { grantNativeWorkspaceTrust, revokeNativeWorkspaceTrust, readNativeTrustList, readNativeTrustCatalog,
+  isValidTrustWorkspaceDraft, trustMessages, NativeTrustFailure, type NativeTrustReceipt } from '../../../lib/nnd/trust.ts';
 import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
-import { grantNativeWorkspaceTrust, isValidTrustWorkspaceDraft, readNativeTrustList,
-  readNativeTrustCatalog, revokeNativeWorkspaceTrust, trustMessages, NativeTrustFailure,
-  type NativeTrustListView, type NativeTrustReceipt } from '../../../lib/nnd/trust.ts';
-import { authorityState, subscribeAuthority } from '../../../sync/authority-sync.ts';
+import { authorityState } from '../../../sync/authority-sync.ts';
+import { useSettingsEdit, useSettingsLeave } from '../edit-boundary.tsx';
 import { SettingsSection } from '../primitives.tsx';
+import { useNativeObservation, nativeObservationScope } from './use-native-observation.ts';
 
-const INPUT = 'w-64 rounded border border-border bg-background px-2 py-1 text-xs';
-const BUTTON = 'rounded border border-border px-2 py-1 text-xs disabled:opacity-50';
-const safeError = (error: unknown) =>
-  error instanceof NativeTrustFailure ? error.code : 'nnd_workspace_trust_unavailable';
-const messageFor = (code: string) => trustMessages[code] ?? code;
-
-export function TrustWorkspaces(): ReactNode {
-  const auth = useAuthSessionStore(state => state.status);
-  const authority = useSyncExternalStore(subscribeAuthority, authorityState);
-  const [view, setView] = useState<NativeTrustListView | null>(null);
-  const [catalog, setCatalog] = useState<true | null>(null);
-  const [receipt, setReceipt] = useState<NativeTrustReceipt | null>(null);
-  const [draft, setDraft] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+async function readTrust(signal: AbortSignal) {
+  const [view] = await Promise.all([readNativeTrustList(signal), readNativeTrustCatalog(signal)]); return view;
+}
+export function TrustWorkspaces() {
+  const state = useNativeObservation(readTrust), leave = useSettingsLeave(), scope = nativeObservationScope();
+  const [draft, setDraft] = useState(''), [query, setQuery] = useState(''), [limit, setLimit] = useState(30);
+  const [review, setReview] = useState<{ operation: 'grant' | 'revoke'; root: string } | null>(null);
+  const [receipt, setReceipt] = useState<NativeTrustReceipt | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const active = useRef<AbortController | null>(null);
-  const run = (work: (signal: AbortSignal, current: () => boolean) => Promise<void>) => {
-    if (active.current || auth !== 'ok' || authorityState() !== 'ready') return;
+  useSettingsEdit('Workspace trust', Boolean(draft || review), busy);
+  useEffect(() => { setDraft(''); setReview(null); setReceipt(null); setError(''); setBusy(false);
+    return () => { active.current?.abort(); active.current = null; }; }, [scope, state.ready]);
+  const confirm = async () => {
+    if (!review || !state.data || !state.ready || busy || active.current) return;
     const controller = new AbortController(); active.current = controller;
-    const runtime = getRuntimeKey(), origin = getApiBaseUrl();
-    const current = () => active.current === controller && !controller.signal.aborted
-      && runtime === getRuntimeKey() && origin === getApiBaseUrl() && authorityState() === 'ready';
-    setBusy(true); setError(null);
-    void work(controller.signal, current).catch(failure => { if (current()) setError(messageFor(safeError(failure))); })
-      .finally(() => { if (current()) setBusy(false); if (active.current === controller) active.current = null; });
-  };
-  const load = useCallback(() => { run(async (signal, current) => {
-    const [next, fields] = await Promise.all([readNativeTrustList(signal), readNativeTrustCatalog(signal)]);
-    if (!current()) return;
-    setView(next); setCatalog(true); setReceipt(null);
-  }); }, [auth]);
-  useEffect(() => {
-    const reset = () => { active.current?.abort(); active.current = null;
-      setView(null); setCatalog(null); setReceipt(null); setError(null); setBusy(false); };
-    reset(); load();
-    const off = onRuntimeEndpointChanged(() => { reset(); load(); });
-    return () => { off(); active.current?.abort(); active.current = null; };
-  }, [load]);
-  useEffect(() => {
-    if (authority !== 'ready') { active.current?.abort(); active.current = null; setBusy(false); setView(null); }
-    else if (!view && auth === 'ok') load();
-  }, [authority]);
-  if (auth !== 'ok' || authority !== 'ready') {
-    return <SettingsSection item="trust-workspaces.grants" title="Trusted workspaces">
-      <p role="alert">{auth !== 'ok' ? 'Sign in to read and change workspace trust.' :
-        'Native authority is resynchronizing; trust reads are paused.'}</p>
-    </SettingsSection>;
-  }
-  const doGrant = () => { if (!isValidTrustWorkspaceDraft(draft)) { setError(messageFor('nnd_trust_request_invalid')); return; }
-    run(async (signal, current) => {
-      const outcome = await grantNativeWorkspaceTrust(draft, signal);
+    const current = () => active.current === controller && !controller.signal.aborted && scope === nativeObservationScope()
+      && useAuthSessionStore.getState().status === 'ok' && authorityState() === 'ready';
+    setBusy(true); setError(''); setReceipt(null);
+    try {
+      const result = await (review.operation === 'grant' ? grantNativeWorkspaceTrust : revokeNativeWorkspaceTrust)(review.root, controller.signal);
       if (!current()) return;
-      setReceipt(outcome); setDraft('');
-      const next = await readNativeTrustList(signal);
-      if (current()) setView(next);
-    }); };
-  const doRevoke = (root: string) => { run(async (signal, current) => {
-    const outcome = await revokeNativeWorkspaceTrust(root, signal);
-    if (!current()) return;
-    setReceipt(outcome);
-    const next = await readNativeTrustList(signal);
-    if (current()) setView(next);
-  }); };
-  // Reasons for disabling are local (in flight) only: a failed read leaves the error
-  // sentence on display and the server still enforces the honest refusal grants.
-  const disabled = busy;
-  return (
-    <SettingsSection item="trust-workspaces.grants" title="Trusted workspaces">
-      <p className="text-xs">Workspace roots trusted by the native service: a trusted root's project
-        configuration and skills are admitted. Grants and revokes run through the native trust
-        functions, so the receipt may name the CANONICAL root rather than the path typed here.</p>
-      {error ? <p role="alert" data-testid="trust-error" className="text-error">{error}</p> : null}
-      {receipt ? <p data-testid="trust-receipt">{receipt.operation === 'grant' ? 'Granted' : 'Revoked'}
-        {' '}<span data-testid="trust-receipt-root">{receipt.root}</span></p> : null}
-      <ul data-testid="trust-list">
-        {(view?.workspaces ?? []).map((workspace) => (
-          <li key={workspace.root} data-testid="trust-row">
-            <span data-testid="trust-row-root">{workspace.root}</span>
-            <span className="text-xs"> trusted {workspace.trusted_at}</span>
-            <button type="button" className={BUTTON} data-testid="trust-revoke" disabled={disabled}
-              onClick={() => doRevoke(workspace.root)}>Revoke</button>
-          </li>
-        ))}
-        {view && view.workspaces.length === 0 ? <li data-testid="trust-empty">No trusted workspaces recorded.</li> : null}
-      </ul>
-      <div className="flex items-center gap-2">
-        <input type="text" className={INPUT} data-testid="trust-draft" placeholder="Workspace path to trust"
-          value={draft} onChange={(event) => setDraft(event.target.value)} />
-        <button type="button" className={BUTTON} data-testid="trust-grant" disabled={disabled}
-          onClick={doGrant}>Grant</button>
-      </div>
-      <p className="text-xs">Only existing workspace roots can be granted; revoking a removed root is an
-        honest no-op receipt.</p>
-    </SettingsSection>
-  );
+      if (result.installation_id !== state.data.installation_id || result.data_id !== state.data.data_id) throw new Error('identity_mismatch');
+      setReceipt(result); setReview(null); setDraft(''); await state.reload();
+    } catch (failure) { if (current()) setError(failure instanceof NativeTrustFailure ? trustMessages[failure.code] ?? failure.code
+      : 'NNA did not confirm this operation. Refresh and inspect trust before retrying.'); }
+    finally { if (current()) { active.current = null; setBusy(false); } }
+  };
+  const disabled = busy || state.busy || !state.ready || !state.data || Boolean(state.error);
+  const searchablePath = (path: string) => path.replaceAll('\\', '/').toLowerCase();
+  const rows = state.data?.workspaces.filter(row => searchablePath(row.root).includes(searchablePath(query))) ?? [];
+  return <SettingsSection item="trust-workspaces.grants" title="Workspace trust">
+    <p>Trusted roots can contribute project configuration and skills. Adding a folder to the sidebar does not trust it.
+      Grants admit project configuration and skills; they do not bypass mandatory review. Existing engines may retain initialized configuration.</p>
+    <button type="button" disabled={busy || state.busy || !state.ready} onClick={() => { void state.reload(); }}>Refresh trust</button>
+    {state.busy || busy ? <p role="status">Waiting for NNA…</p> : null}
+    {state.error || error ? <p role="alert" data-testid="trust-error">{error || trustMessages[state.error ?? ''] || state.error}</p> : null}
+    {!state.ready ? <p role="alert">Sign in to read and change workspace trust.</p> : null}
+    {receipt ? <p role="status" data-testid="trust-receipt">{receipt.operation === 'grant' ? 'Granted' : 'Revoked'} <span data-testid="trust-receipt-root">{receipt.root}</span>. Native acknowledgement received.</p> : null}
+    <label className="my-3 block">Filter trusted roots <input aria-label="Filter trusted roots" maxLength={256} value={query} onChange={event => { setQuery(event.target.value); setLimit(30); }} /></label>
+    <ul className="space-y-2" data-testid="trust-list">{rows.slice(0, limit).map(row => <li key={row.root} data-testid="trust-row" className="rounded border border-border p-3">
+      <span className="break-all" data-testid="trust-row-root">{row.root}</span><p>trusted {row.trusted_at}</p>
+      <button type="button" disabled={disabled} data-testid="trust-revoke" onClick={() => leave(() => setReview({ operation: 'revoke', root: row.root }))}>Revoke</button></li>)}</ul>
+    {state.data && !rows.length ? <p data-testid="trust-empty">{query ? 'No matching trusted roots.' : 'No trusted workspaces recorded.'}</p> : null}
+    {rows.length > limit ? <button type="button" onClick={() => setLimit(value => value + 30)}>Show more roots</button> : null}
+    <label className="my-3 block">Workspace path to trust <input aria-label="Workspace path to trust" data-testid="trust-draft" maxLength={32767} value={draft} disabled={busy}
+      onChange={event => { setDraft(event.target.value); setReview(null); }} /></label>
+    <button type="button" disabled={disabled || !isValidTrustWorkspaceDraft(draft)} data-testid="trust-grant" onClick={() => setReview({ operation: 'grant', root: draft })}>Review grant</button>
+    {review ? <fieldset disabled={busy} className="my-3 rounded border border-primary p-3" aria-label="Review workspace trust">
+      <p>{review.operation === 'grant' ? 'Admit project configuration and skills from this existing root?' : 'Revoke future project configuration and skill admission from this root?'} <span className="break-all">{review.root}</span></p>
+      <p>NNA resolves the canonical directory. Revocation does not undo completed work or terminate existing engines.</p>
+      <button type="button" onClick={() => { void confirm(); }}>{review.operation === 'grant' ? 'Confirm grant' : 'Confirm revoke'}</button>
+      <button type="button" onClick={() => { setReview(null); setDraft(''); }}>Cancel trust change</button>
+    </fieldset> : null}
+  </SettingsSection>;
 }

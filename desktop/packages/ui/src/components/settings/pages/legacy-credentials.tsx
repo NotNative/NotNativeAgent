@@ -78,7 +78,7 @@ export function LegacyCredentialsPanel(): ReactNode {
       data-testid="legacy-credentials-receipt">
       <dt>Loaded</dt><dd>{receipt.loaded ? 'yes' : 'no'}</dd>
       <dt>Alias count</dt><dd>{receipt.count}</dd>
-      <dt>Verdict</dt><dd>{reasonSentence(receipt.reason) ?? 'The store loaded; the alias is active at startup.'}</dd>
+      <dt>Verdict</dt><dd>{reasonSentence(receipt.reason) ?? (receipt.loaded ? 'The alias was loaded at startup.' : 'No legacy credential alias was loaded at startup.')}</dd>
     </dl> : <p>{busy ? 'Reading…' : 'The verdict has not been read yet.'}</p>}
   </SettingsSection>;
 }

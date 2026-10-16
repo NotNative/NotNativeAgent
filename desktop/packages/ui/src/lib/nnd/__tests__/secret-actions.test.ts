@@ -8,7 +8,7 @@ import { parsePublicSecret, parseAuditEvent, secretActionErrorText,
 // value-read consumer path never gains a client: no export couples the console
 // to /use (secret.use never rides the operator principal).
 const EXPORTS = ['NativeSecretActionFailure', 'SECRET_KINDS', 'SECRET_SCOPE_KINDS', 'createSecret',
-  'deleteSecret', 'parseAuditEvent', 'parsePublicSecret', 'readBrokerSecrets', 'readSecretAudit',
+  'deleteSecret', 'parseAuditEvent', 'parsePublicSecret', 'readBrokerSecrets', 'readSecretAudit', 'readSecretScopes',
   'rotateSecret', 'secretActionErrorText', 'setSecretEnabled', 'updateSecret'];
 
 const id = 'sec_00000000-0000-4000-8000-000000000000';
@@ -30,6 +30,8 @@ describe('secret action console client', () => {
     const parsed = parsePublicSecret(secret(), 0);
     expect(parsed).toMatchObject({ label: 'Registry credential', enabled: true, useCount: 0 });
     expect(parseAuditEvent(audit(), 0)).toMatchObject({ event: 'secret.created', outcome: 'succeeded' });
+    // Compatibility: SecretBroker.setEnabled(false) records secret.revoked, not secret.enabled.
+    expect(parseAuditEvent({ ...audit(), event: 'secret.revoked' }, 0)).toMatchObject({ event: 'secret.revoked', outcome: 'succeeded' });
     for (const drift of [{ ...secret(), metadata: { team: { deep: 1 } } },
       { ...secret(), fields: ['bkey', 'apikey'] }, { ...secret(), fields: ['apikey', 'apikey'] },
       { ...secret(), enabled: 'yes' }, { ...secret(), realm: 'opencode.local' },

@@ -13,6 +13,25 @@ const USER = principal({ subjectId: 'u1', permissions: ['secret.read', 'secret.m
 const OTHER = principal({ subjectId: 'u2', permissions: ['secret.read', 'secret.manage', 'secret.use'] });
 const ADMIN = principal({ subjectId: 'admin', platformRole: 'admin', permissions: ['secret.read', 'secret.audit', 'secret.scope.all'] });
 
+test('secret scope discovery reports finite existing access without granting management or accepting an arbitrary scope', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-secret-scopes-'));
+  const broker = new SecretBroker({ realm: 'nna.local', vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') });
+  const service = await startSecretBrokerServer({ broker, token: TOKEN, port: 0, activation: await activation(root) });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    const actor = principal({ subjectId: 'u1', workspaceIds: ['ws-a', 'ws-a'], groupIds: ['g-a'], permissions: ['secret.read', 'secret.manage', 'secret.scope.role:editor'] });
+    const scopes = await json(base, '/v1/secrets/scopes', actor);
+    assert.equal(scopes.status, 200); assert.equal(scopes.value.can_manage, true);
+    assert.deepEqual(scopes.value.scopes, [{ kind: 'user', id: 'u1' }, { kind: 'workspace', id: 'ws-a' }, { kind: 'group', id: 'g-a' }, { kind: 'role', id: 'editor' }]);
+    const readOnly = await json(base, '/v1/secrets/scopes', principal({ subjectId: 'u1', permissions: ['secret.read'] }));
+    assert.deepEqual(readOnly.value, { scopes: [{ kind: 'user', id: 'u1' }], can_manage: false });
+    assert.equal((await json(base, '/v1/secrets/scopes', principal({ subjectId: 'u1' }))).status, 403);
+    const allowed = await json(base, '/v1/secrets', actor, { method: 'POST', body: { label: 'Allowed', kind: 'token', scope: scopes.value.scopes[0], fields: { token: 'test-only' } } });
+    assert.equal(allowed.status, 201);
+    assert.equal((await json(base, '/v1/secrets', actor, { method: 'POST', body: { label: 'Forbidden', kind: 'token', scope: { kind: 'workspace', id: 'ws-other' }, fields: { token: 'test-only' } } })).status, 403);
+  } finally { await service.close(); }
+});
+
 test('authenticated broker management is metadata-only and scope filtered', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-secret-api-'));
   const broker = new SecretBroker({

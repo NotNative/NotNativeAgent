@@ -8,7 +8,7 @@ const record = () => ({ id: 'sec_00000000-0000-4000-8000-000000000000', realm: '
   metadata: { team: ['core', 'fringe'], region: 'eu-1' }, fields: ['apikey'], enabled: true,
   created_at: '2026-10-06T00:00:00.000Z', updated_at: '2026-10-06T00:00:00.000Z',
   rotated_at: null, last_used_at: null, use_count: 0 });
-const list = (records: unknown[], absent = false) => ({ installation_id: 'install_secrets',
+const list = (records: unknown[], absent = false) => ({ schema_version: '1.0', installation_id: 'install_secrets',
   data_id: 'data_secrets', scope: 'user', source_state: absent ? 'absent' : 'present',
   count: records.length, secrets: records, application: 'next_secret_use' });
 const catalog = () => ({ schema_version: '1.0', source: 'secrets', scope: 'user',
@@ -18,6 +18,11 @@ const catalog = () => ({ schema_version: '1.0', source: 'secrets', scope: 'user'
     editability: { available: false, scope: 'user', reason: 'secret_broker_actions' } })) });
 
 describe('native secrets list parser', () => {
+  it('accepts the actual native projector envelope instead of a separately invented response shape', async () => {
+    const native = await import(new URL('../../../../../../../src/nnd-secrets-routes.js', import.meta.url).href);
+    const projected = native.projectSecretsList({ installationId: 'install_secrets', dataId: 'data_secrets', sourceState: 'present', count: 0, records: [] });
+    expect(parseNativeSecretsList(projected)).toMatchObject({ schema_version: '1.0', source_state: 'present', count: 0 });
+  });
   it('presents the redaction-safe roster: absent is empty, present carries field names only', () => {
     expect(parseNativeSecretsList(list([], true))).toMatchObject({ count: 0, source_state: 'absent' });
     const projected = parseNativeSecretsList(list([record()]));
@@ -31,6 +36,7 @@ describe('native secrets list parser', () => {
     refusal({ ...list([], true), count: 1 });
     refusal({ ...list([], true), application: 'next_service_start' });
     refusal({ ...list([], true), extra: 1 });
+    refusal({ ...list([], true), schema_version: undefined });
     refusal({ ...list([record()]), source_state: 'absent' });
     refusal({ ...list([record()]), secrets: [{ ...record(), realm: 'opencode.local' }] });
     refusal({ ...list([record()]), secrets: [{ ...record(), id: 'not_sec' }] });

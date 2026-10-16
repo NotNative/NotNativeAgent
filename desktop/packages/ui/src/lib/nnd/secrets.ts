@@ -33,6 +33,7 @@ export interface NativeSecretRecord { id: string; realm: string; label: string; 
   enabled: boolean; created_at: string; updated_at: string; rotated_at: string | null;
   last_used_at: string | null; use_count: number }
 export interface NativeSecretsList {
+  schema_version: '1.0';
   installation_id: string; data_id: string; scope: 'user'; source_state: 'present' | 'absent';
   count: number; secrets: readonly NativeSecretRecord[]; application: 'next_secret_use'; }
 export interface NativeSecretsCatalogField {
@@ -46,7 +47,7 @@ export interface NativeSecretsCatalog {
 
 const KINDS = ['api_key', 'token', 'username_password', 'text'];
 const SCOPE_KINDS = ['deployment', 'workspace', 'group', 'role', 'user'];
-const LIST_KEYS = 'application,count,data_id,installation_id,scope,secrets,source_state';
+const LIST_KEYS = 'application,count,data_id,installation_id,schema_version,scope,secrets,source_state';
 const RECORD_KEYS = 'created_at,enabled,fields,id,kind,label,last_used_at,metadata,'
   + 'realm,rotated_at,scope,updated_at,use_count';
 
@@ -59,7 +60,7 @@ export async function readNativeSecretsCatalog(signal: AbortSignal): Promise<Nat
 
 export function parseNativeSecretsList(raw: unknown): NativeSecretsList {
   if (!record(raw) || Object.keys(raw).sort().join(',') !== LIST_KEYS
-    || raw.scope !== 'user' || raw.application !== 'next_secret_use'
+    || raw.schema_version !== '1.0' || raw.scope !== 'user' || raw.application !== 'next_secret_use'
     || raw.source_state !== 'present' && raw.source_state !== 'absent'
     || !Array.isArray(raw.secrets) || !Number.isSafeInteger(raw.count)) throw viewInvalid();
   if (typeof raw.installation_id !== 'string' || !ID.test(raw.installation_id)
@@ -84,7 +85,7 @@ export function parseNativeSecretsList(raw: unknown): NativeSecretsList {
       rotated_at: optionalStamp(item.rotated_at), last_used_at: optionalStamp(item.last_used_at),
       use_count: item.use_count };
   });
-  return { installation_id: raw.installation_id, data_id: raw.data_id, scope: 'user',
+  return { schema_version: '1.0', installation_id: raw.installation_id, data_id: raw.data_id, scope: 'user',
     source_state: raw.source_state as NativeSecretsList['source_state'], count: secrets.length,
     secrets, application: 'next_secret_use' };
 }

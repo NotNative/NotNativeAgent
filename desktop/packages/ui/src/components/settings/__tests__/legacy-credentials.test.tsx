@@ -42,7 +42,7 @@ it('renders the loaded verdict without ever revealing the alias value', async ()
   await mount(() => <LegacyCredentialsPanel />);
   const rendered = () => container.querySelector('[data-testid="legacy-credentials-receipt"]')?.textContent ?? '';
   expect(rendered()).toContain('yes');
-  expect(rendered()).toContain('active at startup');
+  expect(rendered()).toContain('loaded at startup');
   expect(rendered()).not.toMatch(/sk-/i);
   expect(fetchMock.mock.calls.some(([path]) =>
     String(path).endsWith('/configuration/legacy-provider-credentials'))).toBe(true);
@@ -58,4 +58,11 @@ it('renders the honest store-refusal sentence when the alias store is malformed'
   await mount(() => <LegacyCredentialsPanel />);
   const rendered = () => container.querySelector('[data-testid="legacy-credentials-receipt"]')?.textContent ?? '';
   expect(rendered()).toContain('unsupported shape');
+});
+
+it('does not claim a startup alias is active when the valid store contains none', async () => {
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({ ...receipt(false), reason: null }), { status: 200 }));
+  await mount(() => <LegacyCredentialsPanel />);
+  expect(container.textContent).toContain('No legacy credential alias was loaded');
+  expect(container.textContent).not.toContain('alias is active');
 });

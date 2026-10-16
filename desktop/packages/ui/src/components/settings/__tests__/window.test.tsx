@@ -111,7 +111,7 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     const nav = document.querySelector('[data-testid="settings-window"] nav')!;
     expect([...nav.querySelectorAll('button')].map(button => button.textContent)).toEqual([
       'General', 'Appearance', 'Conversations', 'Notifications', 'Keyboard', 'Providers and models', 'Agent policy', 'Memory and context',
-      'Tools and integrations', 'Skills and hooks', 'Search and browsing', 'Services and updates', 'Data and diagnostics', 'Advanced',
+      'Tools and integrations', 'Skills and hooks', 'Search and browsing', 'Services and updates', 'Data and diagnostics', 'Trust and secrets', 'Advanced',
     ]);
     expect(nav.textContent).not.toContain('Remote instances');
     expect(nav.querySelector('[aria-current="page"]')?.textContent).toBe('General');

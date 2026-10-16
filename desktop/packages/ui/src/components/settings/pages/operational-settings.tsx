@@ -25,8 +25,17 @@ import { DiagnosticSummary } from './operational-diagnostics.tsx';
 import { ConversationData } from './operational-conversations.tsx';
 import { FileSettings } from './operational-files.tsx';
 import { SettingsTabs } from '../section-tabs.tsx';
+import { TrustWorkspaces } from './trust-workspaces.tsx';
+import { SecretActionsConsole } from './secret-console.tsx';
+import { ManagedMcpCredentialsSettings } from './managed-mcp-credentials.tsx';
+import { SecretsMetadataSettings } from './secrets-metadata.tsx';
+import { LegacyCredentialsPanel } from './legacy-credentials.tsx';
 
 const PANELS: Record<string, () => ReactNode> = {
+  'operations-trust/workspaces': () => <TrustWorkspaces />,
+  'operations-trust/secrets': () => <SecretActionsConsole />,
+  'operations-trust/mcp': () => <ManagedMcpCredentialsSettings />,
+  'operations-trust/diagnostics': () => <><SecretsMetadataSettings /><LegacyCredentialsPanel /></>,
   'operations-tools/servers': () => <NativeMcpEditor />,
   'operations-tools/inventory': () => <NnaMcpInventory />,
   'operations-tools/references': () => <McpAdvancedPanel />,

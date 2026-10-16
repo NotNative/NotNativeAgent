@@ -32,6 +32,7 @@ export type SettingsPageSlug =
   | 'operations-search'
   | 'operations-services'
   | 'operations-data'
+  | 'operations-trust'
   | 'native-configuration'
   | 'native-tui'
   | 'native-routes'

@@ -211,6 +211,71 @@ discard, pending publication, a publication starting during a discard decision, 
 keyboard tabs, page-scroll reset, status placement and same-key origin changes. The installed agent
 harness now checks inherited fieldset disablement with `:disabled`, rather than a button-only flag.
 
+## Trust and secrets
+
+Version `20261016-3` provides Workspace trust, Secrets, MCP credentials and Credential diagnostics.
+These native controls are removed from native Advanced; compatibility navigation retains its legacy
+anchors. The shared tab, authentication, authority, connection ownership and unsaved-edit protections
+apply. Each tab mounts only its own owners.
+
+Workspace trust supports refresh, root filtering, reviewed grants and reviewed revocation. Adding
+a sidebar folder does not trust its project configuration or skills. Only existing roots can be
+granted; the native receipt names the canonical root. Filtering accepts either Windows slash form.
+A failed trust read does not become an empty successful list, and changes are unavailable until a
+valid observation is restored. Revocation does not undo completed work or terminate initialized engines.
+
+Secrets supports search/pagination, creation, label/scope/metadata edits, rotation, enable/disable,
+confirmed permanent deletion and recent redacted audit events. Username/password creation supplies
+both required fields. Rename writes only changed fields; it cannot silently clear scope or metadata.
+Metadata is public record information, not a place for credential values. Editing metadata explicitly
+replaces it; leaving that option off preserves it. Values stay in write-only inputs and clear when
+the editor closes or a mutation is acknowledged. No value-read/use endpoint is called.
+
+`GET /v1/secrets/scopes` requires secret.read and reports a bounded, deduplicated list of existing
+user/workspace/group/role/deployment scope access plus management availability. The native principal
+owns this response. The UI never derives workspace IDs or invents global-scope access. The endpoint
+does not modify permissions or add secret.use. Read-only principals receive disabled management
+controls and an explanation; missing audit permission does not block an otherwise authorized roster.
+Legacy unscoped records remain diagnostic-only for the desktop principal and require their native
+owner for management. The scope-filtered empty state does not claim that the entire vault is empty.
+Client admission, client revocation and remote identity administration
+remain outside this page until dedicated native contracts exist.
+
+Secret mutations use the existing broker's immediate action protocol. They do not claim manifest
+CAS or live engine reconfiguration. A matching redacted acknowledgement confirms the mutation;
+refresh failure is shown separately. A transport failure requires checking the roster/audit before
+retrying. The UI ignores late results after connection, authentication or authority changes.
+Native deletion still refuses records referenced by providers or MCP configuration.
+
+Managed MCP credentials retain their native staged save/delete and unknown-outcome recovery. They
+apply at the next server spawn. Discard stage clears the local credential draft without publication.
+Credential diagnostics observes vault metadata and legacy startup alias status, without reading
+stored values or master keys. An absent legacy alias is no longer described as active.
+
+Installed acceptance uses disposable, unbound records and an empty test directory. It restores the
+original grant set, secret ID set and managed-reference set. Redacted native audit events remain as
+durable evidence; tests do not erase that ledger. Run without concurrent operator edits:
+
+```powershell
+node desktop/scripts/electron-installed-trust-smoke.mjs ABSOLUTE_REGISTERED_DESKTOP_ROOT ABSOLUTE_EVIDENCE_DIRECTORY
+node desktop/scripts/electron-installed-secrets-smoke.mjs ABSOLUTE_REGISTERED_DESKTOP_ROOT ABSOLUTE_EVIDENCE_DIRECTORY
+node desktop/scripts/electron-installed-trust-credentials-smoke.mjs ABSOLUTE_REGISTERED_DESKTOP_ROOT ABSOLUTE_EVIDENCE_DIRECTORY
+```
+
+Tests replace the former request-only secret lifecycle case with stateful roster, acknowledgement,
+scope preservation, username/password autofill, cancellation, bound-secret refusal, failed refresh,
+read-only permission and late-result checks. Audit parsing now accepts the broker's actual
+secret.revoked event. Installed acceptance saves a failure screenshot when a check fails.
+
+Version `20261016-3` verification passed: core 2,514 tests (8 skipped), UI 2,263 tests and web
+1,557 tests. Type checking, controlled-language and quality gates passed; root and desktop graphs
+were regenerated and checked. The main installer rebuilt the normal registered installation.
+All three installed acceptance commands passed, preserving existing grants, records and references.
+Browser checks covered grant/revoke, Windows path filtering, native ownership choices, editor discard,
+MCP draft discard, diagnostics and settings search. Gateway remained stopped and disabled.
+The diagnostics parser now accepts the native projector's required schema version; a test consumes
+the actual projector output instead of a fixture that omitted that field.
+
 ## Interface preference persistence
 
 `GET/PUT /api/ui-preferences` uses the application's authenticated API boundary. The server accepts

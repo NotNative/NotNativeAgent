@@ -18,7 +18,8 @@ export const NATIVE_SETTINGS_PAGES = [
   { slug: 'operations-search', title: 'Search and browsing', group: 'Capabilities', keywords: 'searxng web search fetch trust playwright chromium browser' },
   { slug: 'operations-services', title: 'Services and updates', group: 'System', keywords: 'desktop gateway opencode compatibility service updates tray restart login' },
   { slug: 'operations-data', title: 'Data and diagnostics', group: 'System', keywords: 'data diagnostics storage export archives conversations files usage environment' },
-  { slug: 'native-configuration', title: 'Advanced', group: 'System', keywords: 'configuration trust secrets mcp login gateway opencode services updates diagnostics' },
+  { slug: 'operations-trust', title: 'Trust and secrets', group: 'System', keywords: 'workspace trust grants vault secrets credentials rotation audit' },
+  { slug: 'native-configuration', title: 'Advanced', group: 'System', keywords: 'effective configuration sources overrides receipts packages compatibility diagnostics' },
 ] as const;
 
 /** Invariant: this allowlist contains presentation preferences only; it cannot change execution authority. */

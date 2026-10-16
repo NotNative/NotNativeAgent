@@ -1,6 +1,6 @@
 # NNA desktop settings integration plan
 
-Status: active delivery plan, reconciled for version `20261016-2`. The mapping below describes
+Status: active delivery plan, reconciled for version `20261016-3`. The mapping below describes
 the target experience; it must not be read as a list of shipped controls.
 
 Implementation progress: the first native settings foundation is documented in
@@ -17,10 +17,11 @@ The remaining options in the mapping below are the roadmap, not claims of shippe
 | Providers and models | Delivered for the native adapter | Additional adapters and capability-backed presets as supported |
 | Agent policy and context | Delivered for native defaults and session review | Workspace instruction editing, saved-memory CRUD and editable delegation limits need native owners |
 | Operational capabilities and data | Delivered supported management/observations | Full support bundles, import, attachment inventory/cleanup and retention need native contracts |
-| Settings cohesion | Implemented in this slice; acceptance recorded in DESKTOP_SETTINGS.md | Dedicated Trust and secrets, lifecycle workflow and complete field-level search remain next |
+| Settings cohesion | Delivered; acceptance recorded in DESKTOP_SETTINGS.md | Lifecycle workflow and complete field-level search remain next |
+| Trust and secrets | Delivered native scope-aware management and diagnostics | Legacy unscoped records require their native owner; client revocation/remote identity require dedicated native contracts |
 | Optional media and knowledge | Deferred | STT/TTS, images, indexing/retrieval and sandboxed artifacts require separate adapters |
 
-Next sequence: finish Trust and secrets and simplify Advanced; then General/lifecycle preferences,
+Next sequence: General/lifecycle preferences,
 restart/reconnection and complete `nna update` acquisition acceptance. Add optional media/knowledge
 after these existing flows are coherent. Every new control must have a native owner and behavior test.
 
@@ -378,3 +379,19 @@ adapters remain deferred until dedicated native contracts exist. Transcript expo
 become imported execution authority. Global costs are not inferred from estimated context; the
 existing conversation context panel remains the usage surface. Separate full `nna update` acceptance
 is still required for its release acquisition path.
+
+## Delivered Trust and secrets
+
+Version `20261016-3` moves workspace grants, secret lifecycle actions, managed MCP credentials and
+credential diagnostics into a dedicated page. Native Advanced retains effective configuration,
+compatibility, packages and diagnostic inventories. Only the selected trust section mounts.
+
+Secret creation and ownership selection use scopes reported by the authenticated native broker.
+The read-only scope discovery endpoint reports existing access and management availability; it
+does not grant permissions, reveal stored values or enable secret.use. Global scope is not offered
+when the native principal cannot manage it. Workspace admission and trust remain distinct.
+
+Grant/revoke, enable/disable and permanent secret deletion have explicit review steps. Native
+acknowledgements and subsequent read outcomes remain distinct. Renaming sends only changed fields,
+preserving unrelated scope and metadata. Username/password creation supports both required fields.
+See [desktop settings](DESKTOP_SETTINGS.md) for contracts, verification commands and remaining limits.

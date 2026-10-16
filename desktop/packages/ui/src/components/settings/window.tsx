@@ -85,6 +85,7 @@ const PAGE_TITLE_KEYS: Record<SettingsPageSlug, I18nKey> = {
   'operations-search': 'settings.page.operationalSearch.title',
   'operations-services': 'settings.page.operationalServices.title',
   'operations-data': 'settings.page.operationalData.title',
+  'operations-trust': 'settings.page.trustSecrets.title',
   'native-configuration': 'settings.page.nativeConfiguration.title',
   'native-tui': 'settings.page.nativeTui.title',
   'native-routes': 'settings.page.nativeRoutes.title',

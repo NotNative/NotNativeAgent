@@ -45,7 +45,7 @@ export interface SecretAuditEvent { format: 1; id: string; at: string; event: Se
   destination: string | null; purpose: string | null; sessionId: string | null;
   reviewerDecisionId: string | null; reason: string | null }
 export type SecretEventName = 'secret.created' | 'secret.updated' | 'secret.rotated'
-  | 'secret.enabled' | 'secret.deleted' | 'secret.used' | 'secret.read' | 'secret.listed';
+  | 'secret.enabled' | 'secret.revoked' | 'secret.deleted' | 'secret.used' | 'secret.read' | 'secret.listed';
 export interface SecretDraftInput { label?: string; kind?: SecretKindName;
   fields?: Record<string, string>; scope?: { kind: SecretScopeName; id: string } | null;
   metadata?: Record<string, unknown>; enabled?: boolean }
@@ -54,6 +54,11 @@ export async function readBrokerSecrets(signal: AbortSignal): Promise<readonly P
   const raw = envelope(await call('', 'GET', undefined, signal, 200), ['secrets']);
   const secrets = raw.secrets as unknown[];
   return secrets.map((secret: unknown, index: number) => parsePublicSecret(secret, index));
+}
+export async function readSecretScopes(signal: AbortSignal): Promise<{ scopes: { kind: SecretScopeName; id: string }[]; can_manage: boolean }> {
+  const raw = envelope(await call('/scopes', 'GET', undefined, signal, 200), ['scopes', 'can_manage']);
+  if (typeof raw.can_manage !== 'boolean' || !Array.isArray(raw.scopes) || raw.scopes.length > 2048 || raw.scopes.some(scope => !scopeShape(scope))) throw viewInvalid();
+  return { scopes: raw.scopes as { kind: SecretScopeName; id: string }[], can_manage: raw.can_manage };
 }
 export async function readSecretAudit(signal: AbortSignal, limit = 100): Promise<readonly SecretAuditEvent[]> {
   const raw = envelope(await call(`/audit?limit=${limit}`, 'GET', undefined, signal, 200), ['events']);
@@ -143,7 +148,7 @@ export function parseAuditEvent(row: unknown, index: number): SecretAuditEvent {
     || typeof row.id !== 'string' || !ID.test(row.id)
     || typeof row.at !== 'string' || !STAMP.test(row.at)
     || typeof row.event !== 'string'
-    || !['secret.created', 'secret.updated', 'secret.rotated', 'secret.enabled', 'secret.deleted',
+    || !['secret.created', 'secret.updated', 'secret.rotated', 'secret.enabled', 'secret.revoked', 'secret.deleted',
       'secret.used', 'secret.read', 'secret.listed'].includes(row.event)
     || (row.outcome !== 'succeeded' && row.outcome !== 'failed')
     || row.realm !== REALM

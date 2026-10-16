@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 export const OPERATIONAL_PAGES = {
+  'operations-trust': { title: 'Trust and secrets', sections: [
+    { id: 'workspaces', title: 'Workspace trust', anchor: 'trust.workspaces', keywords: 'trusted roots grant revoke project configuration skills admission' },
+    { id: 'secrets', title: 'Secrets', anchor: 'trust.secrets', keywords: 'vault broker create rename scope metadata rotate enable disable delete audit API key token password' },
+    { id: 'mcp', title: 'MCP credentials', anchor: 'trust.mcp', keywords: 'managed mcp credential references token server binding' },
+    { id: 'diagnostics', title: 'Credential diagnostics', anchor: 'trust.diagnostics', keywords: 'secrets metadata vault status legacy provider credential alias startup' },
+  ] },
   'operations-tools': { title: 'Tools and integrations', sections: [
     { id: 'servers', title: 'MCP servers', anchor: 'operations.mcp', keywords: 'mcp command endpoint enabled deadlines connections' },
     { id: 'inventory', title: 'Runtime inventory', anchor: 'operations.inventory', keywords: 'mcp runtime configured tools status' },

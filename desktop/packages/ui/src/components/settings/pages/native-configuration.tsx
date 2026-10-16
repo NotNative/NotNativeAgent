@@ -136,5 +136,5 @@ export function NativeConfigurationPage({ nativeOnly = false }: { nativeOnly?: b
       <NativeConfigurationControls key={`${view.installation_id}:${view.data_id}:${view.source_revision}:${view.resolution_revision}`}
         view={view} onReload={() => { void load(); }} />
     </> : null}
-  </SettingsSection>{nativeOnly ? null : <LegacyOperationalSections />}<TrustWorkspaces /><CompatibilityServiceSettings /><ManagedMcpCredentialsSettings /><SecretsMetadataSettings /><SecretActionsConsole /><PackageActionsPanel /><ProviderObservationPanel /><LegacyCredentialsPanel /><InvocationVocabularyPanel /></>;
+  </SettingsSection>{nativeOnly ? null : <><LegacyOperationalSections /><TrustWorkspaces /><ManagedMcpCredentialsSettings /><SecretsMetadataSettings /><SecretActionsConsole /><LegacyCredentialsPanel /></>}<CompatibilityServiceSettings /><PackageActionsPanel /><ProviderObservationPanel /><InvocationVocabularyPanel /></>;
 }

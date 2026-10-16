@@ -25,7 +25,11 @@ app.on('browser-window-created', (_event, win) => {
       if (!result.nativeShell) throw new Error('Installed Electron host not detected');
       await writeFile(${JSON.stringify(join(scratch, 'desktop.png'))}, (await win.webContents.capturePage()).toPNG());
       process.stdout.write(${JSON.stringify(marker + ' ')}+JSON.stringify(result)+'\\n'); clearTimeout(timer); app.quit();
-    } catch (error) { process.stderr.write(String(error)+'\\n'); clearTimeout(timer); app.exit(1); }
+    } catch (error) {
+      try { await writeFile(${JSON.stringify(join(scratch, 'desktop-failure.png'))}, (await win.webContents.capturePage()).toPNG()); }
+      catch (captureError) { process.stderr.write('Failure screenshot unavailable: '+String(captureError)+'\\n'); }
+      process.stderr.write(String(error)+'\\n'); clearTimeout(timer); app.exit(1);
+    }
   });
 });
 await import(${JSON.stringify(pathToFileURL(join(plan.root, 'packages/electron/main.mjs')).href)});`;

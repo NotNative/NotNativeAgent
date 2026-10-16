@@ -53,9 +53,8 @@ export function SecretsMetadataSettings(): ReactNode {
     <p className="text-xs">NNA stores secret values encrypted in its vault; this roster shows only the redaction-safe
       metadata each record carries — label, kind, ownership scope, the NAMES of its public
       metadata, FIELD NAMES, and enabled state.
-      Values and encrypted material never render here, and nothing is written: creating, rotating, renaming,
-      enabling, or deleting a secret stays on the native secret broker's own surfaces. Inspecting needs
-      nnd.configuration.read.</p>
+      Values and encrypted material never render here. This diagnostic view is read-only. Manage records in the Secrets tab;
+      provider bindings stay in Providers and models. Inspecting needs nnd.configuration.read.</p>
     {auth !== 'ok' ? <p role="alert">Sign in to inspect secrets metadata.</p> : null}
     {authority !== 'ready' ? <p role="alert">Native authority is resynchronizing. Inspection is paused.</p> : null}
     {busy ? <p role="status">Working…</p> : null}

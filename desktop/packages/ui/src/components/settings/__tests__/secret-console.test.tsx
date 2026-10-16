@@ -3,119 +3,115 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest';
-
 const runtime = vi.hoisted(() => ({ key: 'native-runtime', listeners: new Set<() => void>() }));
-vi.mock('../../../lib/runtime-switch.ts', () => ({ getRuntimeKey: () => runtime.key,
-  isTransientRuntimeKey: () => false, onRuntimeEndpointChanged: (listener: () => void) => {
-    runtime.listeners.add(listener); return () => runtime.listeners.delete(listener); } }));
+vi.mock('../../../lib/runtime-switch.ts', async original => ({ ...(await original<object>()), getRuntimeKey: () => runtime.key,
+  onRuntimeEndpointChanged: (listener: () => void) => { runtime.listeners.add(listener); return () => runtime.listeners.delete(listener); } }));
 vi.mock('../../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
-
 import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
 import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
 import { SecretActionsConsole } from '../pages/secret-console.tsx';
-
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-const fetchMock = runtimeFetch as unknown as Mock;
-const ID = 'sec_00000000-0000-4000-8000-000000000000';
-const STAMP = '2026-10-06T16:00:00.000Z';
-const identity = { realm: 'nna.local', scope: null, metadata: {}, enabled: true, createdAt: STAMP,
-  updatedAt: STAMP, rotatedAt: null, lastUsedAt: null, useCount: 0 };
-const secret = (label = 'Registry credential', kind = 'api_key', fields = ['apikey']) => ({
-  id: ID, label, kind, fields, ...identity });
-const audit = (event = 'secret.created', outcome = 'succeeded') => ({ format: 1,
-  id: 'secret_event_00000000-0000-4000-8000-000000000000', at: STAMP, event, outcome,
-  realm: 'nna.local', secretId: ID, scope: null, consumer: null, destination: null, purpose: null,
-  sessionId: null, reviewerDecisionId: null, reason: null });
-let container: HTMLDivElement;
-let root: Root | undefined;
-const requests: [string, string | undefined][] = [];
-async function settle() { await act(async () => { for (let i = 0; i < 8; i += 1) await Promise.resolve(); }); }
-async function mount() { container = document.createElement('div'); document.body.append(container);
-  root = createRoot(container); await act(async () => root!.render(<SecretActionsConsole />)); await settle(); }
-function inputOf(placeholder: string): HTMLInputElement {
-  const item = [...container.querySelectorAll('input')]
-    .find(entry => (entry as HTMLInputElement).placeholder === placeholder) as HTMLInputElement;
-  if (!item) throw new Error('missing ' + placeholder);
-  return item;
+import type { PublicSecret } from '../../../lib/nnd/secret-actions.ts';
+const ID = 'sec_00000000-0000-4000-8000-000000000000', stamp = '2026-10-06T16:00:00.000Z';
+const secret = (): PublicSecret => ({ id: ID, realm: 'nna.local', label: 'Registry credential', kind: 'api_key', fields: ['api_key'],
+  scope: { kind: 'workspace', id: 'original-owner' }, metadata: { owner: 'keep' }, enabled: true, createdAt: stamp, updatedAt: stamp, rotatedAt: null, lastUsedAt: null, useCount: 0 });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+let node: HTMLDivElement, root: Root, records: PublicSecret[], writes: { path: string; method: string; body: any }[];
+const fetchMock = runtimeFetch as Mock;
+async function server(path: string, init?: RequestInit): Promise<Response> {
+  const method = init?.method ?? 'GET', body = init?.body ? JSON.parse(String(init.body)) : undefined;
+  if (method === 'GET') return json(path.endsWith('/scopes') ? { can_manage: true, scopes: [{ kind: 'user', id: 'test-operator' }, { kind: 'workspace', id: 'original-owner' }] }
+    : path.includes('/audit') ? { events: [] } : { secrets: records });
+  writes.push({ path, method, body });
+  if (method === 'DELETE') { records = []; return json({ ok: true }); }
+  if (method === 'POST') { const created = { ...secret(), ...body, fields: Object.keys(body.fields).sort(), scope: body.scope, metadata: body.metadata }; records = [created]; return json({ secret: created }, 201); }
+  records = records.map(row => ({ ...row, ...(path.endsWith('/values') ? { rotatedAt: stamp } : body) }));
+  return json({ secret: records[0] });
 }
-async function type(placeholder: string, text: string) { const item = inputOf(placeholder);
-  const value = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-  await act(async () => { if (value) value.call(item, text); else item.value = text;
-    item.dispatchEvent(new window.Event('input', { bubbles: true })); }); await settle(); }
-async function click(label: string) { const target = [...container.querySelectorAll('button')]
-  .filter(item => item.textContent === label).at(-1);
-  if (!target) throw new Error('missing ' + label); await act(async () => target.click()); await settle(); }
-beforeEach(() => { fetchMock.mockReset(); requests.length = 0; sessionStorage.clear();
-  runtime.key = 'native-runtime'; useAuthSessionStore.getState().markOk();
-  fetchMock.mockImplementation((path: string, init?: RequestInit) => {
-    requests.push([path, init?.method]);
-    const body = init?.body ? JSON.parse(String(init.body)) : null;
-    if (init?.method === 'POST') return Promise.resolve(new Response(JSON.stringify({
-      secret: { ...secret(String(body.label)), ...identity } }), { status: 201 }));
-    return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
+async function settle() { await act(async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); }); }
+async function click(label: string) { const button = [...node.querySelectorAll('button')].find(row => row.textContent === label); expect(button, label).toBeTruthy(); await act(async () => button!.click()); await settle(); }
+async function type(label: string, value: string) { const input = node.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }); }
+async function mount() { node = document.createElement('div'); document.body.append(node); root = createRoot(node); await act(async () => root.render(<SecretActionsConsole />)); await settle(); }
+beforeEach(() => { globalThis.IS_REACT_ACT_ENVIRONMENT = true; runtime.key = 'native-runtime'; useAuthSessionStore.getState().markOk(); records = [secret()]; writes = []; fetchMock.mockReset(); fetchMock.mockImplementation(server); });
+afterEach(() => { act(() => root?.unmount()); node?.remove(); runtime.listeners.clear(); });
 
-  });
+it('renames a secret without rewriting its existing scope or metadata, and refreshes the actual roster', async () => {
+  await mount(); await click('Edit details'); await type('Secret label', 'Renamed'); await click('Save changes');
+  expect(writes[0]?.body).toEqual({ label: 'Renamed' });
+  expect(records[0]?.scope).toEqual({ kind: 'workspace', id: 'original-owner' }); expect(records[0]?.metadata).toEqual({ owner: 'keep' });
+  expect(node.querySelector('[data-testid="secret-row"]')?.textContent).toContain('Renamed');
+  expect(node.querySelector('[data-testid="secret-editor"]')).toBeNull(); expect(node.textContent).toContain('Updated Renamed');
 });
-async function defaultMock() { fetchMock.mockImplementation((path: string, init?: RequestInit) => {
-  requests.push([path, init?.method]);
-  if (String(path) === '/api/v1/secrets' && init?.method === 'GET') {
-    return Promise.resolve(new Response(JSON.stringify({ secrets: [secret()] }), { status: 200 }));
-  }
-  if (String(path).startsWith('/api/v1/secrets/audit')) {
-    return Promise.resolve(new Response(JSON.stringify({ events: [audit()] }), { status: 200 }));
-  }
-  if (String(path).endsWith('/values')) {
-    return Promise.resolve(new Response(JSON.stringify({ secret: { ...secret(),
-      rotatedAt: STAMP } }), { status: 200 }));
-  }
-  if (String(path).endsWith('/status')) {
-    return Promise.resolve(new Response(JSON.stringify({ secret: { ...secret(),
-      enabled: false } }), { status: 200 }));
-  }
-  if (init?.method === 'PATCH') {
-    return Promise.resolve(new Response(JSON.stringify({ secret: { ...secret('Renamed') } }),
-      { status: 200 }));
-  }
-  if (init?.method === 'DELETE') return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
-  if (init?.method === 'POST') return Promise.resolve(new Response(JSON.stringify({
-    secret: secret('Vault token') }), { status: 201 }));
-  return Promise.resolve(new Response(JSON.stringify({ secrets: [] }), { status: 200 }));
-}); }
-afterEach(() => { act(() => { if (root) root.unmount(); }); container?.remove(); root = undefined;
-  runtime.listeners.clear(); });
-
-it('drives all seven census actions with redacted receipts and never re-renders values', async () => {
-  await defaultMock();
-  await mount();
-  const roster = () => container.querySelector('[data-testid="secret-roster"]')?.textContent ?? '';
-  expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/v1/secrets');
-  expect(roster()).toContain('Registry credential · api_key · global (null scope)');
-  expect(roster()).toContain('fields [apikey]');
-  expect(roster()).toContain('native audit');
-  // The audit read is its own census action, so its content is asserted, not just
-  // the panel that hosts it: time, event and outcome, with no value anywhere.
-  expect(container.querySelector('[data-testid="secret-audit"]')?.textContent)
-    .toContain(`${STAMP.slice(11, 19)} secret.created succeeded`);
-  // create → POST with values sent once; the receipt is the redacted label.
-  await type('label', 'Vault token'); await type('field name', 'token');
-  await type('field value', 'SENT-ONCE-VALUE'); await click('Create secret');
-  expect(container.querySelector('[data-testid="secret-receipt"]')?.textContent).toContain('created Vault token');
-  const posted = requests.find(([path, method]) => method === 'POST');
-  expect(posted?.[0]).toBe('/api/v1/secrets');
-  // update → rename through the edit panel; scope stays values-free.
-  await click('Edit label/scope/metadata…'); await type('label (Registry credential)', 'Renamed');
-  await click('Apply');
-  expect(requests.find(([path, method]) => method === 'PATCH' && path === `/api/v1/secrets/${ID}`)).toBeTruthy();
-  // rotate → PUT values clears the inputs after send and shows no value back.
-  await click('Rotate values…'); await type('new apikey', 'ROTATED-ONCE'); await click('Set new values');
-  expect(requests.find(([path, method]) => method === 'PUT' && path === `/api/v1/secrets/${ID}/values`)).toBeTruthy();
-  expect([...container.querySelectorAll('input')].some(entry => (entry as HTMLInputElement).type
-    === 'password' && (entry as HTMLInputElement).value.includes('ROTATED-ONCE'))).toBe(false);
-  // enable/disable → PATCH status; once disabled the roster's absence keeps the audit row only.
-  await click('Disable');
-  expect(requests.find(([path, method]) => method === 'PATCH' && String(path).endsWith('/status'))).toBeTruthy();
-  // delete → DELETE and the value never comes back.
-  await click('Delete');
-  expect(requests.find(([path, method]) => method === 'DELETE' && path === `/api/v1/secrets/${ID}`)).toBeTruthy();
-  for (const [path] of requests) expect(path).not.toContain('/use');
+it('creates a username/password record with both fields and clears values after acknowledgement', async () => {
+  await mount(); await click('New secret');
+  await act(async () => { const select = node.querySelector<HTMLSelectElement>('[aria-label="Secret kind"]')!; select.value = 'username_password'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+  await type('Secret label', 'Login test');
+  // Browser autofill can dispatch both field changes in one task; neither value may overwrite the other.
+  await act(async () => { for (const [name, value] of [['username', 'test-user'], ['password', 'test-password']]) {
+    const input = node.querySelector<HTMLInputElement>(`[aria-label="Secret value ${name}"]`)!;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true }));
+  } }); await click('Create secret');
+  expect(writes[0]?.body.fields).toEqual({ username: 'test-user', password: 'test-password' });
+  expect(node.querySelector('[data-testid="secret-row"]')?.textContent).toContain('Login test');
+  expect(node.textContent).not.toContain('test-password'); expect(node.querySelector('input[type="password"]')).toBeNull();
+});
+it('requires review before status changes or deletion and refreshes the resulting rows', async () => {
+  await mount(); await click('Disable'); expect(writes).toHaveLength(0); await click('Cancel operation'); expect(writes).toHaveLength(0);
+  await click('Disable'); await click('Confirm disable'); expect(node.querySelector('[data-testid="secret-row"]')?.textContent).toContain('Disabled');
+  await click('Enable'); await click('Confirm enable'); expect(node.querySelector('[data-testid="secret-row"]')?.textContent).toContain('Enabled');
+  await click('Delete'); expect(writes.filter(row => row.method === 'DELETE')).toHaveLength(0); await click('Confirm delete');
+  expect(node.querySelectorAll('[data-testid="secret-row"]')).toHaveLength(0); expect(node.textContent).toContain('Deleted Registry credential');
+});
+it('rotates only the selected values and never requests the secret-use endpoint', async () => {
+  await mount(); await click('Rotate values'); await type('Secret value api_key', 'rotated-test-value'); await click('Rotate secret');
+  expect(writes[0]).toEqual({ path: `/api/v1/secrets/${ID}/values`, method: 'PUT', body: { fields: { api_key: 'rotated-test-value' } } });
+  expect(node.querySelector('input[type="password"]')).toBeNull(); expect(node.textContent).not.toContain('rotated-test-value');
+  expect(fetchMock.mock.calls.every(([path]) => !String(path).endsWith('/use'))).toBe(true);
+});
+it.each(['label', 'identity'])('refuses false success when the broker acknowledges the wrong %s', async mismatch => {
+  fetchMock.mockImplementation((path: string, init?: RequestInit) => init?.method === 'PATCH' ? Promise.resolve(json({ secret: mismatch === 'label' ? secret()
+    : { ...secret(), label: 'Expected label', id: 'sec_00000000-0000-4000-8000-000000000001' } })) : server(path, init));
+  await mount(); await click('Edit details'); await type('Secret label', 'Expected label'); await click('Save changes');
+  expect(node.querySelector('[data-testid="secret-receipt"]')).toBeNull(); expect(node.querySelector<HTMLInputElement>('[aria-label="Secret label"]')?.value).toBe('Expected label');
+  expect(node.querySelector('[role="alert"]')?.textContent).toContain('did not confirm');
+});
+it('leaves a bound secret intact and explains a native deletion refusal', async () => {
+  fetchMock.mockImplementation((path: string, init?: RequestInit) => init?.method === 'DELETE'
+    ? Promise.resolve(json({ error: { code: 'secret_in_use' } }, 409)) : server(path, init));
+  await mount(); await click('Delete'); await click('Confirm delete');
+  expect(node.querySelector('[data-testid="secret-receipt"]')).toBeNull(); expect(node.querySelectorAll('[data-testid="secret-row"]')).toHaveLength(1);
+  expect(node.querySelector('[role="alert"]')?.textContent).toContain('remove those bindings before deleting');
+});
+it('keeps an acknowledged write distinct from a failed subsequent refresh and supports read retry', async () => {
+  let fail = false; fetchMock.mockImplementation(async (path: string, init?: RequestInit) => {
+    if (init?.method === 'PATCH') { const result = await server(path, init); fail = true; return result; }
+    if (fail) return json({ error: { code: 'secret_broker_unavailable' } }, 503); return server(path, init);
+  });
+  await mount(); await click('Edit details'); await type('Secret label', 'Saved label'); await click('Save changes');
+  expect(node.querySelector('[data-testid="secret-receipt"]')?.textContent).toContain('Updated Saved label'); expect(node.querySelector('[role="alert"]')).not.toBeNull();
+  fail = false; await click('Refresh'); expect(node.querySelector('[data-testid="secret-row"]')?.textContent).toContain('Saved label');
+});
+it('does not publish late UI success into another runtime and clears write-only input when authentication expires', async () => {
+  let finish!: (result: Response) => void;
+  fetchMock.mockImplementation((path: string, init?: RequestInit) => init?.method === 'PATCH' ? new Promise<Response>(resolve => { finish = resolve; }) : server(path, init));
+  await mount(); await click('Edit details'); await type('Secret label', 'Host A label'); await click('Save changes');
+  await act(async () => { runtime.key = 'host-b'; records = [{ ...secret(), label: 'Host B' }]; for (const listener of [...runtime.listeners]) listener(); }); await settle();
+  await act(async () => finish(json({ secret: { ...secret(), label: 'Host A label' } }))); await settle();
+  expect(node.textContent).not.toContain('Updated Host A'); expect(node.querySelector('[data-testid="secret-row"]')?.textContent).toContain('Host B');
+  await click('New secret'); await type('Secret value api_key', 'temporary-test-value');
+  await act(async () => useAuthSessionStore.setState({ status: 'expired' })); expect(node.querySelector('input[type="password"]')).toBeNull();
+});
+it('offers only native scopes and keeps management controls inert for a read-only principal', async () => {
+  await mount(); await click('New secret');
+  const picker = node.querySelector<HTMLSelectElement>('[aria-label="Secret scope"]')!;
+  expect([...picker.options].map(option => option.value)).toEqual(['user:test-operator', 'workspace:original-owner']);
+  expect(picker.value).toBe('user:test-operator'); expect(node.querySelector('[aria-label="Secret scope ID"]')).toBeNull();
+  await click('Cancel editor');
+  fetchMock.mockImplementation((path: string, init?: RequestInit) => path.endsWith('/scopes')
+    ? Promise.resolve(json({ can_manage: false, scopes: [{ kind: 'user', id: 'test-operator' }] }))
+    : path.includes('/audit') ? Promise.resolve(json({ error: { code: 'integration_permission_denied' } }, 403)) : server(path, init));
+  await click('Refresh'); expect([...node.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'New secret')?.disabled).toBe(true);
+  expect([...node.querySelectorAll<HTMLButtonElement>('[data-testid="secret-row"] button')].every(button => button.disabled)).toBe(true);
+  expect(node.querySelector('[role="alert"]')).toBeNull(); expect(node.textContent).toContain('Audit access is unavailable');
+  expect(writes).toHaveLength(0);
 });

@@ -16,7 +16,7 @@ import { SecretsMetadataSettings } from '../pages/secrets-metadata.tsx';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const fetchMock = runtimeFetch as unknown as Mock;
-const identity = { installation_id: 'install_secrets', data_id: 'data_secrets', scope: 'user' };
+const identity = { schema_version: '1.0', installation_id: 'install_secrets', data_id: 'data_secrets', scope: 'user' };
 const record = () => ({ id: 'sec_00000000-0000-4000-8000-000000000000', realm: 'nna.local',
   label: 'Registry credential', kind: 'api_key', scope: { kind: 'workspace', id: 'io' },
   metadata: { team: ['core', 'fringe'], region: 'eu-1' }, fields: ['apikey'], enabled: true,

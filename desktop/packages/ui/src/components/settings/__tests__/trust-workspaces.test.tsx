@@ -51,6 +51,18 @@ beforeEach(() => { fetchMock.mockReset(); sessionStorage.clear(); runtime.key = 
   useAuthSessionStore.getState().markOk(); });
 afterEach(() => { if (root) act(() => root.unmount()); container?.remove(); runtime.listeners.clear(); });
 
+it('cancels a reviewed grant without a write, filters roots, and rejects a foreign installation receipt', async () => {
+  fetchMock.mockImplementation((path: string) => Promise.resolve(jsonResponse(path.endsWith('/catalog') ? catalog
+    : path.endsWith('/trust/grant') ? { ...identity, installation_id: 'another_installation', schema_version: '1.0', operation: 'grant', root: canonical, trusted: true, application: 'project_configuration' } : list())));
+  await mount(); await type('[data-testid="trust-draft"]', 'D:\\test-root'); await click('Review grant'); await click('Cancel trust change');
+  expect(fetchMock.mock.calls.some(([path]) => String(path).endsWith('/trust/grant'))).toBe(false);
+  await type('[aria-label="Filter trusted roots"]', 'not-present'); expect(container.querySelectorAll('[data-testid="trust-row"]')).toHaveLength(0);
+  await type('[aria-label="Filter trusted roots"]', ''); expect(container.querySelectorAll('[data-testid="trust-row"]')).toHaveLength(1);
+  await type('[aria-label="Filter trusted roots"]', canonical.replaceAll('\\', '/')); expect(container.querySelectorAll('[data-testid="trust-row"]')).toHaveLength(1);
+  await type('[data-testid="trust-draft"]', 'D:\\test-root'); await click('Review grant'); await click('Confirm grant');
+  expect(container.querySelector('[data-testid="trust-receipt"]')).toBeNull(); expect(container.textContent).toContain('did not confirm');
+});
+
 it('lists trusted roots, grants through the native surface, and renders canonical receipts', async () => {
   fetchMock.mockImplementation((path: string, init?: RequestInit) => {
     if (path.endsWith('/trust') && (init?.method ?? 'GET') === 'GET') return Promise.resolve(jsonResponse(list()));
@@ -77,13 +89,17 @@ it('lists trusted roots, grants through the native surface, and renders canonica
   const draft = container.querySelector('[data-testid="trust-draft"]') as HTMLInputElement;
   expect(draft).not.toBeNull();
   await type('[data-testid="trust-draft"]', 'D:\\proj');
-  await click('Grant');
+  await click('Review grant');
+  expect(fetchMock.mock.calls.some(([path]) => String(path).endsWith('/trust/grant'))).toBe(false);
+  await click('Confirm grant');
   const text2 = container.textContent ?? '';
   expect(fetchMock.mock.calls.some(([path, init]) => String(path).endsWith('/trust/grant')
     && (init as RequestInit | undefined)?.method === 'POST')).toBe(true);
   expect(container.querySelector('[data-testid="trust-receipt-root"]')?.textContent).toBe(canonical);
   expect(text2).toContain('Granted');
   await click('Revoke');
+  expect(fetchMock.mock.calls.some(([path]) => String(path).endsWith('/trust/revoke'))).toBe(false);
+  await click('Confirm revoke');
   expect(fetchMock.mock.calls.some(([path, init]) => String(path).endsWith('/trust/revoke'))).toBe(true);
   expect(container.textContent).toContain('Revoked');
   await act(async () => root.unmount()); container.remove();
@@ -110,7 +126,14 @@ it('surfaces honest store refusals, missing targets, and auth pauses without lyi
   await mount();
   expect(container.textContent).toContain('unreadable');
   await type('[data-testid="trust-draft"]', 'D:\\gone');
-  await click('Grant');
+  expect(container.querySelector<HTMLButtonElement>('[data-testid="trust-grant"]')?.disabled).toBe(true);
+  expect(fetchMock.mock.calls.some(([path]) => String(path).endsWith('/trust/grant'))).toBe(false);
+  fetchMock.mockImplementation((path: string) => {
+    if (path.endsWith('/trust')) return Promise.resolve(jsonResponse(list()));
+    if (path.endsWith('/catalog')) return Promise.resolve(jsonResponse(catalog));
+    return Promise.resolve(jsonResponse({ error: { code: 'workspace_trust_target_missing' } }, 404));
+  });
+  await click('Refresh trust'); await click('Review grant'); await click('Confirm grant');
   expect(container.textContent).toContain('does not exist');
   await act(async () => root.unmount()); container.remove();
   fetchMock.mockImplementation((path: string) => {
@@ -118,7 +141,7 @@ it('surfaces honest store refusals, missing targets, and auth pauses without lyi
     if (path.endsWith('/catalog')) return Promise.resolve(jsonResponse(catalog));
     throw new Error('unexpected ' + path);
   });
-  await act(async () => useAuthSessionStore.setState({ status: 'signed-out' } as never));
+  await act(async () => useAuthSessionStore.setState({ status: 'expired' }));
   await mount();
   expect(container.textContent).toContain('Sign in to read and change workspace trust.');
   const readsBefore = fetchMock.mock.calls.filter(([path]) => String(path).endsWith('/trust')).length;

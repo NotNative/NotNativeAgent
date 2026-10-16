@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 export const enNativeConfiguration = {
+  'settings.page.trustSecrets.title': 'Trust and secrets',
   'settings.page.operationalTools.title': 'Tools and integrations',
   'settings.page.operationalSearch.title': 'Search and browsing',
   'settings.page.operationalServices.title': 'Services and updates',
