@@ -47,7 +47,8 @@ import { readMiniChatLaunch } from '../lib/miniChatLaunch.ts';
 import { useKeybind } from '../lib/shortcuts/hooks.ts';
 import { CommandPalette, openCommandPalette } from '../chat/command-palette.tsx';
 import { usePushPresence } from './push-presence.tsx';
-import { mountSessionRoute, notifySessionRouteNavigation } from '../lib/session-route.ts';
+import { nativeContinuityPending } from '../lib/native-continuity.ts';
+import { mountSessionRoute, notifySessionRouteNavigation, hasExplicitSessionRoute } from '../lib/session-route.ts';
 import { useWorkspaceRoute } from './use-workspace-route.ts';
 
 function subscribeRuntimeKey(notify: () => void): () => void {
@@ -217,7 +218,7 @@ export function MainLayout(): ReactNode {
       if (!live) return;
       try {
         const selected = selectedConversationDraft();
-        if (selected && !useSessionViewStore.getState().currentSessionId) {
+        if (selected && !hasExplicitSessionRoute() && !nativeContinuityPending(runtimeKey) && !useSessionViewStore.getState().currentSessionId) {
           useSessionViewStore.setState({ activeDirectory: selected.directory, currentSessionId: null, currentDraftId: selected.id }); notifySessionRouteNavigation();
         }
       } catch { toast.message('Conversation drafts could not be restored.'); }
@@ -237,9 +238,13 @@ export function MainLayout(): ReactNode {
 
   const actions = {
     openDraft: async (directory: string, draftId?: string) => {
+      const before = useSessionViewStore.getState(), runtime = getRuntimeKey();
       let draft;
       try {
         if (nativeAlpha && !draftId) directory = await newConversationWorkspace(directory);
+        const current = useSessionViewStore.getState();
+        if (runtime !== getRuntimeKey() || current.currentSessionId !== before.currentSessionId
+          || current.currentDraftId !== before.currentDraftId) return;
         draft = draftId ? useConversationDraftStore.getState().drafts.find(row => row.id === draftId) : useConversationDraftStore.getState().create(directory);
         if (!draft) return;
         directory = draft.directory;

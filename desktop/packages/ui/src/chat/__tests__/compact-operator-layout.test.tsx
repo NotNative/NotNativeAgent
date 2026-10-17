@@ -8,6 +8,7 @@ import { useSessionViewStore } from '../../sync/view-store.ts';
 import { harnessClient } from '../../lib/nnd/client.ts';
 import type { Session } from '../../lib/nnd/types.ts';
 
+vi.mock('../draft-workspace-picker.tsx', () => ({ DraftWorkspacePicker: () => <div data-testid="workspace-picker-stub" /> }));
 vi.mock('../transcript.tsx', () => ({ Transcript: () => <div data-testid="transcript-stub" />, StatusChip: () => null }));
 vi.mock('../prompt-rail.tsx', () => ({ PromptNavigatorRail: () => null }));
 vi.mock('../composer.tsx', () => ({ Composer: ({ onToggleExpanded }: { onToggleExpanded: () => void }) => <><input data-testid="composer-stub" /><button data-testid="toggle-expanded" onClick={onToggleExpanded}>Expand</button></> }));
@@ -28,7 +29,7 @@ const session = (id: string, title: string, parentID?: string): Session => ({
 });
 
 beforeEach(() => {
-  document.body.innerHTML = '';
+  document.body.innerHTML = ''; window.history.replaceState(null, '', '/');
   window.localStorage.clear();
   useSessionViewStore.setState({ activeDirectory: '/proj', currentSessionId: null });
 });
@@ -176,4 +177,15 @@ it('centers the draft starting point and restores the transcript layout for a se
   expect(document.querySelector('[data-testid="chat-draft-landing"]')).toBeNull();
   expect(document.querySelector('[data-testid="transcript-stub"]')).toBeTruthy();
   expect(document.querySelector('[data-composer-bound]')?.className).toContain('border-t');
+});
+
+it.each(['linked', 'selected'])('does not let the draft workspace picker replace a %s conversation during hydration', async kind => {
+  const store = createDirectoryStore();
+  const engine = { childStoreOf: () => store, manager: { ensureChild: () => store } } as never;
+  if (kind === 'linked') window.history.replaceState(null, '', '/?session=cold');
+  container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
+  await act(async () => root!.render(<ChatView nativeAlpha services={{ engine, store: () => store, dispatch: () => undefined }} currentDirectory="/proj" />));
+  if (kind === 'selected') await act(async () => useSessionViewStore.setState({ currentSessionId: 'cold' }));
+  expect(document.querySelector('[data-testid="workspace-picker-stub"]')).toBeNull();
+  expect(document.querySelector('[data-testid="chat-draft-landing"]')).toBeNull();
 });

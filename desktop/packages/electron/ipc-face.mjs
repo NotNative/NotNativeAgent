@@ -18,6 +18,8 @@ const NATIVE_ALPHA_ALLOWED_COMMANDS = new Set([
   'desktop_set_window_pinned', 'desktop_boot_config_get', 'desktop_notify', 'desktop_get_launch_at_login',
   'desktop_retry_server', 'desktop_open_external', 'desktop_get_boot_info',
   'desktop_pick_directory',
+  'desktop_native_host',
+  'desktop_continuity_ack',
 ]);
 
 export function nativeAlphaDesktopActionUnavailable(command) {
@@ -336,7 +338,7 @@ export function createInvokeFace(input, dependencies) {
     }
     if (command === 'desktop_boot_config_get') {
       if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
-      const bootConfig = input.bootConfig?.();
+      const bootConfig = input.bootConfig?.(event);
       if (!bootConfig) return { ok: false, error: 'desktop-boot-config-unavailable' };
       return { ok: true, result: bootConfig };
     }
@@ -385,6 +387,21 @@ export function createInvokeFace(input, dependencies) {
     if (command === 'desktop_get_launch_at_login') {
       if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       return { ok: true, result: input.loginItem?.get?.() ?? { supported: false, enabled: false } };
+    }
+    if (command === 'desktop_native_host') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (!input.nativeHost) return { ok: false, error: 'native-host-unavailable' };
+      if (!payload || Object.keys(payload).some(key => !['action', 'value'].includes(key))
+        || !['read', 'preferences', 'login', 'browser', 'restart'].includes(payload.action)) return { ok: false, error: 'native-host-input-invalid' };
+      if (['read', 'browser', 'restart'].includes(payload.action) && payload.value != null) return { ok: false, error: 'native-host-input-invalid' };
+      try { return { ok: true, result: await input.nativeHost(payload.action, payload.value) }; }
+      catch (error) { return { ok: false, error: /^[a-z][a-z0-9-]{1,80}$/u.test(error.message) ? error.message : 'native-host-operation-failed' }; }
+    }
+    if (command === 'desktop_continuity_ack') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
+      if (payload != null) return { ok: false, error: 'native-host-input-invalid' };
+      input.continuityApplied?.(event);
+      return { ok: true, result: null };
     }
     if (command === 'desktop_set_launch_at_login') {
       if (!isDesktopMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };

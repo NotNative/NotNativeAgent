@@ -4,6 +4,27 @@ import test from 'node:test';
 import { createInvokeFace } from './ipc-face.mjs';
 import { matchesDesktopLocalOrigin, matchesTrustedOrigin } from './trusted-origin.mjs';
 
+test('native host controls admit only the selected local main frame and finite commands', async () => {
+  const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} }, calls = [];
+  let acknowledgements = 0;
+  const invoke = registeredInvoke({ contents, nativeAlpha: () => true, continuityApplied: () => { acknowledgements += 1; },
+    nativeHost: async (action, value) => { calls.push({ action, value }); return { opened: true }; } });
+  const local = ipcEvent(contents, 'http://127.0.0.1:57123/');
+  assert.equal((await invoke(local, 'desktop_native_host', { action: 'browser' })).ok, true);
+  assert.equal((await invoke(local, 'desktop_continuity_ack')).ok, true);
+  assert.equal((await invoke(local, 'desktop_continuity_ack', { token: 'invalid' })).ok, false);
+  for (const payload of [{ action: 'stop' }, { action: 'restart', value: { root: 'C:/Other' } }, { action: 'read', extra: true }]) {
+    assert.equal((await invoke(local, 'desktop_native_host', payload)).error, 'native-host-input-invalid');
+  }
+  const child = ipcEvent(contents, 'http://127.0.0.1:57123/'); child.senderFrame.routingId = 2;
+  assert.equal((await invoke(child, 'desktop_native_host', { action: 'restart' })).error, 'desktop-main-frame-required');
+  assert.equal((await invoke(child, 'desktop_continuity_ack')).ok, false);
+  const remote = ipcEvent(contents, 'https://remote.example/');
+  assert.equal((await invoke(remote, 'desktop_native_host', { action: 'restart' })).ok, false);
+  assert.equal(acknowledgements, 1);
+  assert.deepEqual(calls, [{ action: 'browser', value: undefined }]);
+});
+
 test('matches trusted custom and network origins without accepting lookalikes', () => {
   assert.equal(matchesTrustedOrigin('notnative-ui://app/index.html', 'notnative-ui://app'), true);
   assert.equal(matchesTrustedOrigin('notnative-ui://app.evil/index.html', 'notnative-ui://app'), false);

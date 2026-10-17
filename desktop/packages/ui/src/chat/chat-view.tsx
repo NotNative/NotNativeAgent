@@ -35,7 +35,9 @@ import { CompletionAffordance } from './completion-affordance.tsx';
 import { useConversationDraftStore } from '../stores/useConversationDraftStore.ts';
 import { readDraft, saveDraft, flushDraftsNow, subscribeDraftChanges, getDraftRevision } from './drafts.ts';
 import { DraftWorkspacePicker } from './draft-workspace-picker.tsx';
-import { notifySessionRouteNavigation } from '../lib/session-route.ts';
+import { getRuntimeKey } from '../lib/runtime-switch.ts';
+import { notifySessionRouteNavigation, hasExplicitSessionRoute } from '../lib/session-route.ts';
+import { subscribeNativeContinuity, nativeContinuityOutcome, nativeContinuityPending } from '../lib/native-continuity.ts';
 
 /** H.2/E.3/E.4 band: recap text and/or suggestion chip; chips only fill. */
 function RecapNote({ pair }: { pair: { recap: string | null; suggestion: string | null } }): ReactNode {
@@ -81,6 +83,7 @@ interface ChatColumnSession {
 }
 
 export function ChatView(props: ChatViewProps): ReactNode {
+  const continuity = useSyncExternalStore(subscribeNativeContinuity, nativeContinuityOutcome);
   useSyncExternalStore(subscribeDraftChanges, getDraftRevision);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const globalSessions = useSyncExternalStore(useGlobalSessionsStore.subscribe, useGlobalSessionsStore.getState);
@@ -239,7 +242,8 @@ export function ChatView(props: ChatViewProps): ReactNode {
   const globalNnd = globalGoalSession?.metadata?.['nnd'];
   const globalGoalRevision = globalNnd && typeof globalNnd === 'object'
     ? (globalNnd as Record<string, unknown>)['goalRevision'] : undefined;
-  const draftLanding = shownRef.sessionID === null && !focusMode;
+  const draftLanding = shownRef.sessionID === null && !view.currentSessionId && !hasExplicitSessionRoute()
+    && !nativeContinuityPending(getRuntimeKey()) && !focusMode;
   const now = Date.now();
   const recap = shownRef.sessionID ? recapFor(shownRef.store.getState(), shownRef.sessionID,
     now, { recap: recapEnabled, suggestion: suggestionEnabled }) : null;
@@ -256,7 +260,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
     : undefined;
 
   return (
-    <section ref={chatRoot} tabIndex={-1} className={`relative flex min-h-0 min-w-0 flex-1 flex-row ${focusMode ? 'bg-background' : ''}`} data-testid="chat-view">
+    <section ref={chatRoot} tabIndex={-1} className={`relative flex min-h-0 min-w-0 flex-1 flex-row ${focusMode ? 'bg-background' : ''}`} data-testid="chat-view" data-native-continuity={continuity}>
       <div className={`relative min-h-0 min-w-0 flex-1 flex-col ${compactSurfaceOpen && !focusMode ? 'hidden min-[1100px]:flex' : 'flex'}`}>
         {!focusMode && !(props.nativeAlpha && draftLanding) ? <div className="flex justify-end border-b border-border/50 px-3 py-1 min-[1100px]:hidden">
           <button ref={compactOpenButton} type="button" data-testid="open-operator-surfaces" className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted" onClick={() => { focusReturnOnOpen.current = true; setCompactSurfaceOpen(true); }}>Surfaces</button>

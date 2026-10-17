@@ -276,6 +276,62 @@ MCP draft discard, diagnostics and settings search. Gateway remained stopped and
 The diagnostics parser now accepts the native projector's required schema version; a test consumes
 the actual projector output instead of a fixture that omitted that field.
 
+## General and lifecycle
+
+Version `20261017-1` adds selected-host controls to native General and the NNA desktop tab in Services
+and updates. Launch preferences are device/data-root settings, separate from shared presentation
+preferences. The host writes `config/desktop-launch.json` under the selected NNA data root with an
+expected content revision and atomic replacement. Missing means Desktop; malformed content is
+reported and preserved. Only the installed local main frame can invoke the finite host actions.
+
+- **NNA shortcut opens:** Desktop app or system default browser. The stable launcher resolves current
+  registration and discovery on each invocation, never a persisted ephemeral port. Explicit tray
+  actions retain their named destinations. Browser launch retains one-use, matching-origin admission.
+- **Windows sign-in:** calls native `desktop enable/disable`, preserving NNA's existing enabled flag
+  and Startup-script owner. It does not create a second Electron login item or start/stop this runtime.
+- **Open in browser:** opens the verified selected service through the existing tray action owner.
+- **Restart NNA:** review/cancel before stopping work; the host verifies old-controller shutdown and a
+  different ready generation, then reconnects the desktop. Pending conversation-draft publication is
+  awaited before the request. A bounded, one-use local handoff preserves current-runtime unsent
+  composer caches and the last-session pointer across Chromium's port/generation storage boundary.
+  It copies no cookies, credentials, grants or engine records. An authenticated native session lookup confirms the resume target; archived, missing or moved
+  sessions are not automatically reopened. Automatic draft creation and saved-draft restoration wait for this lookup; explicit conversation
+  links also take precedence while their authenticated lookup is pending. Native
+  session and pending-send validation still own execution. Failed or oversized capture refuses before the service is stopped.
+  Failed host actions do not produce a success receipt; failed reconnection has explicit tray guidance.
+- **Refresh host/version:** re-observes rather than inferring process state from a connection badge.
+
+Closing the desktop window leaves the background service running. Quit NNA in the tray stops it.
+Gateway, OpenCode and separate TUI sessions are independent. Browser General shows working version
+and installation observations plus local-host guidance; it exposes no unsupported process controls.
+Host changes are guarded against navigation, authentication/runtime changes and late replies.
+
+The installed lifecycle acceptance saves/restores the shortcut target and sign-in wiring, checks
+inert discard/cancel, opens the real browser destination, restarts the actual service and observes
+the replacement desktop window and restored unsent text. Its disposable active zero-turn
+conversation is archived afterward; operator conversations are not edited. It uses the registered
+installation and preserves the running replacement service when the test shell closes:
+
+```powershell
+node desktop/scripts/electron-installed-general-smoke.mjs ABSOLUTE_REGISTERED_DESKTOP_ROOT ABSOLUTE_EVIDENCE_DIRECTORY
+```
+
+Tests cover persisted launch behavior, forced Desktop tray selection, revision conflicts, malformed
+files, native wiring receipts, foreign selection, overlapping mutations, failed restart, local-main
+framing, UI refresh/discard/confirm, rejected acknowledgements and authentication changes. Read-only
+host observations do not contend for the mutation slot. Startup tests cover a cold conversation
+link racing default draft selection, with delayed native reads and existing saved drafts.
+
+The main installer upgraded the normal registered NNA and desktop locations for `20261017-1`.
+Installed Electron acceptance exercised every host control, restored the original Desktop launch
+and enabled sign-in settings, and verified the exact active conversation plus unsent text after a
+real service restart. The disposable conversation was archived. Browser checks covered both refresh
+actions, lifecycle search and the shared Services guidance. Telegram remained stopped and disabled.
+
+Verification passed: 2,514 core tests (8 skipped), 2,290 UI tests, 1,557 web tests and 48 focused
+host/launcher/IPC tests. Both repository graphs, controlled language reports and quality gates were
+updated. The full `nna update` release-acquisition path remains a separate acceptance item.
+
 ## Conversation layout containment
 
 Version `20261016-4` bounds the workspace shell to the dynamic viewport height. Intermediate flex

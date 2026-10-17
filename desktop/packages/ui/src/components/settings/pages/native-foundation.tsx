@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTheme } from '../../ThemeProvider.tsx';
 import { useSettingsField } from '../page-helpers.tsx';
 import { useNativePreferenceState, reloadNativePreferences, retryNativePreferences } from '../../../lib/settings/native-preferences.ts';
 import { useSettingsStore } from '../../../lib/settings/store.ts';
 import { listBuiltInThemes } from '../../../lib/theme/themes.ts';
 import { NATIVE_PREFERENCE_DEFAULTS } from '../../../lib/settings/native-registry.ts';
-import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
-import { InstallationObservationPanel } from './installation-observation.tsx';
+import { NativeGeneralPage } from './native-general.tsx';
 
 export const NATIVE_FOUNDATION_SEARCH = [
-  { page: 'general', id: 'native.general', title: 'General and About', keywords: 'version desktop browser tray startup installation' },
+  { page: 'general', id: 'native.general', title: 'General and About', keywords: 'version desktop browser tray startup installation sign-in launch login restart reconnect close' },
+  { page: 'general', id: 'native.host', title: 'Desktop launch and lifecycle', keywords: 'shortcut destination desktop browser startup login sign-in restart reconnect close tray' },
+  { page: 'general', id: 'native.about', title: 'About this connection', keywords: 'version runtime installation refresh' },
   { page: 'appearance', id: 'native.theme', title: 'Theme', keywords: 'system light dark appearance colors' },
   { page: 'appearance', id: 'native.fontSize', title: 'Interface size', keywords: 'font size text scale zoom' },
   { page: 'chat', id: 'native.enterToSend', title: 'Send message with', keywords: 'enter keyboard composer newline' },
@@ -71,33 +72,11 @@ function Conversations(): ReactNode {
   </>;
 }
 
-function General(): ReactNode {
-  const [health, setHealth] = useState<Record<string, unknown> | null>(null), [error, setError] = useState('');
-  useEffect(() => {
-    const controller = new AbortController();
-    void runtimeFetch('/health', { signal: controller.signal }).then(async response => {
-      if (!response.ok) throw new Error('Could not read service version.');
-      const value = await response.json(); if (!controller.signal.aborted) setHealth(value);
-    }).catch(() => { if (!controller.signal.aborted) setError('Could not read service version. Reopen General to retry.'); });
-    return () => controller.abort();
-  }, []);
-  return <div data-settings-item="native.general" className="space-y-4 text-sm">
-    <h3 className="font-semibold">NotNativeAgent</h3>
-    <p>NNA runs locally. Desktop and browser connect to the same background runtime.</p>
-    <h3 className="font-semibold">Desktop and browser</h3>
-    <p>The NNA tray opens the desktop or your system’s default browser. Closing the desktop window leaves the service running. Quit NNA stops it; Restart NNA restarts this runtime.</p>
-    <p>Service status, login wiring and update diagnostics are available under Services and updates. Gateway and OpenCode are managed separately.</p>
-    <h3 className="font-semibold">About</h3>
-    {error ? <p role="alert">{error}</p> : health ? <dl className="grid grid-cols-[auto_1fr] gap-3"><dt>Desktop/web version</dt><dd>{String(health.version ?? 'Unavailable')}</dd><dt>Runtime</dt><dd>{health.runtime === 'service' ? 'NNA background service' : 'Web'}</dd></dl> : <p role="status">Reading service version…</p>}
-    <InstallationObservationPanel />
-  </div>;
-}
-
 export function NativeFoundationPage({ page }: { page: string }): ReactNode {
   const status = useNativePreferenceState(s => s.status);
   const loading = useSettingsStore(s => s.loading);
   const loadError = useSettingsStore(s => s.loadError);
-  if (page === 'general') return <General />;
+  if (page === 'general') return <NativeGeneralPage />;
   return <fieldset disabled={loading || loadError || status === 'conflict'} className="min-w-0 space-y-2">
     <h2 className="text-lg font-semibold">{page === 'chat' ? 'Conversations' : page === 'appearance' ? 'Appearance' : 'Notifications'}</h2>
     {page === 'appearance' ? <Appearance /> : page === 'chat' ? <Conversations /> : <>

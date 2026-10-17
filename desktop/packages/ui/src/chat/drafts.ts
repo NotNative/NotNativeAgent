@@ -117,6 +117,13 @@ export function flushDraftsNow(): void {
   if (storeCache) writeStore(storeCache);
 }
 
+/** Lifecycle actions require a confirmed cache write before discarding the old renderer. */
+export function flushDraftsForLifecycle(): void {
+  flushDraftsNow();
+  try { if (storeCache) localStorage.setItem(DRAFT_KEY, JSON.stringify(storeCache)); }
+  catch { throw new Error('Could not save unsent text. Copy it or free browser storage before restarting. The service was not stopped.'); }
+}
+
 /** Test support: drop the in-memory cache so a test starts from clean storage. */
 export function __resetDraftStoreForTests(): void {
   if (pendingTimer) {

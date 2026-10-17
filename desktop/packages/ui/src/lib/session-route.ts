@@ -18,6 +18,11 @@ export function sessionRouteEnabled(): boolean {
   return !['miniChat', 'ocPanel', 'nn_url_token'].some((key) => params.has(key));
 }
 
+/** Explicit conversation links take precedence over automatic draft restoration. */
+export function hasExplicitSessionRoute(): boolean {
+  return sessionRouteEnabled() && routeSessionId(new URLSearchParams(window.location.search).get('session')) !== null;
+}
+
 /** Explicit draft navigation may keep a null session ID while changing projects. */
 let navigationRevision = 0;
 export function sessionNavigationRevision(): number { return navigationRevision; }

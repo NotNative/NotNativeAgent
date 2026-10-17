@@ -38,6 +38,8 @@ import { extractDesktopDeepLinks, extractNativeAlphaDeepLinks, nativeAlphaDeepLi
 import { createDesktopPairingImporter } from './desktop-pairing.mjs';
 import { probeDesktopHost } from './host-probe.mjs';
 import { resolveDesktopBootTarget } from './desktop-boot.mjs';
+import { createNativeHostControls } from './native-host-controls.mjs';
+import { captureNativeContinuity } from './native-continuity.mjs';
 import { createRelayPairingBridge } from './relay-pairing-bridge.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
@@ -69,6 +71,8 @@ let mainWindow = null;
 const miniChatWindows = new Map();
 let serverHandle = null;
 let nativeAttachment = null;
+let nativeContinuity = null;
+let nativeContinuityRecipient = null;
 let nativeSession = null;
 let nativeSelection = null;
 let nativeSelectionFile = null;
@@ -1063,7 +1067,15 @@ const invokeFace = createInvokeFace({
   },
   mainWindow: () => mainWindow,
   focusApp: () => app.focus({ steal: true }),
-  bootConfig: () => desktopRuntimeConfig && ({ ...desktopRuntimeConfig, bootOutcome: desktopBootOutcome }),
+  bootConfig: event => {
+    if (!desktopRuntimeConfig) return null;
+    const config = { ...desktopRuntimeConfig, bootOutcome: desktopBootOutcome };
+    if (nativeContinuity && event.sender.id === nativeContinuityRecipient) {
+      config.continuity = nativeContinuity;
+    }
+    return config;
+  },
+  continuityApplied: event => { if (event.sender.id === nativeContinuityRecipient) { nativeContinuity = null; nativeContinuityRecipient = null; } },
   hostSwitch: switchDesktopHost,
   relayHostSelect: selectRelayDesktopHost,
   relayPairingBridge,
@@ -1099,6 +1111,12 @@ const invokeFace = createInvokeFace({
   browserControl: () => serverHandle?.browserControl,
   relayDevTunnel: () => relayDevTunnel,
   retryServer: retryServerFromFailurePage,
+  nativeHost: createNativeHostControls({ selection: () => nativeSelection,
+    anchor: () => path.dirname(nativeSelectionFile), openBrowser: url => shell.openExternal(url),
+    beforeRestart: async () => { nativeContinuity = await captureNativeContinuity(mainWindow?.webContents, localRuntimeConfig().runtimeKey); nativeContinuityRecipient = null; },
+    reconnect: async generation => { const result = await reconnectNativeService(generation);
+      if (!result.ok) await dialog.showMessageBox({ type: 'error', title: 'NNA desktop could not reconnect',
+        message: 'The restart completed, but this window could not reconnect. Use Open NNA Desktop in the NNA tray to reconnect to the current service.' }); } }),
   loginItem: {
     get: () => ({
       supported: process.platform === 'win32' || process.platform === 'darwin',
@@ -1181,7 +1199,7 @@ async function bootNativeService() {
   flushDeepLinks();
 }
 
-async function acquireNativeAttachment() {
+async function acquireNativeAttachment(expectedGeneration = nativeControllerGeneration) {
   const currentSelection = readNativeServiceSelection({ args: process.argv, selectionFile: nativeSelectionFile });
   if (currentSelection.installRoot !== nativeSelection.installRoot
     || currentSelection.installation_id !== nativeSelection.installation_id
@@ -1190,30 +1208,41 @@ async function acquireNativeAttachment() {
   // A retry must not attach an already-running shell to an upgraded package.
   await assertSelectedNndPackage(nativeSelection, path.resolve(selfDir(), '..', '..'), nativePackageVersion);
   const attachment = await attachNativeService(nativeSelection);
-  if (nativeControllerGeneration && attachment.generation !== nativeControllerGeneration)
+  if (expectedGeneration && attachment.generation !== expectedGeneration)
     throw new Error('native-controller-generation-changed');
   const nextSession = session.fromPartition(`nnd-native-${attachment.installation_id}-${attachment.data_id}-${attachment.generation}`);
   await nextSession.setProxy({ mode: 'direct' });
   const next = await redeemNativeAttachment(attachment, nextSession);
   nativeSession = nextSession;
   nativeAttachment = next;
+  nativeControllerGeneration = attachment.generation;
   chosenPort = Number(new URL(next.origin).port || 80);
 }
 
-async function reconnectNativeService() {
+// Invariant: startup stays generation-pinned; explicit reconnect may accept a verified replacement of the same installation and package.
+async function reconnectNativeService(expectedGeneration = null) {
   if (quitting || !nativeSelection || retryInProgress) return { ok: false, error: 'native-attachment-unavailable' };
   retryInProgress = true;
   try {
-    await acquireNativeAttachment();
+    if (!nativeContinuity && mainWindow?.webContents.getURL().startsWith(nativeAttachment?.origin ?? 'invalid:')) {
+      nativeContinuity = await captureNativeContinuity(mainWindow.webContents, localRuntimeConfig().runtimeKey);
+    }
+    await acquireNativeAttachment(expectedGeneration);
     const previous = mainWindow;
     desktopRuntimeConfig = localRuntimeConfig();
     configureMainSessionPermissions();
     bootFailure = null;
     mainWindow = createMainWindow();
+    nativeContinuityRecipient = mainWindow.webContents.id;
     for (const win of miniChatWindows.values()) win.destroy();
     miniChatWindows.clear();
     previous?.destroy();
     await mainWindow.webContents.loadURL(mainUiUrl());
+    const recipient = nativeContinuityRecipient;
+    setTimeout(() => {
+      if (nativeContinuity && nativeContinuityRecipient === recipient) void dialog.showMessageBox({ type: 'error', title: 'Unsent text recovery needs attention',
+        message: 'NNA could not confirm restoration of unsent text. The recovery copy is still held by this desktop. Use Service → Reconnect to selected NNA to retry before closing this app.' });
+    }, 15000).unref();
     return { ok: true };
   } catch { return { ok: false, error: 'native-attachment-unavailable' }; }
   finally { retryInProgress = false; }

@@ -15,6 +15,7 @@ import { createWebAPIs } from './api/createWebAPIs.ts';
 import { registerPwaUpdateUX } from './pwa/update-ux.ts';
 import { registerPwaInstallUX } from './pwa/install-ux.ts';
 import { captureNativeBrowserLaunch } from '@notnative/ui/lib/native-browser-launch.ts';
+import { restoreNativeContinuity } from '@notnative/ui/lib/native-continuity.ts';
 
 
 captureNativeBrowserLaunch();
@@ -44,7 +45,14 @@ async function initializeDesktopRuntime(): Promise<void> {
     }
     window.__NOTNATIVE_RUNTIME_HEADERS__ = headers;
     if (typeof config.runtimeKey === 'string' && config.runtimeKey.length <= 256
-      && !/[\u0000-\u001f\u007f]/u.test(config.runtimeKey)) window.__NOTNATIVE_RUNTIME_KEY__ = config.runtimeKey;
+      && !/[\u0000-\u001f\u007f]/u.test(config.runtimeKey)) {
+      window.__NOTNATIVE_RUNTIME_KEY__ = config.runtimeKey;
+      restoreNativeContinuity(config.continuity, config.runtimeKey);
+      if (config.continuity) {
+        const acknowledged = await window.__NOTNATIVE_DESKTOP_INVOKE__('desktop_continuity_ack');
+        if (!acknowledged.ok) throw new Error('Desktop continuity acknowledgement failed.');
+      }
+    }
     if (config.bootOutcome && typeof config.bootOutcome === 'object') {
       window.__NOTNATIVE_DESKTOP_BOOT_OUTCOME__ = config.bootOutcome as Window['__NOTNATIVE_DESKTOP_BOOT_OUTCOME__'];
     }

@@ -6,6 +6,7 @@
  */
 import type { StoreApi } from 'zustand/vanilla';
 import { getRuntimeKey, onRuntimeEndpointChanged } from '../lib/runtime-switch.ts';
+import { nativeContinuityDirectory, finishNativeContinuity } from './boot-continuity.ts';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import type { HarnessEvent } from '../lib/nnd/events.ts';
 import type { Session } from '../lib/nnd/types.ts';
@@ -215,7 +216,7 @@ function scheduleInitialSession(ctx: EngineCtx, directory: string, navigationRev
   // session (or the seeded welcome demo on first run). The user had that
   // session open before, so restoring it needs no confirmation; when nothing
   // restores, the empty draft (doc 05) stays the honest state.
-  void awaitAuthoritativeList(ctx.manager, directory, 6000).then((authoritative) => {
+  const runtime = getRuntimeKey(); void awaitAuthoritativeList(ctx.manager, directory, 6000).then((authoritative) => {
     if (ctx.disposed || !authoritative) return;
     return openInitialSession({
       currentSessionId: useSessionViewStore.getState().currentSessionId,
@@ -225,7 +226,7 @@ function scheduleInitialSession(ctx: EngineCtx, directory: string, navigationRev
       pointer: readLastActiveSession(),
       select: (sessionID, sessionDirectory) => selectBootSession(ctx, sessionID, sessionDirectory),
     });
-  }).catch(() => { /* boot-open is best-effort: the empty draft remains valid */ });
+  }).catch(() => { /* boot-open is best-effort: the empty draft remains valid */ }).finally(() => finishNativeContinuity(runtime));
 }
 
 async function partsStart(ctx: EngineCtx): Promise<void> {
@@ -235,7 +236,7 @@ async function partsStart(ctx: EngineCtx): Promise<void> {
   ctx.bootedAt = Date.now(); // the suppression window measures from COMPLETION
   adoptPersistedActivity();
   const defaultDirectory = await defaultHarnessDirectory();
-  const directory = normalizeDirectory(useSessionViewStore.getState().activeDirectory || defaultDirectory);
+  const directory = await nativeContinuityDirectory(defaultDirectory, navigationRevision); if (ctx.disposed) return;
   if (!useSessionViewStore.getState().activeDirectory) useSessionViewStore.getState().setActiveDirectory(directory);
   ctx.manager.ensureChild(directory);
   scheduleInitialSession(ctx, directory, navigationRevision);

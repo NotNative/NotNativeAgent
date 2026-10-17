@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { nativeContinuityPending, subscribeNativeContinuity } from '../lib/native-continuity.ts';
+import { hasExplicitSessionRoute } from '../lib/session-route.ts';
 import { useWorkspaceStore } from '../stores/useWorkspaceStore.ts';
 import { useConversationDraftStore } from '../stores/useConversationDraftStore.ts';
 import { useWorkspaceDisplayStore } from '../stores/useWorkspaceDisplayStore.ts';
@@ -20,9 +22,10 @@ export function useInitialConversation(enabled: boolean, runtime: string, open: 
   const syncError = useConversationDraftStore(state => state.syncError);
   const draftError = useConversationDraftStore(state => state.error);
   const attempted = useRef<string | null>(null);
+  const resuming = useSyncExternalStore(subscribeNativeContinuity, () => nativeContinuityPending(runtime));
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    if (phase === 'loading' || phase === 'error' || draftError || !enabled || !inventory || sessions.status !== 'ready' || attempted.current === runtime) return;
+    if (resuming || hasExplicitSessionRoute() || phase === 'loading' || phase === 'error' || draftError || !enabled || !inventory || sessions.status !== 'ready' || attempted.current === runtime) return;
     const before = view;
     if (!before.activeDirectory || before.activeDirectory === 'global' || before.currentSessionId || before.currentDraftId) return;
     const pointer = readLastActiveSession();
@@ -44,6 +47,6 @@ export function useInitialConversation(enabled: boolean, runtime: string, open: 
       if (current.currentSessionId === null && current.currentDraftId === null && current.activeDirectory === before.activeDirectory) open(selected.directory);
     };
     void initialize().catch(failure => { if (getRuntimeKey() === runtime) setError(String(failure)); });
-  }, [enabled, runtime, inventory, sessions.status, sessions.active.length, sessions.archived.length, drafts.length, draftError, phase, open, view.activeDirectory, view.currentSessionId, view.currentDraftId]);
+  }, [enabled, runtime, resuming, inventory, sessions.status, sessions.active.length, sessions.archived.length, drafts.length, draftError, phase, open, view.activeDirectory, view.currentSessionId, view.currentDraftId]);
   return error ?? draftError ?? syncError;
 }

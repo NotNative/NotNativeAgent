@@ -11,6 +11,7 @@ import { resolveActiveNndPackage } from './resolve-active-nnd-package.mjs';
 import { writeInstalledServiceManifest } from './installed-service-package.mjs';
 import { launchSelectedDesktop } from './launch-selected-desktop.mjs';
 import { EventEmitter } from 'node:events';
+import { saveLaunchPreferences } from './launch-preferences.mjs';
 
 const windows = { skip: process.platform !== 'win32' };
 const version = '20261003-17';
@@ -114,6 +115,15 @@ test('stable resolver accepts only the pinned fresh-source installation', window
   assert.deepEqual(invoked.args, [join(f.selected, 'packages/electron/main.mjs'),
     '--nna-install-root', f.install, '--nnd-selection-file', f.selection,
     '--nnd-controller-generation', 'fixture-generation-1']);
+  saveLaunchPreferences(join(f.data, 'config', 'desktop-launch.json'), { revision: 'absent', target: 'browser' });
+  let browsers = 0, desktops = 0;
+  const launch = () => { desktops += 1; const child = new EventEmitter(); child.unref = () => {}; queueMicrotask(() => child.emit('spawn')); return child; };
+  const probe = async () => ({ generation: 'current', origin: 'http://127.0.0.1:12345', ticket: 'one-use' });
+  const browser = async (_anchor, action, ports) => { browsers += 1; assert.equal(action, 'browser'); assert.equal((await ports.attach()).generation, 'current'); };
+  assert.equal((await launchSelectedDesktop(f.selected, launch, probe, { browser })).target, 'browser');
+  assert.equal(browsers, 1); assert.equal(desktops, 0);
+  await launchSelectedDesktop(f.selected, launch, probe, { forceDesktop: true, browser });
+  assert.equal(desktops, 1); assert.equal(browsers, 1);
   await writeFile(join(f.selected, 'packages/electron/dist-server/server.mjs'), 'tampered');
   await assert.rejects(resolveActiveNndPackage(f.selection, f.selected), /incompatible/u);
 });

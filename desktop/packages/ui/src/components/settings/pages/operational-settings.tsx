@@ -29,6 +29,7 @@ import { TrustWorkspaces } from './trust-workspaces.tsx';
 import { SecretActionsConsole } from './secret-console.tsx';
 import { ManagedMcpCredentialsSettings } from './managed-mcp-credentials.tsx';
 import { SecretsMetadataSettings } from './secrets-metadata.tsx';
+import { NativeHostSettings } from './native-host-settings.tsx';
 import { LegacyCredentialsPanel } from './legacy-credentials.tsx';
 
 const PANELS: Record<string, () => ReactNode> = {
@@ -45,8 +46,7 @@ const PANELS: Record<string, () => ReactNode> = {
   'operations-search/fetch': () => <WebFetchTrust />,
   'operations-search/browser': () => <BrowserObservationPanel />,
   'operations-search/deployment': () => <SearxngDeploymentPanel />,
-  'operations-services/desktop': () => <><p className="text-xs">The NNA tray opens desktop or browser and restarts this runtime. Closing its window leaves the service running.
-    Gateway and OpenCode are separate services. Restart interrupts running work; save drafts first.</p><InstallationObservationPanel /></>,
+  'operations-services/desktop': () => <NativeHostSettings />,
   'operations-services/gateway': () => <><GatewayRuntimePanel /><NativeGatewayTimeout /></>,
   'operations-services/compatibility': () => <ServiceLifecycleControls />,
   'operations-services/updates': () => <><NativeUpdateState /><UpdateActionsPanel /></>,

@@ -1,6 +1,6 @@
 # NNA desktop settings integration plan
 
-Status: active delivery plan, reconciled for version `20261016-3`. The mapping below describes
+Status: active delivery plan, reconciled for version `20261017-1`. The mapping below describes
 the target experience; it must not be read as a list of shipped controls.
 
 Implementation progress: the first native settings foundation is documented in
@@ -12,18 +12,25 @@ The remaining options in the mapping below are the roadmap, not claims of shippe
 
 | Area | Status | Remaining scope |
 | --- | --- | --- |
-| Tray and launch | Delivered | General launch preferences and complete lifecycle UI |
+| Tray and launch | Delivered with General launch/login preferences and installed restart/reconnect | Explicit installed-browser selection remains deferred; system default is supported |
 | Settings foundation | Delivered for supported preferences | OS/browser notifications, sound and additional host adapters |
 | Providers and models | Delivered for the native adapter | Additional adapters and capability-backed presets as supported |
 | Agent policy and context | Delivered for native defaults and session review | Workspace instruction editing, saved-memory CRUD and editable delegation limits need native owners |
 | Operational capabilities and data | Delivered supported management/observations | Full support bundles, import, attachment inventory/cleanup and retention need native contracts |
-| Settings cohesion | Delivered; acceptance recorded in DESKTOP_SETTINGS.md | Lifecycle workflow and complete field-level search remain next |
+| Settings cohesion | Delivered; General/lifecycle now has native host ownership | Complete field-level search and full update acquisition acceptance remain next |
 | Trust and secrets | Delivered native scope-aware management and diagnostics | Legacy unscoped records require their native owner; client revocation/remote identity require dedicated native contracts |
 | Optional media and knowledge | Deferred | STT/TTS, images, indexing/retrieval and sandboxed artifacts require separate adapters |
 
-Next sequence: General/lifecycle preferences,
-restart/reconnection and complete `nna update` acquisition acceptance. Add optional media/knowledge
+Next sequence: complete field-level search and complete `nna update` acquisition acceptance. Add optional media/knowledge
 after these existing flows are coherent. Every new control must have a native owner and behavior test.
+
+General/lifecycle delivery uses the selected local desktop's native host adapter. The shortcut can
+open Desktop or the system default browser. Explicit tray destinations remain explicit. Windows
+sign-in uses the NNA service's existing startup wiring rather than Electron's shell-login registry.
+Restart requires confirmation, replaces the verified controller generation and reconnects the desktop.
+Browser General exposes connection/version observations and host recovery guidance; it cannot acquire
+local process authority. Closing a desktop window continues to leave the background service running.
+No new close-to-tray switch or arbitrary browser executable field is exposed.
 
 ## Purpose and decisions
 
@@ -281,14 +288,14 @@ a prefilled one-use code and an Unlock action. The launch code is removed from t
 the app initializes and is redeemed only in a POST body against the matching local origin.
 Controller tokens and long-lived cookies are never put in the launch URL or exported to another browser.
 
-Later, General can offer System default / an explicitly supported installed browser and a default
-launch destination Desktop / Browser. Reopening must resolve current service discovery, not save
-an ephemeral port. Preserve normal external-link behavior separately from the NNA UI launch choice.
+General now offers a default launch destination Desktop / Browser, using the system default
+browser. Selecting another installed browser remains deferred. Reopening resolves current service
+discovery; it does not save an ephemeral port. External links retain their normal behavior.
 
 Restart NNA in the tray means the selected desktop/background NNA runtime. It must wait for the old
 controller to disappear, start through the selected installation, verify a different ready generation,
 and retain one service-owned tray. It must not enable or restart Telegram/OpenCode services implicitly.
-The General/Services page should explain interruption behavior and show restart progress. Existing
+The General/Services page explains interruption behavior and shows restart progress. Existing
 TUI sessions and other installed services are separate owners.
 
 ## Delivery slices and acceptance
@@ -344,6 +351,19 @@ Slice 1 established a native-only settings registry and General, Appearance, Con
 Notifications, Keyboard and About experience, while preserving the existing Provider, Skills and
 Advanced configuration workflows. Provider/model management and native agent/operational settings
 followed. Optional voice, image and retrieval infrastructure remains a later capability decision.
+
+## Delivered General and lifecycle
+
+Version `20261017-1` delivers native host controls in General and Services: Desktop/browser shortcut
+selection, Windows sign-in wiring, browser launch, verified restart/reconnect and live version
+observations. Browser mode provides local-host guidance. The system default browser is supported;
+specific browser selection and an editable close policy remain deferred.
+
+The registered main installer and installed Electron acceptance verified every exposed host control,
+restored preferences and sign-in state, and preserved the exact active conversation and unsent text
+through a real restart. Cold conversation resolution and restart recovery now take precedence over
+automatic draft and workspace fallback. UI tests cover those races and refused persistence. See
+[desktop settings](DESKTOP_SETTINGS.md) for ownership, bounds and verification details.
 
 ## Delivered agent policy and context settings
 

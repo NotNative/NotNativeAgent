@@ -82,7 +82,7 @@ function Exit-Tray {
 function Open-Desktop {
   $launcher = Join-Path $InstallRoot 'scripts\launch-selected-desktop.mjs'
   if (-not (Test-Path $launcher)) { return }
-  Start-Process -FilePath $NodePath -ArgumentList @('--disable-warning=ExperimentalWarning', ('"' + $launcher + '"')) `
+  Start-Process -FilePath $NodePath -ArgumentList @('--disable-warning=ExperimentalWarning', ('"' + $launcher + '"'), '--desktop') `
     -WorkingDirectory $InstallRoot -WindowStyle Hidden
 }
 

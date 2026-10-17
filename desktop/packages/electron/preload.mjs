@@ -47,7 +47,8 @@ function invoke(command, payload) {
   const operation = new Promise((resolve) => {
     sequence += 1;
     const seq = sequence;
-    const timeoutMs = command === 'desktop_updater_download' ? 30 * 60_000
+    const timeoutMs = command === 'desktop_native_host' ? 120_000
+      : command === 'desktop_updater_download' ? 30 * 60_000
       : command === 'desktop_updater_install' ? 30_000
       : command === 'desktop_retry_server' ? 25_000 : INVOKE_TIMEOUT_MS;
     // Why: choosing a folder ends on selection, cancellation, or owner teardown.
