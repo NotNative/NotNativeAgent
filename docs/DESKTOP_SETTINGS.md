@@ -276,6 +276,28 @@ MCP draft discard, diagnostics and settings search. Gateway remained stopped and
 The diagnostics parser now accepts the native projector's required schema version; a test consumes
 the actual projector output instead of a fixture that omitted that field.
 
+## Conversation layout containment
+
+Version `20261016-4` bounds the workspace shell to the dynamic viewport height. Intermediate flex
+containers allow the transcript to shrink into its available space. Transcript scrolling preserves
+the workspace sidebar, application header, operator panel and composer positions. Workspace lists
+and operator content use independent overflow scrolling; short content does not reserve scroll space.
+Overscroll stays within each region.
+
+The installed geometry regression check uses an existing accessible conversation and transient DOM
+fixtures for long transcript, workspace-list and operator content. It asserts independent scroll
+positions, stable controls and a viewport-sized document, then removes the fixtures. It never adds
+workspaces, sends prompts or modifies conversation records:
+
+```powershell
+node desktop/scripts/electron-installed-scroll-smoke.mjs ABSOLUTE_REGISTERED_DESKTOP_ROOT ABSOLUTE_EVIDENCE_DIRECTORY
+```
+
+Browser acceptance used the existing long counting transcript, real wheel scrolling, a short workspace
+list and prompt jumps. The main installer rebuilt the normal registered installation. UI tests
+(2,263), core tests (2,514 passed, 8 skipped) and type checking passed. Installed geometry acceptance
+passed for all three regions. Both repository graphs were regenerated and quality gates passed.
+
 ## Interface preference persistence
 
 `GET/PUT /api/ui-preferences` uses the application's authenticated API boundary. The server accepts

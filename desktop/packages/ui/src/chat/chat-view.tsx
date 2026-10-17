@@ -256,8 +256,8 @@ export function ChatView(props: ChatViewProps): ReactNode {
     : undefined;
 
   return (
-    <section ref={chatRoot} tabIndex={-1} className={`relative flex h-full min-w-0 flex-1 flex-row ${focusMode ? 'bg-background' : ''}`} data-testid="chat-view">
-      <div className={`relative min-w-0 flex-1 flex-col ${compactSurfaceOpen && !focusMode ? 'hidden min-[1100px]:flex' : 'flex'}`}>
+    <section ref={chatRoot} tabIndex={-1} className={`relative flex min-h-0 min-w-0 flex-1 flex-row ${focusMode ? 'bg-background' : ''}`} data-testid="chat-view">
+      <div className={`relative min-h-0 min-w-0 flex-1 flex-col ${compactSurfaceOpen && !focusMode ? 'hidden min-[1100px]:flex' : 'flex'}`}>
         {!focusMode && !(props.nativeAlpha && draftLanding) ? <div className="flex justify-end border-b border-border/50 px-3 py-1 min-[1100px]:hidden">
           <button ref={compactOpenButton} type="button" data-testid="open-operator-surfaces" className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted" onClick={() => { focusReturnOnOpen.current = true; setCompactSurfaceOpen(true); }}>Surfaces</button>
         </div> : null}
@@ -284,12 +284,12 @@ export function ChatView(props: ChatViewProps): ReactNode {
             directory={shownRef.directory}
             onSelectSession={(sessionID) => useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: shownRef.directory })} />
         </div> : null}
-        <div className={`min-h-0 flex-1 overflow-y-auto ${isChildSession ? 'pb-6' : 'pb-40'} ${focusMode || draftLanding ? 'hidden' : ''}`} data-chat-column>
+        <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${isChildSession ? 'pb-6' : 'pb-40'} ${focusMode || draftLanding ? 'hidden' : ''}`} data-chat-column>
           {!draftLanding ? <Transcript store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} directory={shownRef.directory} /> : null}
           <CompletionAffordance store={shownRef.store} sessionID={shownRef.sessionID} />
         </div>
         <PromptNavigatorRail store={shownRef.store} sessionID={shownRef.sessionID} />
-        {!isChildSession ? <div className={`relative z-10 px-4 ${draftLanding ? 'flex min-h-0 flex-1 overflow-y-auto py-6' : 'border-t border-border/30 bg-background/80 py-3'}`} data-composer-bound>
+        {!isChildSession ? <div className={`relative z-10 px-4 ${draftLanding ? 'flex min-h-0 flex-1 overflow-y-auto overscroll-contain py-6' : 'shrink-0 border-t border-border/30 bg-background/80 py-3'}`} data-composer-bound>
           <div className={`${draftLanding ? 'my-auto' : ''} mx-auto w-full ${wide ? 'max-w-none' : 'max-w-3xl'}`}>
           {draftLanding ? <div className="mb-2" data-testid="chat-draft-landing">
             <h1 className="mb-8 text-center text-2xl font-medium tracking-tight text-foreground sm:text-3xl">What would you like to work on?</h1>

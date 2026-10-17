@@ -218,9 +218,9 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
   const nudgeWorkspace = (directory: string, distance: -1 | 1) => { setManualOrder(moveWorkspaceOrder(orderedRoots, directory, distance)); setSortBy('manual'); };
   const workspaceDrag = useWorkspaceDrag((source, target) => { setManualOrder(reorderWorkspace(orderedRoots, source, target)); setSortBy('manual'); }, nudgeWorkspace);
   return (
-    <aside ref={sidebar.root} style={{ width: sidebar.width }} className="relative flex shrink-0 flex-col border-r border-border/50 bg-card" data-testid="session-sidebar">
+    <aside ref={sidebar.root} style={{ width: sidebar.width }} className="relative flex min-h-0 shrink-0 flex-col border-r border-border/50 bg-card" data-testid="session-sidebar">
       {sidebar.grip}
-      <nav className="relative border-b border-border/50 px-3 pb-3 pt-4">
+      <nav className="relative shrink-0 border-b border-border/50 px-3 pb-3 pt-4">
         <div className="mb-3 flex items-center justify-between gap-2">
           <span className="text-[13px] font-medium text-foreground">Workspaces</span>
           <div className="flex items-center gap-0.5">
@@ -279,7 +279,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
         />
         {query.length > 0 ? <div className="mt-1 text-[10px] text-muted-foreground">{filtered.length} match{filtered.length === 1 ? '' : 'es'}</div> : null}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2" data-testid="workspace-scroll">
         {sessionsGlobal.status === 'error' ? <div role="alert" className="mb-2 rounded-lg border border-amber-800/50 px-2 py-2 text-[11px] text-amber-300" data-testid="sidebar-sessions-error">
           Could not refresh sessions. <button type="button" className="underline" onClick={() => void useGlobalSessionsStore.getState().loadSessions()}>Try again</button>
         </div> : null}

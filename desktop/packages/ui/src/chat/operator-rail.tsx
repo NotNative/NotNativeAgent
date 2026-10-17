@@ -251,7 +251,7 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, nat
       {compactOpen ? <div className="border-b border-white/10 px-3 py-2">
         <button type="button" data-testid="operator-return-chat" className="rounded px-2 py-1 text-xs text-neutral-200 hover:bg-white/10" onClick={onCloseCompact}>← Return to chat</button>
       </div> : null}
-      <div className={`${docked && !panelOpen && !compactOpen ? 'hidden' : 'flex'} items-center justify-between border-b border-white/10 px-3 py-1.5 text-[11px] text-neutral-300`} data-testid="operator-surface-title">
+      <div className={`${docked && !panelOpen && !compactOpen ? 'hidden' : 'flex'} shrink-0 items-center justify-between border-b border-white/10 px-3 py-1.5 text-[11px] text-neutral-300`} data-testid="operator-surface-title">
         {SURFACES.find((item) => item.id === surface)?.label}
         {docked && !compactOpen ? <div className="flex items-center gap-2">
           {!maximized ? <button type="button" aria-label="Fit operator panel to window" title="Fit panel to window"
@@ -263,7 +263,7 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, nat
         </div> : null}
       </div>
       <div className="flex min-h-0 flex-1">
-      <nav className="order-2 flex w-10 shrink-0 flex-col border-l border-white/10 py-2" aria-label="Operator surfaces">
+      <nav className="order-2 flex min-h-0 w-10 shrink-0 flex-col overflow-y-auto overscroll-contain border-l border-white/10 py-2" aria-label="Operator surfaces">
         {panels.order.filter((id) => panels.visible.includes(id)).map((id) => {
           const item = SURFACES.find((candidate) => candidate.id === id)!;
           return (
@@ -287,7 +287,7 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, nat
           className="mt-auto px-1 py-2 text-[9px] text-neutral-500 hover:text-neutral-200"
           onClick={() => { setPanelOpen(true); setCustomizing((value) => !value); }}>⋯</button>
       </nav>
-      <div className={`${docked && !panelOpen && !compactOpen ? 'hidden' : ''} order-1 min-h-0 min-w-0 flex-1 overflow-y-auto`}>
+      <div className={`${docked && !panelOpen && !compactOpen ? 'hidden' : ''} order-1 min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain`} data-testid="operator-scroll">
         {customizing ? <section aria-label="Customize operator panels" className="border-b border-white/10 p-2 text-xs">
           <div className="mb-2 text-neutral-300">Panels</div>
           {panels.order.map((id, index) => {

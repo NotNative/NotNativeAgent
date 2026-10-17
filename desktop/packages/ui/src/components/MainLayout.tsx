@@ -316,7 +316,7 @@ export function MainLayout(): ReactNode {
   };
 
   return (
-    <div className={`flex h-screen flex-col flex-1 bg-card text-foreground${miniChat ? ' nnd-mini-chat' : ''}`} data-testid={miniChat ? 'mini-chat-layout' : undefined}>
+    <div className={`flex h-dvh min-h-0 flex-col flex-1 overflow-hidden bg-card text-foreground${miniChat ? ' nnd-mini-chat' : ''}`} data-testid={miniChat ? 'mini-chat-layout' : undefined}>
       {!miniChat && !terminalUnavailable ? <TerminalKeepaliveOwner /> : null}
       {!miniChat ? <ShellShortcuts /> : null}
       {miniChat ? (
@@ -332,7 +332,7 @@ export function MainLayout(): ReactNode {
           <ChatSidebar engine={engine} nativeAlpha={nativeAlpha} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} onOpenArchive={showArchive} onRunFusion={nativeAlpha ? undefined : openFusion} />
         </div> : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {!miniChat ? <header className="flex min-w-0 items-center gap-2 border-b border-border/50 bg-background/70 px-3 py-1.5" data-testid="app-header">
+      {!miniChat ? <header className="flex min-w-0 shrink-0 items-center gap-2 border-b border-border/50 bg-background/70 px-3 py-1.5" data-testid="app-header">
         <button type="button" aria-label="Toggle session sidebar" title="Toggle session sidebar"
           aria-expanded={sidebarOpen} aria-controls="session-sidebar-panel" onClick={() => setSidebarOpen(!sidebarOpen)}
           className="rounded px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">☰</button>
@@ -358,7 +358,7 @@ export function MainLayout(): ReactNode {
       {defaultWorkspaceError ? <p role="alert" className="px-3 py-2 text-xs text-amber-300">{defaultWorkspaceError}</p> : null}
 
         {miniChat ? <ChatView services={services} currentDirectory={activeDirectory} nativeAlpha={nativeAlpha} /> : null}
-        {!miniChat ? <main className="flex min-w-0 flex-1" aria-label="Workspace content">{filesOpen ? (
+        {!miniChat ? <main className="flex min-h-0 min-w-0 flex-1" aria-label="Workspace content">{filesOpen ? (
           <FilesView key={JSON.stringify([runtimeKey, activeDirectory])} directory={activeDirectory} visible />
         ) : reviewPane === 'diff' ? (
           <DiffView directory={activeDirectory} visible />
