@@ -65,3 +65,12 @@ test('update command distinguishes check-only from explicit installation', async
   assert.equal(installed, 1);
   assert.match(writes.pop(), /Updated NotNativeAgent/u);
 });
+
+test('update check distinguishes an installed development version ahead of the repository', async () => {
+  const writes = [];
+  await runUpdateCommand(['--check'], {}, { output: { write: text => writes.push(text) }, checkForUpdate: async () => ({
+    status: 'ready', current_version: '20261017-1', latest_version: '20261014-12', available: false,
+  }) });
+  assert.match(writes.join(''), /newer than repository 20261014-12/u);
+  assert.doesNotMatch(writes.join(''), /is current/u);
+});

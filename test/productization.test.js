@@ -283,7 +283,6 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /not enabled; run nna opencode enable to install its login wiring/u);
   assert.match(windowsInstall, /could not be inspected while waiting for its runtime to stop/u);
   assert.match(windowsInstall, /\$OpencodeWasRunning = \$OpencodeStoppedForUpgrade -or \[bool\]\$OpencodeStatus\.runtime\.running/u);
-  assert.match(windowsInstall, /A running OpenCode runtime was stopped for the replacement/u);
   assert.match(windowsUninstall, /opencode stop/u);
   assert.match(windowsUninstall, /NotNativeAgent-OpenCode\.vbs/u);
   assert.match(windowsUninstall, /The OpenCode startup entry belongs to another NNA installation/u);

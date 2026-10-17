@@ -330,7 +330,8 @@ actions, lifecycle search and the shared Services guidance. Telegram remained st
 
 Verification passed: 2,514 core tests (8 skipped), 2,290 UI tests, 1,557 web tests and 48 focused
 host/launcher/IPC tests. Both repository graphs, controlled language reports and quality gates were
-updated. The full `nna update` release-acquisition path remains a separate acceptance item.
+updated. The later `20261017-2` updater verification is documented in [update lifecycle](UPDATE_LIFECYCLE.md),
+including the distinction between the local candidate feed and GitHub publication.
 
 ## Conversation layout containment
 

@@ -1,6 +1,6 @@
 # NNA desktop settings integration plan
 
-Status: active delivery plan, reconciled for version `20261017-1`. The mapping below describes
+Status: active delivery plan, reconciled for version `20261017-2`. The mapping below describes
 the target experience; it must not be read as a list of shipped controls.
 
 Implementation progress: the first native settings foundation is documented in
@@ -17,11 +17,11 @@ The remaining options in the mapping below are the roadmap, not claims of shippe
 | Providers and models | Delivered for the native adapter | Additional adapters and capability-backed presets as supported |
 | Agent policy and context | Delivered for native defaults and session review | Workspace instruction editing, saved-memory CRUD and editable delegation limits need native owners |
 | Operational capabilities and data | Delivered supported management/observations | Full support bundles, import, attachment inventory/cleanup and retention need native contracts |
-| Settings cohesion | Delivered; General/lifecycle now has native host ownership | Complete field-level search and full update acquisition acceptance remain next |
+| Settings cohesion | Delivered; General/lifecycle now has native host ownership | Complete field-level search; candidate update lifecycle verified, direct GitHub candidate installation awaits publication |
 | Trust and secrets | Delivered native scope-aware management and diagnostics | Legacy unscoped records require their native owner; client revocation/remote identity require dedicated native contracts |
 | Optional media and knowledge | Deferred | STT/TTS, images, indexing/retrieval and sandboxed artifacts require separate adapters |
 
-Next sequence: complete field-level search and complete `nna update` acquisition acceptance. Add optional media/knowledge
+Next sequence: complete field-level search and publish/verify the candidate through GitHub after authorization. Add optional media/knowledge
 after these existing flows are coherent. Every new control must have a native owner and behavior test.
 
 General/lifecycle delivery uses the selected local desktop's native host adapter. The shortcut can
@@ -341,8 +341,8 @@ by replacing the settings window wholesale or exposing all dormant pages.
 6. For each change, verify source tests and the built installed artifact. A source-only success is not installed acceptance.
 
 The source main installer completed a full upgrade acceptance run for `20261015-11`, including the
-registered desktop upgrade, while Gateway remained stopped and disabled. `nna update` still needs
-its own complete acceptance run. A desktop-only installer or source main-installer success must
+registered desktop upgrade, while Gateway remained stopped and disabled. The later updater acceptance
+is recorded below. A desktop-only installer or source main-installer success must
 not be reported as proof of the updater command's acquisition and execution path.
 
 ## Original foundation scope (delivered)
@@ -351,6 +351,15 @@ Slice 1 established a native-only settings registry and General, Appearance, Con
 Notifications, Keyboard and About experience, while preserving the existing Provider, Skills and
 Advanced configuration workflows. Provider/model management and native agent/operational settings
 followed. Optional voice, image and retrieval infrastructure remains a later capability decision.
+
+## Delivered updater lifecycle verification
+
+Version `20261017-2` verifies both NNA and registered desktop versions and preserves the observed
+running/stopped and sign-in states. The main installer drains desktop before replacing NNA files.
+Partial failure retains repair source and prior payload evidence, without an unsafe NNA-only rollback.
+Custom installations select their own descriptor. The installed two-case matrix and real GitHub
+archive inspection passed; direct GitHub installation of this candidate awaits publication.
+See [update lifecycle](UPDATE_LIFECYCLE.md) for the acceptance command and exact verification boundary.
 
 ## Delivered General and lifecycle
 
@@ -397,8 +406,8 @@ test assumptions were repaired, with additional failure-path coverage.
 Full evidence/support bundles, authority-free import, bulk permanent deletion and additional remote
 adapters remain deferred until dedicated native contracts exist. Transcript exports must never
 become imported execution authority. Global costs are not inferred from estimated context; the
-existing conversation context panel remains the usage surface. Separate full `nna update` acceptance
-is still required for its release acquisition path.
+existing conversation context panel remains the usage surface. The later updater acceptance above
+records the verified candidate path and the remaining GitHub publication boundary.
 
 ## Delivered Trust and secrets
 

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
 import { constants } from 'node:fs';
-import { access, cp, mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { access, cp, mkdir, open, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { ContractError } from './ids.js';
 import { PRODUCT_NAME, VERSION } from './product.js';
+import { observeUpdatePlatform, verifyUpdatePlatform, verifyDesktopUpdateSource } from './update-platform.js';
 
 export const UPDATE_REPOSITORY = Object.freeze({ owner: 'NotNative', repo: 'NotNativeAgent' });
 export const UPDATE_BRANCH = 'main';
@@ -66,7 +67,7 @@ export async function installAvailableUpdate(options) {
     fetchImpl: options.fetchImpl, timeoutMs: options.timeoutMs ?? 10_000, force: true,
   });
   if (!availability.available) return Object.freeze({ ...availability, installed: false });
-  const marker = await readInstallMarker(options.installMarkerPath ?? defaultInstallMarkerPath());
+  const marker = await readInstallMarker(options.installMarkerPath ?? await selectedInstallMarkerPath());
   const lockPath = join(paths.updateRoot, 'update.lock');
   await mkdir(paths.updateRoot, { recursive: true, mode: 0o700 });
   const lock = await acquireUpdateLock(lockPath);
@@ -75,29 +76,19 @@ export async function installAvailableUpdate(options) {
   try {
     stageRoot = join(paths.updateRoot, `stage-${process.pid}-${Date.now()}`);
     await mkdir(stageRoot, { recursive: false, mode: 0o700 });
-    const archivePath = join(stageRoot, 'source.tar.gz');
-    await downloadArchive(availability.latest_sha, archivePath, options.fetchImpl ?? globalThis.fetch, options.timeoutMs ?? 60_000);
-    await validateArchive(archivePath, options.runProcess);
-    const extractRoot = join(stageRoot, 'source');
-    await mkdir(extractRoot, { recursive: false, mode: 0o700 });
-    await runChecked('tar', ['-xzf', archivePath, '-C', extractRoot], options.runProcess, 'update_extract_failed');
-    const sourceRoot = await singleExtractedDirectory(extractRoot);
-    await validateSource(sourceRoot, availability.latest_version);
-    const installedRoot = resolve(marker.install_root, 'installed');
-    assertChild(installedRoot, marker.install_root);
-    if (await exists(installedRoot)) {
-      backupRoot = join(paths.updateRoot, `rollback-${VERSION}-${Date.now()}`);
-      await cp(installedRoot, backupRoot, { recursive: true, errorOnExist: true });
-    }
+    const sourceRoot = await prepareUpdateSource(stageRoot, availability, options);
+    const before = await observeUpdatePlatform(marker, options.runProcess ?? spawnResult);
+    await verifyDesktopUpdateSource(sourceRoot, availability.latest_version, before);
+    backupRoot = await backupInstalledPayload(marker, paths.updateRoot, options.currentVersion ?? VERSION);
     try {
-      await invokeInstaller(sourceRoot, marker, options.runProcess);
-      await verifyInstalledVersion(marker, availability.latest_version, options.runProcess);
+      await applyPlatformUpdate(sourceRoot, marker, availability.latest_version, before, options.runProcess);
     } catch (error) {
-      if (backupRoot && await exists(backupRoot)) {
-        await rm(installedRoot, { recursive: true, force: true });
-        await rename(backupRoot, installedRoot);
-        backupRoot = null;
-      }
+      // Invariant: descriptors and desktop registration must not be paired with an older NNA payload.
+      error.recovery_root = backupRoot;
+      error.repair_source = sourceRoot;
+      error.message += `; platform rollback was not attempted. Repair with ${join(sourceRoot, process.platform === 'win32' ? 'install.ps1' : 'install.sh')}`;
+      if (backupRoot) error.message += `; previous NNA files: ${backupRoot}`;
+      backupRoot = null; stageRoot = null;
       throw error;
     }
     if (backupRoot) await rm(backupRoot, { recursive: true, force: true });
@@ -114,6 +105,36 @@ export async function installAvailableUpdate(options) {
     await lock.close().catch(() => undefined);
     await rm(lockPath, { force: true }).catch(() => undefined);
   }
+}
+
+async function prepareUpdateSource(stageRoot, availability, options) {
+  const archivePath = join(stageRoot, 'source.tar.gz');
+  await downloadArchive(availability.latest_sha, archivePath, options.fetchImpl ?? globalThis.fetch, options.timeoutMs ?? 60_000);
+  await validateArchive(archivePath, options.runProcess);
+  const extractRoot = join(stageRoot, 'source');
+  await mkdir(extractRoot, { recursive: false, mode: 0o700 });
+  await runChecked('tar', ['-xzf', archivePath, '-C', extractRoot], options.runProcess, 'update_extract_failed');
+  const sourceRoot = await singleExtractedDirectory(extractRoot);
+  await validateSource(sourceRoot, availability.latest_version);
+  return sourceRoot;
+}
+
+async function backupInstalledPayload(marker, updateRoot, version) {
+  const installedRoot = resolve(marker.install_root, 'installed');
+  assertChild(installedRoot, marker.install_root);
+  if ((await readdir(updateRoot)).filter(name => name.startsWith('recovery-')).length >= 3) {
+    throw new ContractError('update_recovery_pending', 'Three previous update recovery copies require operator review before another update');
+  }
+  if (!await exists(installedRoot)) return null;
+  const backupRoot = join(updateRoot, `recovery-${version}-${Date.now()}`);
+  await cp(installedRoot, backupRoot, { recursive: true, errorOnExist: true });
+  return backupRoot;
+}
+
+async function applyPlatformUpdate(sourceRoot, marker, version, before, runProcess) {
+  await invokeInstaller(sourceRoot, marker, runProcess);
+  await verifyInstalledVersion(marker, version, runProcess);
+  await verifyUpdatePlatform(marker, version, before, runProcess ?? spawnResult);
 }
 
 export function compareVersions(left, right) {
@@ -136,6 +157,15 @@ export function defaultInstallMarkerPath(environment = process.env, platform = p
   }
   if (platform === 'darwin') return join(home, 'Library', 'Application Support', PRODUCT_NAME, 'install.json');
   return join(environment.XDG_DATA_HOME || join(home, '.local', 'share'), 'not-native-agent', 'install.json');
+}
+
+/** Installed launchers select their own descriptor, including custom installation roots. */
+export async function selectedInstallMarkerPath(cliPath = process.argv[1]) {
+  if (!cliPath) return defaultInstallMarkerPath();
+  const actual = await realpath(resolve(cliPath));
+  const directory = dirname(actual);
+  if (basename(directory) !== 'src' || basename(dirname(directory)) !== 'installed') return defaultInstallMarkerPath();
+  return join(dirname(dirname(directory)), 'install.json');
 }
 
 async function fetchRepositoryVersion(fetchImpl, timeoutMs) {
@@ -182,7 +212,7 @@ async function writeUpdateState(path, state) {
 async function acquireUpdateLock(path) {
   try { return await open(path, 'wx', 0o600); }
   catch (error) {
-    if (error?.code === 'EEXIST') throw new ContractError('update_in_progress', 'another NNA update is already running');
+    if (error?.code === 'EEXIST') throw new ContractError('update_in_progress', 'NNA update lock is present; another update may be running or interrupted. Inspect installer processes and logs before repairing or clearing the lock');
     throw error;
   }
 }
@@ -191,7 +221,9 @@ async function readInstallMarker(path) {
   let marker;
   try { marker = JSON.parse(await readFile(path, 'utf8')); }
   catch { throw new ContractError('update_installation_missing', 'NNA installation marker was not found'); }
-  if (marker?.product !== PRODUCT_NAME || !isAbsolute(marker.install_root) || !isAbsolute(marker.data_root) || !isAbsolute(marker.node)) {
+  if (marker?.product !== PRODUCT_NAME
+    || !['install_root', 'data_root', 'node'].every(key => typeof marker[key] === 'string' && isAbsolute(marker[key]))
+    || !sameInstallPath(marker.install_root, dirname(path))) {
     throw new ContractError('update_installation_invalid', 'NNA installation marker is invalid');
   }
   return marker;
@@ -239,7 +271,7 @@ async function validateSource(root, expectedVersion) {
   const embedded = (await readFile(join(root, 'VERSION'), 'utf8')).trim();
   const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
   if (embedded !== expectedVersion || manifest.name !== 'not-native-agent' || manifest.nna_version !== expectedVersion) {
-    throw new ContractError('update_identity_mismatch', 'downloaded source identity does not match the selected tag');
+    throw new ContractError('update_identity_mismatch', 'downloaded source identity does not match the selected commit');
   }
   await access(join(root, process.platform === 'win32' ? 'install.ps1' : 'install.sh'), constants.R_OK);
 }
@@ -262,6 +294,20 @@ async function verifyInstalledVersion(marker, expectedVersion, runProcess) {
   const cli = join(marker.install_root, 'installed', 'src', 'cli.js');
   const result = await runChecked(marker.node, ['--disable-warning=ExperimentalWarning', cli, '--version'], runProcess, 'update_verification_failed');
   if (result.stdout.trim() !== expectedVersion) throw new ContractError('update_verification_failed', 'installed NNA version does not match the selected update');
+  let descriptor;
+  try { descriptor = JSON.parse(await readFile(join(marker.install_root, 'install.json'), 'utf8')); }
+  catch { throw new ContractError('update_verification_failed', 'Installed NNA descriptor is unavailable after update'); }
+  if (descriptor.version !== expectedVersion || descriptor.product !== PRODUCT_NAME
+    || typeof descriptor.install_root !== 'string' || typeof descriptor.data_root !== 'string'
+    || !sameInstallPath(descriptor.install_root, marker.install_root)
+    || !sameInstallPath(descriptor.data_root, marker.data_root)
+    || marker.incarnation_id && descriptor.incarnation_id !== marker.incarnation_id) {
+    throw new ContractError('update_verification_failed', 'Installed NNA descriptor or identity does not match the selected update');
+  }
+}
+
+function sameInstallPath(left, right) {
+  return process.platform === 'win32' ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 }
 
 async function runChecked(command, args, runProcess, code, options = {}) {
@@ -273,7 +319,7 @@ async function runChecked(command, args, runProcess, code, options = {}) {
 
 function spawnResult(command, args, options = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { windowsHide: true, stdio: options.inherit ? 'inherit' : ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, args, { windowsHide: true, env: options.env ?? process.env, stdio: options.inherit ? 'inherit' : ['ignore', 'pipe', 'pipe'] });
     let stdout = ''; let stderr = '';
     child.stdout?.on('data', (chunk) => { if (stdout.length < 2_000_000) stdout += chunk; });
     child.stderr?.on('data', (chunk) => { if (stderr.length < 200_000) stderr += chunk; });

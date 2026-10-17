@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, writeFile, readdir } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -14,8 +14,10 @@ import { WindowsAdministrator } from '../src/windows-admin.js';
 test('unavailable update installation returns a failure exit status', async () => {
   assert.equal(await runUpdateCommand([], {}, { output: { write() {} }, installAvailableUpdate: async () => ({ installed: false, status: 'unavailable', current_version: '20260904-1', error_code: 'offline' }) }), 1);
 });
-test('update state validates timestamps, versions, hashes and unavailable state cannot install cached data', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'nna-update-boundary-')); const path = join(root, 'state.json');
+test('update state validates timestamps, versions, hashes and unavailable state cannot install cached data', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-update-boundary-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, 'state.json');
   const valid = { format: 1, checked_at: new Date().toISOString(), status: 'ready', latest_version: '20260904-999', latest_sha: 'a'.repeat(40), latest_ref: 'main', latest_tag: null };
   for (const change of [{ checked_at: 'not a date' }, { latest_version: {} }, { latest_sha: '../../other' }, { status: 'unexpected' }]) {
     await writeFile(path, JSON.stringify({ ...valid, ...change })); assert.equal(await readUpdateState(path), null);

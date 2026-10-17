@@ -96,6 +96,56 @@ function Stop-OpencodeServiceBeforePayloadReplacement([string]$SelectedNode, [st
     } finally { $env:NNA_HOME = $PriorNnaHome }
 }
 
+function Stop-DesktopBeforePayloadReplacement([string]$SelectedNode, [string]$SelectedInstallRoot, [string]$SelectedDataRoot) {
+    if (-not (Test-Path -LiteralPath (Join-Path $SelectedDataRoot 'config\nnd-package.json'))) { return $false }
+    $SelectedCli = Join-Path $SelectedInstallRoot 'installed\src\cli.js'
+    $WaitHelper = Join-Path $SourceRoot 'desktop\scripts\installer-wait-stopped.mjs'
+    if (-not (Test-Path -LiteralPath $WaitHelper -PathType Leaf)) { throw 'Desktop stop verification helper is missing; existing runtime files were preserved.' }
+    $PriorNnaHome = $env:NNA_HOME
+    $env:NNA_HOME = $SelectedDataRoot
+    try {
+        $StatusText = & $SelectedNode --disable-warning=ExperimentalWarning $SelectedCli desktop status
+        if ($LASTEXITCODE -ne 0) { throw 'Existing NNA could not inspect the desktop service; runtime files were preserved.' }
+        $Status = $StatusText | ConvertFrom-Json
+        if ($Status.running -isnot [bool]) { throw 'Desktop service state is unknown; runtime files were preserved.' }
+        if (-not $Status.running) {
+            & $SelectedNode --disable-warning=ExperimentalWarning $WaitHelper $SelectedInstallRoot $SelectedDataRoot | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Desktop service ownership is not quiescent; existing runtime files were preserved.' }
+            Write-InstallerStep 'Desktop service already stopped; it will remain stopped' | Out-Host
+            return $false
+        }
+        Write-InstallerStep 'Desktop service running - stopping service before replacing NNA runtime files' | Out-Host
+        & $SelectedNode --disable-warning=ExperimentalWarning $SelectedCli nnd service stop $SelectedInstallRoot | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Desktop service stop failed; existing runtime files were preserved.' }
+        & $SelectedNode --disable-warning=ExperimentalWarning $WaitHelper $SelectedInstallRoot $SelectedDataRoot | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Desktop service shutdown was not verified; existing runtime files were preserved.' }
+        return $true
+    } finally { $env:NNA_HOME = $PriorNnaHome }
+}
+
+function Restore-DesktopAfterPayloadReplacement([string]$SelectedNode, [string]$SelectedInstallRoot, [string]$SelectedDataRoot, [string]$ExpectedVersion) {
+    $PriorNnaHome = $env:NNA_HOME
+    $env:NNA_HOME = $SelectedDataRoot
+    try {
+        Write-InstallerStep 'Starting previously running desktop service on the updated NNA and desktop packages' | Out-Host
+        $ResultText = & $SelectedNode --disable-warning=ExperimentalWarning (Join-Path $SelectedInstallRoot 'installed\src\cli.js') nnd service start $SelectedInstallRoot
+        if ($LASTEXITCODE -ne 0) { throw 'Updated desktop service failed to start.' }
+        $Deadline = [DateTime]::UtcNow.AddSeconds(120)
+        do {
+            $Result = $ResultText | ConvertFrom-Json
+            if ($Result.service_state -in @('ready', 'setup_required') -and $Result.package_version -ceq $ExpectedVersion) {
+                Write-InstallerOk 'Desktop service ready on updated NNA and desktop packages' | Out-Host
+                return
+            }
+            if ($Result.service_state -notin @('starting', 'ready', 'setup_required')) { break }
+            Start-Sleep -Milliseconds 500
+            $ResultText = & $SelectedNode --disable-warning=ExperimentalWarning (Join-Path $SelectedInstallRoot 'installed\src\cli.js') nnd service status $SelectedInstallRoot
+            if ($LASTEXITCODE -ne 0) { throw 'Updated desktop service status could not be verified.' }
+        } while ([DateTime]::UtcNow -lt $Deadline)
+        throw "Updated desktop service did not confirm the expected package (state=$($Result.service_state), version=$($Result.package_version), expected=$ExpectedVersion)."
+    } finally { $env:NNA_HOME = $PriorNnaHome }
+}
+
 function Find-Ripgrep {
     $Command = Get-Command rg -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($Command) { return $Command.Source }
@@ -497,6 +547,7 @@ if ($ManifestCode) {
 }
 $GatewayStoppedForUpgrade = $false
 $OpencodeStoppedForUpgrade = $false
+$DesktopStoppedForUpgrade = $false
 
 Write-InstallerSection 'Application payload'
 Write-InstallerStep "Staging version $Version"
@@ -523,6 +574,7 @@ try {
         if (-not (Test-Path -LiteralPath $ExistingPackagePath)) { throw 'Refusing to replace an unmarked version directory.' }
         $ExistingPackage = Get-Content -LiteralPath $ExistingPackagePath -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($ExistingPackage.name -ne 'not-native-agent') { throw 'Refusing to replace a foreign version directory.' }
+        $DesktopStoppedForUpgrade = Stop-DesktopBeforePayloadReplacement $NodePath $InstallRoot $DataRoot
         $GatewayStoppedForUpgrade = Stop-GatewayBeforePayloadReplacement $NodePath (Join-Path $SourceRoot 'src\cli.js') $DataRoot
         $OpencodeStoppedForUpgrade = Stop-OpencodeServiceBeforePayloadReplacement $NodePath (Join-Path $SourceRoot 'src\cli.js') $DataRoot
         Remove-Item -LiteralPath $Target -Recurse -Force
@@ -808,46 +860,39 @@ try {
     # and the fresh snapshot can disagree with it, so the restart decision
     # follows either origin of a stopped runtime as the gateway section does.
     $OpencodeWasRunning = $OpencodeStoppedForUpgrade -or [bool]$OpencodeStatus.runtime.running
-    if (-not $OpencodeStatus.service.enabled) {
+    if ($OpencodeStatus.service.autostart_enabled -isnot [bool] -or $OpencodeStatus.runtime.running -isnot [bool]) {
+        throw 'OpenCode service state is unknown; installation cannot confirm preserved service state.'
+    }
+    if (-not $OpencodeStatus.service.autostart_enabled) {
         Write-InstallerSkip 'OpenCode service is not enabled; run nna opencode enable to install its login wiring.'
-        if ($OpencodeStoppedForUpgrade) {
-            # Why: the stop ran while the exact prior state (disabled surface
-            # still serving) existed; no supported command restores that state,
-            # so the loss must be named instead of waiting for the stale
-            # OpenChamber attach to fail against a dead port.
-            Write-InstallerWarning 'A running OpenCode runtime was stopped for the replacement and the disabled service will not restart it; run nna opencode enable to restore wiring and start.'
-        }
     } else {
-        # Why: the login script embeds absolute node/CLI paths that replacement
-        # invalidates, so an enabled service re-registers its wiring for this
-        # install before any restart decision; enable rewrites the environment
-        # keys from the persisted service values, so the OpenChamber-facing
-        # variables stay stable across the upgrade.
         try {
             Invoke-OpencodeInstallerAction @('enable') | Out-Null
             Write-InstallerOk 'OpenCode service login wiring refreshed for the updated runtime'
         } catch {
-            Write-InstallerWarning 'OpenCode service login wiring refresh failed; run nna opencode enable after the installation.'
+            throw 'OpenCode service login wiring refresh failed; run nna opencode enable after the installation.'
         }
-        if ($OpencodeStatus.runtime.running) {
-            # Defensive: a runtime that survived the upgrade stop must not hide a
-            # duplicate start behind stale identity records.
-            Write-InstallerStep 'Stopping the leftover OpenCode service runtime'
-            try { Invoke-OpencodeInstallerAction @('stop') | Out-Null } catch { }
-            $OpencodeStopped = $false
-            for ($Attempt = 0; $Attempt -lt 300; $Attempt++) {
-                Start-Sleep -Milliseconds 100
-                $Runtime = (Invoke-OpencodeInstallerAction @('status') | ConvertFrom-Json).runtime
-                if (-not $Runtime.running) { $OpencodeStopped = $true; break }
-            }
-            if (-not $OpencodeStopped) { throw 'OpenCode service runtime did not stop within 30 seconds; refusing to start a duplicate runtime.' }
+    }
+    # Invariant: login auto-start does not decide whether a previously running runtime is restarted.
+    if ($OpencodeStatus.runtime.running) {
+        # Defensive: a runtime that survived the upgrade stop must not hide a
+        # duplicate start behind stale identity records.
+        Write-InstallerStep 'Stopping the leftover OpenCode service runtime'
+        Invoke-OpencodeInstallerAction @('stop') | Out-Null
+        $OpencodeStopped = $false
+        for ($Attempt = 0; $Attempt -lt 300; $Attempt++) {
+            Start-Sleep -Milliseconds 100
+            $Runtime = (Invoke-OpencodeInstallerAction @('status') | ConvertFrom-Json).runtime
+            if ($Runtime.running -isnot [bool]) { throw 'OpenCode runtime state is unknown while waiting for shutdown.' }
+            if (-not $Runtime.running) { $OpencodeStopped = $true; break }
         }
-        if ($OpencodeWasRunning) {
-            Invoke-OpencodeInstallerAction @('start') | Out-Null
-            Write-InstallerOk 'OpenCode service restarted on the updated runtime'
-        } else {
-            Write-InstallerSkip 'OpenCode service stays stopped; nna opencode start launches it on demand.'
-        }
+        if (-not $OpencodeStopped) { throw 'OpenCode service runtime did not stop within 30 seconds; refusing to start a duplicate runtime.' }
+    }
+    if ($OpencodeWasRunning) {
+        Invoke-OpencodeInstallerAction @('start') | Out-Null
+        Write-InstallerOk 'OpenCode service restarted on the updated runtime'
+    } else {
+        Write-InstallerSkip 'OpenCode service stays stopped; nna opencode start launches it on demand.'
     }
 } finally {
     $env:NNA_HOME = $PriorNnaHome
@@ -1049,6 +1094,7 @@ if (-not (Test-Path -LiteralPath $DesktopScript)) {
     Write-InstallerStep 'An NND desktop package is registered; upgrading it with this NNA install'
     $DesktopExit = Invoke-DesktopInstaller
     if ($DesktopExit -eq 0) {
+        if ($DesktopStoppedForUpgrade) { Restore-DesktopAfterPayloadReplacement $NodePath $InstallRoot $DataRoot $Version }
         Write-InstallerOk 'Desktop component upgraded with this NNA install'
         Show-DesktopInstallTail 6
     } else {
