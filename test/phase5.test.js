@@ -20,7 +20,7 @@ import { validateKeyBindings } from '../src/experience/key-bindings.js';
 import { restoreTranscript } from '../src/experience/transcript.js';
 import { headerTargetAt, TuiRenderer } from '../src/tui/renderer.js';
 import { displayWidth, renderMarkdown, renderMarkdownRows, wrapIndentedTerminalLine } from '../src/tui/terminal-markdown.js';
-import { runPlainText } from '../src/plain-text.js';
+import { plainTextCompactionNotice, runPlainText } from '../src/plain-text.js';
 import { finalizeTui, handleActions, runTui, shouldExitOnCancel, submitEditor } from '../src/tui.js';
 import { adaptiveRenderDelay, createRenderLoop } from '../src/tui/render-loop.js';
 import { commandDefinition, commandSuggestions, TUI_COMMANDS } from '../src/tui/commands.js';
@@ -2323,6 +2323,18 @@ test('AC-HEAD-08/AC-PROD-04/AC-OBS-02 plain text uses canonical semantics and lo
   const logged = await readFile(logPath, 'utf8');
   assert.match(logged, /"code":"turn_result"/u);
   assert.doesNotMatch(logged, /hello|final only/u);
+});
+
+test('plain-text compaction diagnostics are bounded and exclude context content', () => {
+  const record = { type: 'context_compaction_status', status: 'completed',
+    before_estimated_tokens: 30_000, after_estimated_tokens: 18_000,
+    content: 'private context', reason_code: 'private reason' };
+  assert.match(plainTextCompactionNotice(record), /30,000.*18,000/u);
+  assert.doesNotMatch(plainTextCompactionNotice(record), /private/u);
+  for (const status of ['started', 'skipped', 'failed']) {
+    assert.match(plainTextCompactionNotice({ ...record, status }), new RegExp(status, 'u'));
+  }
+  assert.equal(plainTextCompactionNotice({ type: 'stream_delta', text: 'private context' }), null);
 });
 
 test('AC-SEC-06 terminal sanitization neutralizes control and clipboard sequences', () => {

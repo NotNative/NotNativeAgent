@@ -47,6 +47,21 @@ function applyModelRef(state, next) {
 }
 
 function observeEngineRecord(state, record) {
+  if (record?.type === 'context_compaction_status' && state.active) {
+    // Compatibility: OpenCode has no standard compaction part. Emit a scoped
+    // extension event without inserting diagnostic text into the assistant answer.
+    publishBare(state, 'nna.context.compaction', {
+      sessionID: state.sessionID, turnID: record.turn_id ?? null,
+      status: record.status, trigger: record.trigger ?? null,
+      reasonCode: record.reason_code ?? null,
+      beforeEstimatedTokens: record.before_estimated_tokens ?? null,
+      afterEstimatedTokens: record.after_estimated_tokens ?? null,
+      targetTokens: record.target_tokens ?? null,
+      contextWindowTokens: record.context_window_tokens ?? null,
+      inputGrowthTokens: record.input_growth_tokens ?? null,
+    });
+    return;
+  }
   if (record?.type === 'stream_delta' && state.active) {
     publishBare(state, 'message.part.delta', {
       sessionID: state.sessionID, messageID: state.active.assistantId, partID: state.active.textPartId,

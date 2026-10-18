@@ -9,7 +9,7 @@ import { nndMessages } from './nnd-message-list.js';
 import { nndContextObservation } from './nnd-context-observation.js';
 import { observeNndSessionState } from './nnd-turn-state.js';
 import { NndActiveTools } from './nnd-active-tools.js';
-import { observeNndPhaseActivity } from './nnd-phase-activity.js';
+import { nndCompactionActivity, observeNndPhaseActivity } from './nnd-phase-activity.js';
 import { parentChildActivity } from './nnd-parent-child-activity.js';
 import { describe, nextUpdatedAt, sessionIdOrder, titleOf, directoryOf, directoryFor } from './nnd-session-description.js';
 import { createWireEventBus } from './opencode/wire-events.js';
@@ -311,6 +311,7 @@ export class NndEngineHost {
       if (observation) {
         context.contextUsage = observation;
         this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
+      } else if (record.type === 'context_compaction_status') { this.#publish(context, 'nnd.activity', nndCompactionActivity(turn, record, sessionId));
       } else if (record.type === 'stream_delta' && typeof record.text === 'string' && record.text.length > 0) {
         const remaining = LIVE_PREVIEW_LIMIT_CHARS - turn.streamedChars;
         const preview = remaining > 0 ? record.text.slice(0, remaining) : '';
@@ -349,10 +350,7 @@ export class NndEngineHost {
       }
     } catch { /* Display output is observational, never a reason to fail an engine turn. */ }
   }
-  async resolveChildSession(sessionId, principal) {
-    requirePrincipal(principal);
-    return this.childSessions.resolve(sessionId, principal);
-  }
+  async resolveChildSession(sessionId, principal) { requirePrincipal(principal); return this.childSessions.resolve(sessionId, principal); }
   list(principal, options = {}) { return listNndSessions(this.#contexts, this.childSessions, principal, options); }
   async withWorkspaceRevocation(root, action) {
     return this.#workspaceRevocations.with(root, [...this.#contexts.values(), ...this.#quarantined], this.#creating.size, action);

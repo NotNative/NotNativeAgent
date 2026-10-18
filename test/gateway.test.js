@@ -10,7 +10,7 @@ import {
   gatewayPublicStatus, gatewayToken, loadGatewayConfig, normalizeGatewayConfig, saveGatewayConfig,
 } from '../src/gateway/config.js';
 import { splitTelegramText, TelegramApi } from '../src/gateway/telegram-api.js';
-import { gatewaySessionId, TelegramGateway } from '../src/gateway/telegram.js';
+import { gatewayCompactionMessage, gatewaySessionId, TelegramGateway } from '../src/gateway/telegram.js';
 import { ConsoleSessionBroker, ConsoleSessionDirectory } from '../src/session-broker.js';
 import { readTelegramOutbox, TelegramNotificationQueue } from '../src/notifications/telegram.js';
 import { commandDefinition } from '../src/tui/commands.js';
@@ -32,6 +32,51 @@ test('gateway shutdown diagnostics expose only a stable code', () => {
   const diagnostic = gatewayShutdownDiagnostic({ code: 'close failed', message: 'private token detail' });
   assert.equal(diagnostic, 'nna gateway: close_failed\n');
   assert.doesNotMatch(diagnostic, /private|token/u);
+});
+
+test('gateway compaction notices expose terminal status without context content', () => {
+  assert.equal(gatewayCompactionMessage({ type: 'context_compaction_status', status: 'started' }), null);
+  assert.match(gatewayCompactionMessage({ type: 'context_compaction_status', status: 'completed',
+    before_estimated_tokens: 30000, after_estimated_tokens: 20000 }), /30,000.*20,000/u);
+  assert.match(gatewayCompactionMessage({ type: 'context_compaction_status', status: 'skipped' }), /skipped/u);
+  assert.match(gatewayCompactionMessage({ type: 'context_compaction_status', status: 'failed',
+    reason_code: 'private', content: 'private secret' }), /could not compact/u);
+  assert.equal(gatewayCompactionMessage({ type: 'stream_delta', text: 'private' }), null);
+});
+
+test('slow Telegram compaction notice does not block the governed turn', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-compaction-'));
+  let releaseNotice; const noticeGate = new Promise((resolve) => { releaseNotice = resolve; });
+  let answerSent; const answer = new Promise((resolve) => { answerSent = resolve; });
+  let polls = 0;
+  const api = {
+    async getMe() { return { id: 1 }; },
+    async getUpdates(_offset, _timeout, signal) {
+      if (++polls === 1) return [{ update_id: 1, message: { text: 'hello', from: { id: 42 }, chat: { id: 42 } } }];
+      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    },
+    async sendMessage(_chatId, text) {
+      if (text.startsWith('NNA compacted context:')) return noticeGate;
+      if (text === 'finished') answerSent();
+    },
+  };
+  const gateway = new TelegramGateway({
+    api, paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer') },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineFactory: ({ output }) => ({
+      config: { executionManifest: null }, initialize: async () => undefined,
+      submit: async () => {
+        await output({ type: 'context_compaction_status', status: 'completed',
+          before_estimated_tokens: 30_000, after_estimated_tokens: 18_000 });
+        return { outcome: 'completed', text: 'finished' };
+      },
+      cancel: async () => ({ accepted: true }), shutdown: async () => ({ complete: true }),
+    }),
+  });
+  const running = gateway.run();
+  try { await answer; }
+  finally { releaseNotice(); await gateway.shutdown(); await running; }
 });
 
 test('gateway config is absent-safe, bounded, durable, and redacted', async t => {

@@ -12,6 +12,7 @@ import { acknowledgeTelegramNotification, readTelegramOutbox } from '../notifica
 import { persistAtomicJson } from '../persistence/atomic-json.js';
 
 const MAX_PENDING_CHAT_UPDATES = 16;
+const MAX_PENDING_COMPACTION_NOTICES = 4;
 const MAX_DURABLE_UPDATES = 256;
 const MAX_GATEWAY_STATE_BYTES = 1_048_576;
 const GATEWAY_HELP = 'NNA gateway ready. Send a request, use /sessions to attach to a Console conversation, /compact to reduce older context, /handoff for a terse continuation, /clear to start fresh, or /cancel to stop active work.';
@@ -28,6 +29,7 @@ export class TelegramGateway {
     this.attachments = new Map();
     this.pendingClears = new Map();
     this.queues = new Map();
+    this.compactionNotices = new Map();
     this.offset = 0;
     this.inbox = [];
     this.activeUpdates = new Set();
@@ -87,6 +89,7 @@ export class TelegramGateway {
     }, 'authenticated-gateway-runtime')));
     await Promise.allSettled([...this.queues.values()].map((item) => item.operation));
     await Promise.allSettled([...this.updateOperations]);
+    await Promise.allSettled([...this.compactionNotices.values()].map((item) => item.tail));
     await this.stateWrites;
     await Promise.allSettled([...this.sessions.values()].map((item) => item.engine.shutdown({
       version: '1.0', type: 'shutdown', request_id: newId('gateway_shutdown'),
@@ -95,6 +98,7 @@ export class TelegramGateway {
     this.attachments.clear();
     this.pendingClears.clear();
     this.queues.clear();
+    this.compactionNotices.clear();
     this.logger.record({ type: 'gateway_stopped', status: 'completed' });
     await this.logger.flush();
   }
@@ -401,7 +405,11 @@ export class TelegramGateway {
     const existing = this.sessions.get(chatId);
     if (existing) return existing;
     const sessionId = gatewaySessionId(chatId);
-    const output = async (record) => this.logger.record(record, { sessionId });
+    const output = async (record) => {
+      this.logger.record(record, { sessionId });
+      const message = gatewayCompactionMessage(record);
+      if (message) this.#queueCompactionNotice(chatId, sessionId, message);
+    };
     const engine = this.engineFactory({
       ...this.engineOptions, config: this.engineConfig, sessionId, surface: 'telegram_gateway', output, scheduler: this.scheduler,
       storeRoot: this.paths.sessions, reviewerRoot: this.paths.reviewerLedger,
@@ -411,6 +419,38 @@ export class TelegramGateway {
     this.sessions.set(chatId, session);
     return session;
   }
+
+  #queueCompactionNotice(chatId, sessionId, message) {
+    const pending = this.compactionNotices.get(chatId) ?? { tail: Promise.resolve(), count: 0 };
+    if (pending.count >= MAX_PENDING_COMPACTION_NOTICES) {
+      this.logger.record({ type: 'gateway_compaction_notice_dropped', reason_code: 'notice_queue_full', session_id: sessionId });
+      return;
+    }
+    pending.count += 1;
+    // Why: a slow Telegram request cannot hold the engine's compaction lifecycle open.
+    pending.tail = pending.tail.then(() => this.api.sendMessage(chatId, message, this.controller.signal))
+      .catch((error) => this.logger.record({ type: 'gateway_compaction_notice_failed',
+        reason_code: error?.code ?? 'gateway_send_failed', session_id: sessionId }))
+      .finally(() => {
+        pending.count -= 1;
+        if (pending.count === 0 && this.compactionNotices.get(chatId) === pending) this.compactionNotices.delete(chatId);
+      });
+    this.compactionNotices.set(chatId, pending);
+  }
+}
+
+export function gatewayCompactionMessage(record) {
+  if (record?.type !== 'context_compaction_status') return null;
+  if (record.status === 'completed') {
+    const before = record.before_estimated_tokens;
+    const after = record.after_estimated_tokens;
+    return Number.isSafeInteger(before) && Number.isSafeInteger(after)
+      ? `NNA compacted context: ${before.toLocaleString('en-US')} → ${after.toLocaleString('en-US')} estimated input tokens.`
+      : 'NNA compacted context.';
+  }
+  if (record.status === 'skipped') return 'NNA skipped context compaction because input would not shrink.';
+  if (record.status === 'failed') return 'NNA could not compact context; the turn may need a smaller request.';
+  return null;
 }
 
 function attachedControls(alias) {

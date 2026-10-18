@@ -474,7 +474,6 @@ function recordCompressionEfficacy(engine, active, before, after, reducers, trig
 }
 
 function emitCompactionStatus(engine, active, status, detail) {
-  if (engine.surface !== 'interactive_tui') return Promise.resolve();
   return engine.output({
     version: '1.0', type: 'context_compaction_status', session_id: engine.sessionId,
     turn_id: active.turnId, status, ...detail,

@@ -21,6 +21,7 @@ function fixture(enrichment = {}, tools = []) {
   const transitions = [], facts = [], terminals = [];
   const engine = { config: { workspaceRoot: process.cwd(), executionManifest: null,
     limits: { maxContextBytes: budget.hardLimitBytes } }, reliability,
+  output: async () => undefined,
   router: { candidates: () => [route] }, modelRuntime: { resolve: async () => ({ model: 'fixture', providerId: 'fixture' }) },
   tools: { providerDefinitions: () => tools },
   transcript: [{ type: 'message', role: 'assistant', turnId: 'old', content: 'historical evidence '.repeat(20000) },
@@ -228,4 +229,29 @@ test('long-horizon compaction reports its trigger and diagnostic ceilings', asyn
   assert.equal(started.output_reserve_tokens, run.budget.outputReserveTokens);
   assert.equal(started.threshold_bytes, run.budget.thresholdBytes);
   assert.equal(started.retry_scale, 1);
+});
+
+test('non-TUI output receives every compaction lifecycle outcome with matching telemetry', async () => {
+  for (const expected of ['completed', 'skipped', 'failed']) {
+    const run = expected === 'failed'
+      ? fixture({ attachments: [{ id: 'large', mimeType: 'text/plain', route: 'text', observation: 'x'.repeat(100000) }] })
+      : fixture();
+    const output = [], telemetry = [];
+    run.engine.surface = 'headless';
+    run.engine.output = async (record) => output.push(record);
+    run.engine.telemetry = { record: (event, status, detail) => telemetry.push({ event, status, detail }) };
+    if (expected === 'skipped') {
+      run.engine.transcript = [{ type: 'message', role: 'user', turnId: 'current', content: 'Hello.' }];
+      run.active.contextCompressionTrigger = 'tool_payload_budget';
+    }
+    const action = prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active,
+      expected === 'skipped', run.operations);
+    if (expected === 'failed') await assert.rejects(action);
+    else await action;
+    const statuses = output.filter((record) => record.type === 'context_compaction_status').map((record) => record.status);
+    assert.deepEqual(statuses, ['started', expected]);
+    const expectedTelemetry = expected === 'completed' ? 'succeeded' : expected;
+    assert.deepEqual(telemetry.filter((record) => record.event === 'context.compaction').map((record) => record.status),
+      ['started', expectedTelemetry]);
+  }
 });

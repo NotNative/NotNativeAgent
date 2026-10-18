@@ -1097,6 +1097,21 @@ test('NND engine host streams text and tool activity before authoritative comple
   output({ type: 'context_usage', session_id: 'session_a', turn_id: 'turn_a',
     current_estimated_tokens: 5_000, limit_tokens: 16_000 });
   assert.equal(host.get('session_a', owner).metadata.nnd.context.estimatedTokens, 5_000);
+  for (const status of ['started', 'completed', 'skipped', 'failed']) {
+    output({ type: 'context_compaction_status', session_id: 'session_a', turn_id: 'turn_a', status,
+      before_estimated_tokens: 5_000, after_estimated_tokens: 3_000 });
+  }
+  output({ type: 'context_compaction_status', session_id: 'session_a', turn_id: 'turn_a', status: 'completed',
+    before_estimated_tokens: 2_000, after_estimated_tokens: 1_000 });
+  const compactionEvents = events.filter((event) => event.type === 'nnd.activity'
+    && event.properties.id.includes(':compaction:'));
+  assert.equal(new Set(compactionEvents.map((event) => event.properties.id)).size, 5);
+  assert.deepEqual(events.filter((event) => event.type === 'nnd.activity'
+    && event.properties.id.includes(':compaction:')).map((event) => event.properties.status),
+  ['started', 'completed', 'completed', 'failed', 'completed']);
+  assert.match(compactionEvents[1].properties.summary,
+  /5,000.*3,000.*estimated input tokens/u);
+  assert.equal(host.get('session_a', owner).metadata.nnd.context.estimatedTokens, 5_000);
   output({ type: 'stream_delta', session_id: 'different', turn_id: 'turn_a', text: 'private' });
   output({ type: 'stream_delta', session_id: 'session_a', turn_id: 'turn_a', text: 'Hello' });
   output({ type: 'stream_delta', session_id: 'session_a', turn_id: 'turn_b', text: 'wrong turn' });

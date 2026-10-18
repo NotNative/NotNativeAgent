@@ -19,7 +19,11 @@ export async function runPlainText(prompt, output, diagnostics, options) {
       config: options.config, sessionId, surface: 'plain_text',
       storeRoot: options.storeRoot, providerFactory: options.providerFactory,
       reviewerRoot: options.reviewerRoot, semanticReviewer: options.semanticReviewer,
-      output: async (record) => { logger?.record(record, { sessionId }); },
+      output: async (record) => {
+        logger?.record(record, { sessionId });
+        const notice = plainTextCompactionNotice(record);
+        if (notice) diagnostics.write(`${notice}\n`);
+      },
     });
     unregisterFatalCleanup = options.fatalBoundary?.registerCleanup(() => engine.shutdown({
       request_id: 'fatal_process_shutdown', type: 'shutdown',
@@ -45,6 +49,22 @@ export async function runPlainText(prompt, output, diagnostics, options) {
       catch (error) { writeDiagnostic(diagnostics, 'log_flush', error); }
     }
   }
+}
+
+export function plainTextCompactionNotice(record) {
+  if (record?.type !== 'context_compaction_status') return null;
+  if (record.status === 'started') return 'nna text: context compaction started';
+  if (record.status === 'skipped') return 'nna text: context compaction skipped';
+  if (record.status === 'failed') return 'nna text: context compaction failed';
+  if (record.status === 'completed') {
+    const before = record.before_estimated_tokens;
+    const after = record.after_estimated_tokens;
+    if (Number.isSafeInteger(before) && before >= 0 && Number.isSafeInteger(after) && after >= 0) {
+      return `nna text: context compaction completed (${before.toLocaleString('en-US')} → ${after.toLocaleString('en-US')} estimated input tokens)`;
+    }
+    return 'nna text: context compaction completed';
+  }
+  return null;
 }
 
 async function initializeLogger(options, diagnostics) {

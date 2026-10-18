@@ -4,6 +4,12 @@ import { observeForm } from './v2-forms.js';
 
 export function observeV1Event(state, event, events) {
   const { type, properties: value } = event;
+  if (type === 'nna.context.compaction') {
+    // Compatibility: preserve the native v2 event envelope while keeping this
+    // NNA extension outside OpenCode's standard message-part contract.
+    events.emit(state, type, { ...value }, false);
+    return;
+  }
   if (type.startsWith('question.')) return observeForm(state, type, value, events);
   if (type === 'message.updated') return observeMessage(state, value.info, events);
   if (type === 'message.part.updated') return observePart(state, value.part, events);

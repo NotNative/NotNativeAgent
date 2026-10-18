@@ -64,6 +64,26 @@ test('prompt admits, runs, settles, and closes in the observed gold cadence', as
   assert.match(messages[1].parts[0].snapshot, /^[0-9a-f]{40}$/u);
 });
 
+test('OpenCode publishes scoped compaction lifecycle without altering assistant text', async () => {
+  let wireSession;
+  const bus = recordingBus();
+  const record = makeRecord(async () => {
+    for (const status of ['started', 'completed', 'skipped', 'failed']) {
+      wireSession.observe({ type: 'context_compaction_status', turn_id: 'turn_a', status,
+        trigger: 'tool_payload_budget', before_estimated_tokens: 1000,
+        after_estimated_tokens: status === 'completed' ? 600 : undefined });
+    }
+    return { outcome: 'completed', text: 'Answer' };
+  });
+  wireSession = freshWireSession(record, bus);
+  const response = await wireSession.prompt([{ type: 'text', text: 'hello' }]);
+  const events = bus.frames.filter((frame) => frame.type === 'nna.context.compaction');
+  assert.deepEqual(events.map((frame) => frame.properties.status), ['started', 'completed', 'skipped', 'failed']);
+  assert.ok(events.every((frame) => frame.properties.sessionID === 'ses_t' && frame.properties.turnID === 'turn_a'));
+  assert.equal(events[1].properties.afterEstimatedTokens, 600);
+  assert.equal(response.parts.find((part) => part.type === 'text').text, 'Answer');
+});
+
 test('prompts while busy queue their durable events at admit time and serialize turns', async () => {
   let active;
   const bus = recordingBus();

@@ -7,8 +7,22 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveManifest } from '../src/config.js';
 import { startOpencodeServe } from '../src/opencode/serve.js';
+import { observeV1Event } from '../src/opencode/v2-projection.js';
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/opencode/v2-schemas.json', import.meta.url)));
+
+test('v2 projects scoped compaction lifecycle as a live extension event', () => {
+  const emitted = [];
+  const state = { info: { id: 'ses_a' } };
+  observeV1Event(state, { type: 'nna.context.compaction', properties: {
+    sessionID: 'ses_a', turnID: 'turn_a', status: 'completed',
+    beforeEstimatedTokens: 30_000, afterEstimatedTokens: 18_000,
+  } }, { emit: (_state, type, data, durable) => emitted.push({ type, data, durable }) });
+  assert.deepEqual(emitted, [{ type: 'nna.context.compaction', data: {
+    sessionID: 'ses_a', turnID: 'turn_a', status: 'completed',
+    beforeEstimatedTokens: 30_000, afterEstimatedTokens: 18_000,
+  }, durable: false }]);
+});
 
 function schemaCheck(value, schema) {
   if (schema.$ref) return schemaCheck(value, fixture.components.schemas[schema.$ref.split('/').at(-1)]);
