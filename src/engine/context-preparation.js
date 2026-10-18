@@ -6,12 +6,14 @@ import { providerRequest } from './runtime-helpers.js';
 import { addHookContexts, hookPayload } from './hooks.js';
 import { ContractError } from '../ids.js';
 import { estimateUtf8Tokens } from '../reliability/context-budget.js';
-import { writeTaskCheckpoint } from '../task-checkpoint.js';
+import { taskCheckpointPath, writeTaskCheckpoint } from '../task-checkpoint.js';
 import { toolLifecycleStatus, toolReviewOutcome } from '../tools/tool-result-contract.js';
 import { compactionBudgetDetail, measureCompactionInput } from './compaction-measurement.js';
+import { compactionFloorDiagnostic, compactionFloorError } from './compaction-floor.js';
 
 const MIN_COMPACTION_BUDGET_TOKENS = 2_048;
 const COMPACTION_REDUCTION_FACTOR = 0.6;
+const MAX_SKIPPED_REFRESHES = 32;
 
 export async function prepareEngineContext(engine, records, content, active, force, operations) {
   const routes = engine.router.candidates('primary', { requiredCapabilities: ['tools'] });
@@ -54,9 +56,12 @@ export async function prepareEngineContext(engine, records, content, active, for
 
 async function compactContext(engine, records, content, active, operations, plan) {
   const { routes, runtime, planned, hardLimit } = plan;
-  engine.state.transition('compacting_context', { trigger: 'context_preflight', turnId: active.turnId });
   const beforeEstimatedTokens = measureCompactionInput(engine, routes[0], plan.beforeContext, active, planned).estimated_input_tokens;
   const targetTokens = desiredCompactionTarget(planned, beforeEstimatedTokens);
+  if (targetTokens === null) {
+    throw new ContractError('context_compaction_input_too_small', 'complete provider input has no smaller positive compaction target');
+  }
+  engine.state.transition('compacting_context', { trigger: 'context_preflight', turnId: active.turnId });
   const budget = Math.min(plan.budget, Math.max(MIN_COMPACTION_BUDGET_TOKENS, targetTokens));
   const started = { ...compactionStartedDetail(active, planned, beforeEstimatedTokens, targetTokens),
     journal_estimated_tokens: estimateUtf8Tokens(JSON.stringify(records)) + estimateUtf8Tokens(content) };
@@ -79,27 +84,11 @@ async function compactContext(engine, records, content, active, operations, plan
         candidate_estimated_tokens: fitted.rejectedEstimatedTokens, reason_code: 'context_compaction_no_reduction' };
       await emitCompactionStatus(engine, active, 'skipped', detail);
       recordCompactionTelemetry(engine, active, 'skipped', detail);
-      active.skippedCompactionTrigger = active.contextCompressionTriggerKey;
+      if (active.contextCompressionTriggerKey) rememberSkippedRefresh(active, active.contextCompressionTriggerKey);
       active.contextCompressionTrigger = null;
       return context;
     }
-    const post = await operations.publish(
-      'compaction.terminal', 'compaction', 'terminal', active, 'completed', hookPayload(engine, active),
-    );
-    await addHookContexts(engine, active, post);
-    engine.lifecycles.finish(lifecycle.id, 'completed');
-    const afterEstimatedTokens = measureCompactionInput(engine, routes[0], context, active, planned).estimated_input_tokens;
-    const completed = { ...started, ...compactionCompletedDetail(active, fact, beforeEstimatedTokens), after_estimated_tokens: afterEstimatedTokens };
-    await emitCompactionStatus(engine, active, 'completed', completed);
-    recordCompactionTelemetry(engine, active, 'succeeded', { ...compactionProjectionDetail(active, fact), ...completed });
-    recordCompressionEfficacy(engine, active, plan.beforeContext, context, [
-      { name: 'content_identity_dedup_v1', class: 'recoverable', records: fact.projection?.duplicateResultRecords, bytesSaved: fact.projection?.duplicateResultBytesSaved },
-      { name: 'same_target_supersession_v1', class: 'recoverable', records: fact.projection?.supersededRecords },
-      { name: 'ledger_backed_receipt_v1', class: 'recoverable', records: fact.projection?.boundedReceiptRecords },
-      { name: 'validated_continuation_v1', class: 'semantic', records: 1 },
-    ], 'full_compaction', 'rendered_provider_context');
-    active.contextCompressionTrigger = null;
-    return context;
+    return completeCompaction(engine, active, operations, lifecycle, fact, context, plan, started, beforeEstimatedTokens);
   } catch (error) {
     engine.lifecycles.finish(lifecycle.id, 'failed');
     await operations.publish('compaction.terminal', 'compaction', 'terminal', active, 'failed');
@@ -112,14 +101,44 @@ async function compactContext(engine, records, content, active, operations, plan
   }
 }
 
+async function completeCompaction(engine, active, operations, lifecycle, fact, context, plan, started, beforeEstimatedTokens) {
+  const post = await operations.publish(
+    'compaction.terminal', 'compaction', 'terminal', active, 'completed', hookPayload(engine, active),
+  );
+  await addHookContexts(engine, active, post);
+  engine.lifecycles.finish(lifecycle.id, 'completed');
+  const afterEstimatedTokens = measureCompactionInput(engine, plan.routes[0], context, active, plan.planned).estimated_input_tokens;
+  const completed = { ...started, ...compactionCompletedDetail(active, fact, beforeEstimatedTokens),
+    after_estimated_tokens: afterEstimatedTokens,
+    input_growth_tokens: Math.max(0, afterEstimatedTokens - beforeEstimatedTokens),
+    outcome_reason: compactionTrigger(active) === 'stale_continuation_artifact'
+      ? 'continuation_integrity_repair' : 'input_reduction' };
+  await emitCompactionStatus(engine, active, 'completed', completed);
+  recordCompactionTelemetry(engine, active, 'succeeded', { ...compactionProjectionDetail(active, fact), ...completed });
+  recordCompressionEfficacy(engine, active, plan.beforeContext, context, [
+    { name: 'content_identity_dedup_v1', class: 'recoverable', records: fact.projection?.duplicateResultRecords, bytesSaved: fact.projection?.duplicateResultBytesSaved },
+    { name: 'same_target_supersession_v1', class: 'recoverable', records: fact.projection?.supersededRecords },
+    { name: 'ledger_backed_receipt_v1', class: 'recoverable', records: fact.projection?.boundedReceiptRecords },
+    { name: 'validated_continuation_v1', class: 'semantic', records: 1 },
+  ], 'full_compaction', 'rendered_provider_context');
+  active.contextCompressionTrigger = null;
+  return context;
+}
+
 async function fitCompactedContext(engine, records, active, operations, plan) {
   let budget = plan.budget; let lastError = null;
+  let bestCandidateTokens = Number.POSITIVE_INFINITY;
+  let bestProjection = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const candidate = await createCompactionCandidate(engine, records, active, { ...plan, budget });
     try {
       let fact = candidate;
       let context = await validateCompactionCandidate(engine, fact, active, plan);
       const after = measureCompactionInput(engine, plan.route, context, active, plan.planned).estimated_input_tokens;
+      if (after < bestCandidateTokens) {
+        bestCandidateTokens = after;
+        bestProjection = candidate.projection;
+      }
       // Invariant: optional refresh cannot increase input or create a checkpoint merely for cadence.
       if (after >= plan.beforeEstimatedTokens && compactionTrigger(active) !== 'stale_continuation_artifact') {
         if (['completed_turn_interval', 'tool_payload_budget'].includes(compactionTrigger(active))
@@ -129,34 +148,51 @@ async function fitCompactedContext(engine, records, active, operations, plan) {
         }
         throw new ContractError('context_compaction_no_reduction', 'compaction cannot reduce complete provider input');
       }
-      try {
-        const checkpointPath = await writeTaskCheckpoint(engine, fact);
-        if (checkpointPath) {
-          const checkpointFact = engine.reliability.attachTaskCheckpoint(fact, checkpointPath);
-          const checkpointContext = await validateCompactionCandidate(engine, checkpointFact, active, plan);
-          const checkpointTokens = measureCompactionInput(engine, plan.route, checkpointContext, active, plan.planned).estimated_input_tokens;
-          if (checkpointTokens < plan.beforeEstimatedTokens || compactionTrigger(active) === 'stale_continuation_artifact') {
-            context = checkpointContext;
-            fact = checkpointFact;
-          }
-        }
-      } catch (error) {
-        engine.telemetry?.record('context.task_checkpoint', 'failed', {
-          reason_code: error.code ?? 'task_checkpoint_write_failed',
-        }, { turnId: active.turnId, stepId: active.stepId });
-      }
+      ({ fact, context } = await selectTaskCheckpointVariant(engine, fact, context, after, active, plan));
       await commitCompactionCandidate(engine, fact, active, operations);
       return { fact, context };
     } catch (error) {
       if (!['context_too_large', 'context_compaction_no_reduction'].includes(error.code)) throw error;
       lastError = error;
+      if (Number.isSafeInteger(active.contextTokens) && active.contextTokens < bestCandidateTokens) {
+        bestCandidateTokens = active.contextTokens;
+        bestProjection = candidate.projection;
+      }
       budget = Math.max(MIN_COMPACTION_BUDGET_TOKENS, Math.floor(budget * COMPACTION_REDUCTION_FACTOR));
     }
   }
-  if (lastError?.code === 'context_compaction_no_reduction' && compactionTrigger(active) === 'provider_context_limit') {
-    throw new ContractError('provider_context_limit', 'provider rejected the input and compaction cannot produce a smaller request');
+  const diagnostic = compactionFloorDiagnostic(engine, active, plan, bestCandidateTokens, bestProjection, lastError);
+  engine.telemetry?.record('context.compaction_floor', 'measured', diagnostic,
+    { turnId: active.turnId, stepId: active.stepId });
+  if (lastError && ['context_too_large', 'context_compaction_no_reduction'].includes(lastError.code)) {
+    throw compactionFloorError(diagnostic, lastError, compactionTrigger(active) === 'provider_context_limit');
   }
   throw lastError;
+}
+
+async function selectTaskCheckpointVariant(engine, fact, context, after, active, plan) {
+  try {
+    const checkpointPath = taskCheckpointPath(engine);
+    if (!checkpointPath) return { fact, context };
+    const checkpointFact = engine.reliability.attachTaskCheckpoint(fact, checkpointPath);
+    const probeActive = { ...active, coldEvidenceFingerprints: new Set(active.coldEvidenceFingerprints ?? []) };
+    const checkpointContext = await validateCompactionCandidate(engine, checkpointFact, probeActive, plan, true);
+    const checkpointTokens = measureCompactionInput(engine, plan.route, checkpointContext, active, plan.planned).estimated_input_tokens;
+    if (checkpointTokens >= after || (checkpointTokens >= plan.beforeEstimatedTokens
+      && compactionTrigger(active) !== 'stale_continuation_artifact')) return { fact, context };
+    // Invariant: a rejected checkpoint variant must not replace the durable task file.
+    await writeTaskCheckpoint(engine, fact);
+    for (const field of ['contextMeasurementEnrichment', 'contextLimitTokens', 'contextLimitBytes',
+      'contextBytes', 'contextTokens', 'rawContextBytes', 'rawContextTokens']) active[field] = probeActive[field];
+    engine.lastContextMeasurement = { tokens: active.contextTokens, windowTokens: plan.planned.windowTokens ?? null,
+      limitTokens: plan.planned.effectiveInputTokens ?? null, bytes: active.contextBytes };
+    return { fact: checkpointFact, context: checkpointContext };
+  } catch (error) {
+    engine.telemetry?.record('context.task_checkpoint', 'failed', {
+      reason_code: error.code ?? 'task_checkpoint_write_failed',
+    }, { turnId: active.turnId, stepId: active.stepId });
+    return { fact, context };
+  }
 }
 
 async function createCompactionCandidate(engine, records, active, plan) {
@@ -179,10 +215,10 @@ async function createCompactionCandidate(engine, records, active, plan) {
   );
 }
 
-function validateCompactionCandidate(engine, fact, active, plan) {
+function validateCompactionCandidate(engine, fact, active, plan, probe = false) {
   return buildReportedContext(
     engine, [...engine.transcript, fact], '', active.enrichment, active,
-    plan.validationBudget, plan.hardLimit, plan.planned,
+    plan.validationBudget, plan.hardLimit, plan.planned, { probe },
   ).then((context) => {
     assertCompleteEnvelope(engine, plan.route, context, plan.planned, active);
     return context;
@@ -252,8 +288,7 @@ async function pressureProjection(engine, active, operations, measurement) {
     activeTurnId: active.turnId, effectiveInputTokens: measurement.effectiveInputTokens,
     estimatedInputTokens: measurement.rawContextTokens, refreshThreshold: policy.receipts,
   });
-  const triggerKey = compressionTriggerKey(horizon);
-  const refresh = horizon && triggerKey !== active.skippedCompactionTrigger ? horizon : null;
+  const { refresh, triggerKey } = compactionRefreshDecision(active, horizon, measurement.records);
   const tier = engine.reliability.pressureTier(measurement.rawContextTokens, measurement.effectiveInputTokens, policy);
   active.contextPressureTier = tier;
   if (refresh) {
@@ -299,12 +334,45 @@ async function pressureProjection(engine, active, operations, measurement) {
   return projection;
 }
 
-function compressionTriggerKey(horizon) {
+export function compactionRefreshDecision(active, horizon, records) {
+  // Why: most steps have no long-horizon trigger; hashing their entire journal adds
+  // avoidable work exactly when large tool payloads make context preparation costly.
+  if (!horizon) return { refresh: null, triggerKey: null };
+  const sourceFingerprint = sourceRecordsFingerprint(records);
+  const triggerKey = compressionTriggerKey(horizon, sourceFingerprint);
+  if (active.skippedCompactionSourceFingerprint !== sourceFingerprint) {
+    active.skippedCompactionTriggers = new Set();
+    active.skippedCompactionSourceFingerprint = sourceFingerprint;
+  }
+  const refresh = horizon && !active.skippedCompactionTriggers?.has(triggerKey) ? horizon : null;
+  return { refresh, triggerKey };
+}
+
+function compressionTriggerKey(horizon, sourceFingerprint) {
   if (!horizon) return null;
   return createHash('sha256').update(JSON.stringify({
     reason: horizon.reason, checkpointIndex: horizon.checkpointIndex,
     completedTurns: horizon.completedTurns, payloadTokens: horizon.payloadTokens,
+    sourceFingerprint,
   })).digest('hex');
+}
+
+function sourceRecordsFingerprint(records) {
+  const hash = createHash('sha256');
+  for (const record of records) {
+    try { hash.update(JSON.stringify(record)); }
+    catch { hash.update(recordIdentity(record)); }
+    hash.update('\n');
+  }
+  return hash.digest('hex');
+}
+
+function rememberSkippedRefresh(active, key) {
+  active.skippedCompactionTriggers ??= new Set();
+  active.skippedCompactionTriggers.add(key);
+  while (active.skippedCompactionTriggers.size > MAX_SKIPPED_REFRESHES) {
+    active.skippedCompactionTriggers.delete(active.skippedCompactionTriggers.values().next().value);
+  }
 }
 
 function recordPressureTelemetry(engine, active, measurement, projection, tier, ratio) {
@@ -331,7 +399,8 @@ function compactionStartedDetail(active, planned, beforeEstimatedTokens, targetT
   };
 }
 
-function desiredCompactionTarget(planned, beforeEstimatedTokens) {
+export function desiredCompactionTarget(planned, beforeEstimatedTokens) {
+  if (!Number.isSafeInteger(beforeEstimatedTokens) || beforeEstimatedTokens <= 1) return null;
   const proportional = Math.max(1, Math.floor(beforeEstimatedTokens * 0.75));
   const configured = planned.compressionThresholdTokens ?? proportional;
   return Math.max(1, Math.min(beforeEstimatedTokens - 1, proportional, configured));

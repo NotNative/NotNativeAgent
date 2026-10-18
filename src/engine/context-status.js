@@ -45,18 +45,18 @@ export async function buildReportedContext(
   const coldEvidence = engine.reliability?.buildColdEvidence(records, providerRecords, content)
     ?? buildColdEvidence(records, providerRecords, content);
   const resolvedEnrichment = { ...baseEnrichment, coldEvidence };
-  recordColdEvidence(engine, active, coldEvidence);
+  if (!options.probe) recordColdEvidence(engine, active, coldEvidence);
   const context = buildContext(engine.config, contextRecords, content, resolvedEnrichment, Number.MAX_SAFE_INTEGER);
   active.contextBytes = measureContext(context);
   active.contextTokens = completeInputTokens(engine, context, active, budget);
   active.rawContextBytes = rawContextBytes;
   active.rawContextTokens = rawContextTokens;
-  engine.lastContextMeasurement = { tokens: active.contextTokens, windowTokens: budget?.windowTokens ?? null, limitTokens: budget?.effectiveInputTokens ?? null, bytes: active.contextBytes };
+  if (!options.probe) engine.lastContextMeasurement = { tokens: active.contextTokens, windowTokens: budget?.windowTokens ?? null, limitTokens: budget?.effectiveInputTokens ?? null, bytes: active.contextBytes };
   if (budget?.scaledTokens !== undefined && budget?.scaledTokens !== null
     && active.contextTokens > budget.scaledTokens) {
     throw new ContractError('context_too_large', 'context exceeds conservative token bound');
   }
-  if (engine.surface === INTERACTIVE_SURFACE || engine.emitContextStatus) {
+  if (!options.probe && (engine.surface === INTERACTIVE_SURFACE || engine.emitContextStatus)) {
     await engine.output({
       version: '1.0', type: CONTEXT_STATUS_EVENT, session_id: engine.sessionId,
       turn_id: active.turnId, bytes: active.contextBytes,

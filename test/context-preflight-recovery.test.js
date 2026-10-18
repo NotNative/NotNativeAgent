@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { prepareEngineContext } from '../src/engine/context-preparation.js';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { compactionRefreshDecision, desiredCompactionTarget, prepareEngineContext } from '../src/engine/context-preparation.js';
 import { ReliabilityEngine } from '../src/reliability-engine.js';
 import { measureContext } from '../src/context.js';
 import { measureCompactionInput } from '../src/engine/compaction-measurement.js';
@@ -53,24 +56,81 @@ test('ineffective optional refresh preserves input and commits no checkpoint', a
   const context = await prepareEngineContext(run.engine, run.engine.transcript, '', run.active, true, run.operations);
   assert.equal(run.facts.length, 0);
   assert.deepEqual(run.terminals, ['skipped']);
-  assert.equal(run.active.skippedCompactionTrigger, 'same-payload');
+  assert.ok(run.active.skippedCompactionTriggers.has('same-payload'));
   assert.ok(context.some((item) => item.content === 'Hello.'));
 });
 
 test('continuation integrity repair remains available even without input savings', async () => {
   const run = fixture();
+  const output = [];
+  run.engine.surface = 'interactive_tui'; run.engine.output = async (record) => output.push(record);
   run.engine.transcript = [{ type: 'message', role: 'user', turnId: 'current', content: 'Hello.' }];
   run.active.contextCompressionTrigger = 'stale_continuation_artifact';
   await prepareEngineContext(run.engine, run.engine.transcript, '', run.active, true, run.operations);
   assert.equal(run.facts.length, 1);
   assert.deepEqual(run.terminals, ['completed']);
+  const completed = output.find((record) => record.type === 'context_compaction_status' && record.status === 'completed');
+  assert.equal(completed.outcome_reason, 'continuation_integrity_repair');
+  assert.equal(completed.input_growth_tokens,
+    Math.max(0, completed.after_estimated_tokens - completed.before_estimated_tokens));
+});
+
+test('rejected task-checkpoint variant does not publish a file for uncommitted state', async () => {
+  const run = fixture();
+  const root = await mkdtemp(join(tmpdir(), 'nna-compaction-checkpoint-review-'));
+  try {
+    run.engine.store = { path: join(root, 'session.jsonl') };
+    const checkpointFile = `${run.engine.store.path}.task-state.md`;
+    await writeFile(checkpointFile, 'previous committed checkpoint');
+    const statuses = [];
+    run.engine.surface = 'interactive_tui';
+    run.engine.output = async (item) => { if (item.type === 'context_status') statuses.push(item); };
+    run.engine.reliability.attachTaskCheckpoint = (fact, path) => ({
+      ...fact, continuation: { ...fact.continuation, taskStatePath: path },
+      summary: `${fact.summary}${' larger checkpoint '.repeat(4000)}`,
+    });
+    const context = await prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, false, run.operations);
+    assert.equal(run.facts.length, 1);
+    assert.equal(run.facts[0].continuation?.taskStatePath, undefined);
+    assert.equal(statuses.length, 1);
+    const expected = measureCompactionInput(run.engine, run.engine.router.candidates()[0], context, run.active, run.budget);
+    assert.equal(run.active.contextTokens, expected.estimated_input_tokens);
+    assert.equal(run.engine.lastContextMeasurement.tokens, expected.estimated_input_tokens);
+    assert.equal(await readFile(checkpointFile, 'utf8'), 'previous committed checkpoint');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('selected task-checkpoint variant publishes measured context and matching file', async () => {
+  const run = fixture();
+  const root = await mkdtemp(join(tmpdir(), 'nna-compaction-checkpoint-selected-'));
+  try {
+    run.engine.store = { path: join(root, 'session.jsonl') };
+    run.engine.reliability.attachTaskCheckpoint = (fact, path) => ({
+      ...fact, continuation: { ...fact.continuation, taskStatePath: path }, summary: 'brief continuation',
+    });
+    const context = await prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, false, run.operations);
+    const path = `${run.engine.store.path}.task-state.md`;
+    assert.equal(run.facts[0].continuation.taskStatePath, path);
+    assert.match(await readFile(path, 'utf8'), /# NNA task checkpoint/u);
+    const expected = measureCompactionInput(run.engine, run.engine.router.candidates()[0], context, run.active, run.budget);
+    assert.equal(run.active.contextTokens, expected.estimated_input_tokens);
+    assert.equal(run.engine.lastContextMeasurement.tokens, expected.estimated_input_tokens);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test('irreducible attachments fail closed without silently discarding evidence or committing an unfitted compaction', async () => {
   const run = fixture({ attachments: [{ id: 'attachment', mimeType: 'text/plain', route: 'text', observation: 'untrusted observation '.repeat(10000) }] });
   let candidates = 0;
   run.engine.reliability.continuationCompactor.refine = async (fact) => { candidates += 1; return fact; };
-  await assert.rejects(prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, false, run.operations), { code: 'context_too_large' });
+  await assert.rejects(prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, false, run.operations),
+    (error) => error.code === 'context_compaction_irreducible'
+      && error.detail.best_candidate_estimated_tokens > run.budget.scaledTokens
+      && error.detail.static_envelope_exceeds_ceiling
+      && error.detail.floor_status === 'bounded_attempt_diagnostic');
   assert.equal(candidates, 3);
   assert.equal(run.facts.length, 0);
   assert.deepEqual(run.terminals, ['failed']);
@@ -79,9 +139,32 @@ test('irreducible attachments fail closed without silently discarding evidence o
 
 test('tool-schema overflow is included in preflight and cannot be hidden by compacting transcript', async () => {
   const run = fixture({}, [{ type: 'function', function: { name: 'large.schema', description: 'schema '.repeat(30000), parameters: { type: 'object' } } }]);
-  await assert.rejects(prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, false, run.operations), { code: 'context_too_large' });
+  await assert.rejects(prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, false, run.operations),
+    (error) => error.code === 'context_compaction_irreducible'
+      && error.detail.largest_sections.some((section) => section.id === 'request.tool_schemas'));
   assert.equal(run.facts.length, 0);
   assert.deepEqual(run.terminals, ['failed']);
+});
+
+test('skipped refresh memory is bounded to an unchanged source, including A/B/A triggers', () => {
+  const active = { skippedCompactionTriggers: new Set(), skippedCompactionSourceFingerprint: null };
+  const records = [{ type: 'message', content: 'same evidence' }];
+  const a = { reason: 'tool_payload_budget', checkpointIndex: 0, completedTurns: 2, payloadTokens: 900 };
+  const b = { ...a, reason: 'completed_turn_interval' };
+  const first = compactionRefreshDecision(active, a, records);
+  assert.equal(first.refresh, a);
+  active.skippedCompactionTriggers.add(first.triggerKey);
+  const other = compactionRefreshDecision(active, b, records);
+  assert.equal(other.refresh, b);
+  assert.equal(compactionRefreshDecision(active, a, records).refresh, null);
+  assert.equal(compactionRefreshDecision(active, a, [{ ...records[0], content: 'changed evidence' }]).refresh, a);
+  assert.equal(active.skippedCompactionTriggers.size, 0);
+});
+
+test('tiny complete inputs have no false strictly-smaller compaction target', () => {
+  assert.equal(desiredCompactionTarget({}, 0), null);
+  assert.equal(desiredCompactionTarget({}, 1), null);
+  assert.equal(desiredCompactionTarget({}, 2), 1);
 });
 
 test('settled-turn age refreshes a large-window hot context before pressure is reached', async () => {
