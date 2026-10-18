@@ -340,7 +340,9 @@ function recordLines(record, width) {
   if (record.type === 'local_status') return wrap(`  ${record.kind.toUpperCase()} | ${record.text}`, width);
   if (record.type === 'queue_status') return wrap(`... WAITING FOR PROVIDER | position ${record.position}`, width);
   if (record.type === 'state_status') return [];
-  if (record.type === 'context_compaction_status') return ['', ...contextCompactionText(record).split('\n').flatMap((line) => wrap(line, width)), ''];
+  // Why: the status line shows live compaction; retain one terminal transcript block.
+  if (record.type === 'context_compaction_status') return record.status === 'started' ? []
+    : ['', ...contextCompactionText(record).split('\n').flatMap((line) => wrap(line, width)), ''];
   return [];
 }
 

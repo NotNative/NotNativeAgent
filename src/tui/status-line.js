@@ -69,19 +69,19 @@ function workProgress(work) {
 }
 
 function contextUsage(session) {
+  const compacting = session.contextCompaction ? ' | compacting' : '';
   if (Number.isFinite(session.contextLimitTokens) && session.contextLimitTokens > 0) {
     const tokens = Number.isFinite(session.rawContextTokens) ? session.rawContextTokens : session.contextTokens;
-    if (!Number.isFinite(tokens)) return 'context --';
+    if (!Number.isFinite(tokens)) return `context --${compacting}`;
     const ratio = tokens / session.contextLimitTokens;
     const marker = session.contextMeasurement === 'estimated' ? '~' : '';
-    const compacting = session.contextCompaction ? ' | compacting' : '';
     return `context ${marker}${formatPercent(ratio)}${compacting}`;
   }
-  if (!Number.isFinite(session.contextLimitBytes) || session.contextLimitBytes <= 0) return 'context --';
-  if (!Number.isFinite(session.contextBytes)) return 'context --';
+  if (!Number.isFinite(session.contextLimitBytes) || session.contextLimitBytes <= 0) return `context --${compacting}`;
+  if (!Number.isFinite(session.contextBytes)) return `context --${compacting}`;
   const ratio = Math.min(1, session.contextBytes / session.contextLimitBytes);
-  if (ratio > 0 && ratio < 0.01) return 'context <1%';
-  return `context ${Math.round(ratio * 100)}%`;
+  if (ratio > 0 && ratio < 0.01) return `context <1%${compacting}`;
+  return `context ${Math.round(ratio * 100)}%${compacting}`;
 }
 
 function formatPercent(ratio) {

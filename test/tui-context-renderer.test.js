@@ -44,8 +44,8 @@ test('compaction block has surrounding blank lines and off-white color including
   projection.addSession('main', 'Main', { model: 'm', provider: 'p' });
   projection.active().records.push(
     { type: 'stream_delta', text: 'Before.' },
-    { type: 'context_compaction_status', status: 'started', trigger: 'tool_payload_budget',
-      before_estimated_tokens: 30408, target_tokens: 22806, context_window_tokens: 131072,
+    { type: 'context_compaction_status', status: 'completed', trigger: 'tool_payload_budget',
+      before_estimated_tokens: 30408, after_estimated_tokens: 21660, context_window_tokens: 131072,
       effective_input_tokens: 99072, output_reserve_tokens: 32000 },
     { type: 'stream_delta', text: 'After.' },
   );
@@ -56,4 +56,21 @@ test('compaction block has surrounding blank lines and off-white color including
   const colored = renderer.frame(projection, { width: 80, height: 30, color: true });
   assert.ok(colored.includes('\u001b[38;5;253m  CONTEXT'));
   assert.ok(colored.includes('\u001b[38;5;253m  Window:'));
+});
+
+test('live compaction uses the status line and leaves one terminal transcript block', () => {
+  const projection = new TuiProjection();
+  projection.addSession('main', 'Main', { model: 'm', provider: 'p' });
+  const renderer = new TuiRenderer();
+  const started = { type: 'context_compaction_status', status: 'started',
+    before_estimated_tokens: 30408, target_tokens: 22806 };
+  projection.apply('main', started);
+  const live = renderer.frame(projection, { width: 120, height: 30, color: false });
+  assert.match(live, /compacting/u);
+  assert.doesNotMatch(live, /CONTEXT \| compacting/u);
+  projection.apply('main', { type: 'context_compaction_status', status: 'completed',
+    before_estimated_tokens: 30408, after_estimated_tokens: 21660 });
+  const done = renderer.frame(projection, { width: 120, height: 30, color: false });
+  assert.equal((done.match(/CONTEXT \| compacted/gu) ?? []).length, 1);
+  assert.doesNotMatch(done, /CONTEXT \| compacting/u);
 });
