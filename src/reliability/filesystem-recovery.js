@@ -34,18 +34,29 @@ export function missingTargetMessage(path) {
   return `target does not exist: ${JSON.stringify(supplied)}.${diagnostic} Use fs_list to locate the target before retrying.`;
 }
 
-export function satisfiesFilesystemPrerequisite(item, prerequisite) {
+export function satisfiesFilesystemPrerequisite(item, prerequisite, workspaceRoot = process.cwd()) {
   if (item?.result?.status !== 'succeeded' || prerequisite?.kind !== 'prerequisite_repair') return false;
   if (prerequisite.required_tool !== 'fs_directory' || typeof prerequisite.required_path !== 'string') return false;
   const tool = item.result.tool_name ?? item.call?.name;
-  const candidate = item.request?.args?.path ?? item.call?.args?.path;
+  const args = item.request?.args ?? item.call?.args;
+  const candidate = item.request?.resolved?.path ?? args?.path;
   if (typeof candidate !== 'string') return false;
-  const required = comparablePath(prerequisite.required_path);
-  if (['fs_directory', 'fs_create_directory', 'fs_list', 'fs_list_directory'].includes(tool)) return comparablePath(candidate) === required;
-  return DIRECT_CHILD_PROOF_TOOLS.has(tool) && comparablePath(dirname(resolve(candidate))) === required;
+  const required = comparablePath(prerequisite.required_path, workspaceRoot);
+  if (tool === 'fs_directory' && !['create', 'list'].includes(args?.action)) return false;
+  if (tool === 'fs_list_directory' && item.request?.resolved?.exists !== true) return false;
+  if (tool === 'fs_list' || (tool === 'fs_directory' && args?.action === 'list')) {
+    // Invariant: a successful fs_list can also report a missing target or a regular file.
+    if (item.request?.resolved?.kind !== 'directory') return false;
+    if (item.result.metadata?.target_exists !== true) return false;
+  }
+  if (['fs_directory', 'fs_create_directory', 'fs_list', 'fs_list_directory'].includes(tool)) {
+    return comparablePath(candidate, workspaceRoot) === required;
+  }
+  return DIRECT_CHILD_PROOF_TOOLS.has(tool)
+    && comparablePath(dirname(resolve(workspaceRoot, candidate)), workspaceRoot) === required;
 }
 
-function comparablePath(value) {
-  const absolute = normalize(resolve(value));
+function comparablePath(value, workspaceRoot) {
+  const absolute = normalize(resolve(workspaceRoot, value));
   return process.platform === 'win32' ? absolute.toLowerCase() : absolute;
 }

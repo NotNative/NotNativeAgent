@@ -6,7 +6,7 @@ export function toolProgressEvidence(items, steeringApplied = [], options = {}) 
   const prerequisites = options.constraints?.filter((item) => item.kind === 'prerequisite_repair') ?? [];
   const successes = items.filter((item) => item?.result?.status === 'succeeded'
     && (typeof item.result.content === 'string' || Buffer.isBuffer(item.result.content))
-    && (prerequisites.length === 0 || prerequisites.some((prerequisite) => satisfiesFilesystemPrerequisite(item, prerequisite))));
+    && (prerequisites.length === 0 || prerequisites.some((prerequisite) => satisfiesFilesystemPrerequisite(item, prerequisite, options.workspaceRoot))));
   const diagnostics = prerequisites.length === 0
     ? items.filter((item) => item?.result?.status === 'completed_nonzero')
     : [];

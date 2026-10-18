@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
@@ -283,8 +283,8 @@ test('unrelated successful inspection is not progress while a filesystem prerequ
   };
   assert.equal(toolProgressEvidence([repair], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
   const verified = {
-    request: { args: { path: 'src' } },
-    result: { status: 'succeeded', tool_name: 'fs_list', content: 'empty directory' },
+    request: { args: { path: 'src' }, resolved: { kind: 'directory', path: resolve('src') } },
+    result: { status: 'succeeded', tool_name: 'fs_list', content: 'empty directory', metadata: { target_exists: true } },
   };
   assert.equal(toolProgressEvidence([verified], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
   const descendantWrite = {

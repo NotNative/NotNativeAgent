@@ -12,16 +12,16 @@ const CONSTRAINT_KIND = Object.freeze({
 });
 const PROCESS_TOOLS = new Set(['process_run', 'shell_run']);
 
-export function mergeToolConstraints(current = [], items = []) {
+export function mergeToolConstraints(current = [], items = [], options = {}) {
   const succeeded = new Set(items.filter((item) => item.result?.status === 'succeeded')
     .map((item) => item.result.tool_name ?? item.call?.name).filter(Boolean));
-  const retained = current.filter((constraint) => !constraintSatisfied(constraint, items)
+  const retained = current.filter((constraint) => !constraintSatisfied(constraint, items, options.workspaceRoot)
     && !(succeeded.has(constraint.tool) && [CONSTRAINT_KIND.schema, CONSTRAINT_KIND.execution].includes(constraint.kind)));
   const indexed = new Map(retained.map((constraint) => [constraint.id, constraint]));
   for (const item of items) {
     const constraint = constraintFor(item);
     if (!constraint) continue;
-    if (constraintSatisfied(constraint, items)) continue;
+    if (constraintSatisfied(constraint, items, options.workspaceRoot)) continue;
     const prior = indexed.get(constraint.id);
     indexed.delete(constraint.id);
     if (constraint.kind === CONSTRAINT_KIND.schema) {
@@ -106,9 +106,9 @@ function instruction(kind, result, item, prerequisite = null) {
   return 'Treat the result as failed evidence; diagnose the condition before a materially different retry.';
 }
 
-function constraintSatisfied(constraint, items) {
+function constraintSatisfied(constraint, items, workspaceRoot) {
   if (constraint.kind !== CONSTRAINT_KIND.prerequisite) return false;
-  return items.some((item) => satisfiesFilesystemPrerequisite(item, constraint));
+  return items.some((item) => satisfiesFilesystemPrerequisite(item, constraint, workspaceRoot));
 }
 
 function digest(value) { return createHash('sha256').update(value).digest('hex'); }

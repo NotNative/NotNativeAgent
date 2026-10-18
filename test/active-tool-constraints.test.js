@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 import { buildContext } from '../src/context.js';
 import { clearAuthorityConstraints, mergeToolConstraints } from '../src/tools/active-constraints.js';
@@ -7,6 +8,7 @@ import { clearAuthorityConstraints, mergeToolConstraints } from '../src/tools/ac
 function item(tool, status, detail = {}) {
   return {
     call: { name: tool, args: detail.args ?? { path: 'target.txt' } },
+    ...(detail.request ? { request: detail.request } : {}),
     result: {
       tool_name: tool, status, reason_code: detail.reason ?? status,
       content: detail.content ?? status, metadata: detail.metadata,
@@ -101,7 +103,10 @@ test('missing directory ancestors become durable prerequisites cleared by struct
 
   assert.equal(mergeToolConstraints(constraints, [item('fs_list', 'succeeded', { args: { path: '.' } })]).length, 1);
   assert.deepEqual(mergeToolConstraints(constraints, [item('fs_directory', 'succeeded', { args: { action: 'create', path: 'src' } })]), []);
-  assert.deepEqual(mergeToolConstraints(constraints, [item('fs_list', 'succeeded', { args: { path: 'src' } })]), []);
+  assert.deepEqual(mergeToolConstraints(constraints, [item('fs_list', 'succeeded', {
+    args: { path: 'src' }, request: { resolved: { kind: 'directory', path: resolve('src') } },
+    metadata: { target_exists: true },
+  })]), []);
   assert.deepEqual(mergeToolConstraints(constraints, [item('fs_write_text', 'succeeded', {
     args: { path: 'src/main.js', content: 'created' },
   })]), []);
@@ -114,4 +119,68 @@ test('missing directory ancestors become durable prerequisites cleared by struct
   });
   assert.equal(mergeToolConstraints([], [missing, siblingFailure]).length, 1);
   assert.deepEqual(mergeToolConstraints([], [missing, item('fs_directory', 'succeeded', { args: { action: 'create', path: 'src' } })]), []);
+});
+
+test('directory removal cannot satisfy a missing-parent prerequisite', () => {
+  const missing = item('fs_write_text', 'invalid_request', {
+    reason: 'tool_parent_missing', args: { path: 'src/main.js' },
+    content: 'parent directory is missing; create exactly this directory first with fs_directory: "src"\nCreate the directory.',
+  });
+  const constraints = mergeToolConstraints([], [missing]);
+  const removed = item('fs_directory', 'succeeded', { args: { action: 'remove', path: 'src' } });
+  assert.equal(mergeToolConstraints(constraints, [removed]).length, 1);
+  const listed = item('fs_directory', 'succeeded', {
+    args: { action: 'list', path: 'src' }, request: { resolved: { kind: 'directory', path: resolve('src') } },
+    metadata: { target_exists: true },
+  });
+  assert.deepEqual(mergeToolConstraints(constraints, [listed]), []);
+});
+
+test('a successful list result proves a directory only when the target exists and is a directory', () => {
+  const missing = item('fs_write_text', 'invalid_request', {
+    reason: 'tool_parent_missing', args: { path: 'src/main.js' },
+    content: 'parent directory is missing; create exactly this directory first with fs_directory: "src"\nCreate the directory.',
+  });
+  const constraints = mergeToolConstraints([], [missing]);
+  const absent = item('fs_list', 'succeeded', {
+    args: { path: 'src' }, request: { resolved: { kind: 'missing', path: resolve('src') } },
+    metadata: { target_exists: false, observation_outcome: 'target_not_found' },
+  });
+  const file = item('fs_list', 'succeeded', {
+    args: { path: 'src' }, request: { resolved: { kind: 'file', path: resolve('src') } },
+    metadata: { target_exists: true },
+  });
+  assert.equal(mergeToolConstraints(constraints, [absent]).length, 1);
+  assert.equal(mergeToolConstraints(constraints, [file]).length, 1);
+  assert.equal(mergeToolConstraints(constraints, [item('fs_directory', 'succeeded', {
+    args: { action: 'list', path: 'src' }, request: { resolved: { kind: 'missing', path: resolve('src') } },
+    metadata: { target_exists: false },
+  })]).length, 1);
+  assert.equal(mergeToolConstraints(constraints, [item('fs_list_directory', 'succeeded', {
+    args: { path: 'src' }, request: { resolved: { path: resolve('src'), exists: false } },
+  })]).length, 1);
+  assert.deepEqual(mergeToolConstraints(constraints, [item('fs_list_directory', 'succeeded', {
+    args: { path: 'src' }, request: { resolved: { path: resolve('src'), exists: true } },
+  })]), []);
+});
+
+test('relative prerequisite proof uses the session workspace, not the process directory', () => {
+  const missing = item('fs_write_text', 'invalid_request', {
+    reason: 'tool_parent_missing', args: { path: 'src/main.js' },
+    content: 'parent directory is missing; create exactly this directory first with fs_directory: "src"\nCreate the directory.',
+  });
+  const workspaceRoot = resolve(process.cwd(), '..', 'OtherWorkspace');
+  const constraints = mergeToolConstraints([], [missing], { workspaceRoot });
+  const workspaceProof = item('fs_list', 'succeeded', {
+    args: { path: join(workspaceRoot, 'src') },
+    request: { resolved: { kind: 'directory', path: join(workspaceRoot, 'src') } },
+    metadata: { target_exists: true },
+  });
+  const unrelatedProof = item('fs_list', 'succeeded', {
+    args: { path: join(process.cwd(), 'src') },
+    request: { resolved: { kind: 'directory', path: join(process.cwd(), 'src') } },
+    metadata: { target_exists: true },
+  });
+  assert.deepEqual(mergeToolConstraints(constraints, [workspaceProof], { workspaceRoot }), []);
+  assert.equal(mergeToolConstraints(constraints, [unrelatedProof], { workspaceRoot }).length, 1);
 });

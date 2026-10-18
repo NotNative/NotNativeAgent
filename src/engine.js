@@ -318,14 +318,14 @@ export class SessionEngine {
     if (delegatedAccounting.length > 0) active.delegatedTokenAccounting = this.reliability.combineTokenAccounting([
       active.delegatedTokenAccounting, ...delegatedAccounting,
     ]); observeToolContracts(this, active, items);
-    active.toolConstraints = mergeToolConstraints(active.toolConstraints, items);
+    active.toolConstraints = mergeToolConstraints(active.toolConstraints, items, { workspaceRoot: this.config.workspaceRoot });
     this.tools.grantWorkflowLease(active.toolConstraints.map((constraint) => constraint.required_tool).filter(Boolean), { source: 'tool_constraint' });
     updateToolFailures(active, items); refreshReviewerCompletion(this, active); active.completionEvidence = completionEvidence(this.transcript, active.turnId);
     const steeringApplied = await this.#consumeSteering(active);
     const declaration = await continueAfterTerminalDeclaration(this, active, items, trustedHandoff, (outcome) => this.#settleStep(active, outcome), (action) => this.#recordRecovery(action, active));
     if (declaration) return declaration;
     const behavior = observeToolState(active, items, (name) => this.tools.definition(name));
-    const evidence = this.reliability.toolProgressEvidence(items, steeringApplied, { constraints: active.toolConstraints, stateRevision: active.observableStateRevision });
+    const evidence = this.reliability.toolProgressEvidence(items, steeringApplied, { constraints: active.toolConstraints, stateRevision: active.observableStateRevision, workspaceRoot: this.config.workspaceRoot });
     const progress = this.reliability.noProgress(active, 'tool_no_progress', evidence, {}, { allowCompaction: active.contextPressureTier === 'compact',
       failureFingerprint: this.reliability.toolFailureFingerprint(items),
     });
