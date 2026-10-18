@@ -17,7 +17,7 @@ import { denialResult, ToolGovernor, toolSettlementTerminal } from '../src/tools
 import { RecoverySupervisor, recoveryHint } from '../src/reliability/recovery-supervisor.js';
 import { declaredSubscription } from './event-fixture.js';
 import { ToolLoop, toolContinuationHint } from '../src/tools/loop.js';
-import { toolFailureFingerprint, toolProgressEvidence, toolRequestFingerprint } from '../src/reliability/tool-progress.js';
+import { toolFailureFingerprint, toolProgressEvidence, toolRequestFingerprint, toolRequestFingerprints } from '../src/reliability/tool-progress.js';
 import { selfDiagnosticsDefinitions } from '../src/tools/self-diagnostics.js';
 import { openRuntimeInspection } from '../src/tui/runtime-inspection.js';
 import {
@@ -126,6 +126,31 @@ test('completed nonzero commands provide diagnostic progress once per distinct i
   }]), null);
 });
 
+test('an unrelated nonzero diagnostic remains progress while a directory prerequisite is active', () => {
+  const constraint = { kind: 'prerequisite_repair', required_tool: 'fs_directory', required_path: 'src' };
+  const diagnostic = (script) => ({
+    request: { toolName: 'shell_run', args: { shell: 'auto', script } },
+    result: { status: 'completed_nonzero', tool_name: 'shell_run', reason_code: 'process_exit_nonzero',
+      content: 'exit 1', effect_certainty: 'none' },
+  });
+  const first = toolProgressEvidence([diagnostic('inspect service')], [], { constraints: [constraint] });
+  const repeat = toolProgressEvidence([diagnostic('inspect service')], [], { constraints: [constraint] });
+  const changed = toolProgressEvidence([diagnostic('inspect network')], [], { constraints: [constraint] });
+  assert.equal(first.detail.summary.diagnostic_tool_calls, 1);
+  assert.equal(first.value, repeat.value);
+  assert.notEqual(first.value, changed.value);
+});
+
+test('a nonzero process with uncertain effects does not satisfy unrelated prerequisite progress', () => {
+  const constraint = { kind: 'prerequisite_repair', required_tool: 'fs_directory', required_path: 'src' };
+  const uncertain = {
+    request: { toolName: 'shell_run', args: { shell: 'auto', script: 'attempt repair' } },
+    result: { status: 'completed_nonzero', tool_name: 'shell_run', reason_code: 'process_exit_nonzero',
+      content: 'exit 1', effect_certainty: 'unknown' },
+  };
+  assert.equal(toolProgressEvidence([uncertain], [], { constraints: [constraint] }), null);
+});
+
 test('long productive workflows may use many distinct negative diagnostics without consuming recovery', () => {
   const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
   let lastEvidence;
@@ -185,6 +210,31 @@ test('exact tool request fingerprints are canonical', () => {
     toolRequestFingerprint('web_browse', { target: 'e2', action: 'click' }),
     toolRequestFingerprint('web_browse', { action: 'click', target: 'e2' }),
   );
+});
+
+test('recovery request identity trusts the sealed request across progress and failure accounting', () => {
+  const request = { toolName: 'fs_read', args: { path: 'src/a.js' } };
+  const success = {
+    request, call: { name: 'fs_write_text', args: { path: 'other.js' } },
+    result: { status: 'succeeded', tool_name: 'fs_write_text', content: 'read content' },
+  };
+  assert.deepEqual(toolRequestFingerprints([success]), [toolRequestFingerprint(request.toolName, request.args)]);
+  assert.deepEqual(toolProgressEvidence([success]).detail.summary.request_fingerprints,
+    [toolRequestFingerprint(request.toolName, request.args)]);
+  const failure = { ...success, result: { ...success.result, status: 'failed', reason_code: 'executor_failure' } };
+  assert.equal(toolFailureFingerprint([failure]), toolFailureFingerprint([{ request, result: failure.result }]));
+});
+
+test('recovery fingerprints normalize absent optional fields and remain total for malformed evidence', () => {
+  assert.equal(toolRequestFingerprint('fs_read', { path: 'a.js' }),
+    toolRequestFingerprint('fs_read', { path: 'a.js', start_line: undefined }));
+  const cyclic = { path: 'a.js', count: 1n };
+  cyclic.self = cyclic;
+  assert.match(toolRequestFingerprint('fs_read', cyclic), /^[a-f0-9]{64}$/u);
+  assert.match(toolFailureFingerprint([{
+    call: { name: 'fs_read', args: cyclic },
+    result: { status: 'invalid_request', tool_name: 'fs_read', reason_code: 'tool_schema_invalid', content: 'invalid' },
+  }]), /^[a-f0-9]{64}$/u);
 });
 
 test('materially corrected plan repairs do not consume one exact-loop budget', () => {

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { redactText } from '../redaction.js';
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
 import { missingFilesystemPrerequisite, satisfiesFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
+import { stableRecoveryJson, recoveryToolIdentity } from '../reliability/recovery-tool-identity.js';
 import { toolLifecycleStatus, toolReviewOutcome } from './tool-result-contract.js';
 
 const MAX_CONSTRAINTS = 64;
@@ -46,9 +47,10 @@ function constraintFor(item) {
   if (!result || status === 'succeeded' || status === 'cancelled') return null;
   const prerequisite = missingFilesystemPrerequisite(item);
   const kind = prerequisite ? CONSTRAINT_KIND.prerequisite : constraintKind(status, result.reason_code);
-  const tool = prerequisite?.tool ?? result.tool_name ?? item.call?.name ?? 'unknown';
+  const requestIdentity = recoveryToolIdentity(item);
+  const tool = prerequisite?.tool ?? requestIdentity.toolName;
   const reasonCode = safeDiagnostic(result.reason_code ?? result.status, 128);
-  const requestFingerprint = digest(stableJson(item.call?.args ?? item.request?.args ?? {}));
+  const requestFingerprint = digest(stableRecoveryJson(requestIdentity.args));
   const detail = prerequisite ? `missing ancestor directory: ${prerequisite.path}` : constraintDetail(kind, result);
   const identity = prerequisite
     ? `${kind}\0${prerequisite.tool}\0${prerequisite.path}`
@@ -100,7 +102,7 @@ function instruction(kind, result, item, prerequisite = null) {
   }
   if (kind === CONSTRAINT_KIND.governance) return 'Do not repeat an equivalent request unless new authenticated operator input changes its authority.';
   if (result?.reason_code === 'shell_interpreter_unavailable') return 'Do not repeat the unavailable shell. Use the host-native auto shell with its exact syntax, process_run, or a structured tool unless the requested interpreter is positively discovered.';
-  const args = item?.call?.args ?? item?.request?.args;
+  const args = item?.request?.args ?? item?.call?.args;
   if (kind === CONSTRAINT_KIND.execution && result?.tool_name === 'process_run'
     && inlineInterpreterInvocation(args?.executable, args?.args)) return inlineInterpreterGuidance();
   return 'Treat the result as failed evidence; diagnose the condition before a materially different retry.';
@@ -112,24 +114,6 @@ function constraintSatisfied(constraint, items, workspaceRoot) {
 }
 
 function digest(value) { return createHash('sha256').update(value).digest('hex'); }
-
-function stableJson(value, ancestors = new Set()) {
-  if (value === undefined || typeof value === 'function' || typeof value === 'symbol') return JSON.stringify(`[${typeof value}]`);
-  if (typeof value === 'bigint') return JSON.stringify(`${value}n`);
-  if (value && typeof value === 'object' && ancestors.has(value)) return JSON.stringify('[circular]');
-  if (value && typeof value === 'object') ancestors.add(value);
-  if (Array.isArray(value)) {
-    const result = `[${value.map((item) => stableJson(item, ancestors)).join(',')}]`;
-    ancestors.delete(value);
-    return result;
-  }
-  if (value && typeof value === 'object') {
-    const result = `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key], ancestors)}`).join(',')}}`;
-    ancestors.delete(value);
-    return result;
-  }
-  return JSON.stringify(value);
-}
 
 function safeDiagnostic(value, maximum) {
   return redactText(String(value ?? '')).replace(/\s+/gu, ' ').trim().slice(0, maximum);

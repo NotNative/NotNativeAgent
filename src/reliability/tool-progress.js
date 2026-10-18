@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { missingFilesystemPrerequisite, satisfiesFilesystemPrerequisite } from './filesystem-recovery.js';
+import { stableRecoveryJson, recoveryToolFingerprint, recoveryToolIdentity } from './recovery-tool-identity.js';
 
 export function toolProgressEvidence(items, steeringApplied = [], options = {}) {
   const prerequisites = options.constraints?.filter((item) => item.kind === 'prerequisite_repair') ?? [];
   const successes = items.filter((item) => item?.result?.status === 'succeeded'
     && (typeof item.result.content === 'string' || Buffer.isBuffer(item.result.content))
     && (prerequisites.length === 0 || prerequisites.some((prerequisite) => satisfiesFilesystemPrerequisite(item, prerequisite, options.workspaceRoot))));
-  const diagnostics = prerequisites.length === 0
-    ? items.filter((item) => item?.result?.status === 'completed_nonzero')
-    : [];
+  // Why: an unrelated read-only diagnostic remains progress, but a failed
+  // mutation with uncertain effects cannot discharge a missing prerequisite.
+  const diagnostics = items.filter((item) => item?.result?.status === 'completed_nonzero'
+    && (prerequisites.length === 0 || item.result.effect_certainty === 'none'));
   const completed = [...successes, ...diagnostics];
   const steeringIds = Array.isArray(steeringApplied)
     ? steeringApplied.filter((item) => typeof item === 'string' && item.length > 0)
@@ -21,17 +23,16 @@ export function toolProgressEvidence(items, steeringApplied = [], options = {}) 
   }
   const requestFingerprints = [];
   for (const item of completed) {
-    const toolName = item.result.tool_name ?? item.request?.toolName ?? 'unknown';
-    hash.update(toolName);
+    const identity = recoveryToolIdentity(item);
+    hash.update(identity.toolName);
     hash.update(item.result.status);
-    hash.update(stableJson(item.request?.args ?? {}));
+    hash.update(stableRecoveryJson(identity.args));
     // Successful observations may legitimately change while the request stays
     // constant. A nonzero diagnostic earns progress once per invocation shape;
     // volatile timestamps or counters in repeated output must not defeat the
     // unchanged-request loop boundary.
     if (item.result.status === 'succeeded') hash.update(item.result.content);
-    requestFingerprints.push(createHash('sha256')
-      .update(toolName).update('\0').update(stableJson(item.request?.args ?? {})).digest('hex'));
+    requestFingerprints.push(recoveryToolFingerprint(identity.toolName, identity.args));
   }
   for (const steeringId of steeringIds) hash.update('\0steering\0').update(steeringId);
   return {
@@ -42,8 +43,7 @@ export function toolProgressEvidence(items, steeringApplied = [], options = {}) 
       summary: {
         successful_tool_calls: successes.length,
         ...(diagnostics.length > 0 ? { diagnostic_tool_calls: diagnostics.length } : {}),
-        tool_names: [...new Set(completed
-          .map((item) => item.result.tool_name ?? item.request?.toolName ?? 'unknown'))].slice(0, 16),
+        tool_names: [...new Set(completed.map((item) => recoveryToolIdentity(item).toolName))].slice(0, 16),
         request_fingerprints: [...new Set(requestFingerprints)].slice(0, 16),
         ...(steeringIds.length > 0 ? { consumed_steering_messages: steeringIds.length } : {}),
       },
@@ -61,22 +61,22 @@ export function toolFailureFingerprint(items) {
     && ['tool_schema_invalid', 'tool_arguments_malformed', 'tool_arguments_truncated']
       .includes(item.result?.reason_code ?? item.result?.reasonCode));
   if (contractFailures.length > 0) {
-    const shapes = contractFailures.map((item) => stableJson({
-      tool: item.result?.tool_name ?? item.request?.toolName ?? 'unknown',
+    const shapes = contractFailures.map((item) => stableRecoveryJson({
+      tool: recoveryToolIdentity(item).toolName,
       status: item.result?.status ?? 'unknown',
       reason: item.result?.reason_code ?? item.result?.reasonCode ?? 'unknown',
-      args: item.request?.args ?? item.call?.args ?? {},
+      args: recoveryToolIdentity(item).args,
       error: item.result?.content ?? '',
     }));
     // Why: a changed argument or diagnostic is a distinct repair attempt. Only
     // an exact repeated contract failure belongs to the same no-progress episode.
     return createHash('sha256').update([...new Set(shapes)].sort().join('\n')).digest('hex');
   }
-  const shapes = items.filter((item) => item.result?.status !== 'succeeded').map((item) => stableJson({
-    tool: item.result?.tool_name ?? item.request?.toolName ?? 'unknown',
+  const shapes = items.filter((item) => item.result?.status !== 'succeeded').map((item) => stableRecoveryJson({
+    tool: recoveryToolIdentity(item).toolName,
     status: item.result?.status ?? 'unknown',
     reason: item.result?.reason_code ?? item.result?.reasonCode ?? 'unknown',
-    args: item.request?.args ?? item.call?.args ?? {},
+    args: recoveryToolIdentity(item).args,
     error: item.result?.content ?? '',
   }));
   if (shapes.length === 0) return null;
@@ -84,20 +84,12 @@ export function toolFailureFingerprint(items) {
 }
 
 export function toolRequestFingerprint(toolName, args = {}) {
-  return createHash('sha256').update(String(toolName ?? 'unknown')).update('\0').update(stableJson(args)).digest('hex');
+  return recoveryToolFingerprint(toolName, args);
 }
 
 export function toolRequestFingerprints(items) {
-  return [...new Set(items.map((item) => toolRequestFingerprint(
-    item.request?.toolName ?? item.result?.tool_name ?? item.call?.name ?? 'unknown',
-    item.request?.args ?? item.call?.args ?? {},
-  )))];
-}
-
-function stableJson(value) {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
-  }
-  return JSON.stringify(value);
+  return [...new Set(items.map((item) => {
+    const identity = recoveryToolIdentity(item);
+    return recoveryToolFingerprint(identity.toolName, identity.args);
+  }))];
 }

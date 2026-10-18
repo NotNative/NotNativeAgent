@@ -90,6 +90,16 @@ test('failed inline interpreter constraints recommend draft stdin instead of rep
   assert.match(constraints[0].instruction, /ref_store.*stdin_ref/u);
 });
 
+test('process repair guidance follows sealed arguments when raw call arguments differ', () => {
+  const failed = item('process_run', 'failed', {
+    reason: 'process_exit_nonzero', metadata: { exitCode: 1, signal: null },
+    args: { executable: 'node', args: ['-e', 'process.exit(1)'] },
+    request: { toolName: 'process_run', args: { executable: 'node', args: ['-'] } },
+  });
+  const [constraint] = mergeToolConstraints([], [failed]);
+  assert.doesNotMatch(constraint.instruction, /Avoid embedding generated multi-statement programs/u);
+});
+
 test('missing directory ancestors become durable prerequisites cleared by structured existence proof', () => {
   const missing = item('fs_write_text', 'invalid_request', {
     reason: 'tool_parent_missing', args: { path: 'src/shaders/ocean.js', content: 'shader' },
@@ -183,4 +193,17 @@ test('relative prerequisite proof uses the session workspace, not the process di
   });
   assert.deepEqual(mergeToolConstraints(constraints, [workspaceProof], { workspaceRoot }), []);
   assert.equal(mergeToolConstraints(constraints, [unrelatedProof], { workspaceRoot }).length, 1);
+});
+
+test('constraint identity uses sealed request arguments when raw call arguments disagree', () => {
+  const request = { toolName: 'fs_read', args: { path: 'src/a.js' } };
+  const failed = item('fs_read', 'invalid_request', { reason: 'tool_schema_invalid', content: 'bad path' });
+  failed.request = request;
+  failed.call.args = { path: 'other.js' };
+  const first = mergeToolConstraints([], [failed]);
+  failed.call.args = { path: 'third.js' };
+  const repeated = mergeToolConstraints(first, [failed]);
+  assert.equal(repeated.length, 1);
+  assert.equal(repeated[0].id, first[0].id);
+  assert.equal(repeated[0].occurrences, 2);
 });
