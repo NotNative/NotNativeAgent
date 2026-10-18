@@ -127,7 +127,7 @@ export class PathPolicy {
         if (error instanceof ContractError || error.code !== 'ENOENT') throw error;
         try {
           await lstat(current);
-          throw new ContractError('tool_target_invalid', 'path contains an unresolved symbolic link or reparse point');
+          throw new ContractError('tool_path_reparse_unresolved', 'path contains an unresolved symbolic link or reparse point');
         } catch (entryError) {
           if (entryError instanceof ContractError || entryError.code !== 'ENOENT') throw entryError;
         }

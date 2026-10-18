@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { missingFilesystemPrerequisite, satisfiesFilesystemPrerequisite } from './filesystem-recovery.js';
 import { stableRecoveryJson, recoveryToolFingerprint, recoveryToolIdentity } from './recovery-tool-identity.js';
+import { processTerminationEvidence } from './process-termination.js';
 
 export function toolProgressEvidence(items, steeringApplied = [], options = {}) {
   const prerequisites = options.constraints?.filter((item) => item.kind === 'prerequisite_repair') ?? [];
@@ -67,6 +68,7 @@ export function toolFailureFingerprint(items) {
       reason: item.result?.reason_code ?? item.result?.reasonCode ?? 'unknown',
       args: recoveryToolIdentity(item).args,
       error: item.result?.content ?? '',
+      termination: processTerminationEvidence(item.result),
     }));
     // Why: a changed argument or diagnostic is a distinct repair attempt. Only
     // an exact repeated contract failure belongs to the same no-progress episode.
@@ -78,6 +80,7 @@ export function toolFailureFingerprint(items) {
     reason: item.result?.reason_code ?? item.result?.reasonCode ?? 'unknown',
     args: recoveryToolIdentity(item).args,
     error: item.result?.content ?? '',
+    termination: processTerminationEvidence(item.result),
   }));
   if (shapes.length === 0) return null;
   return createHash('sha256').update([...new Set(shapes)].sort().join('\n')).digest('hex');

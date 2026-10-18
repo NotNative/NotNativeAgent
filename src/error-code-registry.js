@@ -437,7 +437,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'tool_directory_remove_bound', 'tool_edit_match_invalid', 'tool_exact_request_blocked',
     'tool_fragment_index', 'tool_fragments_invalid', 'tool_identity_reused',
     'tool_parent_invalid', 'tool_parent_missing', 'tool_path_ambiguous',
-    'tool_path_invalid', 'tool_path_reserved', 'tool_pattern_invalid',
+    'tool_path_invalid', 'tool_path_reparse_unresolved', 'tool_path_reserved', 'tool_pattern_invalid',
     'tool_pattern_unsafe', 'tool_protected_path', 'tool_result_invalid',
     'tool_revalidation_drift', 'tool_schema_invalid', 'tool_scope_denied',
     'tool_search_invalid', 'tool_target_exists', 'tool_target_invalid',

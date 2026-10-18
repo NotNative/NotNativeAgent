@@ -207,3 +207,173 @@ test('constraint identity uses sealed request arguments when raw call arguments 
   assert.equal(repeated[0].id, first[0].id);
   assert.equal(repeated[0].occurrences, 2);
 });
+
+test('path failures give reason-specific repair guidance instead of schema repair', () => {
+  const cases = [
+    ['tool_path_ambiguous', 'drive-relative root paths are not permitted', /absolute path/u],
+    ['tool_parent_invalid', 'an existing path ancestor is not a directory', /existing ancestor/u],
+    ['tool_path_reparse_unresolved', 'path contains an unresolved reparse point', /unresolved link/u],
+    ['tool_target_invalid', 'target is not a directory', /wrong filesystem type/u],
+  ];
+  for (const [reason, content, guidance] of cases) {
+    const [constraint] = mergeToolConstraints([], [item('fs_directory', 'invalid_request', {
+      reason, args: { action: 'create', path: 'bad' }, content,
+    })]);
+    assert.equal(constraint.kind, 'path_repair');
+    assert.match(constraint.instruction, guidance);
+    assert.doesNotMatch(constraint.instruction, /Rebuild the call from the currently presented schema/u);
+  }
+});
+
+test('process constraints carry structured exit, signal, and timeout evidence', () => {
+  const cases = [
+    ['completed_nonzero', { exitCode: 7, signal: null }, 'exit_code', 7, null],
+    ['failed', { exitCode: null, signal: 'SIGKILL' }, 'signal', null, 'SIGKILL'],
+    ['timed_out', { exitCode: null, signal: null }, 'timeout', null, null],
+  ];
+  for (const [status, metadata, kind, exitCode, signal] of cases) {
+    const [constraint] = mergeToolConstraints([], [item('process_run', status, {
+      reason: status === 'completed_nonzero' ? 'process_exit_nonzero' : 'process_signal_exit', metadata,
+    })]);
+    assert.deepEqual(constraint.termination, { kind, exit_code: exitCode, signal });
+  }
+});
+
+test('path constraints retain distinct targets and clear only after a same-target success', () => {
+  const workspaceRoot = resolve('alternate-workspace');
+  const failed = (path) => item('fs_directory', 'invalid_request', {
+    reason: 'tool_target_invalid', args: { action: 'create', path }, content: 'target is not a directory',
+  });
+  const initial = mergeToolConstraints([], [failed('a'), failed('b')], { workspaceRoot });
+  assert.deepEqual(initial.map((constraint) => constraint.target_path), ['a', 'b']);
+  const unrelated = mergeToolConstraints(initial, [item('fs_directory', 'succeeded', {
+    args: { action: 'create', path: 'c' },
+  })], { workspaceRoot });
+  assert.equal(unrelated.length, 2);
+  const repaired = mergeToolConstraints(unrelated, [item('fs_directory', 'succeeded', {
+    args: { action: 'create', path: join(workspaceRoot, 'a') },
+  })], { workspaceRoot });
+  assert.deepEqual(repaired.map((constraint) => constraint.target_path), ['b']);
+});
+
+test('a successful missing-target observation does not clear a path constraint', () => {
+  const failed = mergeToolConstraints([], [item('fs_list', 'invalid_request', {
+    reason: 'tool_path_reparse_unresolved', args: { path: 'broken-link' },
+  })]);
+  const missing = item('fs_list', 'succeeded', { args: { path: 'broken-link' },
+    metadata: { target_exists: false } });
+  assert.equal(mergeToolConstraints(failed, [missing]).length, 1);
+  const exists = item('fs_list', 'succeeded', { args: { path: 'broken-link' },
+    metadata: { target_exists: true } });
+  assert.deepEqual(mergeToolConstraints(failed, [exists]), []);
+});
+
+test('directory action and target existence must both satisfy the failed path operation', () => {
+  const failedCreate = mergeToolConstraints([], [item('fs_directory', 'invalid_request', {
+    reason: 'tool_target_invalid', args: { action: 'create', path: 'target' },
+  })]);
+  const removed = item('fs_directory', 'succeeded', { args: { action: 'remove', path: 'target' } });
+  assert.equal(mergeToolConstraints(failedCreate, [removed]).length, 1);
+  const listed = item('fs_directory', 'succeeded', { args: { action: 'list', path: 'target' },
+    metadata: { target_exists: true } });
+  assert.equal(mergeToolConstraints(failedCreate, [listed]).length, 1);
+  const created = item('fs_directory', 'succeeded', { args: { action: 'create', path: 'target' } });
+  assert.deepEqual(mergeToolConstraints(failedCreate, [created]), []);
+
+  const failedList = mergeToolConstraints([], [item('fs_directory', 'invalid_request', {
+    reason: 'tool_path_reparse_unresolved', args: { action: 'list', path: 'target' },
+  })]);
+  const missingList = item('fs_directory', 'succeeded', { args: { action: 'list', path: 'target' },
+    metadata: { target_exists: false } });
+  assert.equal(mergeToolConstraints(failedList, [missingList]).length, 1);
+  assert.deepEqual(mergeToolConstraints(failedList, [listed]), []);
+});
+
+test('read-only path probes use their own existence contracts', () => {
+  const failedMetadata = mergeToolConstraints([], [item('fs_metadata', 'invalid_request', {
+    reason: 'tool_path_reparse_unresolved', args: { path: 'target' },
+  })]);
+  assert.equal(mergeToolConstraints(failedMetadata, [item('fs_metadata', 'succeeded', {
+    args: { path: 'target' }, metadata: { target_exists: false },
+  })]).length, 1);
+  assert.deepEqual(mergeToolConstraints(failedMetadata, [item('fs_metadata', 'succeeded', {
+    args: { path: 'target' }, metadata: { target_exists: true },
+  })]), []);
+  const failedDirectory = mergeToolConstraints([], [item('fs_list_directory', 'invalid_request', {
+    reason: 'tool_directory_not_found', args: { path: 'target' },
+  })]);
+  assert.deepEqual(mergeToolConstraints(failedDirectory, [item('fs_list_directory', 'succeeded', {
+    args: { path: 'target' },
+  })]), []);
+});
+
+test('path failures without a usable target coalesce and clear on same-tool repair', () => {
+  const empty = item('fs_read', 'invalid_request', {
+    reason: 'tool_path_invalid', args: { path: '' }, content: 'path is invalid',
+  });
+  const omitted = item('fs_read', 'invalid_request', {
+    reason: 'tool_path_invalid', args: {}, content: 'path is invalid',
+  });
+  const constraints = mergeToolConstraints([], [empty, omitted]);
+  assert.equal(constraints.length, 1);
+  assert.equal(constraints[0].target_path, undefined);
+  assert.equal(mergeToolConstraints(constraints, [item('fs_list', 'succeeded')]).length, 1);
+  assert.deepEqual(mergeToolConstraints(constraints, [item('fs_read', 'succeeded', {
+    args: { path: 'valid.txt' },
+  })]), []);
+  const succeededFirst = mergeToolConstraints([], [item('fs_read', 'succeeded', {
+    args: { path: 'valid.txt' },
+  }), empty]);
+  assert.equal(succeededFirst.length, 1);
+  const repairedLater = mergeToolConstraints([], [empty, item('fs_read', 'succeeded', {
+    args: { path: 'valid.txt' },
+  })]);
+  assert.deepEqual(repairedLater, []);
+
+  const directory = mergeToolConstraints([], [item('fs_directory', 'invalid_request', {
+    reason: 'tool_path_invalid', args: { action: 'create', path: '' },
+  })]);
+  assert.equal(mergeToolConstraints(directory, [item('fs_directory', 'succeeded', {
+    args: { action: 'remove', path: 'other' },
+  })]).length, 1);
+  assert.deepEqual(mergeToolConstraints(directory, [item('fs_directory', 'succeeded', {
+    args: { action: 'create', path: 'valid' },
+  })]), []);
+});
+
+test('unusable nonempty path shapes clear after a corrected path succeeds', () => {
+  const cases = [
+    ['tool_path_ambiguous', 'C:', 'fs_read'],
+    ['tool_path_invalid', 'trailing.', 'fs_read'],
+    ['tool_path_reserved', 'CON', 'fs_read'],
+    ['tool_parent_invalid', 'file/child', 'fs_directory'],
+    ['tool_path_reparse_unresolved', 'broken-link/child', 'fs_directory'],
+  ];
+  for (const [reason, rejectedPath, tool] of cases) {
+    const failed = mergeToolConstraints([], [item(tool, 'invalid_request', {
+      reason, args: { path: rejectedPath, ...(tool === 'fs_directory' ? { action: 'create' } : {}) },
+    })]);
+    assert.equal(failed[0].target_path, undefined, reason);
+    assert.deepEqual(mergeToolConstraints(failed, [item(tool, 'succeeded', {
+      args: { path: 'corrected', ...(tool === 'fs_directory' ? { action: 'create' } : {}) },
+    })]), [], reason);
+  }
+});
+
+test('untrusted process signal text cannot enter model-facing constraints', () => {
+  const [constraint] = mergeToolConstraints([], [item('process_run', 'failed', {
+    reason: 'process_signal_exit', metadata: { signal: 'SIGKILL secret=operator-key', exitCode: null },
+  })]);
+  assert.equal(constraint.termination.kind, 'unknown');
+  assert.equal(constraint.termination.signal, null);
+  assert.doesNotMatch(JSON.stringify(constraint), /operator-key/u);
+});
+
+test('output overflow is identified before secondary process exit evidence', () => {
+  const [constraint] = mergeToolConstraints([], [item('process_run', 'failed', {
+    reason: 'process_output_too_large', metadata: { exitCode: 0, signal: 'SIGTERM' },
+  })]);
+  assert.deepEqual(constraint.termination, { kind: 'output_limit', exit_code: 0, signal: 'SIGTERM' });
+  assert.match(constraint.detail, /output exceeded the capture limit/u);
+  assert.match(constraint.instruction, /Narrow the query/u);
+});

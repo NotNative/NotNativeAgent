@@ -237,6 +237,15 @@ test('recovery fingerprints normalize absent optional fields and remain total fo
   }]), /^[a-f0-9]{64}$/u);
 });
 
+test('process failure fingerprints preserve distinct signal identity with identical diagnostics', () => {
+  const signaled = (signal) => ({
+    request: { toolName: 'process_run', args: { executable: 'probe', args: [] } },
+    result: { tool_name: 'process_run', status: 'failed', reason_code: 'process_signal_exit',
+      content: 'process stopped', metadata: { signal, exitCode: null } },
+  });
+  assert.notEqual(toolFailureFingerprint([signaled('SIGTERM')]), toolFailureFingerprint([signaled('SIGKILL')]));
+});
+
 test('materially corrected plan repairs do not consume one exact-loop budget', () => {
   const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
   const failedPlan = (args, content) => ({

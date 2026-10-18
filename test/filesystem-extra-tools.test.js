@@ -106,3 +106,16 @@ test('device paths remain forbidden while symlinks use their resolved host targe
     t.diagnostic('native symlink assertion unavailable without Windows create-symbolic-link privilege');
   }
 });
+
+test('a dangling link is a distinct path failure for directory creation', async (t) => {
+  const { root, paths } = await fixture();
+  try { await symlink(join(root, 'missing-directory'), join(root, 'dangling-link'), 'dir'); }
+  catch (error) {
+    if (error.code !== 'EPERM') throw error;
+    t.skip('native symlink creation is unavailable without Windows create-symbolic-link privilege');
+    return;
+  }
+  await assert.rejects(paths.resolveDirectoryWrite('dangling-link/child'), {
+    code: 'tool_path_reparse_unresolved',
+  });
+});
