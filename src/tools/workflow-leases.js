@@ -25,20 +25,33 @@ export function grantWorkflowLeases(leases, names, options, capacityFor) {
     }
     const prior = leases.get(name);
     const sources = [...new Set([...(prior?.sources ?? []), source])].slice(-MAX_SOURCES);
+    const renewOnUse = options.renewOnUse === true || prior?.renewOnUse === true;
+    const renewalUses = renewOnUse ? Math.max(prior?.renewalUses ?? 0, prior?.remainingUses ?? 0, uses) : null;
     leases.delete(name);
-    leases.set(name, Object.freeze({ remainingUses: Math.max(prior?.remainingUses ?? 0, uses), sources: Object.freeze(sources) }));
-    granted.push(Object.freeze({ name, remaining_uses: leases.get(name).remainingUses, sources: leases.get(name).sources }));
+    leases.set(name, Object.freeze({ remainingUses: Math.max(prior?.remainingUses ?? 0, uses), renewOnUse, renewalUses, sources: Object.freeze(sources) }));
+    granted.push(Object.freeze({ name, remaining_uses: leases.get(name).remainingUses,
+      ...(renewOnUse ? { renew_on_use: true, allowance_kind: 'other_sealed_calls' } : {}),
+      sources: leases.get(name).sources }));
   }
   return Object.freeze({ granted: Object.freeze(granted), rejected: Object.freeze(rejected) });
 }
 
 export function consumeWorkflowLease(leases, name) {
-  const lease = leases.get(name);
-  if (!lease) return;
-  leases.delete(name);
-  if (lease.remainingUses > 1) {
-    // Why: reinsertion makes eviction order reflect actual use, not historical grant order.
-    leases.set(name, Object.freeze({ remainingUses: lease.remainingUses - 1, sources: lease.sources }));
+  // Why: an exact-search lease stays hot while used but cools on other sealed calls.
+  // Provider-surface assembly is not an actionable step and must not age any lease.
+  for (const [leasedName, lease] of [...leases]) {
+    if (leasedName !== name && !lease.renewOnUse) continue;
+    const remainingUses = leasedName === name && lease.renewOnUse
+      ? lease.renewalUses : lease.remainingUses - 1;
+    if (remainingUses < 1) {
+      leases.delete(leasedName);
+    } else if (leasedName === name) {
+      // Reinsertion reflects actual use without bypassing admission or host manifest limits.
+      leases.delete(leasedName);
+      leases.set(leasedName, Object.freeze({ ...lease, remainingUses }));
+    } else {
+      leases.set(leasedName, Object.freeze({ ...lease, remainingUses }));
+    }
   }
 }
 

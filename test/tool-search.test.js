@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { ConversationWork } from '../src/conversation-work.js';
-import { grantWorkflowLeases } from '../src/tools/workflow-leases.js';
+import { consumeWorkflowLease, grantWorkflowLeases } from '../src/tools/workflow-leases.js';
 import { planProviderToolNames } from '../src/tools/provider-surface-planner.js';
 
 const FOUNDATION = [
@@ -248,11 +248,67 @@ test('tool_search keeps bounded specialist catalog matches visible for a workflo
       stepId: 'step', caller: 'primary', surface: 'test',
     });
   }
-  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'project_verify'), false);
-  const renewed = await search.executor({ args: { query: 'project_verify' } }, new AbortController().signal);
-  assert.match(JSON.parse(renewed.content).instruction, /Search its exact name again to renew/u);
-  assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'project_verify'));
+  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'project_verify'), true);
+  assert.match(JSON.parse(result.content).instruction, /Each valid call refreshes its visibility for 16 other sealed tool calls/u);
+  assert.equal(JSON.parse(result.content).lease.granted[0].allowance_kind, 'other_sealed_calls');
   assert.ok(JSON.parse(result.content).matches.length <= 12);
+});
+
+test('exact-search leases cool on other sealed calls, refresh on use, and release surface capacity', async () => {
+  const registry = new ToolRegistry(process.cwd());
+  await registry.initialize();
+  const search = registry.definition('tool_search');
+  for (let index = 0; index < 40; index += 1) {
+    registry.installExternal({
+      name: `nno_cooling_${index}`, version: 1, purpose: `Cooling fixture ${index}`,
+      sideEffect: 'read_only', scope: 'external', cancellation: true, timeoutMs: 1000,
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      executor: async () => ({ content: 'unused' }),
+    });
+  }
+  const context = {
+    policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
+    stepId: 'step', caller: 'primary', surface: 'test',
+  };
+  const seal = (name, index) => registry.seal({ name, providerCallId: `cool-${index}`,
+    args: name === 'tool_search' ? { query: 'nno_cooling_0' } : {} }, context);
+  await search.executor({ args: { query: 'nno_cooling_0' } }, new AbortController().signal);
+  let rejectedName = null;
+  for (let index = 1; index < 40; index += 1) {
+    const name = `nno_cooling_${index}`;
+    const result = await search.executor({ args: { query: name } }, new AbortController().signal);
+    if (JSON.parse(result.content).status === 'schema_load_rejected') {
+      rejectedName = name;
+      break;
+    }
+  }
+  assert.ok(rejectedName, 'the bounded provider surface should reject a new lease once full');
+  await seal('nno_cooling_0', 0);
+  for (let index = 1; index < 16; index += 1) {
+    await seal('tool_search', index);
+    assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'nno_cooling_0'));
+  }
+  await seal('nno_cooling_0', 16);
+  for (let index = 17; index < 32; index += 1) await seal('tool_search', index);
+  assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'nno_cooling_0'));
+  await assert.rejects(registry.seal({ name: 'tool_search', providerCallId: 'cool-invalid', args: {} }, context), {
+    code: 'tool_schema_invalid',
+  });
+  assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'nno_cooling_0'));
+  await seal('tool_search', 32);
+  assert.ok(!registry.providerDefinitions().some((item) => item.function.name === 'nno_cooling_0'));
+  const next = await search.executor({ args: { query: rejectedName } }, new AbortController().signal);
+  assert.equal(JSON.parse(next.content).status, 'schema_loaded_for_next_model_step');
+});
+
+test('one-use recovery lease still expires after its tool is sealed', () => {
+  const leases = new Map();
+  const capacityFor = () => ({ names: ['repair'], schemaBytes: 100, limits: { count: 32, bytes: 64 * 1024 } });
+  grantWorkflowLeases(leases, ['repair'], { hasDefinition: () => true, uses: 1 }, capacityFor);
+  consumeWorkflowLease(leases, 'other');
+  assert.equal(leases.has('repair'), true);
+  consumeWorkflowLease(leases, 'repair');
+  assert.equal(leases.has('repair'), false);
 });
 
 test('exact tool search returns the callable schema and direct next-step guidance', async () => {

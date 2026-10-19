@@ -47,7 +47,7 @@ export function toolSearchDefinition(registry) {
       // Why: ranked neighbors are discovery suggestions, not an unambiguous request to alter
       // the next provider schema. Only an exact catalog name creates a predictable lease.
       const lease = named
-        ? registry.grantWorkflowLease([named], { uses: WORKFLOW_LEASE_USES, source: 'tool_search' })
+        ? registry.grantWorkflowLease([named], { uses: WORKFLOW_LEASE_USES, renewOnUse: true, source: 'tool_search' })
         : { granted: [], rejected: [] };
       const schema = named ? registry.definition(named)?.inputSchema : null;
       const loaded = lease.granted.length > 0;
@@ -58,7 +58,7 @@ export function toolSearchDefinition(registry) {
             : rejected ? 'schema_load_rejected'
               : visibleMatches.length > 0 ? 'catalog_matches_found' : 'no_relevant_capability_found',
           instruction: loaded
-            ? 'Call the exact matching tool directly. This lease guarantees schema visibility until remaining_uses reaches zero. Search its exact name again to renew. Every call still requires mandatory review.'
+            ? `Call the exact matching tool directly. Each valid call refreshes its visibility for ${WORKFLOW_LEASE_USES} other sealed tool calls; search its exact name again after the lease cools. Every call still requires mandatory review.`
             : rejected ? 'The exact schema could not fit the bounded provider surface. Use an already visible capability or end with an honest typed blocker.'
               : visibleMatches.length > 0 ? 'These are discovery suggestions only. Search once using the exact tool name to load one schema.'
                 : 'No relevant catalog capability matched. Continue with already visible tools or refine once using an exact tool or service name; do not repeat this search unchanged.',
