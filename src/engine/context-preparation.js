@@ -10,6 +10,7 @@ import { taskCheckpointPath, writeTaskCheckpoint } from '../task-checkpoint.js';
 import { toolLifecycleStatus, toolReviewOutcome } from '../tools/tool-result-contract.js';
 import { compactionBudgetDetail, measureCompactionInput } from './compaction-measurement.js';
 import { compactionFloorDiagnostic, compactionFloorError } from './compaction-floor.js';
+import { emitCompactionStatus } from './compaction-status.js';
 
 const MIN_COMPACTION_BUDGET_TOKENS = 2_048;
 const COMPACTION_REDUCTION_FACTOR = 0.6;
@@ -68,10 +69,10 @@ async function compactContext(engine, records, content, active, operations, plan
   await emitCompactionStatus(engine, active, 'started', started);
   recordCompactionTelemetry(engine, active, 'started', started);
   const lifecycle = engine.lifecycles.start('compaction', active.turnId);
-  const pre = await operations.publish('compaction.pre', 'compaction', 'pre', active, null, hookPayload(engine, active));
-  await addHookContexts(engine, active, pre);
-  await operations.publish('compaction.started', 'compaction', 'active', active);
   try {
+    const pre = await operations.publish('compaction.pre', 'compaction', 'pre', active, null, hookPayload(engine, active));
+    await addHookContexts(engine, active, pre);
+    await operations.publish('compaction.started', 'compaction', 'active', active);
     const fitted = await fitCompactedContext(engine, records, active, operations, {
       budget, validationBudget: plan.budget, hardLimit, planned, route: routes[0], runtime,
       cacheAlignedRequest: plan.cacheAlignedRequest, beforeContext: plan.beforeContext, beforeEstimatedTokens,
@@ -92,11 +93,9 @@ async function compactContext(engine, records, content, active, operations, plan
   } catch (error) {
     engine.lifecycles.finish(lifecycle.id, 'failed');
     await operations.publish('compaction.terminal', 'compaction', 'terminal', active, 'failed');
-    await emitCompactionStatus(engine, active, 'failed', { reason_code: error.code ?? 'compaction_failed' });
-    recordCompactionTelemetry(engine, active, 'failed', {
-      trigger: compactionTrigger(active),
-      reason_code: error.code ?? 'compaction_failed',
-    }, error.code ?? 'compaction_failed');
+    const failed = { ...started, reason_code: error.code ?? 'compaction_failed' };
+    await emitCompactionStatus(engine, active, 'failed', failed);
+    recordCompactionTelemetry(engine, active, 'failed', failed, failed.reason_code);
     throw error;
   }
 }
@@ -471,13 +470,6 @@ function recordCompressionEfficacy(engine, active, before, after, reducers, trig
     source_fingerprint: measurement.source_fingerprint,
     projection_fingerprint: measurement.projection_fingerprint,
   }, { turnId: active.turnId, stepId: active.stepId });
-}
-
-function emitCompactionStatus(engine, active, status, detail) {
-  return engine.output({
-    version: '1.0', type: 'context_compaction_status', session_id: engine.sessionId,
-    turn_id: active.turnId, status, ...detail,
-  });
 }
 
 function recordBudget(engine, runtime, planned, active) {

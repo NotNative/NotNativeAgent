@@ -76,6 +76,81 @@ test('continuation integrity repair remains available even without input savings
     Math.max(0, completed.after_estimated_tokens - completed.before_estimated_tokens));
 });
 
+test('compaction continues after a status subscriber fails at start', async () => {
+  const run = fixture();
+  const statuses = [], telemetry = [];
+  run.engine.output = async (record) => {
+    if (record.type !== 'context_compaction_status') return;
+    statuses.push(record.status);
+    if (record.status === 'started') {
+      const error = new Error('status subscriber disconnected');
+      error.code = 'subscriber_disconnected';
+      throw error;
+    }
+  };
+  run.engine.telemetry = { record: (event, status, detail) => telemetry.push({ event, status, detail }) };
+  await prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, false, run.operations);
+  assert.deepEqual(statuses, ['started', 'completed']);
+  assert.deepEqual(telemetry.filter((row) => row.event === 'context.compaction_status_output'), [
+    { event: 'context.compaction_status_output', status: 'failed',
+      detail: { status: 'started', reason_code: 'subscriber_disconnected' } },
+  ]);
+  assert.deepEqual(run.terminals, ['completed']);
+  assert.equal(run.facts.length, 1);
+});
+
+test('status output and its failure telemetry cannot interrupt compaction', async () => {
+  const run = fixture();
+  run.engine.output = async () => {
+    const error = new Error('status subscriber disconnected');
+    error.code = 'subscriber_disconnected';
+    throw error;
+  };
+  run.engine.telemetry = { record: (event) => {
+    if (event === 'context.compaction_status_output') throw new Error('telemetry sink disconnected');
+  } };
+  await prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, false, run.operations);
+  assert.deepEqual(run.terminals, ['completed']);
+  assert.equal(run.facts.length, 1);
+});
+
+test('failed status output preserves the underlying compaction error', async () => {
+  const run = fixture({ attachments: [{ id: 'large', mimeType: 'text/plain', route: 'text', observation: 'x'.repeat(100000) }] });
+  run.engine.output = async () => {
+    const error = new Error('status subscriber disconnected');
+    error.code = 'subscriber_disconnected';
+    throw error;
+  };
+  run.engine.telemetry = { record: (event) => {
+    if (event === 'context.compaction_status_output') throw new Error('telemetry sink disconnected');
+  } };
+  await assert.rejects(prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, false, run.operations),
+    (error) => error.code === 'context_compaction_irreducible');
+  assert.deepEqual(run.terminals, ['failed']);
+  assert.equal(run.facts.length, 0);
+});
+
+test('failed pre-compaction hook closes the started lifecycle', async () => {
+  const run = fixture();
+  const statuses = [];
+  run.engine.output = async (record) => {
+    if (record.type === 'context_compaction_status') statuses.push(record);
+  };
+  run.operations.publish = async (event) => {
+    if (event === 'compaction.pre') {
+      const error = new Error('pre hook failed');
+      error.code = 'pre_hook_failed';
+      throw error;
+    }
+    return { results: [] };
+  };
+  await assert.rejects(prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, false, run.operations),
+    (error) => error.code === 'pre_hook_failed');
+  assert.deepEqual(statuses.map((record) => record.status), ['started', 'failed']);
+  assert.equal(statuses[1].reason_code, 'pre_hook_failed');
+  assert.deepEqual(run.terminals, ['failed']);
+});
+
 test('rejected task-checkpoint variant does not publish a file for uncommitted state', async () => {
   const run = fixture();
   const root = await mkdtemp(join(tmpdir(), 'nna-compaction-checkpoint-review-'));
@@ -250,6 +325,11 @@ test('non-TUI output receives every compaction lifecycle outcome with matching t
     else await action;
     const statuses = output.filter((record) => record.type === 'context_compaction_status').map((record) => record.status);
     assert.deepEqual(statuses, ['started', expected]);
+    if (expected === 'failed') {
+      const [started, failed] = output.filter((record) => record.type === 'context_compaction_status');
+      assert.equal(failed.before_estimated_tokens, started.before_estimated_tokens);
+      assert.equal(failed.target_tokens, started.target_tokens);
+    }
     const expectedTelemetry = expected === 'completed' ? 'succeeded' : expected;
     assert.deepEqual(telemetry.filter((record) => record.event === 'context.compaction').map((record) => record.status),
       ['started', expectedTelemetry]);
