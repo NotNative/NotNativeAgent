@@ -21,7 +21,7 @@ import { toolFailureFingerprint, toolProgressEvidence, toolRequestFingerprint, t
 import { selfDiagnosticsDefinitions } from '../src/tools/self-diagnostics.js';
 import { openRuntimeInspection } from '../src/tui/runtime-inspection.js';
 import {
-  advanceWorkCadence, observeToolState, synchronizeWorkCadence, workConvergenceCheckpoint,
+  advanceWorkCadence, discoveryCheckpoint, observeToolState, synchronizeWorkCadence, workConvergenceCheckpoint,
 } from '../src/engine/runtime-helpers.js';
 
 test('tool loop accepts only declared constructor dependencies', () => {
@@ -313,6 +313,21 @@ test('read-only behavior is supervised from tool metadata and work updates count
   }], definitionFor);
   assert.equal(active.readOnlyBatchStreak, 0);
   assert.equal(active.observableStateRevision, 1);
+});
+
+test('read-only discovery cadence never requests compaction without context pressure', () => {
+  const observed = [];
+  const reliability = { behavioralCheckpoint: (_active, category, action, count) => {
+    observed.push({ category, action, count });
+    return { category, action, count };
+  } };
+  const active = { observableStateRevision: 0 };
+  for (let count = 1; count <= 96; count += 1) {
+    discoveryCheckpoint(reliability, active, { readOnlyBatchStreak: count });
+  }
+  assert.deepEqual(observed, [{
+    category: 'read_only_discovery_plateau', action: 'review_discovery_progress', count: 12,
+  }]);
 });
 
 test('filesystem failures share a missing-ancestor fingerprint and require that exact repair', () => {

@@ -260,11 +260,6 @@ export function discoveryCheckpoint(reliability, active, behavior) {
       observable_state_revision: active.observableStateRevision ?? 0,
     });
   }
-  if (count > 0 && count % 24 === 0) {
-    return reliability.behavioralCheckpoint(active, 'read_only_discovery_plateau', 'compact', count, {
-      observable_state_revision: active.observableStateRevision ?? 0,
-    });
-  }
   return null;
 }
 
