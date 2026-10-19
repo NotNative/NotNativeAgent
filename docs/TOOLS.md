@@ -101,10 +101,10 @@ definitions remain installed for compatibility and specialist/internal workflows
 not competing choices in a fresh model-facing catalog.
 
 `shell_run` is the normal model-facing execution tool for authenticated build, test, install,
-and other terminal intent. `process_run` is not loaded into that ordinary task surface. It
-remains installed, governed, and discoverable for cases that specifically require one exact
-executable and argv without shell interpretation. Hosted or host-ceilinged sessions that have
-`process_run` but no `shell_run` receive it as the execution fallback.
+and other terminal intent. `process_run` remains installed and governed, but ordinary local
+discovery does not offer it as a second execution choice. Hosted sessions and authenticated
+host manifests that grant `process_run` expose its exact executable-and-argv contract when
+shell interpretation is unavailable or inappropriate.
 
 `process_run` executes one explicit executable with an argv array and `shell: false` at the
 Node process boundary. Its cwd may be any accessible host directory for ordinary root NNA;
@@ -165,15 +165,16 @@ mutations separate from verification, and `pipefail` pipelines should avoid earl
 such as `head` when an upstream `SIGPIPE` would be mistaken for a failed check.
 
 Installed programs such as SSH, Git, Docker, and native system utilities may be invoked through
-`process_run` for exact argv or `shell_run` for terminal workflows. The agent should not wrap a
-shell inside `process_run`. On Windows, `powershell.exe` is the normal Windows PowerShell 5.1 entry point. `pwsh` identifies the
+`shell_run` in ordinary local sessions. Hosted sessions or authenticated host manifests may
+instead expose `process_run` for exact argv without shell interpretation; a shell should not be
+wrapped inside it. On Windows, `powershell.exe` is the normal Windows PowerShell 5.1 entry point. `pwsh` identifies the
 separately installed, cross-platform PowerShell 7 product and is used only after discovery or
 an explicit operator request. Unix-like hosts likewise may provide `sh`, `bash`, or another
 shell, and a shell wrapper is used only when its syntax is necessary.
 Generated multi-statement interpreter programs should not be nested inside `node -e`,
 `python -c`, or similar argv. The agent stores the source as a bounded draft with `ref_store`
-and supplies `stdin_ref` to `process_run`, using the interpreter's stdin form such as
-`node -` or `python -`. Short, simple inline expressions remain allowed; inline interpreter
+and supplies `stdin_ref` to the available execution tool, using the interpreter's stdin form
+such as `node -` or `python -`. Short, simple inline expressions remain allowed; inline interpreter
 requests are classified for review, and a failed inline request leaves durable guidance to use
 the draft/stdin route instead of repeating the fragile escaping structure.
 The reviewer requires the operation to be a reasonable, proportionate way to carry out

@@ -129,7 +129,7 @@ function instruction(kind, result, item, prerequisite = null) {
     return 'The provider output limit was reached before the tool JSON closed. The immediate repair step uses a smaller output budget with optional thinking disabled. Make that one concise action call; for edits, select the smallest unique anchor and bounded replacement, then split larger changes across calls. Later steps may reason normally, but do not repeat the oversized request shape.';
   }
   if (kind === CONSTRAINT_KIND.governance) return 'Do not repeat an equivalent request unless new authenticated operator input changes its authority.';
-  if (result?.reason_code === 'shell_interpreter_unavailable') return 'Do not repeat the unavailable shell. Use the host-native auto shell with its exact syntax, process_run, or a structured tool unless the requested interpreter is positively discovered.';
+  if (result?.reason_code === 'shell_interpreter_unavailable') return 'Do not repeat the unavailable shell. Use the host-native auto shell with its exact syntax, or an available structured tool unless the requested interpreter is positively discovered.';
   if (result?.reason_code === 'process_output_too_large') return 'Narrow the query or use a bounded output option before retrying the process.';
   const args = item?.request?.args ?? item?.call?.args;
   if (kind === CONSTRAINT_KIND.execution && result?.tool_name === 'process_run'

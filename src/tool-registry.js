@@ -134,7 +134,8 @@ export class ToolRegistry {
     return Object.freeze([...this.#definitions.values()].map(({ executor: _executor, validate: _validate, ...item }) => deepFreeze(structuredClone(item))));
   }
   catalogSnapshot() {
-    return Object.freeze(this.snapshot().filter((item) => catalogVisible(item.name) || this.allowedTools?.has(item.name)));
+    return Object.freeze(this.snapshot().filter((item) => (item.name !== 'process_run' || this.hosted || this.allowedTools?.has(item.name))
+      && (catalogVisible(item.name) || this.allowedTools?.has(item.name))));
   }
   providerDefinitions(query = '') {
     return this.providerSurface(query).definitions;

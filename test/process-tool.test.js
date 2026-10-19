@@ -15,6 +15,7 @@ test('process_run executes bounded shell-free argv inside the workspace', async 
   const registry = new ToolRegistry(root);
   await registry.initialize();
   const definition = registry.definition('process_run');
+  assert.equal(definition.scope, 'host');
   assert.equal(definition.purpose, 'Run one bounded installed host program with an explicit argument vector and captured output.');
   assert.match(definition.inputSchema.properties.args.description, /Avoid embedding generated multi-statement programs/u);
   assert.match(definition.inputSchema.properties.stdin_ref.description, /node args \["-"\]/u);
@@ -31,6 +32,15 @@ test('process_run executes bounded shell-free argv inside the workspace', async 
   assert.equal(output.exit_code, 0);
   assert.equal(output.stdout, 'process-ok');
   assert.equal(result.metadata.shell, false);
+});
+
+test('shell execution declares host effects even with a workspace working directory', async () => {
+  const registry = new ToolRegistry(process.cwd());
+  await registry.initialize();
+  const definition = registry.definition('shell_run');
+  assert.equal(definition.scope, 'host');
+  const request = await definition.validate({ script: 'Write-Output ready' });
+  assert.equal(request.resolved.insideWorkspace, true);
 });
 
 test('AC-FAIL-07 process timeout returns promptly after requesting tree termination', async () => {

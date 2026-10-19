@@ -79,6 +79,7 @@ test('unavailable shell constraints retain the interpreter-specific repair acros
   assert.match(constraints[0].detail, /interpreter sh is unavailable.*Use shell auto with PowerShell syntax/u);
   assert.match(constraints[0].instruction, /Do not repeat the unavailable shell/u);
   assert.match(constraints[0].instruction, /positively discovered/u);
+  assert.doesNotMatch(constraints[0].instruction, /process_run/u);
 });
 
 test('failed inline interpreter constraints recommend draft stdin instead of repeated escaping', () => {

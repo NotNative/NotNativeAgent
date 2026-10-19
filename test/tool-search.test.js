@@ -50,6 +50,20 @@ test('provider surface always presents a deterministic foundational catalog', as
   }
 });
 
+test('ordinary discovery presents one execution choice while hosted direct execution remains available', async () => {
+  const ordinary = new ToolRegistry(process.cwd());
+  await ordinary.initialize();
+  assert.ok(ordinary.catalogSnapshot().some((item) => item.name === 'shell_run'));
+  assert.ok(!ordinary.catalogSnapshot().some((item) => item.name === 'process_run'));
+  assert.ok(!ordinary.searchCatalog('process_run').some((item) => item.name === 'process_run'));
+  assert.ok(ordinary.definition('process_run'));
+
+  const hosted = new ToolRegistry(process.cwd(), { hosted: true, allowedTools: ['process_run'] });
+  await hosted.initialize();
+  assert.ok(hosted.catalogSnapshot().some((item) => item.name === 'process_run'));
+  assert.ok(!hosted.catalogSnapshot().some((item) => item.name === 'shell_run'));
+});
+
 test('external tools must use the canonical provider name grammar', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();

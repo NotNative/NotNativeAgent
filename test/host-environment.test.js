@@ -28,6 +28,7 @@ test('shell guidance names the active native dialect and gives precise unavailab
   assert.match(shellToolGuidance('win32'), /auto resolves to Windows PowerShell 5\.1/u);
   assert.match(shellToolGuidance('darwin'), /auto resolves to POSIX sh/u);
   assert.match(unavailableShellMessage('sh', 'win32'), /unavailable on this Windows.*Use shell auto with PowerShell syntax.*Do not repeat shell sh/u);
+  assert.doesNotMatch(unavailableShellMessage('sh', 'win32'), /process_run/u);
   assert.match(unavailableShellMessage('bash', 'linux'), /unavailable on this Linux.*Use shell auto with POSIX shell syntax.*Do not repeat shell bash/u);
   assert.match(unavailableShellMessage('powershell', 'win32'), /native interpreter powershell\.exe is missing or unavailable on PATH/u);
   const failure = normalizeShellExecutionError(Object.assign(new Error('spawn sh ENOENT'), { code: 'ENOENT' }), 'sh', 'win32');

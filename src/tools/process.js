@@ -28,7 +28,7 @@ export function processRunDefinition(paths, references = null) {
   return {
     name: 'process_run', version: 1,
     purpose: 'Run one bounded installed host program with an explicit argument vector and captured output.',
-    sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 120_000,
+    sideEffect: 'unknown', scope: 'host', cancellation: true, timeoutMs: 120_000,
     inputSchema: {
       type: 'object', properties: {
         executable: { type: 'string', minLength: 1, maxLength: 4096, description: 'Required installed command name or executable path. Do not include arguments in this field.' },
@@ -51,7 +51,7 @@ export function shellRunDefinition(paths, references = null, platform = process.
   return {
     name: 'shell_run', version: 2,
     purpose: `Run one bounded terminal workflow in the host platform shell and capture its output. ${guidance} A zero exit confirms process completion, not that every internal diagnostic succeeded. The result identifies standard-error output and scripts that reduce diagnostic visibility. The complete script, including background or detached behavior, is reviewed before execution.`,
-    sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
+    sideEffect: 'unknown', scope: 'host', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
       type: 'object', properties: {
         script: { type: 'string', minLength: 1, maxLength: 32768, description: 'Required complete foreground script using the selected interpreter syntax. Administrator scripts are limited to 8192 characters. Detaching a process requires authenticated user intent for that background process.' },
