@@ -11,7 +11,6 @@ import { HealthInspector } from './health.js';
 import { JournalStore } from './store.js';
 import { SessionLock } from './persistence/session-lock.js';
 import { restoreSessionRecords } from './persistence/session-history.js';
-import { toolContinuationHint } from './tools/loop.js';
 import { clearAuthorityConstraints, mergeToolConstraints } from './tools/active-constraints.js';
 import { installEngineComponents } from './engine/components.js';
 import { applyPendingConfiguration, updateEngineConfiguration } from './runtime-config.js';
@@ -20,7 +19,7 @@ import { dispatchTurnPreHook } from './engine/hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
   completeProviderToolCalls, deduplicateProviderToolCalls, executionContext, modelStepRequestOptions, observeToolContracts,
-  advanceWorkCadence, discoveryCheckpoint, prepareTrustedToolHandoff, providerRequest,
+  advanceWorkCadence, composeToolContinuationHint, discoveryCheckpoint, prepareTrustedToolHandoff, providerRequest,
   groundCapabilityPhase, observeToolState, primaryProviderDeadlines, resetReasoningRecovery, resetStep, setInitialCapabilityPhase, suppressPostToolReasoningReplay, toolContext, workConvergenceCheckpoint,
 } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
@@ -336,8 +335,8 @@ export class SessionEngine {
     await this.#settleStep(active, 'continued');
     if (!progress.continue) return continueAfterExactToolBoundary(this, active, items, progress, (action) => this.#recordRecovery(action, active));
     this.state.transition('preparing_continuation', { trigger: 'tool_results_committed', turnId: active.turnId });
-    const outcomeHint = reviewerCompletionHint(active.reviewerCompletion); return { continue: true,
-      hint: [trustedHandoff?.hint ?? toolContinuationHint(items, this.reliability.hint(behavioralAction) ?? this.reliability.hint(progress.action), this.tools), outcomeHint, completionEvidenceHint(active.completionEvidence)].filter(Boolean).join('\n\n'),
+    const supervisorHint = this.reliability.hint(behavioralAction) ?? this.reliability.hint(progress.action); const outcomeHint = reviewerCompletionHint(active.reviewerCompletion); return { continue: true,
+      hint: [composeToolContinuationHint(items, trustedHandoff, supervisorHint, this.tools), outcomeHint, completionEvidenceHint(active.completionEvidence)].filter(Boolean).join('\n\n'),
       forceCompact: progress.action?.action === 'compact' || behavioralAction?.action === 'compact' };
   }
   async #afterTextStep(active) {

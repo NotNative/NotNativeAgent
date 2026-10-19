@@ -388,6 +388,34 @@ test('successful tool continuation resumes without re-acknowledging the active r
   assert.equal(hint, null);
 });
 
+test('successful tool continuation preserves a supervisor recovery hint when supplied', () => {
+  const guidance = 'Compare the evidence and finish if the task is answered.';
+  const hint = toolContinuationHint([{
+    result: { status: 'succeeded', tool_name: 'fs_read_text' },
+  }], guidance);
+  assert.equal(hint, guidance);
+});
+
+test('successful visual inspection preserves a supplied supervisor recovery hint', () => {
+  const guidance = 'Finish if the evidence answers the request; otherwise address the remaining uncertainty.';
+  const hint = toolContinuationHint([{
+    result: { status: 'succeeded', tool_name: 'image_inspect', metadata: { visualVerdict: 'pass' } },
+  }], guidance);
+  assert.match(hint, /visual inspection passed/iu);
+  assert.match(hint, /remaining uncertainty/iu);
+});
+
+test('no-progress guidance permits an evidence-backed finish before another tool call', () => {
+  for (const action of [
+    { action: 'nudge', category: 'tool_no_progress' },
+    { action: 'nudge', category: 'tool_no_progress', repeated_request_fingerprints: ['repeat'] },
+    { action: 'review_discovery_progress', category: 'read_only_discovery_plateau' },
+  ]) {
+    const hint = recoveryHint(action);
+    assert.match(hint, /if (?:the evidence|it) (?:already answers|is answered)[^]*finish/iu);
+  }
+});
+
 test('invalid plan guidance keeps bookkeeping subordinate to substantive work', () => {
   const hint = toolContinuationHint([{
     result: {

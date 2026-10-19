@@ -17,8 +17,6 @@ import { missingFilesystemPrerequisite } from '../reliability/filesystem-recover
 import { toolLifecycleStatus, toolReviewOutcome, toolTelemetryOutcome } from './tool-result-contract.js';
 import { toolRequestFingerprint } from '../reliability/tool-progress.js';
 
-const SUCCESSFUL_TOOL_CONTINUATION = null;
-
 export class ToolLoop {
   constructor(options) {
     this.engine = options.engine;
@@ -464,15 +462,18 @@ export function toolContinuationHint(items, fallback = null, tools = null) {
     && item.result?.tool_name === 'image_inspect');
   if (visual) {
     const verdict = visual.result.metadata?.visualVerdict ?? 'uncertain';
-    if (verdict === 'pass') return 'The newest visual inspection passed the requested criteria. Finish unless another explicit acceptance criterion remains unverified.';
-    if (verdict === 'minor_caveat') return 'The newest visual inspection found only a minor caveat. Do not start an open-ended polish loop; finish with a qualified note unless that caveat violates an explicit acceptance criterion.';
-    if (verdict === 'material_issue') return 'The newest visual inspection found a material visible issue. Make one targeted correction and obtain newer visual evidence, or finish only with an honest qualification if no safe correction remains.';
-    return 'The newest visual inspection was uncertain. Do not claim a visual pass from DOM text or reasoning; obtain one newer focused image inspection after a material change, or qualify the result.';
+    const visualHint = verdict === 'pass'
+      ? 'The newest visual inspection passed the requested criteria. Finish unless another explicit acceptance criterion remains unverified.'
+      : verdict === 'minor_caveat'
+      ? 'The newest visual inspection found only a minor caveat. Do not start an open-ended polish loop; finish with a qualified note unless that caveat violates an explicit acceptance criterion.'
+      : verdict === 'material_issue'
+      ? 'The newest visual inspection found a material visible issue. Make one targeted correction and obtain newer visual evidence, or finish only with an honest qualification if no safe correction remains.'
+      : 'The newest visual inspection was uncertain. Do not claim a visual pass from DOM text or reasoning; obtain one newer focused image inspection after a material change, or qualify the result.';
+    return [visualHint, fallback].filter(Boolean).join('\n\n');
   }
   const denied = items.filter((item) => toolLifecycleStatus(item.result) === 'denied');
   if (denied.length === 0) {
-    return items.length > 0 && items.every((item) => item.result?.status === 'succeeded')
-      ? SUCCESSFUL_TOOL_CONTINUATION : fallback;
+    return fallback;
   }
   const immutable = denied.some((item) => toolReviewOutcome(item.result) === 'hard_deny');
   return immutable

@@ -7,6 +7,7 @@ import { ContractError } from '../ids.js';
 import { capabilitySelectionQuery } from '../tools/capability-continuity.js';
 import { deduplicateToolCallBatch } from '../reliability/tool-call-deduplication.js';
 import { attachProviderRequestMetadata } from '../provider/request-metadata.js';
+import { toolContinuationHint } from '../tools/loop.js';
 
 const MAX_BLOCKED_TOOL_REQUESTS = 256;
 
@@ -143,6 +144,11 @@ export function prepareTrustedToolHandoff(engine, items) {
   const handoff = engine.reliability.trustedToolHandoff(items);
   if (handoff) engine.tools.grantWorkflowLease(handoff.workflowLeaseTools, { source: 'trusted_tool_handoff' });
   return handoff;
+}
+
+export function composeToolContinuationHint(items, trustedHandoff, supervisorHint, tools) {
+  const toolHint = trustedHandoff?.hint ?? toolContinuationHint(items, supervisorHint, tools);
+  return [toolHint, trustedHandoff ? supervisorHint : null].filter(Boolean).join('\n\n');
 }
 
 export function resetStep(active) {

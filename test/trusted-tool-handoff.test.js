@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { trustedToolHandoff } from '../src/reliability/trusted-tool-handoff.js';
-import { prepareTrustedToolHandoff } from '../src/engine/runtime-helpers.js';
+import { composeToolContinuationHint, prepareTrustedToolHandoff } from '../src/engine/runtime-helpers.js';
 
 function screenshot(overrides = {}) {
   return {
@@ -60,4 +60,14 @@ test('the model-step boundary exposes only the trusted handoff capability', () =
   };
   assert.equal(prepareTrustedToolHandoff(engine, [screenshot()]), expected);
   assert.deepEqual(exposed, ['image_inspect']);
+});
+
+test('a trusted screenshot handoff also carries the supervisor recovery hint', () => {
+  const items = [screenshot()];
+  const handoff = trustedToolHandoff(items);
+  const recovery = 'The same screenshot did not add evidence. Finish if the request is answered; otherwise change strategy.';
+  const hint = composeToolContinuationHint(items, handoff, recovery, null);
+  assert.match(hint, /call image_inspect next with exactly/iu);
+  assert.match(hint, /change strategy/iu);
+  assert.equal(composeToolContinuationHint(items, handoff, null, null), handoff.hint);
 });
