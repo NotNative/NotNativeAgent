@@ -37,6 +37,42 @@ test('compaction creates a bounded fingerprinted continuation artifact with oper
   assert.match(compacted.fact.sourceFingerprint, /^[a-f0-9]{64}$/u);
 });
 
+test('hierarchical compaction keeps the active objective when the operator steers the same turn', () => {
+  const turnId = 'turn-audit';
+  const transcript = [
+    message('user', 'Audit the repository and report confirmed defects.', turnId),
+    ...Array.from({ length: 45 }, (_, index) => message('assistant', `Audit evidence ${index} ${'x'.repeat(2_000)}`, turnId)),
+    message('user', 'Please continue in English.', turnId),
+  ];
+  const first = compactTranscript(transcript, 18_000);
+  assert.ok(first.fact.continuation.hierarchyChunks > 1);
+  assert.equal(first.fact.continuation.objective, transcript[0].content);
+  assert.deepEqual(first.fact.continuation.recentDirectives, ['Please continue in English.']);
+  const second = compactTranscript([...transcript, first.fact,
+    message('assistant', 'The audit continues.', turnId)], 18_000);
+  assert.equal(second.fact.continuation.objective, transcript[0].content);
+  assert.deepEqual(second.fact.continuation.recentDirectives, ['Please continue in English.']);
+});
+
+test('an emergency checkpoint carries the original objective and steer into later compactions', () => {
+  const turnId = 'turn-audit';
+  const transcript = [
+    message('user', 'Audit the repository.', turnId),
+    ...Array.from({ length: 100 }, (_, index) => message('assistant', `${index} ${'x'.repeat(5_000)}`, turnId)),
+    message('user', 'Continue in English.', turnId),
+  ];
+  const first = compactTranscript(transcript, 1_000, { activeTurnId: turnId });
+  assert.equal(first.fact.projection.policy, 'hierarchical_continuation_v1');
+  assert.ok(first.records.every((item) => item.content !== transcript[0].content));
+  const second = compactTranscript([first.fact, message('assistant', 'Still auditing.', turnId)],
+    1_000, { activeTurnId: turnId });
+  assert.equal(second.fact.continuation.objective, transcript[0].content);
+  assert.deepEqual(second.fact.continuation.recentDirectives, ['Continue in English.']);
+  const third = compactTranscript([second.fact, message('user', 'Report your findings.', 'turn-next')],
+    1_000, { activeTurnId: 'turn-next' });
+  assert.equal(third.fact.continuation.objective, 'Report your findings.');
+});
+
 test('compaction preserves the active turn and paired calls while bounding oversized tool output', () => {
   const transcript = [
     message('user', 'Earlier design discussion'), message('assistant', 'Earlier answer'),

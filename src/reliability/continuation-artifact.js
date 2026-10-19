@@ -13,16 +13,17 @@ const FILE_MUTATION_TOOL_NAMES = new Set([
 export function hierarchicalContinuationArtifact(transcript, omitted) {
   const chunks = chunkRecords(transcript, 65_536);
   const results = toolResults(transcript);
+  const users = continuationUsers(transcript);
   if (chunks.length <= 1) return Object.freeze({
     ...baseContinuationArtifact(transcript, omitted, results), hierarchyChunks: Math.max(1, chunks.length),
   });
   // Chunk artifacts are intermediate projections. Only the final aggregate can
   // truthfully report how many durable records the caller omitted.
   const artifacts = chunks.map((chunk) => baseContinuationArtifact(chunk, 0, results));
-  const objective = [...artifacts].reverse().find((item) => item.objective)?.objective ?? '';
   return Object.freeze({
-    schema: 'nna.continuation.v1', objective,
-    recentDirectives: Object.freeze(uniqueTail(artifacts.flatMap((item) => item.recentDirectives), 8, 16_384)),
+    schema: 'nna.continuation.v1', objective: boundedHeadTail(users.objective?.content ?? '', 8_192),
+    // Invariant: chunk boundaries cannot turn a same-turn steer into the task objective.
+    recentDirectives: Object.freeze(uniqueTail(users.directives.map((item) => item.content), 8, 16_384)),
     completedWork: Object.freeze(uniqueTail(artifacts.flatMap((item) => item.completedWork), 8, 16_384)),
     changedFiles: Object.freeze(uniqueObjectsTail(artifacts.flatMap((item) => item.changedFiles), 64)),
     unresolvedTools: Object.freeze(uniqueObjectsTail(artifacts.flatMap((item) => item.unresolvedTools), 32)),
@@ -34,8 +35,8 @@ export function hierarchicalContinuationArtifact(transcript, omitted) {
 }
 
 function baseContinuationArtifact(transcript, omitted, results = toolResults(transcript)) {
-  const userMessages = transcript.filter((item) => item.type === 'message' && item.role === 'user');
-  const objective = userMessages.at(-1);
+  const users = continuationUsers(transcript);
+  const objective = users.objective;
   const objectiveIndex = objective ? transcript.lastIndexOf(objective) : -1;
   const currentRecords = objectiveIndex >= 0 ? transcript.slice(objectiveIndex + 1) : transcript;
   const currentAssistantMessages = currentRecords.filter((item) => item.type === 'message' && item.role === 'assistant');
@@ -58,13 +59,38 @@ function baseContinuationArtifact(transcript, omitted, results = toolResults(tra
     .slice(-32).map((item) => `${bounded(item.toolName, 256)} completed successfully`);
   return Object.freeze({
     schema: 'nna.continuation.v1', objective: boundedHeadTail(objective?.content ?? '', 8_192),
-    recentDirectives: Object.freeze(uniqueTail(userMessages.slice(-9, -1).map((item) => item.content), 8, 16_384)),
+    recentDirectives: Object.freeze(uniqueTail(users.directives.map((item) => item.content), 8, 16_384)),
     completedWork: Object.freeze(uniqueTail(assistantMessages.map((item) => item.content), 4, 12_288)),
     changedFiles: Object.freeze(changedFiles.slice(-64)), unresolvedTools: Object.freeze(unresolvedTools),
     verifiedFacts: Object.freeze(verifiedFacts), openQuestions: Object.freeze([]), nextActions: Object.freeze([]),
     latestOutcome: bounded([...currentRecords].reverse().find((item) => item.type === 'turn_outcome')?.outcome ?? '', 64),
     omittedRecords: omitted,
   });
+}
+
+function continuationUsers(transcript) {
+  const messages = transcript.filter((item) => item.type === 'message' && item.role === 'user');
+  const latest = messages.at(-1);
+  // Why: steering is an authenticated directive within the active turn, not a replacement objective.
+  let objective = typeof latest?.turnId === 'string' && latest.turnId
+    ? messages.find((item) => item.turnId === latest.turnId) : latest;
+  let carriedDirectives = [];
+  const checkpoint = [...transcript].reverse().find((item) => item.type === 'compaction');
+  const checkpointUser = checkpoint?.retainedRecords?.filter((item) => item.type === 'message' && item.role === 'user').at(-1);
+  let directiveMessages = messages.filter((item) => item !== objective);
+  if (latest?.turnId && checkpointUser?.turnId === latest.turnId && checkpoint?.continuation?.objective) {
+    // Invariant: an emergency checkpoint can retain only the last steer; its objective and
+    // earlier directives must survive another compaction of that same turn.
+    objective = { content: checkpoint.continuation.objective, turnId: latest.turnId };
+    carriedDirectives = checkpoint.continuation.recentDirectives ?? [];
+    const checkpointIndex = transcript.lastIndexOf(checkpoint);
+    const retainedCount = checkpoint.retainedRecords.length;
+    const expanded = checkpoint.retainedRecords.every((item, index) => transcript[checkpointIndex + 1 + index] === item);
+    directiveMessages = transcript.slice(checkpointIndex + 1 + (expanded ? retainedCount : 0))
+      .filter((item) => item.type === 'message' && item.role === 'user');
+  }
+  return { objective, directives: [...carriedDirectives, ...directiveMessages.map((item) => item.content)]
+    .map((content) => ({ content })) };
 }
 
 function toolResults(transcript) {
