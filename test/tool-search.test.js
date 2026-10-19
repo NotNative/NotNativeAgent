@@ -3,6 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { ConversationWork } from '../src/conversation-work.js';
+import { grantWorkflowLeases } from '../src/tools/workflow-leases.js';
+import { planProviderToolNames } from '../src/tools/provider-surface-planner.js';
 
 const FOUNDATION = [
   'tool_search',
@@ -104,6 +106,7 @@ test('provider surface receipts make fixed foundations and workflow leases audit
   assert.deepEqual(baseline.receipt.selectedToolNames, expected);
   assert.ok(baseline.definitions.length <= 32);
   assert.ok(baseline.receipt.schemaBytes <= 64 * 1024);
+  assert.deepEqual(baseline.receipt.limitsExceeded, { count: false, bytes: false });
   assert.equal(baseline.receipt.selectionReasons.shell_run, 'foundational');
   assert.ok(baseline.receipt.selectionContextBytes > 0);
   assert.match(baseline.receipt.selectionContextFingerprint, /^[a-f0-9]{64}$/u);
@@ -323,6 +326,38 @@ test('authenticated host tool grant filters built-in and external tools by exact
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), ['fs_read_text', 'nno_customer_lookup']);
   assert.deepEqual(registry.providerDefinitions().map((item) => item.function.name).sort(), ['fs_read_text', 'nno_customer_lookup']);
   assert.equal(registry.definition('nno_host_processes'), undefined);
+});
+
+test('host manifest cannot grant a tool absent from its installed surface', async () => {
+  const registry = new ToolRegistry(process.cwd(), { allowedTools: ['fs_read', 'fs_edit_text'] });
+  await registry.initialize();
+  assert.deepEqual(registry.grantWorkflowLease(['fs_write_text']).rejected, [
+    { name: 'fs_write_text', reason: 'tool_unavailable' },
+  ]);
+  assert.equal(registry.definition('fs_write_text'), undefined);
+  assert.deepEqual([...registry.providerSurface().receipt.selectedToolNames].sort(), ['fs_edit_text', 'fs_read']);
+  const allowed = registry.grantWorkflowLease(['fs_edit_text']);
+  assert.equal(allowed.granted[0].name, 'fs_edit_text');
+  assert.deepEqual([...registry.providerSurface('different task').receipt.selectedToolNames].sort(), ['fs_edit_text', 'fs_read']);
+});
+
+test('manifest-exact lease admission accepts null planner limits without throwing', () => {
+  const leases = new Map();
+  const capacityFor = () => ({ names: ['permitted'], schemaBytes: 100_000, limits: null });
+  const result = grantWorkflowLeases(leases, ['permitted'], { hasDefinition: () => true }, capacityFor);
+  assert.equal(result.granted[0].name, 'permitted');
+  assert.equal(leases.has('permitted'), true);
+  const refused = grantWorkflowLeases(leases, ['absent'], { hasDefinition: () => true }, capacityFor);
+  assert.deepEqual(refused.rejected, [{ name: 'absent', reason: 'tool_unavailable' }]);
+  assert.equal(leases.has('absent'), false);
+});
+
+test('provider surface receipt identifies protected schemas beyond its soft budget', () => {
+  const plan = planProviderToolNames({
+    availableNames: ['tool_search'], encodedDefinition: () => 70 * 1024,
+  });
+  assert.deepEqual(plan.limitsExceeded, { count: false, bytes: true });
+  assert.deepEqual(plan.names, ['tool_search']);
 });
 
 test('hosted tool catalogs cannot install, expose, or search for root subagents', async () => {

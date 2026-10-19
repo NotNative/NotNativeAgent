@@ -15,8 +15,10 @@ export function grantWorkflowLeases(leases, names, options, capacityFor) {
     }
     const candidateNames = new Set([...leases.keys(), name]);
     const capacity = capacityFor(candidateNames);
-    const reason = capacity.names.length > capacity.limits.count ? 'schema_count_limit'
-      : capacity.schemaBytes > capacity.limits.bytes ? 'schema_byte_limit' : null;
+    // Invariant: an authenticated host manifest provides an exact surface with no soft limits.
+    const reason = !capacity.names.includes(name) ? 'tool_unavailable'
+      : capacity.limits && capacity.names.length > capacity.limits.count ? 'schema_count_limit'
+        : capacity.limits && capacity.schemaBytes > capacity.limits.bytes ? 'schema_byte_limit' : null;
     if (reason) {
       rejected.push(Object.freeze({ name, reason }));
       continue;

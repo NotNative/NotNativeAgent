@@ -48,6 +48,7 @@ function finalize(names, omitted, composition, reasons, encodedDefinition, limit
   return Object.freeze({
     composition, names: Object.freeze(names), omitted: Object.freeze(omitted),
     schemaBytes: bytes, limits,
+    limitsExceeded: limits ? Object.freeze({ count: names.length > limits.count, bytes: bytes > limits.bytes }) : null,
     reasons: Object.freeze(Object.fromEntries(reasonMap)),
   });
 }

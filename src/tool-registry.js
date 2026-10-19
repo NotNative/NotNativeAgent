@@ -163,7 +163,7 @@ export class ToolRegistry {
     const receiptCore = {
       schema: 'nna.provider-tool-surface.v2', policyVersion: 'bounded-foundation-with-leases-v1',
       composition: plan.composition, selectedToolNames: plan.names, omittedToolNames: plan.omitted,
-      schemaBytes: plan.schemaBytes, limits: plan.limits, selectionReasons: plan.reasons,
+      schemaBytes: plan.schemaBytes, limits: plan.limits, limitsExceeded: plan.limitsExceeded, selectionReasons: plan.reasons,
       selectionContextBytes: Buffer.byteLength(selectionContext, 'utf8'),
       selectionContextFingerprint: createHash('sha256').update(selectionContext).digest('hex'),
     };
@@ -227,13 +227,13 @@ export class ToolRegistry {
   }
   #workflowLeaseCapacity(leaseNames) {
     const snapshot = this.snapshot();
-    const callable = snapshot.filter((item) => isToolSurfaceEligible(item.name, leaseNames.has(item.name)));
+    const callable = snapshot.filter((item) => isToolSurfaceEligible(item.name, leaseNames.has(item.name)) || this.allowedTools?.has(item.name));
     const projected = new Map(callable.map((item) => [item.name, {
       type: 'function', function: { name: item.name, description: compactPurpose(item),
         parameters: providerSchema(item.inputSchema, { mode: 'documented' }) },
     }]));
     return planProviderToolNames({
-      availableNames: callable.map((item) => item.name), workflowLeaseNames: leaseNames,
+      availableNames: callable.map((item) => item.name), workflowLeaseNames: leaseNames, allowedNames: this.allowedTools,
       encodedDefinition: (name) => Buffer.byteLength(JSON.stringify(projected.get(name)), 'utf8'),
     });
   }
