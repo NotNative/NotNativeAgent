@@ -31,7 +31,7 @@ export class RoutedSemanticReviewer {
       throw new ContractError('route_capability_unavailable', 'no trust-compatible reviewer route is available');
     }
     const logicalRequestId = newId('reviewer_route');
-    const state = { invalidOutput: null, repairs: 0, repairKind: null };
+    const state = { invalidOutput: null, repairs: 0, effectRepairs: 0, anchorRepairs: 0, repairKind: null };
     let lastError = null;
     for (let index = 0; index < routes.length; index += 1) {
       const route = routes[index];
@@ -109,14 +109,20 @@ export class RoutedSemanticReviewer {
 
 async function runReviewerAttempts(route, input, signal, state, run) {
   let constrained = route.profile?.capabilities?.structuredOutput !== false;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     try {
       const decision = await run(reviewerRequest(route, input, state.invalidOutput, constrained, state.repairKind));
       // Why: effect_assessment is optional in the general decision schema. A process
       // approval missing it gets one focused clarification before the review boundary fails closed.
+      if (invalidAuthorityAnchors(decision, input) && state.anchorRepairs === 0) {
+        state.anchorRepairs += 1;
+        state.invalidOutput = JSON.stringify(decision);
+        state.repairKind = 'invalid_anchor';
+        continue;
+      }
       if (processReview(input) && decision.outcome === 'approve'
-        && decision.effect_assessment === undefined && state.repairs === 0) {
-        state.repairs += 1;
+        && decision.effect_assessment === undefined && state.effectRepairs === 0) {
+        state.effectRepairs += 1;
         state.invalidOutput = JSON.stringify(decision);
         state.repairKind = 'missing_effect';
         continue;
@@ -150,7 +156,9 @@ function reviewerRequest(route, input, invalidOutput, constrained, repairKind) {
     { role: 'assistant', content: invalidOutput },
     { role: 'user', content: repairKind === 'missing_effect'
       ? 'You approved a process command without effect_assessment. Return a corrected decision with read_only, state_changing, or unknown. If uncertain, deny with guidance.'
-      : 'The prior response did not match the required schema. Return one corrected JSON decision.' },
+      : repairKind === 'invalid_anchor'
+        ? `The approval cited an invalid authenticated intent sequence. Return a fresh decision citing only granting sequences from this authenticated intent list: ${JSON.stringify(validAuthoritySequences(input))}. An active mission may use an empty list. Never invent a sequence; deny with guidance if the listed intent does not authorize the request.`
+        : 'The prior response did not match the required schema. Return one corrected JSON decision.' },
   );
   return Object.freeze({
     model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 4096, 4096),
@@ -243,6 +251,7 @@ function reviewerPolicy() {
     'An approve must cite at least one granting authenticated intent sequence; only an active mission may support an empty list.',
     'Return only JSON with outcome, confidence, reason_code, authority_anchors, optional guidance, and effect_assessment for shell_run or process_run.',
     'For shell_run and process_run, assess the exact complete command, including every pipeline stage, redirect, helper, and invoked program. Formatting and merging output streams do not by themselves change persistent state. A compound observation may be read_only. Classify by the most consequential operation: read_only, state_changing, or unknown.',
+    'For a process request, workingDirectory names where execution starts; it does not constrain file destinations or grant authority to write there or elsewhere.',
     'If any command effect cannot be established, return effect_assessment unknown and deny_with_guidance. Suggest a simpler explicit command. Do not approve an unknown effect merely because the operator authorized the objective.',
     'Allowed outcomes: approve, deny_with_guidance, hard_deny, escalate_to_operator.',
     'Approve only the exact request when materially necessary and within authenticated intent.',
@@ -295,4 +304,20 @@ function parseDecision(text) {
 
 function processReview(input) {
   return ['shell_run', 'process_run'].includes(input?.request?.toolName);
+}
+
+function validAuthoritySequences(input) {
+  return [...new Set((input?.authenticatedIntent ?? [])
+    .map((item) => item?.sequence).filter((value) => Number.isSafeInteger(value) && value >= 1))];
+}
+
+function invalidAuthorityAnchors(decision, input) {
+  if (decision.outcome !== 'approve') return false;
+  const valid = validAuthoritySequences(input);
+  // Why: an empty record has no candidate citation to repair; normalization must fail closed.
+  if (valid.length === 0) return false;
+  const anchors = decision.authority_anchors;
+  if (anchors.length === 0) return !input?.mission;
+  const known = new Set(valid);
+  return anchors.some((anchor) => !known.has(anchor));
 }

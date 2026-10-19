@@ -2,10 +2,15 @@
 import { createHash } from 'node:crypto';
 
 export function safeReviewRequest(request, outsideWorkspace) {
+  const process = ['shell_run', 'process_run'].includes(request.toolName);
   return Object.freeze({
     id: request.id, toolName: request.toolName, args: safeArguments(request.args),
-    resolvedTarget: request.resolved.path ?? request.resolved.source?.path ?? request.resolved.destination?.path ?? 'external',
-    scope: outsideWorkspace ? 'host' : (request.resolved.path || request.resolved.source?.path ? 'workspace' : 'external'),
+    // Security: a process working directory is not a ceiling on paths named by its command.
+    resolvedTarget: process ? 'unresolved_process_effects'
+      : request.resolved.path ?? request.resolved.source?.path ?? request.resolved.destination?.path ?? 'external',
+    ...(process ? { workingDirectory: request.resolved.path ?? null } : {}),
+    scope: process || outsideWorkspace ? 'host'
+      : (request.resolved.path || request.resolved.source?.path ? 'workspace' : 'external'),
     caller: request.caller, mutationEvidence: safeMutationEvidence(request.resolved?.mutationEvidence),
   });
 }

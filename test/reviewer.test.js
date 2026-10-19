@@ -6,6 +6,7 @@ import { EventHub } from '../src/events.js';
 import { ContractError } from '../src/ids.js';
 import { RoutedSemanticReviewer } from '../src/provider/model-reviewer.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
+import { safeReviewRequest } from '../src/reviewer-packet.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { declaredSubscription } from './event-fixture.js';
 
@@ -935,6 +936,147 @@ test('reviewer repairs a process approval that omits effect assessment', async (
   assert.ok(requests[1].responseFormat.json_schema.schema.required.includes('effect_assessment'));
   assert.equal(requests[1].responseFormat.json_schema.name, 'nna_review_effect_clarification');
   assert.match(requests[1].messages.at(-1).content, /without effect_assessment/u);
+});
+
+test('reviewer asks once for a valid authenticated intent anchor on the same route', async () => {
+  const requests = [], receipts = [];
+  const outputs = [
+    { outcome: 'approve', confidence: 1, reason_code: 'diagnostic', authority_anchors: [99], effect_assessment: 'read_only' },
+    { outcome: 'approve', confidence: 1, reason_code: 'diagnostic', authority_anchors: [7], effect_assessment: 'read_only' },
+  ];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    yield { type: 'text', text: JSON.stringify(outputs[requests.length - 1]) };
+    yield { type: 'terminal' };
+  } };
+  const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
+  const reviewer = new RoutedSemanticReviewer({ candidates: () => [route], provider: () => provider }, {
+    recordTokenReceipt: async (receipt) => receipts.push(receipt),
+  });
+  const decision = await reviewer.review({ request: { toolName: 'shell_run' },
+    authenticatedIntent: [{ sequence: 7, content: 'Inspect the service.' }] }, new AbortController().signal);
+  assert.deepEqual(decision.authority_anchors, [7]);
+  assert.equal(requests.length, 2);
+  assert.match(requests[1].messages.at(-1).content, /\[7\]/u);
+  assert.equal(requests[1].messages[1].content, requests[0].messages[1].content);
+  assert.equal(receipts[0].logicalRequestId, receipts[1].logicalRequestId);
+});
+
+test('process review packet does not present cwd as a confined mutation target', () => {
+  const packet = safeReviewRequest({
+    id: 'redirect-review', toolName: 'shell_run', caller: 'primary',
+    args: { shell: 'powershell', script: "'result' | Out-File $env:TEMP\\audit-result.txt" },
+    resolved: { path: 'D:/workspace', insideWorkspace: true },
+  }, false);
+  assert.equal(packet.workingDirectory, 'D:/workspace');
+  assert.equal(packet.resolvedTarget, 'unresolved_process_effects');
+  assert.equal(packet.scope, 'host');
+  assert.match(packet.args.script, /Out-File/u);
+});
+
+test('workspace mission cannot use process cwd to authorize a host redirect', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'mission-process-target' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1;
+    return { outcome: 'approve', confidence: 1, reason_code: 'redirect_allowed', authority_anchors: [],
+      effect_assessment: 'state_changing' };
+  } } });
+  const base = { ...readRequest('mission-process-target'), toolName: 'shell_run',
+    args: { script: "'result' | Out-File $env:TEMP\\audit-result.txt", shell: 'powershell', cwd: 'D:/workspace' },
+    resolved: { path: 'D:/workspace', insideWorkspace: true, readOnly: false } };
+  const mission = { outcome: 'Inspect the workspace', resources: ['workspace'], targets: ['D:/workspace/**'],
+    sideEffects: ['read_only', 'unknown'], credentialRefs: [] };
+  const result = await reviewer.review(base, { ...context,
+    authority: { id: 'authority-1', intent: [], mission },
+    definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
+  });
+  assert.equal(result.reasonCode, 'mission_resource_denied');
+  const hostPathResult = await reviewer.review({ ...base, id: 'mission-process-host-path' }, { ...context,
+    authority: { id: 'authority-1', intent: [], mission: {
+      ...mission, resources: ['host'], targets: ['D:/workspace/**'],
+    } },
+    definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
+  });
+  assert.equal(hostPathResult.reasonCode, 'mission_target_denied');
+  assert.equal(semanticCalls, 0);
+});
+
+test('host-scoped read-only process mission remains reviewable', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'mission-host-observation' });
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    throw new Error('deterministic observation should not call semantic reviewer');
+  } } });
+  const result = await reviewer.review({ ...readRequest('mission-host-observation'), toolName: 'shell_run',
+    args: { script: 'Get-Process', shell: 'powershell', cwd: 'D:/workspace' },
+    resolved: { path: 'D:/workspace', insideWorkspace: true, readOnly: true, reviewPurpose: 'host_observation' },
+  }, { ...context, authority: { id: 'authority-1', intent: [], mission: {
+    outcome: 'Inspect host processes', resources: ['host'], targets: ['tool:shell_run'],
+    sideEffects: ['read_only'], credentialRefs: [],
+  } }, definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' } });
+  assert.equal(result.outcome, 'approve');
+  assert.equal(result.reasonCode, 'deterministic_safe');
+});
+
+test('a repeated invalid authority anchor remains for fail-closed normalization', async () => {
+  let calls = 0;
+  const provider = { async *stream() {
+    calls += 1;
+    yield { type: 'text', text: JSON.stringify({
+      outcome: 'approve', confidence: 1, reason_code: 'invented_anchor', authority_anchors: [99],
+      effect_assessment: 'read_only',
+    }) };
+    yield { type: 'terminal' };
+  } };
+  const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
+  const reviewer = new RoutedSemanticReviewer({ candidates: () => [route], provider: () => provider });
+  const decision = await reviewer.review({ request: { toolName: 'shell_run' },
+    authenticatedIntent: [{ sequence: 7, content: 'Inspect the service.' }] }, new AbortController().signal);
+  assert.deepEqual(decision.authority_anchors, [99]);
+  assert.equal(calls, 2);
+});
+
+test('anchor and missing-effect corrections remain bounded and retain the same request', async () => {
+  const requests = [];
+  const outputs = [
+    { outcome: 'approve', confidence: 1, reason_code: 'diagnostic', authority_anchors: [99] },
+    { outcome: 'approve', confidence: 1, reason_code: 'diagnostic', authority_anchors: [7] },
+    { outcome: 'approve', confidence: 1, reason_code: 'diagnostic', authority_anchors: [7], effect_assessment: 'read_only' },
+  ];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    yield { type: 'text', text: JSON.stringify(outputs[requests.length - 1]) };
+    yield { type: 'terminal' };
+  } };
+  const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
+  const reviewer = new RoutedSemanticReviewer({ candidates: () => [route], provider: () => provider });
+  const decision = await reviewer.review({ request: { toolName: 'shell_run' },
+    authenticatedIntent: [{ sequence: 7, content: 'Inspect the service.' }] }, new AbortController().signal);
+  assert.deepEqual(decision.authority_anchors, [7]);
+  assert.equal(decision.effect_assessment, 'read_only');
+  assert.equal(requests.length, 3);
+  assert.match(requests[1].messages.at(-1).content, /invalid authenticated intent sequence/u);
+  assert.match(requests[2].messages.at(-1).content, /without effect_assessment/u);
+});
+
+test('anchor correction falls back to locally validated JSON after grammar rejection', async () => {
+  const requests = [];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    if (requests.length === 2) throw new ContractError('provider_response_format_unsupported', 'grammar rejected');
+    yield { type: 'text', text: JSON.stringify({ outcome: 'approve', confidence: 1,
+      reason_code: 'diagnostic', authority_anchors: [requests.length === 1 ? 99 : 7],
+      effect_assessment: 'read_only' }) };
+    yield { type: 'terminal' };
+  } };
+  const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
+  const reviewer = new RoutedSemanticReviewer({ candidates: () => [route], provider: () => provider });
+  const decision = await reviewer.review({ request: { toolName: 'shell_run' },
+    authenticatedIntent: [{ sequence: 7, content: 'Inspect the service.' }] }, new AbortController().signal);
+  assert.deepEqual(decision.authority_anchors, [7]);
+  assert.equal(requests.length, 3);
+  assert.equal(requests[2].responseFormat, null);
+  assert.match(requests[2].messages.at(-1).content, /invalid authenticated intent sequence/u);
 });
 
 test('reviewer leaves a still-unclassified process approval for fail-closed normalization', async () => {

@@ -215,7 +215,7 @@ function processClassification(request) {
   const complexity = request.resolved.reviewComplexity ?? 'unknown';
   if (request.resolved?.readOnly === true) return Object.freeze({ risk: 'safe',
     reason: request.resolved.reviewPurpose ?? 'process_observation', effect: 'read_only',
-    scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity });
+    scope: 'host', complexity });
   const detached = request.resolved?.reliabilitySignals?.includes('detached_process');
   const foregroundServer = request.resolved?.reliabilitySignals?.includes('long_running_foreground');
   return Object.freeze({
@@ -223,7 +223,7 @@ function processClassification(request) {
     reason: detached ? 'detached_process_request'
       : foregroundServer ? 'long_running_foreground_request'
       : ['simple_argv', 'simple_shell'].includes(complexity) ? 'process_execution' : 'opaque_process_request',
-    effect: 'unknown', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity,
+    effect: 'unknown', scope: 'host', complexity,
     purpose: request.resolved.reviewPurpose ?? 'general_process',
   });
 }
@@ -461,15 +461,18 @@ function missionBoundaryViolation(request, definition, mission) {
 }
 
 function effectiveSideEffect(request, definition) {
+  if (processRequest(request) && request.resolved?.readOnly === true) return 'read_only';
   if (definition.name === 'fs_directory' && request.args?.action === 'list') return 'read_only';
   return definition.name === 'fs_directory' && request.args?.action === 'remove' ? 'irreversible' : definition.sideEffect;
 }
 function effectiveScope(request, definition) {
-  // Security: a workspace working directory does not constrain an administrator process.
-  return request.toolName === 'shell_run' && request.args?.privilege === 'administrator' ? 'host' : definition.scope;
+  // Security: a process can address host paths independently of its working directory.
+  return processRequest(request) ? 'host' : definition.scope;
 }
 function missionTargetMatches(rule, request, definition, resolved = null) {
   if (rule === '*' || rule === `tool:${request.toolName}` || rule === `scope:${effectiveScope(request, definition)}`) return true;
+  // Security: a path-specific mission target cannot be proven from process cwd.
+  if (processRequest(request)) return false;
   const target = (resolved ?? String(request.resolved?.path ?? request.resolved?.source ?? '')).replaceAll('\\', '/').toLowerCase();
   const normalized = rule.replaceAll('\\', '/').toLowerCase();
   if (normalized.endsWith('/**')) {
@@ -477,6 +480,9 @@ function missionTargetMatches(rule, request, definition, resolved = null) {
     return target === prefix || target.startsWith(`${prefix}/`);
   }
   return target === normalized;
+}
+function processRequest(request) {
+  return ['shell_run', 'process_run'].includes(request.toolName);
 }
 function resolvedTargets(request) {
   const values = [request.resolved?.path, request.resolved?.source?.path, request.resolved?.destination?.path]
