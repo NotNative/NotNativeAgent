@@ -135,6 +135,66 @@ test('control replay rejects a record that carries no authority meaning', () => 
   );
 });
 
+test('steering consumption replays message and authority from one durable record', () => {
+  const intent = { content: 'Use the second target', origin: 'operator', sequence: 2, kind: 'statement', turnId: 'turn-1', lineageId: 'auth-1', restrictionVersion: 0 };
+  const message = { type: 'message', role: 'user', content: intent.content, trust: 'operator', turnId: 'turn-1', steeringId: 'steer-1' };
+  const records = [
+    record('steering_accepted', { id: 'steer-1', content: intent.content, turnId: 'turn-1' }),
+    record('steering_consumed', { id: 'steer-1', message, intent }),
+    record('turn_outcome', { turn_id: 'turn-1', outcome: 'completed' }),
+  ];
+  const restored = restoreSessionRecords(records);
+  assert.deepEqual(restored.authority, [intent]);
+  assert.equal(restored.steering.length, 0);
+  assert.deepEqual(restored.transcript[0], message);
+  assert.deepEqual(restoreSessionRecords(records, { controlRecords: [records[1]] }).authority, [intent]);
+});
+
+test('late or abandoned steering never becomes a later turn directive', () => {
+  const accepted = record('steering_accepted', { id: 'late', content: 'Old direction', turnId: 'turn-1' });
+  const terminal = record('turn_outcome', { turn_id: 'turn-1', outcome: 'completed' });
+  assert.equal(restoreSessionRecords([terminal, accepted]).steering.length, 0);
+  assert.equal(restoreSessionRecords([accepted, terminal]).steering.length, 0);
+  assert.equal(restoreSessionRecords([accepted, record('steering_abandoned', { id: 'late', turnId: 'turn-1' })]).steering.length, 0);
+  // A bounded tail can retain the late admission after its terminal record
+  // falls outside the window; no visible open turn may claim it.
+  assert.equal(restoreSessionRecords([accepted, record('message', {
+    type: 'message', role: 'assistant', content: 'Later activity', turnId: 'turn-2',
+  })]).steering.length, 0);
+});
+
+test('complete control replay preserves steering beyond the tail and excludes terminal admissions', () => {
+  const accepted = record('steering_accepted', {
+    id: 'pending', content: 'Continue with the revised target', principal: 'operator', turnId: 'open-turn',
+  });
+  const late = record('steering_accepted', { id: 'late', content: 'Too late', turnId: 'closed-turn' });
+  const terminal = record('turn_outcome', { turn_id: 'closed-turn', outcome: 'completed' });
+  const tail = [record('message', { type: 'message', role: 'assistant', content: 'checkpoint', turnId: 'open-turn' })];
+  const restored = restoreSessionRecords(tail, { controlRecords: [accepted, terminal, late] });
+  assert.deepEqual(restored.steering, [accepted.payload]);
+  assert.deepEqual(restored.missionTurns, []);
+  assert.deepEqual(restored.authority, []);
+  assert.deepEqual(restoreSessionRecords(tail, {
+    controlRecords: [accepted, terminal, late], controlComplete: false,
+  }).steering, []);
+  assert.deepEqual(restoreSessionRecords(tail, { controlRecords: [accepted, terminal, late,
+    record('turn_outcome', { turn_id: 'open-turn', outcome: 'completed' }),
+  ] }).steering, []);
+  assert.deepEqual(restoreSessionRecords(tail, { controlRecords: [accepted,
+    record('steering_abandoned', { id: 'pending', turnId: 'open-turn' }),
+  ] }).steering, []);
+  assert.deepEqual(restoreSessionRecords(tail, { controlRecords: [accepted,
+    record('conversation_cleared', {}),
+  ] }).steering, []);
+  // An NND revert can leave a hidden interrupted turn outside the bounded tail.
+  assert.deepEqual(restoreSessionRecords(tail, { controlRecords: [accepted,
+    record('revert_point', { reverted_turn_ids: ['open-turn'] }),
+  ] }).steering, []);
+  assert.deepEqual(restoreSessionRecords(tail, { controlRecords: [accepted,
+    record('revert_point', { reverted_turn_ids: ['open-turn'] }), record('revert_cleared', {}),
+  ] }).steering, [accepted.payload]);
+});
+
 test('session history restores the newest durable working directory transition', () => {
   const restored = restoreSessionRecords([
     record('workspace_changed', { workspaceRoot: 'D:/first' }),

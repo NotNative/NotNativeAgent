@@ -2,6 +2,7 @@
 import { ContractError, newId } from './ids.js';
 import { createSubagentProgressRelay } from './subagent-progress.js';
 import { createSessionLineage, recordChildSession } from './session-lineage.js';
+import { MAX_PROVIDER_CONCURRENCY } from './provider/fair-scheduler.js';
 
 const ENGINEERING_BASELINE = [
   'NNA engineering standards apply directly to your work; they are not reserved for the final reviewer.',
@@ -43,6 +44,7 @@ export function subagentConfig(config, type) {
 
 export function subagentOutputStatus(record) {
   if (!record || typeof record !== 'object') return 'failed';
+  if (record.status === 'failed' || record.status === 'denied' || record.status === 'cancelled') return record.status;
   if (record?.outcome === 'failed' || record?.type === 'error') return 'failed';
   if (record?.outcome === 'cancelled') return 'cancelled';
   if (record?.outcome === 'denied') return 'denied';
@@ -165,11 +167,15 @@ export async function subagentParallelLimit(engine, group, signal) {
   if (!runtime || typeof runtime !== 'object') {
     throw new ContractError('subagent_runtime_missing', 'sub-agent model runtime discovery returned no result');
   }
-  const capacity = Number.isSafeInteger(runtime.parallelCapacity) && runtime.parallelCapacity > 0
-    ? runtime.parallelCapacity : 1;
+  const reportedCapacity = Number.isSafeInteger(runtime.parallelCapacity) && runtime.parallelCapacity > 0
+    ? runtime.parallelCapacity : null;
+  // Compatibility: runtimes may advertise more parallel slots than NNA's bounded
+  // scheduler supports. Use the supported ceiling instead of disabling delegation.
+  const capacity = Math.min(reportedCapacity ?? 1, MAX_PROVIDER_CONCURRENCY);
   engine.scheduler.setDiscoveredLimit(route.profile.id, capacity);
   engine.telemetry?.record('subagent.capacity', 'succeeded', {
     provider_profile: route.profile.id, model: route.model, capacity,
+    reported_capacity: reportedCapacity,
     source: runtime.parallelCapacity != null ? runtime.source : 'sequential_fallback',
   });
   return capacity;

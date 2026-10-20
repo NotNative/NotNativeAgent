@@ -42,7 +42,8 @@ import { continueAfterTerminalDeclaration, persistSupervisedResponse } from './e
 import { completionEvidence, completionEvidenceHint } from './engine/completion-evidence.js';
 import { validateSessionLineage } from './session-lineage.js'; import { forkIngestContract } from './persistence/fork-records.js';
 import { supportConfiguration } from './support-configuration.js';
-import { carriedReviewerRequestIds, refreshReviewerCompletion, reviewerCompletionHint } from './engine/reviewer-completion.js';
+import { initializeReviewerCarry, refreshReviewerCompletion, reviewerCompletionHint } from './engine/reviewer-completion.js';
+import { steerEngineTurn } from './engine/steering.js';
 export class SessionEngine {
   state = new StateAuthority(); lifecycles = new LifecycleRegistry();
   authority = new AuthorityRecord();
@@ -109,7 +110,7 @@ export class SessionEngine {
     if (this.state.state !== 'idle') return this.#rejectBusy(command);
     const turn = this.lifecycles.start('turn');
     this.active = createActiveTurn(turn.id, command.request_id, this.config.recovery, this.reliability);
-    const active = this.active; active.carriedReviewerRequestIds = carriedReviewerRequestIds(this.latestTurnOutcome); active.principal = principal;
+    const active = this.active; initializeReviewerCarry(active, this.latestTurnOutcome); active.principal = principal;
     active.enrichment.skills = this.skills.beginTurn();
     let operation;
     try {
@@ -178,27 +179,7 @@ export class SessionEngine {
     return updateEngineConfiguration(this, command, principal);
   }
 
-  async steer(command, principal) {
-    if (!this.active || this.active.finalized) return { accepted: false, reason: 'no_active_turn' };
-    if (this.steering.length >= this.config.limits.maxSteering) {
-      throw new ContractError('steering_capacity', 'steering queue is full');
-    }
-    const record = Object.freeze({
-      id: newId('steering'), requestId: command.request_id,
-      content: command.content, principal, turnId: this.active.turnId,
-      acceptedAt: new Date().toISOString(), consumed: false,
-    });
-    if (this.store) await this.store.append('steering_accepted', record);
-    this.steering.push(record);
-    await this.output({
-      version: '1.0', type: 'accepted', request_id: command.request_id,
-      accepted: true, command_type: 'steer', steering_id: record.id,
-      turn_id: this.active.turnId, session_id: this.sessionId,
-    });
-    this.active.attentionWaiter?.resolve('steering');
-    this.active.providerRecoveryWaiter?.resolve('steering');
-    return { accepted: true, steering_id: record.id };
-  }
+  async steer(command, principal) { return steerEngineTurn(this, command, principal); }
   async shutdown(command) {
     return boundedShutdown(this, () => performEngineShutdown(this, command));
   }
@@ -390,10 +371,18 @@ export class SessionEngine {
   async #consumeSteering(active) {
     const consumed = [];
     while (this.steering.length > 0) {
-      const steering = this.steering.shift();
+      const steering = this.steering[0];
       const lifecycle = this.lifecycles.start('steering', active.stepId ?? active.turnId);
       await this.#publish('steering.started', 'steering', 'active', active);
-      await persistAuthenticatedIntent(this.authority, steering.content, steering.principal, (intent) => this.#persist('authority_intent', intent), { turnId: active.turnId });
+      const message = userMessage(active.turnId, steering.content, { steeringId: steering.id });
+      const consumedRecord = { id: steering.id, consumedAt: new Date().toISOString(), message };
+      // Security: commit intent and consumption together. Replaying either alone would
+      // lose the authenticated direction or apply it a second time after a crash.
+      await persistAuthenticatedIntent(this.authority, steering.content, steering.principal, async (intent) => {
+        await this.#persist('steering_consumed', { ...consumedRecord, intent });
+      }, { turnId: active.turnId });
+      this.transcript.push(message);
+      this.steering.shift();
       active.authority = this.authority.snapshot(this.config);
       // Why: a terminal declaration was made against the pre-steering intent. Authenticated
       // steering changes that intent, so the model must explicitly declare the new outcome.
@@ -401,10 +390,6 @@ export class SessionEngine {
       active.conversationIntent = projectConversationIntent(active.authority, { anchor: active.prompt });
       active.approvedProposal = resolveApprovedAssistantProposal(this.transcript, steering.content)
         || active.approvedProposal;
-      const message = userMessage(active.turnId, steering.content, { steeringId: steering.id });
-      const consumedRecord = { id: steering.id, consumedAt: new Date().toISOString(), message };
-      if (this.store) await this.store.append('steering_consumed', consumedRecord);
-      this.transcript.push(message);
       this.reliability.externalEvidence(active, steering.id);
       active.toolConstraints = clearAuthorityConstraints(active.toolConstraints);
       this.lifecycles.finish(lifecycle.id, 'consumed');
@@ -480,7 +465,9 @@ export class SessionEngine {
     return { accepted: false, reason: 'busy' };
   }
   async #restore(records, truncated = false, recovery = {}) {
-    const restored = restoreSessionRecords(records, { controlRecords: recovery?.controlRecords });
+    const restored = restoreSessionRecords(records, {
+      controlRecords: recovery?.controlRecords, controlComplete: recovery?.controlComplete,
+    });
     await restoreEngineWorkspace(this, restored.workspaceRoot);
     this.work.restore(records);
     // Invariant: restart preserves the live context inputs; terminal carry has separate state.

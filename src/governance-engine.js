@@ -366,7 +366,9 @@ function terminalStatus(status) {
 }
 
 function settlementRequired(decision) {
-  if (decision.domain === ACTION_AUTHORIZATION_DOMAIN) return true;
+  // Invariant: a denial or escalation is a final authorization classification;
+  // only an approval may proceed to execution and acquire a terminal effect.
+  if (decision.domain === ACTION_AUTHORIZATION_DOMAIN) return decision.outcome === 'approve';
   return [GUIDANCE_PROMOTION_DOMAIN, LEARNING_PROMOTION_DOMAIN].includes(decision.domain)
     && decision.outcome === 'promote';
 }

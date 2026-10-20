@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from '../ids.js';
 
+export const MAX_PROVIDER_CONCURRENCY = 16;
+
 export class FairScheduler {
   #resources = new Map();
 
@@ -9,7 +11,7 @@ export class FairScheduler {
   }
 
   configure(limit, maxQueued) {
-    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 16
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_PROVIDER_CONCURRENCY
       || !Number.isSafeInteger(maxQueued) || maxQueued < 1 || maxQueued > 4096) {
       throw new ContractError('scheduler_config_invalid', 'scheduler limits are outside their supported bounds');
     }
@@ -49,7 +51,7 @@ export class FairScheduler {
 
   setDiscoveredLimit(resource, limit) {
     if (typeof resource !== 'string' || resource.length < 1
-      || (limit !== null && (!Number.isSafeInteger(limit) || limit < 1 || limit > 16))) {
+      || (limit !== null && (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_PROVIDER_CONCURRENCY))) {
       throw new ContractError('scheduler_resource_limit_invalid', 'discovered provider capacity is invalid');
     }
     const state = this.#state(resource);

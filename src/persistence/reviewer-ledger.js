@@ -143,7 +143,8 @@ export class ReviewerLedger {
   }
 
   completionState(options = {}) {
-    const turnIds = boundedIdentitySet(options.turnIds);
+    const turnIds = boundedIdentitySet(options.turnIds, MAX_COMPLETION_REQUESTS + 1);
+    const carriedTurnIds = boundedIdentitySet(options.carriedTurnIds);
     const requestIds = boundedIdentitySet(options.requestIds);
     const entries = [...this.#entries.values()];
     const latestSuccess = new Map();
@@ -151,17 +152,31 @@ export class ReviewerLedger {
       if (confirmedExecution(entries[index])) latestSuccess.set(entries[index].operationFingerprint, index);
     }
     const selected = [];
+    const unresolvedTurnIds = new Set();
+    let unresolvedTurnIdsTruncated = false;
     let unresolvedCount = 0;
     for (let index = 0; index < entries.length; index += 1) {
       const entry = entries[index];
-      if (entry.toolName === 'turn_finish' || (!turnIds.has(entry.turnId) && !requestIds.has(entry.requestId))) continue;
-      if (settledOutcome(entry) || (latestSuccess.get(entry.operationFingerprint) ?? -1) > index) continue;
+      if (entry.toolName === 'turn_finish' || (!turnIds.has(entry.turnId)
+        && !requestIds.has(entry.requestId)
+        && !(carriedTurnIds.has(entry.turnId) && carriableEntry(entry)))) continue;
+      if (settledOutcome(entry) || (exactRetryReconciles(entry)
+        && (latestSuccess.get(entry.operationFingerprint) ?? -1) > index)) continue;
       unresolvedCount += 1;
-      if (selected.length < MAX_COMPLETION_REQUESTS) selected.push(completionEntry(entry));
+      const summary = completionEntry(entry);
+      // Invariant: carry origin IDs must select the same obligations as carried
+      // request IDs; a pending review cannot become a new turn's completion gate.
+      if (carriableEntry(entry) && entry.turnId && !unresolvedTurnIds.has(entry.turnId)) {
+        if (unresolvedTurnIds.size < MAX_COMPLETION_REQUESTS) unresolvedTurnIds.add(entry.turnId);
+        else unresolvedTurnIdsTruncated = true;
+      }
+      if (selected.length < MAX_COMPLETION_REQUESTS) selected.push(summary);
     }
     return Object.freeze({
       schema: 'nna.reviewer-completion.v1', inspected_entries: entries.length,
       unresolved_count: unresolvedCount, unresolved_truncated: unresolvedCount > selected.length,
+      unresolved_turn_ids: Object.freeze([...unresolvedTurnIds]),
+      unresolved_turn_ids_truncated: unresolvedTurnIdsTruncated,
       unresolved: Object.freeze(selected),
     });
   }
@@ -339,9 +354,9 @@ function boundedIdentity(value) {
   return typeof value === 'string' && value.length > 0 && value.length <= 256 ? value : null;
 }
 
-function boundedIdentitySet(values) {
+function boundedIdentitySet(values, limit = MAX_COMPLETION_REQUESTS) {
   if (!Array.isArray(values)) return new Set();
-  return new Set(values.slice(0, MAX_COMPLETION_REQUESTS).map(boundedIdentity).filter(Boolean));
+  return new Set(values.slice(0, limit).map(boundedIdentity).filter(Boolean));
 }
 
 const DECISION_TERMINAL_OUTCOMES = new Set(['deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
@@ -358,6 +373,18 @@ function retentionSettled(entry) {
 function confirmedExecution(entry) {
   const terminal = entry.execution?.terminal;
   return terminal?.status === 'succeeded' && ['completed', 'none'].includes(terminal.effect_certainty);
+}
+
+function exactRetryReconciles(entry) {
+  // Why: repeating an unknown-effect command can apply its effect twice. A later
+  // identical whole-file write establishes the requested final bytes; a later
+  // shell, process, browser, or extension success does not establish what the
+  // first invocation already changed.
+  return entry.toolName === 'fs_write_text';
+}
+
+function carriableEntry(entry) {
+  return entry.decision?.outcome === 'approve';
 }
 
 function settledOutcome(entry) {

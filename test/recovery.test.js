@@ -8,6 +8,7 @@ import { resolveManifest } from '../src/config.js';
 import { SessionEngine as RuntimeSessionEngine } from '../src/engine.js';
 import { ContractError } from '../src/ids.js';
 import { JournalStore } from '../src/store.js';
+import { restoreSessionRecords } from '../src/persistence/session-history.js';
 import { LifecycleRegistry, StateAuthority } from '../src/lifecycle.js';
 import { ProviderRunner } from '../src/provider/runner.js';
 import { RecoverySupervisor, recoveryHint } from '../src/reliability/recovery-supervisor.js';
@@ -15,6 +16,7 @@ import { ToolCallAssembler } from '../src/reliability/tool-call-assembler.js';
 import { contextPressureScale } from '../src/reliability/provider-recovery.js';
 import { toolProgressEvidence } from '../src/reliability/tool-progress.js';
 import { awaitEngineAttention } from '../src/engine/attention.js';
+import { runModelStepLoop } from '../src/engine/step-loop.js';
 import { updateToolFailures } from '../src/engine/tool-failures.js';
 import { manifestFromConfig, withRecoverySettings } from '../src/provider/route-configuration.js';
 import { buildConversationTextLane } from '../src/conversation-text-lane.js';
@@ -1514,6 +1516,276 @@ test('AC-TURN-09/AC-TURN-10 steering overrides a bare completion claim at the su
   assert.equal(engine.transcript.filter((item) => item.steeringId).length, 1);
 });
 
+test('concurrent steering admission reserves bounded capacity before journal I/O', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-steering-capacity-'));
+  let releaseProvider; let releaseAppend;
+  const providerGate = new Promise((resolve) => { releaseProvider = resolve; });
+  const appendGate = new Promise((resolve) => { releaseAppend = resolve; });
+  const provider = { async *stream() { await providerGate; yield { type: 'text', text: 'Done.' }; yield { type: 'terminal' }; } };
+  const base = config(root, 'durable');
+  const engine = new SessionEngine({ config: { ...base, limits: { ...base.limits, maxSteering: 1 } }, providerFactory: () => provider, storeRoot: join(root, 'sessions') });
+  await engine.initialize();
+  const append = engine.store.append.bind(engine.store);
+  engine.store.append = async (type, payload) => { if (type === 'steering_accepted') await appendGate; return append(type, payload); };
+  const turn = engine.submit({ request_id: 'turn-capacity', content: 'Start' }, 'operator');
+  await waitForEngineState(engine, 'streaming_model');
+  const first = engine.steer({ request_id: 'steer-first', content: 'First direction' }, 'operator');
+  await assert.rejects(engine.steer({ request_id: 'steer-second', content: 'Second direction' }, 'operator'), { code: 'steering_capacity' });
+  releaseAppend();
+  assert.equal((await first).accepted, true);
+  releaseProvider();
+  await turn;
+  await engine.shutdown({ request_id: 'shutdown-capacity' });
+});
+
+test('steering journal append finishing after terminal is rejected and cannot leak to a later turn', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-steering-late-'));
+  let releaseProvider; let releaseAppend;
+  const providerGate = new Promise((resolve) => { releaseProvider = resolve; });
+  const appendGate = new Promise((resolve) => { releaseAppend = resolve; });
+  const provider = { async *stream() { await providerGate; yield { type: 'text', text: 'Done.' }; yield { type: 'terminal' }; } };
+  const stores = join(root, 'sessions');
+  const engine = new SessionEngine({ config: config(root, 'durable'), providerFactory: () => provider, storeRoot: stores });
+  await engine.initialize();
+  const append = engine.store.append.bind(engine.store);
+  engine.store.append = async (type, payload) => { if (type === 'steering_accepted') await appendGate; return append(type, payload); };
+  const turn = engine.submit({ request_id: 'turn-late', content: 'Start' }, 'operator');
+  await waitForEngineState(engine, 'streaming_model');
+  const pending = engine.steer({ request_id: 'steer-late', content: 'Do not leak' }, 'operator');
+  await engine.cancel({ request_id: 'cancel-late' });
+  releaseProvider();
+  assert.equal((await turn).outcome, 'cancelled');
+  releaseAppend();
+  assert.deepEqual(await pending, { accepted: false, reason: 'no_active_turn' });
+  assert.equal(engine.steering.length, 0);
+  await engine.shutdown({ request_id: 'shutdown-late' });
+  const reopened = new JournalStore(stores, engine.sessionId);
+  const recovered = await reopened.open();
+  assert.equal(recovered.records.some((item) => item.type === 'steering_abandoned'), true);
+  assert.equal(restoreSessionRecords(recovered.records).steering.length, 0);
+  await reopened.close();
+});
+
+test('a wall-clock terminal abandons an admission whose journal append finishes later', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-steering-wallclock-late-'));
+  let releaseProvider; let releaseAppend;
+  const providerGate = new Promise((resolve) => { releaseProvider = resolve; });
+  const appendGate = new Promise((resolve) => { releaseAppend = resolve; });
+  const provider = { async *stream() { await providerGate; yield { type: 'text', text: 'Done.' }; yield { type: 'terminal' }; } };
+  const base = config(root, 'durable');
+  const stores = join(root, 'sessions');
+  const engine = new SessionEngine({ config: { ...base, limits: { ...base.limits, turnWallClockMs: 1000 } },
+    providerFactory: () => provider, storeRoot: stores });
+  await engine.initialize();
+  const append = engine.store.append.bind(engine.store);
+  engine.store.append = async (type, payload) => {
+    if (type === 'steering_accepted') await appendGate;
+    return append(type, payload);
+  };
+  const turn = engine.submit({ request_id: 'turn-wallclock-late', content: 'Start' }, 'operator');
+  await waitForEngineState(engine, 'streaming_model');
+  const pending = engine.steer({ request_id: 'steer-wallclock-late', content: 'Late direction' }, 'operator');
+  releaseProvider();
+  const result = await Promise.race([
+    turn,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('wall-clock terminal blocked by steering')), 2000)),
+  ]);
+  assert.equal(result.outcome, 'limit_reached');
+  releaseAppend();
+  assert.deepEqual(await pending, { accepted: false, reason: 'no_active_turn' });
+  assert.equal(engine.steering.length, 0);
+  await engine.shutdown({ request_id: 'shutdown-wallclock-late' });
+  const reopened = new JournalStore(stores, engine.sessionId);
+  const recovered = await reopened.open();
+  assert.equal(recovered.records.some((item) => item.type === 'steering_abandoned'), true);
+  assert.equal(restoreSessionRecords(recovered.records).steering.length, 0);
+  await reopened.close();
+});
+
+test('completion waits for in-flight steering admission and continues with accepted direction', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-steering-completion-'));
+  let releaseProvider; let releaseAppend;
+  const providerGate = new Promise((resolve) => { releaseProvider = resolve; });
+  const appendGate = new Promise((resolve) => { releaseAppend = resolve; });
+  let calls = 0;
+  const provider = { async *stream(request) {
+    calls += 1;
+    if (calls === 1) await providerGate;
+    else assert.equal(request.messages.some((item) => item.role === 'user' && item.content === 'Apply before completing'), true);
+    yield { type: 'text', text: 'Done.' }; yield { type: 'terminal' };
+  } };
+  const engine = new SessionEngine({ config: config(root, 'durable'), providerFactory: () => provider, storeRoot: join(root, 'sessions') });
+  await engine.initialize();
+  const append = engine.store.append.bind(engine.store);
+  engine.store.append = async (type, payload) => { if (type === 'steering_accepted') await appendGate; return append(type, payload); };
+  const turn = engine.submit({ request_id: 'turn-completion', content: 'Start' }, 'operator');
+  await waitForEngineState(engine, 'streaming_model');
+  const pending = engine.steer({ request_id: 'steer-completion', content: 'Apply before completing' }, 'operator');
+  releaseProvider();
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert.equal(engine.active?.finalized, false);
+  releaseAppend();
+  assert.equal((await pending).accepted, true);
+  assert.equal((await turn).outcome, 'completed');
+  assert.equal(calls, 2);
+  await engine.shutdown({ request_id: 'shutdown-completion' });
+});
+
+test('a pending steering status callback cannot hold admission or completion', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-steering-output-'));
+  let releaseProvider;
+  const providerGate = new Promise((resolve) => { releaseProvider = resolve; });
+  let calls = 0;
+  const provider = { async *stream(request) {
+    calls += 1;
+    if (calls === 1) await providerGate;
+    else assert.equal(request.messages.some((item) => item.role === 'user' && item.content === 'Apply direction'), true);
+    yield { type: 'text', text: 'Done.' }; yield { type: 'terminal' };
+  } };
+  const engine = new SessionEngine({ config: config(root, 'durable'), providerFactory: () => provider, storeRoot: join(root, 'sessions') });
+  await engine.initialize();
+  const output = engine.output;
+  engine.output = (item) => item.type === 'accepted' && item.command_type === 'steer'
+    ? new Promise(() => {}) : output(item);
+  const turn = engine.submit({ request_id: 'turn-output', content: 'Start' }, 'operator');
+  await waitForEngineState(engine, 'streaming_model');
+  const accepted = await Promise.race([
+    engine.steer({ request_id: 'steer-output', content: 'Apply direction' }, 'operator'),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('steering admission remained pending')), 1000)),
+  ]);
+  assert.equal(accepted.accepted, true);
+  releaseProvider();
+  assert.equal((await Promise.race([
+    turn,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('turn completion remained pending')), 1000)),
+  ])).outcome, 'completed');
+  assert.equal(calls >= 1, true);
+  assert.equal(engine.transcript.filter((item) => item.steeringId === accepted.steering_id).length, 1);
+  await engine.shutdown({ request_id: 'shutdown-output' });
+});
+
+test('an attempted step that crosses the wall clock limit cannot consume queued steering', async () => {
+  let consumed = false;
+  const engine = {
+    config: { limits: { maxModelSteps: 3, turnWallClockMs: 1000 } },
+    steering: [{ id: 'steer-after-deadline' }], transcript: [],
+    reliability: {
+      exhaustionDetail: (_recovery, _transcript, _failures, limit) => limit,
+      exhaustionText: () => 'Time limit reached.',
+    },
+  };
+  const active = {
+    startedAt: Date.now() - 1100, steeringAdmissionsDone: Promise.resolve(),
+    recovery: {}, unresolvedToolFailures: [],
+  };
+  const result = await runModelStepLoop(engine, active, {}, {
+    runModelStep: async () => ({ continue: false, text: 'Completed.' }),
+    consumeSteering: async () => { consumed = true; },
+    completeFromStep: async () => ({ outcome: 'completed' }),
+    finalize: async (outcome, text, detail) => ({ outcome, text, detail }),
+  });
+  assert.equal(result.outcome, 'limit_reached');
+  assert.equal(result.detail.category, 'turn_wall_clock_limit');
+  assert.equal(consumed, false);
+});
+
+test('completion observes a replacement steering admission promise', async () => {
+  let releaseFirst; let releaseSecond;
+  const first = new Promise((resolve) => { releaseFirst = resolve; });
+  const second = new Promise((resolve) => { releaseSecond = resolve; });
+  const active = { steeringAdmissions: 1, steeringAdmissionsDone: first, startedAt: Date.now() };
+  let completed = false;
+  const operation = runModelStepLoop({
+    config: { limits: { maxModelSteps: 2, turnWallClockMs: null } }, steering: [],
+  }, active, {}, {
+    runModelStep: async () => ({ continue: false }),
+    completeFromStep: async () => { completed = true; return { outcome: 'completed' }; },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  active.steeringAdmissionsDone = second;
+  releaseFirst();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(completed, false);
+  active.steeringAdmissions = 0;
+  releaseSecond();
+  assert.equal((await operation).outcome, 'completed');
+});
+
+test('a pending steering append cannot hold terminal completion past the wall clock limit', async () => {
+  const active = {
+    steeringAdmissions: 1, steeringAdmissionsDone: new Promise(() => {}),
+    startedAt: Date.now(), recovery: {}, unresolvedToolFailures: [],
+    controller: new AbortController(),
+  };
+  let completed = false;
+  const result = await Promise.race([
+    runModelStepLoop({
+      config: { limits: { maxModelSteps: 2, turnWallClockMs: 25 } }, steering: [], transcript: [],
+      reliability: {
+        exhaustionDetail: (_recovery, _transcript, _failures, detail) => detail,
+        exhaustionText: () => 'Time limit reached.',
+      },
+    }, active, {}, {
+      runModelStep: async () => ({ continue: false }),
+      completeFromStep: async () => { completed = true; return { outcome: 'completed' }; },
+      finalize: async (outcome, text, detail) => ({ outcome, text, detail }),
+    }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('completion wait exceeded bound')), 500)),
+  ]);
+  assert.equal(result.outcome, 'limit_reached');
+  assert.equal(result.detail.category, 'turn_wall_clock_limit');
+  assert.equal(completed, false);
+});
+
+test('cancellation releases a terminal completion waiting for steering admission', async () => {
+  const controller = new AbortController();
+  const active = {
+    steeringAdmissions: 1, steeringAdmissionsDone: new Promise(() => {}),
+    startedAt: Date.now(), controller,
+  };
+  const operation = runModelStepLoop({
+    config: { limits: { maxModelSteps: 2, turnWallClockMs: null } }, steering: [],
+  }, active, {}, {
+    runModelStep: async () => ({ continue: false }),
+    completeFromStep: async () => ({ outcome: 'completed' }),
+  });
+  setImmediate(() => controller.abort());
+  await assert.rejects(Promise.race([
+    operation,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('cancellation wait exceeded bound')), 500)),
+  ]), { code: 'turn_cancelled' });
+});
+
+test('failed steering consumption keeps authority and transcript unmodified', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-steering-consume-fail-'));
+  let releaseProvider;
+  const providerGate = new Promise((resolve) => { releaseProvider = resolve; });
+  const provider = { async *stream() { await providerGate; yield { type: 'text', text: 'Checkpoint.' }; yield { type: 'terminal' }; } };
+  const stores = join(root, 'sessions');
+  const engine = new SessionEngine({ config: config(root, 'durable'), providerFactory: () => provider, storeRoot: stores });
+  await engine.initialize();
+  const append = engine.store.append.bind(engine.store);
+  engine.store.append = async (type, payload) => {
+    if (type === 'steering_consumed') throw new Error('simulated steering journal failure');
+    return append(type, payload);
+  };
+  const turn = engine.submit({ request_id: 'turn-consume-fail', content: 'Start' }, 'operator');
+  await waitForEngineState(engine, 'streaming_model');
+  assert.equal((await engine.steer({ request_id: 'steer-consume-fail', content: 'Uncommitted direction' }, 'operator')).accepted, true);
+  releaseProvider();
+  const result = await turn;
+  assert.equal(result.outcome, 'failed');
+  assert.equal(engine.authority.snapshot(engine.config).intent.some((item) => item.content === 'Uncommitted direction'), false);
+  assert.equal(engine.transcript.some((item) => item.steeringId), false);
+  assert.equal(engine.steering.length, 0);
+  await engine.shutdown({ request_id: 'shutdown-consume-fail' });
+  const reopened = new JournalStore(stores, engine.sessionId);
+  const recovered = await reopened.open();
+  assert.equal(recovered.records.some((item) => item.type === 'steering_consumed'), false);
+  assert.equal(restoreSessionRecords(recovered.records).steering.length, 0);
+  await reopened.close();
+});
+
 test('AC-TURN-07 compacts before provider I/O and records an auditable fact', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-compact-'));
   let invoked = 0;
@@ -1669,8 +1941,8 @@ test('AC-SESS-01/AC-SESS-05/AC-SESS-10 resume preserves identity, marks interrup
   const userMessage = durable.records.find((item) => item.type === 'message' && item.payload.role === 'user');
   assert.equal(submitIntent.payload.turnId, userMessage.payload.turnId);
   const consumedSteering = durable.records.find((item) => item.type === 'steering_consumed');
-  const steeringIntent = intents.find((item) => item.payload.content === 'Saved direction');
-  assert.equal(steeringIntent.payload.turnId, consumedSteering.payload.message.turnId);
+  assert.equal(consumedSteering.payload.intent.content, 'Saved direction');
+  assert.equal(consumedSteering.payload.intent.turnId, consumedSteering.payload.message.turnId);
   await journal.close();
 });
 

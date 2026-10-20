@@ -79,7 +79,9 @@ function reviewerCompletionGate(state, declaration) {
   return Object.freeze({
     disposition: 'continue', category: 'unresolved_reviewed_tool_outcome', required: true,
     progressEvidence: summary,
-    hint: 'The reviewer ledger contains unresolved tool outcomes. Retry or verify each operation. Otherwise, use turn_finish with a truthful non-completed outcome.',
+    hint: state.carry_overflow
+      ? 'The reviewer carry exceeded its bounded origin list. Operator reconciliation of the reviewer ledger is required; use turn_finish with a truthful non-completed outcome.'
+      : 'The reviewer ledger contains unresolved tool outcomes. Retry or verify each operation. Otherwise, use turn_finish with a truthful non-completed outcome.',
   });
 }
 

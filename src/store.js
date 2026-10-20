@@ -10,7 +10,9 @@ import { missingFinalNewline, writeFully } from './persistence/journal-io.js';
 const MAX_FULL_JOURNAL_SCAN_BYTES = 104_857_600;
 const MAX_CONTROL_RECORDS = 100_000;
 const AUTHORITY_CONTROL_TYPES = new Set([
-  'authority_intent', 'conversation_cleared', 'mission_turn_authorized', 'mission_tool_calls_reserved',
+  'authority_intent', 'steering_consumed', 'conversation_cleared', 'mission_turn_authorized', 'mission_tool_calls_reserved',
+  'steering_accepted', 'steering_abandoned', 'turn_outcome',
+  'revert_point', 'revert_cleared',
 ]);
 
 export class JournalStore {

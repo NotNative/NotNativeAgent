@@ -11,6 +11,7 @@ import { resolveManifest } from '../src/config.js';
 import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { recoverJournal } from '../src/store.js';
 import { subagentStatus } from '../src/tui/runtime-inspection.js';
+import { FairScheduler } from '../src/provider/fair-scheduler.js';
 
 test('sub-agent progress emits compact lifecycle milestones without child tool chatter', async () => {
   const output = [];
@@ -96,6 +97,22 @@ test('sub-agent output status treats malformed output as failed', () => {
   assert.equal(subagentOutputStatus(null), 'failed');
   assert.equal(subagentOutputStatus('unexpected output'), 'failed');
   assert.equal(subagentOutputStatus({ outcome: 'completed' }), 'succeeded');
+  assert.equal(subagentOutputStatus({ type: 'tool_status', status: 'failed' }), 'failed');
+  assert.equal(subagentOutputStatus({ type: 'tool_status', status: 'denied' }), 'denied');
+});
+
+test('sub-agent capacity above the scheduler ceiling remains usable', async () => {
+  const scheduler = new FairScheduler({ limit: 4 });
+  const telemetry = [];
+  const engine = {
+    router: { resolve: () => ({ profile: { id: 'worker' }, model: 'worker' }) },
+    modelRuntime: { resolve: async () => ({ parallelCapacity: 32, source: 'runtime_probe' }) },
+    scheduler,
+    telemetry: { record: (...args) => telemetry.push(args) },
+  };
+  assert.equal(await subagentParallelLimit(engine, 'subagent', new AbortController().signal), 16);
+  assert.equal(scheduler.snapshot()[0].discoveredLimit, 16);
+  assert.equal(telemetry[0][2].reported_capacity, 32);
 });
 
 test('sub-agent runtime forwards child lifecycle and output to the NND registry', async () => {
@@ -292,6 +309,45 @@ test('parallel sub-agent cancellation drains children and commits terminal tool 
   assert.equal(ledger.corruptTail, false);
   assert.equal(ledger.records.filter((record) => record.type === 'execution_started').length, 2);
   assert.equal(ledger.records.filter((record) => record.type === 'execution_terminal').length, 2);
+});
+
+test('parallel executor failure retains completed sibling evidence', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-subagent-failure-'));
+  const parent = { async *stream() {
+    yield { type: 'tool_fragment', fragments: [
+      toolFragment(0, 'fail-a', { type: 'reviewer', task: 'Review area A.' }),
+      toolFragment(1, 'finish-b', { type: 'reviewer', task: 'Review area B.' }),
+    ] };
+    yield { type: 'terminal', finishReason: 'tool_calls', usage: null };
+  } };
+  const config = resolveManifest({
+    persistence: 'ephemeral', workspace_root: root, tool_concurrency: 2,
+    provider: { id: 'parent', endpoint: 'http://127.0.0.1:1234/v1', model: 'parent', trust_zone: 'loopback' },
+  });
+  const engine = new SessionEngine({
+    config, providerFactory: () => parent,
+    semanticReviewer: { async review() { return { outcome: 'approve', confidence: 0.99,
+      reason_code: 'delegation_matches_intent', authority_anchors: [1] }; } },
+  });
+  await engine.initialize();
+  engine.subagentParallelLimit = async () => 2;
+  const execute = engine.governor.executePrepared.bind(engine.governor);
+  engine.governor.executePrepared = async (request, decision, signal) => {
+    if (request.providerCallId === 'fail-a') {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      throw new Error('unexpected executor failure');
+    }
+    return execute(request, decision, signal);
+  };
+  engine.runSubagent = async () => ({ session_id: 'agent_completed', outcome: 'completed', text: 'Reviewed.' });
+  const result = await engine.submit({ request_id: 'parallel-failure', content: 'Delegate both reviews.' }, 'operator');
+  assert.equal(result.outcome, 'failed');
+  const recorded = engine.transcript.filter((item) => item.type === 'tool_result');
+  assert.equal(recorded.length, 1);
+  assert.equal(recorded[0].providerCallId, 'finish-b');
+  assert.equal(recorded[0].toolLifecycleStatus, 'succeeded');
+  assert.equal(engine.lifecycles.snapshot().some((item) => item.outcome === null), false);
+  await engine.shutdown({ request_id: 'shutdown-failed-parallel', type: 'shutdown' });
 });
 
 test('missing advertised parallel capacity preserves sequential subagent execution', async () => {

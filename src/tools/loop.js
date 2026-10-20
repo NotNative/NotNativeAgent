@@ -16,6 +16,7 @@ import { WebUrlProvenance } from '../web-url-provenance.js';
 import { missingFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
 import { toolLifecycleStatus, toolReviewOutcome, toolTelemetryOutcome } from './tool-result-contract.js';
 import { toolRequestFingerprint } from '../reliability/tool-progress.js';
+import { boundedParallel, boundedParallelLimit } from './parallel-execution.js';
 
 export class ToolLoop {
   constructor(options) {
@@ -73,6 +74,7 @@ export class ToolLoop {
 
   async process(calls, active) {
     const items = [];
+    let committing = false;
     try {
       assertTurnActive(active);
       await this.reconcilePendingSettlements(active);
@@ -88,12 +90,17 @@ export class ToolLoop {
       if (this.state.state !== 'processing_tool_results') {
         this.state.transition('processing_tool_results', { trigger: 'tools_settled', turnId: active.turnId });
       }
+      committing = true;
       await this.#commitItems(items, active);
       const missionFailure = missionToolDisposition(active, items);
       if (missionFailure) throw missionFailure;
       return items;
     } catch (error) {
-      if (!active.cancelled && !active.controller.signal.aborted) throw error;
+      if (!active.cancelled && !active.controller.signal.aborted) {
+        if (!committing) await this.#commitAvailableResults(items, active);
+        this.#settleFailedChildren(items);
+        throw error;
+      }
       await this.#settleCancellation(items, active);
       throw new ContractError('turn_cancelled', 'turn was cancelled');
     }
@@ -106,6 +113,9 @@ export class ToolLoop {
         call, lifecycle, child: new ToolChildState(), request: null,
         decision: null, result: null, finished: false,
       };
+      // Invariant: an unexpected validation or output failure must leave the child
+      // reachable for lifecycle settlement before the turn can finalize.
+      items.push(item);
       try {
         const prior = this.results.lookup(call);
         if (prior) {
@@ -114,7 +124,6 @@ export class ToolLoop {
           this.lifecycles.finish(lifecycle.id, 'duplicate_ignored');
           item.finished = true;
           await this.output(toolStatus(this.engine, active, item, 'duplicate_ignored'));
-          items.push(item);
           continue;
         }
         if (call.invalid) throw new ContractError(call.invalid.code, call.invalid.message);
@@ -147,10 +156,28 @@ export class ToolLoop {
         ...active, toolRequestId: item.request?.id ?? lifecycle.id,
       });
       if (item.request) await this.output(toolStatus(this.engine, active, item, 'review_pending'));
-      items.push(item);
     }
   }
 
+  #settleFailedChildren(items) {
+    for (const item of items) {
+      if (item.finished) continue;
+      // An executor that started without a terminal result may have changed state.
+      // Keep its reviewer-ledger evidence unresolved; do not invent a tool result.
+      const outcome = item.child.state === 'running' ? 'unknown_effect' : 'failed';
+      this.lifecycles.finish(item.lifecycle.id, outcome);
+      item.finished = true;
+    }
+  }
+
+  async #commitAvailableResults(items, active) {
+    // Invariant: a sibling failure cannot erase a completed tool's durable result.
+    for (const item of items) {
+      if (item.finished || !item.result) continue;
+      try { await this.#commit(item, active); }
+      catch { /* Preserve the original step failure. */ }
+    }
+  }
   async #commitItems(items, active) {
     let firstError = null;
     for (const item of items) {
@@ -175,7 +202,6 @@ export class ToolLoop {
     }
     await this.#commitItems(items, active);
   }
-
   async #review(item, active) {
     const execution = this.toolContext(active);
     const reviewEvidence = buildReviewEvidence(this.engine.transcript, {
@@ -378,24 +404,6 @@ function recordSettlementTelemetry(telemetry, status, detail, correlation) {
 
 function elapsedMs(started) {
   return Number(process.hrtime.bigint() - started) / 1_000_000;
-}
-
-async function boundedParallel(items, limit, operation) {
-  let index = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (index < items.length) {
-      const item = items[index]; index += 1;
-      await operation(item);
-    }
-  });
-  await Promise.all(workers);
-}
-
-function boundedParallelLimit(value) {
-  if (!Number.isSafeInteger(value) || value < 1 || value > 16) {
-    throw new ContractError('tool_concurrency_invalid', 'parallel tool limit must be between one and sixteen');
-  }
-  return value;
 }
 
 function cancelledToolResult(item) {

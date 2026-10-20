@@ -224,7 +224,7 @@ test('large reviewer retention compacts with headroom instead of rewriting every
   await ledger.close();
 });
 
-test('reviewer completion projection holds only possible-effect outcomes open and closes exact successful retries', async () => {
+test('reviewer completion projection holds possible effects open and reconciles exact whole-file writes', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'completion-projection' });
   const denied = request('denied-write');
   await ledger.propose(denied, { risk: 'review_required', scope: 'workspace' }, {
@@ -287,6 +287,28 @@ test('reviewer completion projection holds only possible-effect outcomes open an
   await ledger.executionStarted(retry.id, 'retry-decision');
   await ledger.settle(retry.id, { status: 'succeeded', effect_certainty: 'completed', result_fingerprint: 'written' });
   assert.equal(ledger.completionState({ requestIds: ['risky-write'], turnIds: ['turn-retry'] }).unresolved_count, 0);
+});
+
+test('a successful repeat of a non-idempotent command does not settle its earlier unknown effect', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'non-idempotent-completion' });
+  for (const [id, status, effectCertainty] of [
+    ['first-append', 'timed_out', 'unknown'],
+    ['second-append', 'succeeded', 'completed'],
+  ]) {
+    const operation = Object.freeze({
+      ...request(id), toolName: 'shell_run',
+      args: { script: 'Add-Content D:/workspace/output.txt item' },
+      resolved: { path: 'D:/workspace', script: 'Add-Content D:/workspace/output.txt item' },
+    });
+    await ledger.propose(operation, { risk: 'review_required', scope: 'host' }, { turnId: id });
+    await ledger.commitDecision(id, { id: `decision-${id}`, outcome: 'approve' });
+    await ledger.executionStarted(id, `decision-${id}`);
+    await ledger.settle(id, { status, effect_certainty: effectCertainty });
+  }
+  const state = ledger.completionState({ turnIds: ['first-append', 'second-append'] });
+  assert.equal(state.unresolved_count, 1);
+  assert.equal(state.unresolved[0].request_id, 'first-append');
+  assert.equal(state.unresolved[0].effect_certainty, 'unknown');
 });
 
 test('durable reviewer completion causality survives restart without retaining tool arguments', async () => {

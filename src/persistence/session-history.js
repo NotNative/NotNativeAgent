@@ -4,7 +4,11 @@ import { ContractError } from '../ids.js';
 const MAX_RESTORED_RECORDS = 1_000_000;
 const TRANSCRIPT_RECORD_TYPES = new Set(['message', 'tool_request', 'tool_result', 'compaction', 'attachment_fact']);
 const MISSION_RECORD_TYPES = new Set(['mission_turn_authorized', 'mission_tool_calls_reserved']);
-const AUTHORITY_CONTROL_TYPES = new Set(['authority_intent', 'conversation_cleared', ...MISSION_RECORD_TYPES]);
+const AUTHORITY_CONTROL_TYPES = new Set([
+  'authority_intent', 'steering_consumed', 'conversation_cleared', ...MISSION_RECORD_TYPES,
+  'steering_accepted', 'steering_abandoned', 'turn_outcome',
+  'revert_point', 'revert_cleared',
+]);
 const TURN_LINKED_TYPES = new Set([...TRANSCRIPT_RECORD_TYPES, 'turn_accepted', 'turn_outcome', 'turn_interrupted']);
 const TURN_BOUNDARY_TYPES = new Set(['turn_accepted', 'turn_outcome', 'turn_interrupted']);
 
@@ -22,6 +26,7 @@ export function restoreSessionRecords(records, options = {}) {
   const authority = [];
   const missionTurns = [];
   const hidden = hiddenTurnIds(records);
+  const terminalTurns = terminalTurnIds(records);
   let workspaceRoot = null;
   let latestTurnOutcome = null;
   let authorityReset = false;
@@ -46,27 +51,33 @@ export function restoreSessionRecords(records, options = {}) {
       const outcome = replayTurnBoundary(record, activeTurns, interruptedTurns, transcript);
       if (outcome) latestTurnOutcome = outcome;
     } else if (record.type === 'steering_accepted') {
-      if (!hidden.has(record.payload.message?.turnId)) steering.set(record.payload.id, record.payload);
+      if (!hidden.has(record.payload.turnId) && !terminalTurns.has(record.payload.turnId)) steering.set(record.payload.id, record.payload);
     } else if (record.type === 'steering_consumed') {
       if (hidden.has(record.payload.message?.turnId)) continue;
       steering.delete(record.payload.id);
       transcript.push(record.payload.message);
-    } else if (record.type === 'workspace_changed') {
-      workspaceRoot = validatedWorkspaceRoot(record.payload);
-    }
+      if (control === null && record.payload.intent) authority.push(record.payload.intent);
+    } else if (record.type === 'steering_abandoned') { steering.delete(record.payload.id);
+    } else if (record.type === 'workspace_changed') { workspaceRoot = validatedWorkspaceRoot(record.payload); }
   }
   let authorityOutcome = { authorityReset };
   if (control !== null) authorityOutcome = replayAuthorityControl(control, authority, missionTurns);
+  const pendingSteering = pendingSteeringForReplay(control, options, steering, activeTurns, hidden);
   return Object.freeze({
     transcript: Object.freeze(transcript),
     latestTurnOutcome,
-    steering: Object.freeze([...steering.values()]),
+    steering: Object.freeze(pendingSteering),
     authority: Object.freeze(authority),
     authorityReset: authorityOutcome.authorityReset,
     missionTurns: Object.freeze(missionTurns),
     interrupted: Object.freeze([...activeTurns].filter((id) => !interruptedTurns.has(id))),
     workspaceRoot,
   });
+}
+
+function terminalTurnIds(records) {
+  return new Set(records.filter((record) => record.type === 'turn_outcome')
+    .map((record) => record.payload?.turnId ?? record.payload?.turn_id).filter((id) => typeof id === 'string'));
 }
 
 function replayTurnBoundary(record, activeTurns, interruptedTurns, transcript) {
@@ -96,11 +107,42 @@ function replayAuthorityControl(control, authority, missionTurns) {
       authorityReset = true;
     } else if (record.type === 'authority_intent') {
       authority.push(record.payload);
-    } else {
+    } else if (record.type === 'steering_consumed') {
+      if (record.payload.intent) authority.push(record.payload.intent);
+    } else if (MISSION_RECORD_TYPES.has(record.type)) {
       missionTurns.push(record.payload);
     }
   }
   return { authorityReset };
+}
+
+function replaySteeringControl(control, hidden) {
+  const pending = new Map();
+  const terminal = new Set();
+  for (const record of control) {
+    if (record.type === 'conversation_cleared') {
+      pending.clear();
+    } else if (record.type === 'turn_outcome') {
+      const turnId = recordTurnId(record.payload);
+      terminal.add(turnId);
+      for (const [id, item] of pending) if (item.turnId === turnId) pending.delete(id);
+    } else if (record.type === 'steering_accepted') {
+      const item = record.payload;
+      if (!hidden.has(item.turnId) && !terminal.has(item.turnId)) pending.set(item.id, item);
+    } else if (record.type === 'steering_consumed' || record.type === 'steering_abandoned') {
+      pending.delete(record.payload.id);
+    }
+  }
+  return [...pending.values()];
+}
+
+function pendingSteeringForReplay(control, options, steering, activeTurns, hidden) {
+  // Security: pending steering requires the complete genesis-anchored control stream.
+  // A partial scan or a tail without its original admission cannot prove eligibility.
+  if (control === null) return [...steering.values()].filter((item) => activeTurns.has(item.turnId));
+  if (options.controlComplete === false) return [];
+  // Invariant: a revert point can precede the bounded transcript tail.
+  return replaySteeringControl(control, hiddenTurnIds(control));
 }
 
 function validatedWorkspaceRoot(payload) {

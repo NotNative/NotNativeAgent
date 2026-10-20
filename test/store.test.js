@@ -204,6 +204,50 @@ test('authority control records resume intact from outside the bounded tail', as
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('truncated control scan retains authenticated steering consumption', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-steering-control-'));
+  const store = new JournalStore(root, 'steering-control', { resumeRecordLimit: 4 });
+  try {
+    await store.open();
+    await store.append('steering_consumed', {
+      id: 'steering-1', message: { type: 'message', role: 'user', content: 'New direction', turnId: 'turn-1' },
+      intent: intentRecord('New direction', 1),
+    });
+    for (let index = 0; index < 8; index += 1) await store.append('message', { type: 'message', role: 'assistant', content: `item-${index}` });
+    await store.close();
+    const resumed = new JournalStore(root, 'steering-control', { resumeRecordLimit: 4 });
+    const recovered = await resumed.open();
+    assert.equal(recovered.truncated, true);
+    assert.equal(recovered.controlRecords.some((item) => item.type === 'steering_consumed' && item.payload.intent.content === 'New direction'), true);
+    await resumed.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('truncated control scan retains steering admission and its terminal boundary', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-steering-admission-control-'));
+  const store = new JournalStore(root, 'steering-admission', { resumeRecordLimit: 4 });
+  try {
+    await store.open();
+    await store.append('turn_accepted', { turnId: 'old-turn', requestId: 'original' });
+    await store.append('steering_accepted', { id: 'pending', turnId: 'old-turn', content: 'Saved direction', principal: 'operator' });
+    await store.append('turn_outcome', { turn_id: 'closed-turn', outcome: 'completed' });
+    await store.append('steering_accepted', { id: 'late', turnId: 'closed-turn', content: 'Too late', principal: 'operator' });
+    await store.append('revert_point', { reverted_turn_ids: ['old-turn'] });
+    for (let index = 0; index < 8; index += 1) {
+      await store.append('message', { type: 'message', role: 'assistant', content: `item-${index}` });
+    }
+    await store.close();
+    const resumed = new JournalStore(root, 'steering-admission', { resumeRecordLimit: 4 });
+    const recovered = await resumed.open();
+    assert.equal(recovered.truncated, true);
+    assert.equal(recovered.controlComplete, true);
+    assert.deepEqual(recovered.controlRecords.map((item) => item.type), [
+      'steering_accepted', 'turn_outcome', 'steering_accepted', 'revert_point',
+    ]);
+    await resumed.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('the control scan fails closed above its byte bound and at an unverifiable lineage', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-journal-control-fail-'));
   try {

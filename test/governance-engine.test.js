@@ -220,6 +220,28 @@ test('governance health aggregates attention and incomplete effect trails withou
   assert.doesNotMatch(JSON.stringify(health), /private-content-fingerprint/u);
 });
 
+test('denied and escalated authorizations do not create unsettled effect obligations', async () => {
+  const governance = new GovernanceEngine({ durable: false, sessionId: 'final-authorizations' });
+  const evidence = await governance.registerEvidence(evidenceRecord('decision-evidence', 'digest'));
+  for (const [id, outcome] of [
+    ['denied', 'deny_with_guidance'], ['prohibited', 'hard_deny'], ['escalated', 'escalate_to_operator'],
+  ]) {
+    await governance.decide({
+      id: `decision-${id}`, domain: 'action_authorization', subjectRef: `tool:${id}`,
+      subjectFingerprint: id, outcome, reasonCode: id, policyVersion: 'test/1',
+      evidenceRefs: [evidence.id], authorityRefs: [], decidedAt: 10,
+    });
+  }
+  assert.equal(governance.health().unsettled_decisions, 0);
+  assert.equal(governance.health().status, 'ready');
+  await governance.decide({
+    id: 'decision-approved', domain: 'action_authorization', subjectRef: 'tool:approved',
+    subjectFingerprint: 'approved', outcome: 'approve', reasonCode: 'approved', policyVersion: 'test/1',
+    evidenceRefs: [evidence.id], authorityRefs: [], decidedAt: 11,
+  });
+  assert.equal(governance.health().unsettled_decisions, 1);
+});
+
 function evidenceRecord(id, content) {
   return {
     id, kind: 'test', origin: 'runtime', trust: 'observed', state: 'active',
