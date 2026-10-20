@@ -5,7 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { ContractError } from './ids.js';
 import { PRODUCT_NAME, userDataPaths, VERSION } from './product.js';
 import { redactText } from './redaction.js';
-import { createZip } from './zip-archive.js';
+import { createZipWriter } from './zip-archive.js';
 import { discoverSupportSessions, supportAuditJournals } from './support-session-discovery.js';
 import { supportConfiguration } from './support-configuration.js';
 
@@ -45,36 +45,39 @@ export class DiagnosticBundle {
     const preview = await this.preview();
     const sessions = await discoverSupportSessions(this.sessions);
     await this.logger?.flush?.();
-    await Promise.all(sessions.map((session) => session.engine.telemetry?.flush?.()));
+    // Invariant: archived children share their source engine's telemetry store.
+    for (const engine of new Set(sessions.map((session) => session.sourceEngine ?? session.engine))) {
+      await engine.telemetry?.flush?.();
+    }
     const createdAt = new Date().toISOString();
     const logSnapshot = this.logger?.snapshot() ?? emptyLogs();
-    const entries = [];
-    const privacyInspection = [preview];
+    if (containsSecret(preview)) throw new ContractError('bundle_redaction_failed', 'diagnostic bundle failed privacy verification');
     const manifestSessions = [];
-    for (const [index, session] of sessions.entries()) {
-      const sessionId = session.id ?? session.engine.sessionId;
-      const { folder, diagnostics, forensicTrace } = await bundleSessionEvidence(this, session, index, createdAt, logSnapshot);
-      appendSupportEntries(entries, [
-        { name: `${folder}/diagnostics.json`, content: `${JSON.stringify(diagnostics)}\n` },
-        { name: `${folder}/forensic-trace.json`, content: `${JSON.stringify(forensicTrace)}\n` },
-      ]);
-      privacyInspection.push(diagnostics, forensicTrace);
-      manifestSessions.push({ session_id: sessionId, folder, active: sessionId === this.activeSessionId,
-        lineage: session.lineage ?? session.engine.sessionLineage ?? null, discovery: session.discovery,
-        trace_coverage: forensicTrace.coverage ?? { complete: false, reason: forensicTrace.disabled ? 'telemetry_disabled' : 'legacy_export' } });
-    }
-    const manifest = redactBundleData({
-      format: 3, created_at: createdAt, product: { name: PRODUCT_NAME, version: VERSION },
-      preview, sessions: manifestSessions,
+    const bytes = await atomicWriteZip(outputPath, async (writer) => {
+      for (const [index, session] of sessions.entries()) {
+        const sessionId = session.id ?? session.engine.sessionId;
+        const { folder, diagnostics, forensicTrace } = await bundleSessionEvidence(this, session, index, createdAt, logSnapshot);
+        if (containsSecret(diagnostics) || containsSecret(forensicTrace)) {
+          throw new ContractError('bundle_redaction_failed', 'diagnostic bundle failed privacy verification');
+        }
+        await writer.append({ name: `${folder}/diagnostics.json`, content: `${JSON.stringify(diagnostics)}\n` });
+        await writer.append({ name: `${folder}/forensic-trace.json`, content: `${JSON.stringify(forensicTrace)}\n` });
+        manifestSessions.push({ session_id: sessionId, folder, active: sessionId === this.activeSessionId,
+          lineage: session.lineage ?? session.engine.sessionLineage ?? null, discovery: session.discovery,
+          trace_coverage: forensicTrace.coverage ?? { complete: false, reason: forensicTrace.disabled ? 'telemetry_disabled' : 'legacy_export' } });
+      }
+      const manifest = redactBundleData({
+        format: 3, created_at: createdAt, product: { name: PRODUCT_NAME, version: VERSION },
+        preview, sessions: manifestSessions,
+      });
+      const readme = redactPrivacyText(supportReadme(createdAt));
+      if (containsSecret(manifest) || containsSecret(readme)) {
+        throw new ContractError('bundle_redaction_failed', 'diagnostic bundle failed privacy verification');
+      }
+      await writer.append({ name: 'manifest.json', content: `${JSON.stringify(manifest, null, 2)}\n` });
+      await writer.append({ name: 'README.txt', content: readme });
     });
-    entries.unshift({ name: 'manifest.json', content: `${JSON.stringify(manifest, null, 2)}\n` });
-    const readme = redactPrivacyText(supportReadme(createdAt));
-    entries.push({ name: 'README.txt', content: readme });
-    privacyInspection.push(manifest, readme);
-    if (containsSecret(privacyInspection)) throw new ContractError('bundle_redaction_failed', 'diagnostic bundle failed privacy verification');
-    const archive = createZip(entries);
-    await atomicWrite(outputPath, archive);
-    return Object.freeze({ path: outputPath, bytes: archive.length, manifest: preview });
+    return Object.freeze({ path: outputPath, bytes, manifest: preview });
   }
 }
 
@@ -96,12 +99,6 @@ async function bundleSessionEvidence(bundle, session, index, createdAt, logSnaps
       open_spans: forensicTrace.open_spans.length, coverage: forensicTrace.coverage ?? null },
   });
   return { folder: sessionFolder(session.id, index), diagnostics, forensicTrace };
-}
-
-function appendSupportEntries(entries, additions) {
-  const bytes = [...entries, ...additions].reduce((total, entry) => total + Buffer.byteLength(entry.content), 0);
-  if (bytes > 16777216) throw new ContractError('zip_input_too_large', 'related-session support evidence exceeds the archive bound');
-  entries.push(...additions);
 }
 
 function emptyLogs() {
@@ -180,6 +177,32 @@ export async function atomicWrite(path, content, operations = {}) {
   await removeFile(temporary).catch(() => undefined);
 }
 
+async function atomicWriteZip(path, generate) {
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  const temporary = join(dirname(path), `.nna-diagnostic-${randomUUID()}.tmp`);
+  const handle = await open(temporary, 'wx', 0o600);
+  let bytes;
+  try {
+    const writer = createZipWriter(handle);
+    await generate(writer);
+    bytes = await writer.finish();
+    await handle.sync();
+    await handle.close();
+  } catch (error) {
+    await handle.close().catch(() => undefined);
+    await unlink(temporary).catch(() => undefined);
+    throw error;
+  }
+  try { await link(temporary, path); }
+  catch (error) {
+    await unlink(temporary).catch(() => undefined);
+    if (error.code === 'EEXIST') throw new ContractError('bundle_exists', 'support bundle destination already exists; choose a new .zip path');
+    throw error;
+  }
+  await unlink(temporary).catch(() => undefined);
+  return bytes;
+}
+
 function supportFileName() {
   const stamp = new Date().toISOString().replace(/[:.]/gu, '-');
   return `${PRODUCT_NAME}-support-${VERSION}-${stamp}.zip`;
@@ -241,5 +264,6 @@ function safeSecretField(value) {
 }
 
 function containsSecretText(value) {
-  return /(?:bearer\s+[A-Za-z0-9._~+/-]{16,}|(?:api[_-]?key|password|secret|token)\s*[=:]\s*(?!\[)(?=[^"'\s]{8,}(?:["'\s,}]|$))(?=[^"'\s]*[A-Za-z])[^"'\s]{8,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|\bAKIA[A-Z0-9]{16}\b|\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{16,})\b|[a-z][a-z0-9+.-]*:\/\/[^\s/:]+:[^\s/@]+@)/iu.test(value);
+  return /(?:bearer\s+[A-Za-z0-9._~+/-]{16,}|(?:api[_-]?key|password|secret|token)\s*[=:]\s*(?!\[)(?=[^"'\s]{8,}(?:["'\s,}]|$))(?=[^"'\s]*[A-Za-z])[^"'\s]{8,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|\bAKIA[A-Z0-9]{16}\b|\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{16,})\b)/iu.test(value)
+    || value.includes('://') && /[a-z][a-z0-9+.-]*:\/\/[^\s/:]+:[^\s/@]+@/iu.test(value);
 }

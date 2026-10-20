@@ -3,6 +3,8 @@ import { userDataPaths } from '../product.js';
 import { ConsoleSessionBroker } from '../session-broker.js';
 import { ContractError, newId } from '../ids.js';
 import { clearWorkspaceConversation, compactWorkspaceConversation, handoffWorkspaceConversation } from './context.js';
+import { beginSessionSubmission } from './submission.js';
+import { fenceGatewayRequests, gatewayFences, withGatewayAdmission } from './gateway-admission.js';
 
 const MAX_ATTACHED_MESSAGE_BYTES = 262_144;
 const ATTACHED_PRINCIPAL = 'authenticated-telegram-attachment';
@@ -24,30 +26,65 @@ export function workspaceBrokerSessions(workspace) {
     summary: summary(requireEngine(session).transcript),
     active: session.id === workspace.projection.activeId,
     busy: session.engine.state.state !== 'idle',
+    turn_id: session.engine.active?.turnId ?? null,
   }));
 }
 
-export async function submitWorkspaceSession(workspace, sessionId, content) {
+export async function submitWorkspaceSession(workspace, sessionId, content, requestId) {
   const session = requireSession(workspace, sessionId);
   requireWorkspaceProjection(workspace);
   if (typeof content !== 'string' || !content.trim() || Buffer.byteLength(content, 'utf8') > MAX_ATTACHED_MESSAGE_BYTES) {
     throw new ContractError('broker_content_invalid', 'attached message is empty or too large');
   }
-  session.meaningful = true;
-  workspace.projection.apply(session.id, { type: 'user_input', text: content });
-  workspace.tabPersistence.observe(workspace._savePoolForBroker(), workspace._tasksForBroker());
-  workspace.onChange();
-  const result = await session.ingress.submit({
-    version: '1.0', type: 'submit', request_id: newId('telegram_attach'), content,
-  }, ATTACHED_PRINCIPAL);
-  await workspace._maybeAutoName?.(session);
-  return result;
+  if (!requestId?.startsWith('gateway_update_') || !session.engine.store?.readRecords) {
+    if (requestId && session.pendingSubmission?.requestId !== requestId
+      && await previouslyAcceptedRequest(session, requestId)) {
+      return { accepted: false, duplicate: true, pending: false };
+    }
+    return beginSessionSubmission(workspace, session, content, {
+      principal: ATTACHED_PRINCIPAL, requestPrefix: 'telegram_attach', requestId,
+    });
+  }
+  const { operation } = await withGatewayAdmission(session, async () => {
+    if (requestId && (await gatewayFences(session)).has(requestId)) {
+      return { operation: Promise.resolve({ accepted: false, cancelled: true }) };
+    }
+    if (requestId && session.pendingSubmission?.requestId !== requestId
+      && await previouslyAcceptedRequest(session, requestId)) {
+      return { operation: Promise.resolve({ accepted: false, duplicate: true, pending: false }) };
+    }
+    return { operation: beginSessionSubmission(workspace, session, content, {
+      principal: ATTACHED_PRINCIPAL, requestPrefix: 'telegram_attach', requestId,
+    }) };
+  });
+  return operation;
 }
 
-export async function cancelWorkspaceSession(workspace, sessionId) {
+async function previouslyAcceptedRequest(session, requestId) {
+  if (typeof session.engine.store?.readRecords !== 'function') return false;
+  if (!session.durableAcceptedRequestIds) {
+    session.durableRequestIdLoading ??= session.engine.store.readRecords().then(({ records }) => new Set(
+      records.filter((record) => record.type === 'turn_accepted' && typeof record.payload?.requestId === 'string')
+        .map((record) => record.payload.requestId),
+    )).finally(() => { session.durableRequestIdLoading = null; });
+    session.durableAcceptedRequestIds = await session.durableRequestIdLoading;
+  }
+  // Invariant: a gateway retry of a committed turn cannot start a second turn after restart.
+  return session.durableAcceptedRequestIds.has(requestId);
+}
+
+export async function cancelWorkspaceSession(workspace, sessionId, expectedTurnId, fenceRequestIds = []) {
   const session = requireSession(workspace, sessionId);
+  const matchedTurn = await withGatewayAdmission(session, async () => {
+    await fenceGatewayRequests(session, fenceRequestIds);
+    const active = session.engine.active;
+    return active && fenceRequestIds.includes(active.requestId) ? active.turnId : null;
+  });
+  const targetTurn = matchedTurn ?? expectedTurnId;
+  if (!targetTurn) return { accepted: true, already_terminal: true };
   const result = await session.ingress.submit({
     version: '1.0', type: 'cancel', request_id: newId('telegram_attach_cancel'),
+    expected_turn_id: targetTurn,
   }, ATTACHED_PRINCIPAL);
   return result;
 }

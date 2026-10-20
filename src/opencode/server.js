@@ -65,17 +65,40 @@ export class OpenCodeCompatServer {
   }
 
   #handle(req, res) {
-    const target = parseTarget(req.url ?? '/');
-    res.on('finish', () => this.#record(res.statusCode, req?.method, req?.url ?? target?.pathname, res.opencodeErrorCode ?? null));
-    res.on('close', () => { if (!res.writableEnded) this.#record(res.statusCode, req?.method, req?.url ?? target?.pathname, 'client_aborted'); });
+    const requestUrl = req.url ?? '/';
+    res.on('finish', () => this.#record(res.statusCode, req.method, requestUrl, res.opencodeErrorCode ?? null));
+    res.on('close', () => { if (!res.writableEnded) this.#record(res.statusCode, req.method, requestUrl, 'client_aborted'); });
+    let target;
+    try { target = parseTarget(requestUrl); }
+    catch {
+      if (!this.#authorized(req)) {
+        if (requestUrl.startsWith('/api/')) return sendJson(res, 401, { _tag: 'UnauthorizedError', message: 'Authentication required' });
+        return this.#reject(res, 401, req, null);
+      }
+      return this.#rejectInvalidTarget(req, res);
+    }
     if (!this.#authorized(req)) {
       if (target.pathname.startsWith('/api/')) return sendJson(res, 401, { _tag: 'UnauthorizedError', message: 'Authentication required' });
       return this.#reject(res, 401, req, target);
     }
     if (target.pathname.startsWith('/api/')) return void handleV2Request({ req, res, target, options: this.#options });
-    const route = matchRoute(req.method, target.pathname);
+    let route;
+    try { route = matchRoute(req.method, target.pathname); }
+    catch (error) {
+      if (error instanceof URIError) return this.#rejectInvalidTarget(req, res);
+      return this.#reject(res, 500, req, target, error);
+    }
     if (route) return void Promise.resolve(route.handler({ req, res, target, params: route.params, server: this, options: this.#options })).catch((error) => this.#reject(res, 500, req, target, error));
     return this.#reject(res, 404, req, target);
+  }
+
+  #rejectInvalidTarget(req, res) {
+    res.opencodeErrorCode = 'invalid_target';
+    this.#options.logger?.record({ type: 'opencode_route_failure', status: 400, code: 'invalid_target' });
+    if (req.url?.startsWith('/api/')) {
+      return sendJson(res, 400, { _tag: 'InvalidRequestError', message: 'Invalid request target' });
+    }
+    return sendEmpty(res, 400);
   }
 
   #authorized(req) {

@@ -68,10 +68,7 @@ export class JournalStore {
       throw error;
     }
     const headerRecords = recovered.truncated ? await readJournalPrefix(this.path, 1) : recovered.records.slice(0, 1);
-    return {
-      ...recovered, headerRecords,
-      ...(control ? { controlRecords: control.controlRecords, controlComplete: control.controlComplete } : {}),
-    };
+    return { ...recovered, headerRecords, ...(control ?? {}) };
   }
 
   async append(type, payload) {
@@ -331,6 +328,7 @@ export async function recoverControlRecords(path, options = {}) {
   }
   if (size > maxBytes) return Object.freeze({ controlRecords: Object.freeze([]), controlComplete: false });
   const records = [];
+  let workBoundary = null;
   const stream = createReadStream(path, { encoding: 'utf8' });
   const lines = createInterface({ input: stream, crlfDelay: 0 });
   let previous = '0'.repeat(64);
@@ -352,6 +350,7 @@ export async function recoverControlRecords(path, options = {}) {
         if (records.length >= maxRecords) { complete = false; break; }
         records.push(record);
       }
+      if (record.type === 'work_state' || record.type === 'conversation_cleared') workBoundary = record;
       previous = record.hash;
     }
   } catch {
@@ -365,7 +364,8 @@ export async function recoverControlRecords(path, options = {}) {
   // attest completeness for a prefix and roll authority back across a clear. The
   // expected tip pins the scan to the same bytes the resumed tail already verified.
   if (complete && options.expectedTip !== undefined && previous !== options.expectedTip) complete = false;
-  return Object.freeze({ controlRecords: Object.freeze(records), controlComplete: complete });
+  return Object.freeze({ controlRecords: Object.freeze(records), controlComplete: complete,
+    workBoundary: complete ? workBoundary : null });
 }
 
 async function readTailLines(handle, size, bytes) {

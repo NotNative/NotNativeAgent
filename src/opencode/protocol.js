@@ -82,13 +82,13 @@ export function sseOpen(res, extraHeaders = {}) {
 }
 
 export function sseFrame(res, frame = {}) {
-  if (res.writableEnded) return false;
+  if (res.destroyed || res.writableEnded) return false;
   const lines = [];
   if (frame.id !== undefined) lines.push(`id: ${frame.id}`);
   if (frame.event !== undefined) lines.push(`event: ${frame.event}`);
   for (const dataLine of String(frame.data ?? '').split('\n')) lines.push(`data: ${dataLine}`);
-  res.write(`${lines.join('\n')}\n\n`);
-  return true;
+  try { return res.write(`${lines.join('\n')}\n\n`) !== false; }
+  catch { return false; }
 }
 
 export function sseClose(res) {

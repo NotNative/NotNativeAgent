@@ -34,6 +34,39 @@ test('project guidance resolves portable instructions and lower-priority local m
   assert.deepEqual(items.map((item) => item.depth), [0, 1, 2, 0, 1, 2]);
 });
 
+test('recent target instructions survive directory and document byte limits', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-project-guidance-priority-'));
+  await writeFile(join(root, 'AGENTS.md'), 'root instructions');
+  const records = [];
+  for (let index = 0; index < 40; index += 1) {
+    const directory = `area-${String(index).padStart(2, '0')}`;
+    await mkdir(join(root, directory));
+    await writeFile(join(root, directory, 'AGENTS.md'), `${directory} instructions`);
+    records.push({ type: 'tool_request', args: { path: `${directory}/file.js` } });
+  }
+  const items = await new ProjectGuidance(root).resolve(records);
+  const paths = items.map((item) => item.path.replaceAll('\\', '/'));
+  assert.ok(paths.includes('AGENTS.md'));
+  assert.ok(paths.includes('area-39/AGENTS.md'));
+  assert.equal(paths.includes('area-00/AGENTS.md'), false);
+  assert.equal(items.at(-1).path.replaceAll('\\', '/'), 'area-39/AGENTS.md');
+});
+
+test('recent target instructions get byte budget before older target instructions', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-project-guidance-budget-'));
+  const records = [];
+  for (let index = 0; index < 3; index += 1) {
+    const directory = `area-${index}`;
+    await mkdir(join(root, directory));
+    await writeFile(join(root, directory, 'AGENTS.md'), `${directory}:${'x'.repeat(65_000)}`);
+    records.push({ type: 'tool_request', args: { path: `${directory}/file.js` } });
+  }
+  const items = await new ProjectGuidance(root).resolve(records);
+  const paths = items.map((item) => item.path.replaceAll('\\', '/'));
+  assert.ok(paths.includes('area-2/AGENTS.md'));
+  assert.equal(paths.includes('area-0/AGENTS.md'), false);
+});
+
 test('project guidance is attributed workspace policy and cannot masquerade as kernel authority', () => {
   const config = { workspaceRoot: 'D:/work', limits: { maxContextBytes: 1_048_576 } };
   const context = buildContext(config, [], 'work here', {

@@ -17,26 +17,7 @@ export function createWireEventBus({ heartbeatIntervalMs = HEARTBEAT_INTERVAL_MS
   const replay = { entries: [], bytes: 0 };
   return {
     subscribe(res, scope = {}) {
-      const subscriber = {
-        res, directory: scope.directory ?? null,
-        subjectId: scope.subjectId ?? null,
-        workspaceIds: Array.isArray(scope.workspaceIds) ? new Set(scope.workspaceIds) : null,
-      };
-      add(subscriber);
-      const { replayStatus, replayIndex } = replayAdmission(replay.entries, scope.lastEventId, subscriber);
-      // Why: the opener is a per-connection receipt, not a fan-out broadcast;
-      // every existing subscriber must NOT see the new connection's opener.
-      sseFrame(res, { data: JSON.stringify(globalEnvelope(eventId(), 'server.connected', { replayStatus })) });
-      if (replayStatus === 'complete') {
-        for (const entry of replay.entries.slice(replayIndex + 1)) {
-          if (!visibleTo(subscriber, entry.envelope, entry.scope)) continue;
-          if (!sendEnvelope(subscriber, entry.envelope)) {
-            remove(subscriber);
-            break;
-          }
-        }
-      }
-      return () => remove(subscriber);
+      return subscribeClient(res, scope, { add, remove, replay });
     },
     publishGlobal(type, properties) {
       return publish(subscribers, replay, globalEnvelope(eventId(), type, properties), {}, remove);
@@ -72,6 +53,33 @@ export function createWireEventBus({ heartbeatIntervalMs = HEARTBEAT_INTERVAL_MS
   };
 }
 
+function subscribeClient(res, scope, { add, remove, replay }) {
+  const subscriber = {
+    res, directory: scope.directory ?? null,
+    subjectId: scope.subjectId ?? null,
+    workspaceIds: Array.isArray(scope.workspaceIds) ? new Set(scope.workspaceIds) : null,
+  };
+  add(subscriber);
+  const { replayStatus, replayIndex } = replayAdmission(replay.entries, scope.lastEventId, subscriber);
+  // Why: the opener is a per-connection receipt, not a fan-out broadcast;
+  // every existing subscriber must NOT see the new connection's opener.
+  if (!sseFrame(res, { data: JSON.stringify(globalEnvelope(eventId(), 'server.connected', { replayStatus })) })) {
+    remove(subscriber);
+    res.destroy?.();
+    return () => remove(subscriber);
+  }
+  if (replayStatus === 'complete') {
+    for (const entry of replay.entries.slice(replayIndex + 1)) {
+      if (!visibleTo(subscriber, entry.envelope, entry.scope)) continue;
+      if (!sendEnvelope(subscriber, entry.envelope)) {
+        remove(subscriber);
+        break;
+      }
+    }
+  }
+  return () => remove(subscriber);
+}
+
 function createSubscriberRegistry(heartbeatIntervalMs) {
   const subscribers = new Set();
   let timer = null;
@@ -85,8 +93,11 @@ function createSubscriberRegistry(heartbeatIntervalMs) {
   const heartbeat = () => {
     for (const subscriber of [...subscribers]) {
       if (subscriber.res.destroyed || subscriber.res.writableEnded) { remove(subscriber); continue; }
-      try { subscriber.res.write(': heartbeat\n\n'); }
-      catch { remove(subscriber); }
+      try {
+        if (subscriber.res.write(': heartbeat\n\n') !== false) continue;
+      } catch { /* A failed write settles the subscriber below. */ }
+      remove(subscriber);
+      subscriber.res.destroy?.();
     }
   };
   const add = (subscriber) => {
@@ -182,5 +193,7 @@ function visibleTo(subscriber, envelope, scope) {
 }
 
 function sendEnvelope(subscriber, envelope) {
-  return sseFrame(subscriber.res, { id: envelope.payload.id, data: JSON.stringify(envelope) });
+  const written = sseFrame(subscriber.res, { id: envelope.payload.id, data: JSON.stringify(envelope) });
+  if (!written) subscriber.res.destroy?.();
+  return written;
 }

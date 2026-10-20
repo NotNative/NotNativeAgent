@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createWireEventBus, wireEnvelopeShapes } from '../src/opencode/wire-events.js';
+import { createV2Events } from '../src/opencode/v2-events.js';
 
 function fakeRes(written) {
   return { writableEnded: false, write: (chunk) => { written.push(chunk); } };
@@ -60,6 +61,50 @@ test('idle subscribers receive cursor-free heartbeats and unsubscribe stops the 
   assert.equal(resumed.length, 1, 'heartbeats must not enter the replay ring');
   assert.equal(payload(resumed, 0).payload.properties.replayStatus, 'gap');
   bus.close();
+});
+
+test('legacy SSE disconnects a subscriber when its writable buffer reports backpressure', () => {
+  const bus = createWireEventBus();
+  const written = [];
+  const res = { writableEnded: false, destroyed: false,
+    write(chunk) { written.push(chunk); return written.length < 2; },
+    destroy() { this.destroyed = true; } };
+  bus.subscribe(res);
+  bus.publishGlobal('slow', {});
+  assert.equal(res.destroyed, true);
+  assert.equal(bus.subscriberCount(), 0);
+  bus.publishGlobal('later', {});
+  assert.equal(written.length, 2);
+  bus.close();
+});
+
+test('legacy SSE heartbeat backpressure removes the idle subscriber', async () => {
+  const bus = createWireEventBus({ heartbeatIntervalMs: 5 });
+  let writes = 0;
+  const res = { writableEnded: false, destroyed: false,
+    write() { writes += 1; return writes < 2; },
+    destroy() { this.destroyed = true; } };
+  bus.subscribe(res);
+  await delay(25);
+  assert.equal(res.destroyed, true);
+  assert.equal(bus.subscriberCount(), 0);
+  bus.close();
+});
+
+test('v2 SSE disconnects a subscriber whose event write reports backpressure', () => {
+  const events = createV2Events();
+  const written = [];
+  const res = { writableEnded: false, destroyed: false,
+    writeHead() {}, flushHeaders() {}, on() {}, end() {},
+    write(chunk) { written.push(chunk); return written.length < 2; },
+    destroy() { this.destroyed = true; } };
+  assert.equal(events.subscribe(res), true);
+  const state = { info: { id: 'ses_1', location: {} }, sequence: 0 };
+  events.emit(state, 'session.updated', {});
+  assert.equal(res.destroyed, true);
+  events.emit(state, 'session.updated', {});
+  assert.equal(written.length, 2);
+  events.close();
 });
 
 test('bus mirrors durable session events with the same id, .1 suffix, and monotonic seq', () => {

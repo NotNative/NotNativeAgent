@@ -2197,7 +2197,8 @@ test('AC-OBS-01/AC-OBS-04 health and diagnostic bundle are read-only and content
   const result = await diagnosticBundle.create(path);
   const archive = await readFile(result.path);
   const entries = zipEntries(archive);
-  const entry = entries[0];
+  const entry = entries.find((item) => item.name === 'manifest.json');
+  assert.ok(entry, 'support archive must include manifest.json');
   const decoded = JSON.parse(entry.content.toString('utf8'));
   const sessionFolder = decoded.sessions[0].folder;
   const sessionEntry = entries.find((item) => item.name === `${sessionFolder}/diagnostics.json`);

@@ -152,7 +152,8 @@ export class SessionEngine {
   }
 
   async cancel(command) {
-    if (!this.active) return { accepted: true, already_terminal: true };
+    if (!this.active || command.expected_turn_id !== undefined
+      && this.active.turnId !== command.expected_turn_id) return { accepted: true, already_terminal: true };
     this.active.cancelled = true;
     this.active.controller.abort();
     if (!['cancelling', 'finalizing_turn', 'idle'].includes(this.state.state)) {
@@ -469,7 +470,15 @@ export class SessionEngine {
       controlRecords: recovery?.controlRecords, controlComplete: recovery?.controlComplete,
     });
     await restoreEngineWorkspace(this, restored.workspaceRoot);
-    this.work.restore(records);
+    if (truncated && !records.some((record) => record.type === 'work_state'
+      || record.type === 'conversation_cleared')) {
+      // Invariant: a bounded transcript tail cannot attest that no older work
+      // goal or clear marker exists. Use only the genesis-verified boundary.
+      if (recovery.controlComplete !== true) {
+        throw new ContractError('work_state_invalid', 'conversation work history is outside the verified recovery window');
+      }
+      this.work.restore(recovery.workBoundary ? [recovery.workBoundary] : []);
+    } else this.work.restore(records);
     // Invariant: restart preserves the live context inputs; terminal carry has separate state.
     this.transcript.push(...restored.transcript.filter((item) => item.type !== 'turn_outcome'));
     this.latestTurnOutcome = restored.latestTurnOutcome;

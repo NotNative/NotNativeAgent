@@ -11,6 +11,8 @@ import {
 } from '../src/gateway/config.js';
 import { splitTelegramText, TelegramApi } from '../src/gateway/telegram-api.js';
 import { gatewayCompactionMessage, gatewaySessionId, TelegramGateway } from '../src/gateway/telegram.js';
+import { loadGatewayState } from '../src/gateway/attached-replay.js';
+import { runGatewayContextAction } from '../src/gateway/context-actions.js';
 import { ConsoleSessionBroker, ConsoleSessionDirectory } from '../src/session-broker.js';
 import { readTelegramOutbox, TelegramNotificationQueue } from '../src/notifications/telegram.js';
 import { commandDefinition } from '../src/tui/commands.js';
@@ -18,6 +20,10 @@ import { configOverlay, gatewayOverlay, overlayCommandDraft } from '../src/tui/o
 import { gatewayShutdownDiagnostic, runGatewayCommand, runtimeStatus } from '../src/gateway-cli.js';
 import { handleGatewayCommand } from '../src/tui/gateway-command.js';
 import { SecretBroker } from '../src/secret-broker.js';
+import { SessionLock } from '../src/persistence/session-lock.js';
+import { submitWorkspaceSession } from '../src/experience/session-broker.js';
+import { acceptPendingSubmission } from '../src/experience/submission.js';
+import { SessionEngine } from '../src/engine.js';
 
 async function waitUntil(predicate, timeoutMs = 2_000) {
   const deadline = Date.now() + timeoutMs;
@@ -27,6 +33,61 @@ async function waitUntil(predicate, timeoutMs = 2_000) {
   }
   assert.fail('condition did not settle before deadline');
 }
+
+test('gateway refuses malformed or unsupported durable replay state without resetting its offset', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-corrupt-state-'));
+  const statePath = join(root, 'state.json');
+  assert.deepEqual(await loadGatewayState(statePath), { offset: 0, inbox: [], routes: {}, replies: [], operations: {}, suppressed: {}, attachments: {} });
+  for (const state of ['{', JSON.stringify({ version: 4, offset: 8, inbox: [] }),
+    JSON.stringify({ version: 3, offset: 8, inbox: [], attachments: {}, routes: {}, replies: [null] }),
+    'x'.repeat(1_048_577)]) {
+    await writeFile(statePath, state);
+    await assert.rejects(loadGatewayState(statePath), { code: 'gateway_state_invalid' });
+    assert.equal(await readFile(statePath, 'utf8'), state);
+  }
+  await rm(root, { recursive: true, force: true });
+});
+
+test('v2 pending gateway updates cannot migrate without their memory-only attachment route', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-v2-route-'));
+  const statePath = join(root, 'state.json');
+  const update = { update_id: 7, message: { text: 'send to attached Console', from: { id: 42 }, chat: { id: 42 } } };
+  const legacy = JSON.stringify({ version: 2, offset: 8, inbox: [update] });
+  await writeFile(statePath, legacy);
+  await assert.rejects(loadGatewayState(statePath), { code: 'gateway_route_unrecoverable' });
+  assert.equal(await readFile(statePath, 'utf8'), legacy);
+  await writeFile(statePath, JSON.stringify({ version: 2, offset: 8, inbox: [] }));
+  assert.deepEqual(await loadGatewayState(statePath), { offset: 8, inbox: [], routes: {}, replies: [], operations: {}, suppressed: {}, attachments: {} });
+  const pendingControl = JSON.stringify({ version: 3, offset: 8, inbox: [
+    { update_id: 7, message: { text: '/handoff', from: { id: 42 }, chat: { id: 42 } } }],
+    attachments: {}, routes: {}, replies: [] });
+  await writeFile(statePath, pendingControl);
+  await assert.rejects(loadGatewayState(statePath), { code: 'gateway_control_replay_unrecoverable' });
+  assert.equal(await readFile(statePath, 'utf8'), pendingControl);
+  await rm(root, { recursive: true, force: true });
+});
+
+test('attached-only gateway shutdown waits for outstanding durable writes after polling stops', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-shutdown-write-'));
+  let releaseWrite;
+  const write = new Promise((resolve) => { releaseWrite = resolve; });
+  const gateway = new TelegramGateway({
+    api: {}, config: { authorized_user_ids: [] },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs') },
+    logger: { record() {}, async flush() {} },
+  });
+  gateway.stateWrites = write;
+  let settled = false;
+  const shutdown = gateway.shutdown().then(() => { settled = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(settled, false);
+  releaseWrite();
+  await shutdown;
+  assert.equal(settled, true);
+  await gateway.shutdown();
+  await rm(root, { recursive: true, force: true });
+});
 
 test('gateway shutdown diagnostics expose only a stable code', () => {
   const diagnostic = gatewayShutdownDiagnostic({ code: 'close failed', message: 'private token detail' });
@@ -235,12 +296,48 @@ test('gateway foreground startup publishes its process identity before polling',
       return new TelegramGateway(options);
     },
   }), { name: 'TypeError', message: 'updates is not iterable' });
-  assert.deepEqual(captured, [process.pid]);
+  assert.deepEqual(captured, [process.pid, process.pid]);
   assert.deepEqual(methods, ['getMe', 'getUpdates']);
   assert.ok(gatewayEngineOptions.secretBroker instanceof SecretBroker);
   assert.equal(gatewayEngineOptions.secretBroker.vault.path, paths.secretVault);
   assert.equal(gatewayEngineOptions.secretBroker.vault.keyPath, paths.secretKey);
   await assert.rejects(readFile(join(paths.gateway, 'gateway.pid')), { code: 'ENOENT' });
+});
+
+test('gateway foreground run cannot replace a live gateway owner', async (t) => {
+  const root = createScratchSync('nna-gateway-singleton-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const paths = { root, config: join(root, 'config'), gateway: join(root, 'runtime', 'gateway'),
+    gatewayConfig: join(root, 'config', 'gateway.json') };
+  await mkdir(join(root, 'config'), { recursive: true });
+  await writeFile(join(root, 'config', 'manifest.json'), `${JSON.stringify({
+    persistence: 'durable',
+    provider: { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'fixture', trust_zone: 'loopback' },
+  })}\n`);
+  await saveGatewayConfig(paths.gatewayConfig, {
+    enabled: true, token: 'TEST_FIXTURE_NOT_A_REAL_TELEGRAM_TOKEN', authorized_user_ids: ['42'],
+  });
+  const identity = {
+    capture: async (pid) => ({ version: 1, pid, platform: 'fixture', start_id: 'gateway-owner' }),
+    compare: async () => 'same',
+  };
+  const owner = new SessionLock(paths.gateway, 'gateway-running', { processIdentity: identity });
+  await owner.acquire();
+  try {
+    await assert.rejects(runGatewayCommand(['run'], paths, {
+      environment: {}, processIdentity: identity,
+      gatewayFactory: () => assert.fail('second gateway must not start'),
+    }), { code: 'session_locked' });
+    await assert.rejects(readFile(join(paths.gateway, 'gateway.pid')), { code: 'ENOENT' });
+  } finally { await owner.release(); }
+  const priorRecord = { version: 2, pid: process.pid + 1000,
+    process_identity: { version: 1, pid: process.pid + 1000, platform: 'fixture', start_id: 'legacy-owner' } };
+  await writeFile(join(paths.gateway, 'gateway.pid'), JSON.stringify(priorRecord));
+  await assert.rejects(runGatewayCommand(['run'], paths, {
+    environment: {}, processIdentity: identity,
+    gatewayFactory: () => assert.fail('live legacy owner must not be replaced'),
+  }), { code: 'session_locked' });
+  assert.deepEqual(JSON.parse(await readFile(join(paths.gateway, 'gateway.pid'), 'utf8')), priorRecord);
 });
 
 test('gateway status and stop require the recorded process instance rather than PID liveness alone', async () => {
@@ -425,8 +522,10 @@ test('Console session broker discovers, submits, and cancels without copying con
   const calls = [];
   const workspace = {
     brokerSessions: () => [{ id: 'session-main', alias: 'Main', summary: 'Working on gateway routing', active: true, busy: false }],
-    submitSession: async (id, content) => { calls.push(['submit', id, content]); return { outcome: 'completed', text: 'done' }; },
-    cancelSession: async (id) => { calls.push(['cancel', id]); return { accepted: true }; },
+    submitSession: async (id, content, requestId) => { calls.push(['submit', id, content, requestId]); return { outcome: 'completed', text: 'done' }; },
+    cancelSession: async (id, expectedTurnId, fenceRequestIds) => {
+      calls.push(['cancel', id, expectedTurnId, fenceRequestIds]); return { accepted: true };
+    },
     compactSession: async (id) => { calls.push(['compact', id]); return { omitted: 8, retained: 3, reduced: 1 }; },
     handoffSession: async (id) => { calls.push(['handoff', id]); return { omitted: 11, retained: 0 }; },
     clearSession: async (id) => { calls.push(['clear', id]); return { removed: 4, cleared: true }; },
@@ -438,16 +537,40 @@ test('Console session broker discovers, submits, and cancels without copying con
     assert.equal(target.alias, 'Main');
     assert.equal(target.summary, 'Working on gateway routing');
     assert.deepEqual(await directory.submit(target, 'continue here'), { outcome: 'completed', text: 'done' });
+    assert.deepEqual(await directory.submit(target, 'retry here', 'gateway_update_17'), { outcome: 'completed', text: 'done' });
+    await assert.rejects(directory.submit(target, 'invalid', 'not valid'), { code: 'invalid_id' });
     assert.deepEqual(await directory.cancel(target), { accepted: true });
+    assert.deepEqual(await directory.cancel(target, 'turn-A', ['gateway_update_16']), { accepted: true });
+    await assert.rejects(directory.cancel(target, undefined, ['other-id']), { code: 'broker_request_invalid' });
     assert.deepEqual(await directory.compact(target), { omitted: 8, retained: 3, reduced: 1 });
     assert.deepEqual(await directory.handoff(target), { omitted: 11, retained: 0 });
     assert.deepEqual(await directory.clear(target), { removed: 4, cleared: true });
     assert.deepEqual(calls, [
-      ['submit', 'session-main', 'continue here'], ['cancel', 'session-main'],
+      ['submit', 'session-main', 'continue here', undefined],
+      ['submit', 'session-main', 'retry here', 'gateway_update_17'], ['cancel', 'session-main', undefined, []],
+      ['cancel', 'session-main', 'turn-A', ['gateway_update_16']],
       ['compact', 'session-main'], ['handoff', 'session-main'], ['clear', 'session-main'],
     ]);
   } finally { await broker.close(); }
   assert.deepEqual(await directory.list(), []);
+});
+
+test('attached Telegram replay does not duplicate the projected user message', async () => {
+  const projected = []; const requests = new Set();
+  const session = { id: 'session-main', engine: { transcript: [], state: { state: 'idle' } },
+    ingress: { submit: async () => assert.fail('stable request must use idempotent start'), start(command) {
+      if (requests.has(command.request_id)) return { duplicate: true, result: { duplicate: true } };
+      requests.add(command.request_id);
+      acceptPendingSubmission(workspace, session, { type: 'accepted', accepted: true, request_id: command.request_id });
+      return { duplicate: false, operation: Promise.resolve({ outcome: 'completed', text: 'done' }) };
+    } } };
+  const workspace = { sessions: new Map([['session-main', session]]),
+    projection: { sessions: new Map([['session-main', { pendingAttachments: [] }]]), apply: (_id, event) => projected.push(event) },
+    tabPersistence: { observe() {} }, _savePoolForBroker: () => ({}), _tasksForBroker: () => ({}),
+    onChange() {}, _maybeAutoName: async () => undefined };
+  assert.equal((await submitWorkspaceSession(workspace, 'session-main', 'hello', 'gateway_update_21')).outcome, 'completed');
+  assert.deepEqual(await submitWorkspaceSession(workspace, 'session-main', 'hello', 'gateway_update_21'), { duplicate: true });
+  assert.deepEqual(projected, [{ type: 'user_input', text: 'hello' }]);
 });
 
 test('Telegram compact and confirmed clear control the standalone session without entering the model', async () => {
@@ -523,7 +646,7 @@ test('Telegram attach and detach controls are intercepted before the standalone 
     api, paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') },
     engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 8 } },
     config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
-    sessionDirectory: { list: async () => [target], submit: async (_target, text) => { routed.push(text); return { outcome: 'completed', text: `attached:${text}` }; } },
+    sessionDirectory: { list: async () => [target], submit: async (_target, text, requestId) => { routed.push([text, requestId]); return { outcome: 'completed', text: `attached:${text}` }; } },
     engineFactory: () => {
       created.push(true);
       return { config: { executionManifest: null }, initialize: async () => undefined,
@@ -532,10 +655,539 @@ test('Telegram attach and detach controls are intercepted before the standalone 
     },
   });
   const running = gateway.run(); await done; await gateway.shutdown(); await running;
-  assert.deepEqual(routed, ['continue here']);
+  assert.deepEqual(routed, [['continue here', 'gateway_update_3']]);
   assert.equal(created.length, 1);
   assert.deepEqual(callbacks, ['cb1']);
   assert.equal(sent.some((item) => item.text === 'attached:continue here' && item.options.replyMarkup), true);
+});
+
+test('attached Telegram sender receives admission and broker failure replies before acknowledgment', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-attached-pending-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') };
+  const sent = [];
+  let queuedAtFailureReply = false;
+  let notified;
+  const notice = new Promise((resolve) => { notified = resolve; });
+  let polls = 0;
+  const api = {
+    async getMe() { return { id: 1 }; },
+    async getUpdates(_offset, _timeout, signal) {
+      if (++polls === 1) return [
+        { update_id: 1, message: { text: '/attach Main', from: { id: 42 }, chat: { id: 42 } } },
+        { update_id: 2, message: { text: 'keep this message', from: { id: 42 }, chat: { id: 42 } } },
+        { update_id: 3, message: { text: 'uncertain delivery', from: { id: 42 }, chat: { id: 42 } } },
+      ];
+      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    },
+    async sendMessage(_chatId, text) {
+      sent.push(text);
+      if (text.includes('could not confirm delivery')) {
+        queuedAtFailureReply = JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8'))
+          .replies.some((item) => item.updateId === 3 && item.chatId === '42' && item.alias === 'Main');
+        notified();
+      }
+    },
+  };
+  const target = { id: 'main', targetId: 'target-main', alias: 'Main', summary: 'Busy', brokerId: 'broker', broker: {} };
+  const gateway = new TelegramGateway({
+    api, paths, engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    sessionDirectory: { list: async () => [target], submit: async (_target, text) => {
+      throw Object.assign(new Error('private broker failure'), {
+        code: text === 'keep this message' ? 'turn_submission_pending' : 'broker_unavailable',
+      });
+    } },
+  });
+  const running = gateway.run();
+  await notice;
+  await waitUntil(async () => JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).inbox.length === 0);
+  await gateway.shutdown(); await running;
+  assert.equal(sent.filter((text) => text.includes('Please send this one again')).length, 1);
+  assert.equal(sent.filter((text) => text.includes('could not confirm delivery')).length, 1);
+  assert.equal(queuedAtFailureReply, true);
+  assert.equal(sent.some((text) => text.includes('private broker failure')), false);
+});
+
+test('attached failure reply survives Telegram send failure and restart without resubmission', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-attached-reply-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') };
+  const target = { id: 'main', targetId: 'target-main', alias: 'Main', brokerId: 'broker', broker: {} };
+  let submitted = 0, polls = 0;
+  let deliveryFailed; const failedDelivery = new Promise((resolve) => { deliveryFailed = resolve; });
+  const config = { authorized_user_ids: ['42'], polling_timeout_seconds: 5 };
+  const engineConfig = { limits: { providerConcurrency: 1, providerQueueLimit: 4 } };
+  const sessionDirectory = { list: async () => [target], submit: async () => {
+    submitted += 1;
+    throw Object.assign(new Error('private failure'), { code: 'broker_unavailable' });
+  } };
+  const update = (id, text) => ({ update_id: id, message: { text, from: { id: 42 }, chat: { id: 42 } } });
+  const first = new TelegramGateway({
+    paths, config, engineConfig, sessionDirectory,
+    api: {
+      async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        if (++polls === 1) return [update(1, '/attach Main'), update(2, 'keep target')];
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage(_chatId, text) {
+        if (text.includes('could not confirm delivery')) {
+          deliveryFailed();
+          throw Object.assign(new Error('offline'), { code: 'telegram_unavailable' });
+        }
+      },
+    },
+  });
+  const runningFirst = first.run();
+  await failedDelivery;
+  const persisted = JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8'));
+  assert.equal(persisted.inbox.length, 0);
+  assert.equal(persisted.replies.some((item) => item.updateId === 2), true);
+  await first.shutdown(); await runningFirst;
+  assert.equal(submitted, 1);
+
+  const sent = [];
+  const second = new TelegramGateway({
+    paths, config, engineConfig, sessionDirectory,
+    api: {
+      async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage(chatId, text) { sent.push({ chatId, text }); },
+    },
+  });
+  const runningSecond = second.run();
+  await waitUntil(async () => sent.length === 1);
+  await second.shutdown(); await runningSecond;
+  assert.equal(submitted, 1);
+  assert.equal(sent[0].chatId, '42');
+  assert.match(sent[0].text, /could not confirm delivery/u);
+  assert.equal(JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).replies.length, 0);
+});
+
+test('standalone answer survives Telegram send failure and restart without rerunning the turn', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-standalone-reply-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') };
+  const config = { authorized_user_ids: ['42'], polling_timeout_seconds: 5 };
+  const engineConfig = { limits: { providerConcurrency: 1, providerQueueLimit: 4 } };
+  const update = { update_id: 3, message: { text: 'answer this', from: { id: 42 }, chat: { id: 42 } } };
+  let turns = 0, polls = 0, failedDelivery;
+  const deliveryFailed = new Promise((resolve) => { failedDelivery = resolve; });
+  const first = new TelegramGateway({ paths, config, engineConfig,
+    engineFactory: () => ({ config: { executionManifest: null }, initialize: async () => undefined,
+      submit: async () => { turns += 1; return { outcome: 'completed', text: 'durable answer' }; },
+      shutdown: async () => ({ complete: true }) }),
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        if (++polls === 1) return [update];
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage() { failedDelivery(); throw Object.assign(new Error('offline'), { code: 'telegram_unavailable' }); } },
+  });
+  const runningFirst = first.run();
+  await deliveryFailed;
+  await waitUntil(async () => JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).inbox.length === 0);
+  await first.shutdown(); await runningFirst;
+  assert.equal(turns, 1);
+  const persisted = JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8'));
+  assert.equal(persisted.replies.length, 1);
+  assert.equal(persisted.replies[0].text, 'durable answer');
+
+  const sent = [];
+  const second = new TelegramGateway({ paths, config, engineConfig,
+    engineFactory: () => assert.fail('a completed standalone turn must not restart'),
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage(chatId, text, _signal, options) { sent.push({ chatId, text, options }); } },
+  });
+  const runningSecond = second.run();
+  await waitUntil(async () => sent.length === 1);
+  await second.shutdown(); await runningSecond;
+  assert.deepEqual(sent, [{ chatId: '42', text: 'durable answer', options: {} }]);
+  assert.equal(turns, 1);
+  assert.equal(JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).replies.length, 0);
+});
+
+test('context command reply survives Telegram outage without repeating the committed effect', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-control-reply-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') };
+  const config = { authorized_user_ids: ['42'], polling_timeout_seconds: 5 };
+  const engineConfig = { limits: { providerConcurrency: 1, providerQueueLimit: 4 } };
+  const update = { update_id: 9, message: { text: '/compact', from: { id: 42 }, chat: { id: 42 } } };
+  let compacted = 0, polls = 0, failedDelivery;
+  const deliveryFailed = new Promise((resolve) => { failedDelivery = resolve; });
+  const first = new TelegramGateway({ paths, config, engineConfig,
+    engineFactory: () => ({ config: { executionManifest: null }, initialize: async () => undefined,
+      compactConversation: async () => { compacted += 1; return { omitted: 4, retained: 2 }; },
+      shutdown: async () => ({ complete: true }) }),
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        if (++polls === 1) return [update];
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage() { failedDelivery(); throw Object.assign(new Error('offline'), { code: 'telegram_unavailable' }); } },
+  });
+  const runningFirst = first.run();
+  await deliveryFailed;
+  await waitUntil(async () => JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).inbox.length === 0);
+  await first.shutdown(); await runningFirst;
+  assert.equal(compacted, 1);
+  const state = JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8'));
+  assert.match(state.replies[0].text, /Context compacted/u);
+  const sent = [];
+  const second = new TelegramGateway({ paths, config, engineConfig,
+    engineFactory: () => assert.fail('committed context control must not rerun'),
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage(_chatId, text) { sent.push(text); } },
+  });
+  const runningSecond = second.run();
+  await waitUntil(async () => sent.length === 1);
+  await second.shutdown(); await runningSecond;
+  assert.match(sent[0], /Context compacted/u);
+  assert.equal(compacted, 1);
+});
+
+test('cancel reply survives send failure without cancelling a later attached target', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-cancel-reply-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') };
+  await mkdir(paths.gateway, { recursive: true });
+  const update = { update_id: 5, message: { text: '/cancel', from: { id: 42 }, chat: { id: 42 } } };
+  await writeFile(join(paths.gateway, 'state.json'), JSON.stringify({ version: 4, offset: 6,
+    inbox: [update], attachments: { 42: { targetId: 'original', alias: 'Original' } },
+    routes: {}, replies: [], operations: {} }));
+  const config = { authorized_user_ids: ['42'], polling_timeout_seconds: 5 };
+  const engineConfig = { limits: { providerConcurrency: 1, providerQueueLimit: 4 } };
+  let cancelled = 0, failedDelivery;
+  const deliveryFailed = new Promise((resolve) => { failedDelivery = resolve; });
+  const target = { id: 'session-original', targetId: 'original', alias: 'Original', turn_id: 'turn-original', busy: true };
+  const first = new TelegramGateway({ paths, config, engineConfig,
+    sessionDirectory: { list: async () => [target], cancel: async (selected, expectedTurnId) => {
+      assert.equal(selected.targetId, 'original'); assert.equal(expectedTurnId, 'turn-original');
+      cancelled += 1; return { accepted: true }; } },
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage() { failedDelivery(); throw Object.assign(new Error('offline'), { code: 'telegram_unavailable' }); } },
+  });
+  const runningFirst = first.run();
+  await deliveryFailed;
+  await waitUntil(async () => JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).inbox.length === 0);
+  await first.shutdown(); await runningFirst;
+  assert.equal(cancelled, 1);
+
+  const sent = [];
+  const second = new TelegramGateway({ paths, config, engineConfig,
+    sessionDirectory: { list: async () => [{ id: 'later', targetId: 'later', alias: 'Later' }],
+      cancel: async () => assert.fail('replay must not cancel the later target') },
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage(_chatId, text) { sent.push(text); } },
+  });
+  const runningSecond = second.run();
+  await waitUntil(async () => sent.length === 1);
+  await second.shutdown(); await runningSecond;
+  assert.equal(cancelled, 1);
+  assert.match(sent[0], /Cancellation requested for Original/u);
+});
+
+test('cancel fences an earlier queued chat submission across restart', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-cancel-fence-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') };
+  const updates = [
+    { update_id: 1, message: { text: 'do this work', from: { id: 42 }, chat: { id: 42 } } },
+    { update_id: 2, message: { text: '/cancel', from: { id: 42 }, chat: { id: 42 } } },
+  ];
+  const sent = [];
+  let polls = 0;
+  const gateway = new TelegramGateway({ paths,
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    engineFactory: () => assert.fail('cancelled queued work must not create an engine'),
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        if (++polls === 1) return updates;
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      }, async sendMessage(_chatId, text) { sent.push(text); } },
+  });
+  const running = gateway.run();
+  await waitUntil(() => sent.length === 2);
+  await gateway.shutdown(); await running;
+  assert.ok(sent.some((text) => text === 'Message cancelled before starting.'));
+  assert.ok(sent.some((text) => text === 'No active turn.'));
+
+  await mkdir(paths.gateway, { recursive: true });
+  await writeFile(join(paths.gateway, 'state.json'), JSON.stringify({ version: 4, offset: 3,
+    inbox: [updates[0]], attachments: {}, routes: {}, replies: [], operations: {}, suppressed: { 1: 2 } }));
+  const recovered = [];
+  const second = new TelegramGateway({ paths, config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    engineFactory: () => assert.fail('durably suppressed work must not restart'),
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      }, async sendMessage(_chatId, text) { recovered.push(text); } },
+  });
+  const runningSecond = second.run();
+  await waitUntil(() => recovered.length === 1);
+  await second.shutdown(); await runningSecond;
+  assert.deepEqual(recovered, ['Message cancelled before starting.']);
+});
+
+test('cancel suppresses an earlier submission waiting for session initialization', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-cancel-inflight-'));
+  let releaseInitialize, initialized;
+  const initializeGate = new Promise((resolve) => { releaseInitialize = resolve; });
+  const initializing = new Promise((resolve) => { initialized = resolve; });
+  const sent = [];
+  let polls = 0, submitted = 0;
+  const gateway = new TelegramGateway({
+    paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+      reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') },
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    engineFactory: () => ({ config: { executionManifest: null },
+      async initialize() { initialized(); await initializeGate; },
+      async submit() { submitted += 1; return { outcome: 'completed', text: 'unexpected' }; },
+      async cancel() { return { accepted: true }; }, async shutdown() { return { complete: true }; } }),
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        if (++polls === 1) return [{ update_id: 1,
+          message: { text: 'do work', from: { id: 42 }, chat: { id: 42 } } }];
+        if (polls === 2) return [{ update_id: 2,
+          message: { text: '/cancel', from: { id: 42 }, chat: { id: 42 } } }];
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      }, async sendMessage(_chatId, text) { sent.push(text); } },
+  });
+  const running = gateway.run();
+  try {
+    await initializing;
+    await waitUntil(() => sent.includes('No active turn.'));
+    releaseInitialize();
+    await waitUntil(() => sent.includes('Message cancelled before starting.'));
+    assert.equal(submitted, 0);
+  } finally {
+    releaseInitialize();
+    await gateway.shutdown(); await running;
+  }
+});
+
+test('cancel compares the expected active turn at its effect boundary', async () => {
+  let aborted = false;
+  const result = await SessionEngine.prototype.cancel.call({
+    active: { turnId: 'turn-B', controller: { abort() { aborted = true; } } },
+  }, { type: 'cancel', request_id: 'cancel-A', expected_turn_id: 'turn-A' });
+  assert.deepEqual(result, { accepted: true, already_terminal: true });
+  assert.equal(aborted, false);
+});
+
+test('attached cancel does not abort a replacement turn after target discovery', async () => {
+  const replies = [];
+  let aborted = false;
+  const engine = { active: { turnId: 'turn-A' } };
+  await runGatewayContextAction({ action: 'cancel', chatId: '42', updateId: 7, userId: '42',
+    selection: { targetId: 'original', alias: 'Original' },
+    replay: { async beginControl() {}, async queueReply(_id, _chat, _user, message) { replies.push(message); } },
+    directory: { async list() { return [{ targetId: 'original', alias: 'Original', turn_id: 'turn-A' }]; },
+      async cancel(_target, expectedTurnId) {
+        engine.active = { turnId: 'turn-B', controller: { abort() { aborted = true; } } };
+        return SessionEngine.prototype.cancel.call(engine,
+          { type: 'cancel', request_id: 'cancel-A', expected_turn_id: expectedTurnId });
+      } },
+    standalone: async () => assert.fail('attached cancel must not select standalone'),
+    logger: { record() {} },
+  });
+  assert.equal(aborted, false);
+  assert.deepEqual(replies, ['No active turn.']);
+});
+
+test('uncertain cancellation never replays into a changed attachment', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-cancel-uncertain-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') };
+  await mkdir(paths.gateway, { recursive: true });
+  await writeFile(join(paths.gateway, 'state.json'), JSON.stringify({ version: 4, offset: 10,
+    inbox: [{ update_id: 9, message: { text: '/cancel', from: { id: 42 }, chat: { id: 42 } } }],
+    attachments: { 42: { targetId: 'later', alias: 'Later' } }, routes: {}, replies: [],
+    operations: { 9: { action: 'cancel', targetId: 'original' } } }));
+  const sent = [];
+  const gateway = new TelegramGateway({ paths, config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    sessionDirectory: { list: async () => assert.fail('uncertain cancel must not resolve later target'),
+      cancel: async () => assert.fail('uncertain cancel must not replay') },
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage(_chatId, text) { sent.push(text); } },
+  });
+  const running = gateway.run();
+  await waitUntil(async () => sent.length === 1);
+  await gateway.shutdown(); await running;
+  assert.match(sent[0], /could not confirm whether cancel took effect/u);
+  assert.equal(JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).attachments['42'].targetId, 'later');
+});
+
+test('recovered uncertain clear never clears another conversation', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-control-uncertain-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') };
+  await mkdir(paths.gateway, { recursive: true });
+  const update = { update_id: 11, callback_query: { id: 'clear-confirm', data: 'nna:clear:y',
+    from: { id: 42 }, message: { chat: { id: 42 } } } };
+  await writeFile(join(paths.gateway, 'state.json'), JSON.stringify({ version: 4, offset: 12,
+    inbox: [update], attachments: {}, routes: {}, replies: [],
+    operations: { 11: { action: 'clear', targetId: 'previous-console' } } }));
+  const sent = [];
+  const gateway = new TelegramGateway({ paths, config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    engineFactory: () => assert.fail('uncertain clear must not create a standalone session'),
+    sessionDirectory: { list: async () => assert.fail('uncertain clear must not re-resolve target'),
+      clear: async () => assert.fail('uncertain clear must not replay') },
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage(_chatId, text) { sent.push(text); } },
+  });
+  const running = gateway.run();
+  await waitUntil(async () => sent.length === 1);
+  await gateway.shutdown(); await running;
+  assert.match(sent[0], /could not confirm whether clear took effect/u);
+  assert.equal(JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).inbox.length, 0);
+});
+
+test('replayed ordinal attach cannot select a different Console target', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-attach-ordinal-replay-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') };
+  await mkdir(paths.gateway, { recursive: true });
+  await writeFile(join(paths.gateway, 'state.json'), JSON.stringify({ version: 4, offset: 7,
+    inbox: [{ update_id: 6, message: { text: '/attach 1', from: { id: 42 }, chat: { id: 42 } } }],
+    attachments: { 42: { targetId: 'original', alias: 'Original' } }, routes: {}, replies: [],
+    operations: { 6: { action: 'attach', targetId: 'original' } } }));
+  const sent = [];
+  const gateway = new TelegramGateway({ paths, config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    sessionDirectory: { list: async () => assert.fail('ordinal must not be resolved again') },
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage(_chatId, text) { sent.push(text); } },
+  });
+  const running = gateway.run();
+  await waitUntil(async () => sent.length === 1);
+  await gateway.shutdown(); await running;
+  assert.match(sent[0], /could not confirm whether attach took effect/u);
+  const persisted = JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8'));
+  assert.equal(persisted.attachments['42'].targetId, 'original');
+});
+
+test('malformed context result after an attempted effect yields an uncertain durable reply', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-control-malformed-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') };
+  const sent = []; let attempts = 0, polls = 0;
+  const gateway = new TelegramGateway({ paths,
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    engineFactory: () => ({ config: { executionManifest: null }, initialize: async () => undefined,
+      handoffConversation: async () => { attempts += 1; return null; },
+      shutdown: async () => ({ complete: true }) }),
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        if (++polls === 1) return [{ update_id: 4, message: { text: '/handoff', from: { id: 42 }, chat: { id: 42 } } }];
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage(_chatId, text) { sent.push(text); } },
+  });
+  const running = gateway.run();
+  await waitUntil(async () => sent.length === 1);
+  await gateway.shutdown(); await running;
+  assert.equal(attempts, 1);
+  assert.match(sent[0], /could not confirm whether handoff took effect/u);
+  assert.equal(JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).inbox.length, 0);
+});
+
+test('busy handoff reports a known pre-effect rejection', async () => {
+  const replies = [];
+  await runGatewayContextAction({ action: 'handoff', chatId: '42', updateId: 3, userId: '42',
+    replay: { async beginControl() {}, async queueReply(...args) { replies.push(args); } },
+    selection: null, directory: {}, logger: { record() {} },
+    standalone: async () => ({ async handoffConversation() {
+      throw Object.assign(new Error('busy'), { code: 'handoff_busy' });
+    } }),
+  });
+  assert.match(replies[0][3], /Cannot handoff while a turn is active/u);
+});
+
+test('callback acknowledgment error cannot erase a retained command attempt', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-callback-retain-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') };
+  await mkdir(paths.gateway, { recursive: true });
+  const update = { update_id: 8, callback_query: { id: 'detach', data: 'nna:d', from: { id: 42 },
+    message: { chat: { id: 42 } }, padding: '' } };
+  const state = { version: 4, offset: 9, inbox: [update], attachments: {}, routes: {}, replies: [], operations: {} };
+  update.callback_query.padding = 'x'.repeat(1_048_550 - Buffer.byteLength(JSON.stringify(state)));
+  await writeFile(join(paths.gateway, 'state.json'), JSON.stringify(state));
+  const gateway = new TelegramGateway({ paths,
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async answerCallbackQuery() { throw new Error('callback API offline'); },
+      async sendMessage() { assert.fail('state-full attempt must not send a reply'); } },
+  });
+  await gateway.run();
+  const preserved = JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8'));
+  assert.equal(preserved.inbox.length, 1);
+  assert.equal(preserved.inbox[0].update_id, 8);
+});
+
+test('replayed attached update before route pin with vanished target never enters standalone session', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-pinned-target-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') };
+  await mkdir(paths.gateway, { recursive: true });
+  await writeFile(join(paths.gateway, 'state.json'), JSON.stringify({ version: 4, offset: 3,
+    inbox: [{ update_id: 2, message: { text: 'keep target', from: { id: 42 }, chat: { id: 42 } } }],
+    attachments: { 42: { targetId: 'old-target', alias: 'Main' } }, routes: {}, replies: [], operations: {} }));
+  const sent = [];
+  const gateway = new TelegramGateway({
+    paths, config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    sessionDirectory: { list: async () => [], submit: async () => assert.fail('must not submit') },
+    engineFactory: () => assert.fail('must not create standalone session'),
+    api: {
+      async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage(_chatId, text) { sent.push(text); },
+    },
+  });
+  const running = gateway.run();
+  await waitUntil(async () => sent.length === 1);
+  await gateway.shutdown(); await running;
+  assert.match(sent[0], /no longer available/u);
+  assert.match(sent[0], /not sent elsewhere/u);
 });
 
 test('Telegram notification queue publishes only at terminal turn state', async () => {

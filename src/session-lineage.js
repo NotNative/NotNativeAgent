@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { ContractError, newId, requireExternalId } from './ids.js';
 import { persistEngineRecord } from './engine/persistence.js';
 
-const MAX_CHILD_SESSIONS = 1024;
+export const MAX_CHILD_SESSIONS = 1024;
 
 export function createSessionLineage(engine, childSessionId, agentType, launch = {}) {
   return validateSessionLineage({

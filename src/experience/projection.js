@@ -22,6 +22,7 @@ export class EditorBuffer {
     this.historyIndex = 0;
     this.anchor = null;
     this.undoStack = [];
+    this.revision = 0;
   }
 
   insert(value) {
@@ -99,6 +100,7 @@ export class EditorBuffer {
     const prior = this.undoStack.pop();
     if (!prior) return false;
     this.text = prior.text; this.cursor = prior.cursor; this.anchor = prior.anchor;
+    this.revision += 1;
     return true;
   }
 
@@ -116,6 +118,7 @@ export class EditorBuffer {
     this.text = text;
     this.cursor = this.text.length;
     this.anchor = null;
+    this.revision += 1;
   }
 
   take() {
@@ -162,6 +165,7 @@ export class EditorBuffer {
 
   #checkpoint() {
     this.undoStack.push({ text: this.text, cursor: this.cursor, anchor: this.anchor });
+    this.revision += 1;
     if (this.undoStack.length > 128) this.undoStack.shift();
   }
 }

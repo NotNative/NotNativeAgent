@@ -22,9 +22,19 @@ export class ConversationWork {
   snapshot() { return deepFreeze(structuredClone(this.state)); }
 
   restore(records = []) {
-    const latest = [...records].reverse().find((record) => record.type === 'work_state')?.payload;
-    if (!latest) return this.snapshot();
-    this.state = validateSnapshot(latest);
+    const boundary = records.findLast((record) => record.type === 'work_state'
+      || record.type === 'conversation_cleared');
+    if (!boundary) return this.snapshot();
+    if (boundary.type === 'conversation_cleared') {
+      const prior = records.findLast((record) => record.type === 'work_state')?.payload;
+      const revision = boundary.payload?.workRevision ?? (prior ? validateSnapshot(prior).revision + 1 : 0);
+      if (!Number.isSafeInteger(revision) || revision < 0) {
+        throw new ContractError('work_state_invalid', 'durable conversation clear revision is invalid');
+      }
+      this.state = Object.freeze({ ...emptyState(), revision });
+      return this.snapshot();
+    }
+    this.state = validateSnapshot(boundary.payload);
     return this.snapshot();
   }
 
@@ -115,10 +125,10 @@ export class ConversationWork {
     return this.#commit(next, 'goal_blocked');
   }
 
-  async clear() {
+  async clear(options = {}) {
     const revision = this.state.revision + 1;
     const next = Object.freeze({ ...emptyState(), revision });
-    return this.#commit(next, 'work_cleared');
+    return this.#commit(next, 'work_cleared', null, options);
   }
 
   async replacePlan(value) {
@@ -232,9 +242,9 @@ export class ConversationWork {
     return this.#commit(next, `task_${status}`, taskId);
   }
 
-  async #commit(next, action, taskId = null) {
+  async #commit(next, action, taskId = null, options = {}) {
     const snapshot = deepFreeze(structuredClone(next));
-    await this.persist('work_state', snapshot);
+    if (options.persist !== false) await this.persist('work_state', snapshot);
     this.state = snapshot;
     this.telemetry?.record('work.state', 'succeeded', {
       action, revision: snapshot.revision, goal_status: snapshot.goal?.status ?? null,

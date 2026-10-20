@@ -12,6 +12,8 @@ const DEFAULT_MAX_AGE_MS = 30 * 86_400_000;
 const DEFAULT_VOLATILE_MAX_AGE_MS = 3 * 86_400_000;
 const DEFAULT_MAX_BYTES = 1_073_741_824;
 const REQUEST_TIMEOUT_MS = 5_000;
+// Invariant: a support trace is bounded before the archive writer receives it.
+const SUPPORT_SNAPSHOT_MAX_BYTES = 32 * 1024 * 1024;
 
 export class ForensicTelemetry {
   #worker = null;
@@ -146,27 +148,41 @@ export class ForensicTelemetry {
     await this.#ready;
     const sessionId = options.sessionId ?? this.sessionId;
     const maximum = Number.isSafeInteger(options.limit) ? Math.max(1, Math.min(100000, options.limit)) : 100000;
-    const rows = []; let page = null; let first = null;
-    for (let index = 0; index < 100; index += 1) {
+    const rows = []; let page = null; let first = null; let exportedBytes = 0; let sizeLimited = false;
+    for (let index = 0; index < 1000; index += 1) {
       page = await this.#request('support_page', { options: { sessionId, afterId: page?.next_after_id ?? 0,
-        boundaryId: first?.boundary_id, limit: Math.min(1000, maximum - rows.length) } }, null);
+        boundaryId: first?.boundary_id, limit: Math.min(100, maximum - rows.length) } }, null);
       if (!page) break;
       first ??= { available_rows: page.available_rows, boundary_id: page.boundary_id };
-      rows.push(...page.rows.map(supportTelemetryProjection));
-      if (!page.has_more || rows.length >= maximum) break;
+      for (const row of page.rows) {
+        const projected = supportTelemetryProjection(row);
+        const bytes = Buffer.byteLength(JSON.stringify(projected)) + 1;
+        if (exportedBytes + bytes > SUPPORT_SNAPSHOT_MAX_BYTES) { sizeLimited = true; break; }
+        rows.push(projected); exportedBytes += bytes;
+      }
+      if (sizeLimited || !page.has_more || rows.length >= maximum) break;
     }
     const allOpen = await this.openSpans(2000);
-    const open = allOpen.filter((row) => row.session_id === sessionId);
-    const complete = Boolean(page && !page.has_more && rows.length === first.available_rows);
+    const open = []; let openSizeLimited = false;
+    for (const row of allOpen) {
+      if (row.session_id !== sessionId) continue;
+      const projected = supportTelemetryProjection(row);
+      const bytes = Buffer.byteLength(JSON.stringify(projected)) + 1;
+      if (exportedBytes + bytes > SUPPORT_SNAPSHOT_MAX_BYTES) { openSizeLimited = true; break; }
+      open.push(projected); exportedBytes += bytes;
+    }
+    const complete = Boolean(page && !sizeLimited && !page.has_more && rows.length === first.available_rows);
     return Object.freeze({
       format: 2, local_source: this.dbPath, rows: Object.freeze(rows),
       coverage: { complete, basis: 'retained_events', available_rows: first?.available_rows ?? null,
-        exported_rows: rows.length, snapshot_boundary_id: first?.boundary_id ?? null,
+        exported_rows: rows.length, exported_bytes: exportedBytes, export_limit_bytes: SUPPORT_SNAPSHOT_MAX_BYTES,
+        snapshot_boundary_id: first?.boundary_id ?? null,
         first_id: rows[0]?.id ?? null, last_id: rows.at(-1)?.id ?? null,
-        omission_reason: complete ? null : page ? 'export_limit_or_retention_change' : 'telemetry_unavailable',
-        open_span_limit: 2000, open_spans_complete: allOpen.length < 2000,
+        omission_reason: complete ? null : sizeLimited ? 'export_size_limit'
+          : page ? 'export_limit_or_retention_change' : 'telemetry_unavailable',
+        open_span_limit: 2000, open_spans_complete: allOpen.length < 2000 && !openSizeLimited,
         retention_days: this.maxAgeMs / 86400000, retention_max_bytes: this.maxBytes },
-      open_spans: Object.freeze(open.map(supportTelemetryProjection)),
+      open_spans: Object.freeze(open),
     });
   }
 

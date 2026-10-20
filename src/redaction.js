@@ -75,7 +75,7 @@ export function redactText(value) {
     sourceCodeReference(candidate) ? match : `${label}${separator}[redacted]`
   ));
   result = result.replaceAll(TEXT_PATTERNS[2], '$1[redacted]');
-  result = result.replaceAll(TEXT_PATTERNS[3], '$1[redacted]$2');
+  if (result.includes('://')) result = result.replaceAll(TEXT_PATTERNS[3], '$1[redacted]$2');
   result = result.replaceAll(TEXT_PATTERNS[4], '[redacted private key]');
   return result;
 }

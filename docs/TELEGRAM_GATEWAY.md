@@ -76,6 +76,35 @@ Console discovery uses an authenticated loopback-only broker. Each Console proce
 its session engines and remains authoritative; the gateway receives only bounded
 descriptors and terminal turn results.
 
+The gateway persists the selected attachment and pins that Console target to each
+message before submitting it. If the gateway restarts and that exact target is gone, it reports the target
+unavailable instead of sending the message to the standalone Telegram conversation.
+Attached and standalone turn replies enter a bounded, directed delivery queue before the
+inbound update is acknowledged. A Telegram delivery failure retries that reply without
+submitting the message again; Telegram may display the reply twice if delivery succeeded
+but its local acknowledgment did not persist. Large standalone replies are shortened at
+64 KiB; attached replies are shortened at 8 KiB because the full response remains in the
+Console conversation.
+
+Gateway state written by version 2 did not include the selected Console attachment. If
+that state still has pending updates during an upgrade, startup stops with
+`gateway_route_unrecoverable` and preserves `state.json`. Inspect the saved updates and
+the Console conversation before resolving them; their original destination cannot be
+inferred safely. An empty version 2 inbox migrates with its Bot API offset intact.
+
+Gateway state version 4 records an attempted context command, cancellation, or attachment change and its
+selected target before the effect. A restart after an interrupted attempt reports an uncertain
+outcome and does not repeat the command. Version 3 pending updates lack that attempt evidence,
+so startup preserves the file and stops with `gateway_control_replay_unrecoverable`; an empty version 3 inbox
+migrates without changing its Bot API offset.
+`/cancel` also suppresses earlier queued messages from that chat, including after a restart.
+For an attached Console conversation, it sends their exact request IDs to the Console owner,
+which persists an admission fence before replying; delayed submissions cannot start after the
+cancel, even if the Console restarts. For a running turn, it records the turn ID and checks
+that ID at the engine before aborting;
+if another turn has started, the newer turn continues. Telegram replies use at-least-once
+delivery and can appear twice if delivery succeeds immediately before a gateway crash.
+
 ## Completion notifications
 
 Root interactive NNA sessions expose `notification_telegram`. When the operator asks to

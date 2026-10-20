@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
+import { JournalStore } from '../src/store.js';
 
 function configuration(root) {
   return resolveManifest({
@@ -61,6 +62,116 @@ test('explicit compaction and confirmed clear survive durable session recovery',
   await third.initialize();
   assert.deepEqual(third.transcript, []);
   await third.shutdown({ request_id: 'shutdown-3', type: 'shutdown' });
+});
+
+test('restart applies a committed clear marker if the process stopped before clearing work', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-clear-crash-'));
+  const storeRoot = join(root, 'sessions');
+  const options = {
+    config: configuration(root), sessionId: 'clear-crash', storeRoot,
+    reviewerRoot: join(root, 'reviewers'),
+  };
+  const first = new SessionEngine(options);
+  await first.initialize();
+  await first.setGoal('Old work must not return');
+  await first.shutdown({ request_id: 'stop-before-clear' });
+
+  const journal = new JournalStore(storeRoot, 'clear-crash');
+  await journal.open();
+  await journal.append('conversation_cleared', { workRevision: 2 });
+  await journal.close();
+
+  const resumed = new SessionEngine(options);
+  await resumed.initialize();
+  assert.equal(resumed.workStatus().goal, null);
+  assert.equal(resumed.workStatus().revision, 2);
+  assert.deepEqual(resumed.transcript, []);
+  assert.deepEqual(resumed.authority.snapshot(resumed.config).intent, []);
+  await resumed.shutdown({ request_id: 'stop-after-replay' });
+});
+
+test('clear revision survives when its marker ages beyond the bounded transcript tail', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-clear-old-marker-'));
+  const storeRoot = join(root, 'sessions');
+  const options = {
+    config: configuration(root), sessionId: 'clear-old-marker', storeRoot,
+    reviewerRoot: join(root, 'reviewers'),
+    storeFactory: (path, id, storeOptions) => new JournalStore(path, id, {
+      ...storeOptions, resumeRecordLimit: 8,
+    }),
+  };
+  const first = new SessionEngine(options);
+  await first.initialize();
+  await first.setGoal('Old work');
+  await first.clearConversation();
+  await first.shutdown({ request_id: 'stop-before-tail-advances' });
+  const journal = new JournalStore(storeRoot, 'clear-old-marker');
+  await journal.open();
+  for (let index = 0; index < 16; index += 1) {
+    await journal.append('message', { type: 'message', role: 'assistant', content: `later ${index}` });
+  }
+  await journal.close();
+
+  const resumed = new SessionEngine(options);
+  await resumed.initialize();
+  assert.equal(resumed.workStatus().revision, 2);
+  assert.equal(resumed.workStatus().goal, null);
+  await resumed.setGoal('New work');
+  assert.equal(resumed.workStatus().revision, 3);
+  await resumed.shutdown({ request_id: 'stop-after-old-marker-replay' });
+});
+
+test('incomplete control scan cannot silently reset work whose boundary is outside the tail', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-clear-unverified-marker-'));
+  const storeRoot = join(root, 'sessions');
+  const seed = new SessionEngine({
+    config: configuration(root), sessionId: 'clear-unverified-marker', storeRoot,
+    reviewerRoot: join(root, 'reviewers'),
+  });
+  await seed.initialize();
+  await seed.setGoal('Old work');
+  await seed.shutdown({ request_id: 'stop-before-tail-advances' });
+  const journal = new JournalStore(storeRoot, 'clear-unverified-marker');
+  await journal.open();
+  for (let index = 0; index < 16; index += 1) {
+    await journal.append('message', { type: 'message', role: 'assistant', content: `later ${index}` });
+  }
+  await journal.close();
+  const resumed = new SessionEngine({
+    config: configuration(root), sessionId: 'clear-unverified-marker', storeRoot,
+    reviewerRoot: join(root, 'reviewers'),
+    storeFactory: (path, id, storeOptions) => new JournalStore(path, id, {
+      ...storeOptions, resumeRecordLimit: 8, controlScanMaxBytes: 64,
+    }),
+  });
+  await assert.rejects(resumed.initialize(), { code: 'work_state_invalid' });
+});
+
+test('work status delivery failure after a committed clear cannot retain live conversation context', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-clear-output-failure-'));
+  const options = {
+    config: configuration(root), sessionId: 'clear-output-failure', storeRoot: join(root, 'sessions'),
+    reviewerRoot: join(root, 'reviewers'),
+    output: async (record) => {
+      if (record.type === 'work_status' && record.action === 'work_cleared') throw new Error('output unavailable');
+    },
+  };
+  const first = new SessionEngine(options);
+  await first.initialize();
+  await first.setGoal('Old goal');
+  first.transcript.push({ type: 'message', role: 'user', content: 'Old context' });
+  first.authority.addAuthenticatedIntent('Old authority', 'operator');
+  await assert.rejects(first.clearConversation(), /output unavailable/u);
+  assert.deepEqual(first.transcript, []);
+  assert.equal(first.workStatus().goal, null);
+  assert.deepEqual(first.authority.snapshot(first.config).intent, []);
+  await first.shutdown({ request_id: 'stop-after-output-failure' });
+
+  const resumed = new SessionEngine(options);
+  await resumed.initialize();
+  assert.equal(resumed.workStatus().goal, null);
+  assert.deepEqual(resumed.transcript, []);
+  await resumed.shutdown({ request_id: 'stop-after-output-replay' });
 });
 
 test('terse handoff survives recovery while excluding prior transcript from future provider context', async () => {

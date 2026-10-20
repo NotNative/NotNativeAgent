@@ -8,14 +8,20 @@ export function createV2Events() {
   const subscribers = new Set();
   const write = (res, event) => {
     if (res.destroyed || res.writableEnded) { subscribers.delete(res); return; }
-    if (!res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)) {
+    let writable;
+    try { writable = res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`); }
+    catch { writable = false; }
+    if (!writable) {
       // Invariant: slow consumers must reconnect and fetch snapshots, not grow an unbounded queue.
       subscribers.delete(res); res.destroy();
     }
   };
   const timer = setInterval(() => {
     for (const res of subscribers) {
-      if (!res.write(': heartbeat\n\n')) { subscribers.delete(res); res.destroy(); }
+      let writable;
+      try { writable = res.write(': heartbeat\n\n'); }
+      catch { writable = false; }
+      if (!writable) { subscribers.delete(res); res.destroy(); }
     }
   }, 10_000);
   timer.unref();
@@ -23,7 +29,10 @@ export function createV2Events() {
     subscribe(res) {
       if (subscribers.size >= 64) return false;
       sseOpen(res);
-      sseFrame(res, { event: 'server.connected', data: JSON.stringify({ id: newId('evt'), type: 'server.connected', data: {} }) });
+      if (!sseFrame(res, { event: 'server.connected', data: JSON.stringify({ id: newId('evt'), type: 'server.connected', data: {} }) })) {
+        res.destroy();
+        return true;
+      }
       subscribers.add(res);
       res.on('close', () => subscribers.delete(res));
       return true;

@@ -44,6 +44,7 @@ import { ConsoleAuthority } from './experience/console-authority.js';
 import { deleteUnreferencedSecret, listSecretsWithReferences } from './secret-management.js';
 import { cancelWorkspaceSession, clearWorkspaceSession, compactWorkspaceSession, handoffWorkspaceSession, initializeWorkspaceSessionBroker, submitWorkspaceSession, workspaceBrokerSessions } from './experience/session-broker.js';
 import { settleConsoleQuestion } from './experience/question-control.js';
+import { acceptPendingSubmission, beginSessionSubmission } from './experience/submission.js';
 export class ExperienceEngine {
   #tasks = new Set();
   constructor(options) {
@@ -92,6 +93,7 @@ export class ExperienceEngine {
   async create(name = 'Main', sessionId = newId('session'), options = {}) {
     if (this.sessions.has(sessionId)) throw new ContractError('session_duplicate', 'conversation is already attached');
     const output = async (event) => {
+      acceptPendingSubmission(this, this.sessions.get(sessionId), event);
       this.projection.apply(sessionId, event);
       this.options.logger?.record(event, { sessionId });
       this.onChange();
@@ -145,21 +147,18 @@ export class ExperienceEngine {
   resume(sessionId) { return resumeWorkspaceConversation(this, sessionId); }
   createNext() { return createNextConversation(this); }
   createAtWorkspace(value) { return createWorkspaceConversation(this, value); }
-  submitActive(content) {
+  submitActive(content, options = {}) {
     const session = this._active();
-    const projected = this.projection.active();
-    const attachments = projected.pendingAttachments.splice(0).map(({ path, mime_type }) => ({ path, mime_type }));
-    session.meaningful = true;
-    this.projection.apply(session.id, { type: 'user_input', text: content });
-    this.tabPersistence.observe(this.#savePool(), this.#tasks);
-    const operation = session.ingress.submit({
-      version: '1.0', type: 'submit', request_id: newId('tui'), content, attachments,
-    }, INTERACTIVE_OPERATOR).then(async (result) => { await this._maybeAutoName(session); return result; });
-    return this.#own(operation);
+    return this.#own(beginSessionSubmission(this, session, content, {
+      principal: INTERACTIVE_OPERATOR, requestPrefix: 'tui', includeAttachments: true,
+      fromEditor: options.fromEditor === true, reportRejection: true,
+    }));
   }
   brokerSessions() { return workspaceBrokerSessions(this); }
-  submitSession(sessionId, content) { return submitWorkspaceSession(this, sessionId, content); }
-  cancelSession(sessionId) { return cancelWorkspaceSession(this, sessionId); }
+  submitSession(sessionId, content, requestId) { return submitWorkspaceSession(this, sessionId, content, requestId); }
+  cancelSession(sessionId, expectedTurnId, fenceRequestIds) {
+    return cancelWorkspaceSession(this, sessionId, expectedTurnId, fenceRequestIds);
+  }
   compactSession(sessionId) { return compactWorkspaceSession(this, sessionId); } handoffSession(sessionId) { return handoffWorkspaceSession(this, sessionId); } clearSession(sessionId) { return clearWorkspaceSession(this, sessionId); }
   _savePoolForBroker() { return this.#savePool(); }
   _tasksForBroker() { return this.#tasks; }

@@ -17,15 +17,14 @@ export class ProjectGuidance {
   async resolve(records = []) {
     const root = await realpath(this.root);
     const directories = new Set([root]);
-    for (const target of guidanceTargets(records).slice(-64)) {
+    // Invariant: the cap cannot evict guidance nearest the most recent target.
+    for (const target of guidanceTargets(records).slice(-64).reverse()) {
       const absolute = isAbsolute(target) ? resolve(target) : resolve(root, target);
       if (!inside(root, absolute)) continue;
-      addAncestors(directories, root, absolute);
-      addAncestors(directories, root, dirname(absolute));
+      addAncestors(directories, root, absolute, MAX_DIRECTORIES);
+      if (directories.size >= MAX_DIRECTORIES) break;
     }
-    const directoriesInScope = [...directories]
-      .sort((left, right) => pathDepth(root, left) - pathDepth(root, right)
-        || left.localeCompare(right)).slice(0, MAX_DIRECTORIES);
+    const directoriesInScope = [...directories];
     const instructions = [];
     const memories = [];
     let total = 0;
@@ -43,7 +42,8 @@ export class ProjectGuidance {
     }
     // Invariant: mutable local memory is projected before portable repository instructions.
     // Later AGENTS.md content therefore wins when the two sources conflict.
-    const items = [...memories, ...instructions];
+    const rootFirst = (left, right) => left.depth - right.depth || left.path.localeCompare(right.path);
+    const items = [...memories.sort(rootFirst), ...instructions.sort(rootFirst)];
     this.telemetry?.record('project.guidance', 'succeeded', {
       documents: items.map((item) => ({ path: item.path, bytes: Buffer.byteLength(item.content), depth: item.depth })),
       total_bytes: total,
@@ -102,9 +102,9 @@ function guidanceTargets(records) {
   return values;
 }
 
-function addAncestors(result, root, target) {
+function addAncestors(result, root, target, limit) {
   let current = target;
-  while (inside(root, current)) {
+  while (inside(root, current) && result.size < limit) {
     result.add(current);
     if (samePath(current, root)) break;
     const parent = dirname(current);

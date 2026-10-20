@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
 import { presentedToolTarget } from '../engine/records.js';
+import { estimateTokenValue } from '../reliability/context-token-measurement.js';
 
 const RECORD = Object.freeze({ message: 'message', outcome: 'turn_outcome' });
 const ROLE = Object.freeze({ assistant: 'assistant', user: 'user' });
@@ -128,13 +129,27 @@ function historicalToolEvent(item, requests) {
 
 function compactionEvent(fact) {
   const projection = fact?.projection ?? {};
+  const tokens = compactionTokenMeasurements(fact);
   return {
     type: 'context_compaction_status', status: 'completed', historical: true,
-    before_estimated_tokens: byteTokenEstimate(projection.originalBytes),
-    after_estimated_tokens: byteTokenEstimate(projection.projectedBytes),
+    before_estimated_tokens: tokens.before,
+    after_estimated_tokens: tokens.after,
     retained_records: fact?.retainedRecords?.length ?? 0,
     protected_turns: projection.protectedTurnCount ?? 0,
     payload_compacted_records: projection.payloadCompactedRecords ?? 0,
+  };
+}
+
+export function compactionTokenMeasurements(fact) {
+  const projection = fact?.projection;
+  // Invariant: byte counts never become token measurements during replay.
+  if (projection?.measurementUnit !== 'tokens' || !Number.isSafeInteger(projection.originalTokens)
+    || projection.originalTokens < 0 || !Array.isArray(fact.retainedRecords)
+    || typeof fact.summary !== 'string') return { before: null, after: null };
+  return {
+    before: projection.originalTokens,
+    after: fact.retainedRecords.reduce((total, record) => total + estimateTokenValue(record), 0)
+      + estimateTokenValue(fact.summary),
   };
 }
 
@@ -143,10 +158,6 @@ function interruptedTurnEvent(item) {
     type: EVENT.result, turn_id: turnIdentity(item), outcome: 'failed', partial: true,
     failure: { code: item.reason ?? 'process_interrupted' },
   };
-}
-
-function byteTokenEstimate(bytes) {
-  return Number.isFinite(bytes) ? Math.ceil(bytes / 3) : null;
 }
 
 function validateJournalRecord(record) {

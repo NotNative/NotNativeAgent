@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
-import { restoreTranscript } from './transcript.js';
+import { compactionTokenMeasurements, restoreTranscript } from './transcript.js';
 
 const CONTEXT_NOTICE = 'context';
-// Context budgeting uses the same conservative UTF-8 estimate as the engine: about three bytes per token.
-const ESTIMATED_BYTES_PER_TOKEN = 3;
 
 export async function compactActiveConversation(workspace) {
   return compactWorkspaceConversation(workspace, workspace.projection.activeId, { notice: true });
@@ -41,23 +39,21 @@ export async function compactWorkspaceConversation(workspace, sessionId, options
 
 function refreshProjectedContext(workspace, projected, session, result) {
   workspace.projection.apply(session.id, historicalCompactionEvent(result));
+  const tokens = compactionTokenMeasurements(result.fact);
   if (Number.isFinite(result.afterBytes)) {
     projected.contextBytes = result.afterBytes;
-    projected.contextTokens = Math.ceil(result.afterBytes / ESTIMATED_BYTES_PER_TOKEN);
   }
+  projected.contextTokens = tokens.after;
 }
 
 function historicalCompactionEvent(result) {
+  const tokens = compactionTokenMeasurements(result.fact);
   return {
     type: 'context_compaction_status', status: 'completed', historical: true,
-    before_estimated_tokens: tokenEstimate(result.beforeBytes),
-    after_estimated_tokens: tokenEstimate(result.afterBytes),
+    before_estimated_tokens: tokens.before,
+    after_estimated_tokens: tokens.after,
     retained_records: result.retained, payload_compacted_records: result.reduced,
   };
-}
-
-function tokenEstimate(bytes) {
-  return Number.isFinite(bytes) ? Math.ceil(bytes / ESTIMATED_BYTES_PER_TOKEN) : null;
 }
 
 function resetProjectedTranscript(workspace, projected, session) {

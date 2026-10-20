@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { restoreSessionRecords } from '../src/persistence/session-history.js';
 import { journalEvents, transcriptEvents } from '../src/experience/transcript.js';
+import { estimateTokenValue } from '../src/reliability/context-token-measurement.js';
+import { compactWorkspaceConversation } from '../src/experience/context.js';
 
 test('AC-SESS-02 semantic transcript preserves partial text, tool pairs, compaction, and exact outcome order', () => {
   const records = [
@@ -52,8 +54,9 @@ test('durable journal projection restores tool activity, checkpoints, and one co
       turnId: 'turn-1', stepId: 'step-answer', partial: false,
     }),
     record('compaction', {
-      type: 'compaction', retainedRecords: [{ type: 'message' }],
-      projection: { originalBytes: 3_000, projectedBytes: 1_500, payloadCompactedRecords: 1 },
+      type: 'compaction', retainedRecords: [{ type: 'message' }], summary: 'A bounded continuation.',
+      projection: { measurementUnit: 'tokens', originalTokens: 777,
+        originalBytes: 3_000, projectedBytes: 1_500, payloadCompactedRecords: 1 },
     }),
     record('turn_outcome', { turn_id: 'turn-1', outcome: 'completed' }),
   ];
@@ -64,7 +67,39 @@ test('durable journal projection restores tool activity, checkpoints, and one co
   ]);
   assert.equal(projected[1].target, 'target.txt');
   assert.equal(projected.filter((item) => item.type === 'stream_delta').length, 1);
-  assert.equal(projected[3].before_estimated_tokens, 1_000);
+  assert.equal(projected[3].before_estimated_tokens, 777);
+  assert.equal(projected[3].after_estimated_tokens,
+    estimateTokenValue({ type: 'message' }) + estimateTokenValue('A bounded continuation.'));
+});
+
+test('journal replay does not invent compaction token counts from byte-only history', () => {
+  const [event] = journalEvents([record('compaction', {
+    type: 'compaction', retainedRecords: [], summary: 'summary',
+    projection: { originalBytes: 30_000, projectedBytes: 6_000 },
+  })]);
+  assert.equal(event.before_estimated_tokens, null);
+  assert.equal(event.after_estimated_tokens, null);
+});
+
+test('manual compaction projects token estimates from the token unit instead of byte size', async () => {
+  const projected = { contextTokens: 88, contextBytes: 1_000 };
+  const events = [];
+  const fact = {
+    retainedRecords: [], summary: 'short summary',
+    projection: { measurementUnit: 'tokens', originalTokens: 91, originalBytes: 9_000, projectedBytes: 1_500 },
+  };
+  const workspace = {
+    projection: { sessions: new Map([['main', projected]]), apply(_id, event) { events.push(event); } },
+    sessions: new Map([['main', { id: 'main', engine: { async compactConversation() {
+      return { beforeBytes: 9_000, afterBytes: 1_500, retained: 0, reduced: 0, fact };
+    } } }]]),
+    tabPersistence: { observe() {} }, _savePoolForBroker() {}, _tasksForBroker() {}, onChange() {},
+  };
+  await compactWorkspaceConversation(workspace, 'main');
+  assert.equal(projected.contextBytes, 1_500);
+  assert.equal(projected.contextTokens, estimateTokenValue('short summary'));
+  assert.equal(events[0].before_estimated_tokens, 91);
+  assert.equal(events[0].after_estimated_tokens, projected.contextTokens);
 });
 
 test('truncated journal replay seeds display history from a durable compaction snapshot', () => {

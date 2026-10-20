@@ -4,11 +4,12 @@ import { lstat } from 'node:fs/promises';
 import { ContractError, requireExternalId } from './ids.js';
 import { recoverJournal } from './store.js';
 import { userDataPaths } from './product.js';
-import { validateSessionLineage } from './session-lineage.js';
+import { MAX_CHILD_SESSIONS, validateSessionLineage } from './session-lineage.js';
 import { isDeepStrictEqual } from 'node:util';
 import { supportDiagnosticSummary } from './support-diagnostic-fields.js';
 
-const MAX_SESSIONS = 63;
+// Invariant: support discovery can include every child the lineage registry admits.
+const MAX_SESSIONS = MAX_CHILD_SESSIONS + 1;
 const DISCOVERY_RECORD_TYPES = new Set(['session_created', 'subagent_session']);
 
 export async function discoverSupportSessions(seeds) {

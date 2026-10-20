@@ -2140,6 +2140,8 @@ test('resume recovers authority that lives outside the bounded transcript tail',
   const snapshot = engine.authority.snapshot(engine.config);
   assert.equal(snapshot.complete, true);
   assert.deepEqual(snapshot.intent.map((item) => item.content), ['Restated: browse the local dashboard']);
+  assert.equal(engine.workStatus().revision, 0);
+  assert.equal(engine.workStatus().goal, null);
   await engine.shutdown({ request_id: 'shutdown-authority-resume' });
 
   const failClosed = new SessionEngine({
@@ -2149,9 +2151,9 @@ test('resume recovers authority that lives outside the bounded transcript tail',
       ...storeOptions, resumeRecordLimit: 8, controlScanMaxBytes: 64,
     }),
   });
-  await failClosed.initialize();
-  assert.equal(failClosed.authority.snapshot(failClosed.config).complete, false);
-  await failClosed.shutdown({ request_id: 'shutdown-authority-fail-closed' });
+  // Invariant: a bounded tail cannot attest whether an older work state or clear
+  // marker exists, so an incomplete genesis scan cannot reset its revision.
+  await assert.rejects(failClosed.initialize(), { code: 'work_state_invalid' });
 });
 
 test('resume durably balances interrupted tool calls without guessing side effects', async () => {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
@@ -11,6 +11,12 @@ import { createSessionLineage } from '../src/session-lineage.js';
 import { discoverSupportSessions } from '../src/support-session-discovery.js';
 import { DiagnosticBundle } from '../src/diagnostic-bundle.js';
 import { supportTelemetryProjection } from '../src/forensic-telemetry-sanitize.js';
+import { redactText } from '../src/redaction.js';
+
+test('URL credentials embedded in longer text remain redacted', () => {
+  assert.equal(redactText('prefix_http://operator:secretpass@host'),
+    'prefix_http://operator:[redacted]@host');
+});
 
 test('support trace pages beyond 5000 events and declares bounded snapshot coverage', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-support-pagination-'));
@@ -31,6 +37,30 @@ test('support trace pages beyond 5000 events and declares bounded snapshot cover
     assert.equal(partial.rows.length, 10); assert.equal(partial.coverage.complete, false);
     assert.ok(partial.coverage.available_rows > partial.coverage.exported_rows);
     assert.ok(snapshot.rows.every((row, index) => !index || row.id > snapshot.rows[index - 1].id));
+  } finally { await telemetry.close(); }
+});
+
+test('large retained trace stays within its export byte budget and declares omitted rows', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-support-byte-budget-'));
+  const telemetry = new ForensicTelemetry({ root, workspaceRoot: root, sessionId: 'large', runtimeId: 'runtime' });
+  await telemetry.initialize();
+  try {
+    for (let index = 0; index < 550; index += 1) {
+      telemetry.record('provider.request', 'measured', { model_name: 'm'.repeat(62_000), index });
+    }
+    await telemetry.flush();
+    const engine = { sessionId: 'large', telemetry, health: async () => ({ status: 'ready' }),
+      reviewerAudit: () => [], governanceAudit: () => [] };
+    const path = join(root, 'large-support.zip');
+    await new DiagnosticBundle({ engine }).create(path);
+    const entries = zipEntries(await readFile(path));
+    const manifest = JSON.parse(entries.get('manifest.json'));
+    const trace = JSON.parse(entries.get(`${manifest.sessions[0].folder}/forensic-trace.json`));
+    assert.equal(trace.coverage.complete, false);
+    assert.equal(trace.coverage.omission_reason, 'export_size_limit');
+    assert.ok(trace.coverage.exported_rows < trace.coverage.available_rows);
+    assert.ok(trace.coverage.exported_bytes <= trace.coverage.export_limit_bytes);
+    assert.ok(trace.rows.length > 0);
   } finally { await telemetry.close(); }
 });
 
@@ -98,8 +128,51 @@ test('missing child journals are explicit and mismatched lineage is rejected', a
   await assert.rejects(discoverSupportSessions([{ id: 'parent', engine }]), { code: 'session_history_invalid' });
 });
 
+test('support bundle includes the full admitted child-session capacity without dropping evidence', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-support-many-sessions-'));
+  const engine = { sessionId: 'session-0', health: async () => ({ status: 'ready' }),
+    reviewerAudit: () => [], governanceAudit: () => [], telemetry: { flush: async () => {} } };
+  const sessions = Array.from({ length: 1025 }, (_, index) => ({ id: `session-${index}`, engine }));
+  const path = join(root, 'support.zip');
+  await new DiagnosticBundle({ engine, sessions }).create(path);
+  const entries = zipEntries(await readFile(path));
+  const manifest = JSON.parse(entries.get('manifest.json'));
+  assert.equal(manifest.sessions.length, 1025);
+  assert.equal(entries.size, 2052);
+});
+
+test('support bundle streams realistic multi-child evidence beyond the former 16 MiB aggregate cap', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-support-large-family-'));
+  const detail = 'a'.repeat(24_000);
+  const engine = { sessionId: 'session-0', health: async () => ({ status: 'ready', detail }),
+    reviewerAudit: () => [], governanceAudit: () => [], telemetry: { flush: async () => {} } };
+  const sessions = Array.from({ length: 750 }, (_, index) => ({ id: `session-${index}`, engine }));
+  const path = join(root, 'support.zip');
+  await new DiagnosticBundle({ engine, sessions }).create(path);
+  const entries = zipEntries(await readFile(path));
+  const manifest = JSON.parse(entries.get('manifest.json'));
+  assert.equal(manifest.sessions.length, 750);
+  assert.equal(entries.size, 1502);
+  const last = manifest.sessions.at(-1);
+  assert.equal(JSON.parse(entries.get(`${last.folder}/diagnostics.json`)).health.detail, detail);
+});
+
+test('a later session failure removes the unpublished streamed archive', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-support-stream-failure-'));
+  let visits = 0;
+  const engine = { sessionId: 'session-0', health: async () => {
+    if (++visits === 2) throw new Error('later child unavailable');
+    return { status: 'ready' };
+  }, reviewerAudit: () => [], governanceAudit: () => [], telemetry: { flush: async () => {} } };
+  const path = join(root, 'support.zip');
+  await assert.rejects(new DiagnosticBundle({ engine, sessions: [
+    { id: 'session-0', engine }, { id: 'session-1', engine },
+  ] }).create(path), /later child unavailable/u);
+  assert.deepEqual(await readdir(root), []);
+});
+
 test('related session count overflow fails explicitly instead of dropping sessions', async () => {
-  const sessions = Array.from({ length: 64 }, (_, index) => ({ id: `session-${index}`, engine: {} }));
+  const sessions = Array.from({ length: 1026 }, (_, index) => ({ id: `session-${index}`, engine: {} }));
   await assert.rejects(discoverSupportSessions(sessions), { code: 'zip_entries_invalid' });
 });
 

@@ -3,7 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ContractError } from './ids.js';
+import { ContractError, requireExternalId } from './ids.js';
 
 const MAX_BODY = 262_144;
 const MAX_RECORD_FILES = 1_024;
@@ -11,6 +11,7 @@ const MAX_RECENT_BROKERS = 128;
 const RECORD_READ_CONCURRENCY = 32;
 const MAX_RESPONSE_BYTES = 4_194_304;
 const BROKER_TIMEOUT_MS = 10_000;
+const MAX_CANCEL_FENCE_IDS = 256;
 
 export class ConsoleSessionBroker {
   constructor(workspace, options = {}) {
@@ -55,14 +56,19 @@ export class ConsoleSessionBroker {
       const sessionId = decodeURIComponent(match[1]);
       const body = await readJsonBody(request);
       if (!body || typeof body !== 'object' || Array.isArray(body)
-        || Object.keys(body).some((key) => key !== 'content')
+        || Object.keys(body).some((key) => key !== 'content' && key !== 'request_id'
+          && (match[2] !== 'cancel' || !['expected_turn_id', 'fence_request_ids'].includes(key)))
         || (match[2] === 'submit' && typeof body.content !== 'string')
-        || (match[2] !== 'submit' && Object.keys(body).length > 0)) {
+        || (match[2] !== 'submit' && match[2] !== 'cancel' && Object.keys(body).length > 0)
+        || (match[2] === 'cancel' && Object.keys(body).some((key) => !['expected_turn_id', 'fence_request_ids'].includes(key)))) {
         throw new ContractError('broker_request_invalid', 'session broker request has an invalid shape');
       }
+      if (match[2] === 'submit' && body.request_id !== undefined) requireExternalId(body.request_id);
+      if (match[2] === 'cancel' && body.expected_turn_id !== undefined) requireExternalId(body.expected_turn_id);
+      if (match[2] === 'cancel' && body.fence_request_ids !== undefined) validateCancelFenceIds(body.fence_request_ids);
       const operations = {
-        submit: () => this.workspace.submitSession(sessionId, body.content),
-        cancel: () => this.workspace.cancelSession(sessionId),
+        submit: () => this.workspace.submitSession(sessionId, body.content, body.request_id),
+        cancel: () => this.workspace.cancelSession(sessionId, body.expected_turn_id, body.fence_request_ids ?? []),
         compact: () => this.workspace.compactSession(sessionId),
         handoff: () => this.workspace.handoffSession(sessionId),
         clear: () => this.workspace.clearSession(sessionId),
@@ -101,18 +107,22 @@ export class ConsoleSessionDirectory {
     }
     return uniqueAliases(discovered);
   }
-  async submit(target, content) {
+  async submit(target, content, requestId) {
     if (typeof content !== 'string' || !content.trim() || Buffer.byteLength(content) > MAX_BODY) {
       throw new ContractError('broker_content_invalid', 'attached message is empty or too large');
     }
+    if (requestId !== undefined) requireExternalId(requestId);
     const envelope = await this.#call(target.broker, `/sessions/${encodeURIComponent(target.id)}/submit`, {
-      method: 'POST', body: JSON.stringify({ content }),
+      method: 'POST', body: JSON.stringify({ content, request_id: requestId }),
     });
     return envelope.result;
   }
-  async cancel(target) {
+  async cancel(target, expectedTurnId, fenceRequestIds = []) {
+    if (expectedTurnId !== undefined) requireExternalId(expectedTurnId, 'expected_turn_id');
+    validateCancelFenceIds(fenceRequestIds);
     const envelope = await this.#call(target.broker, `/sessions/${encodeURIComponent(target.id)}/cancel`, {
-      method: 'POST', body: '{}',
+      method: 'POST', body: JSON.stringify({ ...(expectedTurnId ? { expected_turn_id: expectedTurnId } : {}),
+        fence_request_ids: fenceRequestIds }),
     });
     return envelope.result;
   }
@@ -176,6 +186,13 @@ async function readJsonBody(request) {
   const chunks = []; let size = 0;
   for await (const chunk of request) { size += chunk.length; if (size > MAX_BODY) throw new ContractError('broker_request_too_large', 'session broker request is too large'); chunks.push(chunk); }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); } catch { throw new ContractError('broker_json_invalid', 'session broker request is invalid JSON'); }
+}
+function validateCancelFenceIds(ids) {
+  if (!Array.isArray(ids) || ids.length > MAX_CANCEL_FENCE_IDS
+    || ids.some((id) => typeof id !== 'string' || !/^gateway_update_[0-9]+$/u.test(id))
+    || new Set(ids).size !== ids.length) {
+    throw new ContractError('broker_request_invalid', 'cancel fence request IDs are invalid');
+  }
 }
 function reply(response, status, body) {
   if (response.writableEnded) return;

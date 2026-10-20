@@ -59,39 +59,56 @@ async function testGateway(config, options) {
 
 async function runForeground(config, paths, options) {
   assertRunnable(config, options.environment);
-  const token = gatewayToken(config, options.environment).value;
-  const workspaceRoot = config.workspace_root ?? process.cwd();
-  const effective = await loadEffectiveStartupConfiguration({
-    paths, input: process.stdin, output: process.stderr, diagnostics: process.stderr,
-    workspaceRoot, securityAudit: () => undefined,
-  });
-  const engineConfig = Object.freeze({ ...effective.config, workspaceRoot });
-  const secretBroker = options.engineOptions?.secretBroker ?? new SecretBroker({
-    vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
-  });
-  await writePid(paths, process.pid, options);
-  const gateway = (options.gatewayFactory ?? ((gatewayOptions) => new TelegramGateway(gatewayOptions)))({
-    api: new TelegramApi(token, { fetch: options.fetch }), config, engineConfig, paths,
-    engineOptions: {
-      dataPaths: paths, webSearchConfigPath: paths.webSearchConfig, webFetchConfigPath: paths.webFetchConfig,
-      hookRoots: runtimeHookRoots(paths, effective.project), skillRoots: runtimeSkillRoots(paths, effective.project),
-      secretBroker, ...options.engineOptions,
-    },
-  });
+  // Invariant: one live gateway owns polling and its PID record for this data root.
+  const runtimeLock = new SessionLock(paths.gateway, 'gateway-running', { processIdentity: options.processIdentity });
+  await runtimeLock.acquire();
+  let gateway = null;
+  let publishedPid = false;
   let shutdown = null;
+  let shutdownFailed = false;
   const stop = () => {
+    if (!gateway) return Promise.resolve();
     shutdown ??= gateway.shutdown().catch((error) => {
+      shutdownFailed = true;
       process.exitCode = 1; process.stderr.write(gatewayShutdownDiagnostic(error));
     });
     return shutdown;
   };
   const signalStop = () => { void stop(); };
-  process.once('SIGINT', signalStop); process.once('SIGTERM', signalStop);
-  try { return await gateway.run(); }
-  finally {
+  try {
+    const prior = await runtimeStatus(paths, options);
+    if (prior.running && prior.pid !== process.pid) {
+      throw Object.assign(new Error('gateway already has a live process owner'), { code: 'session_locked' });
+    }
+    const token = gatewayToken(config, options.environment).value;
+    const workspaceRoot = config.workspace_root ?? process.cwd();
+    const effective = await loadEffectiveStartupConfiguration({
+      paths, input: process.stdin, output: process.stderr, diagnostics: process.stderr,
+      workspaceRoot, securityAudit: () => undefined,
+    });
+    const engineConfig = Object.freeze({ ...effective.config, workspaceRoot });
+    const secretBroker = options.engineOptions?.secretBroker ?? new SecretBroker({
+      vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
+    });
+    publishedPid = true;
+    await writePid(paths, process.pid, options);
+    gateway = (options.gatewayFactory ?? ((gatewayOptions) => new TelegramGateway(gatewayOptions)))({
+      api: new TelegramApi(token, { fetch: options.fetch }), config, engineConfig, paths,
+      engineOptions: {
+        dataPaths: paths, webSearchConfigPath: paths.webSearchConfig, webFetchConfigPath: paths.webFetchConfig,
+        hookRoots: runtimeHookRoots(paths, effective.project), skillRoots: runtimeSkillRoots(paths, effective.project),
+        secretBroker, ...options.engineOptions,
+      },
+    });
+    process.once('SIGINT', signalStop); process.once('SIGTERM', signalStop);
+    return await gateway.run();
+  } finally {
     process.removeListener('SIGINT', signalStop); process.removeListener('SIGTERM', signalStop);
     await stop();
-    await unlink(pidPath(paths)).catch(() => undefined);
+    if (!shutdownFailed) {
+      if (publishedPid) await unlink(pidPath(paths)).catch(() => undefined);
+      await runtimeLock.release();
+    }
   }
 }
 

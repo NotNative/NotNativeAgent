@@ -161,7 +161,10 @@ crash-replay guarantee. The v2 event stream is live-only. Reconnects must fetch
 session, message, active-session and pending-form snapshots.
 
 V2 admits at most 128 live sessions and 64 event subscribers. Message pagination
-accepts 1–500 records. Existing wire sessions retain their 64-prompt lifetime bound.
+accepts 1–500 records. Legacy wire sessions queue at most 64 unfinished prompts
+and retain the latest 64 prompts in process-local message history; a settled
+prompt does not consume a queue slot. The legacy message endpoint exposes only
+that recent in-process history.
 Slow event consumers are disconnected rather than accumulating an unbounded queue.
 
 ## Verification and activation

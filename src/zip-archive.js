@@ -5,10 +5,14 @@ import { ContractError } from './ids.js';
 const UTF8_FLAG = 0x0800;
 const DEFLATE = 8;
 const MAX_ARCHIVE_INPUT = 16_777_216;
+const MAX_STREAMED_ENTRY_INPUT = 67_108_864;
+const MAX_STREAMED_ARCHIVE_INPUT = 536_870_912;
+// Invariant: a full support export has two entries per session plus two root entries.
+const MAX_ARCHIVE_ENTRIES = 2 * 1025 + 2;
 
 export function createZip(entries, date = new Date()) {
-  if (!Array.isArray(entries) || entries.length === 0 || entries.length > 128) {
-    throw new ContractError('zip_entries_invalid', 'support archive requires one to one hundred twenty-eight files');
+  if (!Array.isArray(entries) || entries.length === 0 || entries.length > MAX_ARCHIVE_ENTRIES) {
+    throw new ContractError('zip_entries_invalid', 'support archive entry count exceeds its bound');
   }
   let total = 0;
   const inputs = entries.map((entry) => {
@@ -31,6 +35,55 @@ export function createZip(entries, date = new Date()) {
   }
   const directory = Buffer.concat(central);
   return Buffer.concat([...local, directory, endRecord(prepared.length, directory.length, offset)]);
+}
+
+// Why: support bundles can contain many independently bounded sessions. Write
+// each compressed entry before loading the next one instead of retaining all
+// session evidence in a single in-memory archive buffer.
+export function createZipWriter(handle, date = new Date()) {
+  const central = [];
+  let inputBytes = 0;
+  let offset = 0;
+  let finished = false;
+  return Object.freeze({
+    async append(entry) {
+      if (finished || central.length >= MAX_ARCHIVE_ENTRIES) {
+        throw new ContractError('zip_entries_invalid', 'support archive entry count exceeds its bound');
+      }
+      if (!entry || (typeof entry.content !== 'string' && !Buffer.isBuffer(entry.content))) {
+        throw new ContractError('zip_entry_invalid', 'support archive content must be text or a buffer');
+      }
+      const bytes = Buffer.byteLength(entry.content);
+      if (bytes > MAX_STREAMED_ENTRY_INPUT) throw new ContractError('zip_entry_too_large', 'support archive entry exceeds its bound');
+      inputBytes += bytes;
+      if (inputBytes > MAX_STREAMED_ARCHIVE_INPUT) throw new ContractError('zip_input_too_large', 'support archive input exceeds its bound');
+      const prepared = prepareEntry(entry, date);
+      const header = localHeader(prepared);
+      central.push(centralHeader(prepared, offset));
+      await writeFully(handle, header);
+      await writeFully(handle, prepared.compressed);
+      offset += header.length + prepared.compressed.length;
+    },
+    async finish() {
+      if (finished || central.length === 0) throw new ContractError('zip_entries_invalid', 'support archive has no entries');
+      finished = true;
+      const directory = Buffer.concat(central);
+      await writeFully(handle, directory);
+      await writeFully(handle, endRecord(central.length, directory.length, offset));
+      return offset + directory.length + 22;
+    },
+  });
+}
+
+async function writeFully(handle, buffer) {
+  let offset = 0;
+  while (offset < buffer.length) {
+    const { bytesWritten } = await handle.write(buffer, offset, buffer.length - offset, null);
+    if (!Number.isSafeInteger(bytesWritten) || bytesWritten < 1 || bytesWritten > buffer.length - offset) {
+      throw new ContractError('zip_write_incomplete', 'support archive write did not make progress');
+    }
+    offset += bytesWritten;
+  }
 }
 
 function prepareEntry(entry, date) {

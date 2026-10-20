@@ -61,6 +61,7 @@ export function validateCommand(value, options = {}) {
     validateAttachmentId(value.attachment_id);
   }
   if (value.type === 'attachment_remove') validateAttachmentId(value.attachment_id);
+  if (value.type === 'cancel' && value.expected_turn_id !== undefined) requireExternalId(value.expected_turn_id, 'expected_turn_id');
   if (permissionDecision) validatePermissionDecision(value);
   if (value.type === 'question_response') validateQuestionResponse(value);
   if (value.type === 'question_decline') validateQuestionDecline(value);

@@ -336,8 +336,11 @@ export async function submitEditor(workspace, stop) {
       if (result.accepted) session.editor.take();
       return;
     }
-    session.editor.take();
-    workspace.submitActive(content);
+    if (workspace.sessions.get(session.id)?.pendingSubmission) {
+      workspace.projection.showNotice('submit', 'Wait for the pending message to be accepted. Your draft is still here.');
+      return;
+    }
+    workspace.submitActive(content, { fromEditor: true });
     return;
   }
   await command(content.trim(), workspace, stop);

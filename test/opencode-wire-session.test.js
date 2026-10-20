@@ -110,6 +110,38 @@ test('prompts while busy queue their durable events at admit time and serialize 
   assert.equal(wireSession.messages().length, 4);
 });
 
+test('completed prompts release queue capacity while recent wire history stays bounded', async () => {
+  const record = makeRecord(async ({ content }) => ({ outcome: 'completed', text: `done:${content}` }));
+  const wireSession = freshWireSession(record, { publishSession() {} });
+  for (let index = 0; index < 65; index += 1) {
+    const response = await wireSession.prompt([{ type: 'text', text: `prompt-${index}` }]);
+    assert.equal(response.info.finish, 'stop');
+    assert.equal(wireSession.pendingCount(), 0);
+  }
+  const messages = wireSession.messages();
+  assert.equal(messages.length, 128, 'only the latest 64 prompt pairs remain in wire history');
+  assert.equal(messages[0].parts[0].text, 'prompt-1');
+  assert.equal(messages.at(-2).parts[0].text, 'prompt-64');
+});
+
+test('the queue rejects a 65th unfinished prompt and accepts work after settlement', async () => {
+  let release;
+  const record = makeRecord(() => new Promise((resolve) => { release = resolve; }));
+  const wireSession = freshWireSession(record, { publishSession() {} });
+  const pending = Array.from({ length: 64 }, (_, index) => wireSession.prompt([{ type: 'text', text: `queued-${index}` }]));
+  assert.equal(wireSession.pendingCount(), 64);
+  assert.throws(() => wireSession.prompt([{ type: 'text', text: 'overflow' }]), { code: 'opencode_prompt_queue_overflow' });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(wireSession.abort(), 63);
+  release({ outcome: 'completed', text: 'done' });
+  await Promise.all(pending);
+  assert.equal(wireSession.pendingCount(), 0);
+  const next = wireSession.prompt([{ type: 'text', text: 'after' }]);
+  await new Promise((resolve) => setImmediate(resolve));
+  release({ outcome: 'completed', text: 'after' });
+  assert.equal((await next).parts[1].text, 'after');
+});
+
 test('prompt validation rejects empty, oversized, and non-text parts before any event', async () => {
   const bus = recordingBus();
   const record = makeRecord(async () => ({ outcome: 'completed', text: '' }));

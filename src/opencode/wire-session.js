@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { physicalContextAllowance } from '../reliability/context-budget.js';
 
 const QUEUE_LIMIT = 64;
+const HISTORY_LIMIT = 64;
 const MAX_PROMPT_PARTS = 128;
 const DEFAULT_PART_TEXT_ALLOWANCE = physicalContextAllowance(65_536);
 const ZERO_TOKENS = Object.freeze({ total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } });
@@ -37,7 +38,7 @@ export function createWireSession({ record, bus, info, version }) {
     admit(parts, input = {}) { return admit(state, parts, input); },
     abort() { return abortPending(state); },
     messages() { return messagesFromLedger(state); },
-    pendingCount() { return state.ledger.filter((entry) => entry.response === null).length; },
+    pendingCount() { return pendingCount(state); },
   };
 }
 
@@ -75,8 +76,15 @@ function admit(state, parts, input = {}) {
   const text = buildPromptCommand(parts, { maxText: physicalContextAllowance(
     state.record.engine?.ingressContextWindowTokens ?? state.record.engine?.lastContextMeasurement?.windowTokens ?? 65_536,
   ) });
-  if (state.ledger.length >= QUEUE_LIMIT) {
+  if (pendingCount(state) >= QUEUE_LIMIT) {
     throw new ContractError('opencode_prompt_queue_overflow', 'prompt queue is full');
+  }
+  // Invariant: queue capacity counts unfinished prompts; completed messages
+  // remain in a separate bounded recent-history projection.
+  if (state.ledger.length >= HISTORY_LIMIT) {
+    const settled = state.ledger.findIndex((entry) => entry.response !== null);
+    if (settled < 0) throw new ContractError('opencode_prompt_queue_overflow', 'prompt queue is full');
+    state.ledger.splice(settled, 1);
   }
   const entry = createEntry(state, text);
   if (input.messageID) entry.userMessageId = input.messageID;
@@ -89,6 +97,10 @@ function admit(state, parts, input = {}) {
   const bound = state.tail.then(() => runEntry(state, entry));
   state.tail = bound.catch(() => {});
   return { response: bound, messageID: entry.userMessageId };
+}
+
+function pendingCount(state) {
+  return state.ledger.reduce((count, entry) => count + Number(entry.response === null), 0);
 }
 
 async function runEntry(state, entry) {

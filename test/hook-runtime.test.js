@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, symlink, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, mkdir, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { discoverHookBundles } from '../src/hook-manifest.js';
-import { parseCommand } from '../src/hook-runner.js';
+import { parseCommand, runHook } from '../src/hook-runner.js';
 import { redactExtensionData } from '../src/redaction.js';
 
 function config(workspaceRoot) {
@@ -141,6 +142,29 @@ test('maximum valid hook timeout remains registerable with runtime grace', async
   await engine.initialize();
   assert.equal(engine.hooks.health().bundles[0].status, 'loaded');
   await engine.shutdown({ request_id: 'hook-timeout-stop' });
+});
+
+test('timed-out hook stops its descendant before the descendant can write', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-hook-descendant-'));
+  const ready = join(root, 'ready');
+  const escaped = join(root, 'escaped');
+  await writeFile(join(root, 'descendant.mjs'), `
+import { writeFileSync } from 'node:fs';
+setTimeout(() => writeFileSync(${JSON.stringify(escaped)}, 'ran'), 1800);
+`);
+  await writeFile(join(root, 'hook.mjs'), `
+import { spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+spawn(process.execPath, ['descendant.mjs'], { stdio: 'ignore' });
+writeFileSync(${JSON.stringify(ready)}, 'started');
+setInterval(() => {}, 10_000);
+`);
+  const outcome = await runHook({ command: `${JSON.stringify(process.execPath)} hook.mjs`, timeoutMs: 1000 },
+    { directory: root, name: 'descendant-fixture' }, {}, null);
+  assert.equal(outcome.code, 'hook_timeout');
+  await access(ready);
+  await delay(2200);
+  await assert.rejects(access(escaped), { code: 'ENOENT' });
 });
 
 test('hook command parser permits argv but rejects shell composition', () => {

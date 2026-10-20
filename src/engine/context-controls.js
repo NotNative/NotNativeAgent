@@ -97,11 +97,16 @@ export async function clearEngineConversation(engine) {
   engine.telemetry?.record('context.clear', 'started', { trigger: 'operator_command' });
   try {
     const removed = engine.transcript.length;
-    if (engine.store) await engine.store.append('conversation_cleared', { removed, clearedAt: new Date().toISOString() });
-    await engine.work?.clear();
+    if (engine.store) await engine.store.append('conversation_cleared', {
+      removed, clearedAt: new Date().toISOString(),
+      workRevision: engine.work ? engine.work.snapshot().revision + 1 : 0,
+    });
+    // Invariant: the journal marker commits all conversation resets. No later
+    // persistence or output failure may leave old authority or context live.
     engine.transcript = [];
     engine.latestTurnOutcome = null;
     engine.authority.clearConversation();
+    await engine.work?.clear({ persist: false });
     engine.telemetry?.record('context.clear', 'succeeded', { trigger: 'operator_command', removed_records: removed });
     return Object.freeze({ removed, cleared: true });
   } catch (error) {

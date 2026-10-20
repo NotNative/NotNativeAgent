@@ -266,6 +266,31 @@ test('clearing conversation work records a durable empty revision', async () => 
   assert.equal(records.at(-1).payload.revision, 3);
 });
 
+test('conversation clear marker resets work even when its later work snapshot was never written', async () => {
+  const records = [];
+  const work = new ConversationWork({ persist: async (type, payload) => records.push({ type, payload }) });
+  await work.setGoal('Old goal');
+  await work.addTask('Old task');
+  const marker = { type: 'conversation_cleared', payload: { workRevision: 3 } };
+  const resumed = new ConversationWork();
+  resumed.restore([...records, marker]);
+  assert.equal(resumed.snapshot().goal, null);
+  assert.deepEqual(resumed.snapshot().tasks, []);
+  assert.equal(resumed.snapshot().revision, 3);
+  await resumed.setGoal('New goal');
+  assert.equal(resumed.snapshot().revision, 4);
+
+  const legacy = new ConversationWork();
+  legacy.restore([...records, { type: 'conversation_cleared', payload: {} }]);
+  assert.equal(legacy.snapshot().goal, null);
+  assert.equal(legacy.snapshot().revision, 3);
+
+  const later = new ConversationWork();
+  later.restore([...records, marker, { type: 'work_state', payload: resumed.snapshot() }]);
+  assert.equal(later.snapshot().goal.objective, 'New goal');
+  assert.equal(later.snapshot().revision, 4);
+});
+
 test('failed work persistence leaves authoritative in-memory state unchanged', async () => {
   const work = new ConversationWork({ persist: async () => { throw new Error('disk unavailable'); } });
   await assert.rejects(work.addTask('Must remain uncommitted'), /disk unavailable/u);

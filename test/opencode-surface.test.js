@@ -54,6 +54,26 @@ test('health, auth gate, and 404 catch-all match the observed gold wire', async 
   });
 });
 
+test('malformed legacy request target returns 400 and leaves the server healthy', async () => {
+  await serveDuring({ config: fixtureConfig(), storeRoot: join(await fixtureRoot(), 's'), reviewerRoot: join(await fixtureRoot(), 'r') }, async ({ url }) => {
+    const invalid = await request(url, '/session/%GG');
+    assert.equal(invalid.status, 400);
+    const health = await request(url, '/global/health');
+    assert.equal(health.status, 200);
+    const diagnostics = await (await request(url, '/__nna/diagnostics')).json();
+    assert.ok(diagnostics.ring.some((entry) => entry.status === 400 && entry.code === 'invalid_target'));
+  });
+});
+
+test('malformed target still respects the Basic authentication gate', async () => {
+  await serveDuring({ config: fixtureConfig(), password: 'bench-pw', storeRoot: join(await fixtureRoot(), 's'), reviewerRoot: join(await fixtureRoot(), 'r') }, async ({ url }) => {
+    assert.equal((await request(url, '/session/%GG')).status, 401);
+    const auth = { authorization: basicAuthorization('opencode', 'bench-pw') };
+    assert.equal((await request(url, '/session/%GG', { headers: auth })).status, 400);
+    assert.equal((await request(url, '/global/health', { headers: auth })).status, 200);
+  });
+});
+
 test('session lifecycle speaks the gold Session shape', async () => {
   await serveDuring({ config: fixtureConfig(), storeRoot: join(await fixtureRoot(), 's'), reviewerRoot: join(await fixtureRoot(), 'r'), directory: 'D:\\fixture-dir' }, async ({ url }) => {
     const empty = await (await request(url, '/session')).json();

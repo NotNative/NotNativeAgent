@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { userDataPaths } from './product.js';
 
 const MAX_INPUT_BYTES = 1_048_576;
 const MAX_OUTPUT_BYTES = 262_144;
+const TREE_TERMINATION_MS = 1_500;
 const FORBIDDEN_SHELL = /[|&;<>()`\r\n]|\$\(/u;
 
 export async function runHook(subscription, bundle, payload, signal) {
@@ -25,36 +27,75 @@ function execute(invocation, subscription, bundle, input, parentSignal) {
     let stdout = Buffer.alloc(0);
     let stderr = Buffer.alloc(0);
     let settled = false;
+    let stopping = false;
     const child = spawn(invocation.command, invocation.args, {
       cwd: bundle.directory, env: hookEnvironment(payloadEnvironment(bundle, input)),
-      shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+      shell: false, windowsHide: true, detached: process.platform !== 'win32',
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
     const finish = (value) => {
       if (settled) return;
       settled = true; clearTimeout(timeoutId); parentSignal?.removeEventListener('abort', abort);
       resolve(value);
     };
-    const abort = () => { child.kill(); finish(result('continue', 'hook_cancelled')); };
-    const timeoutId = setTimeout(() => { child.kill(); finish(result('continue', 'hook_timeout')); }, subscription.timeoutMs);
+    const stop = (value) => {
+      if (settled || stopping) return;
+      stopping = true;
+      void terminateProcessTree(child).then((terminated) => {
+        finish(terminated ? value : result('continue', 'hook_termination_incomplete'));
+      });
+    };
+    const abort = () => stop(result('continue', 'hook_cancelled'));
+    const timeoutId = setTimeout(() => {
+      stop(result('continue', 'hook_timeout'));
+    }, subscription.timeoutMs);
     parentSignal?.addEventListener('abort', abort, { once: true });
+    if (parentSignal?.aborted) abort();
     for (const stream of [child.stdout, child.stderr]) stream.on('error', (error) => {
       if (settled) return;
-      child.kill(); finish(result('continue', 'hook_failed', null, stableErrorCode(error)));
+      stop(result('continue', 'hook_failed', null, stableErrorCode(error)));
     });
     child.stdout.on('data', (chunk) => {
       const appended = appendBounded(stdout, chunk); stdout = appended.value;
-      if (appended.truncated) { child.kill(); finish(result('continue', 'hook_output_too_large')); }
+      if (appended.truncated) stop(result('continue', 'hook_output_too_large'));
     });
     child.stderr.on('data', (chunk) => {
       const appended = appendBounded(stderr, chunk); stderr = appended.value;
-      if (appended.truncated) { child.kill(); finish(result('continue', 'hook_output_too_large')); }
+      if (appended.truncated) stop(result('continue', 'hook_output_too_large'));
     });
-    child.on('error', (error) => finish(result('continue', 'hook_spawn_failed', null, stableErrorCode(error))));
-    child.on('close', (code) => finish(interpret(code, stdout.toString('utf8'), stderr.toString('utf8'), subscription)));
+    child.on('error', (error) => { if (!stopping) finish(result('continue', 'hook_spawn_failed', null, stableErrorCode(error))); });
+    child.on('close', (code) => {
+      if (!stopping) finish(interpret(code, stdout.toString('utf8'), stderr.toString('utf8'), subscription));
+    });
     child.stdin.on('error', (error) => {
-      child.kill(); finish(result('continue', 'hook_input_failed', null, stableErrorCode(error)));
+      stop(result('continue', 'hook_input_failed', null, stableErrorCode(error)));
     });
     child.stdin.end(input, 'utf8');
+  });
+}
+
+function terminateProcessTree(child) {
+  if (!Number.isInteger(child.pid)) return Promise.resolve(true);
+  if (process.platform !== 'win32') {
+    try { process.kill(-child.pid, 'SIGKILL'); return Promise.resolve(true); }
+    catch { return Promise.resolve(child.kill('SIGKILL')); }
+  }
+  // Security: taskkill /T closes descendants before their parent is killed.
+  const taskkill = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'taskkill.exe');
+  return new Promise((resolve) => {
+    const killer = spawn(taskkill, ['/PID', String(child.pid), '/T', '/F'], {
+      shell: false, windowsHide: true, stdio: 'ignore',
+    });
+    let finished = false;
+    const complete = (terminated) => {
+      if (finished) return;
+      finished = true; clearTimeout(timer);
+      if (!terminated) child.kill();
+      resolve(terminated);
+    };
+    const timer = setTimeout(() => { killer.kill(); complete(false); }, TREE_TERMINATION_MS);
+    killer.on('error', () => complete(false));
+    killer.on('close', (code) => complete(code === 0));
   });
 }
 
