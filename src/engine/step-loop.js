@@ -6,8 +6,8 @@ import { appendRecoveryHint } from '../context.js';
 // Why: bound the model-step loop by wall-clock so a runaway continuation cannot spend
 // unbounded time or tokens unattended. Always allow at least one step, then stop cleanly at
 // a step boundary (never mid-stream), preserving committed work and recovery diagnostics.
-export function turnWallClockReached(active, modelStepIndex, turnWallClockMs) {
-  return Boolean(turnWallClockMs) && modelStepIndex >= 1
+export function turnWallClockReached(active, attemptedSteps, turnWallClockMs) {
+  return Boolean(turnWallClockMs) && attemptedSteps >= 1
     && Date.now() - active.startedAt >= turnWallClockMs;
 }
 
@@ -39,12 +39,14 @@ export async function runModelStepLoop(engine, active, initialContext, dependenc
   const turnWallClockMs = engine.config.limits.turnWallClockMs;
   let context = initialContext;
   let modelStepIndex = 0;
+  let attemptedSteps = 0;
   while (modelStepIndex < maxModelSteps) {
-    if (turnWallClockReached(active, modelStepIndex, turnWallClockMs)) {
-      const detail = limitDetail(engine, active, 'turn_wall_clock_limit', modelStepIndex);
+    if (turnWallClockReached(active, attemptedSteps, turnWallClockMs)) {
+      const detail = limitDetail(engine, active, 'turn_wall_clock_limit', attemptedSteps);
       return dependencies.finalize('limit_reached', limitText(engine, active, detail), detail, { emitText: true });
     }
     const result = await dependencies.runModelStep(context, active);
+    attemptedSteps += 1;
     if (result.countModelStep !== false) modelStepIndex += 1;
     if (result.exhausted) {
       const recovered = await modelStepExhausted(engine, active, result, dependencies);
@@ -52,6 +54,10 @@ export async function runModelStepLoop(engine, active, initialContext, dependenc
       return recovered;
     }
     if (!result.continue) return dependencies.completeFromStep(result, active);
+    if (turnWallClockReached(active, attemptedSteps, turnWallClockMs)) {
+      const detail = limitDetail(engine, active, 'turn_wall_clock_limit', attemptedSteps);
+      return dependencies.finalize('limit_reached', limitText(engine, active, detail), detail, { emitText: true });
+    }
     applyPendingConfiguration(engine, active);
     context = await dependencies.prepareContext(engine.transcript, '', active, result.forceCompact);
     context = appendRecoveryHint(context, result.hint);

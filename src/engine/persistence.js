@@ -16,7 +16,9 @@ export async function persistEngineRecord(engine, type, payload) {
   safeTelemetry(engine, 'started', { record_type: type }, correlation);
   try {
     if (engine.store) await engine.store.append(type, payload);
-    if (TRANSCRIPT_RECORDS.has(type)) engine.transcript.push(payload);
+    // Invariant: terminal carry follows the durable append without changing context inputs.
+    if (type === 'turn_outcome') engine.latestTurnOutcome = { ...payload, type };
+    else if (TRANSCRIPT_RECORDS.has(type)) engine.transcript.push(payload);
     safeTelemetry(engine, 'succeeded', { record_type: type }, {
       ...correlation, durationMs: Number(process.hrtime.bigint() - started) / 1_000_000,
     });

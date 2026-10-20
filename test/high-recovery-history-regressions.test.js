@@ -29,6 +29,30 @@ test('steering cancels recovery probes without a spurious health failure', async
   await started; active.providerRecoveryWaiter.resolve('steering'); assert.equal(await pending, 'steering');
   await new Promise((resolve) => setImmediate(resolve)); assert.equal(events.some(([, status]) => status === 'failed'), false);
 });
+test('turn deadline ends an unhealthy provider recovery wait and clears its waiter', async () => {
+  const active = { controller: new AbortController() };
+  let probes = 0;
+  const provider = { health: async () => { probes += 1; return false; } };
+  const started = Date.now();
+  assert.equal(await waitForProviderRecovery(provider, active, {
+    delayMs: 1, deadlineAt: started + 35,
+  }), 'deadline');
+  assert.ok(Date.now() - started < 1_000);
+  assert.ok(probes >= 1);
+  assert.equal(active.providerRecoveryWaiter, null);
+});
+test('turn deadline interrupts a health probe that ignores abort', async () => {
+  const active = { controller: new AbortController() };
+  let entered;
+  const started = new Promise((resolve) => { entered = resolve; });
+  const pending = waitForProviderRecovery({ health: async () => {
+    entered();
+    return new Promise(() => {});
+  } }, active, { delayMs: 1, deadlineAt: Date.now() + 25, healthProbeTimeoutMs: 50 });
+  await started;
+  assert.equal(await pending, 'deadline');
+  assert.equal(active.providerRecoveryWaiter, null);
+});
 test('history read stays parseable within the output bound across large neighboring records', async () => {
   const records = Array.from({ length: 7 }, (_, index) => ({ type: 'message', content: `${index}:` + '\u0001'.repeat(100000) }));
   const read = sessionHistoryDefinitions({ transcript: () => records }).find((item) => item.name === 'session_read_history');

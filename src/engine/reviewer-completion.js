@@ -7,9 +7,10 @@ const CARRIED_OUTCOMES = new Set(['blocked', 'failed', 'incomplete', 'needs_inpu
 const NON_CARRIABLE_STATES = new Set(['not_approved', 'review_pending']);
 const MAX_CARRIED_REQUESTS = 64;
 
-export function carriedReviewerRequestIds(transcript) {
-  if (!Array.isArray(transcript)) return Object.freeze([]);
-  const terminal = [...transcript].reverse().find((item) => item?.type === 'turn_outcome');
+export function carriedReviewerRequestIds(transcriptOrTerminal) {
+  const terminal = Array.isArray(transcriptOrTerminal)
+    ? [...transcriptOrTerminal].reverse().find((item) => item?.type === 'turn_outcome')
+    : transcriptOrTerminal;
   if (!terminal || !CARRIED_OUTCOMES.has(terminal.outcome)) return Object.freeze([]);
   const state = terminal.reviewer_completion;
   if (state?.schema !== 'nna.reviewer-completion.v1' || !Array.isArray(state.unresolved)) return Object.freeze([]);

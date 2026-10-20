@@ -38,12 +38,15 @@ test('native revert hides the boundary turn onward, restarts clean, and unrevert
       messageID: `rev1:message:${boundaryIndex}` });
     assert.deepEqual(result.reverted_turn_ids.length, 2);
     assert.equal(engine.transcript.filter((r) => r.type === 'message').length, 0);
+    assert.equal(engine.latestTurnOutcome, null);
     // A new turn after the revert works and keeps only itself.
     await engine.submit({ request_id: 'r3', content: 'after revert' }, principal);
+    assert.equal(engine.latestTurnOutcome.request_id, 'r3');
     assert.deepEqual(engine.transcript.filter((r) => r.type === 'message' && r.role === 'user').map((r) => r.content),
       ['after revert']);
     // The journal kept everything; unrevert replays the hidden turns back.
     await runNndSessionUnrevert({ sessionId: 'rev1', engine, liveTurn: null });
+    assert.equal(engine.latestTurnOutcome.request_id, 'r3');
     assert.deepEqual(engine.transcript.filter((r) => r.type === 'message' && r.role === 'user').map((r) => r.content),
       ['first', 'second', 'after revert']);
     // A consumed revert point cannot be unreverted again.
@@ -54,6 +57,8 @@ test('native revert hides the boundary turn onward, restarts clean, and unrevert
     const resumed = new SessionEngine(options);
     await resumed.initialize();
     try {
+      assert.equal(resumed.latestTurnOutcome.request_id, 'r3');
+      assert.equal(resumed.transcript.some((r) => r.type === 'turn_outcome'), false);
       assert.deepEqual(resumed.transcript.filter((r) => r.type === 'message' && r.role === 'user').map((r) => r.content),
         ['first', 'second', 'after revert']);
       const journal = await recoverJournal(resumed.store.path);

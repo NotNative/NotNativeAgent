@@ -100,6 +100,7 @@ export async function clearEngineConversation(engine) {
     if (engine.store) await engine.store.append('conversation_cleared', { removed, clearedAt: new Date().toISOString() });
     await engine.work?.clear();
     engine.transcript = [];
+    engine.latestTurnOutcome = null;
     engine.authority.clearConversation();
     engine.telemetry?.record('context.clear', 'succeeded', { trigger: 'operator_command', removed_records: removed });
     return Object.freeze({ removed, cleared: true });

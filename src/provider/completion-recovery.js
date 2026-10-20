@@ -21,6 +21,10 @@ export async function waitForProviderRecovery(provider, active, options = {}) {
   const probeTimeoutMs = recoveryTiming(options.healthProbeTimeoutMs, 5000);
   const waiter = providerRecoveryWaiter(active.controller.signal);
   active.providerRecoveryWaiter = waiter;
+  // Invariant: a health probe or recovery delay cannot hold a turn past its configured deadline.
+  const remainingMs = Number.isSafeInteger(options.deadlineAt) ? options.deadlineAt - Date.now() : null;
+  const deadline = remainingMs === null ? null
+    : setTimeout(() => waiter.resolve('deadline'), Math.max(0, remainingMs));
   try {
     const initial = await recoveryDelay(delayMs, active.controller.signal, waiter.promise);
     if (initial !== 'completed') return initial;
@@ -38,6 +42,7 @@ export async function waitForProviderRecovery(provider, active, options = {}) {
       if (waited !== 'completed') return waited;
     }
   } finally {
+    if (deadline) clearTimeout(deadline);
     waiter.dispose();
     if (active.providerRecoveryWaiter === waiter) active.providerRecoveryWaiter = null;
   }

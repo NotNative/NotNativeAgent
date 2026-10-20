@@ -6,6 +6,7 @@ const TRANSCRIPT_RECORD_TYPES = new Set(['message', 'tool_request', 'tool_result
 const MISSION_RECORD_TYPES = new Set(['mission_turn_authorized', 'mission_tool_calls_reserved']);
 const AUTHORITY_CONTROL_TYPES = new Set(['authority_intent', 'conversation_cleared', ...MISSION_RECORD_TYPES]);
 const TURN_LINKED_TYPES = new Set([...TRANSCRIPT_RECORD_TYPES, 'turn_accepted', 'turn_outcome', 'turn_interrupted']);
+const TURN_BOUNDARY_TYPES = new Set(['turn_accepted', 'turn_outcome', 'turn_interrupted']);
 
 // Security: when the caller supplies a genesis-anchored control stream, authority and
 // mission budgets replay exclusively from it. Tail records then certify transcript
@@ -22,6 +23,7 @@ export function restoreSessionRecords(records, options = {}) {
   const missionTurns = [];
   const hidden = hiddenTurnIds(records);
   let workspaceRoot = null;
+  let latestTurnOutcome = null;
   let authorityReset = false;
   for (const record of records.slice(0, maxRecords)) {
     validateRecord(record);
@@ -34,20 +36,15 @@ export function restoreSessionRecords(records, options = {}) {
       transcript.splice(0, transcript.length, ...record.payload.records, record.payload.fact);
     } else if (record.type === 'conversation_cleared') {
       transcript.length = 0;
+      latestTurnOutcome = null;
       if (control === null) { authority.length = 0; authorityReset = true; }
     } else if (record.type === 'authority_intent') {
       if (control === null) authority.push(record.payload);
     } else if (MISSION_RECORD_TYPES.has(record.type)) {
       if (control === null) missionTurns.push(record.payload);
-    } else if (record.type === 'turn_accepted') {
-      activeTurns.add(recordTurnId(record.payload));
-    } else if (record.type === 'turn_outcome') {
-      activeTurns.delete(recordTurnId(record.payload));
-      transcript.push({ ...record.payload, type: 'turn_outcome' });
-    } else if (record.type === 'turn_interrupted') {
-      const turnId = recordTurnId(record.payload);
-      activeTurns.delete(turnId);
-      interruptedTurns.add(turnId);
+    } else if (TURN_BOUNDARY_TYPES.has(record.type)) {
+      const outcome = replayTurnBoundary(record, activeTurns, interruptedTurns, transcript);
+      if (outcome) latestTurnOutcome = outcome;
     } else if (record.type === 'steering_accepted') {
       if (!hidden.has(record.payload.message?.turnId)) steering.set(record.payload.id, record.payload);
     } else if (record.type === 'steering_consumed') {
@@ -62,6 +59,7 @@ export function restoreSessionRecords(records, options = {}) {
   if (control !== null) authorityOutcome = replayAuthorityControl(control, authority, missionTurns);
   return Object.freeze({
     transcript: Object.freeze(transcript),
+    latestTurnOutcome,
     steering: Object.freeze([...steering.values()]),
     authority: Object.freeze(authority),
     authorityReset: authorityOutcome.authorityReset,
@@ -69,6 +67,17 @@ export function restoreSessionRecords(records, options = {}) {
     interrupted: Object.freeze([...activeTurns].filter((id) => !interruptedTurns.has(id))),
     workspaceRoot,
   });
+}
+
+function replayTurnBoundary(record, activeTurns, interruptedTurns, transcript) {
+  const turnId = recordTurnId(record.payload);
+  if (record.type === 'turn_accepted') activeTurns.add(turnId);
+  else activeTurns.delete(turnId);
+  if (record.type === 'turn_interrupted') interruptedTurns.add(turnId);
+  if (record.type !== 'turn_outcome') return null;
+  const outcome = { ...record.payload, type: 'turn_outcome' };
+  transcript.push(outcome);
+  return outcome;
 }
 
 // Security: mission budget facts deliberately survive a clear boundary; only

@@ -92,6 +92,21 @@ test('bounded-tail recovery identifies an authoritative conversation reset', () 
   assert.deepEqual(reset.authority.map((item) => item.content), ['new lineage']);
 });
 
+test('terminal carry follows the effective durable timeline across clear and revert', () => {
+  const first = record('turn_outcome', { turn_id: 'turn-1', outcome: 'blocked', reviewer_completion: { schema: 'nna.reviewer-completion.v1' } });
+  const second = record('turn_outcome', { turn_id: 'turn-2', outcome: 'completed' });
+  assert.equal(restoreSessionRecords([first, second]).latestTurnOutcome.turn_id, 'turn-2');
+  assert.equal(restoreSessionRecords([first, record('conversation_cleared', {})]).latestTurnOutcome, null);
+  const hidden = restoreSessionRecords([
+    first, second, record('revert_point', { reverted_turn_ids: ['turn-2'] }),
+  ]);
+  assert.equal(hidden.latestTurnOutcome.turn_id, 'turn-1');
+  const restored = restoreSessionRecords([
+    first, second, record('revert_point', { reverted_turn_ids: ['turn-2'] }), record('revert_cleared', {}),
+  ]);
+  assert.equal(restored.latestTurnOutcome.turn_id, 'turn-2');
+});
+
 test('a genesis-anchored control stream owns authority when the transcript tail is truncated', () => {
   const tail = [
     record('authority_intent', { content: 'tail duplicate', origin: 'operator' }),

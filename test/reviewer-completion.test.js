@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
+import { persistEngineRecord } from '../src/engine/persistence.js';
 import { carriedReviewerRequestIds, reviewerCompletionHint } from '../src/engine/reviewer-completion.js';
 
 const unresolved = Object.freeze({
@@ -93,9 +94,11 @@ test('a possible-effect reviewed failure survives into the next turn and defeats
   await engine.ledger.executionStarted(prior.id, 'prior-decision');
   await engine.ledger.settle(prior.id, { status: 'failed', effect_certainty: 'unknown', reason_code: 'executor_failure' });
   const priorState = engine.ledger.completionState({ turnIds: ['prior-blocked-turn'] });
-  engine.transcript.push({
-    type: 'turn_outcome', turn_id: 'prior-blocked-turn', outcome: 'blocked', reviewer_completion: priorState,
+  await persistEngineRecord(engine, 'turn_outcome', {
+    type: 'turn_result', turn_id: 'prior-blocked-turn', outcome: 'blocked', reviewer_completion: priorState,
   });
+  assert.equal(engine.latestTurnOutcome.type, 'turn_outcome');
+  assert.equal(engine.transcript.some((item) => item.type === 'turn_outcome'), false);
 
   const result = await engine.submit({ request_id: 'retry-request', content: 'Retry the write.' }, 'operator');
   assert.equal(result.outcome, 'blocked');
@@ -139,8 +142,8 @@ test('a denial does not survive into the next turn as a false obligation', async
   await engine.ledger.commitDecision(denied.id, {
     id: 'prior-denial', outcome: 'deny_with_guidance', reasonCode: 'semantic_denial',
   });
-  engine.transcript.push({
-    type: 'turn_outcome', turn_id: 'prior-blocked-turn', outcome: 'blocked',
+  await persistEngineRecord(engine, 'turn_outcome', {
+    type: 'turn_result', turn_id: 'prior-blocked-turn', outcome: 'blocked',
     reviewer_completion: { schema: 'nna.reviewer-completion.v1', unresolved_count: 1, unresolved: [{
       request_id: 'denied-write', tool: 'fs_write_text', state: 'not_approved',
       reason_code: 'semantic_denial', effect_certainty: 'none',

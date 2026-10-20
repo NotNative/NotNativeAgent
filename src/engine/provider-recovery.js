@@ -57,7 +57,9 @@ export async function recoverContentFreeCompletion(engine, active, operations) {
   let waitOutcome = 'steering';
   if (engine.steering.length === 0) {
     const provider = active.providerRoute ? engine.router.provider(active.providerRoute) : null;
-    waitOutcome = await engine.providerRunner.waitForProviderRecovery(provider, active, plan.delayMs);
+    const turnWallClockMs = engine.config.limits.turnWallClockMs;
+    const deadlineAt = turnWallClockMs ? active.startedAt + turnWallClockMs : null;
+    waitOutcome = await engine.providerRunner.waitForProviderRecovery(provider, active, plan.delayMs, deadlineAt);
   }
   assertTurnActive(active);
   if (waitOutcome === 'steering' || engine.steering.length > 0) await operations.consumeSteering();

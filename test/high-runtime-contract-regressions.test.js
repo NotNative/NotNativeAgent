@@ -45,6 +45,23 @@ test('persistence reports and preserves primitive rejection reasons', async () =
   }
 });
 
+test('terminal transcript projection follows durable append and preserves the wire payload', async () => {
+  const payload = { type: 'turn_result', turn_id: 'prior', outcome: 'blocked', reviewer_completion: {} };
+  const records = [];
+  const engine = { store: { append: async (type, value) => records.push({ type, value }) }, transcript: [], latestTurnOutcome: null };
+  await persistEngineRecord(engine, 'turn_outcome', payload);
+  assert.equal(records[0].type, 'turn_outcome');
+  assert.equal(records[0].value, payload);
+  assert.deepEqual(engine.transcript, []);
+  assert.deepEqual(engine.latestTurnOutcome, { ...payload, type: 'turn_outcome' });
+  assert.equal(payload.type, 'turn_result');
+  const failure = new Error('append failed');
+  engine.store.append = async () => { throw failure; };
+  await assert.rejects(persistEngineRecord(engine, 'turn_outcome', payload), failure);
+  assert.equal(engine.transcript.length, 0);
+  assert.equal(engine.latestTurnOutcome.outcome, 'blocked');
+});
+
 test('identifier errors are initialized before importer calls', () => {
   assert.throws(() => newId(''), (error) => error instanceof ContractError && error.code === 'invalid_id_prefix');
   assert.throws(() => requireExternalId(null), (error) => error instanceof ContractError && error.code === 'invalid_id');

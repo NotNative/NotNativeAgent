@@ -210,9 +210,9 @@ export class ProviderRunner {
     throw lastError ?? new ContractError('route_unavailable', 'no route candidate was attempted');
   }
 
-  async waitForProviderRecovery(provider, active, delayMs) {
+  async waitForProviderRecovery(provider, active, delayMs, deadlineAt = null) {
     return waitForProviderRecovery(provider, active, {
-      delayMs, telemetry: this.telemetry, healthProbeTimeoutMs: this.healthProbeTimeoutMs,
+      delayMs, deadlineAt, telemetry: this.telemetry, healthProbeTimeoutMs: this.healthProbeTimeoutMs,
     });
   }
 

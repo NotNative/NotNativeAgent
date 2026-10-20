@@ -973,6 +973,32 @@ test('content-free completions wait, change the recovery request, and preserve t
   assert.match(systemMessages[0], /Provider recovery attempt 1/u);
 });
 
+test('an unhealthy provider cannot hold content-free recovery beyond the turn wall clock', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-empty-deadline-'));
+  let streams = 0;
+  let probes = 0;
+  const provider = {
+    profile: { trustZone: 'loopback' },
+    async health() { probes += 1; return false; },
+    async *stream() { streams += 1; yield { type: 'terminal' }; },
+  };
+  const engine = new SessionEngine({
+    config: config(root, 'ephemeral', { recovery: { turn_wall_clock_ms: 1000 } }),
+    providerFactory: () => provider,
+  });
+  await engine.initialize();
+  const timer = setTimeout(() => engine.cancel({ request_id: 'empty-deadline-cancel' }), 3000);
+  try {
+    const result = await engine.submit({ request_id: 'empty-deadline-turn', content: 'Produce output' }, 'operator');
+    assert.equal(result.outcome, 'limit_reached');
+    assert.equal(result.failure?.exhaustion_category, 'turn_wall_clock_limit');
+    assert.equal(streams, 1);
+    assert.ok(probes >= 1);
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
 test('content-free completion uses an eligible fallback route before waiting', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-empty-route-fallback-'));
   const calls = [];
@@ -1404,7 +1430,8 @@ test('configured per-turn wall-clock budget terminates a still-progressing turn 
   assert.equal(result.outcome, 'limit_reached');
   assert.equal(result.failure.exhaustion_category, 'turn_wall_clock_limit');
   assert.ok(result.failure.exhaustion_count >= 1, 'at least one model step must run before the budget can bind');
-  assert.equal(count, result.failure.exhaustion_count);
+  // The typed terminal declaration is also a provider attempt, even though it is not a work step.
+  assert.equal(count + 1, result.failure.exhaustion_count);
   assert.match(result.text, /per-turn wall-clock budget was reached/u);
 });
 

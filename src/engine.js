@@ -46,7 +46,7 @@ import { carriedReviewerRequestIds, refreshReviewerCompletion, reviewerCompletio
 export class SessionEngine {
   state = new StateAuthority(); lifecycles = new LifecycleRegistry();
   authority = new AuthorityRecord();
-  transcript = []; steering = [];
+  transcript = []; steering = []; latestTurnOutcome = null;
   recoveryNotices = [];
   active = null;
   constructor(options) {
@@ -109,7 +109,7 @@ export class SessionEngine {
     if (this.state.state !== 'idle') return this.#rejectBusy(command);
     const turn = this.lifecycles.start('turn');
     this.active = createActiveTurn(turn.id, command.request_id, this.config.recovery, this.reliability);
-    const active = this.active; active.carriedReviewerRequestIds = carriedReviewerRequestIds(this.transcript); active.principal = principal;
+    const active = this.active; active.carriedReviewerRequestIds = carriedReviewerRequestIds(this.latestTurnOutcome); active.principal = principal;
     active.enrichment.skills = this.skills.beginTurn();
     let operation;
     try {
@@ -135,7 +135,6 @@ export class SessionEngine {
     );
     return operation;
   }
-
   retryAttachment(command, principal) {
     return this.submit({ ...command, retry_attachment_id: command.attachment_id }, principal);
   }
@@ -484,7 +483,9 @@ export class SessionEngine {
     const restored = restoreSessionRecords(records, { controlRecords: recovery?.controlRecords });
     await restoreEngineWorkspace(this, restored.workspaceRoot);
     this.work.restore(records);
-    this.transcript.push(...restored.transcript);
+    // Invariant: restart preserves the live context inputs; terminal carry has separate state.
+    this.transcript.push(...restored.transcript.filter((item) => item.type !== 'turn_outcome'));
+    this.latestTurnOutcome = restored.latestTurnOutcome;
     const lineageComplete = typeof recovery?.controlComplete === 'boolean' ? recovery.controlComplete : null;
     this.authority.restore(restored.authority, restored.missionTurns, {
       conversationComplete: lineageComplete ?? (!truncated || restored.authorityReset),

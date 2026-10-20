@@ -37,11 +37,11 @@ function hideRevertedTurns(engine, turns) {
 }
 
 function restoreRevertedTurns(engine, records) {
-  // Resynchronize the live transcript to the journal replay order (turn
-  // outcomes included, matching the restart path) so reviewer-completion
-  // carry and message projection agree across a restart.
-  const replayed = restoreSessionRecords(records, {}).transcript;
-  engine.transcript.splice(0, engine.transcript.length, ...replayed);
+  // Invariant: transcript and terminal carry follow the same effective revert timeline.
+  const replayed = restoreSessionRecords(records, {});
+  engine.transcript.splice(0, engine.transcript.length,
+    ...replayed.transcript.filter((item) => item.type !== 'turn_outcome'));
+  engine.latestTurnOutcome = replayed.latestTurnOutcome;
 }
 
 export async function runNndSessionRevert(context, body) {
@@ -51,11 +51,15 @@ export async function runNndSessionRevert(context, body) {
   const { turnId, messageId } = resolveForkBoundary(context.engine.transcript, context.sessionId, body?.messageID);
   const { records } = await context.engine.store.readRecords();
   const revertedTurns = collectRevertedTurns(records, turnId);
-  await context.engine.store.append('revert_point', { turn_id: turnId, boundary_message_id: messageId,
+  const payload = { turn_id: turnId, boundary_message_id: messageId,
     ...(typeof body?.partID === 'string' && body.partID.length > 0 && body.partID.length <= 256
       ? { part_id: body.partID } : {}),
-    reverted_turn_ids: revertedTurns });
+    reverted_turn_ids: revertedTurns };
+  await context.engine.store.append('revert_point', payload);
   hideRevertedTurns(context.engine, new Set(revertedTurns));
+  context.engine.latestTurnOutcome = restoreSessionRecords([
+    ...records, { type: 'revert_point', payload },
+  ]).latestTurnOutcome;
   return { reverted_turn_ids: revertedTurns, boundary_message_id: messageId };
 }
 
