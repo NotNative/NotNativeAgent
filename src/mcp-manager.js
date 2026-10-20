@@ -261,12 +261,20 @@ async function executeTool(connection, name, args, signal) {
   if (result?.resultType === 'input_required') {
     throw new ContractError('mcp_input_required', 'MCP tool requires additional operator input');
   }
+  const content = JSON.stringify({
+    server: connection.config.id, untrusted: true,
+    content: result?.content ?? [], structuredContent: result?.structuredContent ?? null,
+    isError: result?.isError === true,
+  });
+  // Invariant: a remote tool failure is a failed tool lifecycle even when JSON-RPC succeeded.
+  // Preserve complete JSON or fail; a sliced object is not usable evidence.
+  if (Buffer.byteLength(content, 'utf8') > MAX_MCP_OUTPUT_BYTES) {
+    throw new ContractError('mcp_output_too_large', 'MCP tool response exceeded bound');
+  }
   return {
-    content: boundedText(JSON.stringify({
-      server: connection.config.id, untrusted: true,
-      content: result?.content ?? [], structuredContent: result?.structuredContent ?? null,
-      isError: result?.isError === true,
-    }), MAX_MCP_OUTPUT_BYTES),
+    status: result?.isError === true ? 'failed' : 'succeeded',
+    ...(result?.isError === true ? { reasonCode: 'mcp_remote_error' } : {}),
+    content,
     metadata: { serverId: connection.config.id, remoteTool: name, untrusted: true },
   };
 }

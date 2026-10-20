@@ -22,6 +22,46 @@ test('MCP tool names are readable, canonical, bounded, and collision-stable', ()
   assert.ok(first.every((name) => name.startsWith('mcp_vendor_east_')));
 });
 
+test('MCP application errors remain failed tool results without degrading a healthy connection', async () => {
+  let definition;
+  const transport = {
+    protocolVersion: MCP_CURRENT_VERSION, async open() {}, async close() {}, async notify() {},
+    async request(method) {
+      if (method === 'initialize') return { protocolVersion: MCP_CURRENT_VERSION, capabilities: {} };
+      if (method === 'tools/list') return { tools: [{ name: 'lookup', inputSchema: { type: 'object', properties: {} } }] };
+      return { isError: true, content: [{ type: 'text', text: 'lookup failed' }] };
+    },
+  };
+  const manager = new McpManager({
+    registry: { installExternal(value) { definition = value; }, revokeSource() {} },
+    configs: mcpConfig().mcpServers, transportFactory: () => transport,
+  });
+  await manager.initialize();
+  const result = await definition.executor({ args: {} }, new AbortController().signal);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.reasonCode, 'mcp_remote_error');
+  assert.deepEqual(JSON.parse(result.content).content, [{ type: 'text', text: 'lookup failed' }]);
+  assert.equal(manager.status()[0].state, 'ready');
+});
+
+test('oversized MCP tool responses fail explicitly before emitting broken JSON', async () => {
+  let definition;
+  const transport = {
+    protocolVersion: MCP_CURRENT_VERSION, async open() {}, async close() {}, async notify() {},
+    async request(method) {
+      if (method === 'initialize') return { protocolVersion: MCP_CURRENT_VERSION, capabilities: {} };
+      if (method === 'tools/list') return { tools: [{ name: 'large', inputSchema: { type: 'object', properties: {} } }] };
+      return { content: [{ type: 'text', text: '😀'.repeat(300_000) }] };
+    },
+  };
+  const manager = new McpManager({
+    registry: { installExternal(value) { definition = value; }, revokeSource() {} },
+    configs: mcpConfig().mcpServers, transportFactory: () => transport,
+  });
+  await manager.initialize();
+  await assert.rejects(definition.executor({ args: {} }, new AbortController().signal), { code: 'mcp_output_too_large' });
+});
+
 test('AC-MCP-02 exposes authenticating state and applies independent shutdown deadline', async () => {
   let finishInitialize;
   const initialized = new Promise((resolve) => { finishInitialize = resolve; });

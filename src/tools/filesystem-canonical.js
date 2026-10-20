@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { mkdir, readdir, rm, rmdir, stat } from 'node:fs/promises';
+import { mkdir, opendir, readdir, rm, rmdir, stat } from 'node:fs/promises';
 import { join, matchesGlob } from 'node:path';
 import { ContractError } from '../ids.js';
 import { normalizeArgumentAliases } from './argument-normalization.js';
 
 const MAX_LIST_RESULTS = 1_000;
 const MAX_LIST_DEPTH = 64;
+const MAX_LIST_SCANNED_ENTRIES = 4_096;
 const DIRECTORY_ARGUMENT_ALIASES = Object.freeze({
   action: ['operation'], path: ['directoryPath', 'directory_path'],
 });
@@ -100,11 +101,11 @@ function listDefinition(paths) {
       if (!request.resolved.exists) return missingListResult(request);
       if (request.resolved.kind === 'file') {
         const name = request.args.path;
-        if (request.args.pattern && !globMatch(name.replaceAll('\\', '/'), request.args.pattern)) return listResult([], request, false, []);
-        return listResult([entryLine('file', '.', request.resolved.size, request.resolved.modifiedMs)], request, false, []);
+        if (request.args.pattern && !globMatch(name.replaceAll('\\', '/'), request.args.pattern)) return listResult([], request, false, [], 1);
+        return listResult([entryLine('file', '.', request.resolved.size, request.resolved.modifiedMs)], request, false, [], 1);
       }
       const walked = await walkDirectory(request.resolved.path, request.args, signal);
-      return listResult(walked.lines, request, walked.truncated, walked.skipped);
+      return listResult(walked.lines, request, walked.truncated, walked.skipped, walked.examined);
     },
   };
 }
@@ -158,13 +159,20 @@ async function executeDirectory(request, signal, paths, list) {
     return { ...result, metadata: { ...result.metadata, action: 'list' } };
   }
   if (request.args.action === 'create') {
-    await mkdir(request.resolved.path, { recursive: request.args.recursive });
+    // Security: a reviewed parent can become a junction before execution. Check the
+    // requested path again before mkdir, which otherwise creates outside the workspace.
+    const before = await paths.resolveDirectoryWrite(request.args.path);
+    if (!samePath(before.path, request.resolved.path)) {
+      throw new ContractError('tool_revalidation_drift', 'directory target changed after review');
+    }
+    abort(signal);
+    if (!before.exists) await mkdir(request.resolved.path, { recursive: request.args.recursive });
     abort(signal);
     const current = await paths.resolveDirectory(request.resolved.path);
     if (!samePath(current.path, request.resolved.path)) throw new ContractError('tool_revalidation_drift', 'directory target changed after review');
     return {
-      content: request.resolved.exists ? 'directory already exists' : 'directory created',
-      metadata: { action: 'create', path: request.args.path, created: !request.resolved.exists, recursive: request.args.recursive },
+      content: before.exists ? 'directory already exists' : 'directory created',
+      metadata: { action: 'create', path: request.args.path, created: !before.exists, recursive: request.args.recursive },
     };
   }
   paths.assertMutationTarget(request.resolved.path);
@@ -187,12 +195,17 @@ async function walkDirectory(root, args, signal) {
   const skipped = [];
   const pending = [{ path: root, relativePath: '', depth: 0 }];
   let truncated = false;
+  let examined = 0;
   while (pending.length > 0) {
     abort(signal);
     const current = pending.shift();
-    const entries = (await readdir(current.path, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name));
+    const entries = await boundedDirectoryEntries(current.path, MAX_LIST_SCANNED_ENTRIES - examined, signal);
     for (const entry of entries) {
       abort(signal);
+      if (examined >= MAX_LIST_SCANNED_ENTRIES) {
+        return { lines, truncated: true, skipped, examined };
+      }
+      examined += 1;
       const relativePath = current.relativePath ? `${current.relativePath}/${entry.name}` : entry.name;
       if (entry.isDirectory() && DEFAULT_SKIPS.has(entry.name)) {
         skipped.push(relativePath);
@@ -204,12 +217,23 @@ async function walkDirectory(root, args, signal) {
         let size = null; let modifiedMs = null;
         try { const info = await stat(join(current.path, entry.name)); size = info.size; modifiedMs = info.mtimeMs; } catch { /* bounded listing tolerates races */ }
         lines.push(entryLine(kind, relativePath, size, modifiedMs));
-        if (lines.length >= args.max_results) { truncated = true; return { lines, truncated, skipped }; }
+        if (lines.length >= args.max_results) { truncated = true; return { lines, truncated, skipped, examined }; }
       }
       if (entry.isDirectory() && depth < args.depth) pending.push({ path: join(current.path, entry.name), relativePath, depth });
     }
   }
-  return { lines, truncated, skipped };
+  return { lines, truncated, skipped, examined };
+}
+
+async function boundedDirectoryEntries(path, remaining, signal) {
+  const entries = [];
+  const directory = await opendir(path);
+  for await (const entry of directory) {
+    abort(signal);
+    entries.push(entry);
+    if (entries.length > remaining) break;
+  }
+  return entries.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function directorySnapshot(root, recursive) {
@@ -237,17 +261,18 @@ async function directorySnapshot(root, recursive) {
   return Object.freeze({ digest: createHash('sha256').update(records.join('\n')).digest('hex'), entries: records.length, bytes });
 }
 
-function listResult(lines, request, truncated, skipped) {
+function listResult(lines, request, truncated, skipped, examined) {
   const notices = [];
   if (skipped.length > 0) notices.push(`skipped default directories: ${skipped.join(', ')}`);
-  if (truncated) notices.push(`truncated at max_results=${request.args.max_results}`);
-  const listing = lines.join('\n') || (request.args.pattern ? 'no matching paths' : 'empty directory');
+  if (truncated) notices.push(`truncated after ${examined} scanned entries or max_results=${request.args.max_results}`);
+  const listing = lines.join('\n') || (truncated ? 'no matching paths in scanned entries'
+    : request.args.pattern ? 'no matching paths' : 'empty directory');
   return {
     content: [...notices, listing].join('\n'),
     metadata: {
       path: request.args.path, pattern: request.args.pattern ?? null, depth: request.args.depth,
-      entries: lines.length, skipped, truncated, target_exists: true,
-      ...(lines.length === 0 ? { observation_outcome: request.args.pattern ? 'no_matches' : 'empty_directory' } : {}),
+      entries: lines.length, examined, skipped, truncated, target_exists: true,
+      ...(lines.length === 0 && !truncated ? { observation_outcome: request.args.pattern ? 'no_matches' : 'empty_directory' } : {}),
     },
   };
 }

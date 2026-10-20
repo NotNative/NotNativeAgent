@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rename, rmdir, rm, stat, symlink, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ConversationWork } from '../src/conversation-work.js';
@@ -58,6 +58,53 @@ test('fs_directory removes only reviewed bounded trees and refuses protected wor
   } finally { await item.close(); }
 });
 
+for (const toolName of ['fs_directory', 'fs_create_directory']) {
+test(`${toolName} accepts a directory created after review without claiming to create it`, async () => {
+  const item = await fixture();
+  try {
+    const directory = item.registry.definition(toolName);
+    const reviewed = await directory.validate(toolName === 'fs_directory'
+      ? { action: 'create', path: 'ready', recursive: false } : { path: 'ready' });
+    await mkdir(join(item.root, 'ready'));
+    const result = await directory.executor(reviewed, new AbortController().signal);
+    assert.equal(result.content, 'directory already exists');
+    assert.equal(result.metadata.created, false);
+  } finally { await item.close(); }
+});
+
+test(`${toolName} revalidates a reviewed create before a parent junction can redirect mkdir`, async () => {
+  const base = await mkdtemp(join(tmpdir(), 'nna-directory-create-race-'));
+  const root = join(base, 'workspace');
+  const outside = join(base, 'outside');
+  const parent = join(root, 'parent');
+  let linked = false;
+  try {
+    await mkdir(parent, { recursive: true });
+    await mkdir(outside);
+    const registry = new ToolRegistry(root, { boundedToWorkspace: true });
+    await registry.initialize();
+    try {
+      const directory = registry.definition(toolName);
+      const reviewed = await directory.validate(toolName === 'fs_directory'
+        ? { action: 'create', path: 'parent/child' } : { path: 'parent/child' });
+      await rename(parent, join(root, 'parked'));
+      await symlink(outside, parent, process.platform === 'win32' ? 'junction' : 'dir');
+      linked = true;
+      await assert.rejects(directory.executor(reviewed, new AbortController().signal), {
+        code: 'tool_scope_denied',
+      });
+      await assert.rejects(stat(join(outside, 'child')), { code: 'ENOENT' });
+    } finally { await registry.close(); }
+  } finally {
+    if (linked) {
+      if (process.platform === 'win32') await rmdir(parent);
+      else await unlink(parent);
+    }
+    await rm(base, { recursive: true, force: true });
+  }
+});
+}
+
 test('directory listing is intuitive, one level deep, and default tree skips are explicit', async () => {
   const item = await fixture();
   try {
@@ -88,6 +135,23 @@ test('directory listing is intuitive, one level deep, and default tree skips are
     const missingMetadata = await metadata.executor(await metadata.validate({ path: 'src/not-installed' }), new AbortController().signal);
     assert.equal(missingMetadata.metadata.observation_outcome, 'target_not_found');
     await assert.rejects(list.validate({ path: '.', depth: 0 }), { code: 'tool_schema_invalid' });
+  } finally { await item.close(); }
+});
+
+test('fs_list caps scanned entries even when a glob finds no matches', { timeout: 120_000 }, async () => {
+  const item = await fixture();
+  try {
+    for (let first = 0; first < 4_097; first += 128) {
+      await Promise.all(Array.from({ length: Math.min(128, 4_097 - first) }, (_, offset) =>
+        writeFile(join(item.root, `entry-${first + offset}.txt`), '')));
+    }
+    const list = item.registry.definition('fs_list');
+    const request = await list.validate({ path: '.', pattern: '*.missing', depth: 1, max_results: 1 });
+    const result = await list.executor(request, new AbortController().signal);
+    assert.equal(result.metadata.examined, 4_096);
+    assert.equal(result.metadata.truncated, true);
+    assert.equal(result.metadata.observation_outcome, undefined);
+    assert.match(result.content, /no matching paths in scanned entries/u);
   } finally { await item.close(); }
 });
 

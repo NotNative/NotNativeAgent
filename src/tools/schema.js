@@ -192,7 +192,7 @@ function validateValue(value, rule, depth, path) {
   if (!rule?.type) return;
   const types = Array.isArray(rule.type) ? rule.type : [rule.type];
   const actual = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
-  if (!types.includes(actual) && !(actual === 'number' && types.includes('integer') && Number.isInteger(value))) {
+  if (!types.includes(actual) && !(actual === 'number' && types.includes('integer') && Number.isSafeInteger(value))) {
     throw schemaFailure(`${path} must be ${describeTypes(types)}; received ${actual}`, {
       field: path, issue: 'type_mismatch', expected: types.join('|'), correction: 'replace_field_value',
     });

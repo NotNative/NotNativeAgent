@@ -5,6 +5,7 @@ import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'no
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { ContractError } from './ids.js';
+import { missingFinalNewline, writeFully } from './persistence/journal-io.js';
 
 const MAX_FULL_JOURNAL_SCAN_BYTES = 104_857_600;
 const MAX_CONTROL_RECORDS = 100_000;
@@ -52,6 +53,18 @@ export class JournalStore {
     this.#sequence = recovered.lastSequence;
     this.#previousHash = recovered.lastHash;
     this.#handle = await this.openFile(this.path, 'a', 0o600);
+    try {
+      // Invariant: a valid final JSON record without its line terminator must be
+      // separated before another record is appended to the journal.
+      if (await missingFinalNewline(this.path)) {
+        await this.#flush(() => writeFully(this.#handle, Buffer.from('\n')));
+        await this.#flush(() => this.#handle.sync());
+      }
+    } catch (error) {
+      await this.#handle.close().catch(() => undefined);
+      this.#handle = null;
+      throw error;
+    }
     const headerRecords = recovered.truncated ? await readJournalPrefix(this.path, 1) : recovered.records.slice(0, 1);
     return {
       ...recovered, headerRecords,
@@ -76,7 +89,7 @@ export class JournalStore {
     const base = { format: 1, sequence: this.#sequence + 1, type, payload, previous: this.#previousHash };
     const hash = digest(base);
     const line = `${JSON.stringify({ ...base, hash })}\n`;
-    await this.#flush(() => this.#handle.write(line, null, 'utf8'));
+    await this.#flush(() => writeFully(this.#handle, Buffer.from(line, 'utf8')));
     await this.#flush(() => this.#handle.sync());
     this.#sequence += 1;
     this.#previousHash = hash;
@@ -139,7 +152,7 @@ export class JournalStore {
     });
     try { return await Promise.race([work, timeout]); }
     catch (error) {
-      if (error?.code === 'persistence_flush_timeout') this.persistenceFailed = true;
+      this.persistenceFailed = true;
       throw error;
     } finally { clearTimeout(timer); work.catch(() => undefined); }
   }

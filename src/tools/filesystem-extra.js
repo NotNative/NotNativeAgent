@@ -28,14 +28,20 @@ function directoryDefinition(paths) {
     path: { type: 'string', maxLength: 4096, description: 'Required directory path. Missing parent directories are created automatically; an existing directory succeeds without changing it.' },
   }, ['path'], async (args) => ({ args: shape(args, ['path']), resolved: await paths.resolveDirectoryWrite(args.path) }),
   async (request, signal) => {
-    abort(signal); await mkdir(request.resolved.path, { recursive: true }); abort(signal);
+    const before = await paths.resolveDirectoryWrite(request.args.path);
+    if (!samePath(before.path, request.resolved.path)) {
+      throw new ContractError('tool_revalidation_drift', 'directory target changed after review');
+    }
+    abort(signal);
+    if (!before.exists) await mkdir(request.resolved.path, { recursive: true });
+    abort(signal);
     const current = await paths.resolveDirectory(request.resolved.path);
     if (!samePath(current.path, request.resolved.path)) {
       throw new ContractError('tool_revalidation_drift', 'directory target changed after review');
     }
     return {
-      content: request.resolved.exists ? 'directory already exists' : 'directory created',
-      metadata: { path: request.args.path, created: !request.resolved.exists },
+      content: before.exists ? 'directory already exists' : 'directory created',
+      metadata: { path: request.args.path, created: !before.exists },
     };
   });
 }

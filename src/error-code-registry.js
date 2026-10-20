@@ -357,7 +357,8 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'opencode_storage_unavailable',
     'journal_too_large_to_repair_in_process', 'journal_version_future', 'ledger_execution_duplicate',
     'ledger_proposal_missing', 'ledger_start_missing', 'persistence_contract_invalid',
-    'persistence_flush_timeout', 'persistence_unavailable', 'store_closed',
+    'persistence_flush_timeout', 'persistence_read_incomplete', 'persistence_unavailable',
+    'persistence_write_incomplete', 'store_closed',
   ]),
   provider: Object.freeze([
     'nnd_goal_audit_output_invalid', 'nnd_goal_audit_output_large',

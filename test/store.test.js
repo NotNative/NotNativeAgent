@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { appendFile, mkdir, mkdtemp, open, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, mkdtemp, open, readFile, readdir, rm, stat, truncate, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -12,17 +12,93 @@ import { loadEarlierTranscriptPage } from '../src/experience/history.js';
 
 test('AC-FAIL-02 persistence flush has an independent typed deadline and latches failure', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-journal-timeout-'));
-  const handle = {
-    write: () => new Promise(() => undefined), sync: async () => undefined, close: async () => undefined,
-  };
   const store = new JournalStore(root, 'deadline', {
-    persistenceDeadlineMs: 20, openFile: async () => handle,
+    persistenceDeadlineMs: 20, openFile: async (...args) => {
+      const handle = await open(...args);
+      return { write: () => new Promise(() => undefined), sync: () => handle.sync(), close: () => handle.close() };
+    },
   });
   try {
     await store.open();
     await assert.rejects(store.append('message', { role: 'user' }), { code: 'persistence_flush_timeout' });
     await assert.rejects(store.append('message', { role: 'user' }), { code: 'persistence_unavailable' });
     await store.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('journal retries short writes until the entire record is durable', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-journal-short-write-'));
+  const store = new JournalStore(root, 'short-write', { openFile: async (...args) => {
+    const handle = await open(...args);
+    return {
+      write: (buffer, offset, length, position) => handle.write(buffer, offset, Math.min(length, 7), position),
+      sync: () => handle.sync(), close: () => handle.close(),
+    };
+  } });
+  try {
+    await store.open();
+    await store.append('message', { content: 'one' });
+    await store.append('message', { content: 'two' });
+    await store.close();
+    const recovered = await recoverJournal(store.path);
+    assert.equal(recovered.corruptTail, false);
+    assert.deepEqual(recovered.records.map((record) => record.payload.content), ['one', 'two']);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('journal blocks later appends after a write or sync failure', async () => {
+  for (const failurePoint of ['write', 'sync']) {
+    const root = await mkdtemp(join(tmpdir(), `nna-journal-${failurePoint}-failure-`));
+    let failed = false;
+    const store = new JournalStore(root, failurePoint, { openFile: async (...args) => {
+      const handle = await open(...args);
+      return {
+        write: async (...input) => {
+          const result = await handle.write(...input);
+          if (failurePoint === 'write' && !failed) {
+            failed = true;
+            throw Object.assign(new Error('simulated write failure'), { code: 'EIO' });
+          }
+          return result;
+        },
+        sync: async () => {
+          if (failurePoint === 'sync' && !failed) {
+            failed = true;
+            throw Object.assign(new Error('simulated sync failure'), { code: 'EIO' });
+          }
+          return handle.sync();
+        },
+        close: () => handle.close(),
+      };
+    } });
+    try {
+      await store.open();
+      await assert.rejects(store.append('message', { content: 'one' }), { code: 'EIO' });
+      await assert.rejects(store.append('message', { content: 'two' }), { code: 'persistence_unavailable' });
+      await store.close();
+      const recovered = await recoverJournal(store.path);
+      assert.equal(recovered.corruptTail, false);
+      assert.equal(recovered.records.length, 1);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  }
+});
+
+test('journal restores a missing final line terminator before the next append', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-journal-unterminated-'));
+  try {
+    const first = new JournalStore(root, 'unterminated');
+    await first.open();
+    await first.append('message', { content: 'one' });
+    await first.close();
+    await truncate(first.path, (await stat(first.path)).size - 1);
+    const resumed = new JournalStore(root, 'unterminated');
+    const opened = await resumed.open();
+    assert.equal(opened.corruptTail, false);
+    await resumed.append('message', { content: 'two' });
+    await resumed.close();
+    const recovered = await recoverJournal(first.path);
+    assert.equal(recovered.corruptTail, false);
+    assert.deepEqual(recovered.records.map((record) => record.payload.content), ['one', 'two']);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

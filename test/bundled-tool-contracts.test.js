@@ -202,6 +202,9 @@ test('schema validation normalizes safe integer and canonical boolean strings at
   await assert.rejects(validate({ count: '9007199254740993', codes: [0], nested: { offset: 1 }, label: 'x', enabled: true }), {
     code: 'tool_schema_invalid', message: 'argument "count" must be an integer; received string',
   });
+  await assert.rejects(validate({ count: 9007199254740992, codes: [0], nested: { offset: 1 }, label: 'x', enabled: true }), {
+    code: 'tool_schema_invalid', message: 'argument "count" must be an integer; received number',
+  });
 });
 
 test('schema admission and invocation values share the same 24-level nesting ceiling', async () => {
