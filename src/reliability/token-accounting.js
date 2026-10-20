@@ -78,9 +78,13 @@ export function assertProviderEnvelopeFits(envelope, budget) {
 }
 
 export function createProviderTokenReceipt(manifest, active, detail = {}) {
-  const reported = normalizedUsage(detail.usage);
+  const observedUsage = normalizedUsage(detail.usage);
   const estimatedInput = manifest?.envelope?.estimated_input_tokens ?? null;
   const estimatedOutput = estimateBytes(detail.outputBytes ?? 0);
+  // Why: some OpenAI-compatible hosts emit an all-zero usage object when usage
+  // accounting is unavailable. A nonempty dispatched request cannot consume zero tokens.
+  const reported = observedUsage && Object.values(observedUsage).every((value) => value === null || value === 0)
+    && ((estimatedInput ?? 0) > 0 || estimatedOutput > 0) ? null : observedUsage;
   const accounting = reconcile(reported, estimatedInput, estimatedOutput);
   const core = {
     schema: 'nna.provider-token-receipt.v1', turn_id: active?.turnId ?? null,
@@ -190,13 +194,31 @@ function mergeRoleAccounting(values) {
 function reconcile(reported, estimatedInput, estimatedOutput) {
   const measuredInput = reported?.input_tokens ?? null;
   const measuredOutput = reported?.output_tokens ?? null;
-  const providerTotal = reported?.total_tokens ?? sumKnown(measuredInput, measuredOutput);
+  const reportedTotal = reported?.total_tokens ?? null;
+  // Compatibility: preserve valid components when a provider reports an impossible smaller total.
+  const componentTotal = sumKnown(measuredInput, measuredOutput);
+  const providerTotal = reportedTotal !== null
+    && (measuredInput !== null && measuredInput > reportedTotal
+      || measuredOutput !== null && measuredOutput > reportedTotal
+      || componentTotal !== null && componentTotal > reportedTotal)
+    ? componentTotal : reportedTotal ?? componentTotal;
   if (providerTotal !== null && measuredInput === null && measuredOutput === null) {
     const estimatedTotal = (estimatedInput ?? 0) + estimatedOutput;
     const input = estimatedTotal > 0 ? Math.round(providerTotal * ((estimatedInput ?? 0) / estimatedTotal)) : providerTotal;
     return Object.freeze({ measurement: 'mixed', component_measurement: 'estimated',
       accounted_input_tokens: input, accounted_output_tokens: providerTotal - input,
       accounted_total_tokens: providerTotal, measured_total_tokens: providerTotal, estimated_unreported_tokens: 0 });
+  }
+  if (providerTotal !== null && (measuredInput === null) !== (measuredOutput === null)) {
+    const known = measuredInput ?? measuredOutput;
+    if (known <= providerTotal) {
+      // Invariant: a provider total owns the missing component; an independent estimate cannot change that total.
+      const input = measuredInput ?? providerTotal - known;
+      const output = measuredOutput ?? providerTotal - known;
+      return Object.freeze({ measurement: 'mixed', component_measurement: 'derived',
+        accounted_input_tokens: input, accounted_output_tokens: output,
+        accounted_total_tokens: providerTotal, measured_total_tokens: providerTotal, estimated_unreported_tokens: 0 });
+    }
   }
   const input = measuredInput ?? estimatedInput ?? 0;
   const output = measuredOutput ?? estimatedOutput;
@@ -323,7 +345,9 @@ function serializedValue(value) {
 function estimateBytes(bytes) { return Math.ceil(Math.max(0, bytes) / TOKEN_BYTE_RATIO); }
 function positiveInteger(value) { return Number.isSafeInteger(value) && value > 0 ? value : null; }
 function finiteNonnegative(value) { return Number.isFinite(value) && value >= 0 ? value : null; }
-function firstInteger(value, keys) { return keys.map((key) => value[key]).find(Number.isSafeInteger) ?? null; }
+function firstInteger(value, keys) {
+  return keys.map((key) => value[key]).find((item) => Number.isSafeInteger(item) && item >= 0) ?? null;
+}
 function sumKnown(left, right) { return left !== null && right !== null ? left + right : null; }
 function digest(value) { return createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
 function aggregateMeasurement(value) {

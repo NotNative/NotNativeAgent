@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveManifest } from '../src/config.js';
 import { ModelRouter } from '../src/provider/router.js';
-import { manifestFromConfig } from '../src/provider/route-configuration.js';
+import { manifestFromConfig, withProvider } from '../src/provider/route-configuration.js';
 import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { EventHub } from '../src/events.js';
 import { CapabilityCache } from '../src/capability-cache.js';
@@ -23,6 +23,22 @@ const providers = [
     capabilities: { tools: true, images: true },
   },
 ];
+
+test('provider profile ids accept valid own names and reject empty or malformed ids', () => {
+  for (const id of ['constructor', 'toString', '__proto__']) {
+    const provider = { ...providers[0], id };
+    const config = resolveManifest({ providers: [provider] });
+    assert.equal(config.providerProfiles[id].id, id);
+    assert.equal(config.routes.primary.providerId, id);
+    assert.equal(manifestFromConfig(config).providers[0].id, id);
+    assert.throws(() => resolveManifest({ providers: [provider, provider] }), { code: 'duplicate_provider' });
+    const added = withProvider(resolveManifest({ providers: [providers[0]] }), provider);
+    assert.equal(added.config.providerProfiles[id].id, id);
+  }
+  for (const id of ['', 'bad space', null, 4]) {
+    assert.throws(() => resolveManifest({ providers: [{ ...providers[0], id }] }), { code: 'provider_id_invalid' });
+  }
+});
 
 test('AC-ROUTE-01 validates role settings and returns bounded capability-eligible candidates', () => {
   const config = resolveManifest({ providers, routes: {

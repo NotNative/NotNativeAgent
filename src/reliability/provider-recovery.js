@@ -4,8 +4,10 @@ import { ContractError } from '../ids.js';
 export function providerContextLimitDecision(active) {
   const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;
   const pressureScale = contextPressureScale(active.runtimeModel);
+  const preflightTokens = active.contextPreflightTokens;
+  active.contextPreflightTokens = null;
   const plan = active.recovery.contextLimit(partial, pressureScale, {
-    estimatedInputTokens: active.attemptRequestManifest?.envelope?.estimated_input_tokens ?? null,
+    estimatedInputTokens: preflightTokens ?? active.attemptRequestManifest?.envelope?.estimated_input_tokens ?? null,
   });
   if (plan.continue && (!Number.isFinite(plan.scale) || plan.scale <= 0 || plan.scale > 1)) {
     throw new ContractError('context_recovery_invalid', 'context recovery produced an invalid pressure scale');

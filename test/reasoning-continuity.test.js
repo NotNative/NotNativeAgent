@@ -224,6 +224,8 @@ test('every primary model step receives the context-planned output headroom', ()
   assert.equal(modelStepRequestOptions(undefined, { contextBudget: null }).outputReserveTokens, undefined);
   assert.equal(modelStepRequestOptions('off', { contextBudget: { outputReserveTokens: 32_000 } })
     .outputReserveTokens, 16_000);
+  assert.equal(modelStepRequestOptions(undefined, { contextBudget: { outputReserveTokens: 1024 } },
+    { outputReserveTokens: 4096 }).outputReserveTokens, 4096);
 });
 
 test('truncated argument repair disables thinking for only one immediate action step', () => {

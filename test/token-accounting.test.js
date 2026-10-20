@@ -14,6 +14,7 @@ import { JournalStore } from '../src/store.js';
 import { detailedTokenText, receiptTokenText, statusTokenText } from '../src/experience/token-accounting.js';
 import { providerRequest } from '../src/engine/runtime-helpers.js';
 import { attachProviderRequestMetadata } from '../src/provider/request-metadata.js';
+import { sanitizeProviderUsage } from '../src/provider/event-shape.js';
 
 test('complete provider envelope inventories prompt sections, schemas, configuration, and output reserve', () => {
   const context = [{ role: 'user', content: 'inspect', provenance: 'transcript' }];
@@ -191,6 +192,60 @@ test('token receipts keep provider measurements separate from estimates for unre
   assert.equal(receiptTokenText(record), '100+~110 tokens');
   assert.equal(detailedTokenText(record), '100 measured tokens + ~110 unreported');
   assert.equal(statusTokenText(record.usage, total), '100+~110 tokens');
+});
+
+test('partial provider usage derives its missing component from the measured total', () => {
+  const manifest = { envelope: { estimated_input_tokens: 80 } };
+  const inputOnly = createProviderTokenReceipt(manifest, {}, {
+    usage: { prompt_tokens: 40, total_tokens: 100 }, outputBytes: 900,
+  });
+  const outputOnly = createProviderTokenReceipt(manifest, {}, {
+    usage: { completion_tokens: 30, total_tokens: 100 }, outputBytes: 900,
+  });
+  for (const receipt of [inputOnly, outputOnly]) {
+    assert.equal(receipt.accounting.measurement, 'mixed');
+    assert.equal(receipt.accounting.component_measurement, 'derived');
+    assert.equal(receipt.accounting.accounted_input_tokens + receipt.accounting.accounted_output_tokens, 100);
+    assert.equal(receipt.accounting.accounted_total_tokens, 100);
+  }
+  assert.deepEqual([inputOnly.accounting.accounted_input_tokens, inputOnly.accounting.accounted_output_tokens], [40, 60]);
+  assert.deepEqual([outputOnly.accounting.accounted_input_tokens, outputOnly.accounting.accounted_output_tokens], [70, 30]);
+  const aggregate = aggregateTokenReceipts([inputOnly, outputOnly]);
+  assert.equal(aggregate.accounted_input_tokens + aggregate.accounted_output_tokens, aggregate.accounted_total_tokens);
+});
+
+test('negative and unsafe provider usage is not counted as measured tokens', () => {
+  for (const count of [-1, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => sanitizeProviderUsage({ total_tokens: count }), { code: 'provider_usage_invalid' });
+  }
+  const receipt = createProviderTokenReceipt({ envelope: { estimated_input_tokens: 80 } }, {}, {
+    usage: { prompt_tokens: -20, completion_tokens: Number.MAX_SAFE_INTEGER + 1, total_tokens: -1 },
+    outputBytes: 30,
+  });
+  assert.equal(receipt.reported_usage, null);
+  assert.equal(receipt.accounting.measurement, 'estimated');
+  assert.deepEqual([receipt.accounting.accounted_input_tokens, receipt.accounting.accounted_output_tokens], [80, 10]);
+  const contradictory = createProviderTokenReceipt({ envelope: { estimated_input_tokens: 80 } }, {}, {
+    usage: { prompt_tokens: 40, total_tokens: 10 }, outputBytes: 30,
+  });
+  assert.equal(contradictory.accounting.accounted_total_tokens, 50);
+  assert.equal(contradictory.accounting.accounted_input_tokens + contradictory.accounting.accounted_output_tokens, 50);
+  const inconsistentTotal = createProviderTokenReceipt({ envelope: { estimated_input_tokens: 80 } }, {}, {
+    usage: { prompt_tokens: 80, completion_tokens: 80, total_tokens: 100 },
+  });
+  assert.equal(inconsistentTotal.accounting.accounted_total_tokens, 160);
+  assert.equal(inconsistentTotal.accounting.accounted_input_tokens
+    + inconsistentTotal.accounting.accounted_output_tokens, 160);
+});
+
+test('all-zero provider usage falls back to observed nonempty request and output estimates', () => {
+  const receipt = createProviderTokenReceipt({ envelope: { estimated_input_tokens: 80 } }, {}, {
+    usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }, outputBytes: 300,
+  });
+  assert.equal(receipt.reported_usage, null);
+  assert.equal(receipt.accounting.measurement, 'estimated');
+  assert.deepEqual([receipt.accounting.accounted_input_tokens, receipt.accounting.accounted_output_tokens], [80, 100]);
+  assert.equal(receipt.accounting.accounted_total_tokens, 180);
 });
 
 test('provider envelope folds excess section identities without dropping their token weight', () => {

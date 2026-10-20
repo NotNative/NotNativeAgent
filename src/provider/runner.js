@@ -2,6 +2,7 @@
 import { ContractError } from '../ids.js';
 import { nndProviderProfileFingerprint } from '../nnd-provider-affinity.js';
 import { FairScheduler } from './fair-scheduler.js';
+import { cancellableDelay } from './cancellable-delay.js';
 import {
   fallbackAfterContentFreeCompletion, startProviderHealthMonitor, waitForProviderRecovery,
 } from './completion-recovery.js';
@@ -29,6 +30,7 @@ export class ProviderRunner {
     this.scheduler = options.scheduler;
     this.queueStatus = options.queueStatus;
     this.runtimeResolver = options.runtimeResolver;
+    this.admitRoute = options.admitRoute;
     this.prepareRequest = options.prepareRequest;
     this.verifyRequest = options.verifyRequest;
     this.recordTokenReceipt = options.recordTokenReceipt;
@@ -181,6 +183,7 @@ export class ProviderRunner {
       if (this.runtimeResolver) active.runtimeModel = await this.runtimeResolver(route, active.controller.signal);
       try {
         const request = requestFactory(route);
+        await this.admitRoute?.(request, route, active, context);
         const manifest = await this.prepareRequest?.(request, route, active, context) ?? null;
         active.attemptRequestManifest = manifest;
         await this.run(router.provider(route), request,
@@ -192,6 +195,10 @@ export class ProviderRunner {
         return route;
       } catch (error) {
         lastError = error;
+        if (error?.code === 'provider_context_limit') {
+          // Invariant: a provider-reported limit binds recovery to the route that rejected the request.
+          active.contextBudgetRoute = { targetRole: route.targetRole, profileId: route.profile.id, model: route.model };
+        }
         const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;
         if (index === bounded.length - 1 || partial || !fallbackEligible(error)) throw error;
         await this.settleAttempt(active, 'failed');
@@ -394,7 +401,7 @@ function validatedUsage(usage) {
     throw new ContractError('provider_usage_invalid', 'provider emitted invalid usage metadata');
   }
   for (const value of Object.values(usage)) {
-    if (!Number.isInteger(value) || value < 0) {
+    if (!Number.isSafeInteger(value) || value < 0) {
       throw new ContractError('provider_usage_invalid', 'provider emitted invalid usage metadata');
     }
   }
@@ -477,20 +484,4 @@ export function effectiveProviderDeadlines(deadlines, route) {
     renewFirstTokenOnHealth: trustedLocal && !deadlines.firstTokenExplicit,
     renewIdleOnHealth: trustedLocal && !deadlines.idleExplicit,
   };
-}
-
-async function cancellableDelay(milliseconds, signal) {
-  if (signal.aborted) throw new ContractError('provider_cancelled', 'provider was cancelled');
-  await new Promise((resolve, reject) => {
-    const completed = () => {
-      signal.removeEventListener('abort', cancelled);
-      resolve();
-    };
-    const cancelled = () => {
-      clearTimeout(timer);
-      reject(new ContractError('provider_cancelled', 'provider was cancelled'));
-    };
-    const timer = setTimeout(completed, milliseconds);
-    signal.addEventListener('abort', cancelled, { once: true });
-  });
 }

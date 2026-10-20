@@ -280,8 +280,8 @@ export function workConvergenceCheckpoint(reliability, active, work) {
   });
 }
 
-export function modelStepRequestOptions(reasoningMode, active) {
-  const plannedReserve = active.contextBudget?.outputReserveTokens;
+export function modelStepRequestOptions(reasoningMode, active, routeBudget = active.contextBudget) {
+  const plannedReserve = routeBudget?.outputReserveTokens;
   // The context planner already bounds output against the provider limit and
   // preserves input space. Do not impose a second, smaller per-step ceiling:
   // reasoning models can consume that hidden budget before producing a tool

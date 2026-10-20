@@ -5,6 +5,8 @@ import { contextBudget, estimateContextTokens } from '../src/reliability/context
 import { ModelRuntimeRegistry } from '../src/provider/model-runtime.js';
 import { OpenAICompatibleProvider } from '../src/provider.js';
 import { FairScheduler } from '../src/provider/fair-scheduler.js';
+import { ModelRouter } from '../src/provider/router.js';
+import { resolveManifest } from '../src/config.js';
 
 const route = Object.freeze({
   profile: { id: 'local' }, model: 'qwen', contextLimitBytes: null,
@@ -36,6 +38,18 @@ test('LM Studio runtime discovery accepts a model maximum without a loaded insta
   }) });
   const snapshot = await provider.runtimeSnapshot(new AbortController().signal);
   assert.equal(snapshot.contextWindowTokens, 262144);
+  assert.equal(snapshot.source, 'lmstudio_v1');
+});
+
+test('LM Studio runtime discovery selects the route model among loaded instances', async () => {
+  const provider = new OpenAICompatibleProvider({
+    id: 'local', endpoint: 'http://127.0.0.1:1234/v1', model: 'large', trustZone: 'loopback', capabilities: {},
+  }, {}, { fetch: async () => jsonResponse({ models: [
+    { key: 'large', loaded_instances: [{ id: 'large', config: { context_length: 300_000 } }] },
+    { key: 'small', loaded_instances: [{ id: 'small', config: { context_length: 16_000 } }] },
+  ] }) });
+  const snapshot = await provider.runtimeSnapshot(new AbortController().signal, 'small');
+  assert.equal(snapshot.contextWindowTokens, 16_000);
   assert.equal(snapshot.source, 'lmstudio_v1');
 });
 
@@ -84,6 +98,41 @@ test('generic model discovery matches provider-qualified model identifiers', asy
   assert.equal(snapshot.contextWindowTokens, 262144);
 });
 
+test('runtime discovery measures the selected route model, not the profile default', async () => {
+  const config = resolveManifest({ providers: [{
+    id: 'remote', endpoint: 'https://provider.example/v1', model: 'large', trust_zone: 'public_network',
+    context_limit_bytes: 900_000, output_limit_tokens: 32_000,
+  }], routes: { primary: { provider_id: 'remote', model: 'small' } } });
+  const router = new ModelRouter(config, undefined, { fetch: async () => jsonResponse({ data: [
+    { id: 'large', context_window: 300_000, max_output_tokens: 32_000 },
+    { id: 'small', context_window: 16_000, max_output_tokens: 2_048 },
+  ] }) });
+  const selected = router.resolve('primary');
+  assert.equal(selected.maxOutputTokens, 32_000);
+  assert.equal(selected.contextLimitBytes, null);
+  const runtime = await new ModelRuntimeRegistry().resolve(router, selected, new AbortController().signal);
+  assert.equal(runtime.model, 'small');
+  assert.equal(runtime.contextWindowTokens, 16_000);
+  assert.equal(runtime.outputLimitTokens, 2_048);
+  assert.equal(contextBudget(config, [selected], runtime).thresholdTokens, 10_464);
+});
+
+test('profile-default limits do not cap an overridden route model', async () => {
+  const config = resolveManifest({ providers: [{
+    id: 'remote', endpoint: 'https://provider.example/v1', model: 'small', trust_zone: 'public_network',
+    output_limit_tokens: 2_048,
+  }], routes: { primary: { provider_id: 'remote', model: 'large' } } });
+  const router = new ModelRouter(config, undefined, { fetch: async () => jsonResponse({ data: [
+    { id: 'small', context_window: 16_000, max_output_tokens: 2_048 },
+    { id: 'large', context_window: 300_000, max_output_tokens: 32_000 },
+  ] }) });
+  const selected = router.resolve('primary');
+  assert.equal(selected.maxOutputTokens, 32_000);
+  const runtime = await new ModelRuntimeRegistry().resolve(router, selected, new AbortController().signal);
+  assert.equal(runtime.contextWindowTokens, 300_000);
+  assert.equal(runtime.outputLimitTokens, 32_000);
+});
+
 test('model runtime registry caches normalized discovery and degrades safely', async () => {
   let calls = 0;
   const registry = new ModelRuntimeRegistry({ ttlMs: 60_000, timeoutMs: 50 });
@@ -103,6 +152,23 @@ test('model runtime registry caches normalized discovery and degrades safely', a
   }, route, new AbortController().signal);
   assert.equal(fallback.contextWindowTokens, null);
   assert.equal(fallback.source, 'declared');
+});
+
+test('model runtime cache does not reuse limits after an endpoint edit', async () => {
+  let probes = 0;
+  const registry = new ModelRuntimeRegistry();
+  const router = { provider: (selected) => ({ runtimeSnapshot: async () => {
+    probes += 1;
+    return { contextWindowTokens: selected.profile.endpoint.includes('old') ? 300_000 : 16_000,
+      source: 'openai_models' };
+  } }) };
+  const oldRoute = { ...route, profile: { id: 'local', endpoint: 'https://old.example/v1' } };
+  const newRoute = { ...route, profile: { id: 'local', endpoint: 'https://new.example/v1' } };
+  const oldRuntime = await registry.resolve(router, oldRoute, new AbortController().signal);
+  const newRuntime = await registry.resolve(router, newRoute, new AbortController().signal);
+  assert.equal(oldRuntime.contextWindowTokens, 300_000);
+  assert.equal(newRuntime.contextWindowTokens, 16_000);
+  assert.equal(probes, 2);
 });
 
 test('recognized OpenAI-compatible model-card limits are authoritative provider facts', async () => {
@@ -186,6 +252,17 @@ test('large reasoning-capable windows reserve the full default completion headro
   });
   assert.equal(budget.outputReserveTokens, 32_000);
   assert.equal(budget.effectiveInputTokens, 99_072);
+});
+
+test('route output cap bounds reserved headroom even when discovery reports a larger provider limit', () => {
+  const config = { limits: { contextCompactionThreshold: 0.85 } };
+  const capped = { ...route, maxOutputTokens: 2_000 };
+  const budget = contextBudget(config, [capped], {
+    contextWindowTokens: 131_072, outputLimitTokens: 32_000, source: 'openai_models',
+  });
+  assert.equal(budget.outputReserveTokens, 2_000);
+  assert.equal(budget.effectiveInputTokens, 129_072);
+  assert.equal(budget.thresholdTokens, 109_711);
 });
 
 test('loaded parallel capacity caps a provider resource without increasing the configured ceiling', async () => {

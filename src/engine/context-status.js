@@ -129,7 +129,10 @@ export function selectedContextLimit(config, routes) {
 }
 
 function completeInputTokens(engine, context, active, budget) {
-  const route = engine.router?.candidates('primary', { requiredCapabilities: ['tools'] })?.[0];
+  const routes = engine.router?.candidates('primary', { requiredCapabilities: ['tools'] }) ?? [];
+  const route = routes.find((candidate) => candidate.targetRole === active.contextBudgetRoute?.targetRole
+    && candidate.profile.id === active.contextBudgetRoute?.profileId
+    && candidate.model === active.contextBudgetRoute?.model) ?? routes[0];
   if (!route || !engine.reliability?.providerEnvelope) return estimateContextTokens(context);
   const request = providerRequest(engine, route, context, { outputReserveTokens: budget?.outputReserveTokens,
     conversationIntent: active.conversationIntent, approvedProposal: active.approvedProposal });

@@ -354,8 +354,35 @@ function providerRunner(engine, hooks) {
     scheduler: engine.scheduler,
     queueStatus: hooks.queueStatus,
     runtimeResolver: (route, signal) => engine.modelRuntime.resolve(engine.router, route, signal),
+    admitRoute: (request, route, active, context) => {
+      const budget = engine.reliability.planContextBudget(
+        engine.config, [route], active.runtimeModel, active.contextRetryScale,
+      );
+      active.routeContextBudget = budget;
+      const envelope = engine.reliability.providerEnvelope(request, context, {
+        outputReserveTokens: budget.outputReserveTokens,
+      });
+      try {
+        engine.reliability.assertProviderEnvelopeFits(envelope, budget);
+      } catch (error) {
+        if (error.code !== 'context_too_large') throw error;
+        // Why: preparation uses the primary window; a smaller fallback requires its own
+        // compaction pass before any provider request is dispatched.
+        active.contextBudgetRoute = { targetRole: route.targetRole, profileId: route.profile.id, model: route.model };
+        active.contextTokens = envelope.estimated_input_tokens;
+        active.contextPreflightTokens = envelope.estimated_input_tokens;
+        engine.telemetry?.record('context.route_preflight', 'failed', {
+          provider_profile: route.profile.id, model: route.model,
+          estimated_input_tokens: envelope.estimated_input_tokens,
+          allowed_input_tokens: budget.scaledTokens, context_window_tokens: budget.windowTokens,
+        }, { turnId: active.turnId, stepId: active.stepId });
+        throw new ContractError('provider_context_limit', 'candidate provider request exceeds its model context window');
+      }
+    },
     prepareRequest: async (request, route, active, context) => {
-      const manifest = engine.reliability.providerRequestManifest(request, context, route, active);
+      const manifest = engine.reliability.providerRequestManifest(request, context, route, active, {
+        outputReserveTokens: active.routeContextBudget?.outputReserveTokens,
+      });
       await hooks.persist('provider_request_manifest', manifest);
       return manifest;
     },

@@ -54,7 +54,7 @@ export function sanitizeProviderUsage(usage) {
   const result = {};
   for (const key of ['prompt_tokens', 'completion_tokens', 'total_tokens']) {
     if (usage[key] === undefined) continue;
-    if (!Number.isInteger(usage[key]) || usage[key] < 0) {
+    if (!Number.isSafeInteger(usage[key]) || usage[key] < 0) {
       throw new ContractError('provider_usage_invalid', 'provider emitted invalid usage metadata');
     }
     result[key] = usage[key];

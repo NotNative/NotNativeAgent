@@ -17,8 +17,10 @@ export function contextBudget(config, routes, runtime, retryScale = 1, estimateS
   // planning window makes compaction activate before a local model rejects an oversized turn.
   const declaredWindowTokens = positiveValue(runtime?.contextWindowTokens);
   const windowTokens = declaredWindowTokens ?? CONSERVATIVE_UNKNOWN_WINDOW_TOKENS;
-  const declaredOutputLimit = positiveValue(runtime?.outputLimitTokens)
-    ?? positiveValue(routes[0]?.maxOutputTokens) ?? DEFAULT_MODEL_OUTPUT_TOKENS;
+  const outputLimits = [runtime?.outputLimitTokens, routes[0]?.maxOutputTokens]
+    .map(positiveValue).filter((value) => value !== null);
+  // Invariant: the reserved output cannot exceed the cap sent on the selected route.
+  const declaredOutputLimit = outputLimits.length > 0 ? Math.min(...outputLimits) : DEFAULT_MODEL_OUTPUT_TOKENS;
   const outputReserveTokens = declaredWindowTokens
     ? adaptiveOutputReserve(windowTokens, declaredOutputLimit)
     : Math.min(windowTokens - 1, declaredOutputLimit);

@@ -671,6 +671,20 @@ test('classifies local provider grammar compilation failures without echoing pro
   }, { code: 'provider_tool_schema_rejected', retryable: false });
 });
 
+test('a streaming JSON-schema grammar rejection is classified for reviewer JSON fallback', async () => {
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, capabilities: {}, model: 'fixture',
+  }, { maxOutputBytes: 4096 }, { fetch: async () => new Response(
+    `data: ${JSON.stringify({ error: { code: 400, message: 'Failed to initialize samplers: failed to parse grammar' } })}\n\n`,
+    { status: 200, headers: { 'content-type': 'text/event-stream' } },
+  ) });
+  await assert.rejects(async () => {
+    for await (const _event of provider.stream({ model: 'fixture', messages: [], responseFormat: {
+      type: 'json_schema', json_schema: { name: 'review', schema: { type: 'object' } },
+    } }, new AbortController().signal)) { /* consume */ }
+  }, { code: 'provider_response_format_unsupported', retryable: false });
+});
+
 test('normalizes context overflow variants from local OpenAI-compatible hosts', async () => {
   const variants = [
     { error: { code: 'context_window_exceeded' } },

@@ -45,7 +45,9 @@ export class ModelRouter {
         requiredCapabilities: Object.freeze(required),
         deadlineMs: effectiveOverallDeadline(this.config, route, profile),
         budget: route.budget, temperature: route.temperature,
-        maxOutputTokens: effectiveModelOutputTokens(route.maxOutputTokens, profile.outputLimitTokens),
+        maxOutputTokens: effectiveModelOutputTokens(
+          route.maxOutputTokens, target.model === profile.model ? profile.outputLimitTokens : null,
+        ),
         reasoningEffort: route.reasoningEffort, enableThinking: route.enableThinking,
       })];
     }));

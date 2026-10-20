@@ -24,7 +24,7 @@ export class OpenAICompatibleProvider {
     this.credential = normalizeCredentialBinding(profile.credential, profile.credentialEnv);
   }
 
-  async capabilities(signal) {
+  async capabilities(signal, model = this.profile.model) {
     const response = await this.#fetch(`${this.profile.endpoint}/models`, { signal }, 'Discover provider models');
     if (!response.ok) throw providerError(response.status, 'model enumeration failed');
     const body = await boundedResponseJson(response);
@@ -32,35 +32,38 @@ export class OpenAICompatibleProvider {
     const boundedEntries = entries.slice(0, 4096);
     const models = boundedEntries.map((item) => item?.id)
       .filter((id) => typeof id === 'string' && id.length > 0 && id.length <= 256);
-    const selected = boundedEntries.find((item) => modelIdentityMatches(this.profile.model, item?.id));
+    const selected = boundedEntries.find((item) => modelIdentityMatches(model, item?.id));
     const reported = providerModelLimits(selected);
+    const profileLimitsApply = model === this.profile.model;
     return Object.freeze({
       ...this.profile.capabilities,
-      model: this.profile.model,
+      model,
       models: Object.freeze(models.slice(0, 4096)),
-      contextLimitBytes: knownPositiveInteger(selected?.context_limit_bytes) ?? this.profile.contextLimitBytes ?? 'unknown',
+      contextLimitBytes: knownPositiveInteger(selected?.context_limit_bytes)
+        ?? (profileLimitsApply ? this.profile.contextLimitBytes : null) ?? 'unknown',
       contextLimitTokens: reported.contextWindowTokens ?? 'unknown',
-      outputLimitTokens: reported.outputLimitTokens ?? this.profile.outputLimitTokens ?? 'unknown',
+      outputLimitTokens: reported.outputLimitTokens
+        ?? (profileLimitsApply ? this.profile.outputLimitTokens : null) ?? 'unknown',
     });
   }
 
-  async runtimeSnapshot(signal) {
-    const declared = declaredRuntime(this.profile);
+  async runtimeSnapshot(signal, model = this.profile.model) {
+    const declared = declaredRuntime(this.profile, model);
     if (this.profile.trustZone === 'public_network') {
-      return runtimeFromCapabilities(await this.capabilities(signal), declared, 'openai_models');
+      return runtimeFromCapabilities(await this.capabilities(signal, model), declared, 'openai_models');
     }
     const root = this.profile.endpoint.replace(/\/+v1\/?$/u, '');
     for (const [path, parser] of [['/api/v1/models', parseLmStudioV1], ['/api/v0/models', parseLmStudioV0]]) {
       try {
         const response = await this.#fetch(`${root}${path}`, { signal }, 'Discover provider runtime limits');
         if (!response.ok) continue;
-        const snapshot = parser(await boundedResponseJson(response), this.profile.model, declared);
+        const snapshot = parser(await boundedResponseJson(response), model, declared);
         if (snapshot) return snapshot;
       } catch (error) {
         if (signal?.aborted) throw error;
       }
     }
-    return runtimeFromCapabilities(await this.capabilities(signal), declared, 'openai_models');
+    return runtimeFromCapabilities(await this.capabilities(signal, model), declared, 'openai_models');
   }
 
   async health(signal) {
@@ -107,7 +110,7 @@ export class OpenAICompatibleProvider {
     try {
       if (!response.ok) throw await providerErrorResponse(response, this.profile.trustZone, request.responseFormat);
       if (!response.body) throw new ContractError('provider_empty_body', 'provider returned no stream');
-      yield* parseSse(response.body, providerStreamByteLimit(this.limits, request), signal);
+      yield* parseSse(response.body, providerStreamByteLimit(this.limits, request), signal, request.responseFormat);
     } catch (error) {
       throw normalizeProviderTransportError(error, signal);
     } finally {
@@ -183,11 +186,13 @@ function nestedErrorCode(error) {
   return null;
 }
 
-function declaredRuntime(profile) {
+function declaredRuntime(profile, model) {
+  // Why: a profile's declared limits describe its default model, not every model at its endpoint.
+  const profileLimitsApply = model === profile.model;
   return {
     contextWindowTokens: null,
-    contextLimitBytes: knownPositiveInteger(profile.contextLimitBytes),
-    outputLimitTokens: knownPositiveInteger(profile.outputLimitTokens),
+    contextLimitBytes: profileLimitsApply ? knownPositiveInteger(profile.contextLimitBytes) : null,
+    outputLimitTokens: profileLimitsApply ? knownPositiveInteger(profile.outputLimitTokens) : null,
     parallelCapacity: null,
   };
 }
@@ -290,7 +295,7 @@ function providerStreamByteLimit(limits, request) {
   );
 }
 
-async function* parseSse(body, maxBytes, signal) {
+async function* parseSse(body, maxBytes, signal, responseFormat = null) {
   const decoder = new TextDecoder('utf-8', { fatal: true });
   let buffer = '';
   let total = 0;
@@ -314,7 +319,7 @@ async function* parseSse(body, maxBytes, signal) {
     const split = splitEvents(buffer);
     buffer = split.remainder;
     for (const event of split.events) {
-      const items = decodeSseEvent(event);
+      const items = decodeSseEvent(event, responseFormat);
       for (const item of items) {
         if (item.type === 'terminal') terminal = true;
         yield item;
@@ -323,7 +328,7 @@ async function* parseSse(body, maxBytes, signal) {
   }
   buffer += decoder.decode();
   if (buffer.trim()) {
-    for (const item of decodeSseEvent(buffer)) {
+    for (const item of decodeSseEvent(buffer, responseFormat)) {
       if (item.type === 'terminal') terminal = true;
       yield item;
     }
@@ -337,7 +342,7 @@ function splitEvents(buffer) {
   return { events: parts.slice(0, -1), remainder: parts.at(-1) ?? '' };
 }
 
-function decodeSseEvent(block) {
+function decodeSseEvent(block, responseFormat = null) {
   const data = block.split('\n').filter((line) => line.startsWith('data:'))
     .map((line) => line.slice(5).trimStart()).join('\n');
   if (data.length === 0) return [];
@@ -348,10 +353,10 @@ function decodeSseEvent(block) {
   } catch {
     throw new ContractError('provider_malformed_stream', 'provider emitted malformed JSON');
   }
-  return decodeChunk(value);
+  return decodeChunk(value, responseFormat);
 }
 
-function decodeChunk(value) {
+function decodeChunk(value, responseFormat = null) {
   if (value?.error) {
     if (isContextLimitError(value.error)) {
       throw new ContractError('provider_context_limit', 'provider rejected the request because its context limit was exceeded');
@@ -361,6 +366,9 @@ function decodeChunk(value) {
     }
     if (isReasoningControlRejection(value.error)) {
       throw new ContractError('provider_reasoning_control_rejected', 'provider rejected the configured reasoning controls');
+    }
+    if (responseFormat && (isResponseFormatRejection(value.error) || isGrammarFailure(value.error))) {
+      throw new ContractError('provider_response_format_unsupported', 'provider rejected the requested structured response format');
     }
     const status = Number(value.error.code);
     const retryable = Number.isInteger(status) && (status === 408 || status === 429 || status >= 500);

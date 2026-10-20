@@ -18,7 +18,12 @@ export class ModelRuntimeRegistry {
 
   async resolve(router, route, signal) {
     assertRoute(route);
-    const key = `${route.profile.id}\u0000${route.model}`;
+    // Invariant: a profile edit cannot reuse runtime facts measured for a prior endpoint or declaration.
+    const key = JSON.stringify([
+      route.profile.id, route.profile.endpoint, route.model, route.profile.model,
+      route.profile.contextLimitBytes, route.profile.outputLimitTokens,
+      route.contextLimitBytes, route.maxOutputTokens,
+    ]);
     const cached = this.#cache.get(key);
     if (cached && Date.now() - cached.measuredAt < this.ttlMs) {
       this.#cache.delete(key); this.#cache.set(key, cached);
@@ -49,7 +54,7 @@ export class ModelRuntimeRegistry {
           reject(error);
         }, this.timeoutMs);
       });
-      const found = await Promise.race([provider.runtimeSnapshot(controller.signal), timeout]);
+      const found = await Promise.race([provider.runtimeSnapshot(controller.signal, route.model), timeout]);
       const snapshot = normalizeSnapshot(route, found);
       this.telemetry?.record('model.runtime_discovery', 'succeeded', snapshot);
       return this.#remember(key, snapshot, generation);

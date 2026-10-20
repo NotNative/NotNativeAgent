@@ -18,8 +18,8 @@ import { userDataPaths } from './product.js';
 import { dispatchTurnPreHook } from './engine/hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
-  completeProviderToolCalls, deduplicateProviderToolCalls, executionContext, modelStepRequestOptions, observeToolContracts,
-  advanceWorkCadence, composeToolContinuationHint, discoveryCheckpoint, prepareTrustedToolHandoff, providerRequest,
+  completeProviderToolCalls, deduplicateProviderToolCalls, executionContext, observeToolContracts,
+  advanceWorkCadence, composeToolContinuationHint, discoveryCheckpoint, prepareTrustedToolHandoff,
   groundCapabilityPhase, observeToolState, primaryProviderDeadlines, resetReasoningRecovery, resetStep, setInitialCapabilityPhase, suppressPostToolReasoningReplay, toolContext, workConvergenceCheckpoint,
 } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
@@ -44,6 +44,8 @@ import { validateSessionLineage } from './session-lineage.js'; import { forkInge
 import { supportConfiguration } from './support-configuration.js';
 import { initializeReviewerCarry, refreshReviewerCompletion, reviewerCompletionHint } from './engine/reviewer-completion.js';
 import { steerEngineTurn } from './engine/steering.js';
+import { primaryProviderRequest } from './engine/route-request.js';
+import { preparePrimaryRoutes } from './engine/primary-routes.js';
 export class SessionEngine {
   state = new StateAuthority(); lifecycles = new LifecycleRegistry();
   authority = new AuthorityRecord();
@@ -266,13 +268,11 @@ export class SessionEngine {
     const step = this.lifecycles.start('model_step', active.turnId);
     active.stepId = step.id;
     await this.#publish('model_step.started', 'model_step', 'active', active);
-    const routes = this.router.candidates('primary', { requiredCapabilities: ['tools'] });
-    if (routes.length === 0) throw new ContractError('route_capability_unavailable', 'no Primary provider route supports tool calls');
-    active.sessionId = this.sessionId;
-    await emitEngineStatus(this, 'waiting_provider', active);
+    const routes = await preparePrimaryRoutes(this, active);
     try {
-      active.providerRoute = await this.providerRunner.runRoutes(this.router, routes, (route) => providerRequest(this, route, context,
-        modelStepRequestOptions(reasoningMode, active)), primaryProviderDeadlines(this.config), active, context);
+      active.providerRoute = await this.providerRunner.runRoutes(this.router, routes,
+        (route) => primaryProviderRequest(this, route, context, reasoningMode, active),
+        primaryProviderDeadlines(this.config), active, context);
     } catch (error) {
       if (error.code !== 'provider_context_limit') throw error;
       return recoverProviderContextLimit(this, error, active, {

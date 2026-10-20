@@ -19,9 +19,16 @@ const MAX_SKIPPED_REFRESHES = 32;
 export async function prepareEngineContext(engine, records, content, active, force, operations) {
   const routes = engine.router.candidates('primary', { requiredCapabilities: ['tools'] });
   if (routes.length === 0) throw new ContractError('provider_route_missing', 'no Primary provider route can satisfy the required capabilities');
-  const runtime = await engine.modelRuntime.resolve(engine.router, routes[0], active.controller.signal);
+  // Invariant: retain the primary model's full context until a fallback is actually needed.
+  // A smaller fallback that failed preflight becomes the planning route for this turn.
+  const planningRoute = routes.find((route) => route.targetRole === active.contextBudgetRoute?.targetRole
+    && route.profile.id === active.contextBudgetRoute?.profileId
+    && route.model === active.contextBudgetRoute?.model) ?? routes[0];
+  if (planningRoute === routes[0]) active.contextBudgetRoute = null;
+  const planningRoutes = [planningRoute];
+  const runtime = await engine.modelRuntime.resolve(engine.router, planningRoute, active.controller.signal);
   active.runtimeModel = runtime;
-  const planned = engine.reliability.planContextBudget(engine.config, routes, runtime, active.contextRetryScale);
+  const planned = engine.reliability.planContextBudget(engine.config, planningRoutes, runtime, active.contextRetryScale);
   active.contextBudget = planned;
   recordBudget(engine, runtime, planned, active);
   const hardLimit = planned.hardLimitBytes;
@@ -34,7 +41,7 @@ export async function prepareEngineContext(engine, records, content, active, for
         engine, records, content, active.enrichment, active, Number.MAX_SAFE_INTEGER, hardLimit, planned,
         { projectContext: (measurement) => pressureProjection(engine, active, operations, measurement) },
       );
-      assertCompleteEnvelope(engine, routes[0], context, planned, active);
+      assertCompleteEnvelope(engine, planningRoute, context, planned, active);
       return context;
     } catch (error) {
       if (error.code !== 'context_too_large') throw error;
@@ -45,13 +52,13 @@ export async function prepareEngineContext(engine, records, content, active, for
     active.contextMeasurementEnrichment ?? active.enrichment,
     Number.MAX_SAFE_INTEGER,
   );
-  const cacheAlignedRequest = providerRequest(engine, routes[0], rawContext, {
+  const cacheAlignedRequest = providerRequest(engine, planningRoute, rawContext, {
     outputReserveTokens: planned.outputReserveTokens,
     conversationIntent: active.conversationIntent,
     approvedProposal: active.approvedProposal,
   });
   return compactContext(engine, records, content, active, operations, {
-    routes, runtime, planned, budget, hardLimit, cacheAlignedRequest, beforeContext: rawContext,
+    routes: planningRoutes, runtime, planned, budget, hardLimit, cacheAlignedRequest, beforeContext: rawContext,
   });
 }
 

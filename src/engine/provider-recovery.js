@@ -10,7 +10,10 @@ export async function recoverProviderContextLimit(engine, error, active, operati
   const plan = engine.reliability.providerContextLimit(active);
   await operations.settleAttempt('failed');
   const trigger = error?.code ?? 'provider_context_limit';
-  engine.state.transition(RECOVERING_STATE, { trigger, turnId: active.turnId });
+  // A fallback may fail preflight after its predecessor already entered recovery.
+  if (engine.state.state !== RECOVERING_STATE) {
+    engine.state.transition(RECOVERING_STATE, { trigger, turnId: active.turnId });
+  }
   if (plan.action) await operations.recordRecovery(plan.action);
   await operations.settleStep(plan.continue ? RECOVERING_STATE : 'failed');
   if (!plan.continue) throw error;

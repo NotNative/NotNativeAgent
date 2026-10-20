@@ -72,6 +72,7 @@ function applyConfiguration(engine, config, active) {
   engine.scheduler.configure(config.limits.providerConcurrency, config.limits.providerQueueLimit);
   engine.reviewer.semantic.setRouter?.(engine.router);
   if (active) active.authority = engine.authority.snapshot(config);
+  engine.modelRuntime?.invalidate?.();
 }
 
 function assertConfigurationDependencies(engine, active) {

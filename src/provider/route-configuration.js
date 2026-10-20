@@ -136,7 +136,7 @@ export function withProvider(config, input) {
   if (!/^[A-Za-z0-9_-]{1,64}$/u.test(input.id ?? '')) {
     throw new ContractError('provider_id_invalid', 'provider id must use letters, numbers, underscores, or hyphens');
   }
-  if (config.providerProfiles[input.id]) throw new ContractError('provider_duplicate', `provider ${input.id} already exists`);
+  if (Object.hasOwn(config.providerProfiles, input.id)) throw new ContractError('provider_duplicate', `provider ${input.id} already exists`);
   const manifest = manifestFromConfig(config);
   manifest.providers.push(compact({
     id: input.id, display_name: input.displayName ?? input.id, endpoint: input.endpoint, model: input.model,

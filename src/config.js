@@ -171,16 +171,19 @@ function validateProviders(manifest) {
   if (values.length === 0 || values.length > 16) {
     throw new ContractError('invalid_providers', 'one to sixteen providers are required');
   }
-  const result = {};
+  const result = Object.create(null);
   for (const value of values) {
     const profile = validateProvider(value);
-    if (result[profile.id]) throw new ContractError('duplicate_provider', `duplicate provider ${profile.id}`);
+    if (Object.hasOwn(result, profile.id)) throw new ContractError('duplicate_provider', `duplicate provider ${profile.id}`);
     result[profile.id] = profile;
   }
   return result;
 }
 function validateProvider(value) {
   if (!isRecord(value)) throw new ContractError('missing_provider', 'manifest provider is required');
+  if (value.id !== undefined && (typeof value.id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/u.test(value.id))) {
+    throw new ContractError('provider_id_invalid', 'provider id must use one to 64 letters, numbers, underscores, or hyphens');
+  }
   const endpoint = parseEndpoint(value.endpoint);
   const expectedZone = endpointZone(endpoint);
   if (!TRUST_ZONES.has(value.trust_zone) || value.trust_zone !== expectedZone) {
@@ -256,7 +259,7 @@ function buildRoutes(value, profile, profiles, providerMs) {
     result[role] = Object.freeze({
       role, assigned, providerId, model,
       contextLimitBytes: scalar('routes.{role}.context_limit_bytes', route.context_limit_bytes)
-        ?? profiles[providerId]?.contextLimitBytes ?? null,
+        ?? (model === profiles[providerId]?.model ? profiles[providerId]?.contextLimitBytes : null) ?? null,
       requiredCapabilities: validateRouteCapabilities(route.required_capabilities),
       temperature: temperatureOverride === null || temperatureOverride === 0 ? null : temperatureOverride, temperatureOverride,
       maxOutputTokens: scalar('routes.{role}.max_output_tokens', route.max_output_tokens),
