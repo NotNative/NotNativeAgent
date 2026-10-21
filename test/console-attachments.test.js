@@ -281,6 +281,38 @@ test('attached cancel prioritizes a fenced request admitted after an older descr
   } finally { finish({ outcome: 'cancelled' }); await store.close(); }
 });
 
+test('untargeted direct broker cancel still reaches the active Console turn', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-attached-direct-cancel-'));
+  const store = new JournalStore(root, 'main'); await store.open();
+  let commandSeen = null;
+  const session = { id: 'main', engine: { store, transcript: [], state: { state: 'running' },
+    active: { turnId: 'turn-live', requestId: 'direct-submit' } },
+  ingress: { async submit(command) { commandSeen = command; return { accepted: true, turn_id: 'turn-live' }; } } };
+  try {
+    const result = await cancelWorkspaceSession({ sessions: new Map([['main', session]]) }, 'main');
+    assert.deepEqual(result, { accepted: true, turn_id: 'turn-live' });
+    assert.equal(commandSeen.type, 'cancel');
+    assert.equal(Object.hasOwn(commandSeen, 'expected_turn_id'), false);
+  } finally { await store.close(); }
+});
+
+test('ephemeral Console fences delayed gateway work for its live owner', async () => {
+  let cancelCommand = null;
+  const session = { id: 'main', engine: { store: null, transcript: [], state: { state: 'idle' }, active: null },
+    ingress: { start() { assert.fail('fenced gateway request must not reach ingress'); },
+      async submit(command) { cancelCommand = command; return { accepted: true }; } } };
+  const workspace = { sessions: new Map([['main', session]]),
+    projection: { sessions: new Map([['main', { pendingAttachments: [] }]]), apply() {} } };
+  assert.deepEqual(await cancelWorkspaceSession(workspace, 'main', undefined, ['gateway_update_9']),
+    { accepted: true, already_terminal: true });
+  assert.deepEqual(await submitWorkspaceSession(workspace, 'main', 'delayed work', 'gateway_update_9'),
+    { accepted: false, cancelled: true });
+  assert.equal(cancelCommand, null);
+  session.engine.active = { turnId: 'turn-live', requestId: 'other-request' };
+  assert.deepEqual(await cancelWorkspaceSession(workspace, 'main'), { accepted: true });
+  assert.equal(cancelCommand.type, 'cancel');
+});
+
 test('queued attachment removal is indexed, bounded, and conversation-local', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-console-detach-'));
   const image = join(root, 'sample.png');

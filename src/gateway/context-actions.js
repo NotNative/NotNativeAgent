@@ -16,7 +16,9 @@ export async function runGatewayContextAction({ action, chatId, updateId, userId
   let message;
   try {
     let result;
-    if (attached && action === 'cancel') result = await directory.cancel(attached, attached.turn_id ?? undefined, fenceRequestIds);
+    if (attached && action === 'cancel') result = attached.turn_id || fenceRequestIds.length
+      ? await directory.cancel(attached, attached.turn_id ?? undefined, fenceRequestIds)
+      : { accepted: true, already_terminal: true };
     else if (attached) result = await directory[action](attached);
     else if (action === 'cancel') result = await standalone();
     else {

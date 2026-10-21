@@ -99,8 +99,9 @@ so startup preserves the file and stops with `gateway_control_replay_unrecoverab
 migrates without changing its Bot API offset.
 `/cancel` also suppresses earlier queued messages from that chat, including after a restart.
 For an attached Console conversation, it sends their exact request IDs to the Console owner,
-which persists an admission fence before replying; delayed submissions cannot start after the
-cancel, even if the Console restarts. For a running turn, it records the turn ID and checks
+which records an admission fence before replying. Durable conversations keep that fence across
+Console restart; ephemeral conversations keep it for the life of their owner. For a running
+turn, it records the turn ID and checks
 that ID at the engine before aborting;
 if another turn has started, the newer turn continues. Telegram replies use at-least-once
 delivery and can appear twice if delivery succeeds immediately before a gateway crash.

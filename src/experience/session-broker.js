@@ -36,7 +36,7 @@ export async function submitWorkspaceSession(workspace, sessionId, content, requ
   if (typeof content !== 'string' || !content.trim() || Buffer.byteLength(content, 'utf8') > MAX_ATTACHED_MESSAGE_BYTES) {
     throw new ContractError('broker_content_invalid', 'attached message is empty or too large');
   }
-  if (!requestId?.startsWith('gateway_update_') || !session.engine.store?.readRecords) {
+  if (!requestId?.startsWith('gateway_update_')) {
     if (requestId && session.pendingSubmission?.requestId !== requestId
       && await previouslyAcceptedRequest(session, requestId)) {
       return { accepted: false, duplicate: true, pending: false };
@@ -81,10 +81,10 @@ export async function cancelWorkspaceSession(workspace, sessionId, expectedTurnI
     return active && fenceRequestIds.includes(active.requestId) ? active.turnId : null;
   });
   const targetTurn = matchedTurn ?? expectedTurnId;
-  if (!targetTurn) return { accepted: true, already_terminal: true };
+  if (!targetTurn && fenceRequestIds.length > 0) return { accepted: true, already_terminal: true };
   const result = await session.ingress.submit({
     version: '1.0', type: 'cancel', request_id: newId('telegram_attach_cancel'),
-    expected_turn_id: targetTurn,
+    ...(targetTurn ? { expected_turn_id: targetTurn } : {}),
   }, ATTACHED_PRINCIPAL);
   return result;
 }

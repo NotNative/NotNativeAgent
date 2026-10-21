@@ -1014,6 +1014,19 @@ test('attached cancel does not abort a replacement turn after target discovery',
   assert.deepEqual(replies, ['No active turn.']);
 });
 
+test('attached cancel with no observed target leaves a later turn untouched', async () => {
+  const replies = [];
+  await runGatewayContextAction({ action: 'cancel', chatId: '42', updateId: 8, userId: '42',
+    selection: { targetId: 'original', alias: 'Original' },
+    replay: { async beginControl() {}, async queueReply(_id, _chat, _user, message) { replies.push(message); } },
+    directory: { async list() { return [{ targetId: 'original', alias: 'Original', turn_id: null }]; },
+      async cancel() { assert.fail('an unobserved turn must not be cancelled'); } },
+    standalone: async () => assert.fail('attached cancel must not select standalone'),
+    logger: { record() {} },
+  });
+  assert.deepEqual(replies, ['No active turn.']);
+});
+
 test('uncertain cancellation never replays into a changed attachment', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-gateway-cancel-uncertain-'));
   const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
