@@ -90,6 +90,15 @@ test('an accepted terminal declaration is bookkeeping and consumes no recovery e
   assert.deepEqual(settled, ['completed']);
 });
 
+test('a failed terminal declaration discards the preserved answer candidate', async () => {
+  const { active, engine, items } = harness(settledState, []);
+  active.provisionalFinal = Object.freeze({ text: 'Old answer.', stepId: 'old-step' });
+  const failed = [{ ...items[0], result: { tool_name: 'turn_finish', status: 'failed' } }];
+  assert.equal(await continueAfterTerminalDeclaration(engine, active, failed, null,
+    () => { throw new Error('failed declaration must not settle'); }, () => {}), null);
+  assert.equal(active.provisionalFinal, null);
+});
+
 test('no-effect tool outcomes create no completion obligation while possible effects remain recorded', () => {
   const active = { toolFailureLedger: new Map(), unresolvedToolFailures: [], correctableToolFailures: [] };
   updateToolFailures(active, [

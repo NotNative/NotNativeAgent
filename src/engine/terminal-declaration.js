@@ -20,7 +20,7 @@ export async function persistSupervisedResponse(active, supervised, persist) {
 
 export async function continueAfterTerminalDeclaration(engine, active, items, trustedHandoff, settleStep, recordRecovery) {
   if (!isSuccessfulDeclarationBatch(items)) {
-    if (items.some((item) => declarationName(item) !== 'turn_finish')) active.provisionalFinal = null;
+    active.provisionalFinal = null;
     return null;
   }
   // Why: turn_finish is bookkeeping for the completion supervisor, not another unit of
