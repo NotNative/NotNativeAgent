@@ -10,6 +10,8 @@ const MAX_TASK_TITLE = 512;
 const MAX_DETAIL = 1024;
 
 export class ConversationWork {
+  #committing = false;
+
   constructor(options = {}) {
     this.persist = options.persist ?? (async () => undefined);
     this.output = options.output ?? (async () => undefined);
@@ -243,18 +245,26 @@ export class ConversationWork {
   }
 
   async #commit(next, action, taskId = null, options = {}) {
-    const snapshot = deepFreeze(structuredClone(next));
-    if (options.persist !== false) await this.persist('work_state', snapshot);
-    this.state = snapshot;
-    this.telemetry?.record('work.state', 'succeeded', {
-      action, revision: snapshot.revision, goal_status: snapshot.goal?.status ?? null,
-      task_id: taskId, task_counts: taskCounts(snapshot.tasks),
-    });
-    await this.output({
-      version: '1.0', type: 'work_status', session_id: this.sessionId,
-      action, work: snapshot,
-    });
-    return snapshot;
+    if (this.#committing || next.revision !== this.state.revision + 1) {
+      throw new ContractError('work_revision_conflict', 'conversation work changed during this update; read work_status and retry');
+    }
+    this.#committing = true;
+    try {
+      const snapshot = deepFreeze(structuredClone(next));
+      if (options.persist !== false) await this.persist('work_state', snapshot);
+      this.state = snapshot;
+      this.telemetry?.record('work.state', 'succeeded', {
+        action, revision: snapshot.revision, goal_status: snapshot.goal?.status ?? null,
+        task_id: taskId, task_counts: taskCounts(snapshot.tasks),
+      });
+      await this.output({
+        version: '1.0', type: 'work_status', session_id: this.sessionId,
+        action, work: snapshot,
+      });
+      return snapshot;
+    } finally {
+      this.#committing = false;
+    }
   }
 }
 

@@ -301,11 +301,37 @@ test('conversation clear marker resets work even when its later work snapshot wa
 });
 
 test('failed work persistence leaves authoritative in-memory state unchanged', async () => {
-  const work = new ConversationWork({ persist: async () => { throw new Error('disk unavailable'); } });
+  let unavailable = true;
+  const work = new ConversationWork({ persist: async () => {
+    if (unavailable) throw new Error('disk unavailable');
+  } });
   await assert.rejects(work.addTask('Must remain uncommitted'), /disk unavailable/u);
   assert.deepEqual(work.snapshot(), {
     schema: 'nna.conversation_work.v1', revision: 0, nextTaskNumber: 1, goal: null, tasks: [], pendingCompletion: null,
   });
+  unavailable = false;
+  await work.addTask('Retry after storage recovers');
+  assert.equal(work.snapshot().tasks[0].id, 'T1');
+});
+
+test('overlapping work mutations reject stale state before a second durable append', async () => {
+  let releaseFirst, signalFirst;
+  const firstStarted = new Promise((resolve) => { signalFirst = resolve; });
+  const firstGate = new Promise((resolve) => { releaseFirst = resolve; });
+  const records = [];
+  const work = new ConversationWork({ persist: async (type, payload) => {
+    if (records.length === 0) { signalFirst(); await firstGate; }
+    records.push({ type, payload });
+  } });
+  const first = work.addTask('First task');
+  await firstStarted;
+  const second = work.addTask('Second task');
+  releaseFirst();
+  await first;
+  await assert.rejects(second, { code: 'work_revision_conflict' });
+  assert.equal(records.length, 1);
+  assert.deepEqual(work.snapshot().tasks.map((task) => task.title), ['First task']);
+  assert.equal(work.snapshot().revision, 1);
 });
 
 test('durable work state is kernel-grounded independently of compacted transcript records', () => {
