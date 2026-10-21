@@ -21,6 +21,17 @@ test('credential bindings preserve legacy environment references and resolve Sec
   assert.equal(uses[0].request.purpose, 'Test');
 });
 
+test('Secret Broker bindings require an own field instead of an inherited object property', async () => {
+  let used = false;
+  const resolver = new CredentialResolver({ secretBroker: { async withSecret(_id, _request, consumer) {
+    return consumer(Object.freeze({ api_key: 'real-secret' }));
+  } } });
+  await assert.rejects(resolver.withCredential({ source: 'secret', secretId: 'sec_test', field: 'constructor' }, {
+    consumer: 'provider:test', destination: 'https://example.test/v1', purpose: 'Test',
+  }, () => { used = true; }), { code: 'secret_field_not_found' });
+  assert.equal(used, false);
+});
+
 test('provider discovery injects a selected Secret Broker credential without environment indirection', async () => {
   let authorization;
   const resolver = new CredentialResolver({ secretBroker: { async withSecret(_id, _request, consumer) {

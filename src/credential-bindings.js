@@ -84,7 +84,9 @@ export class CredentialResolver {
       reviewerDecisionId: context.authorityRef ?? 'operator-configuration',
       sessionId: context.sessionId,
     }, async (fields) => {
-      if (!(normalized.field in fields)) throw new ContractError('secret_field_not_found', 'configured secret field is unavailable');
+      if (!Object.hasOwn(fields, normalized.field)) {
+        throw new ContractError('secret_field_not_found', 'configured secret field is unavailable');
+      }
       return consumer(fields[normalized.field]);
     });
   }
