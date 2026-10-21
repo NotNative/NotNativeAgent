@@ -3,9 +3,6 @@ import { ContractError } from './ids.js';
 
 export function projectConversationWork(snapshot) {
   requireConversationWorkSnapshot(snapshot);
-  if (snapshot.goal === null) {
-    return Object.freeze({ revision: snapshot.revision, objective: null, goal_status: null, tasks: Object.freeze([]) });
-  }
   const tasks = snapshot.tasks.map((task) => Object.freeze({
     id: task.id,
     title: task.title,
@@ -14,6 +11,9 @@ export function projectConversationWork(snapshot) {
       ? { detail: task.status === 'completed' ? task.evidence : task.blockedReason }
       : {}),
   }));
+  if (snapshot.goal === null) {
+    return Object.freeze({ revision: snapshot.revision, objective: null, goal_status: null, tasks: Object.freeze(tasks) });
+  }
   // Why: provider-visible work state must use the exact work_plan input shape so
   // injected context and work_status cannot teach conflicting field names.
   return Object.freeze({

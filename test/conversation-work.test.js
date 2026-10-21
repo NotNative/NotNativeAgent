@@ -108,6 +108,15 @@ test('agent work tools share the same durable state machine', async () => {
   );
 });
 
+test('work status keeps tasks visible before a goal is set', async () => {
+  const work = new ConversationWork();
+  await work.addTask('Investigate the report');
+  const status = conversationWorkDefinitions(work).find((item) => item.name === 'work_status');
+  const projected = JSON.parse((await status.executor({ args: {} }, new AbortController().signal)).content);
+  assert.equal(projected.objective, null);
+  assert.deepEqual(projected.tasks, [{ id: 'T1', title: 'Investigate the report', status: 'pending' }]);
+});
+
 test('work plan and status expose one lossless round-trip contract', async () => {
   const work = new ConversationWork();
   const definitions = new Map(conversationWorkDefinitions(work).map((item) => [item.name, item]));
