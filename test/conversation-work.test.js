@@ -300,6 +300,18 @@ test('conversation clear marker resets work even when its later work snapshot wa
   assert.equal(later.snapshot().revision, 4);
 });
 
+test('conversation clear marker cannot rewind the preceding durable work revision', async () => {
+  const work = new ConversationWork();
+  const prior = { type: 'work_state', payload: { schema: 'nna.conversation_work.v1',
+    revision: 7, nextTaskNumber: 1, goal: null, tasks: [], pendingCompletion: null } };
+  for (const workRevision of [0, 6, 7]) {
+    assert.throws(() => work.restore([prior, { type: 'conversation_cleared', payload: { workRevision } }]),
+      { code: 'work_state_invalid' });
+  }
+  assert.equal(work.snapshot().revision, 0);
+  assert.equal(work.restore([prior, { type: 'conversation_cleared', payload: { workRevision: 8 } }]).revision, 8);
+});
+
 test('failed work persistence leaves authoritative in-memory state unchanged', async () => {
   let unavailable = true;
   const work = new ConversationWork({ persist: async () => {

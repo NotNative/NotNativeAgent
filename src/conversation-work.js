@@ -29,8 +29,9 @@ export class ConversationWork {
     if (!boundary) return this.snapshot();
     if (boundary.type === 'conversation_cleared') {
       const prior = records.findLast((record) => record.type === 'work_state')?.payload;
-      const revision = boundary.payload?.workRevision ?? (prior ? validateSnapshot(prior).revision + 1 : 0);
-      if (!Number.isSafeInteger(revision) || revision < 0) {
+      const priorRevision = prior ? validateSnapshot(prior).revision : -1;
+      const revision = boundary.payload?.workRevision ?? priorRevision + 1;
+      if (!Number.isSafeInteger(revision) || revision < 0 || revision <= priorRevision) {
         throw new ContractError('work_state_invalid', 'durable conversation clear revision is invalid');
       }
       this.state = Object.freeze({ ...emptyState(), revision });
