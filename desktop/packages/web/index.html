@@ -8,18 +8,28 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <script>
       (function () {
+        var storedMode = null;
         try {
-          var mode = localStorage.getItem('notnative.themeMode') || localStorage.getItem('themeMode') || 'dark';
-          if (mode === 'system') {
+          storedMode = localStorage.getItem('notnative.themeMode') || localStorage.getItem('themeMode');
+        } catch (error) {
+          console.warn('[desktop] splash theme preference unavailable', error);
+        }
+        var mode = storedMode === 'light' || storedMode === 'dark' ? storedMode : 'system';
+        if (mode === 'system') {
+          try {
             mode = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+          } catch (error) {
+            console.warn('[desktop] system theme preference unavailable', error);
+            mode = 'light';
           }
-          var variant = mode === 'light' ? 'light' : 'dark';
-          document.documentElement.classList.remove('dark', 'light');
-          document.documentElement.classList.add(variant);
-          document.documentElement.style.colorScheme = variant;
-          document.documentElement.setAttribute('data-nn-splash-variant', variant);
-          document.documentElement.style.setProperty('--nn-splash-bg', variant === 'dark' ? '#151313' : '#fffcf0');
-        } catch (error) {}
+        }
+        var variant = mode === 'light' ? 'light' : 'dark';
+        document.documentElement.classList.remove('dark', 'light');
+        document.documentElement.classList.add(variant);
+        document.documentElement.style.colorScheme = variant;
+        document.documentElement.setAttribute('data-nn-splash-variant', variant);
+        document.documentElement.style.setProperty('--nn-splash-bg', variant === 'dark' ? '#151313' : '#fffcf0');
+        document.documentElement.style.setProperty('--nn-splash-fg', variant === 'dark' ? '#cdccc3' : '#3b332f');
         window.process = window.process || { env: {} };
       })();
     </script>
@@ -28,25 +38,29 @@
   </head>
   <body>
 
-    <div id="initial-loading">
+    <div id="initial-loading" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--nn-splash-bg,#151313);color:var(--nn-splash-fg,#cdccc3);z-index:50">
       <div style="text-align:center">
         <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
           <path d="M32 6 L54 18 L54 46 L32 58 L10 46 L10 18 Z" stroke="currentColor" stroke-width="2" opacity="0.8" />
           <path d="M32 6 L32 32 M54 18 L32 32 M10 18 L32 32" stroke="currentColor" stroke-width="1.5" opacity="0.5" />
         </svg>
-        <div id="initial-loading-text" style="margin-top:10px;font-size:13px;opacity:0.75">Starting NotNativeDesktop…</div>
+        <div id="initial-loading-text" role="status" aria-live="polite" style="margin-top:10px;font-size:13px;opacity:0.75">Starting NotNativeDesktop…</div>
+        <button id="initial-loading-retry" type="button" hidden style="margin-top:16px;padding:8px 14px;border:1px solid currentColor;border-radius:7px;background:transparent;color:inherit;cursor:pointer">Reload</button>
       </div>
     </div>
     <div id="root"></div>
     <script>
       (function () {
-        // 10 s fallback: a fragile boot must never trap the user on the splash.
-        if (window.__NOTNATIVE_LOCAL_ORIGIN__) return;
+        // Invariant: a failed module load leaves a visible retry on every host.
         setTimeout(function () {
           var splash = document.getElementById('initial-loading');
-          if (splash && !splash.classList.contains('fade-out')) {
-            splash.classList.add('fade-out');
-            setTimeout(function () { splash.remove(); }, 320);
+          if (!splash || splash.classList.contains('fade-out') || window.__notnativeAppReady) return;
+          var text = document.getElementById('initial-loading-text');
+          var retry = document.getElementById('initial-loading-retry');
+          if (text) text.textContent = 'NotNativeDesktop is taking longer than expected.';
+          if (retry) {
+            retry.hidden = false;
+            retry.addEventListener('click', function () { window.location.reload(); }, { once: true });
           }
         }, 10000);
       })();
