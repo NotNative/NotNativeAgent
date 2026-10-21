@@ -24,6 +24,12 @@ const required = [
   // The operator rail starts hidden and only becomes visible at xl widths.
   // Generic .flex can be present while this responsive rule is missing.
   ['desktop operator rail breakpoint', /\.xl\\:flex\s*\{\s*display\s*:\s*flex\b/u],
+  // Invariant: shared UI semantic classes must survive Tailwind's production build.
+  ['interactive hover', /\.hover\\:bg-interactive-hover\\\/40:hover\s*\{/u],
+  ['interactive selection', /\.bg-interactive-selection(?:,|\s*\{)/u],
+  ['interactive selection foreground', /\.text-interactive-selection-foreground\s*\{/u],
+  ['interactive focus border', /\.focus\\:border-interactive-border-focus:focus\s*\{/u],
+  ['splash fade', /#initial-loading\.fade-out\s*\{\s*opacity\s*:\s*0\b/u],
 ];
 const missing = required.filter(([, pattern]) => !pattern.test(css)).map(([label]) => label);
 if (missing.length > 0) throw new Error(`web CSS gate: missing generated utilities: ${missing.join(', ')}`);

@@ -135,6 +135,8 @@
   --interactive-focus: var(--ring);
   --interactive-cursor: var(--foreground);
   --interactive-hover: var(--accent);
+  --interactive-selection: var(--accent);
+  --interactive-selection-foreground: var(--foreground);
   --interactive-active: var(--primary);
   --status-error: var(--destructive);
   --status-error-foreground: var(--destructive-foreground);
@@ -212,6 +214,10 @@
   --color-ring: var(--ring);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-interactive-border-focus: var(--interactive-border-focus);
+  --color-interactive-hover: var(--interactive-hover);
+  --color-interactive-selection: var(--interactive-selection);
+  --color-interactive-selection-foreground: var(--interactive-selection-foreground);
   --color-chat-user-message-bg: var(--chat-user-message-bg);
   --color-status-success: var(--status-success);
   --color-status-error: var(--status-error);

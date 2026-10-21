@@ -1,26 +1,27 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/* Scope: normalize native settings controls without changing their owning state machines. */
+/* Invariant: explicit utility classes own control dimensions and state styling. */
+@layer components {
 [data-native-settings] :is(input:not([type=checkbox]):not([type=radio]), select, textarea) {
   max-width: 100%;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--background);
   color: var(--foreground);
   padding: 6px 8px;
   font-size: 12px;
 }
-[data-native-settings] :is(button, select, input:not([type=checkbox]):not([type=radio])) { min-height: 32px; }
-[data-native-settings] button { border-radius: 7px; padding: 6px 10px; }
+[data-native-settings] :is(select, input:not([type=checkbox]):not([type=radio])) { min-height: 32px; }
+[data-native-settings] button { border-radius: var(--radius-md); padding: 6px 10px; }
 [data-native-settings] button:disabled { opacity: .5; cursor: default; }
 [data-native-settings] :is(button, input, select, textarea, summary):focus-visible {
   outline: 2px solid var(--primary); outline-offset: 2px;
 }
-[data-native-settings] [role=alert] { border-left: 3px solid var(--destructive); padding: 8px 12px; }
 [data-native-settings] [role=tabpanel] { padding-top: 4px; }
 [data-native-settings] [aria-label="Settings pages"] { flex-shrink: 0; }
 @media (max-width: 640px) {
-  [data-native-settings] { width: 98vw; height: 94vh; }
+  [data-native-settings] { width: 100%; height: min(94dvh, 900px); }
   [data-native-settings] [aria-label="Settings pages"] { max-width: 38vw; }
   [data-native-settings] header { flex-wrap: wrap; }
   [data-native-settings] [data-settings-search] { margin-left: 0; width: min(60vw, 320px); }
+}
 }

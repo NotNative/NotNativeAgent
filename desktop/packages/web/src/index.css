@@ -34,3 +34,12 @@ body {
   transition: opacity 300ms ease;
   z-index: 50;
 }
+
+#initial-loading.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #initial-loading { transition: none; }
+}
