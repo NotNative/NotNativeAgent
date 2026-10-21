@@ -111,3 +111,13 @@ test('no-effect tool outcomes create no completion obligation while possible eff
   ]);
   assert.deepEqual(active.unresolvedToolFailures, ['tool_timeout']);
 });
+
+test('uncertain nonzero process results remain completion obligations and partial results do not crash tracking', () => {
+  const active = { toolFailureLedger: new Map(), unresolvedToolFailures: [], correctableToolFailures: [] };
+  updateToolFailures(active, [{ request: { toolName: 'shell_run', args: { script: 'change then fail' } },
+    result: { status: 'completed_nonzero', reason_code: 'process_exit_nonzero', effect_certainty: 'unknown' } }]);
+  assert.deepEqual(active.unresolvedToolFailures, ['process_exit_nonzero']);
+  assert.doesNotThrow(() => updateToolFailures(active, [null,
+    { request: { toolName: 'fs_read_text', args: { path: 'a.txt' } } }]));
+  assert.ok(active.unresolvedToolFailures.includes('tool_failed'));
+});
