@@ -24,6 +24,31 @@ const providers = [
   },
 ];
 
+test('model-only specialist route inherits the selected Primary provider', () => {
+  const config = resolveManifest({ providers, routes: {
+    primary: { provider_id: 'public' },
+    reviewer: { model: 'review-model' },
+  } });
+  assert.equal(config.routes.reviewer.providerId, 'public');
+  assert.equal(new ModelRouter(config).resolve('reviewer').profile.endpoint, providers[2].endpoint);
+  assert.equal(new ModelRouter(config).resolve('reviewer').model, 'review-model');
+});
+
+test('trust zones distinguish IPv6 loopback and complete private IP literals from DNS names', () => {
+  const loopback = resolveManifest({ provider: {
+    id: 'ipv6', endpoint: 'http://[::1]:8000/v1', model: 'local', trust_zone: 'loopback',
+  } });
+  assert.equal(loopback.providerProfiles.ipv6.trustZone, 'loopback');
+  assert.throws(() => resolveManifest({ provider: {
+    id: 'spoof', endpoint: 'https://10.0.0.1.attacker.example/v1', model: 'remote', trust_zone: 'private_network',
+  } }), { code: 'invalid_trust_zone' });
+  const publicHost = resolveManifest({ provider: {
+    id: 'spoof', endpoint: 'https://10.0.0.1.attacker.example/v1', model: 'remote', trust_zone: 'public_network',
+  } });
+  assert.equal(publicHost.providerProfiles.spoof.trustZone, 'public_network');
+  assert.equal(resolveManifest({ provider: providers[0] }).providerProfiles.lan.trustZone, 'private_network');
+});
+
 test('provider profile ids accept valid own names and reject empty or malformed ids', () => {
   for (const id of ['constructor', 'toString', '__proto__']) {
     const provider = { ...providers[0], id };

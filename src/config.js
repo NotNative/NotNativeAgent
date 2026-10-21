@@ -2,6 +2,7 @@
 import { ContractError } from './ids.js';
 import { ROLES } from './contracts.js';
 import { resolve } from 'node:path';
+import { isIP } from 'node:net';
 import { createHash } from 'node:crypto';
 import { validateKeyBindings } from './experience/key-bindings.js';
 import { validateNestedManifestKeys } from './configuration-shape.js';
@@ -253,7 +254,7 @@ function buildRoutes(value, profile, profiles, providerMs) {
     const temperatureOverride = scalar('routes.{role}.temperature', route.temperature);
     const inherited = role === 'primary' ? null : result.primary;
     if (!assigned && !inherited) throw new ContractError('route_inheritance_invalid', `route ${role} has no Primary route to inherit`);
-    const providerId = assigned ? (route.provider_id ?? profile.id) : inherited.providerId;
+    const providerId = assigned ? (route.provider_id ?? inherited?.providerId ?? profile.id) : inherited.providerId;
     const model = assigned ? (route.model ?? profiles[providerId]?.model ?? profile.model) : inherited.model;
     const fallbacks = validateFallbacks(route.fallbacks);
     result[role] = Object.freeze({
@@ -469,8 +470,13 @@ function parseEndpoint(value, label = 'provider') {
 }
 function endpointZone(url) {
   const host = url.hostname.toLowerCase();
-  if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return 'loopback';
-  if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/u.test(host)) return 'private_network';
+  if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]') return 'loopback';
+  // Security: a hostname that starts with private-IP digits is still a public hostname.
+  if (isIP(host) === 4) {
+    const [first, second] = host.split('.').map(Number);
+    if (first === 10 || (first === 192 && second === 168)
+      || (first === 172 && second >= 16 && second <= 31)) return 'private_network';
+  }
   return 'public_network';
 }
 function optionalString(value) { return typeof value === 'string' && value.length > 0 ? value : null; }
