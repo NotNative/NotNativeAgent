@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
+import { completedAssistantHasText, readUntil } from './smoke-observations.js';
 
 // This probe deliberately runs the in-process harness. Set the mode before
 // loading the server modules: ENV snapshots it at import time, and otherwise
@@ -27,7 +28,7 @@ async function main() {
   registerHarnessAdapter(mockHarness);
   const app = createApp();
   const call = (path, init) => {
-    const request = new Request(`${origin}${path}`, { ...init, signal: AbortSignal.timeout(STEP_TIMEOUT_MS) });
+    const request = new Request(`${origin}${path}`, { ...init, signal: init?.signal ?? AbortSignal.timeout(STEP_TIMEOUT_MS) });
     return app.fetch(request);
   };
   await assertHealth(call);
@@ -73,14 +74,13 @@ function assertSessionRecord(record) {
 
 async function assertPromptEcho(call, sessionID) {
   const parts = [{ type: 'text', text: 'smoke probe' }];
-  const result = await expectJson(call, `/api/session/${encodeURIComponent(sessionID)}/prompt_async`, {
+  await expectJson(call, `/api/session/${encodeURIComponent(sessionID)}/prompt_async`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ model: { providerID: 'mock', modelID: 'mock' }, parts }),
   }, 204); // LF-8: accepted turns answer 204; delivery rides the event stream
-  assert.ok(result === undefined || result === null || typeof result === 'object');
   const echoed = await pollFor(call, `/api/session/${encodeURIComponent(sessionID)}/message`, (entries) => (
-    Array.isArray(entries) && entries.some((entry) => JSON.stringify(entry).includes('smoke probe'))
+    completedAssistantHasText(entries, 'smoke probe')
   ));
   assert.ok(echoed, `assistant reply mentioning the probe must arrive within ${REPLY_WINDOW_MS} ms`);
 }
@@ -104,8 +104,9 @@ async function assertSessionStatus(call) {
 }
 
 async function assertControlStream(call) {
-  const response = await call('/api/notnative/events');
+  const response = await call('/api/notnative/events', { signal: AbortSignal.timeout(STEP_TIMEOUT_MS * 2) });
   assert.equal(response.status, 200, 'control stream must open');
+  assert.ok(response.body, 'control stream must include a body');
   const reader = response.body.getReader();
   try {
     const text = await readUntil(reader, 5_000, 'notnative:', 'control stream first frame');
@@ -113,18 +114,6 @@ async function assertControlStream(call) {
   } finally {
     await reader.cancel().catch(() => undefined);
   }
-}
-
-async function readUntil(reader, timeoutMs, needle, label) {
-  const decoder = new TextDecoder();
-  let text = '';
-  while (Date.now() < Date.now() + timeoutMs && text.length < 64 * 1024) {
-    const chunk = await raceTimeout(reader.read(), timeoutMs, label);
-    text += decoder.decode(chunk.value ?? new Uint8Array());
-    if (text.includes(needle)) return text;
-    if (chunk.done) return text;
-  }
-  return text;
 }
 
 async function assertServerRoutes(call) {
@@ -142,11 +131,4 @@ async function expectJson(call, path, initOrStatus, maybeStatus) {
   const text = await response.text();
   if (response.status === 204 || text.length === 0) return undefined;
   return JSON.parse(text);
-}
-
-function raceTimeout(promise, timeoutMs, label) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs} ms`)), timeoutMs)),
-  ]);
 }
