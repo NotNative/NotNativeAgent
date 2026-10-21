@@ -49,7 +49,7 @@ export async function buildRepositoryGraph(repositoryRoot = root) {
   for (const path of files) {
     const modulePath = portable(relative(repositoryRoot, path));
     const source = await readFile(path, 'utf8');
-    sourceDigest.update(modulePath).update(' ').update(source.replaceAll('\r\n', '')).update(' ');
+    sourceDigest.update(modulePath).update(' ').update(source.replace(/\r\n?/gu, '\n')).update(' ');
     const imports = resolveImports(source, modulePath, known, externalDependencies);
     modules.push({ path: modulePath, component: classify(modulePath), entrypoint: ENTRYPOINTS.has(modulePath), imports });
   }
@@ -158,7 +158,6 @@ async function collectSourceFiles(repositoryRoot) {
     let entries;
     try { entries = await readdir(current, { withFileTypes: true }); }
     catch (error) {
-      if (error.code === 'ENOENT') continue;
       throw new Error(`cannot inspect ${current}: ${error.code ?? error.message}`, { cause: error });
     }
     for (const entry of entries) {
@@ -185,19 +184,34 @@ function resolveImports(source, modulePath, known, externalDependencies) {
   for (const specifier of [...specifiers].sort()) {
     if (specifier.startsWith('@notnative/')) {
       const mapped = mappedWorkspaceSpecifier(specifier);
-      if (mapped && known.has(mapped)) imports.push(mapped);
+      const resolved = mapped && resolveKnownImport(mapped, known);
+      if (resolved) imports.push(resolved);
       continue;
     }
     if (!specifier.startsWith('.')) { externalDependencies.add(specifier); continue; }
     const candidate = posix.normalize(posix.join(posix.dirname(modulePath), specifier));
-    if (known.has(candidate)) imports.push(candidate);
+    const resolved = resolveKnownImport(candidate, known);
+    if (resolved) imports.push(resolved);
   }
   return imports.sort();
 }
 
 function mappedWorkspaceSpecifier(specifier) {
   if (!specifier.startsWith('@notnative/ui/')) return null;
-  return `packages/ui/${specifier.slice('@notnative/ui/'.length)}`;
+  return `packages/ui/src/${specifier.slice('@notnative/ui/'.length)}`;
+}
+
+function resolveKnownImport(candidate, known) {
+  if (known.has(candidate)) return candidate;
+  if (posix.extname(candidate)) return null;
+  for (const extension of ['.ts', '.tsx', '.mjs', '.js']) {
+    if (known.has(`${candidate}${extension}`)) return `${candidate}${extension}`;
+  }
+  for (const extension of ['.ts', '.tsx', '.mjs', '.js']) {
+    const index = posix.join(candidate, `index${extension}`);
+    if (known.has(index)) return index;
+  }
+  return null;
 }
 
 const IMPORT_DECLARATION = /(?:^|\n)\s*(?:import\s+(?:type\s+)?(?:[^'";]+?\s+from\s+)?|export\s+(?:type\s+)?[^'";]+?\s+from\s+)['"]([^'"]+)['"]/gu;
