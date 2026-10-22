@@ -4,13 +4,23 @@ import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { sealVersionLedger } from '../desktop/scripts/release-version-ledger.mjs';
+import { sealVersionLedger, validVersion } from '../desktop/scripts/release-version-ledger.mjs';
 
 const VERSION = '20261022-34';
 const DIGEST = 'a'.repeat(64);
 const pathFor = (root) => join(root, 'RELEASE_VERSIONS.json');
 const seal = (root, errors, recordMissing = true) => sealVersionLedger({
   root, version: VERSION, recordMissing, candidateDigest: async () => DIGEST, errors,
+});
+
+test('release versions require real Gregorian dates and positive iterations', () => {
+  for (const value of ['20260229-1', '20261301-1', '20261131-1', '20260001-1',
+    '20261022-0', '20261022-01', '20261022-9007199254740992']) {
+    assert.equal(validVersion(value), false, value);
+  }
+  for (const value of ['20240229-1', '20000229-2', '20261022-38']) {
+    assert.equal(validVersion(value), true, value);
+  }
 });
 
 test('malformed desktop release ledger is preserved and cannot be sealed over', async () => {

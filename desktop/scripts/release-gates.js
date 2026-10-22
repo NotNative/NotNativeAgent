@@ -6,7 +6,7 @@ import { join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { releaseFiles as collectReleaseFiles } from './release-content.mjs';
-import { sealVersionLedger } from './release-version-ledger.mjs';
+import { sealVersionLedger, validVersion } from './release-version-ledger.mjs';
 import { checkWorkspaceSafety } from './release-workspace-safety.mjs';
 import { appendManifestDiagnostics } from './release-manifest-diagnostics.mjs';
 
@@ -53,8 +53,8 @@ function readVersion() {
   let raw;
   try { raw = readFileSync(join(root, 'VERSION'), 'utf8').trim(); }
   catch { errors.push('VERSION is missing; run pnpm run version:bump'); return null; }
-  if (!/^(\d{8})-([1-9]\d*)$/u.test(raw)) {
-    errors.push('VERSION does not use YYYYMMDD-<iteration>');
+  if (!validVersion(raw)) {
+    errors.push('VERSION must use a real YYYYMMDD date and positive iteration');
     return null;
   }
   return raw;
@@ -117,7 +117,7 @@ function featureParityGate() {
        const { problems, expected, recorded } = await auditRecords();
        if (problems.length) { console.error(problems.join('\\n')); process.exit(1); }
        console.log('feature parity records complete: ' + recorded + '/' + expected);`],
-    { cwd: root, encoding: 'utf8' });
+    { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.status !== 0) errors.push(`feature parity ledger gate failed: ${failureText(result)}`);
 }

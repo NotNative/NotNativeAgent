@@ -77,8 +77,11 @@ function validLedger(value) {
   return true;
 }
 
-function validVersion(value) {
+export function validVersion(value) {
   if (typeof value !== 'string' || !/^\d{8}-[1-9]\d*$/u.test(value)) return false;
+  // Invariant: release seals use the same safe-integer iteration range as
+  // the canonical version bump.
+  if (!Number.isSafeInteger(Number(value.slice(9)))) return false;
   const year = Number(value.slice(0, 4));
   const month = Number(value.slice(4, 6));
   const day = Number(value.slice(6, 8));
