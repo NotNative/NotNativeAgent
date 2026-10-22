@@ -10,8 +10,9 @@ Input lines, JSON depth, collection size, strings, and the number of concurrentl
 requests are bounded. When the request ceiling is reached, NNA returns the stable
 `request_queue_full` error without starting that request.
 While a turn or its auto-review is active, new submissions receive a correlated
-`accepted:false` busy acknowledgement; replaying the same request identity receives a
-correlated duplicate acknowledgement. Review status remains bound to the engine tool
+`accepted:false` busy acknowledgement; replaying the same request identity while it remains
+in the bounded live ingress window receives a correlated duplicate acknowledgement.
+Review status remains bound to the engine tool
 request identity. No permission-response control exists in the headless protocol.
 Malformed JSON, incompatible major versions, unknown control types, and bounds violations
 return typed protocol errors before initialization or provider/tool work. Compatible newer

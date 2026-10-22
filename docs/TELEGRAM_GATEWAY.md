@@ -37,8 +37,8 @@ the Bot API offset, the gateway atomically persists each accepted `update_id` an
 update in a durable inbox. Queue saturation leaves the update in that inbox instead of
 consuming it; completion removes it only after handling settles. A hard stop therefore
 replays unacknowledged inbox entries, while the stable `gateway_update_UPDATE_ID` request
-identity lets the session ingress recognize a previously accepted update rather than create
-unattributed duplicate work. The inbox is capped at 256 updates and 1 MiB; when full, the
+identity lets a live session ingress recognize a previously accepted update while that ID
+remains in its bounded duplicate window. The inbox is capped at 256 updates and 1 MiB; when full, the
 gateway does not advance beyond the first update it could not preserve.
 
 Detached gateway control records bind the PID to its operating-system process-start

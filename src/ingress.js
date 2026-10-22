@@ -36,7 +36,16 @@ export class CanonicalIngress {
       };
     }
     if (this.#seen.size >= this.maxIdentities) {
-      throw new ContractError('ingress_capacity', 'idempotency window is full');
+      // Invariant: pending commands cannot lose their identity. Settled outcomes,
+      // including uncertain failures, remain duplicates while inside this bounded window.
+      let evicted = false;
+      for (const [requestId, entry] of this.#seen) {
+        if (!entry.settled) continue;
+        this.#seen.delete(requestId);
+        evicted = true;
+        break;
+      }
+      if (!evicted) throw new ContractError('ingress_capacity', 'idempotency window is full');
     }
     const operation = this.#route(command, principal);
     const entry = { operation, type: command.type, settled: false };
