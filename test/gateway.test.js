@@ -1244,3 +1244,38 @@ test('gateway delivers terminal notifications out of band with an attach control
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].callback_data, 'nna:a:target123');
   assert.deepEqual(await readTelegramOutbox(outbox), []);
 });
+
+test('gateway acknowledges notifications after their source session closes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-closed-source-'));
+  const outbox = join(root, 'outbox');
+  const queue = new TelegramNotificationQueue(outbox, 'closed-session');
+  queue.schedule('turn-1', 'The completed turn is ready.');
+  await queue.terminal({ type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
+  const sent = [];
+  const gateway = new TelegramGateway({
+    api: {
+      async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        if (sent.length === 0) return [];
+        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      },
+      async sendMessage(chatId, text, _signal, options) { sent.push({ chatId, text, options }); },
+    },
+    paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+      reviewerLedger: join(root, 'reviewer'), telegramOutbox: outbox },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    sessionDirectory: { list: async () => [] },
+  });
+  const running = gateway.run();
+  try {
+    await waitUntil(() => sent.length === 1);
+    await waitUntil(async () => (await readTelegramOutbox(outbox)).length === 0);
+  } finally {
+    await gateway.shutdown();
+    await running;
+  }
+  assert.equal(sent[0].chatId, '42');
+  assert.match(sent[0].text, /completed turn is ready/u);
+  assert.deepEqual(sent[0].options, {});
+});

@@ -435,7 +435,7 @@ export class TelegramGateway {
       const source = catalog.find((target) => target.id === item.session_id);
       for (const chatId of this.config.authorized_user_ids) {
         const attached = this.attachments.get(String(chatId));
-        const options = attached?.targetId === source?.targetId ? attachedControls(source.alias)
+        const options = source && attached && attached.targetId === source.targetId ? attachedControls(source.alias)
           : source ? { replyMarkup: { inline_keyboard: [[
             { text: `Attach ${source.alias}`, callback_data: `nna:a:${source.targetId}` },
             { text: 'Sessions', callback_data: 'nna:s' },
