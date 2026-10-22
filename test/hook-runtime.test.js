@@ -167,6 +167,31 @@ setInterval(() => {}, 10_000);
   await assert.rejects(access(escaped), { code: 'ENOENT' });
 });
 
+test('hook setup and input failures return continuations instead of rejecting', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-hook-setup-'));
+  const subscription = { command: nodeCommand(), timeoutMs: 1000 };
+  const badDirectory = await runHook(subscription, { directory: '\0', name: 'invalid-cwd' }, {}, null);
+  assert.equal(badDirectory.decision, 'continue');
+  assert.equal(badDirectory.code, 'hook_spawn_failed');
+
+  const priorHome = process.env.NNA_HOME;
+  process.env.NNA_HOME = 'relative-nna-home';
+  try {
+    const badEnvironment = await runHook(subscription, { directory: root, name: 'invalid-home' }, {}, null);
+    assert.equal(badEnvironment.decision, 'continue');
+    assert.equal(badEnvironment.code, 'hook_failed');
+    assert.equal(badEnvironment.reason, 'invalid_nna_home');
+  } finally {
+    if (priorHome === undefined) delete process.env.NNA_HOME;
+    else process.env.NNA_HOME = priorHome;
+  }
+
+  const cyclic = {}; cyclic.self = cyclic;
+  const badInput = await runHook(subscription, { directory: root, name: 'cyclic' }, cyclic, null);
+  assert.equal(badInput.decision, 'continue');
+  assert.equal(badInput.code, 'hook_input_failed');
+});
+
 test('hook command parser permits argv but rejects shell composition', () => {
   assert.deepEqual(parseCommand('python "some script.py" --flag'), {
     command: 'python', args: ['some script.py', '--flag'],

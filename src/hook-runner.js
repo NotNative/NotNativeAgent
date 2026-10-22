@@ -11,7 +11,10 @@ const FORBIDDEN_SHELL = /[|&;<>()`\r\n]|\$\(/u;
 
 export async function runHook(subscription, bundle, payload, signal) {
   if (signal?.aborted) return result('continue', 'hook_cancelled');
-  const input = JSON.stringify(payload);
+  let input;
+  try { input = JSON.stringify(payload); }
+  catch (error) { return result('continue', 'hook_input_failed', null, stableErrorCode(error)); }
+  if (typeof input !== 'string') return result('continue', 'hook_input_failed');
   if (Buffer.byteLength(input, 'utf8') > MAX_INPUT_BYTES) {
     return result('continue', 'hook_input_too_large');
   }
@@ -28,11 +31,12 @@ function execute(invocation, subscription, bundle, input, parentSignal) {
     let stderr = Buffer.alloc(0);
     let settled = false;
     let stopping = false;
-    const child = spawn(invocation.command, invocation.args, {
-      cwd: bundle.directory, env: hookEnvironment(payloadEnvironment(bundle, input)),
-      shell: false, windowsHide: true, detached: process.platform !== 'win32',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    let environment;
+    try { environment = hookEnvironment(payloadEnvironment(bundle, input)); }
+    catch (error) { resolve(result('continue', 'hook_failed', null, stableErrorCode(error))); return; }
+    let child;
+    try { child = spawnHook(invocation, bundle, environment); }
+    catch (error) { resolve(result('continue', 'hook_spawn_failed', null, stableErrorCode(error))); return; }
     const finish = (value) => {
       if (settled) return;
       settled = true; clearTimeout(timeoutId); parentSignal?.removeEventListener('abort', abort);
@@ -51,6 +55,10 @@ function execute(invocation, subscription, bundle, input, parentSignal) {
     }, subscription.timeoutMs);
     parentSignal?.addEventListener('abort', abort, { once: true });
     if (parentSignal?.aborted) abort();
+    if (!child.stdout || !child.stderr || !child.stdin) {
+      stop(result('continue', 'hook_spawn_failed'));
+      return;
+    }
     for (const stream of [child.stdout, child.stderr]) stream.on('error', (error) => {
       if (settled) return;
       stop(result('continue', 'hook_failed', null, stableErrorCode(error)));
@@ -71,6 +79,14 @@ function execute(invocation, subscription, bundle, input, parentSignal) {
       stop(result('continue', 'hook_input_failed', null, stableErrorCode(error)));
     });
     child.stdin.end(input, 'utf8');
+  });
+}
+
+function spawnHook(invocation, bundle, environment) {
+  return spawn(invocation.command, invocation.args, {
+    cwd: bundle.directory, env: environment,
+    shell: false, windowsHide: true, detached: process.platform !== 'win32',
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
 }
 
