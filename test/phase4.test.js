@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, symlink, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -100,6 +101,102 @@ test('plain-text admission refuses a file above its context ceiling before copyi
   await assert.rejects(() => manager.prepare([{ path: source, mime_type: 'text/plain' }], 'Read', new AbortController().signal),
     { code: 'attachment_size_invalid' });
   assert.equal((await readFile(source)).length, 64 * 1024 + 1);
+});
+
+test('restored attachments never delete forged paths or parent-owned fork files', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-restored-attachment-'));
+  const managedRoot = join(root, 'managed');
+  const ownedPath = join(managedRoot, 'attachment_owned', 'owned.txt');
+  const parentPath = join(root, 'parent-managed', 'attachment_parent', 'parent.txt');
+  const outsidePath = join(root, 'outside.txt');
+  await mkdir(join(managedRoot, 'attachment_owned'), { recursive: true });
+  await mkdir(join(root, 'parent-managed', 'attachment_parent'), { recursive: true });
+  await writeFile(ownedPath, 'owned');
+  await writeFile(parentPath, 'parent');
+  await writeFile(outsidePath, 'outside');
+  const manager = new AttachmentManager({
+    config: { enabled: true, maxBytes: 1024, retain: false }, root: managedRoot,
+    persist: async () => undefined, cleanupOnClose: true,
+  });
+  manager.restore([
+    { type: 'attachment_fact', payload: { id: 'attachment_forged', sourceName: 'outside.txt', managedPath: outsidePath, state: 'staged' } },
+    { type: 'attachment_fact', payload: { id: 'attachment_parent', sourceName: 'parent.txt', managedPath: parentPath, state: 'staged' } },
+    { type: 'attachment_fact', payload: { id: 'attachment_owned', sourceName: 'owned.txt', managedPath: ownedPath, state: 'staged' } },
+  ]);
+  assert.equal(await manager.remove('attachment_forged'), false);
+  assert.equal(await manager.remove('attachment_parent'), false);
+  assert.equal(await manager.remove('attachment_owned'), true);
+  await manager.close();
+  assert.equal(await readFile(outsidePath, 'utf8'), 'outside');
+  assert.equal(await readFile(parentPath, 'utf8'), 'parent');
+  await assert.rejects(readFile(ownedPath), { code: 'ENOENT' });
+});
+
+test('restored attachment directory links cannot read or remove files outside the session', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-linked-attachment-'));
+  const managedRoot = join(root, 'managed');
+  const outsideDirectory = join(root, 'outside');
+  const id = 'attachment_linked';
+  const sourceName = 'secret.txt';
+  const outsidePath = join(outsideDirectory, sourceName);
+  const managedPath = join(managedRoot, id, sourceName);
+  await mkdir(managedRoot);
+  await mkdir(outsideDirectory);
+  await writeFile(outsidePath, 'outside private text');
+  try {
+    await symlink(outsideDirectory, join(managedRoot, id), process.platform === 'win32' ? 'junction' : 'dir');
+  } catch (error) {
+    if (['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) return t.skip('directory links unavailable');
+    throw error;
+  }
+  const fact = {
+    id, sourceName, managedPath, mimeType: 'text/plain', state: 'pending_failed',
+    sha256: createHash('sha256').update('outside private text').digest('hex'),
+  };
+  const options = {
+    config: { enabled: true, maxBytes: 1024, retain: false }, root: managedRoot,
+    persist: async () => undefined, cleanupOnClose: true,
+  };
+  const manager = new AttachmentManager(options);
+  manager.restore([{ type: 'attachment_fact', payload: fact }]);
+  const retry = await manager.retry(id, 'Read it');
+  assert.equal(retry.state, 'cleanup_failed');
+  assert.equal(retry.observation, undefined);
+  await assert.rejects(manager.remove(id), { code: 'attachment_cleanup_failed' });
+  const closing = new AttachmentManager(options);
+  closing.restore([{ type: 'attachment_fact', payload: fact }]);
+  await closing.close();
+  assert.equal(await readFile(outsidePath, 'utf8'), 'outside private text');
+});
+
+test('restored attachment file links are rejected before reading outside content', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-linked-attachment-file-'));
+  const managedRoot = join(root, 'managed');
+  const id = 'attachment_linked_file';
+  const sourceName = 'secret.txt';
+  const outsidePath = join(root, 'outside.txt');
+  const managedPath = join(managedRoot, id, sourceName);
+  await mkdir(join(managedRoot, id), { recursive: true });
+  await writeFile(outsidePath, 'outside private text');
+  try {
+    await symlink(outsidePath, managedPath, 'file');
+  } catch (error) {
+    if (['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) return t.skip('file links unavailable');
+    throw error;
+  }
+  const manager = new AttachmentManager({
+    config: { enabled: true, maxBytes: 1024, retain: false }, root: managedRoot,
+    persist: async () => undefined,
+  });
+  manager.restore([{ type: 'attachment_fact', payload: {
+    id, sourceName, managedPath, mimeType: 'text/plain', state: 'pending_failed',
+    sha256: createHash('sha256').update('outside private text').digest('hex'),
+  } }]);
+  const retry = await manager.retry(id, 'Read it');
+  assert.equal(retry.state, 'rejected');
+  assert.equal(retry.reason, 'attachment_source_changed');
+  assert.equal(retry.observation, undefined);
+  assert.equal(await readFile(outsidePath, 'utf8'), 'outside private text');
 });
 
 test('AC-ATT-01/AC-ROUTE-04 a dedicated vision route receives image work without probing primary', async () => {

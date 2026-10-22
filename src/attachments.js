@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { lstat, mkdir, readFile, realpath, stat, unlink, writeFile } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { ContractError, newId } from './ids.js';
 import { routeReasoningFields } from './provider/reasoning.js';
 import { CapabilityCache } from './capability-cache.js';
@@ -57,7 +57,9 @@ export class AttachmentManager {
 
   restore(records) {
     for (const record of records) {
-      if (record.type === 'attachment_fact' && record.payload?.id) {
+      // Security: forked journals may contain parent attachment facts, but a
+      // child must never adopt a path that it did not stage under its own root.
+      if (record.type === 'attachment_fact' && ownedManagedPath(this.root, record.payload)) {
         this.#items.set(record.payload.id, Object.freeze(record.payload));
       }
     }
@@ -66,7 +68,7 @@ export class AttachmentManager {
   async remove(id) {
     const item = this.#items.get(id);
     if (!item || ['removed', 'rejected'].includes(item.state)) return false;
-    try { await this.#removeManaged(item.managedPath); }
+    try { await this.#removeManaged(item); }
     catch (error) {
       const fact = freezeFact({
         ...item, state: 'cleanup_failed', reason: 'attachment_cleanup_failed',
@@ -89,7 +91,7 @@ export class AttachmentManager {
     if (!this.cleanupOnClose) return;
     await Promise.allSettled([...this.#items.values()]
       .filter((item) => ['staged', 'pending_failed'].includes(item.state))
-      .map((item) => unlink(item.managedPath)));
+      .map((item) => this.#removeManaged(item)));
   }
 
   async #stage(input) {
@@ -130,6 +132,9 @@ export class AttachmentManager {
 
   async #admit(item, prompt, signal) {
     try {
+      if (!await this.#managedPathAvailable(item) || !await this.#managedFileAvailable(item)) {
+        throw new ContractError('attachment_source_changed', 'managed attachment is unavailable');
+      }
       const observation = item.mimeType === TEXT_TYPE
         ? await observeText(item, signal) : await this.router.observe(item, prompt, signal);
       const fact = freezeFact({
@@ -141,7 +146,7 @@ export class AttachmentManager {
       this.#items.set(item.id, fact);
       await this.status(fact);
       if (!this.config.retain) {
-        try { await this.#removeManaged(item.managedPath); }
+        try { await this.#removeManaged(item); }
         catch (error) { return this.#recordCleanupFailure(fact, error, true); }
       }
       return fact;
@@ -150,7 +155,7 @@ export class AttachmentManager {
       const state = temporary ? 'pending_failed' : 'rejected';
       let cleanupError = null;
       if (!temporary) {
-        try { await this.#removeManaged(item.managedPath); }
+        try { await this.#removeManaged(item); }
         catch (failure) { cleanupError = failure; }
       }
       const unresolvedCleanup = cleanupError !== null;
@@ -184,10 +189,53 @@ export class AttachmentManager {
     return fact;
   }
 
-  async #removeManaged(path) {
-    try { await this.removeFile(path); }
+  async #removeManaged(item) {
+    if (!await this.#managedPathAvailable(item)) return;
+    try { await this.removeFile(item.managedPath); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
   }
+
+  async #managedPathAvailable(item) {
+    if (!ownedManagedPath(this.root, item)) {
+      throw new ContractError('attachment_source_changed', 'managed attachment path is not owned by this session');
+    }
+    let root; let parent;
+    try {
+      [root, parent] = await Promise.all([realpath(this.root), realpath(dirname(item.managedPath))]);
+    } catch (error) {
+      if (error.code === 'ENOENT') return false;
+      throw error;
+    }
+    // Security: a restored lexical path can cross a junction or symlink before unlink/read.
+    if (relative(resolve(root, item.id), parent) !== '') {
+      throw new ContractError('attachment_source_changed', 'managed attachment path leaves this session');
+    }
+    return true;
+  }
+
+  async #managedFileAvailable(item) {
+    let file;
+    try { file = await lstat(item.managedPath); }
+    catch (error) {
+      if (error.code === 'ENOENT') return false;
+      throw error;
+    }
+    // Security: a final-file link can escape an otherwise owned directory on read.
+    if (!file.isFile() || file.isSymbolicLink()) {
+      throw new ContractError('attachment_source_changed', 'managed attachment is not a regular file');
+    }
+    return true;
+  }
+}
+
+function ownedManagedPath(root, item) {
+  if (!item || typeof item.id !== 'string' || typeof item.sourceName !== 'string'
+    || typeof item.managedPath !== 'string' || item.id.length === 0 || item.sourceName.length === 0
+    || isAbsolute(item.id) || isAbsolute(item.sourceName)
+    || basename(item.id) !== item.id || basename(item.sourceName) !== item.sourceName
+    || ['.', '..'].includes(item.id) || ['.', '..'].includes(item.sourceName)) return false;
+  const expected = resolve(root, item.id, item.sourceName);
+  return relative(expected, resolve(item.managedPath)) === '';
 }
 
 function attachmentGuidance(error, temporary) {
