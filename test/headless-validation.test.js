@@ -54,6 +54,17 @@ test('host resume fails explicitly instead of silently creating a blank durable 
   assert.equal(result.providerCalls, 0);
 });
 
+test('headless ingress errors retain the request id of the rejected control', async () => {
+  const result = await invoke(`${JSON.stringify({
+    version: '1.0', type: 'initialize', request_id: 'ingress-init',
+    manifest: { persistence: 'ephemeral', provider },
+  })}\n${JSON.stringify({
+    version: '1.0', type: 'configuration_update', request_id: 'bad-config', manifest: {},
+  })}\n${JSON.stringify({ version: '1.0', type: 'shutdown', request_id: 'ingress-stop' })}\n`);
+  const error = result.records.find((record) => record.type === 'error');
+  assert.equal(error?.request_id, 'bad-config');
+});
+
 test('host selects a saved provider by canonical manifest id and acknowledges the effective route', async () => {
   const operatorConfig = resolveManifest({
     providers: [

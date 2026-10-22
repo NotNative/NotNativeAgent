@@ -185,7 +185,7 @@ async function dispatch(command, ingress, engine, writer, logger) {
     return result;
   } catch (error) {
     await writeObserved(writer, logger, {
-      version: '1.0', type: 'error', ...safeError(error, command.type),
+      version: '1.0', type: 'error', request_id: command.request_id, ...safeError(error, command.type),
     }, engine.sessionId);
     return null;
   }
