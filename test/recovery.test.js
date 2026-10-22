@@ -17,7 +17,7 @@ import { contextPressureScale } from '../src/reliability/provider-recovery.js';
 import { toolProgressEvidence } from '../src/reliability/tool-progress.js';
 import { awaitEngineAttention } from '../src/engine/attention.js';
 import { runModelStepLoop } from '../src/engine/step-loop.js';
-import { recoverContentFreeCompletion } from '../src/engine/provider-recovery.js';
+import { recoverContentFreeCompletion, recoverProviderContextLimit, recoverReasoningOnly } from '../src/engine/provider-recovery.js';
 import { updateToolFailures } from '../src/engine/tool-failures.js';
 import { manifestFromConfig, withRecoverySettings } from '../src/provider/route-configuration.js';
 import { buildConversationTextLane } from '../src/conversation-text-lane.js';
@@ -324,6 +324,67 @@ test('cancellation during empty-completion settlement cannot enter or resume rec
     assert.equal(steps, ['step', 'wait', 'steering'].includes(cancelledAt) ? 1 : 0);
     assert.equal(waits, cancelledAt === 'wait' ? 1 : 0);
     assert.equal(steering, cancelledAt === 'steering' ? 1 : 0);
+  }
+});
+
+test('cancellation during context-limit recovery cannot start another continuation', async () => {
+  for (const cancelledAt of ['before', 'attempt', 'record', 'step']) {
+    const controller = new AbortController();
+    const active = { turnId: 'context-cancel', controller };
+    const state = new StateAuthority();
+    state.transition('preparing_turn', { trigger: 'test', turnId: active.turnId });
+    state.transition('invoking_model', { trigger: 'test', turnId: active.turnId });
+    const engine = {
+      state,
+      reliability: { providerContextLimit: () => ({ continue: true, scale: 0.5, action: {} }) },
+    };
+    const cancel = () => {
+      controller.abort();
+      state.transition('cancelling', { trigger: 'test_cancel', turnId: active.turnId });
+    };
+    if (cancelledAt === 'before') cancel();
+    await assert.rejects(recoverProviderContextLimit(engine, { code: 'provider_context_limit' }, active, {
+      settleAttempt: async () => { if (cancelledAt === 'attempt') cancel(); },
+      recordRecovery: async () => { if (cancelledAt === 'record') cancel(); },
+      settleStep: async () => { if (cancelledAt === 'step') cancel(); },
+    }), { code: 'turn_cancelled' });
+    assert.equal(state.state, 'cancelling');
+    assert.equal(state.transitions.some((item) => item.guard === 'rejected'), false);
+    assert.equal(state.transitions.some((item) => item.to === 'preparing_continuation'), false);
+    assert.equal(active.contextRetryScale, undefined);
+  }
+});
+
+test('cancellation during reasoning-only recovery cannot start another continuation', async () => {
+  for (const cancelledAt of ['before', 'attempt', 'record', 'step']) {
+    const controller = new AbortController();
+    const active = {
+      turnId: 'reasoning-cancel', stepId: 'step-reasoning', controller,
+      enrichment: {}, stepReasoningText: 'reasoning', providerResource: 'fixture', modelName: 'model',
+    };
+    const state = new StateAuthority();
+    state.transition('preparing_turn', { trigger: 'test', turnId: active.turnId });
+    state.transition('invoking_model', { trigger: 'test', turnId: active.turnId });
+    state.transition('streaming_model', { trigger: 'test', turnId: active.turnId });
+    const cancel = () => {
+      controller.abort();
+      state.transition('cancelling', { trigger: 'test_cancel', turnId: active.turnId });
+    };
+    const engine = {
+      state, surface: 'headless',
+      lifecycles: { finish() {} },
+      reliability: { reasoningOnly: () => ({ action: 'retry_without_reasoning' }) },
+      providerRunner: {
+        settleAttempt: async () => { if (cancelledAt === 'attempt') cancel(); },
+        recordRecovery: async () => { if (cancelledAt === 'record') cancel(); },
+        publish: async () => { if (cancelledAt === 'step') cancel(); },
+      },
+    };
+    if (cancelledAt === 'before') cancel();
+    await assert.rejects(recoverReasoningOnly(engine, active), { code: 'turn_cancelled' });
+    assert.equal(state.state, 'cancelling');
+    assert.equal(state.transitions.some((item) => item.guard === 'rejected'), false);
+    assert.equal(state.transitions.some((item) => item.to === 'preparing_continuation'), false);
   }
 });
 

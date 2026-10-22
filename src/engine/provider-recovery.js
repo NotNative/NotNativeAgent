@@ -7,15 +7,19 @@ const PREPARING_CONTINUATION_STATE = 'preparing_continuation';
 
 // Session lifecycle adapter: the Reliability Engine decides; SessionEngine applies and records.
 export async function recoverProviderContextLimit(engine, error, active, operations) {
+  assertTurnActive(active);
   const plan = engine.reliability.providerContextLimit(active);
   await operations.settleAttempt('failed');
+  assertTurnActive(active);
   const trigger = error?.code ?? 'provider_context_limit';
   // A fallback may fail preflight after its predecessor already entered recovery.
   if (engine.state.state !== RECOVERING_STATE) {
     engine.state.transition(RECOVERING_STATE, { trigger, turnId: active.turnId });
   }
   if (plan.action) await operations.recordRecovery(plan.action);
+  assertTurnActive(active);
   await operations.settleStep(plan.continue ? RECOVERING_STATE : 'failed');
+  assertTurnActive(active);
   if (!plan.continue) throw error;
   active.contextRetryScale = plan.scale;
   engine.state.transition(PREPARING_CONTINUATION_STATE, { trigger, turnId: active.turnId });
@@ -23,6 +27,7 @@ export async function recoverProviderContextLimit(engine, error, active, operati
 }
 
 export async function recoverReasoningOnly(engine, active) {
+  assertTurnActive(active);
   const plan = engine.reliability.reasoningOnly(active);
   if (!plan) return null;
   active.reasoningHeadroomRetryUsed = true;
@@ -34,10 +39,13 @@ export async function recoverReasoningOnly(engine, active) {
     model: active.modelName,
   });
   await engine.providerRunner.settleAttempt(active, 'reasoning_truncated');
+  assertTurnActive(active);
   const trigger = 'reasoning_truncated_before_action';
   engine.state.transition(RECOVERING_STATE, { trigger, turnId: active.turnId });
   await engine.providerRunner.recordRecovery(plan.action, active);
+  assertTurnActive(active);
   await settleEngineStep(engine, active, RECOVERING_STATE, (...args) => engine.providerRunner.publish(...args));
+  assertTurnActive(active);
   engine.state.transition(PREPARING_CONTINUATION_STATE, {
     trigger: 'retry_reasoning_to_action', turnId: active.turnId,
   });
