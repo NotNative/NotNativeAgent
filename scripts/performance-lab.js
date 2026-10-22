@@ -5,6 +5,7 @@ import os from 'node:os';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { fileURLToPath } from 'node:url';
 import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
 import { EventHub } from '../src/events.js';
@@ -13,6 +14,7 @@ import { ToolRegistry } from '../src/tool-registry.js';
 import { TuiProjection } from '../src/experience/projection.js';
 import { TuiRenderer } from '../src/tui/renderer.js';
 import { VERSION } from '../src/product.js';
+import { runSoakTurns } from './performance-lab-soak.js';
 
 const quick = process.argv.includes('--quick');
 const samples = quick ? 3 : 30;
@@ -21,6 +23,8 @@ const observerEvents = quick ? 256 : 10_000;
 const soakTurns = quick ? 5 : 100;
 const FIXTURE_ENDPOINT = 'http://127.0.0.1:9/v1'; // Deliberately unreachable, test-only endpoint.
 const FIXTURE_MODEL = 'fixture';
+const CLI_PATH = fileURLToPath(new URL('../src/cli.js', import.meta.url));
+const PROJECTION_CAPACITY = 512;
 
 await main().catch((error) => {
   process.stderr.write(`performance lab failed: ${error?.message ?? 'unknown error'}\n`);
@@ -49,7 +53,7 @@ async function main() {
 
 function benchmarkHelp(count) {
   return summarize(measure(count, () => {
-    const result = spawnSync(process.execPath, ['src/cli.js', '--help'], { encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [CLI_PATH, '--help'], { encoding: 'utf8' });
     if (result.status !== 0) {
       throw new Error(`help benchmark exited with ${result.status}: ${result.stderr?.trim() || 'no diagnostics'}`);
     }
@@ -77,11 +81,14 @@ function benchmarkFirstFrame(count) {
 }
 
 function benchmarkProjection(count) {
-  const projection = new TuiProjection(512);
+  const projection = new TuiProjection(PROJECTION_CAPACITY);
   projection.addSession('benchmark', 'Benchmark', { provider: 'fixture', model: 'fixture' });
   const startTime = performance.now();
   for (let eventIndex = 0; eventIndex < count; eventIndex += 1) {
-    projection.apply('benchmark', { type: 'stream_delta', sequence: eventIndex, text: 'x' });
+    projection.apply('benchmark', { type: 'stream_delta', turn_id: `turn-${eventIndex}`, sequence: eventIndex, text: 'x' });
+  }
+  if (projection.active().records.length !== Math.min(count, PROJECTION_CAPACITY)) {
+    throw new Error('stream projection benchmark did not exercise retention');
   }
   return { events: count, elapsed_ms: performance.now() - startTime, retained_records: projection.active().records.length };
 }
@@ -125,15 +132,7 @@ async function benchmarkDetectorAndContext(workspace, isQuick) {
 async function benchmarkSoak(workspace, count) {
   const before = resourceCounts();
   const startTime = performance.now();
-  for (let index = 0; index < count; index += 1) {
-    const engine = fixtureEngine(workspace, `soak-${index}`);
-    try {
-      await engine.initialize();
-      await engine.submit({ version: '1.0', type: 'submit', request_id: `turn-${index}`, content: 'respond' }, 'lab');
-    } finally {
-      await engine.shutdown({ version: '1.0', type: 'shutdown', request_id: `shutdown-${index}` }).catch(() => undefined);
-    }
-  }
+  await runSoakTurns(count, (index) => fixtureEngine(workspace, `soak-${index}`));
   await new Promise((resolve) => setImmediate(resolve));
   const after = resourceCounts();
   return { turns: count, elapsed_ms: performance.now() - startTime, before, after, delta: resourceDelta(before, after) };

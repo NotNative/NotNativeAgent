@@ -13,6 +13,7 @@ import { discoverLocalProvider, loadStartupManifest } from '../src/onboarding.js
 import { runUninstallCommand } from '../src/uninstall-cli.js';
 import { loadWebSearchConfig } from '../src/web-search-config.js';
 import { manifestTarget } from '../src/persistence/manifest-files.js';
+import { runSoakTurns } from '../scripts/performance-lab-soak.js';
 
 const projectRoot = resolve(dirname(new URL(import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/u, (value) => value.slice(1))), '..');
 
@@ -586,7 +587,7 @@ test('AC-IMPLP-01/AC-IMPLP-02 automated source and implementation safety gates p
 
 test('AC-PERF-01/AC-PERF-02/AC-PERF-05/AC-PERF-06 performance lab emits every required measurement family', () => {
   const result = spawnSync(process.execPath, [join(projectRoot, 'scripts', 'performance-lab.js'), '--quick'], {
-    cwd: projectRoot, encoding: 'utf8', timeout: 30_000,
+    cwd: tmpdir(), encoding: 'utf8', timeout: 30_000,
   });
   assert.equal(result.status, 0, result.stderr);
   const report = JSON.parse(result.stdout);
@@ -595,9 +596,42 @@ test('AC-PERF-01/AC-PERF-02/AC-PERF-05/AC-PERF-06 performance lab emits every re
   assert.ok(report.engine_initialization_ms.p95 >= 0);
   assert.ok(report.first_frame_ms.p95 >= 0);
   assert.equal(report.stream_projection.events, 2_000);
+  assert.equal(report.stream_projection.retained_records, 512);
   assert.equal(report.observer_queue.events, 256);
   assert.ok(report.detector_and_context.visible_tool_schema_bytes > 0);
   assert.equal(report.resource_soak.turns, 5);
+});
+
+test('resource soak rejects failed teardown instead of reporting a completed measurement', async () => {
+  const failure = new Error('fixture shutdown failed');
+  const calls = [];
+  await assert.rejects(runSoakTurns(2, (index) => ({
+    async initialize() { calls.push(`initialize-${index}`); },
+    async submit() { calls.push(`submit-${index}`); return { outcome: 'completed' }; },
+    async shutdown() { calls.push(`shutdown-${index}`); throw failure; },
+  })), failure);
+  assert.deepEqual(calls, ['initialize-0', 'submit-0', 'shutdown-0']);
+});
+
+test('resource soak rejects an unsuccessful turn after cleaning up its engine', async () => {
+  const calls = [];
+  await assert.rejects(runSoakTurns(2, (index) => ({
+    async initialize() { calls.push(`initialize-${index}`); },
+    async submit() { calls.push(`submit-${index}`); return { outcome: 'failed' }; },
+    async shutdown() { calls.push(`shutdown-${index}`); },
+  })), /resource soak turn 0 ended failed/u);
+  assert.deepEqual(calls, ['initialize-0', 'submit-0', 'shutdown-0']);
+});
+
+test('resource soak retains both turn and teardown failures', async () => {
+  const turnFailure = new Error('turn failed');
+  const shutdownFailure = new Error('shutdown failed');
+  await assert.rejects(runSoakTurns(1, () => ({
+    async initialize() {},
+    async submit() { throw turnFailure; },
+    async shutdown() { throw shutdownFailure; },
+  })), (error) => error instanceof AggregateError
+    && error.errors[0] === turnFailure && error.errors[1] === shutdownFailure);
 });
 
 test('release sealing excludes gitignored development artifacts', async () => {
