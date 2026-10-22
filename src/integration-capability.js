@@ -24,12 +24,20 @@ export function createCapabilityAuthority({
   if (generation !== undefined && (typeof generation !== 'string' || !generation.trim())) {
     throw new ContractError('capability_invalid', 'generation required');
   }
+  if (typeof now !== 'function' || !Number.isSafeInteger(ttlMs) || ttlMs <= 0
+    || !Number.isSafeInteger(graceMs) || graceMs < 0
+    || !Number.isSafeInteger(skewMs) || skewMs < 0) {
+    throw new ContractError('capability_invalid', 'capability clock and duration bounds are invalid');
+  }
   const authority = freezeAuthority(principal);
   const state = { activeKey: key, activeKeyId: keyId, revoked: new Set(), boundGeneration: generation };
   const context = (allowGrace) => ({ ...state, now, skewMs, graceMs, allowGrace });
-  const issue = () => encodeCapabilityToken({
-    ...authorityFields(authority), issued_at: now(), expires_at: now() + ttlMs,
-  }, state.activeKey);
+  const issue = () => {
+    const issuedAt = clockTime(now);
+    return encodeCapabilityToken({
+      ...authorityFields(authority, state), issued_at: issuedAt, expires_at: expiry(issuedAt, ttlMs),
+    }, state.activeKey);
+  };
   const verifyToken = (token, allowGrace) => verifyCapabilityToken(token, context(allowGrace));
   return Object.freeze({
     issue,
@@ -51,8 +59,9 @@ export function createCapabilityAuthority({
           throw new ContractError('capability_authority_changed', 'renewal must preserve the issued authority');
         }
       }
+      const issuedAt = clockTime(now);
       return encodeCapabilityToken({
-        ...authorityFields(verified), issued_at: now(), expires_at: now() + ttlMs,
+        ...authorityFields(verified, state), issued_at: issuedAt, expires_at: expiry(issuedAt, ttlMs),
       }, state.activeKey);
     },
     verify: (token) => verifyToken(token, true),
@@ -66,29 +75,45 @@ export function createCapabilityAuthority({
     get keyId() { return state.activeKeyId; },
   });
 
-  function authorityFields(source) {
-    if (!state.boundGeneration) throw new ContractError('capability_invalid', 'generation is not bound');
-    return {
-      key_id: state.activeKeyId, generation: state.boundGeneration, scope: 'nnd-service',
-      subject_id: source.subject_id, platform_role: source.platform_role,
-      permissions: source.permissions, workspace_ids: source.workspace_ids,
-      group_ids: source.group_ids,
-    };
+}
+
+function authorityFields(source, state) {
+  if (!state.boundGeneration) throw new ContractError('capability_invalid', 'generation is not bound');
+  return {
+    key_id: state.activeKeyId, generation: state.boundGeneration, scope: 'nnd-service',
+    subject_id: source.subject_id, platform_role: source.platform_role,
+    permissions: source.permissions, workspace_ids: source.workspace_ids,
+    group_ids: source.group_ids,
+  };
+}
+
+function clockTime(now) {
+  const timestamp = now();
+  if (!Number.isSafeInteger(timestamp)) {
+    throw new ContractError('capability_invalid', 'capability clock must return epoch milliseconds');
   }
+  return timestamp;
+}
+
+function expiry(issuedAt, ttlMs) {
+  const expiresAt = issuedAt + ttlMs;
+  if (!Number.isSafeInteger(expiresAt)) {
+    throw new ContractError('capability_invalid', 'capability expiry exceeds the clock range');
+  }
+  return expiresAt;
 }
 
 function freezeAuthority(principal) {
   if (!principal || typeof principal !== 'object') {
     throw new ContractError('capability_invalid', 'issued principal is required');
   }
-  const fields = {};
-  for (const field of AUTHORITY_KEYS) fields[field] = principal[field];
-  requiredText(fields.subject_id, 'subject_id');
-  requiredText(fields.platform_role, 'platform_role');
-  requiredList(fields.permissions);
-  requiredList(fields.workspace_ids);
-  requiredList(fields.group_ids);
-  return Object.freeze(fields);
+  return Object.freeze({
+    subject_id: requiredText(principal.subject_id, 'subject_id'),
+    platform_role: requiredText(principal.platform_role, 'platform_role'),
+    permissions: requiredList(principal.permissions),
+    workspace_ids: requiredList(principal.workspace_ids),
+    group_ids: requiredList(principal.group_ids),
+  });
 }
 
 function requiredText(value, field) {

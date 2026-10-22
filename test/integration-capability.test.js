@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCapabilityAuthority } from '../src/integration-capability.js';
+import { verifyCapabilityToken } from '../src/capability-token.js';
 
 const PRINCIPAL = Object.freeze({
   subject_id: 'nnd-service:nna_test', platform_role: 'service',
@@ -27,6 +28,25 @@ test('issued capability verifies and carries exactly the issued authority', () =
   assert.deepEqual(verified.permissions, [...PRINCIPAL.permissions].sort());
   assert.deepEqual(verified.workspaceIds, ['ws_1']);
   assert.equal(verified.expiresAt - verified.issuedAt, 600_000);
+});
+
+test('issued authority is a snapshot of the validated principal', () => {
+  const principal = {
+    ...PRINCIPAL, permissions: [...PRINCIPAL.permissions], workspace_ids: ['ws_1'], group_ids: [],
+  };
+  const cap = createCapabilityAuthority({
+    generation: 'gen_1', principal, key: 'k'.repeat(43), keyId: 'cap_test',
+    ttlMs: 600_000, graceMs: 60_000, skewMs: 30_000, now: () => 1_000_000,
+  });
+  principal.subject_id = 'other';
+  principal.permissions.push('*');
+  principal.workspace_ids[0] = 'ws_other';
+  const token = cap.issue();
+  const verified = cap.verify(token);
+  assert.equal(verified.subjectId, PRINCIPAL.subject_id);
+  assert.deepEqual(verified.permissions, [...PRINCIPAL.permissions].sort());
+  assert.deepEqual(verified.workspaceIds, ['ws_1']);
+  assert.deepEqual(cap.verify(cap.renew(token)).permissions, [...PRINCIPAL.permissions].sort());
 });
 
 test('expired capability fails closed beyond grace but renews within it', () => {
@@ -96,6 +116,34 @@ test('clock skew is bounded in both directions', () => {
   throwsCode(() => cap.verify(token), 'capability_skew');
   now = 1_000_000 - 20_000; // within skew
   assert.equal(cap.verify(token).subjectId, PRINCIPAL.subject_id);
+});
+
+test('invalid clock values and duration bounds never admit a capability', () => {
+  let now = 1_000_000;
+  const options = {
+    generation: 'gen_1', principal: PRINCIPAL, key: 'k'.repeat(43), keyId: 'cap_test',
+    ttlMs: 600_000, graceMs: 60_000, skewMs: 30_000, now: () => now,
+  };
+  for (const override of [{ ttlMs: NaN }, { ttlMs: 0 }, { graceMs: NaN },
+    { graceMs: -1 }, { skewMs: Infinity }, { skewMs: -1 }, { now: null }]) {
+    throwsCode(() => createCapabilityAuthority({ ...options, ...override }), 'capability_invalid');
+  }
+  const cap = createCapabilityAuthority(options);
+  const token = cap.issue();
+  now = NaN;
+  throwsCode(() => cap.verify(token), 'capability_invalid');
+  throwsCode(() => cap.renew(token), 'capability_invalid');
+  throwsCode(() => cap.issue(), 'capability_invalid');
+  now = Infinity;
+  throwsCode(() => cap.verify(token), 'capability_invalid');
+  now = 1_000_000;
+  const context = {
+    boundGeneration: 'gen_1', activeKey: options.key, activeKeyId: 'cap_test',
+    revoked: new Set(), now: () => now, graceMs: 60_000, allowGrace: true,
+  };
+  throwsCode(() => verifyCapabilityToken(token, context), 'capability_invalid');
+  now = 1_000_000 + 600_000 + 60_001;
+  throwsCode(() => cap.verify(token), 'capability_expired');
 });
 
 test('malformed tokens and invalid principals fail closed', () => {

@@ -19,6 +19,11 @@ export function encodeCapabilityToken(payload, key) {
 
 export function verifyCapabilityToken(token, context) {
   const { boundGeneration, activeKey, activeKeyId, revoked, now, skewMs, graceMs, allowGrace } = context;
+  // Security: invalid clock inputs must not turn expiry or skew comparisons into false.
+  if (typeof now !== 'function' || !Number.isSafeInteger(skewMs) || skewMs < 0
+    || !Number.isSafeInteger(graceMs) || graceMs < 0) {
+    throw new ContractError('capability_invalid', 'capability clock and duration bounds are invalid');
+  }
   if (typeof token !== 'string' || token.length > MAX_TOKEN_CHARACTERS || !token.includes('.')) {
     throw new ContractError('capability_invalid', 'capability token is malformed');
   }
@@ -45,6 +50,9 @@ export function verifyCapabilityToken(token, context) {
   }
   const issuedAt = requiredTime(value.issued_at), expiresAt = requiredTime(value.expires_at);
   const timestamp = now();
+  if (!Number.isSafeInteger(timestamp)) {
+    throw new ContractError('capability_invalid', 'capability clock must return epoch milliseconds');
+  }
   if (issuedAt - timestamp > skewMs) {
     throw new ContractError('capability_skew', 'capability issued_at is beyond the bounded clock skew');
   }
