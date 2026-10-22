@@ -78,3 +78,63 @@ test('release scan failure cannot return a partial file list for sealing', async
   });
   await assert.rejects(collect('/denied'), /release file scan failed.*EACCES/u);
 });
+
+test('a conflicting release seal blocks hash rewriting even when other gates fail', async () => {
+  const text = await source('release-gates.js');
+  const errors = [];
+  const verifySource = text.slice(text.indexOf('async function verifyVersionLedger('), text.indexOf('async function candidateDigest('));
+  const verify = vm.runInNewContext(`${verifySource}\nverifyVersionLedger`, {
+    versionLedger: { schema_version: 1, releases: [{ version: '20261022-17', content_sha256: 'a'.repeat(64) }] },
+    candidateDigest: async () => 'b'.repeat(64), releaseVersion: '20261022-17', errors,
+    writeFile: async () => assert.fail('conflicting seal must not be replaced'), join: () => 'ledger', root: '/',
+  });
+  assert.equal(await verify(false), false);
+  assert.match(errors.join(' '), /already sealed with different content/u);
+
+  const orchestration = text.slice(text.indexOf('async function finishReleaseHashes('), text.indexOf('function verifyDependencies()'));
+  const writes = [];
+  const finish = vm.runInNewContext(`${orchestration}\nfinishReleaseHashes`, {
+    verifyVersionLedger: async () => false, writeHashes: async () => writes.push('hashes'),
+    verifyReleaseHashes: async () => writes.push('verify'),
+  });
+  await finish(true, 1);
+  assert.deepEqual(writes, []);
+});
+
+test('duplicate historical seals cannot hide a conflicting current-version seal', async () => {
+  const text = await source('release-gates.js');
+  const verifySource = text.slice(text.indexOf('async function verifyVersionLedger('), text.indexOf('async function candidateDigest('));
+  const errors = [];
+  const verify = vm.runInNewContext(`${verifySource}\nverifyVersionLedger`, {
+    versionLedger: { schema_version: 1, releases: [
+      { version: '20261022-17', content_sha256: 'a'.repeat(64) },
+      { version: '20261022-17', content_sha256: 'b'.repeat(64) },
+    ] },
+    candidateDigest: async () => 'a'.repeat(64), releaseVersion: '20261022-17', errors,
+    writeFile: async () => assert.fail('duplicate seal must not be recorded'), join: () => 'ledger', root: '/',
+  });
+  assert.equal(await verify(false, false), false);
+  assert.match(errors.join(' '), /duplicate seal/u);
+});
+
+test('release hash refresh remains possible with unrelated gate errors and stable path order', async () => {
+  const text = await source('release-gates.js');
+  const orchestration = text.slice(text.indexOf('async function finishReleaseHashes('), text.indexOf('function verifyDependencies()'));
+  const calls = [];
+  const finish = vm.runInNewContext(`${orchestration}\nfinishReleaseHashes`, {
+    verifyVersionLedger: async (...args) => { calls.push(args); return true; },
+    writeHashes: async () => calls.push('hashes'), verifyReleaseHashes: async () => assert.fail('write mode'),
+  });
+  await finish(true, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)), [[false, false], 'hashes']);
+
+  const digestSource = text.slice(text.indexOf('async function candidateDigest('), text.indexOf('async function collect('));
+  const order = [];
+  const candidateDigest = vm.runInNewContext(`${digestSource}\ncandidateDigest`, {
+    collect: async () => ['a', 'A'], root: '/', relative: (_root, path) => path,
+    releaseEligible: () => true, readFile: async () => 'bytes',
+    createHash: () => ({ update(value) { if (value === 'a' || value === 'A') order.push(value); return this; }, digest: () => 'digest' }),
+  });
+  assert.equal(await candidateDigest(), 'digest');
+  assert.deepEqual(order, ['A', 'a']);
+});

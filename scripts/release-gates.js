@@ -70,16 +70,24 @@ run(process.execPath, ['scripts/quality-gates.js']);
 // census tests scan the live process table — parallel runners make them flake.
 run(process.execPath, ['--test', '--test-concurrency=1', 'test/*.test.js']);
 const writeRequested = process.argv.includes('--write-hashes');
-if (errors.length === 0) await verifyVersionLedger(writeRequested);
-// --write-hashes records the CURRENT content set even when unrelated gates are
+// Invariant: --write-hashes records the CURRENT content set even when unrelated gates are
 // red (e.g. operator-owned platform conformance awaiting its rerun); writing
 // hashes certifies nothing — this gate still exits 1 below on those errors,
 // and the verify path (no flag) still enforces the recorded hashes.
-if (writeRequested) await writeHashes();
-else await verifyReleaseHashes();
+await finishReleaseHashes(writeRequested, errors.length);
 if (errors.length > 0) {
   process.stderr.write(`${errors.join('\n')}\n`); process.exitCode = 1;
 } else process.stdout.write('automated release-candidate gates passed\n');
+
+async function finishReleaseHashes(writeRequested, priorGateErrorCount) {
+  // Security: A conflicting or invalid seal is an integrity failure, not an unrelated gate error.
+  const mayWriteHashes = await verifyVersionLedger(
+    writeRequested && priorGateErrorCount === 0, !writeRequested || priorGateErrorCount === 0,
+  );
+  if (writeRequested) {
+    if (mayWriteHashes) await writeHashes();
+  } else await verifyReleaseHashes();
+}
 
 function verifyDependencies() {
   if (!sbom || !packageJson) return;
@@ -147,20 +155,33 @@ async function verifyReleaseHashes() {
   }
 }
 
-async function verifyVersionLedger(recordMissing) {
-  if (versionLedger.schema_version !== 1 || !Array.isArray(versionLedger.releases)) {
-    errors.push('release version ledger is invalid'); return;
+async function verifyVersionLedger(recordMissing, reportMissing = true) {
+  if (!versionLedger || versionLedger.schema_version !== 1 || !Array.isArray(versionLedger.releases)) {
+    errors.push('release version ledger is invalid'); return false;
+  }
+  const seenVersions = new Set();
+  for (const item of versionLedger.releases) {
+    if (!item || typeof item.version !== 'string' || !/^\d{8}-[1-9]\d*$/u.test(item.version)
+      || typeof item.content_sha256 !== 'string' || !/^[0-9a-f]{64}$/u.test(item.content_sha256)
+      || seenVersions.has(item.version)) {
+      errors.push('release version ledger has an invalid or duplicate seal'); return false;
+    }
+    seenVersions.add(item.version);
   }
   const digest = await candidateDigest();
   const existing = versionLedger.releases.find((item) => item.version === releaseVersion);
   if (existing && existing.content_sha256 !== digest) {
     errors.push(`version ${releaseVersion} is already sealed with different content; bump VERSION`);
-    return;
+    return false;
   }
-  if (existing) return;
-  if (!recordMissing) { errors.push(`version ${releaseVersion} is not sealed; run release:check -- --write-hashes`); return; }
+  if (existing) return true;
+  if (!recordMissing) {
+    if (reportMissing) errors.push(`version ${releaseVersion} is not sealed; run release:check -- --write-hashes`);
+    return true;
+  }
   versionLedger.releases.push({ version: releaseVersion, content_sha256: digest });
   await writeFile(join(root, 'RELEASE_VERSIONS.json'), `${JSON.stringify(versionLedger, null, 2)}\n`, 'utf8');
+  return true;
 }
 
 async function candidateDigest() {
@@ -168,7 +189,7 @@ async function candidateDigest() {
   const files = (await collect(root)).map((path) => ({
     path, name: relative(root, path).replaceAll('\\', '/'),
   })).filter((item) => !excluded.has(item.name) && releaseEligible(item.path))
-    .sort((left, right) => left.name.localeCompare(right.name));
+    .sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
   const digest = createHash('sha256');
   const contents = await Promise.all(files.map((file) => readFile(file.path)));
   for (let index = 0; index < files.length; index += 1) {
