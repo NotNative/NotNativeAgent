@@ -83,22 +83,43 @@ export class DiagnosticBundle {
 
 async function bundleSessionEvidence(bundle, session, index, createdAt, logSnapshot) {
   const forensicTrace = redactBundleData(await safeForensicTrace(session.engine));
-  const audits = await supportAuditJournals(session);
+  // Invariant: archived engines have no live in-memory audit ledger; their durable journals are separate evidence.
+  const archivedAudit = { value: [], coverage: { complete: false, reason: 'archived_session_audit_unavailable' } };
+  const [journals, health, configuration, reviewer, governance] = await Promise.all([
+    safeSnapshot(() => supportAuditJournals(session), unavailableAuditJournals(), 'audit_journals_unavailable'),
+    safeSnapshot(() => session.engine.health(), { status: 'degraded' }, 'health_snapshot_failed'),
+    safeSnapshot(() => session.engine.diagnosticConfiguration ?? supportConfiguration(session.engine.config),
+      { status: 'unavailable' }, 'configuration_snapshot_failed'),
+    session.sourceEngine ? archivedAudit : safeSnapshot(() => session.engine.reviewerAudit(1000), [], 'reviewer_audit_unavailable'),
+    session.sourceEngine ? archivedAudit : safeSnapshot(() => session.engine.governanceAudit(1000), [], 'governance_audit_unavailable'),
+  ]);
   const diagnostics = redactBundleData({
     format: 3, created_at: createdAt, product: { name: PRODUCT_NAME, version: VERSION },
     session_id: session.id, active: session.id === bundle.activeSessionId,
     statistics: session.statistics ?? null,
-    health: await session.engine.health(), configuration: session.engine.diagnosticConfiguration ?? supportConfiguration(session.engine.config),
+    health: health.value, configuration: configuration.value,
     lineage: session.lineage ?? session.engine.sessionLineage ?? null,
     related_session_discovery: session.discovery,
-    reviewer_trace: audits.reviewer, governance_trace: audits.governance,
-    logs: sessionLogs(logSnapshot, session.id), reviewer_audit: session.engine.reviewerAudit(1000),
-    governance_audit: session.engine.governanceAudit(1000),
+    reviewer_trace: journals.value.reviewer, governance_trace: journals.value.governance,
+    logs: sessionLogs(logSnapshot, session.id), reviewer_audit: reviewer.value,
+    governance_audit: governance.value,
+    snapshot_coverage: { health: health.coverage, configuration: configuration.coverage,
+      reviewer_audit: reviewer.coverage, governance_audit: governance.coverage },
     idle_maintenance: session.id === bundle.activeSessionId ? safeMaintenance(bundle.maintenance) : { status: 'not_active_session' },
     forensic_trace: { format: forensicTrace.format, rows: forensicTrace.rows.length,
       open_spans: forensicTrace.open_spans.length, coverage: forensicTrace.coverage ?? null },
   });
   return { folder: sessionFolder(session.id, index), diagnostics, forensicTrace };
+}
+
+async function safeSnapshot(read, fallback, reason) {
+  try { return { value: await read(), coverage: { complete: true } }; }
+  catch { return { value: fallback, coverage: { complete: false, reason } }; }
+}
+
+function unavailableAuditJournals() {
+  const trace = { records: [], coverage: { complete: false, reason: 'audit_journals_unavailable' } };
+  return { reviewer: trace, governance: trace };
 }
 
 function emptyLogs() {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, readFile, readdir } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
@@ -110,6 +110,10 @@ test('bundle discovers closed children from journals and exports their audit evi
   assert.equal(diagnostics.reviewer_trace.records[0].payload.requestId, 'child-tool');
   assert.equal(diagnostics.governance_trace.records[0].payload.decision.outcome, 'approve');
   assert.equal(diagnostics.reviewer_trace.coverage.complete, true);
+  assert.deepEqual(diagnostics.snapshot_coverage.reviewer_audit,
+    { complete: false, reason: 'archived_session_audit_unavailable' });
+  assert.deepEqual(diagnostics.snapshot_coverage.governance_audit,
+    { complete: false, reason: 'archived_session_audit_unavailable' });
   assert.doesNotMatch([...entries.values()].join('\n'), /private transcript|private reviewer text|private operator quote/u);
   assert.equal(manifest.sessions[0].discovery.historical_associations, 'unknown');
 });
@@ -157,18 +161,31 @@ test('support bundle streams realistic multi-child evidence beyond the former 16
   assert.equal(JSON.parse(entries.get(`${last.folder}/diagnostics.json`)).health.detail, detail);
 });
 
-test('a later session failure removes the unpublished streamed archive', async () => {
+test('a later session snapshot failure preserves the family bundle with explicit coverage', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-support-stream-failure-'));
-  let visits = 0;
+  let healthVisits = 0; let reviewVisits = 0;
   const engine = { sessionId: 'session-0', health: async () => {
-    if (++visits === 2) throw new Error('later child unavailable');
+    if (++healthVisits === 2) throw new Error('later child unavailable');
     return { status: 'ready' };
-  }, reviewerAudit: () => [], governanceAudit: () => [], telemetry: { flush: async () => {} } };
+  }, reviewerAudit: () => {
+    if (++reviewVisits === 2) throw new Error('later reviewer unavailable');
+    return [];
+  }, governanceAudit: () => [], telemetry: { flush: async () => {} } };
   const path = join(root, 'support.zip');
-  await assert.rejects(new DiagnosticBundle({ engine, sessions: [
+  await new DiagnosticBundle({ engine, sessions: [
     { id: 'session-0', engine }, { id: 'session-1', engine },
-  ] }).create(path), /later child unavailable/u);
-  assert.deepEqual(await readdir(root), []);
+  ] }).create(path);
+  const entries = zipEntries(await readFile(path));
+  const manifest = JSON.parse(entries.get('manifest.json'));
+  assert.equal(manifest.sessions.length, 2);
+  const first = JSON.parse(entries.get(`${manifest.sessions[0].folder}/diagnostics.json`));
+  const second = JSON.parse(entries.get(`${manifest.sessions[1].folder}/diagnostics.json`));
+  assert.equal(first.health.status, 'ready');
+  assert.deepEqual(first.snapshot_coverage.health, { complete: true });
+  assert.deepEqual(second.health, { status: 'degraded' });
+  assert.deepEqual(second.snapshot_coverage.health, { complete: false, reason: 'health_snapshot_failed' });
+  assert.deepEqual(second.reviewer_audit, []);
+  assert.deepEqual(second.snapshot_coverage.reviewer_audit, { complete: false, reason: 'reviewer_audit_unavailable' });
 });
 
 test('related session count overflow fails explicitly instead of dropping sessions', async () => {
