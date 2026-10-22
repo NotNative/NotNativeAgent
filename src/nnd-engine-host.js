@@ -26,7 +26,7 @@ import { runNndGoalAudit } from './nnd-goal-audit.js';
 import { runNndWalkthrough } from './nnd-walkthrough.js';
 import { runNndAssist } from './nnd-assist.js';
 import { runNndSessionFork } from './nnd-session-fork.js';
-import { runNndSessionRevert, runNndSessionUnrevert } from './nnd-session-revert.js';
+import { runNndSessionRevert, runNndSessionUnrevert, settleNndTimelinesForShutdown } from './nnd-session-revert.js';
 import { runNndNotification } from './nnd-notification.js';
 import { publishNndProjection } from './nnd-projection.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
@@ -41,10 +41,8 @@ const CATALOG_LIMIT_BYTES = 1_048_576, LIVE_PREVIEW_LIMIT_CHARS = 262_144;
 /** Owns NND-created engine contexts; HTTP routing supplies the authenticated principal. */
 export class NndEngineHost {
   #contexts = new Map();
-  #creating = new Set();
-  #deleting = new Set();
-  #childStreams = new Map();
-  #childActivity = new Map();
+  #creating = new Set(); #deleting = new Set();
+  #childStreams = new Map(); #childActivity = new Map();
   #quarantined = [];
   #workspaceRevocations = new NndWorkspaceRevocationGuard();
   #uploads = new NndAttachmentUploads();
@@ -154,6 +152,7 @@ export class NndEngineHost {
   async submit(sessionId, command, principal) {
     await this.assertWorkspaceBound(sessionId, principal);
     const context = this.#owned(sessionId, principal);
+    if (context.timelineMutation || context.timelineShutdown) throw new ContractError('nnd_revert_busy', 'NND session timeline is changing');
     if (context.reviewArming > 0) throw new ContractError('nnd_session_unavailable', 'review mode change is pending');
     return context.ingress.submit(command, scopedPrincipal(context, principal));
   }
@@ -238,7 +237,7 @@ export class NndEngineHost {
     const context = this.#owned(sessionId, principal);
     // Keep a pre-goal prompt from starting between the arming CAS snapshot and
     // its durable catalog commit; otherwise that turn could be charged to the goal.
-    if (context.goalArming > 0 || context.reviewArming > 0) return { accepted: false, reason: 'busy' };
+    if (context.goalArming > 0 || context.reviewArming > 0 || context.timelineMutation || context.timelineShutdown) return { accepted: false, reason: 'busy' };
     const previousTurn = context.liveTurn;
     // Why: ingress can be pending before Engine.submit() exposes its active
     // turn. A second prompt must not replace that turn's output recipient.
@@ -394,6 +393,7 @@ export class NndEngineHost {
   async activityTombstonesPage(principal, options = {}) { return this.tombstones.page(principal, tombstoneCatalogContexts(this.#contexts, this.#quarantined), options); }
   async close(sessionId, principal) {
     const context = this.#owned(sessionId, principal, true);
+    if (context.timelineMutation || context.timelineShutdown) throw new ContractError('nnd_revert_busy', 'NND session timeline is changing');
     if (this.#deleting.has(sessionId)) throw new ContractError('nnd_session_unavailable', 'NND session deletion is already pending');
     context.closing = true; this.#deleting.add(sessionId);
     try {
@@ -415,7 +415,7 @@ export class NndEngineHost {
     } finally { this.#deleting.delete(sessionId); }
   }
   async shutdown() {
-    const contexts = [...this.#contexts.values()];
+    const contexts = [...this.#contexts.values()]; await settleNndTimelinesForShutdown(contexts);
     const settled = await Promise.allSettled(contexts.map((context) => context.engine.shutdown({
       version: '1.0', type: 'shutdown', request_id: newId('nnd_shutdown'),
     })));

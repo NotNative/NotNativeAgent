@@ -1111,6 +1111,23 @@ test('native revert and unrevert ride the harness routes with journal-backed rep
     assert.equal((await request(base, `/session/${fresh}/unrevert`, owner, { method: 'POST' })).status, 409);
     assert.equal((await request(base, `/session/${fresh}/revert`, principal(['nnd.read']),
       { method: 'POST', body: { messageID: `${fresh}:message:0` } })).status, 403);
+    const freshEngine = engines.at(-1);
+    const originalRead = freshEngine.store.readRecords;
+    let enterRead, releaseRead;
+    const entered = new Promise((resolve) => { enterRead = resolve; });
+    const blocked = new Promise((resolve) => { releaseRead = resolve; });
+    freshEngine.store.readRecords = async () => { enterRead(); await blocked; return originalRead(); };
+    const hostOwner = { subjectId: owner.subject_id, workspaceIds: owner.workspace_ids };
+    const pendingRevert = host.revert(fresh, hostOwner, { messageID: `${fresh}:message:0` });
+    await entered;
+    assert.deepEqual(host.submitAsync(fresh, { request_id: 'while-reverting', content: 'new' }, hostOwner),
+      { accepted: false, reason: 'busy' });
+    await assert.rejects(() => host.submit(fresh, { request_id: 'while-reverting', content: 'new' }, hostOwner),
+      (error) => error.code === 'nnd_revert_busy');
+    await assert.rejects(() => host.close(fresh, hostOwner), (error) => error.code === 'nnd_revert_busy');
+    await assert.rejects(() => host.unrevert(fresh, hostOwner), (error) => error.code === 'nnd_revert_busy');
+    releaseRead();
+    await pendingRevert;
     engines.at(-1).store = null;
     const unavailable = await request(base, `/session/${fresh}/revert`, owner,
       { method: 'POST', body: { messageID: `${fresh}:message:0` } });

@@ -168,6 +168,15 @@ test('revert hides turns restored from a compaction snapshot, including a bounde
   assert.deepEqual(continued.transcript, [first, later, laterFact]);
 });
 
+test('clearing one overlapping revert retains turns hidden by another', () => {
+  const first = { type: 'message', role: 'user', content: 'first', turnId: 'turn-1' };
+  const second = { type: 'message', role: 'user', content: 'second', turnId: 'turn-2' };
+  const records = [record('message', first), record('message', second),
+    record('revert_point', { reverted_turn_ids: ['turn-1', 'turn-2'] }),
+    record('revert_point', { reverted_turn_ids: ['turn-2'] }), record('revert_cleared', {})];
+  assert.deepEqual(restoreSessionRecords(records).transcript, []);
+});
+
 test('a genesis-anchored control stream owns authority when the transcript tail is truncated', () => {
   const tail = [
     record('authority_intent', { content: 'tail duplicate', origin: 'operator' }),

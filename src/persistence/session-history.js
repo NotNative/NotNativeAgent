@@ -224,15 +224,19 @@ function revertedTurnIds(payload) {
 // between a revert point and its clear replays after the restored turns.
 function hiddenTurnIds(records) {
   const stack = [];
-  const active = new Set();
+  const active = new Map();
   for (const record of Array.isArray(records) ? records : []) {
     if (record?.type === 'revert_point') {
       const ids = new Set(revertedTurnIds(record.payload));
       stack.push(ids);
-      for (const id of ids) active.add(id);
+      for (const id of ids) active.set(id, (active.get(id) ?? 0) + 1);
     } else if (record?.type === 'revert_cleared') {
-      for (const id of stack.pop() ?? []) active.delete(id);
+      for (const id of stack.pop() ?? []) {
+        const count = active.get(id);
+        if (count === 1) active.delete(id);
+        else if (count > 1) active.set(id, count - 1);
+      }
     }
   }
-  return active;
+  return new Set(active.keys());
 }

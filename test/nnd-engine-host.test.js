@@ -1268,6 +1268,40 @@ test('NND activity reports a governed denial as a failed turn', async () => {
 
 function steer(request_id) { return { version: '1.0', type: 'steer', request_id, content: 'continue' }; }
 
+test('host shutdown waits for a pending revert and blocks new timeline operations', async () => {
+  let enterRead, releaseRead;
+  const entered = new Promise((resolve) => { enterRead = resolve; });
+  const blocked = new Promise((resolve) => { releaseRead = resolve; });
+  const message = { type: 'message', role: 'user', content: 'one', turnId: 'turn-1' };
+  const records = [{ type: 'turn_accepted', payload: { turnId: 'turn-1' } },
+    { type: 'message', payload: message }];
+  const events = [];
+  const engine = { ...fakeEngine(), transcript: [message], state: { state: 'idle' },
+    store: { async readRecords() { enterRead(); await blocked; return { records }; },
+      async append() { events.push('append'); } },
+    async shutdown() {
+      assert.deepEqual(host.submitAsync('session_a', { request_id: 'late', content: 'late' }, owner),
+        { accepted: false, reason: 'busy' });
+      await assert.rejects(() => host.submit('session_a', { request_id: 'late', content: 'late' }, owner),
+        (error) => error.code === 'nnd_revert_busy');
+      await assert.rejects(() => host.close('session_a', owner),
+        (error) => error.code === 'nnd_revert_busy');
+      events.push('shutdown');
+    } };
+  const host = new NndEngineHost({ createEngine: async () => engine });
+  await host.create('session_a', owner);
+  const reverting = host.revert('session_a', owner, { messageID: 'session_a:message:0' });
+  await entered;
+  const shuttingDown = host.shutdown();
+  await assert.rejects(() => host.revert('session_a', owner, { messageID: 'session_a:message:0' }),
+    (error) => error.code === 'nnd_revert_busy');
+  assert.deepEqual(events, []);
+  releaseRead();
+  await reverting;
+  await shuttingDown;
+  assert.deepEqual(events, ['append', 'shutdown']);
+});
+
 function fakeEngine() {
   return {
     config: { executionManifest: null }, active: null,

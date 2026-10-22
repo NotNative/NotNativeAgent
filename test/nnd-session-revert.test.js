@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveManifest } from '../src/config.js';
 import { recoverJournal } from '../src/store.js';
-import { runNndSessionRevert, runNndSessionUnrevert } from '../src/nnd-session-revert.js';
+import { runNndSessionRevert, runNndSessionUnrevert, settleNndTimelinesForShutdown } from '../src/nnd-session-revert.js';
 import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 
 const principal = { subjectId: 'u_test', platformRole: 'operator', permissions: ['nnd.session.submit'], workspaceIds: [],
@@ -19,6 +19,98 @@ test('revert and unrevert require a durable session journal', async () => {
     (error) => error.code === 'nnd_revert_unavailable');
   await assert.rejects(() => runNndSessionUnrevert(context),
     (error) => error.code === 'nnd_revert_unavailable');
+});
+
+test('a pending revert excludes other timeline operations and releases its latch', async () => {
+  let enterRead, releaseRead;
+  const entered = new Promise((resolve) => { enterRead = resolve; });
+  const blocked = new Promise((resolve) => { releaseRead = resolve; });
+  const records = [
+    { type: 'turn_accepted', payload: { turnId: 'turn-1' } },
+    { type: 'message', payload: { type: 'message', role: 'user', content: 'one', turnId: 'turn-1' } },
+  ];
+  const appended = [];
+  const context = { sessionId: 'race', liveTurn: null, engine: {
+    active: null, transcript: [records[1].payload],
+    store: { async readRecords() { enterRead(); await blocked; return { records }; },
+      async append(type, payload) { appended.push({ type, payload }); } },
+  } };
+  const first = runNndSessionRevert(context, { messageID: 'race:message:0' });
+  await entered;
+  await assert.rejects(() => runNndSessionRevert(context, { messageID: 'race:message:0' }),
+    (error) => error.code === 'nnd_revert_busy');
+  await assert.rejects(() => runNndSessionUnrevert(context), (error) => error.code === 'nnd_revert_busy');
+  assert.deepEqual(appended, []);
+  releaseRead();
+  await first;
+  assert.equal(context.timelineMutation, false);
+  assert.deepEqual(appended.map((item) => item.type), ['revert_point']);
+});
+
+test('shutdown wait is bounded when a journal read never settles', async () => {
+  const context = { timelineMutation: new Promise(() => {}) };
+  await assert.rejects(() => settleNndTimelinesForShutdown([context], 1),
+    (error) => error.code === 'nnd_revert_busy');
+  assert.equal(context.timelineShutdown, true);
+  assert.equal(context.closing, true);
+});
+
+test('revert replay failures do not append a marker', async () => {
+  const user = { type: 'message', role: 'user', content: 'one', turnId: 'turn-1' };
+  const records = [{ type: 'turn_accepted', payload: { turnId: 'turn-1' } },
+    { type: 'message', payload: user }, { type: 'turn_outcome', payload: {} }];
+  const appended = [];
+  const context = { sessionId: 'invalid', liveTurn: null, engine: {
+    active: null, transcript: [user], store: {
+      async readRecords() { return { records }; },
+      async append(type) { appended.push(type); },
+    },
+  } };
+  await assert.rejects(() => runNndSessionRevert(context, { messageID: 'invalid:message:0' }),
+    (error) => error.code === 'session_history_invalid');
+  assert.deepEqual(appended, []);
+  assert.deepEqual(context.engine.transcript, [user]);
+  assert.equal(context.timelineMutation, false);
+  records.push({ type: 'revert_point', payload: { reverted_turn_ids: ['turn-1'] } });
+  await assert.rejects(() => runNndSessionUnrevert(context),
+    (error) => error.code === 'session_history_invalid');
+  assert.deepEqual(appended, []);
+  assert.equal(context.timelineMutation, false);
+});
+
+test('an uncertain marker append leaves the live session unavailable until recovery', async () => {
+  const user = { type: 'message', role: 'user', content: 'one', turnId: 'turn-1' };
+  const records = [{ type: 'turn_accepted', payload: { turnId: 'turn-1' } },
+    { type: 'message', payload: user }];
+  const context = { sessionId: 'uncertain', liveTurn: null, engine: {
+    active: null, transcript: [user], store: {
+      async readRecords() { return { records }; },
+      async append() { throw new Error('flush uncertain after write'); },
+    },
+  } };
+  await assert.rejects(() => runNndSessionRevert(context, { messageID: 'uncertain:message:0' }),
+    /flush uncertain after write/u);
+  assert.equal(context.closing, true);
+  assert.equal(context.timelineMutation, false);
+  assert.deepEqual(context.engine.transcript, [user]);
+  await assert.rejects(() => runNndSessionRevert(context, { messageID: 'uncertain:message:0' }),
+    (error) => error.code === 'nnd_revert_busy');
+});
+
+test('unrevert replaces a large transcript without spreading it into call arguments', async () => {
+  const user = { type: 'message', role: 'user', content: 'one', turnId: 'turn-1' };
+  const records = Array.from({ length: 200_000 }, () => ({ type: 'message', payload: user }));
+  records.push({ type: 'revert_point', payload: { reverted_turn_ids: ['turn-1'] } });
+  const context = { sessionId: 'large', liveTurn: null, engine: {
+    active: null, transcript: [], store: {
+      async readRecords() { return { records }; },
+      async append() {},
+    },
+  } };
+  await runNndSessionUnrevert(context);
+  assert.equal(context.engine.transcript.length, 200_000);
+  assert.equal(context.engine.transcript[0], user);
+  assert.equal(context.timelineMutation, false);
 });
 
 test('native revert hides the boundary turn onward, restarts clean, and unrevert restores it', async () => {
