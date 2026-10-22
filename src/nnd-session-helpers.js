@@ -49,6 +49,12 @@ export function scopedPrincipal(context, principal) {
   return { ...principal, workspaceIds: [...context.workspaceIds] };
 }
 
+export function tombstoneCatalogContexts(contexts, quarantined) {
+  // Invariant: quarantined records still exist in the durable catalog even
+  // though no live engine was restored for them.
+  return new Map([...quarantined.map((record) => [record.sessionId, record]), ...contexts]);
+}
+
 export function validCatalogRecord(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
   try { requireExternalId(record.sessionId, 'session_id'); requirePrincipal(record); }

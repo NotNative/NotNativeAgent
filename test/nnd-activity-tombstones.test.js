@@ -204,6 +204,46 @@ test('a page can advance through contiguous deletions before an unresolved inten
   assert.equal(gap.nextCursor, null);
 });
 
+test('a quarantined catalog session remains live evidence for tombstone reconciliation', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-quarantine-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const catalogPath = join(root, 'catalog.json');
+  const primary = { root, configured_root: root, id: 'primary', device: '1', inode: '1' };
+  const secondary = { ...primary, id: 'secondary' };
+  const principal = { subjectId: 'operator', workspaceIds: ['primary', 'secondary'] };
+  const createEngine = async () => ({ config: { workspaceRoot: root, executionManifest: null },
+    async initialize() {}, async shutdown() {} });
+  const host = new NndEngineHost({ catalogPath, createEngine,
+    primaryWorkspaceBinding: async (id) => id === 'secondary' ? secondary : primary });
+  await host.create('session_a', principal, { workspace_id: 'secondary' });
+  const context = { sessionId: 'session_a', createdAt: host.get('session_a', principal).time.created,
+    subjectId: principal.subjectId, workspaceIds: new Set(['secondary']) };
+  await host.tombstones.prepare(context, new Map([['session_a', context]]), principal);
+  await host.shutdown();
+  const reopened = new NndEngineHost({ catalogPath, createEngine,
+    primaryWorkspaceBinding: async (id) => id === 'secondary' ? null : primary });
+  await reopened.initialize();
+  assert.deepEqual((await reopened.activityTombstonesPage(principal)).records, []);
+  await assert.rejects(reopened.create('session_a', principal, { workspace_id: 'primary' }),
+    { code: 'nnd_session_exists' });
+  await reopened.create('session_b', principal, { workspace_id: 'primary' });
+  await reopened.close('session_b', principal);
+  const catalog = JSON.parse(await readFile(catalogPath, 'utf8'));
+  assert.deepEqual(catalog.map((record) => record.sessionId), ['session_a']);
+  const [name] = await readdir(`${catalogPath}.tombstones`);
+  const journal = JSON.parse(await readFile(join(`${catalogPath}.tombstones`, name), 'utf8'));
+  assert.equal(journal.entries[0].state, 'intent');
+  assert.equal((await reopened.activityTombstonesPage(principal)).status, 'gap');
+  await reopened.shutdown();
+  const restored = new NndEngineHost({ catalogPath, createEngine,
+    primaryWorkspaceBinding: async (id) => id === 'secondary' ? secondary : primary });
+  await restored.initialize();
+  assert.equal(restored.get('session_a', principal).id, 'session_a');
+  assert.deepEqual((await restored.activityTombstonesPage(principal)).records
+    .filter((entry) => entry.sessionID === 'session_a'), []);
+  await restored.shutdown();
+});
+
 test('intent written before failed catalog delete is never a false deletion', async t => {
   const f = await fixture(t, { persistCatalog: async (path, records) => {
     if (records.length === 0) throw new Error('catalog write failed');

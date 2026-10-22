@@ -32,7 +32,7 @@ import { publishNndProjection } from './nnd-projection.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
 import { ownedPendingRequests } from './nnd-pending-requests.js';
 import { listNndQuestions, settleNndQuestion, observeNndQuestion } from './nnd-questions.js';
-import { replayConversation, requirePrincipal, samePrincipal, scopedPrincipal, validCatalogRecord, restoreNndContexts, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
+import { replayConversation, requirePrincipal, samePrincipal, scopedPrincipal, tombstoneCatalogContexts, validCatalogRecord, restoreNndContexts, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
 import { partitionNndCatalog } from './nnd-catalog-admission.js';
 import { resolveContextBinding, initializeBoundEngine, assertLiveNndWorkspaceBinding } from './nnd-workspace-binding.js';
 import { NndWorkspaceRevocationGuard } from './nnd-workspace-revocation-guard.js';
@@ -100,7 +100,8 @@ export class NndEngineHost {
   async #createContext(sessionId, principal, options, restoring) {
     requireExternalId(sessionId, 'session_id');
     requirePrincipal(principal);
-    if (this.#contexts.has(sessionId) || this.#creating.has(sessionId) || this.#deleting.has(sessionId)) {
+    if (this.#contexts.has(sessionId) || this.#quarantined.some((record) => record.sessionId === sessionId)
+      || this.#creating.has(sessionId) || this.#deleting.has(sessionId)) {
       throw new ContractError('nnd_session_exists', 'NND session context already exists');
     }
     if (this.#contexts.size + this.#quarantined.length + this.#creating.size >= this.limit) {
@@ -111,7 +112,7 @@ export class NndEngineHost {
     try {
       if (!restoring) await removeActivity(this.catalogPath, sessionId); // Remove a crash-left prior incarnation.
       const binding = await resolveContextBinding(this.primaryWorkspaceBinding, principal, options, restoring);
-      if (!restoring) await this.tombstones.beforeCreate(sessionId, principal, this.#contexts,
+      if (!restoring) await this.tombstones.beforeCreate(sessionId, principal, tombstoneCatalogContexts(this.#contexts, this.#quarantined),
         Boolean(options.creationFingerprint), binding ? { subjectId: principal.subjectId, workspaceIds: [binding.id] } : null);
       if (this.#workspaceRevocations.has(binding)) {
         throw new ContractError('nnd_workspace_in_use', 'Workspace admission is being revoked.');
@@ -390,14 +391,14 @@ export class NndEngineHost {
     const context = this.#owned(sessionId, principal);
     return readActivityPageWithBoundary(this.catalogPath, context, options, () => this.#owned(sessionId, principal), this.eventBus);
   }
-  async activityTombstonesPage(principal, options = {}) { return this.tombstones.page(principal, this.#contexts, options); }
+  async activityTombstonesPage(principal, options = {}) { return this.tombstones.page(principal, tombstoneCatalogContexts(this.#contexts, this.#quarantined), options); }
   async close(sessionId, principal) {
     const context = this.#owned(sessionId, principal, true);
     if (this.#deleting.has(sessionId)) throw new ContractError('nnd_session_unavailable', 'NND session deletion is already pending');
     context.closing = true; this.#deleting.add(sessionId);
     try {
       let tombstone;
-      try { tombstone = await this.tombstones.prepare(context, this.#contexts, principal); }
+      try { tombstone = await this.tombstones.prepare(context, tombstoneCatalogContexts(this.#contexts, this.#quarantined), principal); }
       catch (error) { context.closing = false; throw error; } // No engine or catalog mutation began.
       // Security: closing a parent revokes its child steering grants before shutdown can fail.
       this.childSessions.unregisterParent?.(sessionId);
