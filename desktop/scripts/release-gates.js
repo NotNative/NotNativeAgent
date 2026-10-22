@@ -6,11 +6,11 @@ import { join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { releaseFiles as collectReleaseFiles } from './release-content.mjs';
+import { sealVersionLedger } from './release-version-ledger.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const errors = [];
 const MANIFEST = 'RELEASE_MANIFEST.sha256';
-const LEDGER = 'RELEASE_VERSIONS.json';
 
 await main().catch((error) => {
   process.stderr.write(`release gates failed: ${error?.message ?? 'unknown error'}\n`);
@@ -27,7 +27,9 @@ async function main() {
   settingsCoverageGate();
   buildGate();
   const writeRequested = process.argv.includes('--write-hashes');
-  if (errors.length === 0 && version) await sealVersionLedger(version, writeRequested);
+  if (errors.length === 0 && version) {
+    await sealVersionLedger({ root, version, recordMissing: writeRequested, candidateDigest, errors });
+  }
   if (writeRequested && errors.length === 0 && version) await writeManifest();
   else if (!writeRequested && version) await verifyManifest();
   report();
@@ -136,29 +138,8 @@ function buildGate() {
   }
 }
 
-async function sealVersionLedger(version, recordMissing) {
-  const ledger = await readJsonOrPushError(LEDGER) ?? { schema_version: 1, releases: [] };
-  if (ledger.schema_version !== 1 || !Array.isArray(ledger.releases)) {
-    errors.push('release version ledger is invalid');
-    return;
-  }
-  const digest = await candidateDigest();
-  const existing = ledger.releases.find((item) => item.version === version);
-  if (existing && existing.content_sha256 !== digest) {
-    errors.push(`version ${version} is sealed with different content; bump VERSION before re-releasing`);
-    return;
-  }
-  if (existing) return;
-  if (!recordMissing) {
-    errors.push(`version ${version} is not sealed; run pnpm run release:check -- --write-hashes`);
-    return;
-  }
-  ledger.releases.push({ version, content_sha256: digest });
-  await writeFile(join(root, LEDGER), `${JSON.stringify(ledger, null, 2)}\n`, 'utf8');
-}
-
 async function candidateDigest() {
-  const files = (await releaseFiles()).filter((item) => relativeName(item) !== MANIFEST && relativeName(item) !== LEDGER);
+  const files = (await releaseFiles()).filter((item) => relativeName(item) !== MANIFEST && relativeName(item) !== 'RELEASE_VERSIONS.json');
   const digest = createHash('sha256');
   for (const path of files) {
     digest.update(relativeName(path)).update(' ').update(await readFile(path)).update(' ');
@@ -214,14 +195,6 @@ function missingFromManifest(differences, lists, expected) {
 
 async function releaseFiles() {
   return collectReleaseFiles(root);
-}
-
-async function readJsonOrPushError(name) {
-  try { return JSON.parse(await readFile(join(root, name), 'utf8')); }
-  catch (error) {
-    errors.push(`${name} could not be read as JSON: ${error.code ?? error.message}`);
-    return null;
-  }
 }
 
 function relativeName(path) {
