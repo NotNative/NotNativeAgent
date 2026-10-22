@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { releaseFiles as collectReleaseFiles } from './release-content.mjs';
 import { sealVersionLedger } from './release-version-ledger.mjs';
+import { checkWorkspaceSafety } from './release-workspace-safety.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const errors = [];
@@ -19,13 +20,16 @@ await main().catch((error) => {
 
 async function main() {
   const version = readVersion();
-  verifyWorkspaceSafety();
+  await checkWorkspaceSafety(root, errors);
   await coherentPackage(version);
   spawnGate('scripts/quality-gates.js', 'quality gates');
   spawnGate('scripts/smoke-test.js', 'smoke test');
   featureParityGate();
   settingsCoverageGate();
   buildGate();
+  // Invariant: long-running build gates may overlap local edits. Revalidate
+  // workspace privacy immediately before release hashes or a ledger seal.
+  if (errors.length === 0) await checkWorkspaceSafety(root, errors);
   const writeRequested = process.argv.includes('--write-hashes');
   if (errors.length === 0 && version) {
     await sealVersionLedger({ root, version, recordMissing: writeRequested, candidateDigest, errors });
@@ -53,13 +57,6 @@ function readVersion() {
     return null;
   }
   return raw;
-}
-
-function verifyWorkspaceSafety() {
-  for (const manifest of ['package.json', 'packages/ui/package.json', 'packages/web/package.json']) {
-    const pkg = safeJson(join(root, ...manifest.split('/')));
-    if (pkg && pkg.private !== true) errors.push(`${manifest} must stay private:true`);
-  }
 }
 
 function safeJson(path) {
