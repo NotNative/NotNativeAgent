@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NndEngineHost } from '../src/nnd-engine-host.js';
@@ -35,6 +35,173 @@ test('committed deletion survives restart and only the exact owner can read its 
   await reopened.initialize();
   assert.deepEqual((await reopened.activityTombstonesPage(owner)).records, page.records);
   await reopened.shutdown();
+});
+
+test('a bound session deletion uses the caller grant while retaining its exact session scope', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-bound-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const catalogPath = join(root, 'catalog.json');
+  const binding = { root, configured_root: root, id: 'primary', device: '1', inode: '1' };
+  const principal = { subjectId: 'operator', workspaceIds: ['primary', 'second'] };
+  const createEngine = async () => ({ config: { workspaceRoot: root, executionManifest: null },
+    async initialize() {}, async shutdown() {} });
+  const host = new NndEngineHost({ catalogPath, createEngine,
+    primaryWorkspaceBinding: async () => binding });
+  await host.create('session_a', principal);
+  const createdAt = host.get('session_a', principal).time.created;
+  await host.close('session_a', principal);
+  const page = await host.activityTombstonesPage(principal);
+  assert.deepEqual(page.records.map(({ sessionID, createdAt: at }) => [sessionID, at]), [['session_a', createdAt]]);
+  assert.deepEqual((await host.activityTombstonesPage({ ...principal, workspaceIds: ['primary'] })).records, []);
+  const journal = new NndActivityTombstones(catalogPath);
+  await assert.rejects(journal.beforeCreate('session_a', principal, new Map(), true),
+    { code: 'nnd_session_unavailable' });
+  await host.shutdown();
+  const reopened = new NndEngineHost({ catalogPath, createEngine,
+    primaryWorkspaceBinding: async () => binding });
+  await reopened.initialize();
+  assert.deepEqual((await reopened.activityTombstonesPage(principal)).records, page.records);
+  await reopened.shutdown();
+});
+
+test('an intent in a broader caller journal does not report a still-live bound session as deleted', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-intent-scope-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const journal = new NndActivityTombstones(join(root, 'catalog.json'));
+  const principal = { subjectId: 'operator', workspaceIds: ['primary', 'second'] };
+  const context = { sessionId: 'session_a', createdAt: 100, subjectId: 'operator',
+    workspaceIds: new Set(['primary']) };
+  const live = new Map([['session_a', context]]);
+  const sequence = await journal.prepare(context, live, principal);
+  assert.deepEqual((await journal.page(principal, live)).records, []);
+  assert.deepEqual((await journal.page(principal, new Map())).records.map((entry) => entry.sequence), [sequence]);
+  await journal.committed(context, sequence, principal);
+  assert.deepEqual((await journal.page(principal, live)).records.map((entry) => entry.sequence), [sequence]);
+});
+
+test('legacy exact-grant receipts without entry scope remain readable and finalizable', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-legacy-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const catalogPath = join(root, 'catalog.json');
+  const journal = new NndActivityTombstones(catalogPath);
+  const context = { sessionId: 'session_a', createdAt: 100, subjectId: owner.subjectId,
+    workspaceIds: new Set(owner.workspaceIds) };
+  const sequence = await journal.prepare(context);
+  const directory = `${catalogPath}.tombstones`;
+  const [name] = await readdir(directory);
+  const path = join(directory, name);
+  const source = JSON.parse(await readFile(path, 'utf8'));
+  delete source.entries[0].workspaceIds;
+  await writeFile(path, JSON.stringify(source));
+  await journal.committed(context, sequence);
+  assert.equal((await journal.page(owner, new Map())).records[0].sessionID, 'session_a');
+});
+
+test('a broader caller cannot replay a deleted bound conversation from a legacy single-workspace journal', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-legacy-grant-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const catalogPath = join(root, 'catalog.json');
+  const journal = new NndActivityTombstones(catalogPath);
+  const context = { sessionId: 'session_a', createdAt: 100, subjectId: owner.subjectId,
+    workspaceIds: new Set(owner.workspaceIds) };
+  const sequence = await journal.prepare(context);
+  const [name] = await readdir(`${catalogPath}.tombstones`);
+  const path = join(`${catalogPath}.tombstones`, name);
+  const source = JSON.parse(await readFile(path, 'utf8'));
+  delete source.entries[0].workspaceIds;
+  await writeFile(path, JSON.stringify(source));
+  await journal.committed(context, sequence);
+  const binding = { root, configured_root: root, id: 'primary', device: '1', inode: '1' };
+  const principal = { ...owner, workspaceIds: ['primary', 'second'] };
+  const host = new NndEngineHost({ catalogPath, createEngine: async () => ({
+    config: { workspaceRoot: root, executionManifest: null }, async initialize() {}, async shutdown() {},
+  }), primaryWorkspaceBinding: async () => binding });
+  await assert.rejects(host.create('session_a', principal, { creationFingerprint: 'a'.repeat(64) }),
+    { code: 'nnd_session_unavailable' });
+  assert.deepEqual((await host.activityTombstonesPage(principal)).records, []);
+  await host.shutdown();
+});
+
+test('an entry scope outside its owner grant invalidates the journal', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-scope-invalid-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const catalogPath = join(root, 'catalog.json');
+  const journal = new NndActivityTombstones(catalogPath);
+  const context = { sessionId: 'session_a', createdAt: 100, subjectId: owner.subjectId,
+    workspaceIds: new Set(owner.workspaceIds) };
+  await journal.prepare(context);
+  const [name] = await readdir(`${catalogPath}.tombstones`);
+  const path = join(`${catalogPath}.tombstones`, name);
+  const source = JSON.parse(await readFile(path, 'utf8'));
+  source.entries[0].workspaceIds = ['another-workspace'];
+  await writeFile(path, JSON.stringify(source));
+  await assert.rejects(journal.page(owner, new Map()), { code: 'nnd_activity_tombstones_invalid' });
+});
+
+test('a broader same-ID creation finalizes a narrow-grant intent before a repeated creation time', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-cross-grant-intent-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const catalogPath = join(root, 'catalog.json');
+  const journal = new NndActivityTombstones(catalogPath);
+  const old = { sessionId: 'session_a', createdAt: 100, subjectId: owner.subjectId,
+    workspaceIds: new Set(owner.workspaceIds) };
+  await journal.prepare(old);
+  const binding = { root, configured_root: root, id: 'primary', device: '1', inode: '1' };
+  const principal = { ...owner, workspaceIds: ['primary', 'second'] };
+  const host = new NndEngineHost({ catalogPath, createEngine: async () => ({
+    config: { workspaceRoot: root, executionManifest: null }, async initialize() {}, async shutdown() {},
+  }), primaryWorkspaceBinding: async () => binding });
+  const originalNow = Date.now;
+  try {
+    Date.now = () => old.createdAt;
+    await host.create('session_a', principal);
+  } finally { Date.now = originalNow; }
+  const oldPage = await host.activityTombstonesPage(owner);
+  assert.deepEqual(oldPage.records.map((entry) => entry.sessionID), ['session_a']);
+  assert.equal(oldPage.records[0].createdAt, old.createdAt);
+  await host.shutdown();
+});
+
+test('a live intent preceding a later deletion gives a gap instead of skipping a future receipt', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-cursor-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const journal = new NndActivityTombstones(join(root, 'catalog.json'));
+  const liveContext = { sessionId: 'session_a', createdAt: 100, subjectId: owner.subjectId,
+    workspaceIds: new Set(owner.workspaceIds) };
+  const deletedContext = { ...liveContext, sessionId: 'session_b', createdAt: 101 };
+  const live = new Map([['session_a', liveContext]]);
+  const first = await journal.prepare(liveContext, live);
+  const second = await journal.prepare(deletedContext, live);
+  await journal.committed(deletedContext, second);
+  assert.deepEqual((await journal.page(owner, live)).status, 'gap');
+  assert.equal((await journal.page(owner, live)).nextCursor, null);
+  live.delete('session_a');
+  const page = await journal.page(owner, live);
+  assert.deepEqual(page.records.map((entry) => entry.sequence), [first, second]);
+});
+
+test('a page can advance through contiguous deletions before an unresolved intent', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-prefix-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const journal = new NndActivityTombstones(join(root, 'catalog.json'));
+  const context = (sessionId, createdAt) => ({ sessionId, createdAt, subjectId: owner.subjectId,
+    workspaceIds: new Set(owner.workspaceIds) });
+  const first = context('session_a', 100);
+  const pending = context('session_b', 101);
+  const later = context('session_c', 102);
+  const firstSequence = await journal.prepare(first);
+  await journal.committed(first, firstSequence);
+  await journal.prepare(pending);
+  const lastSequence = await journal.prepare(later);
+  await journal.committed(later, lastSequence);
+  const live = new Map([['session_b', pending]]);
+  const page = await journal.page(owner, live);
+  assert.equal(page.status, 'page');
+  assert.deepEqual(page.records.map((entry) => entry.sequence), [firstSequence]);
+  assert.equal(page.nextCursor, firstSequence);
+  const gap = await journal.page(owner, live, { after: firstSequence });
+  assert.equal(gap.status, 'gap');
+  assert.equal(gap.nextCursor, null);
 });
 
 test('intent written before failed catalog delete is never a false deletion', async t => {

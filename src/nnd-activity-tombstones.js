@@ -22,14 +22,19 @@ function journalPath(catalogPath, principal) {
 }
 function contextPrincipal(context) { return { subjectId: context.subjectId, workspaceIds: [...context.workspaceIds] }; }
 
-function validEntry(entry) {
+function validEntry(entry, owner) {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
   try { requireExternalId(entry.sessionId, 'session_id'); } catch { return false; }
-  return Object.keys(entry).sort().join(',') === 'createdAt,deletedAt,sequence,sessionId,state'
+  const keys = Object.keys(entry).sort().join(',');
+  const scoped = keys === 'createdAt,deletedAt,sequence,sessionId,state,workspaceIds';
+  return (scoped || keys === 'createdAt,deletedAt,sequence,sessionId,state')
     && Number.isSafeInteger(entry.createdAt) && entry.createdAt > 0
     && Number.isSafeInteger(entry.deletedAt) && entry.deletedAt > 0
     && Number.isSafeInteger(entry.sequence) && entry.sequence > 0
-    && ['intent', 'deleted'].includes(entry.state);
+    && ['intent', 'deleted'].includes(entry.state)
+    && (!scoped || Array.isArray(entry.workspaceIds) && entry.workspaceIds.length > 0
+      && entry.workspaceIds.every((id) => typeof id === 'string' && owner.workspaceIds.includes(id))
+      && JSON.stringify(entry.workspaceIds) === JSON.stringify([...new Set(entry.workspaceIds)].sort()));
 }
 
 async function readJournal(path, owner) {
@@ -61,7 +66,7 @@ async function readJournal(path, owner) {
     || !Number.isSafeInteger(journal.nextSequence) || journal.nextSequence < 1
     || !Number.isSafeInteger(journal.floor) || journal.floor < 0 || journal.floor >= journal.nextSequence
     || !Array.isArray(journal.entries) || journal.entries.length > TOMBSTONE_LIMIT
-    || journal.entries.some((entry) => !validEntry(entry))) throw invalid();
+    || journal.entries.some((entry) => !validEntry(entry, owner))) throw invalid();
   let previous = journal.floor;
   for (const entry of journal.entries) {
     // Invariant: a missing retained deletion must be an explicit gap, never
@@ -76,7 +81,13 @@ async function readJournal(path, owner) {
 function currentPair(contexts, entry, owner) {
   const context = contexts.get(entry.sessionId);
   return context?.createdAt === entry.createdAt && context.subjectId === owner.subjectId
-    && JSON.stringify([...context.workspaceIds].sort()) === JSON.stringify(owner.workspaceIds);
+    && JSON.stringify([...context.workspaceIds].sort()) === JSON.stringify(entry.workspaceIds ?? owner.workspaceIds);
+}
+
+function contextScope(context, owner) {
+  const scope = ownerKey(contextPrincipal(context));
+  if (scope.subjectId !== owner.subjectId || scope.workspaceIds.some((id) => !owner.workspaceIds.includes(id))) throw invalid();
+  return scope.workspaceIds;
 }
 
 /** Write an intent before deleting the authoritative session catalog entry. */
@@ -95,15 +106,17 @@ export class NndActivityTombstones {
     this.pending = task;
     return task;
   }
-  async prepare(context, contexts) {
+  async prepare(context, contexts, principal = contextPrincipal(context)) {
     if (!this.catalogPath) return null;
-    return this.#mutate(contextPrincipal(context), (journal) => {
+    return this.#mutate(principal, (journal) => {
+      const workspaceIds = contextScope(context, journal);
       let reconciled = false;
       if (contexts) for (const entry of journal.entries) {
         if (entry.state === 'intent' && !currentPair(contexts, entry, journal)) { entry.state = 'deleted'; reconciled = true; }
       }
       const existing = journal.entries.find((entry) => entry.sessionId === context.sessionId
-        && entry.createdAt === context.createdAt && entry.state === 'intent');
+        && entry.createdAt === context.createdAt && entry.state === 'intent'
+        && JSON.stringify(entry.workspaceIds ?? journal.workspaceIds) === JSON.stringify(workspaceIds));
       if (existing) return { changed: reconciled, value: existing.sequence };
       if (journal.entries.length >= TOMBSTONE_LIMIT) {
         const oldest = journal.entries[0];
@@ -112,23 +125,42 @@ export class NndActivityTombstones {
       }
       const sequence = journal.nextSequence++;
       journal.entries.push({ sequence, sessionId: context.sessionId, createdAt: context.createdAt,
-        deletedAt: Date.now(), state: 'intent' });
+        deletedAt: Date.now(), state: 'intent', workspaceIds });
       return { changed: true, value: sequence };
     });
   }
-  async committed(context, sequence) {
+  async committed(context, sequence, principal = contextPrincipal(context)) {
     if (!this.catalogPath) return;
-    await this.#mutate(contextPrincipal(context), (journal) => {
+    await this.#mutate(principal, (journal) => {
+      const workspaceIds = contextScope(context, journal);
       const entry = journal.entries.find((item) => item.sequence === sequence
-        && item.sessionId === context.sessionId && item.createdAt === context.createdAt);
+        && item.sessionId === context.sessionId && item.createdAt === context.createdAt
+        && JSON.stringify(item.workspaceIds ?? journal.workspaceIds) === JSON.stringify(workspaceIds));
       if (!entry) throw invalid();
       if (entry.state === 'deleted') return { changed: false };
       entry.state = 'deleted';
       return { changed: true };
     });
   }
-  async beforeCreate(sessionId, principal, contexts, preventReuse = false) {
+  async beforeCreate(sessionId, principal, contexts, preventReuse = false, bindingPrincipal = null) {
     if (!this.catalogPath) return;
+    if (bindingPrincipal && ownerKey(bindingPrincipal).digest !== ownerKey(principal).digest) {
+      // Compatibility: bound-session receipts may use the binding grant even
+      // when a later creation uses a broader caller grant. Reads stay exact-grant.
+      await this.#mutate(bindingPrincipal, (journal) => {
+        const entries = journal.entries.filter((entry) => entry.sessionId === sessionId);
+        if (preventReuse && entries.length > 0) {
+          throw new ContractError('nnd_session_unavailable', 'This conversation was deleted. Start a new conversation.');
+        }
+        let changed = false;
+        for (const entry of entries) {
+          if (entry.state !== 'intent') continue;
+          if (currentPair(contexts, entry, journal)) throw new ContractError('nnd_session_exists', 'NND session context already exists');
+          entry.state = 'deleted'; changed = true;
+        }
+        return { changed };
+      });
+    }
     await this.#mutate(principal, (journal) => {
       if (preventReuse && journal.entries.some(entry => entry.sessionId === sessionId)) {
         throw new ContractError('nnd_session_unavailable', 'This conversation was deleted. Start a new conversation.');
@@ -152,10 +184,17 @@ export class NndActivityTombstones {
     }
     await this.pending.catch(() => undefined);
     const owner = ownerKey(principal); const journal = await readJournal(journalPath(this.catalogPath, principal), owner);
-    const committed = journal.entries.filter((entry) => entry.state === 'deleted' || !currentPair(contexts, entry, journal));
     if (after < journal.floor || after >= journal.nextSequence) return { status: 'gap', floor: journal.floor, nextCursor: null,
       records: [], historyComplete: false };
-    const records = committed.filter((entry) => entry.sequence > after).slice(0, limit)
+    const candidates = journal.entries.filter((entry) => entry.sequence > after);
+    const unresolved = candidates.findIndex((entry) => entry.state === 'intent' && currentPair(contexts, entry, journal));
+    // Invariant: a cursor must not advance beyond an intent that could later become a deletion.
+    // A later committed receipt makes that interval an explicit reconciliation gap.
+    if (unresolved === 0 && candidates.slice(1).some((entry) => entry.state === 'deleted' || !currentPair(contexts, entry, journal))) {
+      return { status: 'gap', floor: journal.floor, nextCursor: null, records: [], historyComplete: false };
+    }
+    const committed = unresolved < 0 ? candidates : candidates.slice(0, unresolved);
+    const records = committed.slice(0, limit)
       .map(({ sequence, sessionId, createdAt, deletedAt }) => ({ sequence, sessionID: sessionId, createdAt, deletedAt, kind: 'deleted' }));
     return { status: 'page', floor: journal.floor, nextCursor: records.at(-1)?.sequence ?? after,
       records, historyComplete: false };

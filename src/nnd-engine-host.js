@@ -111,7 +111,8 @@ export class NndEngineHost {
     try {
       if (!restoring) await removeActivity(this.catalogPath, sessionId); // Remove a crash-left prior incarnation.
       const binding = await resolveContextBinding(this.primaryWorkspaceBinding, principal, options, restoring);
-      if (!restoring) await this.tombstones.beforeCreate(sessionId, binding ? { ...principal, workspaceIds: [binding.id] } : principal, this.#contexts, Boolean(options.creationFingerprint));
+      if (!restoring) await this.tombstones.beforeCreate(sessionId, principal, this.#contexts,
+        Boolean(options.creationFingerprint), binding ? { subjectId: principal.subjectId, workspaceIds: [binding.id] } : null);
       if (this.#workspaceRevocations.has(binding)) {
         throw new ContractError('nnd_workspace_in_use', 'Workspace admission is being revoked.');
       }
@@ -396,14 +397,14 @@ export class NndEngineHost {
     context.closing = true; this.#deleting.add(sessionId);
     try {
       let tombstone;
-      try { tombstone = await this.tombstones.prepare(context, this.#contexts); }
+      try { tombstone = await this.tombstones.prepare(context, this.#contexts, principal); }
       catch (error) { context.closing = false; throw error; } // No engine or catalog mutation began.
       // Security: closing a parent revokes its child steering grants before shutdown can fail.
       this.childSessions.unregisterParent?.(sessionId);
       await this.childSnapshotStore.drain();
       await context.engine.shutdown({ version: '1.0', type: 'shutdown', request_id: newId('nnd_close') });
       await this.#commitCatalogChange((contexts) => contexts.delete(sessionId), () => this.#contexts.delete(sessionId));
-      await this.tombstones.committed(context, tombstone);
+      await this.tombstones.committed(context, tombstone, principal);
       await this.childSnapshotStore.completeParentClose(context);
       this.#uploads.clearSession(sessionId);
       await drainActivityWrites(context);
