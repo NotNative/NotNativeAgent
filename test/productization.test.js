@@ -73,6 +73,11 @@ test('launch options support prompt, host, and config aliases without breaking l
   assert.equal(parseCli(['host', '-provider', 'Remote Lab']).providerProfile, 'Remote Lab');
   assert.throws(() => parseCli(['--provider-credential-env', 'literal-secret!']), { code: 'credential_reference_invalid' });
   assert.throws(() => parseCli(['host', '--model', 'unsafe-override']), { code: 'host_override_requires_manifest' });
+  assert.throws(() => parseCli(['host', '-p', 'hello']), { code: 'invalid_option' });
+  assert.throws(() => parseCli(['host', '-p', 'hello', '--provider-endpoint', 'https://example.invalid/v1',
+    '--provider-credential-env', 'HOST_SECRET']), { code: 'invalid_option' });
+  assert.throws(() => parseCli(['opencode', '--prompt', 'hello']), { code: 'invalid_option' });
+  assert.equal(parseCli(['text', '-p', 'hello']).mode, 'text');
 });
 
 test('CLI bounds manifest reads and direct prompt arguments before parsing or concatenation', async () => {

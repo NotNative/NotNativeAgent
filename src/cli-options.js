@@ -21,6 +21,9 @@ export function parseCli(argv) {
       modeSelected = true;
     }
     else if (value === '-p' || value === '--prompt') {
+      if (modeSelected && mode !== 'text') {
+        throw new ContractError('invalid_option', `${value} cannot replace the selected ${mode} mode`);
+      }
       mode = 'text'; modeSelected = true;
       if (argv[index + 1] && !argv[index + 1].startsWith('-')) options.prompt.push(argv[++index]);
     }
@@ -67,9 +70,9 @@ const OPENCODE_ACTIONS = new Set(['status', 'start', 'stop', 'enable', 'disable'
 /** The operator invocation vocabulary the 20261006-15 census pinned as the
  * 23 `invocation:*` operator_action rows (validator parseCli). One row per
  * census flag; aliases enumerate the sibling census rows that share the
- * branch. `modes: '*'` means the flag branch runs in every mode; `headless`
- * records whether the flag survives host/headless (the
- * host_override_requires_manifest guard). `option` is the parsed option key
+ * branch. `modes: '*'` means the flag branch runs in every selected mode;
+ * `--prompt`/`-p` may also select text mode when no mode was selected. `headless`
+ * records whether the flag survives host/headless. `option` is the parsed option key
  * the branch lands on (null for pure mode selectors). The tests mechanically
  * prove each entry against parseCli behavior, so this table cannot drift
  * from the parser without failing the suite. Sensitivity note: the family is
@@ -134,8 +137,8 @@ export const INVOCATION_VOCABULARY = Object.freeze({
       modes: Object.freeze(['uninstall']), headless: false, option: 'prompt',
       effect: 'uninstall choice that retains user data' }),
     Object.freeze({ flag: '--prompt', aliases: Object.freeze(['-p']), argument: 'prompt-text',
-      modes: '*', headless: true, option: 'prompt',
-      effect: 'enters text mode with the prompt as conversation input (the text is content, not configuration)' }),
+      modes: Object.freeze(['text']), headless: false, option: 'prompt',
+      effect: 'selects text mode when no mode was selected; adds conversation input in text mode (the text is content, not configuration)' }),
     Object.freeze({ flag: '--version', aliases: Object.freeze(['-v']), argument: 'none',
       modes: '*', headless: true, option: null,
       effect: 'informational version output; no configuration effect (a mode selector)' }),
@@ -143,8 +146,8 @@ export const INVOCATION_VOCABULARY = Object.freeze({
       modes: '*', headless: true, option: null,
       effect: 'short form of --help' }),
     Object.freeze({ flag: '-p', aliases: Object.freeze(['--prompt']), argument: 'prompt-text',
-      modes: '*', headless: true, option: 'prompt',
-      effect: 'short form of --prompt; text mode with conversation input' }),
+      modes: Object.freeze(['text']), headless: false, option: 'prompt',
+      effect: 'short form of --prompt; selects text mode when no mode was selected' }),
     Object.freeze({ flag: '-v', aliases: Object.freeze(['--version']), argument: 'none',
       modes: '*', headless: true, option: null,
       effect: 'short form of --version' }),

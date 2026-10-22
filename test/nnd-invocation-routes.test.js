@@ -53,6 +53,13 @@ test('the vocabulary is mechanically consistent with parseCli', () => {
         { code: 'host_override_requires_manifest' });
     }
   }
+  for (const flag of ['-p', '--prompt']) {
+    const entry = INVOCATION_VOCABULARY.flags.find((row) => row.flag === flag);
+    assert.deepEqual(entry.modes, ['text']);
+    assert.equal(entry.headless, false);
+    assert.deepEqual(parseCli([flag, 'hello']).prompt, ['hello']);
+    assert.throws(() => parseCli(['host', flag, 'hello']), { code: 'invalid_option' });
+  }
   // Mode-restricted branches really are mode-restricted.
   assert.throws(() => parseCli(['--hostname', 'h']), { code: 'invalid_option' });
   assert.equal(parseCli(['opencode', '--hostname', 'h']).serveHostname, 'h');
