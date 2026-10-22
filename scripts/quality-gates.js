@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readdir, readFile } from 'node:fs/promises';
-import { extname, join, relative } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { collectSourceFiles } from './quality-source-files.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const productionRoot = join(root, 'src');
 const MAX_SOURCE_FILES = 2_000;
 const MAX_FILE_LINES = 500;
 const MAX_FUNCTION_LINES = 60;
-const SKIPPED_DIRECTORIES = new Set(['.git', 'coverage', 'dist', 'node_modules']);
 
 await main().catch((error) => {
   process.stderr.write(`quality gates failed: ${error?.message ?? 'unknown error'}\n`);
@@ -17,10 +17,9 @@ await main().catch((error) => {
 });
 
 async function main() {
-const files = await collect(productionRoot, MAX_SOURCE_FILES);
+const files = await collectSourceFiles(productionRoot, MAX_SOURCE_FILES);
 const errors = [];
 for (const path of files) {
-  if (extname(path) !== '.js') continue;
   let source;
   try { source = await readFile(path, 'utf8'); }
   catch (error) { errors.push(`${relative(root, path)} could not be read: ${error.code ?? error.message}`); continue; }
@@ -54,24 +53,6 @@ if (errors.length > 0) {
 } else {
   process.stdout.write(`quality gates passed for ${files.length} production files\n`);
 }
-}
-
-async function collect(directory, maxFiles) {
-  const pending = [directory];
-  const result = [];
-  while (pending.length > 0) {
-    const current = pending.pop();
-    let entries;
-    try { entries = await readdir(current, { withFileTypes: true }); }
-    catch (error) { throw new Error(`cannot inspect ${current}: ${error.code ?? error.message}`, { cause: error }); }
-    for (const entry of entries) {
-      const path = join(current, entry.name);
-      if (entry.isDirectory() && !SKIPPED_DIRECTORIES.has(entry.name)) pending.push(path);
-      else result.push(path);
-      if (result.length > maxFiles) throw new Error(`source file count exceeds ${maxFiles}`);
-    }
-  }
-  return result;
 }
 
 function processFailure(result) {

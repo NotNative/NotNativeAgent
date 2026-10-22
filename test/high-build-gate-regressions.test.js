@@ -15,6 +15,9 @@ async function fixture(name, content, spaced = false) {
   await mkdir(join(root, 'scripts')); await mkdir(join(root, 'src'));
   await writeFile(join(root, 'package.json'), '{"type":"module"}');
   await writeFile(join(root, 'scripts', name), content);
+  if (name === 'quality-gates.js') {
+    await writeFile(join(root, 'scripts', 'quality-source-files.js'), await source('quality-source-files.js'));
+  }
   return root;
 }
 
