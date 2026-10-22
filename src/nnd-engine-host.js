@@ -26,7 +26,8 @@ import { runNndGoalAudit } from './nnd-goal-audit.js';
 import { runNndWalkthrough } from './nnd-walkthrough.js';
 import { runNndAssist } from './nnd-assist.js';
 import { runNndSessionFork } from './nnd-session-fork.js';
-import { runNndSessionRevert, runNndSessionUnrevert, settleNndTimelinesForShutdown } from './nnd-session-revert.js';
+import { runNndSessionRevert, runNndSessionUnrevert } from './nnd-session-revert.js';
+import { NndHostLifecycle, shutdownNndContext, shutdownNndHost } from './nnd-host-lifecycle.js';
 import { runNndNotification } from './nnd-notification.js';
 import { publishNndProjection } from './nnd-projection.js';
 import { reviewModeSnapshot, commitReviewMode } from './nnd-review-mode.js';
@@ -46,6 +47,7 @@ export class NndEngineHost {
   #quarantined = [];
   #workspaceRevocations = new NndWorkspaceRevocationGuard();
   #uploads = new NndAttachmentUploads();
+  #lifecycle = new NndHostLifecycle();
   constructor(options = {}) {
     if (typeof options.createEngine !== 'function') {
       throw new ContractError('nnd_engine_factory_missing', 'NND engine host requires an engine factory');
@@ -94,8 +96,9 @@ export class NndEngineHost {
       throw error;
     }
   }
-  async create(sessionId, principal, options = {}) { return replayConversation(this.#contexts.get(sessionId), options, () => this.assertWorkspaceBound(sessionId, principal), () => this.#createContext(sessionId, principal, options, false)); }
-  async #createContext(sessionId, principal, options, restoring) {
+  async create(sessionId, principal, options = {}) { this.#lifecycle.assertOpen(); return replayConversation(this.#contexts.get(sessionId), options, () => this.assertWorkspaceBound(sessionId, principal), () => this.#createContext(sessionId, principal, options, false)); }
+  #createContext(sessionId, principal, options, restoring) { this.#lifecycle.assertOpen(); return this.#lifecycle.track(this.#createContextWork(sessionId, principal, options, restoring)); }
+  async #createContextWork(sessionId, principal, options, restoring) {
     requireExternalId(sessionId, 'session_id');
     requirePrincipal(principal);
     if (this.#contexts.has(sessionId) || this.#quarantined.some((record) => record.sessionId === sessionId)
@@ -152,7 +155,7 @@ export class NndEngineHost {
   async submit(sessionId, command, principal) {
     await this.assertWorkspaceBound(sessionId, principal);
     const context = this.#owned(sessionId, principal);
-    if (context.timelineMutation || context.timelineShutdown) throw new ContractError('nnd_revert_busy', 'NND session timeline is changing');
+    if (this.#lifecycle.stopping || context.timelineMutation || context.timelineShutdown) throw new ContractError('nnd_revert_busy', 'NND session timeline is changing');
     if (context.reviewArming > 0) throw new ContractError('nnd_session_unavailable', 'review mode change is pending');
     return context.ingress.submit(command, scopedPrincipal(context, principal));
   }
@@ -214,7 +217,8 @@ export class NndEngineHost {
   auditGoal(sessionId, principal, body) { return runNndGoalAudit(this.#owned(sessionId, principal), body); }
   generateWalkthrough(sessionId, principal, body) { return runNndWalkthrough(this.#owned(sessionId, principal), body); }
   generateAssist(sessionId, principal, body) { return runNndAssist(this.#owned(sessionId, principal), body); }
-  fork(sessionId, principal, body) {
+  async fork(sessionId, principal, body) {
+    this.#lifecycle.assertOpen('nnd_fork_busy', 'NND session host is shutting down');
     return runNndSessionFork(this.#owned(sessionId, principal), { createContext: (childId, options) => this.#createContext(childId, principal, options, false),
       get: (childId) => this.get(childId, principal) }, body);
   }
@@ -237,7 +241,7 @@ export class NndEngineHost {
     const context = this.#owned(sessionId, principal);
     // Keep a pre-goal prompt from starting between the arming CAS snapshot and
     // its durable catalog commit; otherwise that turn could be charged to the goal.
-    if (context.goalArming > 0 || context.reviewArming > 0 || context.timelineMutation || context.timelineShutdown) return { accepted: false, reason: 'busy' };
+    if (this.#lifecycle.stopping || context.goalArming > 0 || context.reviewArming > 0 || context.timelineMutation || context.timelineShutdown) return { accepted: false, reason: 'busy' };
     const previousTurn = context.liveTurn;
     // Why: ingress can be pending before Engine.submit() exposes its active
     // turn. A second prompt must not replace that turn's output recipient.
@@ -391,7 +395,8 @@ export class NndEngineHost {
     return readActivityPageWithBoundary(this.catalogPath, context, options, () => this.#owned(sessionId, principal), this.eventBus);
   }
   async activityTombstonesPage(principal, options = {}) { return this.tombstones.page(principal, tombstoneCatalogContexts(this.#contexts, this.#quarantined), options); }
-  async close(sessionId, principal) {
+  async close(sessionId, principal) { this.#lifecycle.assertOpen('nnd_revert_busy', 'NND session host is shutting down'); return this.#lifecycle.track(this.#closeContext(sessionId, principal)); }
+  async #closeContext(sessionId, principal) {
     const context = this.#owned(sessionId, principal, true);
     if (context.timelineMutation || context.timelineShutdown) throw new ContractError('nnd_revert_busy', 'NND session timeline is changing');
     if (this.#deleting.has(sessionId)) throw new ContractError('nnd_session_unavailable', 'NND session deletion is already pending');
@@ -403,7 +408,7 @@ export class NndEngineHost {
       // Security: closing a parent revokes its child steering grants before shutdown can fail.
       this.childSessions.unregisterParent?.(sessionId);
       await this.childSnapshotStore.drain();
-      await context.engine.shutdown({ version: '1.0', type: 'shutdown', request_id: newId('nnd_close') });
+      await shutdownNndContext(context, newId('nnd_close'));
       await this.#commitCatalogChange((contexts) => contexts.delete(sessionId), () => this.#contexts.delete(sessionId));
       await this.tombstones.committed(context, tombstone, principal);
       await this.childSnapshotStore.completeParentClose(context);
@@ -414,17 +419,10 @@ export class NndEngineHost {
       return { closed: true };
     } finally { this.#deleting.delete(sessionId); }
   }
-  async shutdown() {
-    const contexts = [...this.#contexts.values()]; await settleNndTimelinesForShutdown(contexts);
-    const settled = await Promise.allSettled(contexts.map((context) => context.engine.shutdown({
-      version: '1.0', type: 'shutdown', request_id: newId('nnd_shutdown'),
-    })));
-    await Promise.all(contexts.map((context) => drainActivityWrites(context)));
-    await this.childSnapshotStore.drain();
-    await this.catalogWrites.catch(() => undefined);
-    this.#uploads.clear();
-    const failed = settled.find((result) => result.status === 'rejected');
-    if (failed) throw failed.reason;
+  shutdown() {
+    return this.#lifecycle.shutdown(() => shutdownNndHost({ lifecycle: this.#lifecycle,
+      contexts: () => [...this.#contexts.values()], childSnapshotStore: this.childSnapshotStore,
+      catalogWrites: () => this.catalogWrites, uploads: this.#uploads }));
   }
   async #commitCatalogChange(change, commit) {
     if (!this.catalogPath) { change(new Map(this.#contexts)); commit(); return; }

@@ -9,6 +9,8 @@
 import { ContractError } from './ids.js';
 import { resolveForkBoundary } from './persistence/fork-records.js';
 import { restoreSessionRecords } from './persistence/session-history.js';
+import { beginNndTimelineMutation, endNndTimelineMutation } from './nnd-timeline-mutation.js';
+export { settleNndTimelinesForShutdown } from './nnd-timeline-mutation.js';
 
 const LIVE_RECORD_TYPES = new Set(['message', 'tool_request', 'tool_result', 'compaction', 'attachment_fact']);
 
@@ -28,43 +30,6 @@ function collectRevertedTurns(records, boundaryTurnId) {
     if (turnId) turns.add(turnId);
   }
   return [...turns];
-}
-
-function beginTimelineMutation(context) {
-  if (!context.engine.store) throw new ContractError('nnd_revert_unavailable', 'NND revert requires a durable session journal');
-  if (context.timelineMutation || context.timelineShutdown || context.closing || context.liveTurn
-    || context.engine.active && !context.engine.active.finalized
-    || context.engine.state?.state && context.engine.state.state !== 'idle') {
-    throw new ContractError('nnd_revert_busy', 'NND session is busy');
-  }
-  // Invariant: timeline operations own the session before the first journal await.
-  context.timelineMutation = new Promise((resolve) => { context.releaseTimelineMutation = resolve; });
-  return context.engine.store;
-}
-
-function endTimelineMutation(context) {
-  const release = context.releaseTimelineMutation;
-  context.timelineMutation = false;
-  context.releaseTimelineMutation = null;
-  release();
-}
-
-export async function settleNndTimelinesForShutdown(contexts, waitMs = 30_000) {
-  for (const context of contexts) context.timelineShutdown = true;
-  const pending = contexts.map((context) => context.timelineMutation).filter(Boolean);
-  if (pending.length === 0) return;
-  let timer;
-  try {
-    await Promise.race([Promise.all(pending), new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new ContractError('nnd_revert_busy',
-        'NND timeline did not settle before shutdown')), waitMs);
-    })]);
-  } catch (error) {
-    // Invariant: a timed-out shutdown cannot re-admit turns while its journal
-    // may still be changing. A later shutdown can retry after the operation settles.
-    for (const context of contexts) context.closing = true;
-    throw error;
-  } finally { clearTimeout(timer); }
 }
 
 function projectedTranscript(records, marker) {
@@ -91,7 +56,7 @@ async function appendTimelineMarker(context, store, type, payload) {
 }
 
 export async function runNndSessionRevert(context, body) {
-  const store = beginTimelineMutation(context);
+  const store = beginNndTimelineMutation(context, 'revert');
   try {
     const { turnId, messageId } = resolveForkBoundary(context.engine.transcript, context.sessionId, body?.messageID);
     const { records } = await store.readRecords();
@@ -104,11 +69,11 @@ export async function runNndSessionRevert(context, body) {
     await appendTimelineMarker(context, store, 'revert_point', payload);
     applyTimeline(context.engine, projection);
     return { reverted_turn_ids: revertedTurns, boundary_message_id: messageId };
-  } finally { endTimelineMutation(context); }
+  } finally { endNndTimelineMutation(context); }
 }
 
 export async function runNndSessionUnrevert(context) {
-  const store = beginTimelineMutation(context);
+  const store = beginNndTimelineMutation(context, 'revert');
   try {
     const { records } = await store.readRecords();
     // A cleared marker closes the most recent open revert cycle.
@@ -123,5 +88,5 @@ export async function runNndSessionUnrevert(context) {
     await appendTimelineMarker(context, store, 'revert_cleared', {});
     applyTimeline(context.engine, projection);
     return { restored_turn_ids: point.payload.reverted_turn_ids };
-  } finally { endTimelineMutation(context); }
+  } finally { endNndTimelineMutation(context); }
 }
