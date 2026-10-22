@@ -116,7 +116,7 @@ async function persistenceHealth(engine) {
 }
 
 function status(state, details) {
-  return Object.freeze({ status: state, ...details });
+  return Object.freeze({ ...details, status: state });
 }
 
 function skillHealth(registry) {

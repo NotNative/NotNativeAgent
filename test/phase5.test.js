@@ -2175,6 +2175,14 @@ test('AC-OBS-01/AC-OBS-04 health and diagnostic bundle are read-only and content
   assert.equal(health.memory.status, 'unavailable');
   assert.equal(health.memory.reason, 'adapter_unavailable');
   assert.equal(health.reviewer_llm.status, 'ready');
+  const originalGovernanceHealth = engine.governance.health.bind(engine.governance);
+  engine.governance.health = () => ({ ...originalGovernanceHealth(), status: 'attention' });
+  try {
+    const degraded = await engine.health();
+    assert.equal(degraded.governance.status, 'degraded');
+  } finally {
+    engine.governance.health = originalGovernanceHealth;
+  }
   assert.equal(health.stale_locks.status, 'disabled');
   assert.equal(health.extensions.status, 'degraded');
   assert.equal(health.extensions.errors[0].id, 'future.ext');
