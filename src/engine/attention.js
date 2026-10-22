@@ -4,13 +4,14 @@ import { assertTurnActive } from '../turn-cancellation.js';
 import { emitEngineStatus, emitEngineText } from './output.js';
 
 export async function awaitEngineAttention(engine, active, result, operations) {
+  const steeringAvailable = engine.config.executionManifest?.allowedCapabilities.includes('steering') !== false;
   const detail = engine.reliability.exhaustionDetail(
     active.recovery, engine.transcript, active.unresolvedToolFailures, result,
   );
   const explanation = engine.reliability.exhaustionText(detail, {
-    transcript: engine.transcript, turnId: active.turnId,
+    transcript: engine.transcript, turnId: active.turnId, steeringAvailable,
   });
-  if (engine.config.executionManifest?.allowedCapabilities.includes('steering') === false) {
+  if (!steeringAvailable) {
     await operations.persist('attention_unavailable', {
       turnId: active.turnId, stepId: active.stepId,
       category: result.category ?? 'no_progress', detail, createdAt: new Date().toISOString(),

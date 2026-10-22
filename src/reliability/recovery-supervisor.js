@@ -16,6 +16,7 @@ const CHECKPOINT_SEPARATOR_RESERVE = 32;
 const MIN_EXACT_NO_EFFECT_LIMIT = 3;
 const EMPTY_COMPLETION_BASE_DELAY_MS = 250;
 const EMPTY_COMPLETION_MAX_DELAY_MS = 30_000;
+const EMPTY_COMPLETION_ATTEMPT_LIMIT = 8;
 // Why: every category here recurs without a distinct external change, so each
 // must own a terminal episode bound; progress evidence that cannot change
 // (an unchanged request shape or output budget) must not keep a turn alive.
@@ -92,6 +93,11 @@ export class RecoverySupervisor {
       this.#episodes.delete(this.#episodes.keys().next().value);
     }
     this.#episodes.set(episode, count);
+    // Invariant: content-free attempts do not spend productive model steps, but
+    // automatic retries still have a finite episode before operator attention.
+    if (count >= EMPTY_COMPLETION_ATTEMPT_LIMIT) {
+      return Object.freeze({ continue: false, exhausted: true, progress: false, count });
+    }
     const delayMs = emptyCompletionDelay(count);
     const action = this.#record('provider_unusable_completion', 'retry_provider_completion', count, {
       ...detail,
@@ -230,9 +236,12 @@ export function recoveryExhaustionText(detail, options = {}) {
     const preserved = checkpoint
       ? `\n\nLast useful assistant checkpoint:\n${checkpoint}`
       : '';
-    return `The model returned no usable continuation${attempts}, so automatic recovery is parked. `
-      + `Completed tool effects and diagnostics remain preserved.${preserved}\n\n`
-      + 'The turn remains active. Provide direction to resume from the preserved activity, or cancel the turn.';
+    const resume = options.steeringAvailable === false
+      ? 'This turn ended because the host has no steering channel. Start a continuation turn to resume from the preserved activity.'
+      : 'The turn remains active. Provide direction to resume from the preserved activity, or cancel the turn.';
+    const recoveryState = options.steeringAvailable === false ? 'stopped' : 'parked';
+    return `The model returned no usable continuation${attempts}, so automatic recovery ${recoveryState}. `
+      + `Completed tool effects and diagnostics remain preserved.${preserved}\n\n${resume}`;
   }
   if (detail.exhaustion_category === 'truncated_output') {
     const attempts = Number.isInteger(detail.exhaustion_count) ? ` after ${detail.exhaustion_count} attempts` : '';

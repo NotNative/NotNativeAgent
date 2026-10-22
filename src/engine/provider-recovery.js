@@ -57,6 +57,9 @@ export async function recoverContentFreeCompletion(engine, active, operations) {
   }, { routeIdentity });
   if (plan.action) await operations.recordRecovery(plan.action);
   await operations.settleStep(RECOVERING_STATE);
+  if (!plan.continue) {
+    return { exhausted: true, category: 'empty_output', count: plan.count, countModelStep: false };
+  }
   let waitOutcome = 'steering';
   if (engine.steering.length === 0) {
     const provider = active.providerRoute ? engine.router.provider(active.providerRoute) : null;

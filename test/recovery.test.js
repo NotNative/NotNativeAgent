@@ -11,12 +11,13 @@ import { JournalStore } from '../src/store.js';
 import { restoreSessionRecords } from '../src/persistence/session-history.js';
 import { LifecycleRegistry, StateAuthority } from '../src/lifecycle.js';
 import { ProviderRunner } from '../src/provider/runner.js';
-import { RecoverySupervisor, recoveryHint } from '../src/reliability/recovery-supervisor.js';
+import { RecoverySupervisor, recoveryExhaustionText, recoveryHint } from '../src/reliability/recovery-supervisor.js';
 import { ToolCallAssembler } from '../src/reliability/tool-call-assembler.js';
 import { contextPressureScale } from '../src/reliability/provider-recovery.js';
 import { toolProgressEvidence } from '../src/reliability/tool-progress.js';
 import { awaitEngineAttention } from '../src/engine/attention.js';
 import { runModelStepLoop } from '../src/engine/step-loop.js';
+import { recoverContentFreeCompletion } from '../src/engine/provider-recovery.js';
 import { updateToolFailures } from '../src/engine/tool-failures.js';
 import { manifestFromConfig, withRecoverySettings } from '../src/provider/route-configuration.js';
 import { buildConversationTextLane } from '../src/conversation-text-lane.js';
@@ -230,17 +231,64 @@ test('consecutive output-ceiling attempts count one bounded truncation episode i
   assert.equal(raised.action.action, 'retry_continuation');
 });
 
-test('content-free provider completions remain non-terminal with bounded distinct recovery', () => {
+test('content-free provider completions park after a separate finite retry episode', () => {
   const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
-  const plans = Array.from({ length: 12 }, () => recovery.providerUnusableCompletion(
+  const plans = Array.from({ length: 8 }, () => recovery.providerUnusableCompletion(
     { event_shape: { terminal_events: 1 } }, { routeIdentity: 'fixture\0model' },
   ));
-  assert.equal(plans.every((plan) => plan.continue && !plan.exhausted), true);
+  assert.equal(plans.slice(0, -1).every((plan) => plan.continue && !plan.exhausted), true);
   assert.deepEqual(plans.slice(0, 4).map((plan) => plan.delayMs), [250, 500, 1000, 2000]);
-  assert.equal(plans.at(-1).delayMs, 30_000);
-  assert.equal(new Set(plans.map((plan) => recoveryHint(plan.action))).size, plans.length);
+  assert.deepEqual(plans.at(-1), { continue: false, exhausted: true, progress: false, count: 8 });
+  assert.equal(new Set(plans.slice(0, -1).map((plan) => recoveryHint(plan.action))).size, 7);
   recovery.providerOutputObserved();
   assert.equal(recovery.providerUnusableCompletion({}, { routeIdentity: 'fixture\0model' }).count, 1);
+});
+
+test('content-free recovery reaches attention without consuming productive model steps', async () => {
+  const recovery = new RecoverySupervisor();
+  const active = {
+    turnId: 'empty-turn', stepId: 'empty-step', startedAt: Date.now(),
+    providerResource: 'fixture', modelName: 'model', tokenReceipts: [], recovery,
+    unresolvedToolFailures: [], controller: new AbortController(),
+  };
+  let waits = 0; let attempts = 0;
+  const persisted = [];
+  const engine = {
+    config: { limits: { maxModelSteps: 1, turnWallClockMs: null },
+      executionManifest: { allowedCapabilities: ['tools'] } },
+    state: { transition() {} }, steering: [], transcript: [],
+    reliability: {
+      providerUnusableCompletion: (_active, detail, options) => recovery.providerUnusableCompletion(detail, options),
+      hint: (action) => recoveryHint(action),
+      exhaustionDetail: (_supervisor, _transcript, _failures, result) => result,
+      exhaustionText: (detail, options) => recoveryExhaustionText({
+        ...detail, exhaustion_category: 'empty_output', exhaustion_count: detail.count,
+      }, options),
+    },
+    providerRunner: { waitForProviderRecovery: async () => { waits += 1; return 'retry'; } },
+  };
+  const result = await runModelStepLoop(engine, active, [], {
+    runModelStep: async () => {
+      attempts += 1;
+      return recoverContentFreeCompletion(engine, active, {
+        settleAttempt: async () => {}, settleStep: async () => {}, recordRecovery: async () => {},
+        consumeSteering: async () => [],
+      });
+    },
+    prepareContext: async () => [],
+    persist: async (type) => { persisted.push(type); },
+    consumeSteering: async () => [],
+    finalize: async (outcome, text, detail) => ({ outcome, text, detail }),
+  });
+  assert.equal(attempts, 8);
+  assert.equal(waits, 7);
+  assert.equal(result.outcome, 'limit_reached');
+  assert.equal(result.detail.category, 'empty_output');
+  assert.equal(result.detail.count, 8);
+  assert.match(result.text, /automatic recovery stopped/u);
+  assert.match(result.text, /This turn ended because the host has no steering channel/u);
+  assert.doesNotMatch(result.text, /The turn remains active/u);
+  assert.deepEqual(persisted, ['attention_unavailable']);
 });
 
 test('tool recovery budgets are isolated by stable failure fingerprint', () => {
