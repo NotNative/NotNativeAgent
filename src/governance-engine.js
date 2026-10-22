@@ -25,6 +25,7 @@ const DENIED_OUTCOMES = Object.freeze(['deny_with_guidance', 'hard_deny', 'rejec
 export class GovernanceEngine {
   #evidence = new Map();
   #decisions = new Map();
+  #authorizationPins = new Map();
   #store = null;
   #journalRecords = 0;
 
@@ -54,6 +55,10 @@ export class GovernanceEngine {
   }
 
   async registerEvidence(input) {
+    return this.#registerEvidence(input);
+  }
+
+  async #registerEvidence(input, deferRetention = false) {
     const evidence = normalizeGovernanceEvidence({ ...input, id: input.id ?? newId('evidence') });
     const existing = this.#evidence.get(evidence.id);
     if (existing) {
@@ -62,10 +67,11 @@ export class GovernanceEngine {
       }
       return existing.record;
     }
+    this.#assertEvidenceCapacity(evidence.id);
     await this.#record('evidence_registered', { evidence });
     this.#evidence.set(evidence.id, evidenceEntry(evidence));
     this.#telemetry('governance.evidence', 'succeeded', evidence, { evidence_id: evidence.id });
-    await this.#enforceRetention(evidence.id);
+    if (!deferRetention) await this.#enforceRetention(evidence.id);
     return evidence;
   }
 
@@ -94,6 +100,7 @@ export class GovernanceEngine {
       return existing.record;
     }
     for (const evidenceId of decision.evidenceRefs) this.#requireEvidence(evidenceId);
+    this.#assertPendingCapacity(decision);
     await this.#record('decision_committed', { decision });
     this.#decisions.set(decision.id, { record: decision, terminal: null });
     this.#telemetry('governance.decision', decisionStatus(decision.outcome), decision, {
@@ -118,13 +125,13 @@ export class GovernanceEngine {
 
   async recordAuthorization(request, decision, context = {}) {
     const scope = { kind: 'workspace', fingerprint: governanceFingerprint(request.workspaceRoot) };
-    const requestEvidence = await this.registerEvidence({
+    const requestEvidenceInput = {
       id: `evidence:request:${request.id}`, kind: 'tool_request', origin: 'runtime', trust: 'observed',
       state: 'active', freshness: 'current', conflict: 'none', sourceRef: request.id,
       sourceFingerprint: decision.requestDigest, contentFingerprint: decision.requestDigest,
       scope, observedAt: request.createdAt,
       attributes: { tool_name: request.toolName, side_effect: context.definition?.sideEffect ?? 'unknown' },
-    });
+    };
     const authorityMaterial = governanceFingerprint(JSON.stringify({
       id: decision.authorityId,
       version: decision.authorityVersion,
@@ -133,7 +140,7 @@ export class GovernanceEngine {
       mission: context.authority?.mission ?? null,
       complete: context.authority?.complete ?? null,
     }));
-    const authorityEvidence = await this.registerEvidence({
+    const authorityEvidenceInput = {
       id: `evidence:authority:${governanceFingerprint(`${request.id}:${decision.authorityId}:${decision.authorityVersion}:${decision.authorityRestrictionVersion}:${authorityMaterial}`)}`,
       kind: 'authenticated_intent', origin: 'operator', trust: 'authority',
       state: 'active', freshness: 'current', conflict: 'none',
@@ -144,25 +151,57 @@ export class GovernanceEngine {
         restriction_version: decision.authorityRestrictionVersion,
         complete: context.authority?.complete ?? null,
       },
-    });
-    return this.decide({
-      id: decision.id,
-      domain: ACTION_AUTHORIZATION_DOMAIN,
-      subjectRef: request.id,
-      subjectFingerprint: decision.requestDigest,
-      outcome: decision.outcome,
-      reasonCode: decision.reasonCode,
-      policyVersion: String(decision.policyVersion),
-      evidenceRefs: [requestEvidence.id, authorityEvidence.id],
-      authorityRefs: [authorityEvidence.id],
-      decidedAt: decision.committedAt,
-      expiresAt: decision.expiresAt,
-      attributes: {
-        tool_name: request.toolName,
-        authority_version: decision.authorityVersion,
-        restriction_version: decision.authorityRestrictionVersion,
-      },
-    });
+    };
+    return this.#commitAuthorizationEvidence(request, decision, requestEvidenceInput, authorityEvidenceInput);
+  }
+
+  async #commitAuthorizationEvidence(request, decision, requestEvidenceInput, authorityEvidenceInput) {
+    // Invariant: both evidence records remain available until their decision is
+    // committed, even if retention runs during another asynchronous operation.
+    this.#pinAuthorizationEvidence(requestEvidenceInput.id);
+    this.#pinAuthorizationEvidence(authorityEvidenceInput.id);
+    const actualPins = new Set();
+    try {
+      const requestEvidence = await this.#registerEvidence(requestEvidenceInput, true);
+      this.#pinAuthorizationEvidence(requestEvidence.id);
+      actualPins.add(requestEvidence.id);
+      const authorityEvidence = await this.#registerEvidence(authorityEvidenceInput, true);
+      this.#pinAuthorizationEvidence(authorityEvidence.id);
+      actualPins.add(authorityEvidence.id);
+      return await this.decide({
+        id: decision.id,
+        domain: ACTION_AUTHORIZATION_DOMAIN,
+        subjectRef: request.id,
+        subjectFingerprint: decision.requestDigest,
+        outcome: decision.outcome,
+        reasonCode: decision.reasonCode,
+        policyVersion: String(decision.policyVersion),
+        evidenceRefs: [requestEvidence.id, authorityEvidence.id],
+        authorityRefs: [authorityEvidence.id],
+        decidedAt: decision.committedAt,
+        expiresAt: decision.expiresAt,
+        attributes: {
+          tool_name: request.toolName,
+          authority_version: decision.authorityVersion,
+          restriction_version: decision.authorityRestrictionVersion,
+        },
+      });
+    } finally {
+      this.#unpinAuthorizationEvidence(requestEvidenceInput.id);
+      this.#unpinAuthorizationEvidence(authorityEvidenceInput.id);
+      for (const id of actualPins) this.#unpinAuthorizationEvidence(id);
+      await this.#enforceRetention();
+    }
+  }
+
+  #pinAuthorizationEvidence(id) {
+    this.#authorizationPins.set(id, (this.#authorizationPins.get(id) ?? 0) + 1);
+  }
+
+  #unpinAuthorizationEvidence(id) {
+    const remaining = this.#authorizationPins.get(id) - 1;
+    if (remaining > 0) this.#authorizationPins.set(id, remaining);
+    else this.#authorizationPins.delete(id);
   }
 
   evidence(id) { return this.#evidence.get(id)?.record ?? null; }
@@ -262,6 +301,46 @@ export class GovernanceEngine {
     return entry;
   }
 
+  #retentionRecordCap() {
+    // Security: reserve journal headroom for the terminal record of each pending
+    // decision and for registrations in progress before their next checkpoint.
+    const resumeLimit = this.#store?.resumeRecordLimit ?? Math.max(this.retentionEntries * 4, MINIMUM_RESUME_RECORDS);
+    return Math.min(this.retentionEntries * 2 + 256, resumeLimit - 256);
+  }
+
+  #pendingFootprint() {
+    const pending = [...this.#decisions.values()]
+      .filter((entry) => !entry.terminal && settlementRequired(entry.record))
+      .map((entry) => entry.record);
+    const refs = new Set(pending.flatMap((entry) => entry.evidenceRefs));
+    return { pending, refs };
+  }
+
+  #assertEvidenceCapacity(id) {
+    const { pending, refs } = this.#pendingFootprint();
+    for (const pin of this.#authorizationPins.keys()) refs.add(pin);
+    const newest = [...this.#decisions.values()].at(-1);
+    const newestProtected = newest && !pending.some((entry) => entry.id === newest.record.id);
+    if (newestProtected) {
+      for (const ref of newest.record.evidenceRefs) refs.add(ref);
+    }
+    refs.add(id);
+    if (refs.size + pending.length * 2
+      + (newestProtected ? 1 + Number(Boolean(newest.terminal)) : 0) > this.#retentionRecordCap()) {
+      throw new ContractError('governance_pending_capacity', 'unsettled governance decisions have reached the durable retention capacity');
+    }
+  }
+
+  #assertPendingCapacity(decision) {
+    const { pending, refs } = this.#pendingFootprint();
+    for (const pin of this.#authorizationPins.keys()) refs.add(pin);
+    for (const id of decision.evidenceRefs) refs.add(id);
+    const decisionRecords = settlementRequired(decision) ? 2 : 1;
+    if (refs.size + pending.length * 2 + decisionRecords > this.#retentionRecordCap()) {
+      throw new ContractError('governance_pending_capacity', 'unsettled governance decisions have reached the durable retention capacity');
+    }
+  }
+
   async #record(type, payload) {
     if (this.#store) await this.#store.append(type, payload);
     this.#journalRecords += 1;
@@ -308,18 +387,42 @@ export class GovernanceEngine {
     }
     const retentionTarget = retentionCompactionTarget(this.retentionEntries);
     const allDecisions = [...this.#decisions.values()];
-    const decisions = [];
-    const requiredEvidence = new Set(pinnedEvidenceId ? [pinnedEvidenceId] : []);
+    const requiredEvidence = new Set([
+      ...(pinnedEvidenceId ? [pinnedEvidenceId] : []), ...this.#authorizationPins.keys(),
+    ]);
+    // Invariant: an approval that can still acquire an effect cannot lose its
+    // decision or causal evidence merely because newer history arrived.
+    const pending = allDecisions.filter((entry) => !entry.terminal && settlementRequired(entry.record));
+    const newest = allDecisions.at(-1);
+    const retained = new Set([...pending, ...(newest ? [newest] : [])]);
+    for (const entry of pending) {
+      for (const id of entry.record.evidenceRefs) requiredEvidence.add(id);
+    }
+    if (newest) {
+      for (const id of newest.record.evidenceRefs) requiredEvidence.add(id);
+    }
+    let selectedRecordCount = [...retained].reduce((count, entry) => count + 1 + Number(Boolean(entry.terminal)), 0);
+    if (requiredEvidence.size + pending.length * 2
+      + (newest && !pending.includes(newest) ? 1 + Number(Boolean(newest.terminal)) : 0) > this.#retentionRecordCap()) {
+      throw new ContractError('governance_pending_capacity', 'unsettled governance decisions exceed durable retention capacity');
+    }
     for (let index = allDecisions.length - 1; index >= 0; index -= 1) {
       const candidate = allDecisions[index];
-      const additions = [...new Set([...candidate.record.evidenceRefs, ...candidate.record.authorityRefs])]
+      if (retained.has(candidate)) continue;
+      const additions = candidate.record.evidenceRefs
         .filter((id) => !requiredEvidence.has(id));
-      if (decisions.length + requiredEvidence.size + additions.length + 1 > retentionTarget) break;
-      decisions.push(candidate);
+      // Invariant: a just-committed decision remains settleable with its evidence,
+      // even when that one chain exceeds the configured history target.
+      const candidateRecords = selectedRecordCount + requiredEvidence.size + additions.length
+        + 1 + Number(Boolean(candidate.terminal));
+      if (candidateRecords > this.#retentionRecordCap()
+        || (retained.size > 0 && candidateRecords > retentionTarget)) continue;
+      retained.add(candidate);
+      selectedRecordCount += 1 + Number(Boolean(candidate.terminal));
       for (const id of additions) requiredEvidence.add(id);
     }
-    const retainedDecisions = decisions.toReversed();
-    const evidenceBudget = retentionTarget - retainedDecisions.length;
+    const retainedDecisions = allDecisions.filter((entry) => retained.has(entry));
+    const evidenceBudget = retentionTarget - selectedRecordCount;
     const allEvidence = [...this.#evidence.values()];
     const optional = allEvidence.filter((entry) => !requiredEvidence.has(entry.record.id));
     const optionalBudget = Math.max(0, evidenceBudget - requiredEvidence.size);

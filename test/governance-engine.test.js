@@ -162,6 +162,135 @@ test('governance retention never leaves a retained decision with dangling eviden
   assert.ok(governance.health().evidence + governance.health().decisions <= 4);
 });
 
+test('governance keeps an oversized newest decision settleable across a durable checkpoint', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-governance-tight-retention-'));
+  const options = { durable: true, root, sessionId: 'tight-retention', retentionEntries: 1 };
+  try {
+    const governance = new GovernanceEngine(options);
+    await governance.initialize();
+    const evidence = await governance.registerEvidence(evidenceRecord('tight-evidence', 'tight-content'));
+    const decision = await governance.decide({
+      id: 'tight-decision', domain: 'evidence_admission', subjectRef: 'tight-subject',
+      subjectFingerprint: 'tight-subject', outcome: 'admit', reasonCode: 'eligible',
+      policyVersion: 'test/1', evidenceRefs: [evidence.id],
+    });
+    assert.equal(governance.decision(decision.id)?.id, decision.id);
+    assert.ok(governance.evidence(evidence.id));
+    await governance.settleDecision(decision.id, {
+      status: 'not_applied', effectCertainty: 'none', resultFingerprint: 'not-injected',
+      settledAt: 2, reasonCode: 'test_complete',
+    });
+    await governance.close();
+
+    const resumed = new GovernanceEngine(options);
+    await resumed.initialize();
+    assert.equal(resumed.decision(decision.id)?.id, decision.id);
+    assert.ok(resumed.evidence(evidence.id));
+    assert.equal(resumed.audit()[0].terminal.status, 'not_applied');
+    await resumed.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('older unsettled approvals and their evidence survive compaction and durable resume', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-governance-pending-'));
+  const options = { durable: true, root, sessionId: 'pending-retention', retentionEntries: 4 };
+  try {
+    const governance = new GovernanceEngine(options);
+    await governance.initialize();
+    for (let index = 1; index <= 2; index += 1) {
+      const evidence = await governance.registerEvidence(evidenceRecord(`pending-evidence-${index}`, `content-${index}`));
+      await governance.decide({
+        id: `pending-decision-${index}`, domain: 'action_authorization',
+        subjectRef: `tool-${index}`, subjectFingerprint: `tool-${index}`,
+        outcome: 'approve', reasonCode: 'authorized', policyVersion: 'test/1',
+        evidenceRefs: [evidence.id],
+      });
+    }
+    await governance.registerEvidence(evidenceRecord('newer-evidence', 'newer-content'));
+    assert.equal(governance.health().unsettled_decisions, 2);
+    await governance.close();
+
+    const resumed = new GovernanceEngine(options);
+    await resumed.initialize();
+    for (let index = 1; index <= 2; index += 1) {
+      assert.ok(resumed.decision(`pending-decision-${index}`));
+      assert.ok(resumed.evidence(`pending-evidence-${index}`));
+      await resumed.settleDecision(`pending-decision-${index}`, {
+        status: 'not_applied', effectCertainty: 'none', resultFingerprint: `result-${index}`,
+      });
+    }
+    assert.equal(resumed.health().unsettled_decisions, 0);
+    await resumed.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('authorization commits both causal evidence records under a one-entry retention target', async () => {
+  const governance = new GovernanceEngine({ durable: false, sessionId: 'authorization-tight', retentionEntries: 1 });
+  const record = await governance.recordAuthorization({
+    id: 'tight-tool-request', toolName: 'shell_run', workspaceRoot: 'D:/workspace', createdAt: 100,
+  }, {
+    id: 'tight-authorization', outcome: 'approve', reasonCode: 'authorized',
+    requestDigest: 'request-digest', authorityId: 'authority-1', authorityVersion: 1,
+    authorityRestrictionVersion: 0, policyVersion: 1, committedAt: 110, expiresAt: 1_000,
+  });
+  assert.equal(record.evidenceRefs.length, 2);
+  assert.ok(record.evidenceRefs.every((id) => governance.evidence(id)));
+  assert.equal(governance.health().unsettled_decisions, 1);
+  await governance.settleDecision(record.id, {
+    status: 'not_applied', effectCertainty: 'none', resultFingerprint: 'not-applied',
+  });
+});
+
+test('external authority references are preserved without being treated as evidence ids', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-governance-external-authority-'));
+  const options = { durable: true, root, sessionId: 'external-authority', retentionEntries: 1 };
+  try {
+    const governance = new GovernanceEngine(options);
+    await governance.initialize();
+    const evidence = await governance.registerEvidence(evidenceRecord('authority-test-evidence', 'content'));
+    const decision = await governance.decide({
+      id: 'external-authority-decision', domain: 'action_authorization',
+      subjectRef: 'tool-request', subjectFingerprint: 'tool-request',
+      outcome: 'approve', reasonCode: 'authorized', policyVersion: 'test/1',
+      evidenceRefs: [evidence.id], authorityRefs: ['operator:external-authority'],
+    });
+    assert.deepEqual(decision.authorityRefs, ['operator:external-authority']);
+    assert.equal(governance.health().unsettled_decisions, 1);
+    await governance.close();
+
+    const resumed = new GovernanceEngine(options);
+    await resumed.initialize();
+    assert.deepEqual(resumed.decision(decision.id).authorityRefs, ['operator:external-authority']);
+    assert.ok(resumed.evidence(evidence.id));
+    await resumed.settleDecision(decision.id, {
+      status: 'not_applied', effectCertainty: 'none', resultFingerprint: 'no-effect',
+    });
+    await resumed.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('pending approval capacity fails before the new decision is committed', async () => {
+  const governance = new GovernanceEngine({ durable: false, sessionId: 'pending-cap', retentionEntries: 1 });
+  const evidence = await governance.registerEvidence(evidenceRecord('shared-pending-evidence', 'content'));
+  const input = (index) => ({
+    id: `capacity-decision-${index}`, domain: 'action_authorization',
+    subjectRef: `tool-${index}`, subjectFingerprint: `tool-${index}`,
+    outcome: 'approve', reasonCode: 'authorized', policyVersion: 'test/1',
+    evidenceRefs: [evidence.id],
+  });
+  for (let index = 0; index < 128; index += 1) await governance.decide(input(index));
+  await assert.rejects(() => governance.decide(input(128)), { code: 'governance_pending_capacity' });
+  assert.equal(governance.decision('capacity-decision-128'), null);
+  assert.ok(governance.decision('capacity-decision-0'));
+  assert.equal(governance.health().unsettled_decisions, 128);
+});
+
 test('large governance retention compacts with bounded headroom', async () => {
   const governance = new GovernanceEngine({ durable: false, sessionId: 'headroom', retentionEntries: 100 });
   for (let index = 0; index < 101; index += 1) {

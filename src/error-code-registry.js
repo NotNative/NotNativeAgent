@@ -24,6 +24,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'governance_enum_invalid', 'governance_evidence_invalid', 'governance_evidence_missing',
     'governance_evidence_transition_invalid', 'governance_evidence_validity_invalid', 'governance_fields_invalid',
     'governance_fingerprint_invalid', 'governance_identifier_invalid', 'governance_journal_corrupt',
+    'governance_pending_capacity',
     'governance_record_unknown', 'governance_references_invalid', 'governance_timestamp_invalid',
     'governance_value_invalid', 'permission_choice_invalid', 'permission_mismatch',
     'permission_missing', 'permission_queue_full', 'permission_stale',
