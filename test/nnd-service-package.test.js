@@ -37,10 +37,10 @@ test('service package checks host capability and artifact bytes before registrat
   await validateNndPackage(root, { serviceHost: HOST });
   await assert.rejects(validateNndPackage(root, { serviceHost: { ...HOST, capabilities: [] } }),
     { code: 'nnd_package_incompatible' });
-  await runNndPackageCommand(['activate', root], { config });
+  await runNndPackageCommand(['activate', root], { root, config });
   const registry = await readFile(join(config, 'nnd-package.json'), 'utf8');
   await writeFile(join(root, 'packages/electron/dist-server/server.mjs'), 'modified');
-  await assert.rejects(runNndPackageCommand(['activate', root], { config }), { code: 'nnd_package_manifest_invalid' });
+  await assert.rejects(runNndPackageCommand(['activate', root], { root, config }), { code: 'nnd_package_manifest_invalid' });
   assert.equal(await readFile(join(config, 'nnd-package.json'), 'utf8'), registry);
 });
 test('service activation requires metadata and refuses escaped entrypoints', async (t) => {

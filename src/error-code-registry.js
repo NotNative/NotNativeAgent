@@ -200,7 +200,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_hooks_request_invalid', 'nnd_hooks_projection_invalid',
     'nnd_update_action_invalid', 'nnd_update_projection_invalid', 'nnd_update_install_unsupported',
     'nnd_package_action_invalid', 'nnd_package_projection_invalid',
-    'nnd_package_root_invalid', 'nnd_package_command_invalid', 'nnd_package_root_mismatch',
+    'nnd_package_root_invalid', 'nnd_package_data_root_invalid', 'nnd_package_command_invalid', 'nnd_package_root_mismatch',
     'nnd_installation_request_invalid', 'nnd_installation_projection_invalid',
     'nnd_browser_action_invalid', 'nnd_browser_projection_invalid',
     'nnd_skills_request_invalid', 'nnd_skills_catalog_unavailable',

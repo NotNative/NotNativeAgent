@@ -44,7 +44,25 @@ test('registration waits for the shared slot mutex and refuses unresolved instal
   await mkdir(join(temp, 'runtime/nnd'), { recursive: true });
   await writeFile(join(temp, 'runtime/nnd/installation-pending.json'), 'unknown pending evidence');
   await assert.rejects(runNndPackageCommand(['deactivate', root], paths), { code: 'nnd_install_transaction_pending' });
+  await assert.rejects(runNndPackageCommand(['deactivate', root], { config }),
+    { code: 'nnd_package_data_root_invalid' });
+  // Security: an unrelated absolute root cannot make the registry's own pending barrier disappear.
+  await assert.rejects(runNndPackageCommand(['deactivate', root], { root: join(temp, 'elsewhere'), config }),
+    { code: 'nnd_package_data_root_invalid' });
+  await assert.rejects(readFile(join(temp, 'elsewhere', 'config', 'nnd-package.json')), { code: 'ENOENT' });
   assert.deepEqual(await readFile(join(config, 'nnd-package.json')), before);
+});
+
+test('registry mutation refuses a config directory redirected outside its data root', async t => {
+  const root = createScratchSync('nna-registration-pair-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const other = join(root, 'other'), config = join(root, 'config');
+  await mkdir(other);
+  try { await symlink(other, config, process.platform === 'win32' ? 'junction' : 'dir'); }
+  catch (error) { if (error.code === 'EPERM') return; throw error; }
+  await assert.rejects(runNndPackageCommand(['deactivate', root], { root, config }),
+    { code: 'nnd_package_data_root_invalid' });
+  await assert.rejects(readFile(join(other, 'nnd-package.json')), { code: 'ENOENT' });
 });
 
 test('malformed registration remains a failure rather than appearing unregistered', async t => {
@@ -62,7 +80,7 @@ test('registers only a complete version-matched NND package and reports drift', 
   const root = join(temp, 'nnd');
   const config = join(temp, 'config');
   await mkdir(config); await fixture(root);
-  const paths = { config };
+  const paths = { root: temp, config };
   assert.deepEqual(await runNndPackageCommand(['status'], paths), { registered: false });
   assert.match((await runNndPackageCommand(['activate', root], paths)).version, /^20260926-56$/u);
   assert.equal((await runNndPackageCommand(['activate', root], paths)).registered, true);
@@ -118,7 +136,7 @@ test('registration validates the package after acquiring the shared writer mutex
   let release,entered;const ready=new Promise(resolve=>{entered=resolve;}),gate=new Promise(resolve=>{release=resolve;});
   const owner=withManifestLock(join(config,'nnd-package.json'),{},async()=>{entered();await gate;});
   await ready;
-  const pending=runNndPackageCommand(['activate',root],{config});
+  const pending=runNndPackageCommand(['activate',root],{root:temp,config});
   const rejected=assert.rejects(pending,{code:'nnd_package_manifest_invalid'});
   try {
     await new Promise(resolve=>setTimeout(resolve,500));
