@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { releaseFiles as collectReleaseFiles } from './release-content.mjs';
 import { sealVersionLedger } from './release-version-ledger.mjs';
 import { checkWorkspaceSafety } from './release-workspace-safety.mjs';
+import { appendManifestDiagnostics } from './release-manifest-diagnostics.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const errors = [];
@@ -164,12 +165,7 @@ async function verifyManifest() {
   }
   const lists = (await releaseFiles()).map((path) => relativeName(path)).sort();
   const differences = await hashDifferences(lists, expected);
-  for (const [name, hash] of differences.mismatches) errors.push(`release artifact mismatch: ${name}`);
-  for (const name of missingFromManifest(differences, lists, expected)) errors.push(`manifest missing file: ${name}`);
-  for (const name of differences.stale) errors.push(`manifest references missing file: ${name}`);
-  const visible = errors.slice(0, 40);
-  errors.length = 0;
-  errors.push(...visible);
+  appendManifestDiagnostics(errors, differences, lists, expected);
 }
 
 async function hashDifferences(lists, expected) {
@@ -183,11 +179,6 @@ async function hashDifferences(lists, expected) {
     if (actual !== expectedHash) mismatches.push([name, actual]);
   }
   return { mismatches, stale: [...stale] };
-}
-
-function missingFromManifest(differences, lists, expected) {
-  void differences;
-  return lists.filter((name) => !expected.has(name));
 }
 
 async function releaseFiles() {
