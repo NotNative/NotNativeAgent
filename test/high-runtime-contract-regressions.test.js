@@ -85,6 +85,25 @@ test('work projection rejects malformed records while current completion error i
   await assert.rejects(work.completeGoal(''), (error) => error.code === 'work_text_invalid' && error.message.includes('goal completion evidence'));
 });
 
+test('work projection keeps terminal task evidence round-trip safe', async () => {
+  const work = new ConversationWork();
+  await work.setGoal('Verify the build');
+  await work.addTask('Run the checks');
+  await work.updateTask('T1', 'completed', 'All checks passed.');
+  const snapshot = work.snapshot();
+  assert.equal(projectConversationWork(snapshot).tasks[0].detail, 'All checks passed.');
+  for (const task of [
+    { ...snapshot.tasks[0], evidence: null },
+    { ...snapshot.tasks[0], status: 'blocked', blockedReason: null },
+    { ...snapshot.tasks[0], title: ' ' },
+    { ...snapshot.tasks[0], id: 'not-a-task-id' },
+  ]) {
+    assert.throws(() => projectConversationWork({ ...snapshot, tasks: [task] }), {
+      code: 'work_snapshot_invalid',
+    });
+  }
+});
+
 test('incomplete tool observations do not crash or manufacture progress', () => {
   for (const item of [null, {}, { result: { status: 'succeeded' } }, { result: { status: 'succeeded', content: {} } }]) {
     assert.equal(toolProgressEvidence([item]), null);

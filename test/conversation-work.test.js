@@ -264,6 +264,51 @@ test('work plan task identities remain valid after more than 64 lifetime additio
   assert.equal(resumed.snapshot().tasks[0].status, 'completed');
 });
 
+test('durable recovery rejects terminal tasks that lack their evidence', async () => {
+  const work = new ConversationWork();
+  await work.addTask('Verify the build');
+  await work.updateTask('T1', 'completed', 'The build passed.');
+  const snapshot = work.snapshot();
+  for (const task of [
+    { ...snapshot.tasks[0], evidence: null },
+    { ...snapshot.tasks[0], status: 'blocked', blockedReason: null },
+  ]) {
+    const resumed = new ConversationWork();
+    assert.throws(() => resumed.restore([{ type: 'work_state', payload: {
+      ...snapshot, tasks: [task],
+    } }]), { code: 'work_text_invalid' });
+  }
+});
+
+test('durable recovery classifies malformed task records as invalid work state', () => {
+  const snapshot = new ConversationWork().snapshot();
+  for (const task of [null, false, []]) {
+    const resumed = new ConversationWork();
+    assert.throws(() => resumed.restore([{ type: 'work_state', payload: {
+      ...snapshot, tasks: [task],
+    } }]), { code: 'work_state_invalid' });
+  }
+});
+
+test('durable recovery rejects task identity and status contradictions', async () => {
+  const work = new ConversationWork();
+  await work.setGoal('Verify the build');
+  await work.addTask('Run the checks');
+  const snapshot = work.snapshot();
+  const task = snapshot.tasks[0];
+  for (const changed of [
+    { nextTaskNumber: 1 },
+    { tasks: [{ ...task, status: 'in_progress' }, { ...task, id: 'T2', status: 'in_progress' }], nextTaskNumber: 3 },
+    { goal: { ...snapshot.goal, status: 'completed', evidence: 'Done' } },
+    { goal: { ...snapshot.goal, status: 'blocked', blockedReason: 'Cannot proceed' } },
+  ]) {
+    const resumed = new ConversationWork();
+    assert.throws(() => resumed.restore([{ type: 'work_state', payload: {
+      ...snapshot, ...changed,
+    } }]), { code: 'work_state_invalid' });
+  }
+});
+
 test('clearing conversation work records a durable empty revision', async () => {
   const records = [];
   const work = new ConversationWork({ persist: async (type, payload) => records.push({ type, payload }) });

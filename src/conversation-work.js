@@ -276,23 +276,34 @@ function emptyState() {
 function validateSnapshot(value) {
   // A snapshot is the durable state-machine boundary. Reject structural drift
   // rather than coercing it so corrupt state cannot silently acquire authority.
-  if (!value || value.schema !== 'nna.conversation_work.v1' || !Number.isInteger(value.revision)
-    || value.revision < 0 || !Number.isInteger(value.nextTaskNumber) || value.nextTaskNumber < 1
+  if (!value || value.schema !== 'nna.conversation_work.v1' || !Number.isSafeInteger(value.revision)
+    || value.revision < 0 || !Number.isSafeInteger(value.nextTaskNumber) || value.nextTaskNumber < 1
     || value.nextTaskNumber > MAX_TASK_NUMBER + 1
     || !Array.isArray(value.tasks) || value.tasks.length > MAX_TASKS) {
     throw new ContractError('work_state_invalid', 'durable conversation work state is invalid');
   }
   const ids = new Set();
   const tasks = value.tasks.map((task) => {
+    if (!task || typeof task !== 'object' || Array.isArray(task)) {
+      throw new ContractError('work_state_invalid', 'durable task record is invalid');
+    }
     const id = normalizeTaskId(task.id);
-    if (ids.has(id) || !TASK_STATES.has(task.status)) throw new ContractError('work_state_invalid', 'durable task identity or status is invalid');
+    if (ids.has(id) || Number(id.slice(1)) >= value.nextTaskNumber || !TASK_STATES.has(task.status)) {
+      throw new ContractError('work_state_invalid', 'durable task identity or status is invalid');
+    }
     ids.add(id);
     return Object.freeze({
       id, title: boundedText(task.title, 'task title', MAX_TASK_TITLE), status: task.status,
-      evidence: optionalText(task.evidence), blockedReason: optionalText(task.blockedReason),
+      evidence: task.status === 'completed'
+        ? boundedText(task.evidence, 'task completion evidence', MAX_DETAIL) : optionalText(task.evidence),
+      blockedReason: task.status === 'blocked'
+        ? boundedText(task.blockedReason, 'task blocking reason', MAX_DETAIL) : optionalText(task.blockedReason),
       createdAt: String(task.createdAt), updatedAt: String(task.updatedAt),
     });
   });
+  if (tasks.filter((task) => task.status === 'in_progress').length > 1) {
+    throw new ContractError('work_state_invalid', 'durable conversation work contains more than one in-progress task');
+  }
   if (value.goal !== null && (!value.goal || typeof value.goal !== 'object'
     || !GOAL_STATES.has(value.goal.status))) {
     throw new ContractError('work_state_invalid', 'durable goal status is invalid');
@@ -307,6 +318,10 @@ function validateSnapshot(value) {
     evidenceRef: optionalText(value.goal.evidenceRef),
     createdAt: String(value.goal.createdAt), updatedAt: String(value.goal.updatedAt),
   });
+  if ((goal?.status === 'completed' && tasks.some((task) => task.status !== 'completed'))
+    || (goal?.status === 'blocked' && tasks.some((task) => !['completed', 'blocked'].includes(task.status)))) {
+    throw new ContractError('work_state_invalid', 'durable goal status conflicts with task status');
+  }
   const pendingCompletion = validatePendingCompletion(value.pendingCompletion, value.nextTaskNumber);
   return Object.freeze({ ...emptyState(), revision: value.revision, nextTaskNumber: value.nextTaskNumber, goal, tasks: Object.freeze(tasks), pendingCompletion });
 }
