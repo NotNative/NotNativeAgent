@@ -29,17 +29,12 @@ export async function bumpVersion(root, options = {}, io = {}) {
   const nextProduct = originals[2].replace(/export const VERSION = ['"][^'"]*['"];/u, `export const VERSION = '${version}';`);
   if (nextProduct === originals[2]) throw new Error('runtime VERSION declaration was not found');
   const sbom = parseMetadata(originals[3], sbomPath);
-  if (!Array.isArray(sbom.packages) || !sbom.packages[0]
-    || typeof sbom.packages[0] !== 'object' || Array.isArray(sbom.packages[0])
-    || typeof sbom.packages[0].name !== 'string' || typeof sbom.packages[0].SPDXID !== 'string'
-    || typeof sbom.packages[0].versionInfo !== 'string') {
-    throw new Error('SBOM must contain a primary package');
-  }
+  const primaryPackage = describedProductPackage(sbom);
   packageJson.version = packageVersion;
   packageJson.nna_version = version;
   sbom.name = `NotNativeAgent-${version}`;
   sbom.documentNamespace = `https://example.invalid/not-native-agent/sbom/${version}`;
-  sbom.packages[0].versionInfo = version;
+  primaryPackage.versionInfo = version;
   // Why: one product, one canonical stamp — NotNativeDesktop is a component, not a peer
   // product; its VERSION/package mirror the root stamp instead of advancing independently.
   // Compatibility: desktop mirrors use the same semver mapping `${date}.0.${iteration}` and
@@ -65,15 +60,16 @@ export async function bumpVersion(root, options = {}, io = {}) {
 }
 
 export async function writeSynchronized(entries, write = writeFile) {
-  const completed = [];
+  const attempted = [];
   try {
     for (const entry of entries) {
+      // A write can truncate the destination before rejecting. Include that path in rollback.
+      attempted.push(entry);
       await write(entry.path, entry.after, 'utf8');
-      completed.push(entry);
     }
   } catch (error) {
     const rollbackFailures = []; const affected = [];
-    for (const entry of [...completed].reverse()) {
+    for (const entry of [...attempted].reverse()) {
       try { await write(entry.path, entry.before, 'utf8'); }
       catch (rollbackError) { rollbackFailures.push(rollbackError); affected.push(entry.path); }
     }
@@ -82,6 +78,25 @@ export async function writeSynchronized(entries, write = writeFile) {
     }
     throw error;
   }
+}
+
+function describedProductPackage(sbom) {
+  const packages = Array.isArray(sbom.packages) ? sbom.packages : [];
+  const relationships = Array.isArray(sbom.relationships) ? sbom.relationships : [];
+  const validId = (value) => typeof value === 'string' && value.trim().length > 0;
+  const packageIds = packages.map((entry) => entry?.SPDXID);
+  // Invariant: a document relationship must identify one unambiguous package before its version changes.
+  if (!validId(sbom.SPDXID) || packageIds.some((id) => !validId(id) || id === sbom.SPDXID)
+    || new Set(packageIds).size !== packageIds.length) {
+    throw new Error('SBOM must describe exactly one NotNativeAgent package');
+  }
+  const descriptions = relationships.filter((relation) => relation?.spdxElementId === sbom.SPDXID
+    && relation.relationshipType === 'DESCRIBES');
+  const matches = packages.filter((entry) => entry?.name === 'not-native-agent'
+    && typeof entry.versionInfo === 'string'
+    && descriptions.filter((relation) => relation.relatedSpdxElement === entry.SPDXID).length === 1);
+  if (matches.length !== 1) throw new Error('SBOM must describe exactly one NotNativeAgent package');
+  return matches[0];
 }
 
 function parseMetadata(source, path) {

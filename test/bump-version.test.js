@@ -7,7 +7,9 @@ import test from 'node:test';
 import { argumentsFrom, bumpVersion, writeSynchronized } from '../scripts/bump-version.js';
 
 async function fixture(sbom = {
-  name: 'old', packages: [{ name: 'NotNativeAgent', SPDXID: 'SPDXRef-Package-NotNativeAgent', versionInfo: '20260101-1' }],
+  SPDXID: 'SPDXRef-DOCUMENT', name: 'old',
+  packages: [{ name: 'not-native-agent', SPDXID: 'SPDXRef-Package-NNA', versionInfo: '20260101-1' }],
+  relationships: [{ spdxElementId: 'SPDXRef-DOCUMENT', relationshipType: 'DESCRIBES', relatedSpdxElement: 'SPDXRef-Package-NNA' }],
 }) {
   const root = await mkdtemp(join(tmpdir(), 'nna-bump-rollback-'));
   await mkdir(join(root, 'src'));
@@ -46,8 +48,70 @@ test('version bump validates the primary SBOM package before writing', async () 
   try {
     await assert.rejects(bumpVersion(root, { date: '20261231', iteration: 2 }, {
       writeFile: async () => { writes += 1; },
-    }), /SBOM must contain a primary package/u);
+    }), /SBOM must describe exactly one NotNativeAgent package/u);
     assert.equal(writes, 0);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('version bump stamps the described product even when dependencies precede it', async () => {
+  const root = await fixture({
+    SPDXID: 'SPDXRef-DOCUMENT', name: 'old',
+    packages: [
+      { name: 'dependency', SPDXID: 'SPDXRef-Package-Dependency', versionInfo: '4.2.0' },
+      { name: 'not-native-agent', SPDXID: 'SPDXRef-Package-NNA', versionInfo: '20260101-1' },
+    ],
+    relationships: [{ spdxElementId: 'SPDXRef-DOCUMENT', relationshipType: 'DESCRIBES', relatedSpdxElement: 'SPDXRef-Package-NNA' }],
+  });
+  try {
+    await bumpVersion(root, { date: '20261231', iteration: 2 });
+    const sbom = JSON.parse(await readFile(join(root, 'SBOM.spdx.json'), 'utf8'));
+    assert.equal(sbom.packages[0].versionInfo, '4.2.0');
+    assert.equal(sbom.packages[1].versionInfo, '20261231-2');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('version bump rejects ambiguous or mismatched SBOM descriptions before any write', async () => {
+  const product = { name: 'not-native-agent', SPDXID: 'SPDXRef-Package-NNA', versionInfo: '20260101-1' };
+  const dependency = { name: 'dependency', SPDXID: 'SPDXRef-Package-Dependency', versionInfo: '4.2.0' };
+  const describesProduct = { spdxElementId: 'SPDXRef-DOCUMENT', relationshipType: 'DESCRIBES', relatedSpdxElement: product.SPDXID };
+  const base = { SPDXID: 'SPDXRef-DOCUMENT', packages: [product], relationships: [describesProduct] };
+  const malformed = [
+    { ...base, SPDXID: undefined, relationships: [{ ...describesProduct, spdxElementId: undefined }] },
+    { ...base, relationships: [describesProduct, { ...describesProduct }] },
+    { ...base, packages: [product, { ...dependency, SPDXID: product.SPDXID }] },
+    { ...base, packages: [{ ...product, SPDXID: base.SPDXID }], relationships: [{ ...describesProduct, relatedSpdxElement: base.SPDXID }] },
+    { ...base, packages: [product, dependency], relationships: [{ ...describesProduct, relatedSpdxElement: dependency.SPDXID }] },
+    { ...base, packages: [{ ...product, name: 'wrong-product' }] },
+  ];
+  for (const sbom of malformed) {
+    const root = await fixture(sbom);
+    let writes = 0;
+    try {
+      await assert.rejects(bumpVersion(root, { date: '20261231', iteration: 2 }, {
+        writeFile: async () => { writes += 1; },
+      }), /SBOM must describe exactly one NotNativeAgent package/u);
+      assert.equal(writes, 0);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  }
+});
+
+test('version bump restores a destination whose write truncates before failing', async () => {
+  const root = await fixture();
+  const paths = ['VERSION', 'package.json', join('src', 'product.js'), 'SBOM.spdx.json'];
+  const before = await Promise.all(paths.map((path) => readFile(join(root, path), 'utf8')));
+  let failed = false;
+  try {
+    await assert.rejects(bumpVersion(root, { date: '20261231', iteration: 2 }, {
+      writeFile: async (path, content, encoding) => {
+        if (!failed && path === join(root, 'src', 'product.js')) {
+          failed = true;
+          await writeFile(path, 'partial', encoding);
+          throw new Error('simulated partial write');
+        }
+        return writeFile(path, content, encoding);
+      },
+    }), /simulated partial write/u);
+    assert.deepEqual(await Promise.all(paths.map((path) => readFile(join(root, path), 'utf8'))), before);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -78,7 +142,7 @@ test('version bump rejects malformed metadata with its filename before any write
 test('version rollback report names only artifacts whose restoration failed', async () => {
   const entries = ['one', 'two', 'three'].map((path) => ({ path, before: 'old', after: 'new' }));
   await assert.rejects(writeSynchronized(entries, async (path, content) => {
-    if (path === 'three' || (path === 'one' && content === 'old')) throw new Error(path);
+    if ((path === 'three' && content === 'new') || (path === 'one' && content === 'old')) throw new Error(path);
   }), (error) => {
     assert.ok(error instanceof AggregateError);
     assert.match(error.message, /one/u);
