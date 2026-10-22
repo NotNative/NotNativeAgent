@@ -82,10 +82,7 @@ async function dispatch(request, response, context) {
   // Security: supervised listeners derive authority natively, never from child headers.
   const principal = context.resolvePrincipal ? context.resolvePrincipal() : readIntegrationPrincipal(request);
   const url = new URL(request.url ?? '/', 'http://127.0.0.1');
-  if (context.nndRuntime) {
-    const host = context.nndRuntime.getHost();
-    context = { ...context, nndEngineHost: host, nndWorkspaceRoot: host?.workspaceRoot };
-  }
+  if (context.nndRuntime) context = withNndEngineHost(context);
   if (request.method === 'GET' && url.pathname === '/v1/health') {
     requireIntegrationPermission(principal, 'integration.health');
     return send(response, 200, { status: context.nndRuntime?.snapshot().service_state ?? 'ready',
@@ -111,15 +108,21 @@ async function dispatch(request, response, context) {
     && await dispatchNndWorkspaceAdmissionRequest(request, response, { ...context, principal, url })) return;
   if (context.nndWorkspaceGrantService
     && await dispatchNndWorkspaceGrantRequest(request, response, { ...context, principal, url })) return;
+  // Invariant: supervised clients may renew their scoped capability while execution is setup-required.
+  if (await dispatchNndCapabilityRequest(request, response, { ...context, url })) return;
   guardNndSetupRequest({ ...context, principal, url });
   if (await dispatchNndAttachmentUploadRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchProviderRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchNndHarnessRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchNndOperatorRequest(request, response, { ...context, principal, url,
     nndSessionResolver: context.nndSessionResolver ?? context.nndEngineHost?.resolveChildSession?.bind(context.nndEngineHost) })) return;
-  if (await dispatchNndCapabilityRequest(request, response, { ...context, url })) return;
   if (await dispatchSecretBrokerRequest(request, response, { ...context, principal, url })) return;
   return send(response, 404, failure('not_found', 'integration endpoint not found'));
+}
+
+function withNndEngineHost(context) {
+  const host = context.nndRuntime.getHost();
+  return { ...context, nndEngineHost: host, nndWorkspaceRoot: host?.workspaceRoot };
 }
 
 export async function dispatchProviderRequest(request, response, context) {

@@ -885,6 +885,7 @@ test('capability renewal endpoint renews within grace and fails closed', async (
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test', port: 0,
     capabilityAuthority: authority,
+    nndRuntime: { getHost: () => null, snapshot: () => ({ service_state: 'setup_required', execution_state: 'unavailable' }) },
   });
   const base = `http://127.0.0.1:${service.address.port}`;
   const renew = async (capability, method = 'POST', header = capability) => {
@@ -907,6 +908,12 @@ test('capability renewal endpoint renews within grace and fails closed', async (
     const renewed = await renew(fresh);
     assert.equal(renewed.status, 200);
     assert.equal(authority.verify(renewed.value.capability).subject_id, 'nnd-service:nna_test');
+    const blockedExecution = await fetch(`${base}/session`, { headers: {
+      authorization: `Bearer ${TOKEN}`, 'x-nna-service-capability': fresh,
+      'x-nna-principal': Buffer.from(JSON.stringify(principal(['nnd.read']))).toString('base64url'),
+    } });
+    assert.equal(blockedExecution.status, 503);
+    assert.equal((await blockedExecution.json()).error.code, 'nnd_setup_required');
     // The endpoint never accepts caller-shaped authority: a tampered token fails closed.
     const [payload, signature] = fresh.split('.');
     const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(payload, 'base64url')), permissions: ['*'] }))
