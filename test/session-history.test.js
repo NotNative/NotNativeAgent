@@ -142,6 +142,32 @@ test('terminal carry follows the effective durable timeline across clear and rev
   assert.equal(restored.latestTurnOutcome.turn_id, 'turn-2');
 });
 
+test('revert hides turns restored from a compaction snapshot, including a bounded tail', () => {
+  const first = { type: 'message', role: 'user', content: 'keep', turnId: 'turn-1' };
+  const second = { type: 'message', role: 'user', content: 'hide', turnId: 'turn-2' };
+  const safeFact = { type: 'compaction', summary: 'first turn only' };
+  const leakedFact = { type: 'compaction', summary: 'second turn secret' };
+  const snapshot = record('compaction_snapshot', { records: [first, safeFact, second], fact: leakedFact });
+  const revert = record('revert_point', { reverted_turn_ids: ['turn-2'] });
+  for (const options of [undefined, { controlRecords: [revert] }]) {
+    const records = options ? [snapshot] : [snapshot, revert];
+    const restored = restoreSessionRecords(records, options);
+    assert.deepEqual(restored.transcript, [first, safeFact]);
+  }
+  const direct = restoreSessionRecords([
+    record('message', first), record('compaction', safeFact), record('message', second),
+    record('compaction', leakedFact), revert,
+  ]);
+  assert.deepEqual(direct.transcript, [first, safeFact]);
+  const later = { type: 'message', role: 'user', content: 'later', turnId: 'turn-3' };
+  const laterFact = { type: 'compaction', summary: 'only visible later work' };
+  const continued = restoreSessionRecords([
+    record('message', first), record('message', second), record('compaction', leakedFact),
+    revert, record('message', later), record('compaction', laterFact),
+  ]);
+  assert.deepEqual(continued.transcript, [first, later, laterFact]);
+});
+
 test('a genesis-anchored control stream owns authority when the transcript tail is truncated', () => {
   const tail = [
     record('authority_intent', { content: 'tail duplicate', origin: 'operator' }),

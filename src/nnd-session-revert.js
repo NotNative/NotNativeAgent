@@ -31,8 +31,13 @@ function collectRevertedTurns(records, boundaryTurnId) {
 }
 
 function hideRevertedTurns(engine, turns) {
+  const firstHidden = engine.transcript.findIndex((item) => turns.has(turnIdOf(item)));
   for (let i = engine.transcript.length - 1; i >= 0; i -= 1) {
-    if (turns.has(engine.transcript[i]?.turnId)) engine.transcript.splice(i, 1);
+    const item = engine.transcript[i];
+    // Compaction facts summarize earlier records but carry no turn identity.
+    if (turns.has(turnIdOf(item)) || i > firstHidden && firstHidden >= 0 && item?.type === 'compaction') {
+      engine.transcript.splice(i, 1);
+    }
   }
 }
 

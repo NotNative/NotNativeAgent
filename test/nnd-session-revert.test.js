@@ -156,14 +156,19 @@ test('a persisted revert point survives restart before unrevert', async () => {
   await engine.initialize();
   await engine.submit({ request_id: 'r1', content: 'one' }, principal);
   await engine.submit({ request_id: 'r2', content: 'two' }, principal);
+  const fact = { type: 'compaction', summary: 'reverted secret from two' };
+  await engine.store.append('compaction_snapshot', { records: engine.transcript, fact });
+  engine.transcript.push(fact);
   const boundaryIndex = engine.transcript.findIndex((r) => r.type === 'message' && r.role === 'user');
   await runNndSessionRevert({ sessionId: 'rev2', engine, liveTurn: null }, { messageID: `rev2:message:${boundaryIndex}` });
+  assert.equal(engine.transcript.some((item) => item.type === 'compaction'), false);
   await engine.shutdown({ request_id: 'shutdown', type: 'shutdown' });
   const resumed = new SessionEngine(options);
   await resumed.initialize();
   let closed = false;
   try {
     assert.equal(resumed.transcript.filter((r) => r.type === 'message').length, 0);
+    assert.equal(resumed.transcript.some((item) => item.type === 'compaction'), false);
     // unrevert after restart restores both turns.
     await runNndSessionUnrevert({ sessionId: 'rev2', engine: resumed, liveTurn: null });
     assert.deepEqual(resumed.transcript.filter((r) => r.type === 'message' && r.role === 'user').map((r) => r.content),
