@@ -12,6 +12,9 @@ export class TelegramApi {
 
   constructor(token, options = {}) {
     if (!token) throw new ContractError('telegram_token_missing', 'Telegram bot token is not configured');
+    if (typeof token !== 'string' || token.length > 512 || /[/\\?#%\u0000-\u0020\u007f]/u.test(token)) {
+      throw new ContractError('telegram_token_invalid', 'Telegram bot token is invalid');
+    }
     this.#baseUrl = `https://api.telegram.org/bot${token}`;
     this.fetch = options.fetch ?? globalThis.fetch;
   }
@@ -28,7 +31,10 @@ export class TelegramApi {
   }
 
   async sendMessage(chatId, text, signal, options = {}) {
-    const chunks = splitTelegramText(String(text));
+    if (text != null && typeof text !== 'string') {
+      throw new ContractError('telegram_message_invalid', 'Telegram message text must be a string');
+    }
+    const chunks = splitTelegramText(text ?? '');
     let sentChunks = 0;
     try {
       for (const [index, chunk] of chunks.entries()) {
@@ -72,9 +78,17 @@ export class TelegramApi {
       if (!response.ok) throw new ContractError('telegram_api_error', `Telegram ${method}: HTTP ${response.status}`);
       throw new ContractError('telegram_response_invalid', 'Telegram returned invalid JSON');
     }
+    if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)) {
+      throw new ContractError(response.ok ? 'telegram_response_invalid' : 'telegram_api_error',
+        response.ok ? 'Telegram returned an invalid response' : `Telegram ${method}: HTTP ${response.status}`);
+    }
     if (!response.ok || envelope.ok !== true) {
       const description = typeof envelope.description === 'string' ? envelope.description.slice(0, 256) : `HTTP ${response.status}`;
       throw new ContractError('telegram_api_error', `Telegram ${method}: ${description}`);
+    }
+    if ((method === 'getUpdates' && !Array.isArray(envelope.result))
+      || (method === 'getMe' && (!envelope.result || typeof envelope.result !== 'object' || Array.isArray(envelope.result)))) {
+      throw new ContractError('telegram_response_invalid', `Telegram ${method} returned an invalid result`);
     }
     return envelope.result;
   }
@@ -122,6 +136,12 @@ function readWithSignal(reader, signal) {
 }
 
 export function splitTelegramText(text, limit = TELEGRAM_LIMIT) {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > TELEGRAM_LIMIT) {
+    throw new ContractError('telegram_chunk_limit_invalid', 'Telegram chunk limit must be a positive integer within the message limit');
+  }
+  if (typeof text !== 'string') {
+    throw new ContractError('telegram_message_invalid', 'Telegram message text must be a string');
+  }
   if (!text) return [EMPTY_MESSAGE_FALLBACK];
   const chunks = [];
   let rest = text;
@@ -129,6 +149,11 @@ export function splitTelegramText(text, limit = TELEGRAM_LIMIT) {
     let split = rest.lastIndexOf('\n', limit);
     if (split < Math.floor(limit * 0.6)) split = rest.lastIndexOf(' ', limit);
     if (split < 1) split = limit;
+    if (split < rest.length && split > 0 && /[\uD800-\uDBFF]/u.test(rest[split - 1])
+      && /[\uDC00-\uDFFF]/u.test(rest[split])) {
+      if (split === 1) throw new ContractError('telegram_chunk_limit_invalid', 'Telegram chunk limit cannot hold this character');
+      split -= 1;
+    }
     chunks.push(rest.slice(0, split));
     rest = rest.slice(split).replace(/^\s+/u, '');
   }

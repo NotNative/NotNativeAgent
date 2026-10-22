@@ -171,7 +171,8 @@ test('Telegram transport uses bounded POST requests and chunks replies', async (
   const calls = [];
   const api = new TelegramApi('123:token-value-that-is-long-enough', { fetch: async (url, init) => {
     calls.push({ url, init });
-    return new Response(JSON.stringify({ ok: true, result: { id: 5, username: 'nna_test' } }), { status: 200 });
+    const result = url.endsWith('/getUpdates') ? [] : { id: 5, username: 'nna_test' };
+    return new Response(JSON.stringify({ ok: true, result }), { status: 200 });
   } });
   assert.equal((await api.getMe()).username, 'nna_test');
   await api.sendMessage('99', 'a'.repeat(8_300));
@@ -193,6 +194,33 @@ test('Telegram transport bounds streamed bodies and never exposes its token thro
     assert.doesNotMatch(`${error.message}\n${error.stack}\n${JSON.stringify(error)}`, /private-telegram-token-value/u);
     return true;
   });
+});
+
+test('Telegram transport rejects URL-shaped tokens and malformed message input', async () => {
+  for (const token of ['123:secret/path', '123:secret?mode=send', '123:secret#fragment', '123:secret%2Fpath']) {
+    assert.throws(() => new TelegramApi(token), { code: 'telegram_token_invalid' });
+  }
+  const bodies = [];
+  const api = new TelegramApi('123:token-value-that-is-long-enough', { fetch: async (_url, options) => {
+    bodies.push(JSON.parse(options.body));
+    return new Response(JSON.stringify({ ok: true, result: {} }));
+  } });
+  await api.sendMessage('99', null);
+  assert.equal(bodies[0].text, '(NNA returned no text.)');
+  await assert.rejects(api.sendMessage('99', { text: 'wrong type' }), { code: 'telegram_message_invalid' });
+  assert.equal(bodies.length, 1);
+});
+
+test('Telegram response and chunk boundaries preserve typed failures and Unicode', async () => {
+  const api = new TelegramApi('fixture', { fetch: async () => new Response('null') });
+  await assert.rejects(api.getMe(), { code: 'telegram_response_invalid' });
+  const missingResult = new TelegramApi('fixture', { fetch: async () => new Response('{"ok":true,"result":null}') });
+  await assert.rejects(missingResult.getUpdates(0), { code: 'telegram_response_invalid' });
+  await assert.rejects(missingResult.getMe(), { code: 'telegram_response_invalid' });
+  assert.throws(() => splitTelegramText({ length: 1 }), { code: 'telegram_message_invalid' });
+  assert.throws(() => splitTelegramText('x', 0), { code: 'telegram_chunk_limit_invalid' });
+  assert.throws(() => splitTelegramText('😀', 1), { code: 'telegram_chunk_limit_invalid' });
+  assert.deepEqual(splitTelegramText('😀😀', 3), ['😀', '😀']);
 });
 
 test('gateway session identifiers do not disclose Telegram chat identifiers', () => {
@@ -275,7 +303,7 @@ test('gateway foreground startup publishes its process identity before polling',
     enabled: true, token: 'TEST_FIXTURE_NOT_A_REAL_TELEGRAM_TOKEN',
     authorized_user_ids: ['42'], workspace_root: root,
   });
-  const captured = []; const methods = []; let gatewayEngineOptions;
+  const captured = []; const methods = []; let gatewayEngineOptions; let gateway;
   const processIdentity = {
     async capture(pid) {
       captured.push(pid);
@@ -285,17 +313,20 @@ test('gateway foreground startup publishes its process identity before polling',
   const fetch = async (url) => {
     const method = new URL(url).pathname.split('/').at(-1);
     methods.push(method);
-    const result = method === 'getMe' ? { id: 1, username: 'fixture' } : null;
+    if (method === 'getUpdates') void gateway.shutdown();
+    const result = method === 'getMe' ? { id: 1, username: 'fixture' } : [];
     return new Response(JSON.stringify({ ok: true, result }), { status: 200 });
   };
 
-  await assert.rejects(runGatewayCommand(['run'], paths, {
+  const bot = await runGatewayCommand(['run'], paths, {
     environment: {}, input: null, processIdentity, fetch,
     gatewayFactory: (options) => {
       gatewayEngineOptions = options.engineOptions;
-      return new TelegramGateway(options);
+      gateway = new TelegramGateway(options);
+      return gateway;
     },
-  }), { name: 'TypeError', message: 'updates is not iterable' });
+  });
+  assert.equal(bot.id, 1);
   assert.deepEqual(captured, [process.pid, process.pid]);
   assert.deepEqual(methods, ['getMe', 'getUpdates']);
   assert.ok(gatewayEngineOptions.secretBroker instanceof SecretBroker);

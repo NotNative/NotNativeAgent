@@ -280,6 +280,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'tab_pool_invalid', 'task_active_conflict', 'task_capacity',
     'task_command_invalid', 'task_id_invalid', 'task_missing',
     'task_status_invalid', 'telegram_api_error', 'telegram_cancelled',
+    'telegram_chunk_limit_invalid', 'telegram_message_invalid',
     'telegram_response_invalid', 'telegram_response_too_large', 'telegram_timeout',
     'telegram_timeout_invalid', 'telegram_token_invalid', 'telegram_token_missing',
     'telegram_unavailable', 'telegram_user_id_invalid', 'telemetry_destination_invalid',
