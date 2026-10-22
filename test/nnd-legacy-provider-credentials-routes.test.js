@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { createScratchSync } from './scratch.js';
 import { createNndLegacyProviderCredentialsService,
   projectLegacyProviderCredentials, dispatchNndLegacyProviderCredentialsRequest } from '../src/nnd-legacy-provider-credentials-routes.js';
 import { startIntegrationServer } from '../src/integration-server.js';
@@ -51,6 +54,43 @@ test('legacy credentials service loads the alias authority on a spare environmen
     installationId: 'install_legacy', dataId: 'data_legacy',
     loader: async () => { throw new ContractError('provider_bootstrap_file_invalid', 'invalid'); } }).status(),
   { code: 'provider_bootstrap_file_invalid' }, 'the registered authority refusal passes verbatim');
+});
+
+test('legacy credentials status leaves malformed content and invalid shapes in place', async t => {
+  const root = createScratchSync('nna-legacy-credentials-read-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, 'provider-credentials.json');
+  const service = createNndLegacyProviderCredentialsService({
+    paths: { providerCredentials: path }, installationId: 'install_legacy', dataId: 'data_legacy',
+  });
+  for (const content of ['{"format_version":', 'null',
+    '{"format_version":1,"credentials":[]}']) {
+    await writeFile(path, content);
+    const receipt = await service.status();
+    assert.deepEqual({ loaded: receipt.loaded, count: receipt.count, reason: receipt.reason },
+      { loaded: false, count: 0, reason: 'provider_credentials_invalid' });
+    assert.equal(await readFile(path, 'utf8'), content);
+    assert.deepEqual(await readdir(root), ['provider-credentials.json']);
+  }
+});
+
+test('legacy credentials status observes a valid store without exposing or installing its key', async t => {
+  const root = createScratchSync('nna-legacy-credentials-valid-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, 'provider-credentials.json');
+  const key = 'read-only-fixture-key';
+  await writeFile(path, JSON.stringify({ format_version: 1,
+    credentials: { NNA_PROVIDER_INITIAL_KEY: key } }));
+  const service = createNndLegacyProviderCredentialsService({
+    paths: { providerCredentials: path }, installationId: 'install_legacy', dataId: 'data_legacy',
+  });
+  const original = process.env.NNA_PROVIDER_INITIAL_KEY;
+  const receipt = await service.status();
+  assert.deepEqual({ loaded: receipt.loaded, count: receipt.count, reason: receipt.reason },
+    { loaded: true, count: 1, reason: null });
+  assert.equal(JSON.stringify(receipt).includes(key), false);
+  assert.equal(process.env.NNA_PROVIDER_INITIAL_KEY, original);
+  assert.deepEqual(await readdir(root), ['provider-credentials.json']);
 });
 
 async function httpFixture(t, loader) {

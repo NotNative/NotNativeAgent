@@ -6,10 +6,10 @@
  * alias loader that validates config/provider-credentials.json
  * ({format_version:1, credentials:{NNA_PROVIDER_INITIAL_KEY: string ≤16 KiB}})
  * and injects the legacy environment key into the serving process (only if
- * unset) at every CLI startup. This surface runs that authority verbatim
+ * unset) at every CLI startup. This surface observes that authority
  * against a SPARE environment object and projects the verdict WITHOUT the
  * value: GET reports a loaded alias (loaded:true, count:1), an absent store
- * (190873loaded:false, count:0), or the authority's own honest refusal
+ * (loaded:false, count:0), or the authority's own honest refusal
  * (registered shape codes), and never projects the value of
  * NNA_PROVIDER_INITIAL_KEY. Nothing on disk changes; the values land in the
  * spare environment, which is discarded. Projector drift is the 500
@@ -37,7 +37,8 @@ export function createNndLegacyProviderCredentialsService({ paths, installationI
   return Object.freeze({
     async status() {
       const environment = {};
-      try { await loader(paths, environment); }
+      // Invariant: a configuration read cannot quarantine or remove its source.
+      try { await loader(paths, environment, { quarantineMalformed: false }); }
       catch (error) {
         if (error instanceof ContractError
           && (error.code === 'provider_bootstrap_file_too_large'

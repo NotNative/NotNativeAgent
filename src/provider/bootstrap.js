@@ -110,16 +110,22 @@ function initialProviderManifest(endpoint, model, secret) {
   };
 }
 
-export async function loadManagedProviderCredentials(paths, environment = process.env) {
+export async function loadManagedProviderCredentials(paths, environment = process.env,
+  { quarantineMalformed = true } = {}) {
   let document;
   try { document = await readJson(paths.providerCredentials, 'provider credential store'); } catch (error) {
     if (error.code === 'ENOENT') return 0;
     if (error.code === 'provider_bootstrap_file_invalid') {
-      await quarantineMalformedJson(paths.providerCredentials, 'provider credential store', 'provider_credentials_invalid');
+      if (quarantineMalformed) {
+        await quarantineMalformedJson(paths.providerCredentials, 'provider credential store', 'provider_credentials_invalid');
+      }
+      throw new ContractError('provider_credentials_invalid', 'provider credential store is not valid UTF-8 JSON', { cause: error });
     }
     throw error;
   }
-  if (document.format_version !== 1 || !document.credentials || typeof document.credentials !== 'object') {
+  if (!document || typeof document !== 'object' || Array.isArray(document)
+    || document.format_version !== 1 || !document.credentials
+    || typeof document.credentials !== 'object' || Array.isArray(document.credentials)) {
     throw new ContractError('provider_credentials_invalid', 'provider credential store has an unsupported shape');
   }
   let count = 0;
