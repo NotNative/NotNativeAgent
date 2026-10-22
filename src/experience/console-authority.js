@@ -8,10 +8,15 @@ const SESSION_LOCKED_CODE = 'session_locked';
 /** Serializes ownership of the durable Console tab pool across processes and concurrent local callers. */
 export class ConsoleAuthority {
   #operation = Promise.resolve();
+  #lock;
+  #owned = false;
 
-  constructor(path, lock = undefined) {
-    this.lock = lock ?? (path ? new SessionLock(dirname(path), CONSOLE_AUTHORITY_LOCK_ID) : null);
-    this.owned = false;
+  constructor(path, lock) {
+    // Injected locks let callers test the same ownership transitions without filesystem setup.
+    this.#lock = lock ?? (path ? new SessionLock(dirname(path), CONSOLE_AUTHORITY_LOCK_ID) : null);
+    Object.defineProperty(this, 'owned', {
+      get: () => this.#owned, enumerable: true, configurable: false,
+    });
   }
 
   async acquire() {
@@ -23,20 +28,20 @@ export class ConsoleAuthority {
   }
 
   async #acquire() {
-    if (this.owned) return true;
-    if (!this.lock) { this.owned = true; return true; }
-    try { await this.lock.acquire(); this.owned = true; return true; }
+    if (this.#owned) return true;
+    if (!this.#lock) { this.#owned = true; return true; }
+    try { await this.#lock.acquire(); this.#owned = true; return true; }
     catch (error) {
       if (error?.code !== SESSION_LOCKED_CODE) throw error;
-      this.owned = false;
+      this.#owned = false;
       return false;
     }
   }
 
   async #release() {
-    if (!this.owned) return undefined;
-    try { return await this.lock?.release(); }
-    finally { this.owned = false; }
+    if (!this.#owned) return undefined;
+    try { return await this.#lock?.release(); }
+    finally { this.#owned = false; }
   }
 
   #enqueue(operation) {
