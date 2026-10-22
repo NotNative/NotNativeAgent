@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { collectProductionSources } from './source-catalog.js';
 
 const scriptRoot = resolve(join(fileURLToPath(import.meta.url), '..', '..'));
-const MAX_SOURCE_FILES = 2_000;
 const TERM_ID = /^CTL-TERM-\d{3}$/u;
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/u;
 const CONTRACT_SCHEMA = 'nnd.controlled-technical-language.v1';
@@ -12,8 +12,6 @@ const CONTRACT_STANDARD = 'NND-CTL/1';
 const REPORT_SCHEMA = 'nnd.controlled-language-report.v1';
 const UNQUALIFIED_BOUNDARY_FIELDS = new Set(['decision', 'result', 'status']);
 const RATIONALE_DEFAULT = Object.freeze(['Why', 'Invariant', 'Compatibility', 'Security']);
-const SKIPPED_DIRECTORIES = new Set(['.git', 'coverage', 'dist', 'node_modules', '__tests__']);
-const SOURCE_ROOTS = ['./packages/ui/src', './packages/web/src', './scripts'];
 const sentenceSegmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
 const wordSegmenter = new Intl.Segmenter('en', { granularity: 'word' });
 
@@ -123,7 +121,7 @@ export async function runControlledLanguageGates(options = {}) {
   catch (error) { throw new Error(`cannot read terminology contract: ${error.message}`, { cause: error }); }
   const contractErrors = validateTerminologyContract(contract);
   if (contractErrors.length > 0) throw new Error(`invalid terminology contract: ${contractErrors.join('; ')}`);
-  const paths = await collectSources(root);
+  const paths = await collectProductionSources(root);
   const files = await Promise.all(paths.map(async (path) => ({ path, source: await readFile(path, 'utf8') })));
   const audit = auditDeprecatedIdentifiers(contract, files);
   const markers = countRationaleMarkers(contract.rationale_markers ?? RATIONALE_DEFAULT, files);
@@ -227,27 +225,6 @@ function validateDeprecated(value, declaredIdentifiers, errors) {
       errors.push(`${label}.baseline_occurrences must be a non-negative safe integer`);
     }
   }
-}
-
-async function collectSources(root) {
-  const pending = SOURCE_ROOTS.map((relativePath) => resolve(root, relativePath));
-  const files = [];
-  while (pending.length > 0) {
-    const current = pending.pop();
-    const info = await stat(current).catch(() => null);
-    if (!info) continue;
-    if (info.isFile()) {
-      files.push(current);
-      continue;
-    }
-    for (const entry of await readdir(current, { withFileTypes: true })) {
-      const path = join(current, entry.name);
-      if (entry.isDirectory() && !SKIPPED_DIRECTORIES.has(entry.name)) pending.push(path);
-      else if (entry.isFile() && /\.(ts|tsx|mjs|js)$/u.test(entry.name) && !entry.name.endsWith('.d.ts') && !/\.test\.[tj]sx?$/.test(entry.name)) files.push(path);
-    }
-    if (files.length > MAX_SOURCE_FILES) throw new Error(`source file count exceeds ${MAX_SOURCE_FILES}`);
-  }
-  return files.sort();
 }
 
 // ── scanner helpers ──────────────────────────────────────────────────────────

@@ -1,27 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readdir, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { collectProductionSources } from './source-catalog.js';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const MAX_SOURCE_FILES = 2_000;
 const MAX_FILE_LINES = 500;
 const MAX_FUNCTION_LINES = 60;
 const MAX_SOURCE_BYTES = 400_000;
-const SKIPPED_DIRECTORIES = new Set(['.git', 'coverage', 'dist', 'node_modules', '.pnpm', '__tests__']);
-const SOURCE_ROOTS = [
-  join(root, 'packages', 'ui', 'src'),
-  join(root, 'packages', 'web', 'src'),
-  join(root, 'scripts'),
-];
 const TS_CONFIGS = ['packages/ui/tsconfig.json', 'packages/web/tsconfig.ui.json', 'packages/web/tsconfig.server.json'];
 const SPDX_TOKEN = 'SPDX-License-Identifier: Apache-2.0';
 const DEP_REGISTRY = 'docs/architecture/dependency-registry.json';
 
 async function main() {
-  const files = await collectSources();
+  const files = await collectProductionSources(root);
   const errors = [];
   for (const path of files) {
     const label = relative(root, path).replaceAll('\\', '/');
@@ -120,34 +114,6 @@ function collectDeclaredDependencies() {
 function readPackageJson(path) {
   try { return JSON.parse(readFileSync(path, 'utf8')); }
   catch { return null; }
-}
-
-async function collectSources() {
-  const pending = [...SOURCE_ROOTS];
-  const result = [];
-  while (pending.length > 0) {
-    const current = pending.pop();
-    let entries;
-    try { entries = await readdir(current, { withFileTypes: true }); }
-    catch (error) {
-      if (error.code === 'ENOENT') continue;
-      throw new Error(`cannot inspect ${current}: ${error.code ?? error.message}`, { cause: error });
-    }
-    for (const entry of entries) {
-      const path = join(current, entry.name);
-      if (entry.isDirectory() && !SKIPPED_DIRECTORIES.has(entry.name)) pending.push(path);
-      else if (isProductionSource(entry)) result.push(path);
-      if (result.length > MAX_SOURCE_FILES) throw new Error(`source file count exceeds ${MAX_SOURCE_FILES}`);
-    }
-  }
-  return result.sort();
-}
-
-function isProductionSource(entry) {
-  if (!entry.isFile()) return false;
-  if (!/\.(ts|tsx|mjs|js)$/u.test(entry.name)) return false;
-  if (/\.test\.[tj]sx?$/u.test(entry.name) || /\.d\.ts$/u.test(entry.name)) return false;
-  return true;
 }
 
 function failureText(result) {
