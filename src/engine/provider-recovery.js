@@ -45,7 +45,11 @@ export async function recoverReasoningOnly(engine, active) {
 }
 
 export async function recoverContentFreeCompletion(engine, active, operations) {
+  assertTurnActive(active);
   await operations.settleAttempt('empty');
+  // Invariant: settlement can yield to cancellation; an accepted cancel owns
+  // the lifecycle and must not be followed by a new recovery transition.
+  assertTurnActive(active);
   engine.state.transition(RECOVERING_STATE, {
     trigger: 'provider_unusable_completion', turnId: active.turnId,
   });
@@ -56,7 +60,9 @@ export async function recoverContentFreeCompletion(engine, active, operations) {
     reported_output_tokens: receipt?.reported_usage?.output_tokens ?? null,
   }, { routeIdentity });
   if (plan.action) await operations.recordRecovery(plan.action);
+  assertTurnActive(active);
   await operations.settleStep(RECOVERING_STATE);
+  assertTurnActive(active);
   if (!plan.continue) {
     return { exhausted: true, category: 'empty_output', count: plan.count, countModelStep: false };
   }
@@ -69,6 +75,7 @@ export async function recoverContentFreeCompletion(engine, active, operations) {
   }
   assertTurnActive(active);
   if (waitOutcome === 'steering' || engine.steering.length > 0) await operations.consumeSteering();
+  assertTurnActive(active);
   engine.state.transition(PREPARING_CONTINUATION_STATE, {
     trigger: 'provider_completion_recovery', turnId: active.turnId,
   });

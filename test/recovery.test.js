@@ -291,6 +291,42 @@ test('content-free recovery reaches attention without consuming productive model
   assert.deepEqual(persisted, ['attention_unavailable']);
 });
 
+test('cancellation during empty-completion settlement cannot enter or resume recovery', async () => {
+  for (const cancelledAt of ['before', 'attempt', 'record', 'step', 'wait', 'steering']) {
+    const controller = new AbortController();
+    if (cancelledAt === 'before') controller.abort();
+    const active = {
+      turnId: 'cancelled-empty-turn', startedAt: Date.now(), controller,
+      tokenReceipts: [], providerResource: 'fixture', modelName: 'model',
+    };
+    const transitions = [];
+    let waits = 0; let attempts = 0; let records = 0; let steps = 0; let steering = 0;
+    const engine = {
+      state: { transition: (state) => transitions.push(state) },
+      reliability: { providerUnusableCompletion: () => ({ continue: true, delayMs: 1, action: {} }) },
+      providerRunner: { waitForProviderRecovery: async () => {
+        waits += 1;
+        if (cancelledAt === 'wait') controller.abort();
+        return 'retry';
+      } },
+      config: { limits: { turnWallClockMs: null } },
+      steering: cancelledAt === 'steering' ? [{}] : [],
+    };
+    await assert.rejects(recoverContentFreeCompletion(engine, active, {
+      settleAttempt: async () => { attempts += 1; if (cancelledAt === 'attempt') controller.abort(); },
+      settleStep: async () => { steps += 1; if (cancelledAt === 'step') controller.abort(); },
+      recordRecovery: async () => { records += 1; if (cancelledAt === 'record') controller.abort(); },
+      consumeSteering: async () => { steering += 1; if (cancelledAt === 'steering') controller.abort(); return []; },
+    }), { code: 'turn_cancelled' });
+    assert.deepEqual(transitions, ['before', 'attempt'].includes(cancelledAt) ? [] : ['recovering']);
+    assert.equal(attempts, cancelledAt === 'before' ? 0 : 1);
+    assert.equal(records, ['before', 'attempt'].includes(cancelledAt) ? 0 : 1);
+    assert.equal(steps, ['step', 'wait', 'steering'].includes(cancelledAt) ? 1 : 0);
+    assert.equal(waits, cancelledAt === 'wait' ? 1 : 0);
+    assert.equal(steering, cancelledAt === 'steering' ? 1 : 0);
+  }
+});
+
 test('tool recovery budgets are isolated by stable failure fingerprint', () => {
   const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
   assert.equal(recovery.noProgress('tool_no_progress', null, {}, { failureFingerprint: 'search-glob' }).count, 1);
