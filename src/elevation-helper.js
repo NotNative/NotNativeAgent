@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { access, chmod, readFile, rename, writeFile } from 'node:fs/promises';
+import { access, lstat, open, readFile, rename } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,8 +20,30 @@ async function main() {
   const envelope = parseEnvelope(process.argv.slice(2));
   const request = await consumeRequest(envelope);
   const result = await execute(request, envelope.cancelPath);
-  await writeFile(envelope.resultPath, `${JSON.stringify(result)}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
-  await chmod(envelope.resultPath, 0o600).catch(() => undefined);
+  await writeResult(envelope.resultPath, result);
+}
+
+async function writeResult(path, result) {
+  const directory = await lstat(dirname(path));
+  const owner = resultOwnerForDirectory(directory, process.getuid?.(), process.env);
+  const handle = await open(path, 'wx', 0o600);
+  try {
+    await handle.writeFile(`${JSON.stringify(result)}\n`, 'utf8');
+    await handle.chmod(0o600);
+    if (owner) await handle.chown(owner.uid, owner.gid);
+  } finally { await handle.close(); }
+}
+
+export function resultOwnerForDirectory(directory, effectiveUid, environment) {
+  if (!directory.isDirectory() || directory.isSymbolicLink()) throw new Error('invalid_result_owner');
+  if (effectiveUid !== 0) return null;
+  if ((directory.mode & 0o077) !== 0) throw new Error('invalid_result_owner');
+  const hasSudoOwner = environment.SUDO_UID !== undefined || environment.SUDO_GID !== undefined;
+  if (!hasSudoOwner) return { uid: directory.uid, gid: directory.gid };
+  const uid = Number(environment.SUDO_UID); const gid = Number(environment.SUDO_GID);
+  if (!Number.isSafeInteger(uid) || uid < 0 || !Number.isSafeInteger(gid) || gid < 0
+    || uid !== directory.uid) throw new Error('invalid_result_owner');
+  return { uid, gid };
 }
 
 function parseEnvelope(argv) {

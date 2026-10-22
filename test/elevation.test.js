@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { ElevationBroker, elevationInvocation, elevationNotice } from '../src/elevation-broker.js';
-import { runExact } from '../src/elevation-helper.js';
+import { resultOwnerForDirectory, runExact } from '../src/elevation-helper.js';
 import { assertNonInteractiveElevation } from '../src/elevation-tool.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
@@ -97,7 +97,7 @@ test('native authentication cancellation records no elevated effect', async () =
   const root = await mkdtemp(join(tmpdir(), 'nna-elevation-declined-'));
   const broker = new ElevationBroker({
     root,
-    interactive: { async run() { return { cancelled: true, exitCode: 1, signal: null }; } },
+    interactive: { async run() { return { authorization: 'denied', cancelled: true, exitCode: 1, signal: null }; } },
   });
   const result = await broker.execute({
     id: 'declined-1', args: {
@@ -109,6 +109,113 @@ test('native authentication cancellation records no elevated effect', async () =
   assert.equal(result.reasonCode, 'elevation_not_authorized');
   assert.equal(result.effectCertainty, 'none');
   assert.equal(result.metadata.elevated, false);
+});
+
+test('an ambiguous failed launcher never claims that elevation had no effect', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-elevation-unknown-'));
+  const broker = new ElevationBroker({ root,
+    interactive: { async run() { return { cancelled: true, exitCode: 1, signal: null }; } },
+  });
+  const result = await broker.execute({ id: 'uncertain-1', args: {
+    executable: process.execPath, args: ['--version'], cwd: root, timeout_ms: 5_000,
+    expected_effect: 'Print the installed Node.js version',
+  } }, new AbortController().signal);
+  assert.equal(result.reasonCode, 'elevation_result_unavailable');
+  assert.equal(result.effectCertainty, 'unknown');
+  assert.equal(result.metadata.elevated, null);
+});
+
+test('an absent interactive status is uncertain when no helper result exists', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-elevation-no-status-'));
+  const broker = new ElevationBroker({ root, interactive: { async run() { return undefined; } } });
+  const result = await broker.execute({ id: 'no-status-1', args: {
+    executable: process.execPath, args: ['--version'], cwd: root, timeout_ms: 5_000,
+    expected_effect: 'Print the installed Node.js version',
+  } }, new AbortController().signal);
+  assert.equal(result.reasonCode, 'elevation_result_unavailable');
+  assert.equal(result.effectCertainty, 'unknown');
+});
+
+test('an interactive handoff error after launcher invocation preserves uncertain effect', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-elevation-handoff-'));
+  const broker = new ElevationBroker({ root,
+    spawnProcess() {
+      const child = new EventEmitter();
+      queueMicrotask(() => child.emit('exit', 0, null));
+      return child;
+    },
+    interactive: { async run(launch) {
+      await launch();
+      throw new Error('interactive handoff failed');
+    } },
+  });
+  const result = await broker.execute({ id: 'handoff-1', args: {
+    executable: process.execPath, args: ['--version'], cwd: root, timeout_ms: 5_000,
+    expected_effect: 'Print the installed Node.js version',
+  } }, new AbortController().signal);
+  assert.equal(result.reasonCode, 'elevation_result_unavailable');
+  assert.equal(result.effectCertainty, 'unknown');
+});
+
+test('an unsafe shared elevation directory is rejected before request publication', async () => {
+  const parent = await mkdtemp(join(tmpdir(), 'nna-elevation-root-'));
+  const destination = join(parent, 'public');
+  await mkdir(destination);
+  const root = join(parent, 'shared');
+  await symlink(destination, root, process.platform === 'win32' ? 'junction' : 'dir');
+  const broker = new ElevationBroker({ root, interactive: { async run() { throw new Error('should not launch'); } } });
+  await assert.rejects(broker.execute({ id: 'unsafe-root-1', args: {
+    executable: process.execPath, args: ['--version'], cwd: parent, timeout_ms: 5_000,
+    expected_effect: 'Print the installed Node.js version',
+  } }, new AbortController().signal), { code: 'elevation_directory_unsafe' });
+  assert.deepEqual(await readdir(destination), []);
+});
+
+test('an invalid existing helper result is uncertain even after launcher failure', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-elevation-invalid-result-'));
+  const broker = new ElevationBroker({ root,
+    interactive: { async run() {
+      const [directory] = await readdir(root);
+      await writeFile(join(root, directory, 'result.json'), 'broken', { flag: 'wx' });
+      return { cancelled: true, exitCode: 1, signal: null };
+    } },
+  });
+  const result = await broker.execute({ id: 'invalid-1', args: {
+    executable: process.execPath, args: ['--version'], cwd: root, timeout_ms: 5_000,
+    expected_effect: 'Print the installed Node.js version',
+  } }, new AbortController().signal);
+  assert.equal(result.reasonCode, 'elevation_result_invalid');
+  assert.equal(result.effectCertainty, 'unknown');
+});
+
+test('a non-file helper result cannot turn a denied launcher into no-effect evidence', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-elevation-nonfile-result-'));
+  const broker = new ElevationBroker({ root,
+    interactive: { async run() {
+      const [directory] = await readdir(root);
+      await mkdir(join(root, directory, 'result.json'));
+      return { authorization: 'denied', cancelled: true, exitCode: 1 };
+    } },
+  });
+  const result = await broker.execute({ id: 'nonfile-1', args: {
+    executable: process.execPath, args: ['--version'], cwd: root, timeout_ms: 5_000,
+    expected_effect: 'Print the installed Node.js version',
+  } }, new AbortController().signal);
+  assert.equal(result.reasonCode, 'elevation_result_invalid');
+  assert.equal(result.effectCertainty, 'unknown');
+  assert.equal(result.metadata.elevated, null);
+});
+
+test('root helper returns private result ownership only to the requesting directory owner', () => {
+  const directory = { uid: 1200, gid: 1201, mode: 0o40700,
+    isDirectory: () => true, isSymbolicLink: () => false };
+  assert.equal(resultOwnerForDirectory(directory, undefined, {}), null);
+  assert.deepEqual(resultOwnerForDirectory(directory, 0, { SUDO_UID: '1200', SUDO_GID: '1201' }),
+    { uid: 1200, gid: 1201 });
+  assert.throws(() => resultOwnerForDirectory(directory, 0, { SUDO_UID: '1300', SUDO_GID: '1201' }),
+    /invalid_result_owner/u);
+  assert.throws(() => resultOwnerForDirectory({ ...directory, mode: 0o40777 }, 0, {}),
+    /invalid_result_owner/u);
 });
 
 test('reviewer approval proceeds directly to native elevation', async () => {

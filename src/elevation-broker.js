@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,16 +26,35 @@ export class ElevationBroker {
     }
     const operation = await this.#prepare(request);
     try {
-      const launch = () => this.#launch(operation, signal);
-      const status = await this.interactive.run(launch, elevationNotice(request));
-      if (status.cancelled && !(await exists(operation.resultPath))) {
+      let launched = false;
+      const launch = () => { launched = true; return this.#launch(operation, signal); };
+      let status;
+      try { status = await this.interactive.run(launch, elevationNotice(request)); }
+      catch (error) {
+        if (!launched) throw error;
+        // Invariant: once the launcher was invoked, a failed UI handoff cannot prove the command had no effect.
+        status = { exitCode: null };
+      }
+      status ??= { exitCode: null };
+      let exists;
+      try { exists = await resultExists(operation.resultPath); }
+      catch (error) {
+        if (!['elevation_result_unavailable', 'elevation_result_invalid'].includes(error.code)) throw error;
+        return missingResult(status, error.code);
+      }
+      if (!exists) {
+        if (status.authorization !== 'denied') return missingResult(status);
         return {
           status: 'failed', reasonCode: 'elevation_not_authorized', effectCertainty: 'none',
           content: 'The operating system did not authorize the elevated operation.',
           metadata: { elevated: false, exitCode: status.exitCode ?? null },
         };
       }
-      return await readResult(operation.resultPath);
+      try { return await readResult(operation.resultPath); }
+      catch (error) {
+        if (!['elevation_result_unavailable', 'elevation_result_invalid'].includes(error.code)) throw error;
+        return missingResult(status, error.code);
+      }
     } finally {
       await rm(operation.directory, { recursive: true, force: true }).catch(() => undefined);
     }
@@ -43,7 +62,15 @@ export class ElevationBroker {
 
   async #prepare(request) {
     await mkdir(this.root, { recursive: true, mode: 0o700 });
-    await chmod(this.root, 0o700).catch(() => undefined);
+    const root = await lstat(this.root);
+    if (!root.isDirectory() || root.isSymbolicLink()
+      || (process.getuid && root.uid !== process.getuid())) {
+      throw new ContractError('elevation_directory_unsafe', 'elevation request directory is not owned by this process');
+    }
+    await chmod(this.root, 0o700);
+    if (process.getuid && ((await lstat(this.root)).mode & 0o077) !== 0) {
+      throw new ContractError('elevation_directory_unsafe', 'elevation request directory is not private');
+    }
     const directory = await mkdtemp(join(this.root, 'request-'));
     await chmod(directory, 0o700).catch(() => undefined);
     const requestPath = join(directory, 'request.json');
@@ -159,9 +186,13 @@ function waitForLauncher(spawnProcess, invocation, signal) {
 }
 
 async function readResult(path) {
+  let source;
+  try { source = await readFile(path, 'utf8'); } catch (error) {
+    throw new ContractError('elevation_result_unavailable', 'elevated helper result is unreadable', { cause: error });
+  }
   let result;
-  try { result = JSON.parse(await readFile(path, 'utf8')); } catch {
-    throw new ContractError('elevation_result_unavailable', 'elevated helper did not return a valid result');
+  try { result = JSON.parse(source); } catch {
+    throw new ContractError('elevation_result_invalid', 'elevated helper returned an invalid result');
   }
   if (!validResult(result)) throw new ContractError('elevation_result_invalid', 'elevated helper returned an invalid result');
   const content = JSON.stringify({
@@ -180,6 +211,22 @@ function validResult(value) {
     && (value.status === 'succeeded' || typeof value.reason_code === 'string');
 }
 
-async function exists(path) {
-  try { await readFile(path); return true; } catch { return false; }
+function missingResult(status, reasonCode = 'elevation_result_unavailable') {
+  return { status: 'failed', reasonCode, effectCertainty: 'unknown',
+    content: 'The elevated operation may have run, but its result could not be verified.',
+    metadata: { elevated: null, exitCode: status.exitCode ?? null } };
+}
+
+async function resultExists(path) {
+  try {
+    const metadata = await lstat(path);
+    if (!metadata.isFile() || metadata.isSymbolicLink()) {
+      throw new ContractError('elevation_result_invalid', 'elevated helper result is not a regular file');
+    }
+    return true;
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return false;
+    if (error.code === 'elevation_result_invalid') throw error;
+    throw new ContractError('elevation_result_unavailable', 'elevated helper result could not be checked', { cause: error });
+  }
 }

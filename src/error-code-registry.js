@@ -174,7 +174,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'dream_run_active', 'dream_run_missing', 'dream_state_invalid',
     'dream_store_unavailable', 'dream_unavailable', 'duplicate_finalization',
     'duplicate_tool_call', 'editor_limit', 'elevation_args_invalid',
-    'elevation_executable_invalid', 'elevation_executable_not_found', 'elevation_interactive_required',
+    'elevation_directory_unsafe', 'elevation_executable_invalid', 'elevation_executable_not_found', 'elevation_interactive_required',
     'elevation_interactive_shell_forbidden', 'elevation_launcher_unavailable', 'elevation_platform_unsupported',
     'elevation_request_invalid', 'elevation_result_invalid', 'elevation_result_unavailable',
     'elevation_secret_argument_forbidden', 'elevation_timeout_invalid', 'engine_output_required',
