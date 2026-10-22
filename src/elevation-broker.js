@@ -69,11 +69,11 @@ export class ElevationBroker {
   }
 }
 
-export async function elevationInvocation(platform, broker, directory, envelope) {
+export async function elevationInvocation(platform, broker, _directory, envelope) {
   if (!['win32', 'linux', 'darwin'].includes(platform)) {
     throw new ContractError('elevation_platform_unsupported', `operating-system elevation is unsupported on ${platform}`);
   }
-  return platform === 'win32' ? windowsInvocation(broker, directory, envelope) : unixInvocation(broker, envelope);
+  return platform === 'win32' ? windowsInvocation(broker, envelope) : unixInvocation(broker, envelope);
 }
 
 function elevationRecord(request, now) {
@@ -102,14 +102,15 @@ function unixInvocation(broker, envelope) {
   };
 }
 
-async function windowsInvocation(broker, directory, envelope) {
-  const launcherPath = join(directory, 'launch.ps1');
+function windowsInvocation(broker, envelope) {
   const script = windowsLauncherScript(broker.nodePath, broker.helperPath, envelope);
-  await writeFile(launcherPath, script, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+  // Security: pass launcher code as an argument so a writable temporary file
+  // cannot be replaced before PowerShell starts the elevated helper.
+  const encoded = Buffer.from(script, 'utf16le').toString('base64');
   const root = process.env.SystemRoot ?? process.env.WINDIR ?? 'C:\\Windows';
   return {
     executable: join(root, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
-    args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', launcherPath],
+    args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
     options: { stdio: 'inherit', shell: false, windowsHide: true },
   };
 }

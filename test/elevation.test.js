@@ -73,11 +73,13 @@ test('Windows, Linux, and macOS elevation adapters use native UAC or sudo withou
   const windows = await elevationInvocation('win32', windowsBroker, directory, 'sealed-envelope');
   assert.match(windows.executable, /WindowsPowerShell[\\/]v1\.0[\\/]powershell\.exe$/iu);
   assert.equal(windows.options.shell, false);
-  const script = await readFile(windows.args.at(-1), 'utf8');
+  assert.equal(windows.args.at(-2), '-EncodedCommand');
+  const script = Buffer.from(windows.args.at(-1), 'base64').toString('utf16le');
   assert.match(script, /Start-Process/u);
   assert.match(script, /-Verb RunAs/u);
   assert.match(script, /-WindowStyle Hidden/u);
   assert.match(script, /elevation-helper\.js/u);
+  await assert.rejects(readFile(join(directory, 'launch.ps1')), { code: 'ENOENT' });
   await assert.rejects(elevationInvocation('aix', broker, directory, 'sealed-envelope'), { code: 'elevation_platform_unsupported' });
 });
 
