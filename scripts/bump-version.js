@@ -140,8 +140,10 @@ function validDate(value) {
   const year = Number(value.slice(0, 4));
   const month = Number(value.slice(4, 6));
   const day = Number(value.slice(6, 8));
-  const parsed = new Date(year, month - 1, day);
-  return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day;
+  if (year < 1 || month < 1 || month > 12) return false;
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day >= 1 && day <= days[month - 1];
 }
 
 async function main() {

@@ -53,6 +53,27 @@ test('version bump validates the primary SBOM package before writing', async () 
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('version bump validates Gregorian dates without local-time or two-digit-year coercion', async () => {
+  const root = await fixture();
+  const previousTimezone = process.env.TZ;
+  try {
+    // Pacific/Apia skipped 2011-12-30; it remains a valid Gregorian date for a version stamp.
+    process.env.TZ = 'Pacific/Apia';
+    for (const date of ['00960229', '20000229', '20111230']) {
+      const result = await bumpVersion(root, { date, iteration: 1 });
+      assert.equal(result.version, `${date}-1`);
+    }
+    for (const date of ['00000101', '01000229', '19000229', '20230229', '20230431', '20231301']) {
+      await assert.rejects(bumpVersion(root, { date, iteration: 1 }),
+        /--date must be a real YYYYMMDD date/u, date);
+    }
+  } finally {
+    if (previousTimezone === undefined) delete process.env.TZ;
+    else process.env.TZ = previousTimezone;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('version bump stamps the described product even when dependencies precede it', async () => {
   const root = await fixture({
     SPDXID: 'SPDXRef-DOCUMENT', name: 'old',
