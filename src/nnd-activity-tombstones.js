@@ -156,6 +156,11 @@ export class NndActivityTombstones {
       const entry = journal.entries.find((item) => item.sequence === sequence
         && item.sessionId === context.sessionId && item.createdAt === context.createdAt
         && JSON.stringify(item.workspaceIds ?? journal.workspaceIds) === JSON.stringify(workspaceIds));
+      // Invariant: retention advances the floor only past deleted entries. A
+      // concurrent reconciliation may prune this receipt after catalog deletion.
+      if (!entry && Number.isSafeInteger(sequence) && sequence > 0 && sequence <= journal.floor) {
+        return { changed: false };
+      }
       if (!entry) throw invalid();
       if (entry.state === 'deleted') return { changed: false };
       entry.state = 'deleted';

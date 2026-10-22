@@ -384,6 +384,40 @@ test('retention exposes a floor and explicit gap instead of claiming deleted his
   assert.equal(page.records.length, 100); assert.equal(page.historyComplete, false);
 });
 
+test('confirmation accepts an already-pruned deletion but rejects a mismatched retained receipt', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-pruned-confirmation-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const journal = new NndActivityTombstones(join(root, 'catalog.json'));
+  const context = (index) => ({ sessionId: `session_${index}`, createdAt: index + 1,
+    subjectId: owner.subjectId, workspaceIds: new Set(owner.workspaceIds) });
+  const first = context(0);
+  const sequence = await journal.prepare(first, new Map());
+  for (let index = 1; index <= TOMBSTONE_LIMIT; index++) {
+    await journal.prepare(context(index), new Map());
+  }
+  assert.equal((await journal.page(owner, new Map())).floor, sequence);
+  await journal.committed(first, sequence);
+  await assert.rejects(journal.committed(first, sequence + 1),
+    { code: 'nnd_activity_tombstones_invalid' });
+});
+
+test('host close completes when other deletions prune its receipt after catalog removal', async t => {
+  const f = await fixture(t);
+  const originalCommitted = f.host.tombstones.committed.bind(f.host.tombstones);
+  f.host.tombstones.committed = async (context, sequence, principal) => {
+    assert.throws(() => f.host.get('session_a', owner), { code: 'nnd_session_unavailable' });
+    for (let index = 0; index < TOMBSTONE_LIMIT; index++) {
+      await f.host.tombstones.prepare({ sessionId: `other_${index}`, createdAt: index + 1,
+        subjectId: owner.subjectId, workspaceIds: new Set(owner.workspaceIds) }, new Map(), principal);
+    }
+    assert.equal((await f.host.activityTombstonesPage(owner)).floor, sequence);
+    return originalCommitted(context, sequence, principal);
+  };
+  assert.deepEqual(await f.host.close('session_a', owner), { closed: true });
+  assert.deepEqual((await f.host.activityTombstonesPage(owner, { after: 0 })).status, 'gap');
+  await f.host.shutdown();
+});
+
 test('a same-ID same-time session owned by another principal cannot hide an older deletion intent', async t => {
   const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-owner-'));
   t.after(() => rm(root, { recursive: true, force: true }));
