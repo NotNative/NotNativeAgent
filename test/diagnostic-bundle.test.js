@@ -163,6 +163,35 @@ test('support bundle recursively redacts secret-bearing diagnostics before priva
   assert.match(content, /"status_token":\s*"unavailable"/u);
 });
 
+test('support bundle redacts namespaced and camel-case credential fields while preserving safe source references', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-support-field-privacy-'));
+  const fields = {
+    openai_api_key: 'opaque-openai-value', accessToken: 'opaque-access-value',
+    clientSecret: 'opaque-client-value', AWS_SECRET_ACCESS_KEY: 'opaque-aws-value',
+    authorizationHeader: 'opaque-header-value', 'X-Api-Key': 'opaque-header-key',
+    credentials: [{ value: 'opaque-credential-value' }], apiKeys: ['opaque-mapped-key'],
+    sessionToken: 'opaque-session-token',
+    status_token: 'unavailable', detail: 'token: process.env.OPENAI_API_KEY',
+  };
+  const engine = { sessionId: 'session-fields', config: {}, telemetry: { async flush() {} },
+    async health() { return fields; }, reviewerAudit() { return []; }, governanceAudit() { return []; } };
+  const path = join(root, 'fields.zip');
+  await new DiagnosticBundle({ engine }).create(path);
+  const entries = zipEntries(await readFile(path));
+  const content = entries.map((entry) => entry.content.toString('utf8')).join('\n');
+  const diagnostics = JSON.parse(entries.find((entry) => entry.name.endsWith('/diagnostics.json')).content);
+  for (const value of Object.values(fields).filter((item) => typeof item === 'string' && item.startsWith('opaque-'))
+    .concat(['opaque-credential-value', 'opaque-mapped-key'])) {
+    assert.ok(!content.includes(value));
+  }
+  for (const key of ['openai_api_key', 'accessToken', 'clientSecret', 'AWS_SECRET_ACCESS_KEY',
+    'authorizationHeader', 'X-Api-Key', 'credentials', 'apiKeys', 'sessionToken']) {
+    assert.equal(diagnostics.health[key], '[redacted]');
+  }
+  assert.match(content, /"status_token":"unavailable"/u);
+  assert.match(content, /token: process\.env\.OPENAI_API_KEY/u);
+});
+
 test('diagnostic bundle default path stays within its configured support directory', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-support-path-'));
   const bundle = new DiagnosticBundle({ engine: { sessionId: 'session-path' }, supportRoot: root });

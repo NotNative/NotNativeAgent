@@ -9,7 +9,7 @@ import { createZipWriter } from './zip-archive.js';
 import { discoverSupportSessions, supportAuditJournals } from './support-session-discovery.js';
 import { supportConfiguration } from './support-configuration.js';
 
-const PRIVACY_SECRET_KEY = /^(?:api[_-]?key|authorization|auth[_-]?token|bearer|credential(?:_env)?|password|private[_-]?key|secret|access[_-]?token|refresh[_-]?token|token)(?:[_-](?:bearer|hash|reset|value))?$/iu;
+const PRIVACY_SECRET_KEY = /(?:^|[_-])(?:api[_-]?keys?|authorization|auth[_-]?tokens?|bearer|credentials?|passwords?|private[_-]?keys?|secrets?|access[_-]?tokens?|refresh[_-]?tokens?|session[_-]?tokens?)(?:$|[_-])|^tokens?(?:$|[_-](?:bearer|hash|reset|value)$)/iu;
 const SAFE_SECRET_MARKERS = new Set(['[redacted]', '[reference configured]', '[none]']);
 const STANDALONE_CREDENTIAL = /\b(?:AKIA[A-Z0-9]{16}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{16,})\b/giu;
 
@@ -233,7 +233,7 @@ function redactBundleData(value, active = new WeakSet(), depth = 0) {
   const redacted = Array.isArray(value) ? value.map((child) => redactBundleData(child, active, depth + 1)) : {};
   if (!Array.isArray(value)) {
     for (const [key, child] of Object.entries(value)) {
-      redacted[key] = PRIVACY_SECRET_KEY.test(key) && !safeSecretField(child)
+      redacted[key] = secretBearingKey(key) && !safeSecretField(child)
         ? '[redacted]' : redactBundleData(child, active, depth + 1);
     }
   }
@@ -252,7 +252,7 @@ function containsSecret(value, active = new WeakSet()) {
   active.add(value);
   const entries = Array.isArray(value) ? value.map((child) => [null, child]) : Object.entries(value);
   for (const [key, child] of entries) {
-    if (key !== null && PRIVACY_SECRET_KEY.test(key) && !safeSecretField(child)) return true;
+    if (key !== null && secretBearingKey(key) && !safeSecretField(child)) return true;
     if (containsSecret(child, active)) return true;
   }
   active.delete(value);
@@ -263,7 +263,13 @@ function safeSecretField(value) {
   return value === null || value === undefined || value === '' || SAFE_SECRET_MARKERS.has(value);
 }
 
+function secretBearingKey(key) {
+  const words = key.replace(/([a-z0-9])([A-Z])/gu, '$1_$2');
+  return PRIVACY_SECRET_KEY.test(words);
+}
+
 function containsSecretText(value) {
-  return /(?:bearer\s+[A-Za-z0-9._~+/-]{16,}|(?:api[_-]?key|password|secret|token)\s*[=:]\s*(?!\[)(?=[^"'\s]{8,}(?:["'\s,}]|$))(?=[^"'\s]*[A-Za-z])[^"'\s]{8,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|\bAKIA[A-Z0-9]{16}\b|\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{16,})\b)/iu.test(value)
-    || value.includes('://') && /[a-z][a-z0-9+.-]*:\/\/[^\s/:]+:[^\s/@]+@/iu.test(value);
+  // Why: the verifier must agree with the redactor about safe source-code references.
+  // A changed value still contains material the redactor would remove on another pass.
+  return redactPrivacyText(value) !== value;
 }
