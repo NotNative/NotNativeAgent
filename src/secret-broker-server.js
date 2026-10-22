@@ -186,7 +186,7 @@ function failureStatus(code) {
     'nnd_fork_busy', 'nnd_fork_boundary_unsettled', 'nnd_revert_busy', 'nnd_revert_none'].includes(code)) return 409;
   if (['nnd_goal_audit_unavailable', 'nnd_pending_unavailable',
     'nnd_activity_tombstones_unavailable', 'nnd_walkthrough_unavailable', 'nnd_assist_unavailable',
-    'nnd_fork_unavailable'].includes(code)) return 503;
+    'nnd_fork_unavailable', 'nnd_revert_unavailable'].includes(code)) return 503;
   if (['nnd_goal_audit_timeout', 'nnd_walkthrough_timeout', 'nnd_assist_timeout', 'nnd_notification_timeout'].includes(code)) return 504;
   if (code.startsWith('nnd_goal_audit_output_') || code === 'nnd_goal_audit_tool_violation') return 502;
   if (code.startsWith('nnd_walkthrough_output_') || code === 'nnd_walkthrough_tool_violation') return 502;

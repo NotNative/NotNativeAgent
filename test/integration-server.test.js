@@ -1111,6 +1111,14 @@ test('native revert and unrevert ride the harness routes with journal-backed rep
     assert.equal((await request(base, `/session/${fresh}/unrevert`, owner, { method: 'POST' })).status, 409);
     assert.equal((await request(base, `/session/${fresh}/revert`, principal(['nnd.read']),
       { method: 'POST', body: { messageID: `${fresh}:message:0` } })).status, 403);
+    engines.at(-1).store = null;
+    const unavailable = await request(base, `/session/${fresh}/revert`, owner,
+      { method: 'POST', body: { messageID: `${fresh}:message:0` } });
+    assert.equal(unavailable.status, 503);
+    assert.equal(unavailable.value.error.code, 'nnd_revert_unavailable');
+    const unavailableUndo = await request(base, `/session/${fresh}/unrevert`, owner, { method: 'POST' });
+    assert.equal(unavailableUndo.status, 503);
+    assert.equal(unavailableUndo.value.error.code, 'nnd_revert_unavailable');
   } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
 });
 

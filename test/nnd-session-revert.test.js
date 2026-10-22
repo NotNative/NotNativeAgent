@@ -12,6 +12,15 @@ import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js
 const principal = { subjectId: 'u_test', platformRole: 'operator', permissions: ['nnd.session.submit'], workspaceIds: [],
   groupIds: [], traceId: 'trace_revert', issuedAt: '2026-10-11T00:00:00Z', requestId: 'req_revert_probe' };
 
+test('revert and unrevert require a durable session journal', async () => {
+  const context = { sessionId: 'ephemeral', liveTurn: null,
+    engine: { store: null, active: null, transcript: [] } };
+  await assert.rejects(() => runNndSessionRevert(context, { messageID: 'ephemeral:message:0' }),
+    (error) => error.code === 'nnd_revert_unavailable');
+  await assert.rejects(() => runNndSessionUnrevert(context),
+    (error) => error.code === 'nnd_revert_unavailable');
+});
+
 test('native revert hides the boundary turn onward, restarts clean, and unrevert restores it', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-revert-'));
   const config = resolveManifest({ persistence: 'durable', workspace_root: root,

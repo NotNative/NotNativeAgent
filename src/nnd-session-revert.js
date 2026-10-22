@@ -50,6 +50,7 @@ function restoreRevertedTurns(engine, records) {
 }
 
 export async function runNndSessionRevert(context, body) {
+  if (!context.engine.store) throw new ContractError('nnd_revert_unavailable', 'NND revert requires a durable session journal');
   if (context.liveTurn || context.engine.active && !context.engine.active.finalized) {
     throw new ContractError('nnd_revert_busy', 'NND session is busy');
   }
@@ -69,6 +70,7 @@ export async function runNndSessionRevert(context, body) {
 }
 
 export async function runNndSessionUnrevert(context) {
+  if (!context.engine.store) throw new ContractError('nnd_revert_unavailable', 'NND unrevert requires a durable session journal');
   if (context.liveTurn || context.engine.active && !context.engine.active.finalized) {
     throw new ContractError('nnd_revert_busy', 'NND session is busy');
   }
