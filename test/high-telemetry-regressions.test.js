@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
 import vm from 'node:vm';
 import { sanitizeTelemetry } from '../src/forensic-telemetry-sanitize.js';
+import { TERMINAL_TELEMETRY_STATUSES } from '../src/forensic-telemetry-statuses.js';
 import { ForensicTelemetry } from '../src/forensic-telemetry.js';
 
 test('telemetry sanitizer limits cannot be disabled by malformed options', () => {
@@ -38,6 +39,7 @@ async function telemetryClass(Worker) {
   return vm.runInNewContext(`${source}\nForensicTelemetry`, {
     Worker, URL, ContractError: Error, VERSION: 'fixture', join: (...parts) => parts.join('/'),
     userDataPaths: () => ({ projects: '/tmp' }), newId: () => 'id', sanitizeTelemetry,
+    TERMINAL_TELEMETRY_STATUSES,
     setTimeout: (callback, ms) => setTimeout(callback, Math.min(ms, 30)), clearTimeout,
   });
 }

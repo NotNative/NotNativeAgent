@@ -3,6 +3,7 @@ import { parentPort, workerData } from 'node:worker_threads';
 import { mkdirSync, statSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { TERMINAL_TELEMETRY_STATUSES } from './forensic-telemetry-statuses.js';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS events (
@@ -125,17 +126,17 @@ function supportPage(options = {}) {
 
 function openSpans(limitValue) {
   const limit = bounded(limitValue, 200, 1, 2000);
+  const terminalPlaceholders = TERMINAL_TELEMETRY_STATUSES.map(() => '?').join(', ');
   const rows = db.prepare(`
     SELECT started.* FROM events AS started
     WHERE started.status = 'started' AND started.span_id IS NOT NULL
       AND NOT EXISTS (
         SELECT 1 FROM events AS terminal
         WHERE terminal.span_id = started.span_id
-          AND terminal.status IN ('succeeded','failed','cancelled','timed_out','denied','skipped','superseded','unknown_effect',
-            'blocked','incomplete','needs_input','limit_reached','completed_nonzero','invalid_request','invalid','escalation_pending')
+          AND terminal.status IN (${terminalPlaceholders})
       )
     ORDER BY started.id DESC LIMIT ?
-  `).all(limit);
+  `).all(...TERMINAL_TELEMETRY_STATUSES, limit);
   return rows.reverse().map(decode);
 }
 

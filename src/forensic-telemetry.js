@@ -5,9 +5,9 @@ import { Worker } from 'node:worker_threads';
 import { ContractError, newId } from './ids.js';
 import { userDataPaths, VERSION } from './product.js';
 import { sanitizeTelemetry, supportTelemetryProjection } from './forensic-telemetry-sanitize.js';
+import { TERMINAL_TELEMETRY_STATUSES } from './forensic-telemetry-statuses.js';
 
-const TERMINAL = new Set(['succeeded', 'failed', 'cancelled', 'timed_out', 'denied', 'skipped', 'superseded', 'unknown_effect',
-  'blocked', 'incomplete', 'needs_input', 'limit_reached', 'completed_nonzero', 'invalid_request', 'invalid', 'escalation_pending']);
+const TERMINAL = new Set(TERMINAL_TELEMETRY_STATUSES);
 const DEFAULT_MAX_AGE_MS = 30 * 86_400_000;
 const DEFAULT_VOLATILE_MAX_AGE_MS = 3 * 86_400_000;
 const DEFAULT_MAX_BYTES = 1_073_741_824;
@@ -79,7 +79,7 @@ export class ForensicTelemetry {
   }
 
   record(eventName, status, payload = {}, correlation = {}) {
-    if (this.#closed || !this.#worker || this.#health.status === 'degraded') return false;
+    if (this.#closed || this.#closing || !this.#worker || this.#health.status === 'degraded') return false;
     const row = rowFrom(this, eventName, status, payload, correlation, ++this.#recordSequence);
     try { this.#worker.postMessage({ type: 'record', row }); return true; }
     catch { this.#degrade('telemetry_write_failed'); return false; }
@@ -218,6 +218,7 @@ export class ForensicTelemetry {
     try { await this.#worker.terminate(); }
     catch (error) { this.#degrade('telemetry_termination_failed', undefined, error?.code ?? error?.name); }
     this.#worker = null;
+    if (this.#health.status !== 'degraded') this.#health = { ...this.#health, status: 'closed' };
   }
 
   #request(type, payload = {}, fallback = null) {

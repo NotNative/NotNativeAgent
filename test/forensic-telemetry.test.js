@@ -46,6 +46,30 @@ test('open span query reports operations without a terminal disposition', async 
   await telemetry.close();
 });
 
+test('unknown terminal decisions close spans in the worker', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-forensic-unknown-'));
+  const telemetry = telemetryAt(root);
+  await telemetry.initialize();
+  telemetry.record('engine.phase', 'started', {}, { spanId: 'unknown-phase' });
+  telemetry.eventObserver().dispatchFinished({ event_id: 'unknown-phase' }, { decision: 'new_decision' }, 1);
+  await telemetry.flush();
+  assert.equal((await telemetry.openSpans()).some((row) => row.span_id === 'unknown-phase'), false);
+  await telemetry.close();
+});
+
+test('closing telemetry rejects new records and reports closed health', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-forensic-close-'));
+  const telemetry = telemetryAt(root);
+  await telemetry.initialize();
+  const closing = telemetry.close();
+  assert.equal(telemetry.record('late.event', 'observed', {}), false);
+  await closing;
+  assert.equal((await telemetry.health()).status, 'closed');
+  const db = new DatabaseSync(join(root, 'events.db'));
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM events WHERE event_name = 'late.event'").get().count, 0);
+  db.close();
+});
+
 test('telemetry bounds oversized content and support projection excludes free-form evidence', () => {
   const sanitized = sanitizeTelemetry({ content: 'x'.repeat(80_000), password: 'hidden' });
   assert.equal(sanitized.password, '[redacted]');
