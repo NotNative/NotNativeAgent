@@ -138,6 +138,31 @@ test('an entry scope outside its owner grant invalidates the journal', async t =
   await assert.rejects(journal.page(owner, new Map()), { code: 'nnd_activity_tombstones_invalid' });
 });
 
+test('malformed journal calls fail before they can poison durable receipts', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-input-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const journal = new NndActivityTombstones(join(root, 'catalog.json'));
+  const context = { sessionId: 'session_a', createdAt: 100, subjectId: owner.subjectId,
+    workspaceIds: new Set(owner.workspaceIds) };
+  const live = new Map([['session_a', context]]);
+  await assert.rejects(journal.prepare({ ...context, createdAt: 0 }, live, owner),
+    { code: 'nnd_activity_tombstones_context_invalid' });
+  await assert.rejects(journal.prepare({ ...context, sessionId: 'invalid/id' }, live, owner),
+    { code: 'invalid_id' });
+  await assert.rejects(journal.prepare(context, {}),
+    { code: 'nnd_activity_tombstones_contexts_invalid' });
+  await assert.rejects(journal.page(owner, live, null),
+    { code: 'nnd_activity_tombstones_request_invalid' });
+  await assert.rejects(journal.page(owner, undefined),
+    { code: 'nnd_activity_tombstones_contexts_invalid' });
+  await assert.rejects(journal.beforeCreate('session_a', owner, null),
+    { code: 'nnd_activity_tombstones_contexts_invalid' });
+  const sequence = await journal.prepare(context, live, owner);
+  assert.equal(sequence, 1);
+  await journal.committed(context, sequence, owner);
+  assert.equal((await journal.page(owner, new Map())).records[0].sessionID, 'session_a');
+});
+
 test('a broader same-ID creation finalizes a narrow-grant intent before a repeated creation time', async t => {
   const root = await mkdtemp(join(tmpdir(), 'nna-tombstone-cross-grant-intent-'));
   t.after(() => rm(root, { recursive: true, force: true }));

@@ -20,7 +20,25 @@ function ownerKey(principal) {
 function journalPath(catalogPath, principal) {
   return join(`${catalogPath}.tombstones`, `${ownerKey(principal).digest}.json`);
 }
-function contextPrincipal(context) { return { subjectId: context.subjectId, workspaceIds: [...context.workspaceIds] }; }
+function requireTombstoneContext(context) {
+  if (!context || typeof context !== 'object' || Array.isArray(context)
+    || !Number.isSafeInteger(context.createdAt) || context.createdAt <= 0) {
+    throw new ContractError('nnd_activity_tombstones_context_invalid', 'NND Activity tombstone context is invalid');
+  }
+  requireExternalId(context.sessionId, 'session_id');
+  if (!(context.workspaceIds instanceof Set || Array.isArray(context.workspaceIds))) {
+    throw new ContractError('nnd_activity_tombstones_context_invalid', 'NND Activity tombstone context is invalid');
+  }
+}
+function contextPrincipal(context) {
+  requireTombstoneContext(context);
+  return { subjectId: context.subjectId, workspaceIds: [...context.workspaceIds] };
+}
+function requireContextCatalog(contexts) {
+  if (!(contexts instanceof Map)) {
+    throw new ContractError('nnd_activity_tombstones_contexts_invalid', 'NND Activity tombstone catalog evidence is invalid');
+  }
+}
 
 function validEntry(entry, owner) {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
@@ -85,6 +103,7 @@ function currentPair(contexts, entry, owner) {
 }
 
 function contextScope(context, owner) {
+  requireTombstoneContext(context);
   const scope = ownerKey(contextPrincipal(context));
   if (scope.subjectId !== owner.subjectId || scope.workspaceIds.some((id) => !owner.workspaceIds.includes(id))) throw invalid();
   return scope.workspaceIds;
@@ -108,6 +127,7 @@ export class NndActivityTombstones {
   }
   async prepare(context, contexts, principal = contextPrincipal(context)) {
     if (!this.catalogPath) return null;
+    if (contexts !== undefined && contexts !== null) requireContextCatalog(contexts);
     return this.#mutate(principal, (journal) => {
       const workspaceIds = contextScope(context, journal);
       let reconciled = false;
@@ -144,6 +164,7 @@ export class NndActivityTombstones {
   }
   async beforeCreate(sessionId, principal, contexts, preventReuse = false, bindingPrincipal = null) {
     if (!this.catalogPath) return;
+    requireContextCatalog(contexts);
     if (bindingPrincipal && ownerKey(bindingPrincipal).digest !== ownerKey(principal).digest) {
       // Compatibility: bound-session receipts may use the binding grant even
       // when a later creation uses a broader caller grant. Reads stay exact-grant.
@@ -176,12 +197,16 @@ export class NndActivityTombstones {
   }
   async page(principal, contexts, options = {}) {
     if (!this.catalogPath) throw new ContractError('nnd_activity_tombstones_unavailable', 'Durable NND Activity tombstones are unavailable');
-    const { after = 0, limit = 50 } = options;
     if (!options || typeof options !== 'object' || Array.isArray(options)
       || Object.keys(options).some((key) => !['after', 'limit'].includes(key))
-      || !Number.isSafeInteger(after) || after < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+    ) {
       throw new ContractError('nnd_activity_tombstones_request_invalid', 'NND Activity tombstone page request is invalid');
     }
+    const { after = 0, limit = 50 } = options;
+    if (!Number.isSafeInteger(after) || after < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new ContractError('nnd_activity_tombstones_request_invalid', 'NND Activity tombstone page request is invalid');
+    }
+    requireContextCatalog(contexts);
     await this.pending.catch(() => undefined);
     const owner = ownerKey(principal); const journal = await readJournal(journalPath(this.catalogPath, principal), owner);
     if (after < journal.floor || after >= journal.nextSequence) return { status: 'gap', floor: journal.floor, nextCursor: null,
