@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
+import { realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = resolve(join(fileURLToPath(import.meta.url), '..', '..'));
+const root = dirname(dirname(realpathSync(fileURLToPath(import.meta.url))));
 const checkOnlyMessage = 'desktop version is a root-stamped mirror; run `node scripts/bump-version.js` from the NNA repository root to advance both stamps';
 
 /** --check validates the mirror pairing without writing; the desktop stamp is written only by the root bump. */
@@ -23,6 +24,9 @@ export async function checkVersionPairing(rootDir) {
     throw new Error(`desktop VERSION ${current} disagrees with root VERSION ${rootCurrent}; ${checkOnlyMessage}`);
   }
   const packageJson = parseJson(packageSource, 'package.json');
+  if (typeof packageJson.version !== 'string' || typeof packageJson.nnd_version !== 'string') {
+    throw new Error(`package.json must contain string version and nnd_version fields; ${checkOnlyMessage}`);
+  }
   const [, date, iteration] = /^(\d{8})-([1-9]\d*)$/u.exec(current);
   const expectedPackageVersion = `${date}.0.${iteration}`;
   if (packageJson.version !== expectedPackageVersion) {
@@ -51,7 +55,7 @@ async function main() {
   process.stdout.write(`version pairing is coherent: ${current}\n`);
 }
 
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+if (process.argv[1] && realpathSync(resolve(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url))) {
   main().catch((error) => {
     process.stderr.write(`version check failed: ${error?.message ?? 'unknown error'}\n`);
     process.exitCode = 1;
