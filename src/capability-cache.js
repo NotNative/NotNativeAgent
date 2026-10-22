@@ -1,14 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
+const MAX_ENTRIES = 256;
+
 export class CapabilityCache {
   #entries = new Map();
 
   get(resolution, operation, configVersion) {
-    return this.#entries.get(keyFor(resolution, operation, configVersion))?.supported ?? 'unknown';
+    const key = keyFor(resolution, operation, configVersion);
+    const entry = this.#entries.get(key);
+    if (!entry) return 'unknown';
+    this.#entries.delete(key);
+    this.#entries.set(key, entry);
+    return entry.supported;
   }
 
   record(resolution, operation, configVersion, supported) {
-    this.#entries.set(keyFor(resolution, operation, configVersion), Object.freeze({ supported }));
+    const key = keyFor(resolution, operation, configVersion);
+    this.#entries.delete(key);
+    this.#entries.set(key, Object.freeze({ supported }));
+    if (this.#entries.size > MAX_ENTRIES) this.#entries.delete(this.#entries.keys().next().value);
   }
 
   invalidate() {

@@ -287,6 +287,17 @@ test('AC-ROUTE-06 capability cache invalidates on endpoint, model, override, and
   assert.equal(cache.get(base, 'image_input', 1), 'unknown');
 });
 
+test('capability cache evicts least recently used route records under configuration churn', () => {
+  const cache = new CapabilityCache();
+  const route = { profile: { id: 'primary', endpoint: 'http://127.0.0.1:1/v1' }, model: 'model-a' };
+  for (let version = 0; version < 256; version += 1) cache.record(route, 'image_input', version, true);
+  assert.equal(cache.get(route, 'image_input', 0), true);
+  cache.record(route, 'image_input', 256, false);
+  assert.equal(cache.get(route, 'image_input', 0), true);
+  assert.equal(cache.get(route, 'image_input', 1), 'unknown');
+  assert.equal(cache.get(route, 'image_input', 256), false);
+});
+
 test('AC-ROUTE-02 fallback never silently crosses to a less trusted endpoint', () => {
   const config = resolveManifest({ providers, routes: {
     primary: { provider_id: 'local-vision', required_capabilities: ['tools'], fallbacks: ['reviewer'] },
