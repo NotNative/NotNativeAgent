@@ -156,6 +156,27 @@ test('volatile TUI telemetry expires independently after its short retention win
   await reopened.close();
 });
 
+test('age retention removes expired rows without a session while preserving the active session', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-forensic-null-session-'));
+  const dbPath = join(root, 'events.db');
+  const telemetry = telemetryAt(root, { maxAgeMs: 1000 });
+  await telemetry.initialize();
+  telemetry.record('expired.orphan', 'observed', {});
+  telemetry.record('expired.active', 'observed', {});
+  await telemetry.close();
+  const db = new DatabaseSync(dbPath);
+  const past = new Date(Date.now() - 2000).toISOString();
+  db.prepare("UPDATE events SET timestamp = ?, session_id = NULL WHERE event_name = 'expired.orphan'").run(past);
+  db.prepare("UPDATE events SET timestamp = ? WHERE event_name = 'expired.active'").run(past);
+  db.close();
+  const reopened = telemetryAt(root, { maxAgeMs: 1000 });
+  await reopened.initialize();
+  const rows = await reopened.query({ limit: 100 });
+  await reopened.close();
+  assert.equal(rows.some((row) => row.event_name === 'expired.orphan'), false);
+  assert.equal(rows.some((row) => row.event_name === 'expired.active'), true);
+});
+
 test('telemetry size cleanup compacts storage without erasing every inactive record', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-forensic-size-'));
   const dbPath = join(root, 'events.db');

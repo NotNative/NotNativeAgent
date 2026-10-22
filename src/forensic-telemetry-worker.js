@@ -151,7 +151,8 @@ function cleanup() {
   const cutoff = new Date(now - workerData.maxAgeMs).toISOString();
   const volatileCutoff = new Date(now - (workerData.volatileMaxAgeMs ?? 3 * 86_400_000)).toISOString();
   db.prepare("DELETE FROM events WHERE event_name LIKE 'tui.%' AND timestamp < ?").run(volatileCutoff);
-  db.prepare('DELETE FROM events WHERE timestamp < ? AND session_id <> ?').run(cutoff, workerData.activeSessionId);
+  db.prepare('DELETE FROM events WHERE timestamp < ? AND (session_id IS NULL OR session_id <> ?)')
+    .run(cutoff, workerData.activeSessionId);
   const maxBytes = Number.isSafeInteger(workerData.maxBytes) && workerData.maxBytes > 0
     ? workerData.maxBytes : DEFAULT_MAX_BYTES;
   let size = databaseBytes();
