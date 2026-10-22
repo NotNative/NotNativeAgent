@@ -4,7 +4,7 @@ import { redactText } from './redaction.js';
 import { ContractError } from './ids.js';
 import { supportDiagnosticSummary } from './support-diagnostic-fields.js';
 
-const SECRET_KEY = /^(?:api[_-]?key|authorization|auth[_-]?token|bearer|credential(?:_env)?|password|private[_-]?key|secret|access[_-]?token|refresh[_-]?token|token)(?:[_-](?:bearer|hash|reset|value))?$/iu;
+const SECRET_KEY = /(?:^|_)(?:api_key|authorization|auth_token|bearer|credential|password|private_key|secret|access_token|refresh_token|token(?!_count(?:_|$)))(?:$|_)/u;
 const DEFAULTS = Object.freeze({ maxDepth: 16, maxNodes: 20_000, maxStringBytes: 65_536, maxArray: 1024, maxKeys: 1024 });
 
 export function sanitizeTelemetry(value, options = {}) {
@@ -25,7 +25,7 @@ function visit(value, depth, limits, state) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : String(value);
   // Normalize undefined to null so every retained property is JSON-compatible.
   if (typeof value === 'boolean' || value === null || value === undefined) return value ?? null;
-  if (typeof value !== 'object') return String(value);
+  if (typeof value !== 'object') return marker('unsupported_value', { type: typeof value });
   if (state.active.has(value)) return marker('circular_reference', null);
   state.active.add(value);
   try {
@@ -46,7 +46,7 @@ function visit(value, depth, limits, state) {
     const entries = Object.entries(value);
     for (const [key, child] of entries.slice(0, limits.maxKeys)) {
       Object.defineProperty(result, key, { enumerable: true, configurable: true, writable: true,
-        value: SECRET_KEY.test(key) ? '[redacted]' : visit(child, depth + 1, limits, state) });
+        value: secretKey(key) ? '[redacted]' : visit(child, depth + 1, limits, state) });
     }
     if (entries.length > limits.maxKeys) result._nna_omitted_keys = entries.length - limits.maxKeys;
     return result;
@@ -75,7 +75,7 @@ function visitMap(value, depth, limits, state) {
     if (index >= limits.maxArray) break;
     entries.push([
       visit(key, depth + 1, limits, state),
-      typeof key === 'string' && SECRET_KEY.test(key) ? '[redacted]' : visit(child, depth + 1, limits, state),
+      typeof key === 'string' && secretKey(key) ? '[redacted]' : visit(child, depth + 1, limits, state),
     ]);
     index += 1;
   }
@@ -87,6 +87,11 @@ function takeBytes(value, maximum, fromEnd) {
   const encoded = Buffer.from(value, 'utf8');
   const slice = fromEnd ? encoded.subarray(Math.max(0, encoded.length - maximum)) : encoded.subarray(0, maximum);
   return slice.toString('utf8').replace(/^\uFFFD|\uFFFD$/gu, '');
+}
+
+function secretKey(key) {
+  const normalized = key.replace(/([a-z0-9])([A-Z])/gu, '$1_$2').replace(/[^A-Za-z0-9]+/gu, '_').toLowerCase();
+  return SECRET_KEY.test(normalized) || normalized.endsWith('secret');
 }
 
 function marker(reason, details) {

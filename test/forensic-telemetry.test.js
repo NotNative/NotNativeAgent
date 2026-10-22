@@ -82,6 +82,23 @@ test('telemetry sanitizer handles built-in objects and sensitive key variants', 
   assert.throws(() => supportTelemetryProjection(null), { code: 'telemetry_row_invalid' });
 });
 
+test('telemetry sanitizer redacts namespaced secrets and never serializes function source', () => {
+  const source = function credentialFactory() { return 'never-record-this-literal'; };
+  const sanitized = sanitizeTelemetry({
+    client_secret: 'client-hidden', 'X-Api-Key': 'header-hidden', apiSecret: 'camel-hidden',
+    aws_secret_access_key: 'aws-hidden', accessToken: 'token-hidden', token_count: 42,
+    callback: source, label: Symbol('private-symbol-description'),
+    map: new Map([['x_api_key', 'map-hidden']]),
+  });
+  for (const key of ['client_secret', 'X-Api-Key', 'apiSecret', 'aws_secret_access_key', 'accessToken']) {
+    assert.equal(sanitized[key], '[redacted]');
+  }
+  assert.equal(sanitized.token_count, 42);
+  assert.equal(sanitized.map[0][1], '[redacted]');
+  assert.equal(JSON.stringify(sanitized).includes('never-record-this-literal'), false);
+  assert.equal(JSON.stringify(sanitized).includes('private-symbol-description'), false);
+});
+
 test('state transitions and lifecycle records produce paired forensic spans', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-forensic-phases-'));
   const telemetry = telemetryAt(root);
