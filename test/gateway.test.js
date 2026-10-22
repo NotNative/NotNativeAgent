@@ -9,9 +9,9 @@ import { join } from 'node:path';
 import {
   gatewayPublicStatus, gatewayToken, loadGatewayConfig, normalizeGatewayConfig, saveGatewayConfig,
 } from '../src/gateway/config.js';
-import { splitTelegramText, TelegramApi } from '../src/gateway/telegram-api.js';
+import { splitTelegramText, TelegramApi, telegramRetryDelayMs } from '../src/gateway/telegram-api.js';
 import { gatewayCompactionMessage, gatewaySessionId, TelegramGateway } from '../src/gateway/telegram.js';
-import { loadGatewayState } from '../src/gateway/attached-replay.js';
+import { AttachedReplayState, loadGatewayState } from '../src/gateway/attached-replay.js';
 import { runGatewayContextAction } from '../src/gateway/context-actions.js';
 import { ConsoleSessionBroker, ConsoleSessionDirectory } from '../src/session-broker.js';
 import { readTelegramOutbox, TelegramNotificationQueue } from '../src/notifications/telegram.js';
@@ -221,6 +221,80 @@ test('Telegram response and chunk boundaries preserve typed failures and Unicode
   assert.throws(() => splitTelegramText('x', 0), { code: 'telegram_chunk_limit_invalid' });
   assert.throws(() => splitTelegramText('😀', 1), { code: 'telegram_chunk_limit_invalid' });
   assert.deepEqual(splitTelegramText('😀😀', 3), ['😀', '😀']);
+});
+
+test('Telegram 429 retry-after is bounded and retained for polling and reply retries', async () => {
+  const token = 'fixture';
+  const api = new TelegramApi(token, { fetch: async () => new Response(JSON.stringify({
+    ok: false, description: 'Too Many Requests', parameters: { retry_after: 7 },
+  }), { status: 429 }) });
+  let rateLimit;
+  await assert.rejects(api.getUpdates(0), (error) => {
+    rateLimit = error;
+    assert.equal(error.code, 'telegram_api_error');
+    assert.equal(error.retryable, true);
+    assert.equal(error.retryAfterMs, 7_000);
+    assert.equal(telegramRetryDelayMs(error), 7_000);
+    return true;
+  });
+  assert.equal(telegramRetryDelayMs({ code: 'telegram_api_error', retryAfterMs: -1 }), 1_000);
+  assert.equal(telegramRetryDelayMs({ code: 'telegram_unavailable', retryAfterMs: 7_000 }), 1_000);
+  const oversized = new TelegramApi(token, { fetch: async () => new Response(JSON.stringify({
+    ok: false, parameters: { retry_after: 10_000 },
+  }), { status: 429 }) });
+  await assert.rejects(oversized.getUpdates(0), (error) => {
+    assert.equal(error.retryAfterMs, 300_000);
+    return true;
+  });
+
+  const replay = new AttachedReplayState({
+    api: { async sendMessage() { throw rateLimit; } }, controller: new AbortController(),
+    config: { authorized_user_ids: ['42'] }, logger: { record() {} },
+    inbox: () => [], save: async () => {}, stop() {}, controls: () => ({}), bytes: () => 0,
+  });
+  replay.replies = [{ updateId: 1, chatId: '42', userId: '42', text: 'queued', alias: '' }];
+  const before = Date.now();
+  await replay.drain();
+  assert.ok(replay.retryAt >= before + 7_000 && replay.retryAt <= Date.now() + 7_000);
+  assert.equal(replay.replies.length, 1);
+});
+
+test('Telegram polling waits for the rate-limit interval before retrying', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-rate-limit-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let polls = 0;
+  let signalFirstPoll;
+  const firstPoll = new Promise((resolve) => { signalFirstPoll = resolve; });
+  const api = {
+    async getMe() { return { id: 1 }; },
+    async getUpdates(_offset, _timeout, signal) {
+      polls += 1;
+      if (polls === 1) {
+        signalFirstPoll();
+        throw Object.assign(new Error('rate limited'), { code: 'telegram_api_error', retryAfterMs: 7_000 });
+      }
+      return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    },
+  };
+  const gateway = new TelegramGateway({
+    api, paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs') },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    config: { authorized_user_ids: [], polling_timeout_seconds: 5 },
+    logger: { async initialize() {}, record() {}, async flush() {} },
+  });
+  const running = gateway.run();
+  try {
+    await firstPoll;
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(polls, 1);
+    t.mock.timers.tick(6_999);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(polls, 1);
+    t.mock.timers.tick(1);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(polls, 2);
+  } finally { await gateway.shutdown(); await running; }
 });
 
 test('gateway session identifiers do not disclose Telegram chat identifiers', () => {

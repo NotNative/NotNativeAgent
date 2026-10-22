@@ -6,6 +6,14 @@ const DEFAULT_LONG_POLL_SECONDS = 30;
 const LONG_POLL_GRACE_SECONDS = 10;
 const EMPTY_MESSAGE_FALLBACK = '(NNA returned no text.)';
 const MAX_RESPONSE_BYTES = 1_048_576;
+const DEFAULT_RETRY_DELAY_MS = 1_000;
+const MAX_RETRY_DELAY_MS = 300_000;
+
+export function telegramRetryDelayMs(error) {
+  return error?.code === 'telegram_api_error' && Number.isSafeInteger(error.retryAfterMs)
+    && error.retryAfterMs > 0 && error.retryAfterMs <= MAX_RETRY_DELAY_MS
+    ? error.retryAfterMs : DEFAULT_RETRY_DELAY_MS;
+}
 
 export class TelegramApi {
   #baseUrl;
@@ -84,7 +92,15 @@ export class TelegramApi {
     }
     if (!response.ok || envelope.ok !== true) {
       const description = typeof envelope.description === 'string' ? envelope.description.slice(0, 256) : `HTTP ${response.status}`;
-      throw new ContractError('telegram_api_error', `Telegram ${method}: ${description}`);
+      const error = new ContractError('telegram_api_error', `Telegram ${method}: ${description}`);
+      const seconds = envelope.parameters?.retry_after;
+      if (response.status === 429) {
+        error.retryable = true;
+        if (Number.isSafeInteger(seconds) && seconds > 0) {
+          error.retryAfterMs = Math.min(seconds * 1_000, MAX_RETRY_DELAY_MS);
+        }
+      }
+      throw error;
     }
     if ((method === 'getUpdates' && !Array.isArray(envelope.result))
       || (method === 'getMe' && (!envelope.result || typeof envelope.result !== 'object' || Array.isArray(envelope.result)))) {

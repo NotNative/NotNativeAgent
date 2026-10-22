@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { open } from 'node:fs/promises';
 import { ContractError } from '../ids.js';
+import { telegramRetryDelayMs } from './telegram-api.js';
 
 export const MAX_GATEWAY_STATE_BYTES = 1_048_576;
 const MAX_DURABLE_UPDATES = 256;
@@ -70,7 +71,7 @@ export class AttachedReplayState {
           try { await this.api.sendMessage(item.chatId, item.text, this.controller.signal, this.controls(item.alias)); }
           catch (error) {
             this.logger.record({ type: 'gateway_reply_delivery_failed', code: error.code ?? 'telegram_unavailable', outcome: 'failed' });
-            this.retryAt = Date.now() + 1_000;
+            this.retryAt = Date.now() + telegramRetryDelayMs(error);
             break;
           }
         }

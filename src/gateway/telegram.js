@@ -15,6 +15,7 @@ import { AttachedReplayState, gatewayStateBytes, loadGatewayState, MAX_GATEWAY_S
 import { gatewayCompactionMessage } from './compaction-notice.js';
 import { attachedControls, clearConfirmationControls, pendingSubmissionUpdate } from './controls.js';
 import { runGatewayContextAction } from './context-actions.js';
+import { telegramRetryDelayMs } from './telegram-api.js';
 export { gatewayCompactionMessage } from './compaction-notice.js';
 
 const MAX_PENDING_CHAT_UPDATES = 16; const MAX_PENDING_COMPACTION_NOTICES = 4; const MAX_DURABLE_UPDATES = 256;
@@ -79,7 +80,7 @@ export class TelegramGateway {
       } catch (error) {
         if (this.controller.signal.aborted) break;
         this.logger.record({ type: 'gateway_poll_failed', code: error.code ?? 'telegram_unavailable', outcome: 'failed' });
-        await delay(1_000, this.controller.signal).catch(() => undefined);
+        await delay(telegramRetryDelayMs(error), this.controller.signal).catch(() => undefined);
         continue;
       }
       await this.#acceptUpdates(updates);
