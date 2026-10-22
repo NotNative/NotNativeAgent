@@ -9,6 +9,7 @@ import { StateAuthority } from '../src/lifecycle.js';
 import { ConversationWork } from '../src/conversation-work.js';
 import { projectConversationWork } from '../src/conversation-work-projection.js';
 import { toolProgressEvidence } from '../src/reliability/tool-progress.js';
+import { toolStatus } from '../src/engine/records.js';
 
 test('protocol line boundary rejects nontext and normalizes absent limit objects', () => {
   for (const input of [undefined, null, 3, {}, Buffer.from('{}')]) {
@@ -16,6 +17,27 @@ test('protocol line boundary rejects nontext and normalizes absent limit objects
   }
   const line = JSON.stringify({ type: 'cancel', request_id: 'r', version: '1.0' });
   assert.equal(parseProtocolLine(line, null).type, 'cancel');
+});
+
+test('tool status preserves every bounded empty-observation outcome emitted by current tools', () => {
+  const engine = { sessionId: 'session-1', tools: { definition: () => ({ sideEffect: 'read_only' }) } };
+  const active = { turnId: 'turn-1' };
+  const outcomes = [
+    'no_matches', 'target_not_found', 'empty_directory', 'target_not_git_repository',
+    'connection_test_failed', 'no_turn_available', 'no_failed_session',
+    'no_durable_session', 'turn_not_found',
+  ];
+  for (const outcome of outcomes) {
+    const item = { request: { id: 'request-1', toolName: 'nna_diagnose_turn', definitionVersion: 1 },
+      result: { metadata: { observation_outcome: outcome } } };
+    assert.equal(toolStatus(engine, active, item, 'succeeded').observation_outcome, outcome);
+  }
+  const unknown = { request: { id: 'request-1', toolName: 'nna_diagnose_turn', definitionVersion: 1 },
+    result: { metadata: { observation_outcome: 'untrusted_value' } } };
+  assert.equal(toolStatus(engine, active, unknown, 'succeeded').observation_outcome, null);
+  const failed = { request: { id: 'request-1', toolName: 'nna_diagnose_turn', definitionVersion: 1 },
+    result: { metadata: { observation_outcome: 'no_turn_available' }, content: 'diagnostic failed' } };
+  assert.equal(toolStatus(engine, active, failed, 'failed').observation_outcome, null);
 });
 
 test('falsy subscriber failures retain deny policy and successful marker objects stay successful', async () => {

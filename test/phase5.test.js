@@ -984,6 +984,13 @@ test('negative discovery observations are visible without appearing as failures'
   assert.doesNotMatch(plain, /invalid_request|failed/u);
   const colored = renderer.frame(projection, { width: 100, height: 24, color: true });
   assert.doesNotMatch(colored, /38;5;203/u);
+  projection.apply('s1', {
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-2', tool: 'nna_diagnose_turn',
+    status: 'succeeded', observation_outcome: 'no_failed_session', elapsed_ms: 1,
+  });
+  const diagnostic = renderer.frame(projection, { width: 100, height: 24, color: false });
+  assert.match(diagnostic, /^    – nna_diagnose_turn \| no failed session$/mu);
+  assert.doesNotMatch(diagnostic, /no_failed_session/u);
 });
 
 test('failed tool rows show the attempted target and actionable failure reason', () => {

@@ -3,7 +3,7 @@ import { sanitizeTerminal } from './terminal-adapter.js';
 import { commandPresentation, commandsByCategory } from './commands.js';
 import { commandPickerLines } from './command-picker.js';
 import { PRODUCT_NAME, VERSION } from '../product.js';
-import { activityDetailRows, collapsedFailureRows, subagentProgressLines, summaryActivityRows, toolFailureSuffix, toolSymbol, toolTargetSuffix } from './activity-renderer.js';
+import { activityDetailRows, collapsedFailureRows, observationLabel, subagentProgressLines, summaryActivityRows, toolFailureSuffix, toolSymbol, toolTargetSuffix } from './activity-renderer.js';
 import { liveActivityLine } from './live-activity.js';
 import { displayWidth, renderMarkdownRows, truncateTerminal, wrapIndentedTerminalLine, wrapTerminalLine } from './terminal-markdown.js';
 import { sessionStatusLine } from './status-line.js';
@@ -362,10 +362,6 @@ function toolOutcome(record) {
 
 function toolHasDiagnostics(record) {
   return record.diagnostic_outcome === 'stderr_present' || record.diagnostic_visibility === 'reduced_by_script';
-}
-
-function observationLabel(value) {
-  return { no_matches: 'no matches', target_not_found: 'target not found', empty_directory: 'empty directory' }[value] ?? value;
 }
 
 function editorLines(session, width) {

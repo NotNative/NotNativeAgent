@@ -124,7 +124,7 @@ export function toolStatus(engine, active, item, status) {
     effect_certainty: item.result?.effect_certainty ?? null,
     exit_code: Number.isSafeInteger(item.result?.metadata?.exitCode) ? item.result.metadata.exitCode : null,
     signal: typeof item.result?.metadata?.signal === 'string' ? item.result.metadata.signal : null,
-    observation_outcome: observationOutcome(item.result?.metadata?.observation_outcome),
+    observation_outcome: status === 'succeeded' ? observationOutcome(item.result?.metadata?.observation_outcome) : null,
     diagnostic_outcome: diagnosticOutcome(item.result?.metadata?.diagnosticOutcome),
     diagnostic_visibility: diagnosticVisibility(item.result?.metadata?.diagnosticVisibility),
     reason_code: failed ? item.result?.reason_code ?? null : null,
@@ -144,7 +144,11 @@ function reviewPath(workspaceRoot, toolName, status, resolved) {
 }
 
 function observationOutcome(value) {
-  return ['no_matches', 'target_not_found', 'empty_directory'].includes(value) ? value : null;
+  return [
+    'no_matches', 'target_not_found', 'empty_directory', 'target_not_git_repository',
+    'connection_test_failed', 'no_turn_available', 'no_failed_session',
+    'no_durable_session', 'turn_not_found',
+  ].includes(value) ? value : null;
 }
 
 function diagnosticOutcome(value) {

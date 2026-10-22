@@ -200,8 +200,13 @@ function toolHasDiagnostics(record) {
   return record?.diagnostic_outcome === 'stderr_present' || record?.diagnostic_visibility === 'reduced_by_script';
 }
 
-function observationLabel(value) {
-  return { no_matches: 'no matches', target_not_found: 'target not found', empty_directory: 'empty directory' }[value] ?? value;
+export function observationLabel(value) {
+  return {
+    no_matches: 'no matches', target_not_found: 'target not found', empty_directory: 'empty directory',
+    target_not_git_repository: 'target is not a Git repository', connection_test_failed: 'connection test failed',
+    no_turn_available: 'no turn available', no_failed_session: 'no failed session',
+    no_durable_session: 'no durable session', turn_not_found: 'turn not found',
+  }[value] ?? value;
 }
 
 function successfulToolStatus(status) {
