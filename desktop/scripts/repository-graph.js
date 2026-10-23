@@ -9,8 +9,8 @@ const graphPath = join(root, 'docs', 'architecture', 'repository-graph.json');
 const documentPath = join(root, 'docs', 'architecture', 'repository-graph.md');
 const SOURCE_ROOTS = Object.freeze(['packages/ui/src', 'packages/web/src', 'scripts']);
 const MAX_SOURCE_FILES = 2_000;
-const SOURCE_EXTENSIONS = /\.(ts|tsx|mjs|js)$/u;
-const EXCLUDED_PATH = /(^\\?|\/)(__tests__|node_modules|dist)(\/|$)|\.test\.[tj]sx?$|\.d\.ts$/u;
+const SOURCE_EXTENSIONS = /\.(ts|tsx|mjs|js|jsx)$/u;
+const EXCLUDED_PATH = /(^\\?|\/)(__tests__|node_modules|dist)(\/|$)|\.test\.(ts|tsx|mjs|js|jsx)$|\.d\.ts$/u;
 
 const COMPONENTS = Object.freeze([
   component('sync-engine', 'Client sync and state engine', 'Owns the event pipeline, stores, bootstrap, recovery, and materialization (doc 04).', matches('packages/ui/src/sync/')),

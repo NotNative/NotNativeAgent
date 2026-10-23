@@ -2,6 +2,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import { collectProductionSources } from './source-catalog.js';
 
 const scriptRoot = resolve(join(fileURLToPath(import.meta.url), '..', '..'));
@@ -32,30 +33,21 @@ export function validateTerminologyContract(contract) {
   return errors;
 }
 
-export function scanIdentifiers(source) {
-  const identifiers = [];
-  let mode = 'code';
-  let index = 0;
-  while (index < source.length) {
-    const character = source[index];
-    if (mode !== 'code') {
-      index = advanceThroughNonCode(source, mode, index);
-      mode = 'code';
-      continue;
-    }
-    if (character === '/' && source[index + 1] === '/') { mode = 'line'; index += 2; continue; }
-    if (character === '/' && source[index + 1] === '*') { mode = 'block'; index += 2; continue; }
-    if (character === '/' && startsRegexLiteral(source, index)) { index = advanceThroughRegex(source, index); continue; }
-    if (character === "'" || character === '"' || character === '`') { mode = character; index += 1; continue; }
-    if (identifierStart(character)) {
-      let end = index + 1;
-      while (identifierPart(source[end])) end += 1;
-      identifiers.push(source.slice(index, end));
-      index = end;
-      continue;
-    }
-    index += 1;
+export function scanIdentifiers(source, filePath = 'source.ts') {
+  const scriptKind = ts.getScriptKindFromFileName(filePath);
+  const parsed = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true,
+    scriptKind === ts.ScriptKind.Unknown ? ts.ScriptKind.TS : scriptKind);
+  const failure = parsed.parseDiagnostics.find((diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error);
+  if (failure) {
+    const detail = ts.flattenDiagnosticMessageText(failure.messageText, ' ');
+    throw new Error(`cannot scan ${filePath}: ${detail}`);
   }
+  const identifiers = [];
+  const visit = (node) => {
+    if (ts.isIdentifier(node) || ts.isPrivateIdentifier(node)) identifiers.push(node.text);
+    ts.forEachChild(node, visit);
+  };
+  visit(parsed);
   return identifiers;
 }
 
@@ -65,7 +57,7 @@ export function auditDeprecatedIdentifiers(contract, files) {
   const counts = new Map();
   for (const item of contract.deprecated_identifiers ?? []) counts.set(item.identifier, 0);
   for (const file of files) {
-    for (const identifier of scanIdentifiers(file.source)) {
+    for (const identifier of scanIdentifiers(file.source, file.path)) {
       if (counts.has(identifier)) counts.set(identifier, counts.get(identifier) + 1);
     }
   }
@@ -225,56 +217,6 @@ function validateDeprecated(value, declaredIdentifiers, errors) {
       errors.push(`${label}.baseline_occurrences must be a non-negative safe integer`);
     }
   }
-}
-
-// ── scanner helpers ──────────────────────────────────────────────────────────
-
-function advanceThroughNonCode(source, mode, index) {
-  const terminator = mode === 'line' ? 0 : mode === 'block' ? '*/' : mode;
-  while (index < source.length) {
-    if (terminator === 0 && source[index] === '\n') return index + 1;
-    if (terminator === '*/' && source[index] === '/' && source[index - 1] === '*') return index + 1;
-    if (typeof terminator === 'string' && terminator !== '*/' && source[index] === terminator) return index + 1;
-    if (terminator === 0 && source[index] === '\\') return index + 2;
-    if (terminator === 0 && source[index] === '\n') return index + 1;
-    index += 1;
-  }
-  return index;
-}
-
-function advanceThroughRegex(source, index) {
-  let escaped = false;
-  let inClass = false;
-  index += 1;
-  while (index < source.length) {
-    const ch = source[index];
-    if (escaped) { escaped = false; }
-    else if (ch === '\\') escaped = true;
-    else if (ch === '[') inClass = true;
-    else if (ch === ']') inClass = false;
-    else if (ch === '/' && !inClass) return index + 1;
-    else if (ch === '\n') return index + 1;
-    index += 1;
-  }
-  return index;
-}
-
-function startsRegexLiteral(source, index) {
-  let unspaceAt = index - 1;
-  while (unspaceAt >= 0 && /\s/.test(source[unspaceAt])) unspaceAt -= 1;
-  const previous = source[unspaceAt] ?? '';
-  if (previous === '') return true;
-  if (/[\w)\]]/u.test(previous)) return false;
-  const before = source.slice(0, unspaceAt + 1);
-  return /\b(return|case|typeof|delete|in|of|new|instanceof|await)$/u.test(before);
-}
-
-function identifierStart(value) {
-  return typeof value === 'string' && /[A-Za-z_$]/u.test(value);
-}
-
-function identifierPart(value) {
-  return typeof value === 'string' && /[A-Za-z0-9_$]/u.test(value);
 }
 
 function wordCount(value) {

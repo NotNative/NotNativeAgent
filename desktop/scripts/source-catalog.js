@@ -28,7 +28,7 @@ export async function collectProductionSources(root) {
 
 function isProductionSource(entry) {
   return entry.isFile()
-    && /\.(ts|tsx|mjs|js)$/u.test(entry.name)
-    && !/\.test\.[tj]sx?$/u.test(entry.name)
+    && /\.(ts|tsx|mjs|js|jsx)$/u.test(entry.name)
+    && !/\.test\.(ts|tsx|mjs|js|jsx)$/u.test(entry.name)
     && !/\.d\.ts$/u.test(entry.name);
 }
