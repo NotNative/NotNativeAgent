@@ -10,6 +10,65 @@ import { isTerminalToolStatus, latestToolStatusIndexes } from '../src/experience
 import { transcriptEvents } from '../src/experience/transcript.js';
 import { deployWebSearch } from '../src/experience/websearch.js';
 import { ContractError } from '../src/ids.js';
+import { ExperienceEngine } from '../src/experience-engine.js';
+import { TuiProjection } from '../src/experience/projection.js';
+import { resolveManifest } from '../src/config.js';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+test('failed tab restoration releases its engine and rolls back the partial session', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-create-rollback-'));
+  const config = resolveManifest({ persistence: 'ephemeral', workspace_root: root,
+    provider: { id: 'local', display_name: 'Local', endpoint: 'http://127.0.0.1:9/v1',
+      model: 'fixture', trust_zone: 'loopback' } });
+  const projection = new TuiProjection();
+  const workspace = new ExperienceEngine({ config, projection, dataPaths: { root: join(root, 'data') },
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }) });
+  try {
+    await workspace.create('Main', 'main');
+    await assert.rejects(workspace.create('Broken', 'retry', { presentation: {
+      draft: 'retained', expanded_turn_ids: [], detailed_turn_ids: [], pending_attachments: [],
+      review_posture: 'auto-review', viewport_end: -1,
+    } }), { code: 'presentation_state_invalid' });
+    assert.equal(workspace.sessions.has('retry'), false);
+    assert.equal(projection.sessions.has('retry'), false);
+    assert.equal(projection.activeId, 'main');
+    assert.equal(await workspace.create('Recovered', 'retry'), 'retry');
+  } finally { await workspace.shutdown(); }
+});
+
+test('concurrent creation with the same id cannot replace an initializing session', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-create-reservation-'));
+  const config = resolveManifest({ persistence: 'ephemeral', workspace_root: root,
+    provider: { id: 'local', display_name: 'Local', endpoint: 'http://127.0.0.1:9/v1',
+      model: 'fixture', trust_zone: 'loopback' } });
+  const workspace = new ExperienceEngine({ config, dataPaths: { root: join(root, 'data') },
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }) });
+  try {
+    const first = workspace.create('First', 'shared');
+    await assert.rejects(workspace.create('Second', 'shared'), { code: 'session_duplicate' });
+    assert.equal(await first, 'shared');
+    assert.equal(workspace.sessions.get('shared').name, 'First');
+    assert.equal(workspace.projection.sessions.get('shared').name, 'First');
+  } finally { await workspace.shutdown(); }
+});
+
+test('console shutdown waits for an initializing session and prevents late attachment', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-create-shutdown-'));
+  const config = resolveManifest({ persistence: 'ephemeral', workspace_root: root,
+    provider: { id: 'local', display_name: 'Local', endpoint: 'http://127.0.0.1:9/v1',
+      model: 'fixture', trust_zone: 'loopback' } });
+  const workspace = new ExperienceEngine({ config, dataPaths: { root: join(root, 'data') },
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }) });
+  const creating = workspace.create('Late', 'late');
+  const closing = workspace.shutdown();
+  await assert.rejects(creating, { code: 'session_engine_unavailable' });
+  await closing;
+  assert.equal(workspace.sessions.size, 0);
+  assert.equal(workspace.projection.sessions.size, 0);
+  await assert.rejects(workspace.create('Too late', 'another'), { code: 'session_engine_unavailable' });
+});
 
 test('auto-title persistence failure permits retry without overwriting operator rename', async () => {
   const session = { id: 's', name: 'Conversation 1', autoNamed: false, nameLocked: false,

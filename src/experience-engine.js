@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-import { CanonicalIngress } from './ingress.js';
 import { SessionEngine } from './engine.js';
 import { ContractError, newId } from './ids.js';
 import { TuiProjection } from './experience/projection.js';
 import { FairScheduler } from './provider/fair-scheduler.js';
 import { resolveUserDataPaths, userDataPaths } from './product.js';
 import {
-  booleanSettingValue, manifestFromConfig, withBooleanSetting, withContextSettings, withRecoverySettings,
+  booleanSettingValue, withBooleanSetting, withContextSettings, withRecoverySettings,
   withPrimaryRoute, withUpdatedProvider,
   withGlobalSpecialistRoutes,
   withKeyBindings, withMcpEnabled, withMcpServer, withMcpServerUpdate, withoutMcpServer, withRuntimeLimits,
@@ -19,13 +18,13 @@ import {
   manageWebSearch, removeWebSearchDeployment, resetWebSearch, setPrimaryWebSearchProfile, webSearchStatus,
 } from './experience/websearch.js';
 import { nextReviewPosture, reviewPostureNotice } from './review-posture.js';
-import { restoreDurablePresentation } from './experience/transcript.js';
-import { restorePresentation, tabPoolRecords } from './experience/presentation.js';
+import { tabPoolRecords } from './experience/presentation.js';
 import { createNextConversation, createWorkspaceConversation, observeWorkspaceChange } from './experience/directory.js';
 import { restoreWorkspace } from './experience/restore.js';
 import { validateKeyBindings } from './experience/key-bindings.js';
 import { WorkspaceTabPersistence } from './experience/tab-persistence.js';
-import { isGeneratedConversationName, maybeAutoNameConversation, renameWorkspaceConversation } from './experience/conversation-title.js';
+import { maybeAutoNameConversation, renameWorkspaceConversation } from './experience/conversation-title.js';
+import { attachCreatedSession, rollbackCreatedSession } from './experience/create.js';
 const INTERACTIVE_OPERATOR = 'authenticated-interactive-operator';
 import { appliedProviderTestResult, testProviderProfile } from './experience/provider-test.js';
 import { availableWorkspaceModels, qualifyWorkspaceModel } from './experience/models.js';
@@ -47,6 +46,8 @@ import { settleConsoleQuestion } from './experience/question-control.js';
 import { acceptPendingSubmission, beginSessionSubmission } from './experience/submission.js';
 export class ExperienceEngine {
   #tasks = new Set();
+  #creatingSessions = new Map();
+  #closing = false;
   constructor(options) {
     this.config = options.config;
     this.dataPaths = resolveUserDataPaths(options.dataPaths);
@@ -94,7 +95,11 @@ export class ExperienceEngine {
   acquireConsoleAuthority() { return this.consoleAuthority.acquire(); }
   async toggleWorkSummary() { if (!this.projection.toggleWorkSummary()) return false; this.onChange(); await this._savePoolRecoverable(); return true; }
   async create(name = 'Main', sessionId = newId('session'), options = {}) {
-    if (this.sessions.has(sessionId)) throw new ContractError('session_duplicate', 'conversation is already attached');
+    if (this.#closing) throw new ContractError('session_engine_unavailable', 'console is shutting down');
+    if (this.sessions.has(sessionId) || this.#creatingSessions.has(sessionId)) {
+      throw new ContractError('session_duplicate', 'conversation is already attached');
+    }
+    if (this.projection.sessions.has(sessionId)) throw new ContractError('session_duplicate', 'conversation tab is already attached');
     const output = async (event) => {
       acceptPendingSubmission(this, this.sessions.get(sessionId), event);
       this.projection.apply(sessionId, event);
@@ -125,28 +130,20 @@ export class ExperienceEngine {
         test: (id) => this.testMcpServer(id),
       },
     });
-    await engine.initialize({ deferMcp: true });
-    const ingress = new CanonicalIngress(engine, { interactive: true });
-    const role = options.role ?? (this.sessions.size === 0 ? 'primary' : 'standard');
-    const meaningful = options.meaningful ?? engine.transcript.some((item) => item.type === 'message' && item.role === 'user');
-    this.sessions.set(sessionId, { id: sessionId, sessionId, name, engine, ingress, meaningful,
-      main: options.main === true, nameLocked: options.nameLocked ?? !isGeneratedConversationName(name),
-      autoNamed: options.autoNamed === true });
-    const primary = sessionConfig.routes.primary;
-    this.projection.addSession(sessionId, name, routePresentation(sessionConfig, primary, {
-      workspace: sessionConfig.workspaceRoot,
-    }), role);
-    this.projection.sessions.get(sessionId).commandCapabilities = { memoryAvailable: engine.memory.enabled, mcpReady: engine.mcp.status().some((item) => item.state === 'ready') };
-    restoreDurablePresentation(this.projection, sessionId, engine.restoredJournalRecords, engine.transcript, {
-      truncated: engine.resumeBoundary?.hasMore === true,
-    });
-    this.projection.sessions.get(sessionId).work = engine.workStatus();
-    Object.assign(this.projection.sessions.get(sessionId), engine.resumeBoundary ?? { beforeSequence: null, hasMore: false });
-    restorePresentation(this.projection.sessions.get(sessionId), engine, options.presentation);
-    this.projection.activate(sessionId);
-    if (options.persist !== false) await this._savePoolRecoverable();
-    this.onChange();
-    return sessionId;
+    const previousActiveId = this.projection.activeId;
+    const settled = Promise.withResolvers();
+    this.#creatingSessions.set(sessionId, settled.promise);
+    try {
+      await engine.initialize({ deferMcp: true });
+      if (this.#closing) throw new ContractError('session_engine_unavailable', 'console is shutting down');
+      return await attachCreatedSession(this, name, sessionId, options, sessionConfig, engine);
+    } catch (error) {
+      await rollbackCreatedSession(this, sessionId, engine, previousActiveId, options.persist !== false);
+      throw error;
+    } finally {
+      this.#creatingSessions.delete(sessionId);
+      settled.resolve();
+    }
   }
   resume(sessionId) { return resumeWorkspaceConversation(this, sessionId); }
   createNext() { return createNextConversation(this); }
@@ -246,6 +243,8 @@ export class ExperienceEngine {
     return { closed: true };
   }
   async shutdown() {
+    this.#closing = true;
+    await Promise.allSettled([...this.#creatingSessions.values()]);
     this.projection.dispose(); this.dream?.close();
     await this.sessionBroker?.close?.();
     let poolFailure = null;
