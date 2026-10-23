@@ -157,7 +157,6 @@ export function resetStep(active) {
   const reasoningMode = active.capabilityPhase === 'action' && active.actionRepairStepPending === true
     ? 'off' : undefined;
   if (reasoningMode === 'off') active.actionRepairStepPending = false;
-  active.reasoningFallbackPending = false;
   active.stepText = '';
   active.committedStepText = null;
   active.stepReasoningBytes = 0;
@@ -345,7 +344,6 @@ export function groundCapabilityPhase(active) {
 }
 
 export function resetReasoningRecovery(active) {
-  active.reasoningFallbackUsed = false;
   active.reasoningHeadroomRetryUsed = false;
   if (active.enrichment) delete active.enrichment.reasoningRecoveryContinuation;
 }

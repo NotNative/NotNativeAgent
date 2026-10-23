@@ -31,8 +31,6 @@ export async function recoverReasoningOnly(engine, active) {
   const plan = engine.reliability.reasoningOnly(active);
   if (!plan) return null;
   active.reasoningHeadroomRetryUsed = true;
-  active.reasoningFallbackUsed = false;
-  active.reasoningFallbackPending = false;
   active.enrichment.reasoningRecoveryContinuation = Object.freeze({
     reasoningContent: active.stepReasoningText,
     providerProfile: active.providerResource,

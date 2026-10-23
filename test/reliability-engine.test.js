@@ -51,7 +51,7 @@ test('Reliability Engine returns bounded provider recovery decisions without exe
   });
   const supervisor = reliability.createTurnSupervisor({ localLimit: 3, ladder: ['nudge'] });
   const active = {
-    stepText: '', stepReasoningBytes: 12, reasoningFallbackUsed: false,
+    stepText: '', stepReasoningBytes: 12,
     toolAssembler: { size: 0 }, runtimeModel: { parallelCapacity: 4 }, recovery: supervisor,
   };
 
