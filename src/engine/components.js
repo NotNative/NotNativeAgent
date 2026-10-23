@@ -92,9 +92,7 @@ function installOutput(engine, options) {
       reasonCode: record?.reason_code ?? record?.code,
       effectCertainty: record?.effect_certainty,
     });
-    const result = await output(record);
-    if (record?.type === 'turn_result') await engine.telegramNotifications?.terminal(record);
-    return result;
+    return output(record);
   };
   engine.surface = options.surface ?? 'headless';
   engine.emitContextStatus = options.emitContextStatus === true;

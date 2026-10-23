@@ -113,6 +113,65 @@ test('concurrent finalization joins one terminal persistence and output', async 
   await assert.rejects(finalizeEngineTurn(engine, 'completed', '', null, {}, operations), /duplicate/);
 });
 
+test('terminal notification is enqueued after commit even when output fails', async () => {
+  const events = [];
+  const engine = { active: { turnId: 'turn', finalized: false }, config: {},
+    state: { state: 'finalizing_turn', transition(to) { this.state = to; } },
+    lifecycles: { finish() {} }, tools: { close() {} },
+    output: async () => { events.push('output'); throw new Error('disconnected'); },
+    telegramNotifications: { async terminal(record) {
+      assert.equal(record.outcome, 'completed'); events.push('notification');
+    } } };
+  const operations = { publish: async () => {}, persist: async (type) => events.push(type),
+    rejectDuplicate() { throw new Error('duplicate'); } };
+  const result = await finalizeEngineTurn(engine, 'completed', 'report', null, {}, operations);
+  assert.deepEqual(events.slice(-3), ['turn_outcome', 'output', 'notification']);
+  assert.equal(result.outcome, 'completed');
+  assert.equal(result.secondary_failures.some((failure) => failure.boundary === 'output'), true);
+});
+
+test('terminal notification is not held by a stalled output consumer', async () => {
+  const events = [];
+  let releaseOutput;
+  let notificationEnqueued;
+  const outputReleased = new Promise((resolve) => { releaseOutput = resolve; });
+  const notified = new Promise((resolve) => { notificationEnqueued = resolve; });
+  const engine = { active: { turnId: 'turn', finalized: false }, config: {},
+    state: { state: 'finalizing_turn', transition(to) { this.state = to; } },
+    lifecycles: { finish() {} }, tools: { close() {} },
+    output: async () => { events.push('output'); await outputReleased; },
+    telegramNotifications: { async terminal() { events.push('notification'); notificationEnqueued(); } } };
+  const operations = { publish: async () => {}, persist: async (type) => events.push(type),
+    rejectDuplicate() { throw new Error('duplicate'); } };
+  const finishing = finalizeEngineTurn(engine, 'completed', 'report', null, {}, operations);
+  let timeout;
+  const enqueuedBeforeOutputFinished = await Promise.race([
+    notified.then(() => true),
+    new Promise((resolve) => { timeout = setTimeout(() => resolve(false), 1_000); }),
+  ]);
+  clearTimeout(timeout);
+  releaseOutput();
+  const result = await finishing;
+  assert.equal(enqueuedBeforeOutputFinished, true);
+  assert.deepEqual(events.slice(-3), ['turn_outcome', 'output', 'notification']);
+  assert.equal(result.outcome, 'completed');
+});
+
+test('notification enqueue failure stays secondary to committed outcome', async () => {
+  const events = [];
+  const engine = { active: { turnId: 'turn', finalized: false }, config: {},
+    state: { state: 'finalizing_turn', transition(to) { this.state = to; } },
+    lifecycles: { finish() {} }, tools: { close() {} },
+    output: async () => events.push('output'),
+    telegramNotifications: { async terminal() { throw new Error('outbox unavailable'); } } };
+  const operations = { publish: async () => {}, persist: async (type) => events.push(type),
+    rejectDuplicate() { throw new Error('duplicate'); } };
+  const result = await finalizeEngineTurn(engine, 'completed', 'report', null, {}, operations);
+  assert.deepEqual(events.slice(-2), ['turn_outcome', 'output']);
+  assert.equal(result.outcome, 'completed');
+  assert.equal(result.secondary_failures.some((failure) => failure.boundary === 'notification'), true);
+});
+
 test('terminal persistence failure leaves the turn non-idle and emits no completion', async () => {
   const output = [];
   const transitions = [];

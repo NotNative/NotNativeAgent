@@ -67,6 +67,11 @@ async function finalizeOnce(engine, active, text, options, operations, faults) {
   await faults.capture('cleanup', () => engine.tools?.close?.());
   if (engine.state.state === 'idle') engine.active = null;
   const terminalBeforeOutput = terminalRecord(engine, active, faults.outcome, text, faults.primary, faults.secondary);
-  await faults.capture('output', () => engine.output(terminalBeforeOutput));
+  // Both post-commit effects must start independently. A disconnected output
+  // consumer may hang instead of throwing, but it must not delay the outbox.
+  await Promise.all([
+    faults.capture('output', () => engine.output(terminalBeforeOutput)),
+    faults.capture('notification', () => engine.telegramNotifications?.terminal(terminalBeforeOutput)),
+  ]);
   return terminalRecord(engine, active, faults.outcome, text, faults.primary, faults.secondary);
 }
