@@ -9,21 +9,33 @@ export function settleUnavailableEvidence(store, context) {
   if (!context || typeof context !== 'object') return null;
   const { runtimeKey, configVersion, run, packet, started, error } = context;
   if (typeof error?.code !== 'string' || !UNAVAILABLE_EVIDENCE_CODES.has(error.code)) return null;
-  if (!store || typeof store.finishPacket !== 'function' || typeof store.finish !== 'function'
+  if (!store || typeof store.transaction !== 'function' || typeof store.finishPacket !== 'function' || typeof store.finish !== 'function'
     || typeof store.commitWatermark !== 'function' || !run?.id || !packet?.id
     || !Number.isFinite(started) || typeof runtimeKey !== 'string') {
     throw new ContractError('maintenance_evidence_context_invalid', 'maintenance evidence settlement context is invalid');
   }
   try {
-    store.finishPacket(packet.id, SETTLEMENT_CODE);
-    store.finish(run.id, SKIPPED_STATE, {
-      resultCode: SETTLEMENT_CODE, durationMs: Math.max(0, performance.now() - started),
-    });
-    store.commitWatermark({
-      runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
-      stage: 0, configGeneration: configVersion,
+    store.transaction(() => {
+      store.finishPacket(packet.id, SETTLEMENT_CODE);
+      store.finish(run.id, SKIPPED_STATE, {
+        resultCode: SETTLEMENT_CODE, durationMs: Math.max(0, performance.now() - started),
+      });
+      store.commitWatermark({
+        runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
+        stage: 0, configGeneration: configVersion,
+      });
     });
   } catch (settlementError) {
+    // Invariant: a rolled-back settlement cannot retain the unique active-run slot.
+    try {
+      store.finish(run.id, 'failed', {
+        resultCode: 'maintenance_evidence_settlement_failed', durationMs: Math.max(0, performance.now() - started),
+      });
+    } catch (releaseError) {
+      throw new ContractError('maintenance_evidence_settlement_failed', 'maintenance evidence could not be settled', {
+        cause: new AggregateError([settlementError, releaseError], 'settlement and run release failed'),
+      });
+    }
     throw new ContractError('maintenance_evidence_settlement_failed', 'maintenance evidence could not be settled', { cause: settlementError });
   }
   return { code: SETTLEMENT_CODE, packet_id: packet.id, reason_code: error.code };

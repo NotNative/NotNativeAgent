@@ -10,6 +10,7 @@ import { NnmGovernanceReceipts } from './nnm-governance-receipts.js';
 import { NnmHygieneReceipts } from './nnm-hygiene-receipts.js';
 import { admitHygieneReceipt, admitNnmReceipt } from './dream-governance-admission.js';
 import { settleUnavailableEvidence } from './dream-evidence-settlement.js';
+import { reliabilityCandidate, candidateSummary } from './dream-candidate-projection.js';
 import { observeSkillRequests } from './skill-opportunity.js';
 import {
   explicitProjectKnowledge, ProjectMemoryReconciler, projectMemoryCandidate,
@@ -111,18 +112,21 @@ export class DreamCoordinator {
         scope: { kind: 'workspace', fingerprint: governanceFingerprint(this.config.workspaceRoot) },
         observedAt: Date.now(), attributes: { records: rows.length, turns: packet.turns },
       });
-      const durablePacket = this.store.savePacket({
-        runtimeKey: this.runtimeKey, evidenceStart: first.id, evidenceEnd: last.id,
-        evidenceId: evidence.id, payload: packet,
-      });
-      const result = { code: 'harvest_complete', records: rows.length, packet_id: durablePacket.id, packet };
-      this.store.finish(run.id, 'completed', {
-        resultCode: result.code, durationMs: performance.now() - started,
-        outputFingerprint: fingerprint(result),
-      });
-      this.store.commitWatermark({
-        runtimeKey: this.runtimeKey, sessionId: last.session_id,
-        turnSequence: last.id, stage: 1, configGeneration: this.config.version,
+      const result = this.#commitStage(run, started, () => {
+        const durablePacket = this.store.savePacket({
+          runtimeKey: this.runtimeKey, evidenceStart: first.id, evidenceEnd: last.id,
+          evidenceId: evidence.id, payload: packet,
+        });
+        const completed = { code: 'harvest_complete', records: rows.length, packet_id: durablePacket.id, packet };
+        this.store.finish(run.id, 'completed', {
+          resultCode: completed.code, durationMs: performance.now() - started,
+          outputFingerprint: fingerprint(completed),
+        });
+        this.store.commitWatermark({
+          runtimeKey: this.runtimeKey, sessionId: last.session_id,
+          turnSequence: last.id, stage: 1, configGeneration: this.config.version,
+        });
+        return completed;
       });
       this.state.lastResult = result;
       return result;
@@ -161,14 +165,16 @@ export class DreamCoordinator {
         scope: { kind: 'workspace', fingerprint: governanceFingerprint(this.config.workspaceRoot) }, signal,
       });
       candidates.push(...skillCandidates);
-      this.store.advancePacket(packet.id, 2, 'operational_diagnosis_complete');
-      this.store.finish(run.id, 'completed', {
-        resultCode: 'operational_diagnosis_complete', durationMs: performance.now() - started,
-        outputFingerprint: fingerprint(candidates.map((item) => item.id)),
-      });
-      this.store.commitWatermark({
-        runtimeKey: this.runtimeKey, sessionId: null,
-        turnSequence: packet.evidence_end, stage: 2, configGeneration: this.config.version,
+      this.#commitStage(run, started, () => {
+        this.store.advancePacket(packet.id, 2, 'operational_diagnosis_complete');
+        this.store.finish(run.id, 'completed', {
+          resultCode: 'operational_diagnosis_complete', durationMs: performance.now() - started,
+          outputFingerprint: fingerprint(candidates.map((item) => item.id)),
+        });
+        this.store.commitWatermark({
+          runtimeKey: this.runtimeKey, sessionId: null,
+          turnSequence: packet.evidence_end, stage: 2, configGeneration: this.config.version,
+        });
       });
       const result = {
         code: 'operational_diagnosis_complete', packet_id: packet.id,
@@ -213,14 +219,16 @@ export class DreamCoordinator {
         ...projectMemoryCandidate(proposal, evidenceRefs),
         id: `candidate-project-memory-${proposal.proposed_hash.slice(0, 24)}`,
       });
-      this.store.advancePacket(packet.id, 3, 'project_memory_proposal_created');
-      this.store.finish(run.id, 'completed', {
-        resultCode: 'project_memory_proposal_created', durationMs: performance.now() - started,
-        outputFingerprint: candidate.payload_fingerprint,
-      });
-      this.store.commitWatermark({
-        runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
-        stage: 3, configGeneration: this.config.version,
+      this.#commitStage(run, started, () => {
+        this.store.advancePacket(packet.id, 3, 'project_memory_proposal_created');
+        this.store.finish(run.id, 'completed', {
+          resultCode: 'project_memory_proposal_created', durationMs: performance.now() - started,
+          outputFingerprint: candidate.payload_fingerprint,
+        });
+        this.store.commitWatermark({
+          runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
+          stage: 3, configGeneration: this.config.version,
+        });
       });
       const result = {
         code: 'project_memory_proposal_created', packet_id: packet.id,
@@ -239,11 +247,13 @@ export class DreamCoordinator {
     }
   }
   #finishProjectMemorySkipped(run, packet, started, code = 'project_memory_no_eligible_evidence') {
-    this.store.advancePacket(packet.id, 3, code);
-    this.store.finish(run.id, 'skipped', { resultCode: code, durationMs: performance.now() - started });
-    this.store.commitWatermark({
-      runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
-      stage: 3, configGeneration: this.config.version,
+    this.#commitStage(run, started, () => {
+      this.store.advancePacket(packet.id, 3, code);
+      this.store.finish(run.id, 'skipped', { resultCode: code, durationMs: performance.now() - started });
+      this.store.commitWatermark({
+        runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
+        stage: 3, configGeneration: this.config.version,
+      });
     });
     const result = { code, packet_id: packet.id };
     this.state.lastResult = result;
@@ -278,13 +288,15 @@ export class DreamCoordinator {
       for (const receipt of receipts) await admitNnmReceipt(engine, receipt, this.config.workspaceRoot);
       const resultCode = receipts.length === 0 ? 'nnm_receipt_timeout'
         : receipts.every((receipt) => receipt.status === 'completed') ? 'nnm_reconciled' : 'nnm_receipt_outcome_observed';
-      this.store.advancePacket(packet.id, 4, resultCode);
-      this.store.finish(run.id, receipts.length > 0 ? 'completed' : 'skipped', {
-        resultCode, durationMs: performance.now() - started,
-        outputFingerprint: fingerprint(receipts.map((item) => item.receipt_id)),
+      this.#commitStage(run, started, () => {
+        this.store.advancePacket(packet.id, 4, resultCode);
+        this.store.finish(run.id, receipts.length > 0 ? 'completed' : 'skipped', {
+          resultCode, durationMs: performance.now() - started,
+          outputFingerprint: fingerprint(receipts.map((item) => item.receipt_id)),
+        });
+        this.store.commitWatermark({ runtimeKey: this.runtimeKey, sessionId: null,
+          turnSequence: packet.evidence_end, stage: 4, configGeneration: this.config.version });
       });
-      this.store.commitWatermark({ runtimeKey: this.runtimeKey, sessionId: null,
-        turnSequence: packet.evidence_end, stage: 4, configGeneration: this.config.version });
       const result = { code: resultCode, receipts: receipts.length,
         completed_receipts: receipts.filter((receipt) => receipt.status === 'completed').length };
       this.state.lastResult = result;
@@ -302,10 +314,12 @@ export class DreamCoordinator {
     }
   }
   #finishNnmSkipped(run, packet, started, code) {
-    this.store.advancePacket(packet.id, 4, code);
-    this.store.finish(run.id, 'skipped', { resultCode: code, durationMs: performance.now() - started });
-    this.store.commitWatermark({ runtimeKey: this.runtimeKey, sessionId: null,
-      turnSequence: packet.evidence_end, stage: 4, configGeneration: this.config.version });
+    this.#commitStage(run, started, () => {
+      this.store.advancePacket(packet.id, 4, code);
+      this.store.finish(run.id, 'skipped', { resultCode: code, durationMs: performance.now() - started });
+      this.store.commitWatermark({ runtimeKey: this.runtimeKey, sessionId: null,
+        turnSequence: packet.evidence_end, stage: 4, configGeneration: this.config.version });
+    });
     const result = { code, packet_id: packet.id };
     this.state.lastResult = result;
     return result;
@@ -364,14 +378,16 @@ export class DreamCoordinator {
     });
   }
   #finishHygiene(run, packet, started, code, detail = {}) {
-    this.store.finishPacket(packet.id, code);
-    this.store.finish(run.id, detail.state ?? 'skipped', {
-      resultCode: code, durationMs: performance.now() - started,
-      outputFingerprint: detail.fingerprint ?? null,
-    });
-    this.store.commitWatermark({
-      runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
-      stage: 0, configGeneration: this.config.version,
+    this.#commitStage(run, started, () => {
+      this.store.finishPacket(packet.id, code);
+      this.store.finish(run.id, detail.state ?? 'skipped', {
+        resultCode: code, durationMs: performance.now() - started,
+        outputFingerprint: detail.fingerprint ?? null,
+      });
+      this.store.commitWatermark({
+        runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
+        stage: 0, configGeneration: this.config.version,
+      });
     });
     const result = {
       code, packet_id: packet.id, candidates: detail.receipt?.candidates ?? 0,
@@ -379,6 +395,20 @@ export class DreamCoordinator {
     };
     this.state.lastResult = result;
     return result;
+  }
+  #commitStage(run, started, action) {
+    try { return this.store.transaction(action); }
+    catch (error) {
+      // Invariant: rollback must release the active-run slot before another idle attempt.
+      try {
+        this.store.finish(run.id, 'failed', {
+          resultCode: 'maintenance_commit_failed', durationMs: Math.max(0, performance.now() - started),
+        });
+      } catch (releaseError) {
+        throw new AggregateError([error, releaseError], 'dream stage commit and run release failed');
+      }
+      throw error;
+    }
   }
   #settleUnavailableEvidence(run, packet, started, error) {
     const result = settleUnavailableEvidence(this.store, {
@@ -437,36 +467,6 @@ function evidencePacket(rows) {
 function workspaceKey(root) { return createHash('sha256').update(root).digest('hex').slice(0, 32); }
 function fingerprint(value) { return createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
 function cancelled() { return Object.assign(new Error('dream stage cancelled by foreground activity'), { code: 'dream_cancelled' }); }
-function reliabilityCandidate(issue, evidenceId) {
-  const reason = issue.reason;
-  return {
-    id: `candidate-recovery-${governanceFingerprint(reason).slice(0, 24)}`,
-    kind: 'recovery.failure_pattern', confidence: Math.min(0.95, 0.5 + issue.count * 0.05),
-    recurrenceCount: issue.count, evidenceRefs: [evidenceId],
-    expectedBenefit: `Reduce repeated ${reason} failures without weakening safety policy.`,
-    successCriteria: [
-      `A bounded replay of ${reason} completes without the repeated failure.`,
-      'Existing safety and regression checks continue to pass.',
-    ],
-    riskClass: 'diagnostic', payload: { failure_code: reason, proposed_action: 'investigate' },
-  };
-}
-
-function candidateSummary(candidate, detail = false) {
-  const summary = {
-    id: candidate.id, kind: candidate.kind, state: candidate.state,
-    confidence: Number(candidate.confidence), recurrence_count: Number(candidate.recurrence_count),
-    risk_class: candidate.risk_class, expected_benefit: candidate.expected_benefit,
-    updated_at: candidate.updated_at,
-  };
-  if (detail) Object.assign(summary, {
-    evidence_refs: candidate.evidence_refs, success_criteria: candidate.success_criteria,
-    rejection_reason: candidate.rejection_reason, expires_at: candidate.expires_at,
-    payload_fingerprint: candidate.payload_fingerprint, payload: candidate.payload,
-  });
-  return Object.freeze(summary);
-}
-
 function nnmHook(health) {
   return health?.bundles?.find((item) => item.bundle === 'notnative-memory' && item.status === 'loaded') ?? null;
 }

@@ -258,6 +258,50 @@ test('idle operational diagnosis survives the stage boundary and observes repeat
   await telemetry.close();
 });
 
+test('diagnosis checkpoint failure preserves packet and does not count replayed evidence twice', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-diagnosis-rollback-'));
+  const telemetry = new ForensicTelemetry({
+    workspaceRoot: root, runtimeId: 'runtime', sessionId: 'session', dbPath: join(root, 'events.db'),
+  });
+  await telemetry.initialize();
+  for (let index = 1; index <= 3; index += 1) {
+    telemetry.record('provider.attempt', 'failed', { code: 'provider_timeout' }, {
+      turnId: `turn-${index}`, reasonCode: 'provider_timeout',
+    });
+  }
+  await telemetry.flush();
+  const governance = new GovernanceEngine({ sessionId: 'session' });
+  await governance.initialize();
+  const coordinator = new DreamCoordinator({
+    workspace: { sessions: new Map([['session', { engine: {
+      state: { state: 'idle' }, telemetry, governance, transcript: [],
+    } }]]) },
+    config: resolveManifest(manifest({ workspace_root: root })), path: join(root, 'dream.db'),
+  });
+  await coordinator.initialize();
+  try {
+    assert.equal((await coordinator.runNow()).result.code, 'harvest_complete');
+    const packet = coordinator.store.pendingPacket(coordinator.runtimeKey);
+    coordinator.store.db.exec(`CREATE TEMP TRIGGER fail_diagnosis_watermark BEFORE UPDATE ON dream_watermarks
+      BEGIN SELECT RAISE(ABORT, 'injected diagnosis watermark failure'); END`);
+    const failed = await coordinator.runNow();
+    assert.equal(failed.state, 'failed');
+    assert.equal(coordinator.store.packet(packet.id).stage, 1);
+    assert.equal(coordinator.store.watermark(coordinator.runtimeKey).stage, 1);
+    const candidate = coordinator.store.candidates()[0];
+    assert.equal(candidate.recurrence_count, 3);
+    coordinator.store.db.exec('DROP TRIGGER fail_diagnosis_watermark');
+    const retried = await coordinator.runNow();
+    assert.equal(retried.state, 'completed', retried.error?.stack);
+    assert.equal(retried.result.code, 'operational_diagnosis_complete');
+    assert.equal(coordinator.store.candidate(candidate.id).recurrence_count, 3);
+    assert.equal(coordinator.store.packet(packet.id).stage, 2);
+  } finally {
+    coordinator.close();
+    await telemetry.close();
+  }
+});
+
 test('idle maintenance settles packets whose governance evidence is no longer available', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-dream-stale-evidence-'));
   const governance = new GovernanceEngine({ sessionId: 'session' });
@@ -291,6 +335,46 @@ test('idle maintenance settles packets whose governance evidence is no longer av
     assert.deepEqual({ ...settledRun }, {
       state: 'skipped', result_code: 'maintenance_evidence_unavailable',
     });
+  } finally {
+    coordinator.close();
+  }
+});
+
+test('failed evidence settlement rolls back packet and watermark, then retries without restart', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-settlement-rollback-'));
+  const governance = new GovernanceEngine({ sessionId: 'session' });
+  await governance.initialize();
+  const coordinator = new DreamCoordinator({
+    workspace: { sessions: new Map([['session', { engine: { state: { state: 'idle' }, governance, transcript: [] } }]]) },
+    config: resolveManifest(manifest({ workspace_root: root })), path: join(root, 'dream.db'),
+  });
+  await coordinator.initialize();
+  const packet = coordinator.store.savePacket({
+    id: 'stale-settlement-packet', runtimeKey: coordinator.runtimeKey,
+    evidenceStart: 7, evidenceEnd: 9, evidenceId: 'evidence:missing',
+    payload: {
+      records: 3, turn_refs: [], session_refs: [],
+      diagnosis: { issues: [{ code: 'repeated_reason', reason: 'provider_timeout', count: 3 }] },
+    },
+  });
+  const observations = [];
+  coordinator.store.setObserver((event) => observations.push(event));
+  coordinator.store.db.exec(`CREATE TEMP TRIGGER fail_watermark BEFORE INSERT ON dream_watermarks
+    BEGIN SELECT RAISE(ABORT, 'injected watermark failure'); END`);
+  try {
+    const failed = await coordinator.runNow();
+    assert.equal(failed.state, 'failed');
+    assert.equal(failed.error?.code, 'maintenance_evidence_settlement_failed', failed.error?.stack);
+    assert.equal(coordinator.store.packet(packet.id).state, 'pending');
+    assert.equal(coordinator.store.watermark(coordinator.runtimeKey), null);
+    assert.equal(coordinator.store.recent(1)[0].state, 'failed');
+    assert.deepEqual(observations.filter((event) => event.phase === 'finished').map((event) => event.run.state), ['failed']);
+    coordinator.store.db.exec('DROP TRIGGER fail_watermark');
+    const retried = await coordinator.runNow();
+    assert.equal(retried.state, 'completed', retried.error?.stack);
+    assert.equal(retried.result.code, 'maintenance_evidence_unavailable');
+    assert.equal(coordinator.store.packet(packet.id).state, 'completed');
+    assert.equal(coordinator.store.watermark(coordinator.runtimeKey).turn_sequence, 9);
   } finally {
     coordinator.close();
   }

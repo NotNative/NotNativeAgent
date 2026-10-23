@@ -28,8 +28,34 @@ export class DreamStore {
     this.retentionDays = options.retentionDays ?? 30;
     this.observe = typeof options.observe === 'function' ? options.observe : null;
     this.db = null;
+    this.pendingObservations = null;
   }
   setObserver(observer) { this.observe = typeof observer === 'function' ? observer : null; }
+  transaction(action) {
+    this.#ready();
+    if (typeof action !== 'function' || this.pendingObservations !== null) {
+      throw new ContractError('dream_transaction_invalid', 'dream transaction requires one synchronous operation');
+    }
+    this.db.exec('BEGIN IMMEDIATE');
+    this.pendingObservations = [];
+    try {
+      const value = action();
+      if (value && typeof value.then === 'function') {
+        throw new ContractError('dream_transaction_invalid', 'dream transaction operation must be synchronous');
+      }
+      this.db.exec('COMMIT');
+      const observations = this.pendingObservations;
+      this.pendingObservations = null;
+      for (const event of observations) this.#observed(event.phase, event.run);
+      return value;
+    } catch (error) {
+      let rollbackFailure = null;
+      try { this.db.exec('ROLLBACK'); } catch (failure) { rollbackFailure = failure; }
+      this.pendingObservations = null;
+      if (rollbackFailure) throw new AggregateError([error, rollbackFailure], 'dream transaction and rollback failed');
+      throw error;
+    }
+  }
   async initialize() {
     await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
     // This local maintenance store intentionally uses synchronous SQLite.
@@ -156,9 +182,12 @@ export class DreamStore {
           || existing.kind !== candidate.kind || existing.scope_fingerprint !== candidate.scopeFingerprint) {
         throw new ContractError('dream_candidate_drift', 'candidate identity was reused with different content');
       }
-      this.db.prepare(`UPDATE improvement_candidates SET recurrence_count=recurrence_count+1,
+      // Replaying the same evidence after a stage checkpoint failure is not a new recurrence.
+      const priorRefs = new Set(existing.evidence_refs);
+      const newEvidence = candidate.evidenceRefs.some((ref) => !priorRefs.has(ref));
+      this.db.prepare(`UPDATE improvement_candidates SET recurrence_count=recurrence_count+?,
         confidence=?, evidence_refs=?, updated_at=? WHERE id=?`)
-        .run(Math.max(Number(existing.confidence), candidate.confidence),
+        .run(newEvidence ? 1 : 0, Math.max(Number(existing.confidence), candidate.confidence),
           JSON.stringify([...new Set([...existing.evidence_refs, ...candidate.evidenceRefs])].slice(-64)),
           new Date().toISOString(), candidate.id);
       return this.candidate(candidate.id);
@@ -226,6 +255,7 @@ export class DreamStore {
   }
   close() { if (this.db) { this.db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); this.db.close(); this.db = null; } }
   #observed(phase, run) {
+    if (this.pendingObservations !== null) { this.pendingObservations.push({ phase, run }); return; }
     try { this.observe?.(Object.freeze({ phase, run: Object.freeze({ ...run }) })); }
     catch { /* maintenance observability cannot break maintenance durability */ }
   }
