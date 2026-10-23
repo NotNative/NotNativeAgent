@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -22,5 +22,15 @@ test('atomic JSON publications and quarantine sync their containing directory', 
     assert.deepEqual(calls, [dirname(first), dirname(second), dirname(first)]);
     assert.deepEqual(JSON.parse(await readFile(second, 'utf8')), { value: 2 });
     assert.equal(await readFile(`${first}.corrupt-1`, 'utf8'), '{broken');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('failed atomic replacement removes its secret-bearing temporary file', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-atomic-json-cleanup-'));
+  const destination = join(root, 'blocked.json');
+  try {
+    await mkdir(destination);
+    await assert.rejects(() => persistAtomicJson(destination, { private: 'secret-value' }));
+    assert.deepEqual(await readdir(root), ['blocked.json']);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

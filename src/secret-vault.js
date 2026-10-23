@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ContractError } from './ids.js';
 import {
   isSecretFieldName, normalizeSecretKind, normalizeSecretLabel, normalizeSecretMetadata, normalizeSecretScope,
 } from './secret-contracts.js';
 import { SessionLock } from './persistence/session-lock.js';
+import { persistAtomicJson } from './persistence/atomic-json.js';
 
 const EMPTY = Object.freeze({ format: 1, keyVersion: 1, records: [] });
 const PATH_TAILS = new Map();
@@ -34,7 +35,7 @@ export class SecretVault {
       const current = await this.#readUnlocked();
       const next = await mutator(structuredClone(current));
       validateVault(next);
-      await atomicWrite(this.path, next);
+      await persistAtomicJson(this.path, next);
       return next;
     });
   }
@@ -187,11 +188,4 @@ function isStoredStamp(value) {
   if (typeof value !== 'string' || !ISO_STAMP.test(value)) return false;
   const parsed = new Date(value);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value;
-}
-
-async function atomicWrite(path, value) {
-  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-  const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
-  await rename(temporary, path);
 }
