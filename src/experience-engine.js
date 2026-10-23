@@ -8,11 +8,11 @@ import {
   booleanSettingValue, withBooleanSetting, withContextSettings, withRecoverySettings,
   withPrimaryRoute, withUpdatedProvider,
   withGlobalSpecialistRoutes,
-  withKeyBindings, withMcpEnabled, withMcpServer, withMcpServerUpdate, withoutMcpServer, withRuntimeLimits,
+  withKeyBindings, withMcpEnabled, withMcpServer, withMcpServerUpdate, withRuntimeLimits,
 } from './provider/route-configuration.js';
 import { SearxngClient } from './searxng-client.js';
 import { SearxngDeployment } from './searxng-deployment.js';
-import { configuredMcpStatus, testConfiguredMcpServer } from './experience/mcp.js';
+import { cleanupUnreferencedMcpCredential, configuredMcpStatus, deleteConfiguredMcpServer, isMcpCredentialCleanupPending, testConfiguredMcpServer, withMcpCredentialMutation } from './experience/mcp.js';
 import {
   addWebSearchProfile, configureWebSearch, deleteWebSearchProfile, deployWebSearch, disableWebSearch,
   manageWebSearch, removeWebSearchDeployment, resetWebSearch, setPrimaryWebSearchProfile, webSearchStatus,
@@ -35,7 +35,7 @@ import { clearWorkspaceProviderRole, configureWorkspaceProviderRoute, deleteWork
 import { runGatewayCommand } from './gateway-cli.js';
 import { runWebFetchCommand } from './web-fetch-cli.js';
 import { discoverWorkspaceProviderModels, qualifyWorkspaceProvider } from './experience/provider-discovery.js';
-import { deleteManagedMcpCredential, saveManagedMcpCredential } from './mcp-credentials.js';
+import { listManagedMcpCredentials, saveManagedMcpCredential } from './mcp-credentials.js';
 import { initializeWorkspaceDream, runWorkspaceDreamCommand } from './experience/dream.js';
 import { resumeWorkspaceConversation } from './experience/resume.js';
 import { SecretBroker } from './secret-broker.js';
@@ -96,6 +96,7 @@ export class ExperienceEngine {
   acquireConsoleAuthority() { return this.consoleAuthority.acquire(); }
   async toggleWorkSummary() { if (!this.projection.toggleWorkSummary()) return false; this.onChange(); await this._savePoolRecoverable(); return true; }
   async create(name = 'Main', sessionId = newId('session'), options = {}) {
+    if (isMcpCredentialCleanupPending(this)) throw new ContractError('mcp_credentials_busy', 'MCP credential cleanup is in progress');
     if (this.#closing) throw new ContractError('session_engine_unavailable', 'console is shutting down');
     if (this.sessions.has(sessionId) || this.#creatingSessions.has(sessionId)) {
       throw new ContractError('session_duplicate', 'conversation is already attached');
@@ -384,20 +385,19 @@ export class ExperienceEngine {
   mcpStatus() { return configuredMcpStatus(this.config, this.activeEngine()); }
   async addMcpServer(input) {
     this.#requirePrimaryMcpManagement();
-    return this.#publishMcpConfiguration(withMcpServer(this.config, input));
+    return withMcpCredentialMutation(this, () => this.#publishMcpConfiguration(withMcpServer(this.config, input)));
   }
-  saveMcpCredential(id, token) { return saveManagedMcpCredential(this.dataPaths, id, token); } removeMcpCredential(reference) { return deleteManagedMcpCredential(this.dataPaths, reference); }
-  async editMcpServer(id, input) { this.#requirePrimaryMcpManagement(); return this.#publishMcpConfiguration(withMcpServerUpdate(this.config, id, input)); }
+  saveMcpCredential(id, token) { return withMcpCredentialMutation(this, () => saveManagedMcpCredential(this.dataPaths, id, token)); }
+  listMcpCredentials() { this.#requirePrimaryMcpManagement(); return listManagedMcpCredentials(this.dataPaths); }
+  removeMcpCredential(reference, confirmUnshared = false) { this.#requirePrimaryMcpManagement(); return cleanupUnreferencedMcpCredential(this, reference, confirmUnshared, this.#creatingSessions); }
+  async editMcpServer(id, input) { this.#requirePrimaryMcpManagement(); return withMcpCredentialMutation(this, () => this.#publishMcpConfiguration(withMcpServerUpdate(this.config, id, input))); }
   async setMcpEnabled(id, enabled) {
     this.#requirePrimaryMcpManagement();
-    return this.#publishMcpConfiguration(withMcpEnabled(this.config, id, enabled));
+    return withMcpCredentialMutation(this, () => this.#publishMcpConfiguration(withMcpEnabled(this.config, id, enabled)));
   }
   async deleteMcpServer(id) {
     this.#requirePrimaryMcpManagement();
-    const reference = this.mcpStatus().find((server) => server.id === id)?.credentialEnv;
-    const result = await this.#publishMcpConfiguration(withoutMcpServer(this.config, id));
-    await deleteManagedMcpCredential(this.dataPaths, reference);
-    return result;
+    return withMcpCredentialMutation(this, () => deleteConfiguredMcpServer(this, id, (next) => this.#publishMcpConfiguration(next)));
   }
   async testMcpServer(id) {
     return testConfiguredMcpServer({

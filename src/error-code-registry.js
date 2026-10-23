@@ -337,6 +337,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'mcp_server_missing', 'mcp_timeout', 'mcp_tool_limit',
     'mcp_unavailable', 'mcp_version_mismatch', 'mcp_connection_failed',
     'mcp_credentials_full', 'mcp_credentials_invalid', 'mcp_token_invalid',
+    'mcp_credential_confirmation_required', 'mcp_credential_in_use', 'mcp_credential_reference_invalid',
   ]),
   memory: Object.freeze([
     'memory_cancelled', 'memory_command_invalid', 'memory_content_invalid',

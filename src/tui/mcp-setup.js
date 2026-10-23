@@ -81,12 +81,19 @@ export async function handleMcpSetupAction(action, workspace) {
     if (next.transport === 'stdio') workspace.projection.openOverlay(targetFormOverlay(next));
     else await saveServer(next, workspace);
   } else if (overlay.kind === 'mcp-delete-confirm') {
-    if (selected.id === 'delete') {
-      await workspace.deleteMcpServer(overlay.serverId);
-      openManager(workspace, overlay.returnParent, undefined, `Removed ${overlay.serverId}. New conversations will no longer load it.`);
-    } else openServer(workspace, overlay.serverId, overlay.returnParent);
+    await handleMcpDeleteConfirmation(selected.id, workspace, overlay);
   }
   return true;
+}
+
+async function handleMcpDeleteConfirmation(action, workspace, overlay) {
+  if (action !== 'delete') return openServer(workspace, overlay.serverId, overlay.returnParent);
+  const result = await workspace.deleteMcpServer(overlay.serverId);
+  const retained = result.credentialCleanup;
+  const message = retained?.status === 'retained'
+    ? `Removed ${overlay.serverId}. Managed credential references ${retained.references.join(', ')} remain in the user store. Use /mcp credentials to inspect them; close active consumers or restart NNA, then confirm each is unshared before /mcp cleanup-credential REFERENCE --confirm-unshared.`
+    : `Removed ${overlay.serverId}. New conversations will no longer load it.`;
+  openManager(workspace, overlay.returnParent, undefined, message);
 }
 
 async function handleServerAction(action, workspace, overlay) {
@@ -200,8 +207,10 @@ async function saveServer(form, workspace) {
     : stdioInput(id, { ...form.draft, credential, credentialEnv });
   if (form.operation === 'add') await workspace.addMcpServer(input);
   else await workspace.editMcpServer(id, input);
-  if (previousReference && previousReference !== credentialEnv) await workspace.removeMcpCredential(previousReference);
-  openManager(workspace, form.returnParent, id, `${form.operation === 'add' ? 'Added' : 'Updated'} ${id}. Open a new conversation to connect with the saved configuration.`);
+  // Security: one Console configuration cannot establish whether another configuration still uses a global managed credential.
+  const retained = isManagedMcpCredentialReference(previousReference) && previousReference !== credentialEnv
+    ? ` Previous managed credential ${previousReference} remains in the user store. Inspect other configurations before /mcp cleanup-credential ${previousReference} --confirm-unshared.` : '';
+  openManager(workspace, form.returnParent, id, `${form.operation === 'add' ? 'Added' : 'Updated'} ${id}. Open a new conversation to connect with the saved configuration.${retained}`);
 }
 
 function stdioInput(id, draft) {

@@ -322,6 +322,12 @@ encrypted in the Secret Broker, and only record/field references are written to 
 Because an MCP topology changes
 the callable tool catalog, saved changes apply to new conversations and after restart;
 the manager reports this explicitly instead of pretending to hot-load the active engine.
+Legacy managed MCP credentials remain in the user store after a server is edited or removed:
+another conversation or NNA configuration may still use them. `/mcp credentials` lists their
+references without token values. After closing active consumers (or restarting NNA when Main
+holds the old configuration), the operator can use
+`/mcp cleanup-credential REFERENCE --confirm-unshared` to remove one. NNA checks this Console's
+configured and active servers; the operator must confirm other NNA configurations do not share it.
 The agent can call `nna_mcp_status` to inspect this global registry and `nna_mcp_test` to
 validate a server and list discovered tool names. It must not search the active workspace
 for NNA's private configuration. Opening a new conversation is sufficient to make newly

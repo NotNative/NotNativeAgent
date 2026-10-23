@@ -5,17 +5,21 @@ import { mcpOverlay, valueOverlay } from './overlays.js';
 const RESOURCE_COMMAND = 'resources';
 const PROMPT_COMMAND = 'prompts';
 const INSPECTION_COMMANDS = Object.freeze([RESOURCE_COMMAND, PROMPT_COMMAND]);
-const MUTATION_COMMANDS = Object.freeze(['test', 'enable', 'disable', 'delete']);
+const MUTATION_COMMANDS = Object.freeze(['test', 'enable', 'disable', 'delete', 'cleanup-credential']);
 const STREAMABLE_HTTP_TRANSPORT = 'streamable_http';
 const STDIO_TRANSPORT = 'stdio';
 const MAX_ARGUMENT_JSON_CHARS = 65_536;
 const MAX_ARGUMENT_DEPTH = 64;
 const MAX_ARGUMENT_NODES = 10_000;
-const MCP_USAGE = 'use /mcp, add-http, add-stdio, test|enable|disable|delete ID, resources|prompts ID, read ID URI, or prompt ID NAME [JSON]';
+const MCP_USAGE = 'use /mcp, add-http, add-stdio, test|enable|disable|delete ID, credentials, cleanup-credential REFERENCE --confirm-unshared, resources|prompts ID, read ID URI, or prompt ID NAME [JSON]';
 
 export async function handleMcpCommand(argument, workspace) {
   const values = argument.split(/\s+/u).filter(Boolean);
   if (values.length === 0) return openManager(workspace);
+  if (values[0] === 'credentials' && values.length === 1) {
+    workspace.projection.openOverlay(valueOverlay('mcp-credentials', 'Managed MCP credential references', await workspace.listMcpCredentials()));
+    return;
+  }
   if (values[0] === 'add-http') return addHttp(values, workspace);
   if (values[0] === 'add-stdio') return addStdio(values, workspace);
   if (INSPECTION_COMMANDS.includes(values[0]) && values.length === 2) {
@@ -37,7 +41,9 @@ export async function handleMcpCommand(argument, workspace) {
     workspace.projection.openOverlay(valueOverlay('mcp-prompt', `MCP prompt · ${values[1]}/${values[2]}`, result));
     return;
   }
-  if (values.length !== 2 || !MUTATION_COMMANDS.includes(values[0])) {
+  if ((values[0] === 'cleanup-credential' && (values.length !== 3 || values[2] !== '--confirm-unshared'))
+    || (values[0] !== 'cleanup-credential' && values.length !== 2)
+    || !MUTATION_COMMANDS.includes(values[0])) {
     throw new ContractError('mcp_command_invalid', MCP_USAGE);
   }
   if (values[0] === 'test') {
@@ -45,9 +51,24 @@ export async function handleMcpCommand(argument, workspace) {
     workspace.projection.openOverlay(valueOverlay('mcp-test', `MCP test · ${values[1]}`, result));
     return;
   }
-  if (values[0] === 'delete') await workspace.deleteMcpServer(values[1]);
-  else await workspace.setMcpEnabled(values[1], values[0] === 'enable');
+  if (values[0] === 'cleanup-credential') {
+    const removed = await workspace.removeMcpCredential(values[1], true);
+    openManager(workspace, undefined, `Managed MCP credential ${values[1]} ${removed ? 'removed' : 'was already absent'}.`);
+    return;
+  }
+  if (values[0] === 'delete') {
+    const result = await workspace.deleteMcpServer(values[1]);
+    openManager(workspace, undefined, deletionMessage(values[1], result));
+    return;
+  }
+  await workspace.setMcpEnabled(values[1], values[0] === 'enable');
   openManager(workspace, values[1], `${values[1]} ${values[0]}d; open a new conversation to apply.`);
+}
+
+function deletionMessage(id, result) {
+  const retained = result.credentialCleanup;
+  if (retained?.status !== 'retained') return `${id} deleted; open a new conversation to apply.`;
+  return `${id} deleted. ${retained.references.length} managed credential reference(s) retained. Active conversations or other NNA configurations may use them. Inspect /mcp credentials; close consumers or restart NNA, then remove each unshared reference with /mcp cleanup-credential REFERENCE --confirm-unshared.`;
 }
 
 async function addHttp(values, workspace) {
