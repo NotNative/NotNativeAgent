@@ -3,7 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ContractError } from '../src/ids.js';
 import {
-  LOCAL_SECRET_REALM, normalizeSecretLabel, normalizeSecretMetadata, normalizeSecretScope, validateSecretFields,
+  LOCAL_SECRET_REALM, normalizeSecretLabel, normalizeSecretMetadata, normalizeSecretScope, publicSecret,
+  validateSecretFields,
 } from '../src/secret-contracts.js';
 
 const rejects = (fn, code) => assert.throws(fn, (error) => error instanceof ContractError && error.code === code);
@@ -76,8 +77,22 @@ test('secret metadata grammar admits documented shapes and refuses each document
   rejects(() => normalizeSecretMetadata({ note: 'x'.repeat(2001) }), 'secret_metadata_invalid');
   rejects(() => normalizeSecretMetadata({ list: ['x'.repeat(257)] }), 'secret_metadata_invalid');
   rejects(() => normalizeSecretMetadata({ list: Array.from({ length: 65 }, () => 'x') }), 'secret_metadata_invalid');
+  rejects(() => normalizeSecretMetadata({ list: ['safe\u001b[31mbad'] }), 'secret_metadata_invalid');
   rejects(() => normalizeSecretMetadata({ list: [7] }), 'secret_metadata_invalid');
   assert.equal(Object.isFrozen(normalizeSecretMetadata({ a: 'b' })), true);
+});
+
+test('public metadata projection rejects nested values and owns its frozen arrays', () => {
+  const metadata = { tags: ['safe'] };
+  const record = { id: 'secret', realm: LOCAL_SECRET_REALM, label: 'Stored', kind: 'token',
+    metadata, encryptedFields: { token: {} }, enabled: true };
+  const projected = publicSecret(record);
+  metadata.tags.push('later');
+  assert.deepEqual(projected.metadata.tags, ['safe']);
+  assert.equal(Object.isFrozen(projected.metadata.tags), true);
+  rejects(() => publicSecret({ ...record, metadata: { nested: { token: 'private' } } }), 'secret_metadata_invalid');
+  const scoped = publicSecret({ ...record, scope: { kind: 'user', id: 'operator', private: { token: 'private' } } });
+  assert.deepEqual(scoped.scope, { kind: 'user', id: 'operator' });
 });
 
 test('secret scope grammar admits the five kinds and refuses each documented bound', () => {

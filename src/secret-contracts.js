@@ -6,6 +6,7 @@ export const SECRET_KINDS = Object.freeze(['api_key', 'token', 'username_passwor
 export const SECRET_SCOPE_KINDS = Object.freeze(['deployment', 'workspace', 'group', 'role', 'user']);
 const SECRET_FIELD_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u;
 const SECRET_LABEL_CONTROLS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
+const SECRET_METADATA_CONTROLS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/u;
 
 export function normalizeSecretLabel(value) {
   const label = typeof value === 'string' ? value.trim() : '';
@@ -71,8 +72,8 @@ export function normalizeSecretMetadata(value) {
 export function publicSecret(record) {
   return Object.freeze({
     id: record.id, realm: record.realm, label: record.label, kind: record.kind,
-    scope: record.scope ? Object.freeze({ ...record.scope }) : null,
-    metadata: cloneFrozenMetadata(record.metadata),
+    scope: normalizeSecretScope(record.scope, record.realm),
+    metadata: normalizeSecretMetadata(record.metadata),
     fields: Object.freeze(Object.keys(record.encryptedFields).sort()), enabled: record.enabled,
     createdAt: record.createdAt, updatedAt: record.updatedAt, rotatedAt: record.rotatedAt,
     lastUsedAt: record.lastUsedAt, useCount: record.useCount,
@@ -81,16 +82,11 @@ export function publicSecret(record) {
 
 function normalizeMetadataValue(name, value) {
   if (value === null || typeof value === 'boolean') return value;
-  if (typeof value === 'string' && value.length <= 2_000 && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/u.test(value)) return value;
+  if (typeof value === 'string' && value.length <= 2_000 && !SECRET_METADATA_CONTROLS.test(value)) return value;
   if (Array.isArray(value) && value.length <= 64
-    && value.every((entry) => typeof entry === 'string' && entry.length <= 256)) {
+    && value.every((entry) => typeof entry === 'string' && entry.length <= 256
+      && !SECRET_METADATA_CONTROLS.test(entry))) {
     return Object.freeze([...new Set(value)].sort());
   }
   throw new ContractError('secret_metadata_invalid', `secret metadata field ${name} is invalid`);
-}
-
-function cloneFrozenMetadata(metadata) {
-  return Object.freeze(Object.fromEntries(Object.entries(metadata ?? {}).map(([name, value]) => [
-    name, Array.isArray(value) ? Object.freeze([...value]) : value,
-  ])));
 }

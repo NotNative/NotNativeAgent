@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFile, mkdtemp, readFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SecretBroker } from '../src/secret-broker.js';
@@ -26,6 +26,30 @@ test('secret broker stores encrypted values and exposes metadata only', async ()
   assert.equal(bytes.includes('very-secret-value'), false);
   assert.equal(bytes.includes('Retail login'), true);
   assert.deepEqual((await broker.list()).map((item) => item.id), [created.id]);
+});
+
+test('malformed stored metadata cannot reach a public secret projection', async () => {
+  const { root, broker } = await fixture();
+  await broker.create({ label: 'Stored', kind: 'token', fields: { token: 'private' },
+    metadata: { tags: ['safe'] } });
+  const vaultPath = join(root, 'vault.json');
+  const vault = JSON.parse(await readFile(vaultPath, 'utf8'));
+  for (const metadata of [{ nested: { credential: 'private' } }, { tags: [{ credential: 'private' }] }]) {
+    vault.records[0].metadata = metadata;
+    await writeFile(vaultPath, JSON.stringify(vault));
+    await assert.rejects(() => broker.list(), { code: 'secret_vault_corrupt' });
+  }
+});
+
+test('malformed stored managed scope fails closed before authorization and projection', async () => {
+  const { root, broker } = await fixture();
+  await broker.create({ label: 'Stored', kind: 'token', fields: { token: 'private' } });
+  const vaultPath = join(root, 'vault.json');
+  const vault = JSON.parse(await readFile(vaultPath, 'utf8'));
+  vault.records[0].realm = 'nno:one';
+  vault.records[0].scope = { kind: 'user', id: { nested: 'private' } };
+  await writeFile(vaultPath, JSON.stringify(vault));
+  await assert.rejects(() => broker.list(), { code: 'secret_vault_corrupt' });
 });
 
 test('trusted consumer receives values transiently and exact-value redaction is active during use', async () => {

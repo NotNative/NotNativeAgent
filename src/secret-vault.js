@@ -3,6 +3,7 @@ import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:cr
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ContractError } from './ids.js';
+import { normalizeSecretMetadata, normalizeSecretScope } from './secret-contracts.js';
 import { SessionLock } from './persistence/session-lock.js';
 
 const EMPTY = Object.freeze({ format: 1, keyVersion: 1, records: [] });
@@ -148,6 +149,13 @@ function validateVault(value) {
     if (!record?.id || !record.realm || !record.label || !record.encryptedFields
       || typeof record.encryptedFields !== 'object' || Array.isArray(record.encryptedFields)) {
       throw new ContractError(ERROR.corrupt, 'secret vault record is invalid');
+    }
+    // Stored metadata and scope must satisfy their public projection grammar.
+    try {
+      normalizeSecretMetadata(record.metadata);
+      normalizeSecretScope(record.scope, record.realm);
+    } catch {
+      throw new ContractError(ERROR.corrupt, 'secret vault record metadata or scope is invalid');
     }
   }
 }
