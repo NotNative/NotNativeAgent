@@ -12,10 +12,57 @@ import { deployWebSearch } from '../src/experience/websearch.js';
 import { ContractError } from '../src/ids.js';
 import { ExperienceEngine } from '../src/experience-engine.js';
 import { TuiProjection } from '../src/experience/projection.js';
+import { presentSubmissionFailure } from '../src/experience/submission.js';
 import { resolveManifest } from '../src/config.js';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+test('background submission failures stay with their originating conversation', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-submission-origin-'));
+  const config = resolveManifest({ persistence: 'ephemeral', workspace_root: root,
+    provider: { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'fixture', trust_zone: 'loopback' } });
+  const records = [];
+  let changes = 0;
+  const workspace = new ExperienceEngine({ config, dataPaths: { root: join(root, 'data') },
+    logger: { record(event, context) { records.push({ event, context }); } },
+    onChange() { changes += 1; },
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }) });
+  try {
+    await workspace.create('First', 'first');
+    await workspace.create('Second', 'second');
+    workspace.switch('first');
+    const pending = Promise.withResolvers();
+    workspace.sessions.get('first').ingress.submit = () => pending.promise;
+    const operation = workspace.retryActiveAttachment('fixture-attachment', 'retry this');
+    workspace.switch('second');
+    const beforeFailure = changes;
+    pending.reject(Object.assign(new Error('retry failed'), { code: 'retry_failed' }));
+    await operation;
+    assert.equal(workspace.projection.sessions.get('first').records.at(-1).code, 'retry_failed');
+    assert.equal(workspace.projection.sessions.get('first').unread, true);
+    assert.equal(workspace.projection.sessions.get('second').records.some((item) => item.code === 'retry_failed'), false);
+    assert.ok(changes > beforeFailure, 'the failure must redraw its unread tab');
+    assert.deepEqual(records.at(-1), { event: { type: 'interactive_operation_failed', code: 'retry_failed' },
+      context: { sessionId: 'first' } });
+
+    workspace.switch('first');
+    const closedPending = Promise.withResolvers();
+    workspace.sessions.get('first').ingress.submit = () => closedPending.promise;
+    const closedOperation = workspace.retryActiveAttachment('fixture-attachment', 'retry later');
+    workspace.switch('second');
+    workspace.projection.remove('first');
+    closedPending.reject(Object.assign(new Error('late failure'), { code: 'late_failure' }));
+    await closedOperation;
+    assert.match(workspace.projection.notice.text, /closed conversation.*late_failure/u);
+    assert.equal(records.at(-1).context.sessionId, 'first');
+
+    workspace.projection.showNotice('confirmation', 'Keep this active conversation confirmation.');
+    presentSubmissionFailure(workspace, 'first', Object.assign(new Error('another late failure'), { code: 'late_failure' }));
+    assert.equal(workspace.projection.notice.kind, 'confirmation');
+    assert.equal(workspace.projection.notice.text, 'Keep this active conversation confirmation.');
+  } finally { await workspace.shutdown(); }
+});
 
 test('failed tab restoration releases its engine and rolls back the partial session', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-create-rollback-'));

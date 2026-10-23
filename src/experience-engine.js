@@ -43,7 +43,7 @@ import { ConsoleAuthority } from './experience/console-authority.js';
 import { deleteUnreferencedSecret, listSecretsWithReferences } from './secret-management.js';
 import { cancelWorkspaceSession, clearWorkspaceSession, compactWorkspaceSession, handoffWorkspaceSession, initializeWorkspaceSessionBroker, submitWorkspaceSession, workspaceBrokerSessions } from './experience/session-broker.js';
 import { settleConsoleQuestion } from './experience/question-control.js';
-import { acceptPendingSubmission, beginSessionSubmission } from './experience/submission.js';
+import { acceptPendingSubmission, beginSessionSubmission, presentSubmissionFailure } from './experience/submission.js';
 export class ExperienceEngine {
   #tasks = new Set();
   #creatingSessions = new Map();
@@ -153,7 +153,7 @@ export class ExperienceEngine {
     return this.#own(beginSessionSubmission(this, session, content, {
       principal: INTERACTIVE_OPERATOR, requestPrefix: 'tui', includeAttachments: true,
       fromEditor: options.fromEditor === true, reportRejection: true,
-    }));
+    }), session.id);
   }
   brokerSessions() { return workspaceBrokerSessions(this); }
   submitSession(sessionId, content, requestId) { return submitWorkspaceSession(this, sessionId, content, requestId); }
@@ -197,7 +197,7 @@ export class ExperienceEngine {
     this.projection.apply(session.id, { type: 'user_input', text: content });
     return this.#own(session.ingress.submit({
       version: '1.0', type: 'attachment_retry', request_id: newId('tui'), attachment_id: id, content,
-    }, INTERACTIVE_OPERATOR));
+    }, INTERACTIVE_OPERATOR), session.id);
   }
   removeActiveAttachment(id) {
     const session = this._active();
@@ -486,13 +486,9 @@ export class ExperienceEngine {
   }
   #savePool() { return this.tabPersistence.save(); }
   _savePoolRecoverable() { return this.tabPersistence.recover(); }
-  #own(operation) {
-    const task = Promise.resolve(operation).catch((error) => {
-      const active = this.projection.active();
-      if (active) this.projection.apply(active.id, {
-        type: 'error', code: error.code ?? 'interactive_failure', message: error.message,
-      });
-    }).finally(() => this.#tasks.delete(task));
+  #own(operation, sessionId) {
+    const task = Promise.resolve(operation).catch((error) => presentSubmissionFailure(this, sessionId, error))
+      .finally(() => this.#tasks.delete(task));
     this.#tasks.add(task);
     return task;
   }

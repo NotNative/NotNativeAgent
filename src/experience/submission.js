@@ -62,3 +62,16 @@ export function acceptPendingSubmission(workspace, session, event) {
   workspace.tabPersistence.observe(workspace._savePoolForBroker(), workspace._tasksForBroker());
   return true;
 }
+
+export function presentSubmissionFailure(workspace, sessionId, error) {
+  const code = error?.code ?? 'interactive_failure';
+  try { workspace.options.logger?.record({ type: 'interactive_operation_failed', code }, { sessionId }); }
+  catch { /* Presentation remains the failure channel if telemetry is unavailable. */ }
+  if (workspace.projection.sessions.has(sessionId)) {
+    workspace.projection.apply(sessionId, { type: 'error', code, message: error?.message ?? String(error) });
+  } else if (!workspace.projection.notice) {
+    // Invariant: a late failure from a closed tab cannot replace the active tab's guidance.
+    workspace.projection.showNotice('submit', `A closed conversation's operation failed (${code}).`);
+  }
+  workspace.onChange();
+}
