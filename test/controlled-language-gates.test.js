@@ -68,6 +68,41 @@ test('identifier scanning ignores prose but includes template expressions', () =
   assert.equal(scanJavaScriptIdentifiers(source).filter((value) => value === 'expose').length, 2);
 });
 
+test('regex literals cannot hide identifiers that follow them', () => {
+  const source = [
+    "const quotes = /[\"']/u; expose(quotes);",
+    `const tick = /[${String.fromCharCode(96)}]/u; expose(tick);`,
+    String.raw`const slash = /a\/b/u; expose(slash);`,
+    String.raw`const classSlash = /[//]/u; expose(classSlash);`,
+    'const divided = left / expose; // expose in a comment',
+    'const interpolated = `text ${expose(value)}`;',
+  ].join('\n');
+  assert.equal(scanJavaScriptIdentifiers(source).filter((value) => value === 'expose').length, 6);
+});
+
+test('regex statements after control conditions and blocks do not hide later identifiers', () => {
+  const source = [
+    'if (ready) /["\']/u.test(value); expose(value);',
+    'if (ready) {} /["\']/u.test(value); expose(value);',
+    'while (ready) /["\']/u.test(value); expose(value);',
+    '{} /["\']/u.test(value); expose(value);',
+    'function inspect() {} /["\']/u.test(value); expose(value);',
+    'async function inspectLater() {} /["\']/u.test(value); expose(value);',
+    'export function inspectExport() {} /["\']/u.test(value); expose(value);',
+    'export default async function inspectDefault() {} /["\']/u.test(value); expose(value);',
+    'elseMarker.if(value) / expose; // a property named if is a call, not a condition',
+    'const ratio = (left + right) / expose;',
+    'const object = {}; const objectRatio = object / expose;',
+  ].join('\n');
+  assert.equal(scanJavaScriptIdentifiers(source).filter((value) => value === 'expose').length, 11);
+});
+
+test('line terminators end comments and unterminated block comments fail visibly', () => {
+  assert.equal(scanJavaScriptIdentifiers('// ignored\r expose(value);').filter((value) => value === 'expose').length, 1);
+  assert.equal(scanJavaScriptIdentifiers('// ignored\u2028 expose(value);').filter((value) => value === 'expose').length, 1);
+  assert.throws(() => scanJavaScriptIdentifiers('expose(value); /* unfinished'), /unterminated JavaScript block comment/u);
+});
+
 test('deprecated identifier counts ratchet in both directions', () => {
   const equal = auditDeprecatedIdentifiers(contract(), [{ path: 'a.js', source: 'expose(value);' }]);
   assert.deepEqual(equal.errors, []);

@@ -12,6 +12,9 @@ const REPORT_SCHEMA = 'nna.controlled-language-report.v1';
 const UNQUALIFIED_BOUNDARY_FIELDS = new Set(['decision', 'result', 'status']);
 const sentenceSegmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
 const wordSegmenter = new Intl.Segmenter('en', { granularity: 'word' });
+const REGEX_PREFIX_WORDS = new Set(['return', 'throw', 'case', 'delete', 'void', 'typeof', 'instanceof', 'in', 'of', 'new', 'yield', 'await']);
+const CONTROL_CONDITION_WORDS = new Set(['if', 'while', 'for', 'with', 'switch', 'catch']);
+const BLOCK_PREFIX_WORDS = new Set(['else', 'do', 'try', 'finally']);
 
 export function validateTerminologyContract(contract) {
   const errors = [];
@@ -33,27 +36,45 @@ export function validateTerminologyContract(contract) {
 export function scanJavaScriptIdentifiers(source) {
   const identifiers = [];
   const templateExpressions = [];
-  let mode = 'code'; let index = 0;
+  const parentheses = []; const braces = [];
+  let mode = 'code'; let index = 0; let canEndExpression = false;
+  let pendingControlCondition = false; let pendingBlockPrefix = false;
+  let closedControlCondition = false; let previousDot = false;
+  let statementStart = true; let declarationBlockDepth = null;
+  let asyncDeclarationPrefix = false; let exportDeclarationPrefix = false;
   while (index < source.length) {
     const character = source[index]; const next = source[index + 1];
-    if (mode === 'line-comment') { if (character === '\n') mode = 'code'; index += 1; continue; }
+    if (mode === 'line-comment') {
+      if (character === '\n' || character === '\r' || character === '\u2028' || character === '\u2029') mode = 'code';
+      index += 1; continue;
+    }
     if (mode === 'block-comment') {
       if (character === '*' && next === '/') { mode = 'code'; index += 2; } else index += 1;
       continue;
     }
     if (mode === 'single' || mode === 'double') {
+      if (character === '\n' || character === '\r') throw new Error('unterminated JavaScript string in controlled-language scan');
       if (character === '\\') index += 2;
-      else { if ((mode === 'single' && character === "'") || (mode === 'double' && character === '"')) mode = 'code'; index += 1; }
+      else {
+        if ((mode === 'single' && character === "'") || (mode === 'double' && character === '"')) {
+          mode = 'code'; canEndExpression = true;
+        }
+        index += 1;
+      }
       continue;
     }
     if (mode === 'template') {
       if (character === '\\') { index += 2; continue; }
-      if (character === '`') { mode = 'code'; index += 1; continue; }
-      if (character === '$' && next === '{') { templateExpressions.push(1); mode = 'code'; index += 2; continue; }
+      if (character === '`') { mode = 'code'; canEndExpression = true; statementStart = false; index += 1; continue; }
+      if (character === '$' && next === '{') { templateExpressions.push(1); mode = 'code'; canEndExpression = false; index += 2; continue; }
       index += 1; continue;
     }
     if (character === '/' && next === '/') { mode = 'line-comment'; index += 2; continue; }
     if (character === '/' && next === '*') { mode = 'block-comment'; index += 2; continue; }
+    if (character === '/' && !canEndExpression) {
+      index = endRegexLiteral(source, index); canEndExpression = true; statementStart = false; continue;
+    }
+    if (character === '/') { canEndExpression = false; statementStart = false; index += next === '=' ? 2 : 1; continue; }
     if (character === "'") { mode = 'single'; index += 1; continue; }
     if (character === '"') { mode = 'double'; index += 1; continue; }
     if (character === '`') { mode = 'template'; index += 1; continue; }
@@ -67,11 +88,87 @@ export function scanJavaScriptIdentifiers(source) {
     if (identifierStart(character)) {
       let end = index + 1;
       while (identifierPart(source[end])) end += 1;
-      identifiers.push(source.slice(index, end)); index = end; continue;
+      const identifier = source.slice(index, end);
+      identifiers.push(identifier);
+      const declarationKeyword = identifier === 'function' || identifier === 'class';
+      if (declarationKeyword && (statementStart || asyncDeclarationPrefix || exportDeclarationPrefix) && !previousDot) {
+        declarationBlockDepth = parentheses.length;
+      }
+      asyncDeclarationPrefix = identifier === 'async' && (statementStart || exportDeclarationPrefix) && !previousDot;
+      exportDeclarationPrefix = !previousDot && (identifier === 'export' && statementStart
+        || exportDeclarationPrefix && (identifier === 'default' || identifier === 'async'));
+      pendingControlCondition = !previousDot && CONTROL_CONDITION_WORDS.has(identifier);
+      pendingBlockPrefix = !previousDot && BLOCK_PREFIX_WORDS.has(identifier);
+      canEndExpression = !REGEX_PREFIX_WORDS.has(identifier) && !pendingControlCondition && !pendingBlockPrefix;
+      closedControlCondition = false; previousDot = false; statementStart = false;
+      index = end; continue;
+    }
+    if (/[0-9]/u.test(character)) {
+      let end = index + 1;
+      while (/[A-Za-z0-9_.]/u.test(source[end] ?? '')) end += 1;
+      canEndExpression = true; pendingControlCondition = false; pendingBlockPrefix = false;
+      closedControlCondition = false; previousDot = false; statementStart = false;
+      asyncDeclarationPrefix = false; exportDeclarationPrefix = false;
+      index = end; continue;
+    }
+    if (character === '(') {
+      parentheses.push(pendingControlCondition);
+      canEndExpression = false; closedControlCondition = false; statementStart = false;
+    } else if (character === ')') {
+      closedControlCondition = parentheses.pop() === true;
+      canEndExpression = !closedControlCondition;
+      statementStart = closedControlCondition;
+    } else if (character === '{') {
+      const declarationBlock = declarationBlockDepth === parentheses.length;
+      braces.push(closedControlCondition || pendingBlockPrefix || statementStart || declarationBlock);
+      if (declarationBlock) declarationBlockDepth = null;
+      exportDeclarationPrefix = false;
+      canEndExpression = false; closedControlCondition = false; statementStart = true;
+    } else if (character === '}') {
+      const closedBlock = braces.pop() === true;
+      canEndExpression = !closedBlock;
+      closedControlCondition = false; statementStart = closedBlock;
+    } else if (character === ']') { canEndExpression = true; closedControlCondition = false; statementStart = false; }
+    else if (character === ';') { canEndExpression = false; closedControlCondition = false; statementStart = true; }
+    else if (character === '+' && next === '+' || character === '-' && next === '-') {
+      pendingControlCondition = false; pendingBlockPrefix = false;
+      closedControlCondition = false; previousDot = false; statementStart = false;
+      asyncDeclarationPrefix = false; exportDeclarationPrefix = false;
+      index += 2; continue;
+    } else if (!/\s/u.test(character) && character !== '.') {
+      canEndExpression = false; closedControlCondition = false; statementStart = false;
+    }
+    if (!/\s/u.test(character)) {
+      pendingControlCondition = false;
+      pendingBlockPrefix = false;
+      previousDot = character === '.';
+      if (character !== '(' && character !== ')' && character !== '{' && character !== '}') asyncDeclarationPrefix = false;
+      if (character !== '(' && character !== ')' && character !== '{' && character !== '}') exportDeclarationPrefix = false;
     }
     index += 1;
   }
+  if (mode === 'block-comment') throw new Error('unterminated JavaScript block comment in controlled-language scan');
+  if (mode === 'single' || mode === 'double' || mode === 'template' || templateExpressions.length > 0) {
+    throw new Error('unterminated JavaScript literal in controlled-language scan');
+  }
   return Object.freeze(identifiers);
+}
+
+function endRegexLiteral(source, start) {
+  let inClass = false;
+  for (let index = start + 1; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === '\n' || character === '\r' || character === '\u2028' || character === '\u2029') break;
+    if (character === '\\') { index += 1; continue; }
+    if (character === '[') inClass = true;
+    else if (character === ']') inClass = false;
+    else if (character === '/' && !inClass) {
+      index += 1;
+      while (identifierPart(source[index])) index += 1;
+      return index;
+    }
+  }
+  throw new Error('unterminated JavaScript regex in controlled-language scan');
 }
 
 export function auditDeprecatedIdentifiers(contract, files) {
