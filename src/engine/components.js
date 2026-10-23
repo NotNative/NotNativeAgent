@@ -241,7 +241,7 @@ function browserToolOptions(engine, options, imageObserver) {
     observeImage: (path, mimeType, prompt, signal) => (engine.attachments?.router ?? imageObserver).observe({
       managedPath: path, mimeType,
     }, prompt, signal),
-    imageMaxBytes: engine.config.attachments.maxBytes,
+    imageMaxBytes: () => engine.config.attachments.maxBytes,
   };
 }
 

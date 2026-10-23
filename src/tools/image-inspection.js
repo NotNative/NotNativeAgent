@@ -20,7 +20,8 @@ export function imageInspectDefinition(paths, observeImage, options = {}) {
         prompt: { type: 'string', maxLength: 4096, description: 'Optional focused visual inspection request.' },
       },
     },
-    validate: async (args) => validate(args, paths, options.maxBytes ?? 10_485_760),
+    validate: async (args) => validate(args, paths,
+      (typeof options.maxBytes === 'function' ? options.maxBytes() : options.maxBytes) ?? 10_485_760),
     executor: async (request, signal) => {
       if (!observeImage) throw new ContractError('image_observer_unavailable', 'no managed image observer is configured');
       const prompt = `${request.args.prompt ?? DEFAULT_PROMPT}\n\n${VERDICT_RUBRIC}`;

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { PathPolicy } from '../src/path-policy.js';
 import { imageInspectDefinition, visualVerdict } from '../src/tools/image-inspection.js';
+import { resolveManifest } from '../src/config.js';
+import { SessionEngine } from '../src/engine.js';
 
 async function fixture(observer) {
   const root = await mkdtemp(join(tmpdir(), 'nna-image-inspect-'));
@@ -55,4 +57,32 @@ test('image_inspect validates type and configured byte bound before inference', 
   const large = join(root, 'large.png');
   await writeFile(large, Buffer.alloc(2048));
   await assert.rejects(definition.validate({ path: large }), { code: 'attachment_size_invalid' });
+});
+
+test('image_inspect follows live attachment byte-limit updates', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-image-limit-update-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const image = join(root, 'updated.png');
+  await writeFile(image, Buffer.alloc(1536));
+  const raw = {
+    persistence: 'ephemeral', workspace_root: root,
+    provider: { id: 'fixture', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback' },
+  };
+  const engine = new SessionEngine({
+    config: resolveManifest({ ...raw, attachments: { max_bytes: 1024 } }),
+    providerFactory: () => ({ async *stream() {} }), output: async () => undefined,
+  });
+  await engine.initialize();
+  const imageInspect = engine.tools.definition('image_inspect');
+  await assert.rejects(imageInspect.validate({ path: image }), { code: 'attachment_size_invalid' });
+
+  await engine.updateConfiguration({ request_id: 'increase', manifest: {
+    ...raw, attachments: { max_bytes: 2048 },
+  } }, 'authenticated-local-operator');
+  await imageInspect.validate({ path: image });
+
+  await engine.updateConfiguration({ request_id: 'decrease', manifest: {
+    ...raw, attachments: { max_bytes: 1024 },
+  } }, 'authenticated-local-operator');
+  await assert.rejects(imageInspect.validate({ path: image }), { code: 'attachment_size_invalid' });
 });
