@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveManifest } from '../src/config.js';
 import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engine.js';
-import { loadTabPool } from '../src/experience/tab-pool.js';
+import { loadTabPool, saveTabPool } from '../src/experience/tab-pool.js';
 import { restorePresentation } from '../src/experience/presentation.js';
 
 function configuration(root) {
@@ -98,6 +98,34 @@ test('durable tab pool restores conversation presentation but opens with fresh M
   assert.equal(restored.pendingAttachments[0].mime_type, 'image/png');
   assert.equal(second.sessions.get(other).engine.reviewPosture, 'unattended');
   await second.shutdown();
+});
+
+test('review posture changes persist before workspace shutdown and report write failures', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-review-posture-save-'));
+  const path = join(root, 'pool.json');
+  let failNext = false;
+  const workspace = new InteractiveWorkspace({
+    config: configuration(root), tabPoolPath: path,
+    storeRoot: join(root, 'sessions'), reviewerRoot: join(root, 'reviewers'),
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
+    tabPoolWriter: async (target, tabs, activeId, options) => {
+      if (failNext) throw Object.assign(new Error('pool unavailable'), { code: 'tab_pool_unavailable' });
+      await saveTabPool(target, tabs, activeId, options);
+    },
+  });
+  await workspace.restore();
+  assert.equal(workspace.cycleReviewPosture(), 'unattended');
+  await workspace.tabPersistence.wait();
+  assert.equal((await loadTabPool(path)).tabs[0].presentation.review_posture, 'unattended');
+
+  failNext = true;
+  assert.equal(workspace.cycleReviewPosture(), 'prompt');
+  await workspace.tabPersistence.wait();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(workspace.projection.notice.kind, 'persistence');
+  assert.equal((await loadTabPool(path)).tabs[0].presentation.review_posture, 'unattended');
+  failNext = false;
+  await workspace.shutdown();
 });
 
 test('completed topical turns receive a durable automatic name', async () => {

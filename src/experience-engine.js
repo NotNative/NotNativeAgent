@@ -212,6 +212,7 @@ export class ExperienceEngine {
     session.engine.reviewPosture = projected.reviewPosture;
     this.projection.showNotice('review', reviewPostureNotice(projected.reviewPosture));
     this.onChange();
+    this.tabPersistence.observe(this.#savePool(), this.#tasks);
     return projected.reviewPosture;
   }
   switch(idOrName) {
