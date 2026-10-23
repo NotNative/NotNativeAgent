@@ -52,6 +52,38 @@ test('malformed stored managed scope fails closed before authorization and proje
   await assert.rejects(() => broker.list(), { code: 'secret_vault_corrupt' });
 });
 
+test('malformed stored encrypted fields and identities fail as vault corruption before use', async () => {
+  const { root, broker } = await fixture();
+  const secret = await broker.create({ label: 'Stored', kind: 'token', fields: { token: 'private' } });
+  const vaultPath = join(root, 'vault.json');
+  const original = JSON.parse(await readFile(vaultPath, 'utf8'));
+  const request = { consumer: 'test', destination: 'https://example.test', purpose: 'test', reviewerDecisionId: 'review_1' };
+  const malformed = [
+    (record) => { record.encryptedFields.token = null; },
+    (record) => { record.encryptedFields.token = 'ciphertext'; },
+    (record) => { record.encryptedFields.token.keyVersion = null; },
+    (record) => { record.encryptedFields['bad field'] = record.encryptedFields.token; },
+    (record) => { record.encryptedFields = {}; },
+    (record) => { record.id = { nested: 'id' }; },
+    (record) => { record.realm = { nested: 'realm' }; },
+    (record) => { record.label = { nested: 'label' }; },
+    (record) => { record.enabled = 'true'; },
+    (record) => { record.useCount = -1; },
+    (record) => { record.createdAt = { nested: 'private' }; },
+    (record) => { record.updatedAt = '2026-02-30T00:00:00.000Z'; },
+    (record) => { record.rotatedAt = { nested: 'private' }; },
+    (record) => { record.lastUsedAt = 'yesterday'; },
+  ];
+  for (const damage of malformed) {
+    const vault = structuredClone(original);
+    damage(vault.records[0]);
+    await writeFile(vaultPath, JSON.stringify(vault));
+    await assert.rejects(() => broker.list(), { code: 'secret_vault_corrupt' });
+    await assert.rejects(() => broker.withSecret(secret.id, request, async () => undefined), { code: 'secret_vault_corrupt' });
+    await assert.rejects(() => broker.vault.decryptFields(vault.records[0]), { code: 'secret_vault_corrupt' });
+  }
+});
+
 test('trusted consumer receives values transiently and exact-value redaction is active during use', async () => {
   const { broker } = await fixture();
   const created = await broker.create({ label: 'API', kind: 'api_key', fields: { api_key: 'abcd-super-secret' } });

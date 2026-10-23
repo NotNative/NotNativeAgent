@@ -3,13 +3,16 @@ import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:cr
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ContractError } from './ids.js';
-import { normalizeSecretMetadata, normalizeSecretScope } from './secret-contracts.js';
+import {
+  isSecretFieldName, normalizeSecretKind, normalizeSecretLabel, normalizeSecretMetadata, normalizeSecretScope,
+} from './secret-contracts.js';
 import { SessionLock } from './persistence/session-lock.js';
 
 const EMPTY = Object.freeze({ format: 1, keyVersion: 1, records: [] });
 const PATH_TAILS = new Map();
 const MASTER_KEY_BYTES = 32;
 const MASTER_KEY_CREATE_ATTEMPTS = 8;
+const ISO_STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 // Stable HKDF domain separator; changing it would make existing vault data unreadable.
 const REALM_KEY_INFO_PREFIX = 'nna-secret-realm-v';
 const ERROR = Object.freeze({
@@ -51,11 +54,7 @@ export class SecretVault {
   }
 
   async decryptFields(record) {
-    if (!record || typeof record !== 'object' || !record.realm || !record.id
-      || !record.encryptedFields || typeof record.encryptedFields !== 'object'
-      || Array.isArray(record.encryptedFields)) {
-      throw new ContractError(ERROR.corrupt, 'secret vault record is invalid');
-    }
+    validateVaultRecord(record);
     const output = {};
     for (const [name, field] of Object.entries(record.encryptedFields)) {
       const key = await this.#realmKey(record.realm, field.keyVersion);
@@ -146,18 +145,43 @@ function validateVault(value) {
     throw new ContractError(ERROR.corrupt, 'secret vault schema is invalid');
   }
   for (const record of value.records) {
-    if (!record?.id || !record.realm || !record.label || !record.encryptedFields
-      || typeof record.encryptedFields !== 'object' || Array.isArray(record.encryptedFields)) {
-      throw new ContractError(ERROR.corrupt, 'secret vault record is invalid');
-    }
-    // Stored metadata and scope must satisfy their public projection grammar.
-    try {
-      normalizeSecretMetadata(record.metadata);
-      normalizeSecretScope(record.scope, record.realm);
-    } catch {
-      throw new ContractError(ERROR.corrupt, 'secret vault record metadata or scope is invalid');
-    }
+    validateVaultRecord(record);
   }
+}
+
+function validateVaultRecord(record) {
+  if (!record || typeof record !== 'object' || Array.isArray(record)
+    || typeof record.id !== 'string' || !/^sec_[A-Za-z0-9-]{1,128}$/u.test(record.id)
+    || typeof record.realm !== 'string' || !record.realm || record.realm.length > 256
+    || !record.encryptedFields || typeof record.encryptedFields !== 'object'
+    || Array.isArray(record.encryptedFields) || typeof record.enabled !== 'boolean'
+    || !Number.isSafeInteger(record.useCount) || record.useCount < 0
+    || !isStoredStamp(record.createdAt) || !isStoredStamp(record.updatedAt)
+    || (record.rotatedAt !== null && !isStoredStamp(record.rotatedAt))
+    || (record.lastUsedAt !== null && !isStoredStamp(record.lastUsedAt))) {
+    throw new ContractError(ERROR.corrupt, 'secret vault record is invalid');
+  }
+  const fields = Object.entries(record.encryptedFields);
+  if (fields.length < 1 || fields.length > 16 || fields.some(([name, field]) =>
+    !isSecretFieldName(name) || !field || typeof field !== 'object' || Array.isArray(field)
+    || field.keyVersion !== 1 || typeof field.nonce !== 'string' || typeof field.tag !== 'string'
+    || typeof field.ciphertext !== 'string')) {
+    throw new ContractError(ERROR.corrupt, 'secret vault encrypted fields are invalid');
+  }
+  try {
+    if (normalizeSecretLabel(record.label) !== record.label) throw new Error('noncanonical label');
+    normalizeSecretKind(record.kind);
+    normalizeSecretMetadata(record.metadata);
+    normalizeSecretScope(record.scope, record.realm);
+  } catch {
+    throw new ContractError(ERROR.corrupt, 'secret vault record metadata or scope is invalid');
+  }
+}
+
+function isStoredStamp(value) {
+  if (typeof value !== 'string' || !ISO_STAMP.test(value)) return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value;
 }
 
 async function atomicWrite(path, value) {

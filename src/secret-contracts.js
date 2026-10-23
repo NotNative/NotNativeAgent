@@ -8,6 +8,10 @@ const SECRET_FIELD_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u;
 const SECRET_LABEL_CONTROLS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 const SECRET_METADATA_CONTROLS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/u;
 
+export function isSecretFieldName(value) {
+  return typeof value === 'string' && SECRET_FIELD_NAME_PATTERN.test(value);
+}
+
 export function normalizeSecretLabel(value) {
   const label = typeof value === 'string' ? value.trim() : '';
   if (!label || label.length > 96 || SECRET_LABEL_CONTROLS.test(value)) {
@@ -28,7 +32,7 @@ export function validateSecretFields(kind, fields) {
   const entries = Object.entries(fields);
   if (entries.length < 1 || entries.length > 16) throw new ContractError('secret_fields_invalid', 'a secret requires 1-16 fields');
   for (const [name, value] of entries) {
-    if (!SECRET_FIELD_NAME_PATTERN.test(name)) throw new ContractError('secret_field_name_invalid', 'secret field name is invalid');
+    if (!isSecretFieldName(name)) throw new ContractError('secret_field_name_invalid', 'secret field name is invalid');
     if (typeof value !== 'string' || !value || value.length > 20_000 || /\u0000/u.test(value)) {
       throw new ContractError('secret_field_value_invalid', `secret field ${name} is empty or exceeds its bound`);
     }
