@@ -3,12 +3,15 @@ import test from 'node:test';
 import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
+import { createServer, get } from 'node:http';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { dispatchNndConfigurationRequest } from '../src/nnd-configuration-routes.js';
 import { createNndConfigurationService } from '../src/nnd-configuration-service.js';
 import { ContractError } from '../src/ids.js';
+import { registeredFailureDomain } from '../src/error-code-registry.js';
+import { sendFailure } from '../src/secret-broker-server.js';
 import { CONFIGURATION_CATALOG } from '../src/configuration-catalog.js';
 import { NND_CONFIGURATION_EDITABLE_FIELDS, NND_ROUTE_BINDING_FIELDS } from '../src/nnd-configuration-intents.js';
 
@@ -86,11 +89,106 @@ test('configuration boundary preserves typed failures without private diagnostic
   for (const code of ['manifest_revision_conflict', 'nnd_configuration_resolution_conflict', 'unknown_security_key']) {
     await assert.rejects(dispatch(base, 'GET', ['nnd.configuration.read'], {
       read() { throw new ContractError(code, 'PRIVATE raw source key'); },
-    }), error => error.code === code && !error.message.includes('PRIVATE') && error.cause === undefined);
+    }), error => error.code === code && !error.message.includes('PRIVATE') && error.cause?.code === code);
   }
   await assert.rejects(dispatch(base, 'GET', ['nnd.configuration.read'], {
     read() { throw Object.assign(new Error('PRIVATE native filesystem path'), { code: 'EACCES' }); },
-  }), error => error.code === 'nnd_configuration_unavailable' && !error.message.includes('PRIVATE'));
+  }), error => {
+    assert.equal(error.code, 'nnd_configuration_unavailable');
+    assert.equal(error.cause?.code, 'EACCES');
+    const response = { setHeader() {}, end(text) { this.body = JSON.parse(text); } };
+    sendFailure(response, error);
+    assert.equal(response.statusCode, 503);
+    assert.equal(JSON.stringify(response.body).includes('PRIVATE'), false);
+    return true;
+  });
+  await assert.rejects(dispatch(base, 'GET', ['nnd.configuration.read'], {
+    read() { throw new TypeError('PRIVATE programmer fault'); },
+  }), error => {
+    assert.equal(error.code, 'nnd_configuration_internal_failure');
+    assert.equal(error.cause?.message, 'PRIVATE programmer fault');
+    const response = { setHeader() {}, end(text) { this.body = JSON.parse(text); } };
+    sendFailure(response, error);
+    assert.equal(response.statusCode, 500);
+    assert.equal(JSON.stringify(response.body).includes('PRIVATE'), false);
+    return true;
+  });
+});
+
+test('service output defects return 500 even after a save has persisted, while request defects remain 400', async () => {
+  assert.equal(registeredFailureDomain('nnd_configuration_internal_failure')?.category, 'internal');
+  let saved = false;
+  const malformedReceipt = { ...receipt, operation_id: 'PRIVATE invalid id' };
+  for (const [path, method, service, body] of [
+    [base, 'GET', { read: () => ({ ...snapshot, installationId: 'PRIVATE invalid id' }) }],
+    [base + '/preview', 'POST', { preview: () => ({ valid: false }) }, input],
+    [base + '/save', 'POST', { save: () => { saved = true; return malformedReceipt; } },
+      { ...input, operation_id: 'operation_1' }],
+  ]) {
+    await assert.rejects(dispatch(path, method, ['nnd.configuration.read', 'nnd.configuration.manage'], service, body), error => {
+      assert.equal(error.code, 'nnd_configuration_internal_failure');
+      const response = { setHeader() {}, end(text) { this.body = JSON.parse(text); } };
+      sendFailure(response, error);
+      assert.equal(response.statusCode, 500);
+      assert.equal(JSON.stringify(response.body).includes('PRIVATE'), false);
+      return true;
+    });
+  }
+  assert.equal(saved, true);
+  await assert.rejects(dispatch(base + '/save', 'POST', ['nnd.configuration.manage'], {
+    save() { throw new Error('invalid request reached service'); },
+  }, { ...input, operation_id: 'operation_1', scope: 'project' }), { code: 'nnd_configuration_request_invalid' });
+});
+
+test('configuration dispatcher closes a partially written response without writing a second body', async () => {
+  let destroyed = 0;
+  const response = { headersSent: false, writableEnded: false, setHeader() {},
+    end() { throw new Error('second write'); }, destroy(error) { destroyed += 1; this.failure = error; } };
+  const matched = await dispatchNndConfigurationRequest({ method: 'GET' }, response, {
+    url: new URL(base, 'http://localhost'), principal: { permissions: ['nnd.configuration.read'] },
+    nndConfigurationService: { read() { response.headersSent = true; throw new Error('PRIVATE after headers'); } },
+  });
+  assert.equal(matched, true);
+  assert.equal(destroyed, 1);
+  assert.equal(response.failure, undefined);
+});
+
+test('configuration dispatcher does not serialize a failure after the socket was destroyed before headers', async () => {
+  const response = { headersSent: false, writableEnded: false, destroyed: true,
+    setHeader() { throw new Error('late header'); }, end() { throw new Error('late body'); } };
+  const matched = await dispatchNndConfigurationRequest({ method: 'GET' }, response, {
+    url: new URL(base, 'http://localhost'), principal: { permissions: ['nnd.configuration.read'] },
+    nndConfigurationService: { read() { throw new Error('PRIVATE after disconnect'); } },
+  });
+  assert.equal(matched, true);
+});
+
+test('real HTTP partial configuration response closes without a second JSON error', async t => {
+  let dispatchFailure;
+  const server = createServer((request, response) => {
+    void dispatchNndConfigurationRequest(request, response, {
+      url: new URL(base, 'http://localhost'), principal: { permissions: ['nnd.configuration.read'] },
+      nndConfigurationService: { async read() {
+        response.flushHeaders();
+        await new Promise(resolve => setTimeout(resolve, 10));
+        throw new Error('PRIVATE after flush');
+      } },
+    }).catch(error => { dispatchFailure = error; sendFailure(response, error); });
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const observed = await new Promise((resolve, reject) => {
+    get({ host: '127.0.0.1', port: server.address().port, path: base }, response => {
+      const chunks = [];
+      response.on('data', chunk => chunks.push(chunk));
+      response.on('error', error => resolve({ status: response.statusCode, body: Buffer.concat(chunks).toString(), error }));
+      response.on('end', () => reject(new Error('partial response unexpectedly completed')));
+    }).on('error', reject);
+  });
+  assert.equal(dispatchFailure, undefined);
+  assert.equal(observed.status, 200);
+  assert.equal(observed.body, '');
+  assert.equal(observed.error.code, 'ECONNRESET');
 });
 
 test('real native service read preview save and operation use the same safe HTTP contract', async t => {

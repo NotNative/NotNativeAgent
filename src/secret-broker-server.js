@@ -193,7 +193,7 @@ function failureStatus(code) {
   if (code.startsWith('nnd_assist_output_') || code === 'nnd_assist_tool_violation') return 502;
   if (['nnd_walkthrough_context_large', 'nnd_environment_value_too_large',
     'nnd_skills_catalog_too_large'].includes(code)) return 413;
-  if (code === 'nnd_activity_tombstones_invalid') return 500;
+  if (code === 'nnd_activity_tombstones_invalid' || code === 'nnd_configuration_internal_failure') return 500;
   // Trust rows must never degrade to an empty list; repairs retry after the honest failure surfaces.
   // F1 admission: conflicts 409, missing 404, unavailable 503, grammar 400.
   if (['nnd_workspace_admission_root_conflict', 'nnd_workspace_admission_secondary_clear', 'nnd_workspace_in_use',

@@ -139,6 +139,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'subscriber_output_too_large',
   ]),
   internal: Object.freeze([
+    'nnd_configuration_internal_failure',
     'nnd_notification_busy',
     'nnd_setup_busy', 'nnd_setup_host_failed', 'nnd_setup_activation_timeout',
     'nnd_service_crashed', 'nnd_start_timeout', 'nnd_health_unavailable',

@@ -38,17 +38,29 @@ const FIELDS = ['installation_id', 'data_id', 'scope', 'expected_revision', 'exp
 const NATIVE_EDITABLE = new Set(NND_CONFIGURATION_EDITABLE_FIELDS);
 const ROUTE_BINDING = new Set(NND_ROUTE_BINDING_FIELDS);
 const COUPLED_MEMORY = new Set(['memory.enabled', 'memory.required']);
+const AVAILABILITY_CODES = new Set(['ENOENT', 'EACCES', 'EPERM', 'EBUSY', 'EIO', 'EMFILE', 'ENFILE', 'ENOSPC', 'ETIMEDOUT']);
 function invalid() { return new ContractError('nnd_configuration_request_invalid', 'Configuration request is outside the supported native contract.'); }
+function outputInvalid() { return new ContractError('nnd_configuration_internal_failure', 'Native configuration response violates its safe projection contract.'); }
 
 export async function dispatchNndConfigurationRequest(request, response, context) {
   try { return await dispatchConfigurationRequest(request, response, context); }
   catch (error) {
+    // A sub-route may have started a response before a later operation fails.
+    // The caller must not try to serialize a second HTTP error over those bytes.
+    if (response.headersSent || response.writableEnded || response.destroyed) {
+      // Security: the native exception may contain private source material;
+      // socket teardown does not need that exception as an argument.
+      if (!response.writableEnded && !response.destroyed) response.destroy?.();
+      return true;
+    }
     // Security: parser and filesystem diagnostics may contain private source keys or native paths.
     // Registered failure codes surface verbatim (their text is registry-controlled);
-    // anything unregistered is rebranded so private diagnostics never leak.
-    const code = error instanceof ContractError && isRegisteredFailureCode(error.code)
-      ? error.code : 'nnd_configuration_unavailable';
-    throw new ContractError(code, 'Native configuration request could not be completed.');
+    // known filesystem availability errors map to 503; programming faults map to 500.
+    const registered = error instanceof ContractError && isRegisteredFailureCode(error.code);
+    const code = error?.code === 'nnd_configuration_view_invalid' ? 'nnd_configuration_internal_failure'
+      : registered ? error.code : AVAILABILITY_CODES.has(error?.code)
+      ? 'nnd_configuration_unavailable' : 'nnd_configuration_internal_failure';
+    throw new ContractError(code, 'Native configuration request could not be completed.', { cause: error });
   }
 }
 
@@ -96,7 +108,7 @@ async function dispatchConfigurationRequest(request, response, context) {
   validateInput(input, route.action);
   const result = await service[route.action](context.principal, input);
   if (route.action === 'preview') {
-    if (result.valid !== true) throw invalid();
+    if (result.valid !== true) throw outputInvalid();
     return boundedSend(response, { valid: true, expected_revision: safeRevision(result.expected_revision),
       resolution_revision: safeRevision(result.resolution_revision), application: 'not_applied',
       view: projectNndConfigurationView(result.snapshot) });
@@ -141,11 +153,11 @@ function validateInput(input, action) {
     if (!input.document || typeof input.document !== 'object' || Array.isArray(input.document)) throw invalid();
   } else if (!Array.isArray(input.operations) || input.operations.length < 1 || input.operations.length > 32) throw invalid();
 }
-function safeRevision(value) { if (typeof value !== 'string' || !REVISION.test(value)) throw invalid(); return value; }
-function safeId(value) { if (typeof value !== 'string' || !ID.test(value)) throw invalid(); return value; }
+function safeRevision(value) { if (typeof value !== 'string' || !REVISION.test(value)) throw outputInvalid(); return value; }
+function safeId(value) { if (typeof value !== 'string' || !ID.test(value)) throw outputInvalid(); return value; }
 function projectReceipt(value) {
   if (!value || !['saved', 'unpublished', 'unknown'].includes(value.persistence) || value.scope !== 'user'
-    || value.application !== 'not_applied') throw invalid();
+    || value.application !== 'not_applied') throw outputInvalid();
   return { installation_id: safeId(value.installation_id), data_id: safeId(value.data_id), scope: 'user',
     operation_id: safeId(value.operation_id), persistence: value.persistence,
     persisted_revision: value.persisted_revision === null ? null : safeRevision(value.persisted_revision),
@@ -154,6 +166,6 @@ function projectReceipt(value) {
     replay_window: 'last_128_operations' };
 }
 function boundedSend(response, value) {
-  if (Buffer.byteLength(JSON.stringify(value)) > RESPONSE_BYTES) throw invalid();
+  if (Buffer.byteLength(JSON.stringify(value)) > RESPONSE_BYTES) throw outputInvalid();
   return send(response, 200, value);
 }
