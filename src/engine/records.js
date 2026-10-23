@@ -229,9 +229,10 @@ function sanitizedText(value, maximum = Number.MAX_SAFE_INTEGER) {
 
 export function toolDecisionState(outcome) {
   if (outcome === 'approve') return 'approved';
+  if (outcome === 'deny_with_guidance') return 'denied_with_guidance';
   if (outcome === 'hard_deny') return 'hard_denied';
   if (outcome === 'escalate_to_operator') return 'escalation_pending';
-  return 'denied_with_guidance';
+  throw new ContractError('review_outcome_invalid', 'Reviewer returned an unknown decision outcome');
 }
 
 export function toolResultState(result) {

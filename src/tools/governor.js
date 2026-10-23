@@ -5,6 +5,7 @@ import { requestDigest } from '../persistence/reviewer-ledger.js';
 import { MAX_SUBSCRIPTION_TIMEOUT_MS } from '../events.js';
 import { redactExtensionData, redactText } from '../redaction.js';
 import { normalizeToolReasonCode } from './reason-code.js';
+import { validReviewOutcome } from './tool-result-contract.js';
 
 // This outer event boundary must remain above the largest configured semantic-review
 // deadline. The reviewer owns the operative timeout; this is only a stuck-handler backstop.
@@ -64,6 +65,10 @@ export class ToolGovernor {
     try {
       const dispatch = await this.events.dispatch(event, context.signal);
       const result = dispatch.results?.find((item) => item?.review)?.review;
+      if (result && !validReviewOutcome(result.outcome)) return Object.freeze({
+        outcome: 'deny_with_guidance', reasonCode: 'mandatory_review_failed',
+        guidance: 'Mandatory review returned an invalid decision.', requestId: request.id,
+      });
       if (dispatch.decision === 'deny' && result?.outcome === 'approve') {
         await this.reviewer.ledger.executionStarted(request.id, result.id);
         await this.reviewer.ledger.settle(request.id, {

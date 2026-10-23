@@ -7,6 +7,7 @@ const TOOL_LIFECYCLE_STATUSES = new Set([
 const REVIEW_OUTCOMES = new Set([
   'approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator',
 ]);
+export function validReviewOutcome(outcome) { return REVIEW_OUTCOMES.has(outcome); }
 const TOOL_RESULT_PROJECTIONS = Object.freeze({
   succeeded: Object.freeze({ child: 'succeeded', telemetry: 'succeeded' }),
   failed: Object.freeze({ child: 'failed', telemetry: 'failed' }),

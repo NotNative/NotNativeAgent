@@ -17,6 +17,33 @@ function request(id = 'tool-request-1') {
   });
 }
 
+test('reviewer ledger refuses unknown decision outcomes at commit and replay', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-ledger-outcome-'));
+  const ledger = new ReviewerLedger({ durable: true, root, sessionId: 'outcome-check' });
+  await ledger.initialize();
+  await ledger.propose(request('unknown-decision'), { risk: 'review_required', scope: 'workspace' });
+  await assert.rejects(ledger.commitDecision('unknown-decision',
+    { id: 'unknown', outcome: 'future_outcome' }), { code: 'reviewer_decision_invalid' });
+  await ledger.close();
+  const journal = new JournalStore(root, 'outcome-check.review');
+  await journal.open();
+  await journal.append('decision', { requestId: 'unknown-decision',
+    decision: { id: 'unknown', outcome: 'future_outcome' } });
+  await journal.close();
+  const restored = new ReviewerLedger({ durable: true, root, sessionId: 'outcome-check' });
+  await assert.rejects(restored.initialize(), { code: 'reviewer_ledger_corrupt' });
+});
+
+test('operator decisions must settle an escalation instead of creating another one', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'operator-outcome-check' });
+  await ledger.propose(request('operator-outcome'), { risk: 'review_required', scope: 'workspace' });
+  await ledger.commitDecision('operator-outcome', { id: 'escalation', outcome: 'escalate_to_operator' });
+  await assert.rejects(ledger.commitOperatorDecision('operator-outcome',
+    { id: 'not-a-decision', outcome: 'escalate_to_operator' }), { code: 'reviewer_decision_invalid' });
+  assert.equal((await ledger.commitOperatorDecision('operator-outcome',
+    { id: 'operator-denial', outcome: 'deny_with_guidance' })).outcome, 'deny_with_guidance');
+});
+
 test('AC-REV-03/AC-REV-07/AC-OBS-03 durable governance audit is complete, redacted, and exactly once', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-ledger-'));
   const ledger = new ReviewerLedger({ durable: true, root, sessionId: 'session-ledger' });

@@ -8,6 +8,18 @@ import { finalizeEngineTurn } from '../src/engine/finalization.js';
 import { persistSupervisedResponse } from '../src/engine/terminal-declaration.js';
 import { updateToolFailures } from '../src/engine/tool-failures.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
+import { toolDecisionState } from '../src/engine/records.js';
+
+test('unknown reviewer outcomes fail closed instead of becoming an ordinary guidance denial', async () => {
+  assert.throws(() => toolDecisionState('future_outcome'), { code: 'review_outcome_invalid' });
+  const events = { register: () => ({ updateTimeoutMs: () => true }),
+    dispatch: async () => ({ decision: 'allow', results: [{ review: { outcome: 'future_outcome' } }] }) };
+  const governor = new ToolGovernor({ events, reviewer: {}, registry: {} });
+  const decision = await governor.review({ id: 'unknown-review' },
+    { signal: new AbortController().signal }, {});
+  assert.equal(decision.outcome, 'deny_with_guidance');
+  assert.equal(decision.reasonCode, 'mandatory_review_failed');
+});
 
 async function execute(raw) {
   const governor = new ToolGovernor({ events: new EventHub(), reviewer: {}, registry: {

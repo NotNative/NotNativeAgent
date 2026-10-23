@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 import { JournalStore, recoverJournal } from '../store.js';
 import { retentionCompactionTarget, validateRetentionLimit } from './retention.js';
+import { validReviewOutcome } from '../tools/tool-result-contract.js';
 
 const DEFAULT_RETENTION_ENTRIES = 10_000;
 const MAX_REPLAY_RECORDS = 1_000_000;
@@ -26,14 +27,21 @@ export class ReviewerLedger {
   async initialize() {
     return this.#serialize(async () => {
       if (!this.#store) return;
-      const recovered = await this.#store.open();
-      const replay = recovered.truncated ? await recoverJournal(this.#store.path) : recovered;
-      if (replay.corruptTail || replay.records.length > MAX_REPLAY_RECORDS
-        || replay.lastHash !== recovered.lastHash) {
-        throw new ContractError('reviewer_ledger_corrupt', 'reviewer ledger has a corrupt tail');
+      try {
+        const recovered = await this.#store.open();
+        const replay = recovered.truncated ? await recoverJournal(this.#store.path) : recovered;
+        if (replay.corruptTail || replay.records.length > MAX_REPLAY_RECORDS
+          || replay.lastHash !== recovered.lastHash) {
+          throw new ContractError('reviewer_ledger_corrupt', 'reviewer ledger has a corrupt tail');
+        }
+        for (const record of replay.records) this.#apply(record.type, record.payload);
+        await this.#enforceRetention();
+      } catch (error) {
+        // Why: failed replay must release the journal handle before another recovery attempt.
+        try { await this.#store.close(); }
+        catch (closeError) { error.cause ??= closeError; }
+        throw error;
       }
-      for (const record of replay.records) this.#apply(record.type, record.payload);
-      await this.#enforceRetention();
     });
   }
 
@@ -57,6 +65,7 @@ export class ReviewerLedger {
   async commitDecision(requestId, decision) {
     return this.#serialize(async () => {
       const entry = this.#require(requestId);
+      assertReviewerDecision(decision, 'reviewer_decision_invalid');
       if (entry.decision) return entry.decision;
       await this.#record('decision', { requestId, decision });
       entry.decision = decision;
@@ -71,6 +80,7 @@ export class ReviewerLedger {
   async commitOperatorDecision(requestId, decision) {
     return this.#serialize(async () => {
       const entry = this.#require(requestId);
+      assertReviewerDecision(decision, 'reviewer_decision_invalid', true);
       if (entry.decision?.outcome !== 'escalate_to_operator') {
         throw new ContractError('operator_decision_unexpected', 'operator decision requires a committed escalation');
       }
@@ -269,6 +279,7 @@ export class ReviewerLedger {
       case 'decision':
       case 'operator_decision': {
         const entry = this.#require(payload.requestId);
+        assertReviewerDecision(payload.decision, 'reviewer_ledger_corrupt', type === 'operator_decision');
         entry.decision = payload.decision;
         if (retentionSettled(entry)) this.#markRecentlySettled(entry);
         break;
@@ -413,6 +424,15 @@ function completionEntry(entry) {
     reason_code: terminal?.reason_code ?? entry.decision?.reasonCode ?? null,
     effect_certainty: terminal?.effect_certainty ?? 'none',
   });
+}
+
+function assertReviewerDecision(decision, code, operator = false) {
+  // Invariant: an operator reply must settle the pending escalation, not defer it again.
+  if (!decision || typeof decision !== 'object' || Array.isArray(decision)
+    || !validReviewOutcome(decision.outcome)
+    || (operator && !['approve', 'deny_with_guidance'].includes(decision.outcome))) {
+    throw new ContractError(code, 'Reviewer decision has an invalid outcome');
+  }
 }
 
 function stableJson(value, ancestors = new WeakSet()) {
