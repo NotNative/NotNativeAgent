@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
 import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
-import { redactExtensionData, redactText } from './redaction.js';
+import { redactExtensionData, redactText, redactionMayIntroduceSearchText } from './redaction.js';
 
 const MAX_QUERY = 512;
 const MAX_SCAN_RECORDS = 50_000;
@@ -29,7 +29,7 @@ function searchDefinition(control) {
     'Search older records in this conversation, including history omitted from the active model context. Returns stable record indexes for session_read_history.', {
       query: { type: 'string', minLength: 1, maxLength: MAX_QUERY, description: 'Required words or phrase to find in older conversation records.' },
       limit: { type: 'integer', minimum: 1, maximum: MAX_RESULTS, description: `Maximum matching records to return. Defaults to ${DEFAULT_RESULTS}.` },
-      types: { type: 'array', items: { type: 'string' }, maxItems: MAX_TYPES, description: 'Optional exact record-type filters, such as message or tool_result.' },
+      types: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: MAX_TYPES, description: 'Optional exact record-type filters, such as message or tool_result.' },
     }, ['query'], async (args, signal) => {
       const records = transcript(control);
       const result = await cooperativeSearchHistory(records, args, signal);
@@ -37,7 +37,7 @@ function searchDefinition(control) {
       const rediscovery = rediscoveryDetail(control, projected.content);
       control.telemetry?.record('session.history_search', 'succeeded', {
         query_bytes: Buffer.byteLength(args.query, 'utf8'), records_scanned: result.scanned,
-        matches: result.matches.length, truncated_scan: result.truncated, ...rediscovery,
+        matches: result.matches.length, truncated_scan: result.scan_truncated, ...rediscovery,
       });
       return projected;
     });
@@ -59,8 +59,13 @@ function readDefinition(control) {
       const start = Math.max(0, recordIndex - surrounding);
       const end = Math.min(records.length, recordIndex + surrounding + 1);
       const budget = { remaining: RECORD_BYTE_BUDGET - 4096 };
-      const selected = records.slice(start, end).map((record, offset) => projectRecord(record, start + offset, false, budget));
-      const projected = output({ records: selected, total_records: records.length }, { records: selected.length });
+      // Invariant: the explicitly requested record owns the read budget before neighbors.
+      const priority = Array.from({ length: end - start }, (_, offset) => start + offset)
+        .sort((left, right) => Math.abs(left - recordIndex) - Math.abs(right - recordIndex) || left - right);
+      const selectedByIndex = new Map(priority.map((index) => [index, projectRecord(records[index], index, false, budget)]));
+      const selected = Array.from({ length: end - start }, (_, offset) => selectedByIndex.get(start + offset));
+      const projected = output({ records: selected, total_records: records.length },
+        { records: selected.length, record_projection_truncated: budget.truncated === true }, recordIndex);
       control.telemetry?.record('session.history_read', 'succeeded', {
         record_index: recordIndex, records_returned: selected.length,
         ...rediscoveryDetail(control, projected.content),
@@ -93,8 +98,9 @@ function* historyScan(records, input, signal) {
   const types = normalizeTypes(input.types);
   const start = Math.max(0, records.length - MAX_SCAN_RECORDS);
   const terms = [...new Set(query.toLowerCase().split(/[^\p{L}\p{N}_.:/-]+/u)
-    .filter((term) => term.length > 1))].slice(0, MAX_QUERY_TERMS);
+    .filter(Boolean))].slice(0, MAX_QUERY_TERMS);
   const phrase = query.toLowerCase();
+  const redactionMayMatch = redactionMayIntroduceSearchText([phrase, ...terms]);
   const matches = [];
   let searchTextTruncatedRecords = 0;
   for (let index = start; index < records.length; index += 1) {
@@ -103,7 +109,13 @@ function* historyScan(records, input, signal) {
     const record = records[index];
     const type = String(record?.type ?? 'unknown');
     if (types && !types.has(type)) continue;
-    const projection = searchableText(record);
+    // A raw negative hit is conclusive only when redaction cannot synthesize
+    // any searched term and the raw projection contains every candidate field.
+    if (!redactionMayMatch) {
+      const rawProjection = searchableText(record);
+      if (!rawProjection.truncated && relevance(rawProjection.text.toLowerCase(), phrase, terms) <= 0) continue;
+    }
+    const projection = searchableText(redactExtensionData(record));
     if (projection.truncated) searchTextTruncatedRecords += 1;
     const searchable = projection.text.toLowerCase();
     const score = relevance(searchable, phrase, terms);
@@ -113,7 +125,7 @@ function* historyScan(records, input, signal) {
   matches.sort((left, right) => right.score - left.score || right.index - left.index);
   const budget = { remaining: RECORD_BYTE_BUDGET - 4096 };
   return Object.freeze({
-    query, scanned: records.length - start, truncated: start > 0,
+    query, scanned: records.length - start, scan_truncated: start > 0,
     search_text_truncated_records: searchTextTruncatedRecords,
     matches: matches.slice(0, limit).map((item) => ({
       ...projectRecord(item.record, item.index, true, budget), relevance: item.score,
@@ -152,7 +164,7 @@ function validateArguments(name, args) {
   for (const key of ['limit', 'record_index', 'surrounding']) {
     if (Object.hasOwn(args, key) && !Number.isSafeInteger(args[key])) invalid(name);
   }
-  if (Object.hasOwn(args, 'types') && (!Array.isArray(args.types) || args.types.length > MAX_TYPES
+  if (Object.hasOwn(args, 'types') && (!Array.isArray(args.types) || args.types.length < 1 || args.types.length > MAX_TYPES
     || args.types.some((type) => typeof type !== 'string'
       || type.length < 1 || type.length > MAX_TYPE_LENGTH))) invalid(name);
 }
@@ -177,27 +189,37 @@ function transcript(control) {
 
 function normalizeTypes(value) {
   if (value === undefined) return null;
-  if (!Array.isArray(value) || value.length > MAX_TYPES) {
-    throw new ContractError('session_history_types_invalid', `history types must contain at most ${MAX_TYPES} record types`);
+  if (!Array.isArray(value) || value.length < 1 || value.length > MAX_TYPES) {
+    throw new ContractError('session_history_types_invalid', `history types must contain 1 to ${MAX_TYPES} record types`);
   }
   return new Set(value.map((item) => String(item)));
 }
 
 function searchableText(record) {
-  if (!record || typeof record !== 'object') return { text: String(record ?? ''), truncated: false };
+  if (!record || typeof record !== 'object') {
+    const text = String(record ?? '');
+    return { text: text.slice(0, MAX_SEARCHABLE_CHARACTERS), truncated: text.length > MAX_SEARCHABLE_CHARACTERS };
+  }
   const values = [record.type, record.role, record.requestId, record.providerCallId,
     record.request_id, record.provider_call_id, record.content, record.tool, record.toolName,
     record.target, record.status, record.outcome, record.reason, record.reason_code,
     record.turn_id, record.turnId, record.metadata, record.args, record.arguments];
-  const combined = values.map((value) => typeof value === 'string' ? value : safeJson(value)).join('\n');
-  return {
-    text: combined.slice(0, MAX_SEARCHABLE_CHARACTERS),
-    truncated: combined.length > MAX_SEARCHABLE_CHARACTERS,
-  };
+  let text = '';
+  for (let index = 0; index < values.length; index += 1) {
+    // Why: large tool content can fill the search window before later JSON
+    // fields; avoid serializing fields that the scorer cannot inspect.
+    if (text.length >= MAX_SEARCHABLE_CHARACTERS) return { text, truncated: true };
+    const value = values[index];
+    const part = `${index > 0 ? '\n' : ''}${typeof value === 'string' ? value : safeJson(value)}`;
+    const remaining = MAX_SEARCHABLE_CHARACTERS - text.length;
+    if (part.length > remaining) return { text: text + part.slice(0, remaining), truncated: true };
+    text += part;
+  }
+  return { text, truncated: false };
 }
 
 function relevance(text, phrase, terms) {
-  let score = phrase.length > 1 && text.includes(phrase) ? 100 : 0;
+  let score = text.includes(phrase) ? 100 : 0;
   for (const term of terms) {
     let offset = 0; let count = 0;
     while (count < MAX_TERM_OCCURRENCES && (offset = text.indexOf(term, offset)) >= 0) {
@@ -211,52 +233,104 @@ function relevance(text, phrase, terms) {
 }
 
 function projectRecord(record, index, snippetOnly, budget) {
-  const redacted = boundValue(redactExtensionData(record), budget, 0);
   const base = { record_index: index, type: String(record?.type ?? 'unknown').slice(0, MAX_TYPE_LENGTH) };
-  if (!snippetOnly) return { ...base, record: redacted };
+  const redacted = redactExtensionData(record);
+  if (!snippetOnly) return { ...base, record: boundValue(redacted, budget, 0) };
+  // Why: a snippet does not return the complete record; spending the shared
+  // read budget on discarded fields erases later search matches.
   const text = redactText(searchableText(redacted).text).replace(/\s+/gu, ' ').trim();
   const turnId = record?.turn_id ?? record?.turnId;
   return { ...base, turn_id: typeof turnId === 'string' ? turnId.slice(0, 256) : null, snippet: text.slice(0, MAX_SNIPPET) };
 }
 
 function boundValue(value, budget, depth) {
-  if (budget.remaining <= 0) return '[truncated:record-budget]';
-  if (depth > MAX_RECORD_DEPTH) return '[truncated:depth-limit]';
+  if (budget.remaining <= 0) { budget.truncated = true; return '[truncated:record-budget]'; }
+  if (depth > MAX_RECORD_DEPTH) { budget.truncated = true; return '[truncated:depth-limit]'; }
   if (typeof value === 'string') {
-    let low = 0, high = Math.min(value.length, Math.max(0, budget.remaining - 32));
-    const maximum = Math.max(0, budget.remaining - 32);
+    const maximum = Math.max(0, budget.remaining - 64);
+    const completeBytes = Buffer.byteLength(JSON.stringify(value));
+    if (completeBytes <= maximum) {
+      budget.remaining -= completeBytes;
+      return value;
+    }
+    let low = 0, high = Math.min(value.length, maximum);
     while (low < high) {
       const middle = Math.ceil((low + high) / 2);
-      if (Buffer.byteLength(JSON.stringify(value.slice(0, middle))) <= maximum) low = middle;
+      if (Buffer.byteLength(JSON.stringify(`${value.slice(0, middle)}[truncated]`)) <= maximum) low = middle;
       else high = middle - 1;
     }
     if (low < value.length && low > 0 && /[\uD800-\uDBFF]/u.test(value[low - 1])) low -= 1;
+    if (low < value.length) budget.truncated = true;
     const text = value.slice(0, low) + (low < value.length ? '[truncated]' : '');
     budget.remaining -= Buffer.byteLength(JSON.stringify(text));
     return text;
   }
   if (Array.isArray(value)) {
-    return value.slice(0, MAX_COLLECTION_ITEMS).map((item) => boundValue(item, budget, depth + 1));
+    const result = [];
+    if (value.length > MAX_COLLECTION_ITEMS) budget.truncated = true;
+    budget.remaining -= 2;
+    for (const item of value.slice(0, MAX_COLLECTION_ITEMS)) {
+      if (budget.remaining <= 64) { budget.truncated = true; result.push('[truncated:record-budget]'); break; }
+      budget.remaining -= result.length > 0 ? 1 : 0;
+      result.push(boundValue(item, budget, depth + 1));
+    }
+    return result;
   }
-  if (!value || typeof value !== 'object') return value;
+  if (!value || typeof value !== 'object') {
+    const bytes = Buffer.byteLength(JSON.stringify(value) ?? 'null');
+    if (bytes > budget.remaining - 64) { budget.truncated = true; return '[truncated:record-budget]'; }
+    budget.remaining -= bytes;
+    return value;
+  }
   const result = {};
+  if (Object.keys(value).length > MAX_COLLECTION_ITEMS) budget.truncated = true;
+  budget.remaining -= 2;
   for (const [key, child] of Object.entries(value).slice(0, MAX_COLLECTION_ITEMS)) {
-    result[key] = boundValue(child, budget, depth + 1);
-    if (budget.remaining <= 0) break;
+    const fieldBytes = Buffer.byteLength(JSON.stringify(key)) + 1 + (Object.keys(result).length > 0 ? 1 : 0);
+    if (budget.remaining <= fieldBytes + 64) { budget.truncated = true; result._nna_truncated = '[truncated:record-budget]'; break; }
+    budget.remaining -= fieldBytes;
+    Object.defineProperty(result, key, { value: boundValue(child, budget, depth + 1), enumerable: true, configurable: true, writable: true });
+    if (budget.remaining <= 64) { budget.truncated = true; break; }
   }
   return result;
 }
 
-function output(value, metadata) {
-  let content = JSON.stringify(value, null, 2);
-  // Invariant: JSON escaping and indentation count toward the aggregate tool bound.
-  for (let index = (value.records?.length ?? 0) - 1; Buffer.byteLength(content) > RECORD_BYTE_BUDGET && index >= 0; index -= 1) {
-    const record = value.records[index];
-    value.records[index] = { record_index: record.record_index, type: record.type, record: '[truncated:output-budget]' };
-    value.truncated = true;
-    content = JSON.stringify(value, null, 2);
+function output(value, metadata, protectedRecordIndex = null) {
+  const collection = Array.isArray(value.records) ? 'records' : 'matches';
+  const rows = [...value[collection]];
+  const payload = { ...value, [collection]: rows };
+  let content = JSON.stringify(payload, null, 2);
+  let outputTruncated = false;
+  if (Buffer.byteLength(content) > RECORD_BYTE_BUDGET) content = JSON.stringify(payload);
+  // Invariant: preserve the requested record while reducing optional neighbors.
+  const priorities = rows.map((row, index) => ({ index, distance: Math.abs(row.record_index - protectedRecordIndex) }))
+    .filter(({ index }) => rows[index].record_index !== protectedRecordIndex)
+    .sort((left, right) => protectedRecordIndex === null ? right.index - left.index
+      : right.distance - left.distance || right.index - left.index);
+  for (const { index } of priorities) {
+    if (Buffer.byteLength(content) <= RECORD_BYTE_BUDGET) break;
+    const row = rows[index];
+    rows[index] = collection === 'matches'
+      ? { record_index: row.record_index, type: row.type, turn_id: row.turn_id,
+        snippet: '[truncated:output-budget]', relevance: row.relevance }
+      : { record_index: row.record_index, type: row.type, record: '[truncated:output-budget]' };
+    outputTruncated = true;
+    content = JSON.stringify(payload);
   }
-  return { content, metadata: { ...metadata, truncated: value.truncated === true } };
+  if (Buffer.byteLength(content) > RECORD_BYTE_BUDGET && protectedRecordIndex !== null) {
+    const index = rows.findIndex((row) => row.record_index === protectedRecordIndex);
+    if (index >= 0) {
+      const row = rows[index];
+      rows[index] = { record_index: row.record_index, type: row.type, record: '[truncated:output-budget]' };
+      outputTruncated = true;
+      content = JSON.stringify(payload);
+    }
+  }
+  if (Buffer.byteLength(content) > RECORD_BYTE_BUDGET) {
+    throw new ContractError('session_history_output_too_large', 'history output exceeds its byte bound');
+  }
+  return { content, metadata: { ...metadata, scan_truncated: value.scan_truncated === true,
+    output_truncated: outputTruncated, truncated: outputTruncated } };
 }
 
 function assertNotCancelled(signal) {

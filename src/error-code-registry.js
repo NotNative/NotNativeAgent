@@ -269,7 +269,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'scheduler_queue_full', 'scheduler_resource_limit_invalid', 'semantic_reviewer_unavailable',
     'session_broker_unavailable', 'session_duplicate', 'session_engine_unavailable',
     'session_history_invalid', 'session_history_limit_invalid', 'session_history_query_invalid',
-    'session_history_record_missing', 'session_history_types_invalid', 'session_history_unavailable',
+    'session_history_output_too_large', 'session_history_record_missing', 'session_history_types_invalid', 'session_history_unavailable',
     'session_host_required', 'session_id_required', 'session_list_too_large',
     'session_lock_ownership_lost', 'session_lock_race', 'session_locked',
     'session_missing', 'session_name_invalid', 'session_resume_unavailable',

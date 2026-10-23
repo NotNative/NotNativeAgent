@@ -39,6 +39,19 @@ export function releaseSecretValue(value) {
   if (entry.count <= 0) EXACT_VALUES.delete(text);
 }
 
+export function redactionMayIntroduceSearchText(parts) {
+  const probes = parts.map((part) => String(part).toLowerCase()).filter(Boolean);
+  // Why: an omitted-item count is synthesized during redaction. A numeric
+  // query must take the redacted path even when the original text has no hit.
+  if (probes.some((part) => /\d/u.test(part))) return true;
+  const replacements = ['[redacted]', '[redacted private key]', '[redacted:depth-limit]',
+    '[redacted:items-omitted]', '_nna_omitted_keys'];
+  for (const entry of EXACT_VALUES.values()) {
+    replacements.push(`[nna-redacted:${entry.id}]`, `[nna-redacted-encoded:${entry.id}]`);
+  }
+  return probes.some((part) => replacements.some((replacement) => replacement.toLowerCase().includes(part)));
+}
+
 export function redactExtensionData(value, depth = 0) {
   if (depth > 12) return '[redacted:depth-limit]';
   if (typeof value === 'string') return redactText(value);
