@@ -144,8 +144,13 @@ function validateVault(value) {
   if (!value || value.format !== 1 || value.keyVersion !== 1 || !Array.isArray(value.records) || value.records.length > 10_000) {
     throw new ContractError(ERROR.corrupt, 'secret vault schema is invalid');
   }
+  const identities = new Set();
   for (const record of value.records) {
     validateVaultRecord(record);
+    if (identities.has(record.id)) {
+      throw new ContractError(ERROR.corrupt, 'secret vault contains duplicate record identity');
+    }
+    identities.add(record.id);
   }
 }
 

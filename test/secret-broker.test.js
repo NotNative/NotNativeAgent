@@ -84,6 +84,28 @@ test('malformed stored encrypted fields and identities fail as vault corruption 
   }
 });
 
+test('duplicate vault IDs fail on read and update across realms', async () => {
+  const { root, broker } = await fixture();
+  const secret = await broker.create({ label: 'Stored', kind: 'token', fields: { token: 'private' } });
+  const vaultPath = join(root, 'vault.json');
+  const original = JSON.parse(await readFile(vaultPath, 'utf8'));
+  const duplicate = structuredClone(original.records[0]);
+  duplicate.label = 'Other';
+  await assert.rejects(() => broker.vault.update((vault) => {
+    vault.records.push(duplicate);
+    return vault;
+  }), { code: 'secret_vault_corrupt' });
+  assert.equal((await broker.get(secret.id)).label, 'Stored');
+  duplicate.realm = 'nno:other';
+  duplicate.scope = { kind: 'user', id: 'operator' };
+  original.records.push(duplicate);
+  await writeFile(vaultPath, JSON.stringify(original));
+  await assert.rejects(() => broker.list(), { code: 'secret_vault_corrupt' });
+  await assert.rejects(() => broker.withSecret(secret.id, {
+    consumer: 'test', destination: 'https://example.test', purpose: 'test', reviewerDecisionId: 'review_1',
+  }, async () => undefined), { code: 'secret_vault_corrupt' });
+});
+
 test('trusted consumer receives values transiently and exact-value redaction is active during use', async () => {
   const { broker } = await fixture();
   const created = await broker.create({ label: 'API', kind: 'api_key', fields: { api_key: 'abcd-super-secret' } });
