@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
+import { userDataPaths } from '../src/product.js';
 import { join } from 'node:path';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -322,12 +323,73 @@ test('AC-SESS-04 ephemeral session leaves no resumable transcript, reviewer ledg
     sessionId: 'ephemeral-session', storeRoot: sessions, reviewerRoot: reviewer,
     memoryAdapter, providerFactory: () => new ScriptedProvider(),
   });
+  assert.equal(engine.tools.diagnosticContext().sessionsRoot, sessions);
   await engine.initialize();
   await engine.submit({ request_id: 'ephemeral-turn', content: 'Keep this turn ephemeral' }, 'operator');
   await engine.shutdown({ request_id: 'ephemeral-stop', type: 'shutdown' });
   await assert.rejects(readFile(join(sessions, 'ephemeral-session.journal.ndjson')), { code: 'ENOENT' });
   await assert.rejects(readFile(join(reviewer, 'ephemeral-session.review.journal.ndjson')), { code: 'ENOENT' });
   assert.equal(memoryWrites, 0);
+});
+
+test('engine defaults stay within supplied data paths when individual roots are omitted', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-engine-data-paths-'));
+  const dataPaths = {
+    sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer-ledger'),
+    governanceLedger: join(root, 'governance-ledger'), hooks: join(root, 'hooks'),
+    webSearchConfig: join(root, 'web-search.json'), webFetchConfig: join(root, 'web-fetch.json'),
+  };
+  const engine = new SessionEngine({
+    config: resolveManifest({
+      persistence: 'durable', workspace_root: root,
+      provider: { endpoint: 'http://127.0.0.1:9/v1', model: 'fixture', trust_zone: 'loopback' },
+    }),
+    sessionId: 'data-path-defaults', dataPaths, providerFactory: () => new ScriptedProvider(),
+  });
+  assert.equal(engine.storeRoot, dataPaths.sessions);
+  assert.equal(engine.reviewerRoot, dataPaths.reviewerLedger);
+  assert.equal(engine.governanceRoot, dataPaths.governanceLedger);
+  assert.equal(engine.hooks.root, dataPaths.hooks);
+  assert.equal(engine.tools.webSearchConfigPath, dataPaths.webSearchConfig);
+  assert.equal(engine.tools.webFetchConfigPath, dataPaths.webFetchConfig);
+  assert.equal(engine.tools.diagnosticContext().sessionsRoot, dataPaths.sessions);
+});
+
+test('partial engine data paths retain explicit governance and diagnostics defaults', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-engine-partial-data-paths-'));
+  const sessions = join(root, 'sessions');
+  const engine = new SessionEngine({
+    config: resolveManifest({
+      persistence: 'durable', workspace_root: root,
+      provider: { endpoint: 'http://127.0.0.1:9/v1', model: 'fixture', trust_zone: 'loopback' },
+    }),
+    sessionId: 'partial-data-paths', dataPaths: { sessions }, providerFactory: () => new ScriptedProvider(),
+  });
+  assert.equal(engine.governanceRoot, userDataPaths().governanceLedger);
+  assert.equal(engine.tools.diagnosticContext().sessionsRoot, sessions);
+});
+
+test('a selected data root supplies omitted engine paths without overriding explicit paths', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-engine-selected-root-'));
+  const sessions = join(root, 'override-sessions');
+  const expected = userDataPaths({ environment: { NNA_HOME: root } });
+  const engine = new SessionEngine({
+    config: resolveManifest({
+      persistence: 'durable', workspace_root: root,
+      provider: { endpoint: 'http://127.0.0.1:9/v1', model: 'fixture', trust_zone: 'loopback' },
+    }),
+    sessionId: 'selected-root', dataPaths: { root, sessions }, providerFactory: () => new ScriptedProvider(),
+  });
+  assert.equal(engine.storeRoot, sessions);
+  assert.equal(engine.governanceRoot, expected.governanceLedger);
+  assert.equal(engine.reviewerRoot, expected.reviewerLedger);
+  assert.equal(engine.hooks.root, expected.hooks);
+  assert.equal(engine.dataPaths.modelDialects, expected.modelDialects);
+  assert.deepEqual(engine.skills.roots, [{ scope: 'user', path: expected.skills }]);
+  assert.equal(engine.tools.webSearchConfigPath, expected.webSearchConfig);
+  assert.equal(engine.tools.webFetchConfigPath, expected.webFetchConfig);
+  assert.equal(engine.tools.browserRoot, join(root, 'runtime', 'browser', 'selected-root'));
+  assert.equal(engine.tools.diagnosticContext().sessionsRoot, sessions);
 });
 
 test('AC-FAIL-02 whole-runtime shutdown has its own typed deadline', async () => {

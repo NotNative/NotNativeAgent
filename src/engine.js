@@ -14,7 +14,7 @@ import { restoreSessionRecords } from './persistence/session-history.js';
 import { clearAuthorityConstraints, mergeToolConstraints } from './tools/active-constraints.js';
 import { installEngineComponents } from './engine/components.js';
 import { applyPendingConfiguration, updateEngineConfiguration } from './runtime-config.js';
-import { userDataPaths } from './product.js';
+import { resolveUserDataPaths, userDataPaths } from './product.js';
 import { dispatchTurnPreHook } from './engine/hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
@@ -58,7 +58,7 @@ export class SessionEngine {
     this.runtimeId = options.runtimeId ?? newId('runtime');
     this.sessionId = options.sessionId ?? newId('session');
     this.sessionLineage = validateSessionLineage(options.sessionLineage, this.sessionId); this.forkIngest = forkIngestContract(options.forkIngest);
-    this.nndSessionRegistry = options.nndSessionRegistry ?? null; this.dataPaths = options.dataPaths ?? userDataPaths(); this.subagentDepth = options.subagentDepth ?? 0;
+    this.nndSessionRegistry = options.nndSessionRegistry ?? null; this.dataPaths = resolveUserDataPaths(options.dataPaths); this.subagentDepth = options.subagentDepth ?? 0;
     this.subagentOptions = {
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer, secretBroker: options.secretBroker,
       memoryAdapter: options.memoryAdapter, mcpTransportFactory: options.mcpTransportFactory,
@@ -76,7 +76,7 @@ export class SessionEngine {
     this.events.setObserver?.(this.telemetry.eventObserver());
     this.eventFactory = new EventFactory(this.runtimeId, this.sessionId);
     this.providerFactory = options.providerFactory;
-    const storeRoot = options.storeRoot ?? userDataPaths().sessions;
+    const storeRoot = options.storeRoot ?? this.dataPaths.sessions ?? userDataPaths().sessions;
     this.storeRoot = storeRoot;
     this.storeFactory = options.storeFactory ?? ((root, id, storeOptions) => new JournalStore(root, id, storeOptions));
     this.store = this.#createStore(storeRoot);
@@ -438,7 +438,7 @@ export class SessionEngine {
   }
   #createStore(root) {
     return this.config.persistence === 'ephemeral' ? null
-      : this.storeFactory(root ?? userDataPaths().sessions, this.sessionId, { persistenceDeadlineMs: this.config.limits.persistenceFlushMs });
+      : this.storeFactory(root ?? this.dataPaths.sessions ?? userDataPaths().sessions, this.sessionId, { persistenceDeadlineMs: this.config.limits.persistenceFlushMs });
   }
   async #createSessionRecord() {
     await this.store.append('session_created', {

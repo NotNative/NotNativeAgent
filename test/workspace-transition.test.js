@@ -7,6 +7,7 @@ import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { ExperienceEngine } from '../src/experience-engine.js';
+import { userDataPaths } from '../src/product.js';
 import { tabPoolRecords } from '../src/experience/presentation.js';
 import { FileChangeLedger } from '../src/persistence/file-change-ledger.js';
 import { ToolRegistry } from '../src/tool-registry.js';
@@ -38,6 +39,40 @@ class ApprovingReviewer {
     return { outcome: 'approve', confidence: 1, reason_code: 'authenticated_workspace_change', authority_anchors: [1] };
   }
 }
+
+test('Console conversations use a selected data root for engine and shared defaults', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-console-selected-root-'));
+  const dataRoot = join(root, 'nna-data');
+  const paths = userDataPaths({ environment: { NNA_HOME: dataRoot } });
+  const workspace = new ExperienceEngine({
+    config: config(root), dataPaths: { root: dataRoot }, providerFactory: () => new WorkspaceProvider(root),
+  });
+  assert.equal(workspace.webSearchConfigPath, paths.webSearchConfig);
+  assert.equal(workspace.gatewayConfigPath, paths.gatewayConfig);
+  assert.equal(workspace.searxngDeployment.root, paths.managedSearxng);
+  assert.equal(workspace.secretBroker.vault.path, paths.secretVault);
+  assert.equal(workspace.options.dataPaths.dreamState, paths.dreamState);
+  assert.equal(workspace.options.dataPaths.sessionBrokers, paths.sessionBrokers);
+  const id = await workspace.create('Main', 'selected-root-session');
+  const engine = workspace.sessions.get(id).engine;
+  assert.equal(engine.storeRoot, paths.sessions);
+  assert.equal(engine.reviewerRoot, paths.reviewerLedger);
+  assert.equal(engine.governanceRoot, join(paths.sessions, '.governance'));
+  await workspace.shutdown();
+});
+
+test('Console partial paths without a root preserve explicit paths and existing host defaults', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-console-partial-paths-'));
+  const sessions = join(root, 'sessions');
+  const workspace = new ExperienceEngine({
+    config: config(root), dataPaths: { sessions }, providerFactory: () => new WorkspaceProvider(root),
+  });
+  assert.equal(workspace.options.dataPaths.sessions, sessions);
+  assert.equal(workspace.webSearchConfigPath, userDataPaths().webSearchConfig);
+  const id = await workspace.create('Main', 'partial-path-session');
+  assert.equal(workspace.sessions.get(id).engine.storeRoot, sessions);
+  await workspace.shutdown();
+});
 
 test('workspace_change uses semantic review, rebases the conversation, and reloads AGENTS guidance', async () => {
   const parent = await mkdtemp(join(tmpdir(), 'nna-workspace-transition-'));

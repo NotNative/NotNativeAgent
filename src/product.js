@@ -5,7 +5,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 
 export const PRODUCT_NAME = 'NotNativeAgent';
-export const VERSION = '20261022-49';
+export const VERSION = '20261022-50';
 // scripts/bump-version.js updates this canonical date-iteration version and all distribution mirrors atomically.
 
 const USER_DATA_FILE_KEYS = new Set([
@@ -60,6 +60,17 @@ export function userDataPaths(options = {}) {
     updateState: join(root, 'runtime', 'update-state.json'),
     updateRoot: join(root, 'runtime', 'updates'),
   });
+}
+
+export function resolveUserDataPaths(paths) {
+  if (paths === undefined || paths === null) return userDataPaths();
+  if (!Object.hasOwn(paths, 'root')) return paths;
+  if (typeof paths.root !== 'string' || !paths.root.trim()) {
+    throw new ContractError('invalid_nna_home', 'data paths root must be an absolute path');
+  }
+  // Invariant: a selected data root supplies every omitted path; explicit path overrides keep precedence.
+  const defaults = userDataPaths({ environment: { NNA_HOME: paths.root } });
+  return Object.freeze({ ...defaults, ...paths, root: defaults.root });
 }
 
 export async function ensureUserDataPaths(paths = userDataPaths()) {

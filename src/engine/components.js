@@ -66,7 +66,7 @@ function installReliability(engine, options, hooks) {
   const recorder = (facts) => recordAuxiliaryProviderReceipt(engine, hooks, facts);
   engine.reliability = options.reliability ?? new ReliabilityEngine({
     modelDialects: options.modelDialects,
-    modelDialectPath: options.modelDialectPath ?? (process.env.NODE_TEST_CONTEXT ? null : userDataPaths().modelDialects),
+    modelDialectPath: options.modelDialectPath ?? (process.env.NODE_TEST_CONTEXT ? null : engine.dataPaths.modelDialects ?? userDataPaths().modelDialects),
     continuationCompactor: options.continuationCompactor,
     scheduler: engine.scheduler,
     telemetry: engine.telemetry,
@@ -103,7 +103,7 @@ function installOutput(engine, options) {
 function installExtensions(engine, options) {
   engine.extensions = options.extensionRegistry ?? new ExtensionRegistry();
   engine.hooks = new HookRuntime({
-    root: options.hookRoot ?? userDataPaths().hooks, events: engine.events,
+    root: options.hookRoot ?? engine.dataPaths.hooks ?? userDataPaths().hooks, events: engine.events,
     roots: options.hookRoots,
     runner: options.hookRunner,
   });
@@ -132,16 +132,16 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     administrator: administratorAdapter(engine, options),
     enabled: toolsAllowed(engine.config.executionManifest),
     allowedTools: engine.config.executionManifest?.allowedTools,
-    webSearchConfigPath: options.webSearchConfigPath ?? userDataPaths().webSearchConfig,
+    webSearchConfigPath: options.webSearchConfigPath ?? engine.dataPaths.webSearchConfig ?? userDataPaths().webSearchConfig,
     webSearchClient: options.webSearchClient,
-    webFetchConfigPath: options.webFetchConfigPath ?? userDataPaths().webFetchConfig,
+    webFetchConfigPath: options.webFetchConfigPath ?? engine.dataPaths.webFetchConfig ?? userDataPaths().webFetchConfig,
     ...browserToolOptions(engine, options, imageObserver), nndBrowserCallback: options.surface === 'nnd' && engine.subagentDepth === 0 ? options.nndBrowserCallback : null, nndAgentToolCallback: options.surface === 'nnd' && engine.subagentDepth === 0 ? options.nndAgentToolCallback : null,
     lspConfigPath: options.lspConfigPath,
     lspSpawnProcess: options.lspSpawnProcess,
     skillRegistry: engine.skills,
     diagnosticContext: () => ({
       journalPath: engine.store?.path ?? null,
-      sessionsRoot: engine.store?.root ?? engine.dataPaths.sessions,
+      sessionsRoot: engine.storeRoot,
       sessionId: engine.sessionId,
       activeTurnId: engine.active?.turnId ?? null,
       state: engine.state.state,
@@ -232,7 +232,7 @@ function installNotifications(engine, options) {
 }
 
 function browserToolOptions(engine, options, imageObserver) {
-  const defaults = userDataPaths();
+  const defaults = engine.dataPaths.root ? engine.dataPaths : userDataPaths();
   return {
     browserManager: options.browserManager,
     browserRoot: join(engine.dataPaths.root ?? defaults.root, 'runtime', 'browser', engine.sessionId),
@@ -247,7 +247,7 @@ function browserToolOptions(engine, options, imageObserver) {
 
 function installReview(engine, options) {
   const semanticTimeoutMs = options.semanticReviewTimeoutMs ?? engine.config.limits.semanticReviewMs;
-  engine.reviewerRoot = options.reviewerRoot ?? userDataPaths().reviewerLedger;
+  engine.reviewerRoot = options.reviewerRoot ?? engine.dataPaths.reviewerLedger ?? userDataPaths().reviewerLedger;
   engine.ledger = new ReviewerLedger({
     durable: engine.config.persistence === 'durable',
     root: engine.reviewerRoot, sessionId: engine.sessionId,
@@ -275,7 +275,8 @@ function installReview(engine, options) {
 }
 
 function installGovernance(engine, options, storeRoot) {
-  engine.governanceRoot = options.governanceRoot ?? (options.storeRoot ? join(storeRoot, '.governance') : engine.dataPaths.governanceLedger);
+  engine.governanceRoot = options.governanceRoot ?? (options.storeRoot
+    ? join(storeRoot, '.governance') : engine.dataPaths.governanceLedger ?? userDataPaths().governanceLedger);
   engine.governance = options.governance ?? new GovernanceEngine({
     durable: engine.config.persistence === 'durable',
     root: engine.governanceRoot,

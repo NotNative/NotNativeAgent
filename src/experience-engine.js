@@ -4,7 +4,7 @@ import { SessionEngine } from './engine.js';
 import { ContractError, newId } from './ids.js';
 import { TuiProjection } from './experience/projection.js';
 import { FairScheduler } from './provider/fair-scheduler.js';
-import { userDataPaths } from './product.js';
+import { resolveUserDataPaths, userDataPaths } from './product.js';
 import {
   booleanSettingValue, manifestFromConfig, withBooleanSetting, withContextSettings, withRecoverySettings,
   withPrimaryRoute, withUpdatedProvider,
@@ -49,7 +49,9 @@ export class ExperienceEngine {
   #tasks = new Set();
   constructor(options) {
     this.config = options.config;
-    this.options = options;
+    this.dataPaths = resolveUserDataPaths(options.dataPaths);
+    this.options = options.dataPaths?.root ? { ...options, dataPaths: this.dataPaths } : options;
+    const defaults = this.dataPaths.root ? this.dataPaths : userDataPaths();
     this.projection = options.projection ?? new TuiProjection();
     this.sessions = new Map();
     this.consoleId = options.consoleId ?? newId('console');
@@ -59,16 +61,17 @@ export class ExperienceEngine {
     this.scheduler = options.scheduler ?? new FairScheduler({
       limit: this.config.limits.providerConcurrency, maxQueued: this.config.limits.providerQueueLimit,
     });
-    this.webSearchConfigPath = options.webSearchConfigPath ?? userDataPaths().webSearchConfig;
-    this.gatewayConfigPath = options.gatewayConfigPath ?? userDataPaths().gatewayConfig;
-    const dataPaths = options.dataPaths ?? userDataPaths();
+    this.webSearchConfigPath = options.webSearchConfigPath ?? this.dataPaths.webSearchConfig ?? defaults.webSearchConfig;
+    this.gatewayConfigPath = options.gatewayConfigPath ?? this.dataPaths.gatewayConfig ?? defaults.gatewayConfig;
     this.secretBroker = options.secretBroker ?? new SecretBroker({
-      vaultPath: dataPaths.secretVault, keyPath: dataPaths.secretKey, auditPath: dataPaths.secretAudit,
+      vaultPath: this.dataPaths.secretVault ?? defaults.secretVault,
+      keyPath: this.dataPaths.secretKey ?? defaults.secretKey,
+      auditPath: this.dataPaths.secretAudit ?? defaults.secretAudit,
       audit: async (event) => this.options.logger?.record({ type: 'secret_broker_event', ...event }),
     });
     this.webSearchClient = options.webSearchClient ?? new SearxngClient();
     this.searxngDeployment = options.searxngDeployment ?? new SearxngDeployment({
-      root: options.managedSearxngRoot ?? userDataPaths().managedSearxng,
+      root: options.managedSearxngRoot ?? this.dataPaths.managedSearxng ?? defaults.managedSearxng,
       client: this.webSearchClient,
     });
     this.tabPersistence = new WorkspaceTabPersistence({
@@ -98,15 +101,16 @@ export class ExperienceEngine {
       this.options.logger?.record(event, { sessionId });
       this.onChange();
     };
-    const paths = userDataPaths();
+    const paths = this.dataPaths;
+    const defaults = paths.root ? paths : userDataPaths();
     const sourceConfig = options.config ?? this.config;
     const synchronizedConfig = withGlobalSpecialistRoutes(sourceConfig, this.config).config;
     const sessionConfig = Object.freeze({ ...synchronizedConfig, version: sourceConfig.version });
     const engine = new SessionEngine({
       config: sessionConfig, sessionId, surface: 'interactive_tui', output,
-      dataPaths: this.options.dataPaths,
-      storeRoot: this.options.storeRoot ?? paths.sessions,
-      reviewerRoot: this.options.reviewerRoot ?? paths.reviewerLedger,
+      dataPaths: paths,
+      storeRoot: this.options.storeRoot ?? paths.sessions ?? defaults.sessions,
+      reviewerRoot: this.options.reviewerRoot ?? paths.reviewerLedger ?? defaults.reviewerLedger,
       attachmentRoot: this.options.attachmentRoot,
       providerFactory: this.options.providerFactory,
       semanticReviewer: this.options.semanticReviewer, memoryAdapter: this.options.memoryAdapter,
@@ -380,8 +384,7 @@ export class ExperienceEngine {
     this.#requirePrimaryMcpManagement();
     return this.#publishMcpConfiguration(withMcpServer(this.config, input));
   }
-  saveMcpCredential(id, token) { return saveManagedMcpCredential(this.options.dataPaths ?? userDataPaths(), id, token); }
-  removeMcpCredential(reference) { return deleteManagedMcpCredential(this.options.dataPaths ?? userDataPaths(), reference); }
+  saveMcpCredential(id, token) { return saveManagedMcpCredential(this.dataPaths, id, token); } removeMcpCredential(reference) { return deleteManagedMcpCredential(this.dataPaths, reference); }
   async editMcpServer(id, input) { this.#requirePrimaryMcpManagement(); return this.#publishMcpConfiguration(withMcpServerUpdate(this.config, id, input)); }
   async setMcpEnabled(id, enabled) {
     this.#requirePrimaryMcpManagement();
@@ -391,7 +394,7 @@ export class ExperienceEngine {
     this.#requirePrimaryMcpManagement();
     const reference = this.mcpStatus().find((server) => server.id === id)?.credentialEnv;
     const result = await this.#publishMcpConfiguration(withoutMcpServer(this.config, id));
-    await deleteManagedMcpCredential(this.options.dataPaths ?? userDataPaths(), reference);
+    await deleteManagedMcpCredential(this.dataPaths, reference);
     return result;
   }
   async testMcpServer(id) {
@@ -401,8 +404,7 @@ export class ExperienceEngine {
       secretBroker: this.secretBroker,
     }, id);
   }
-  async availableModels() { return availableWorkspaceModels(this); }
-  async qualifyActiveModel() { return qualifyWorkspaceModel(this); }
+  async availableModels() { return availableWorkspaceModels(this); } async qualifyActiveModel() { return qualifyWorkspaceModel(this); }
   webSearchStatus(test = false, profileId = null) { return webSearchStatus(this.#webSearchState(), test, profileId); }
   configureWebSearch(endpoint, managed = false) { return configureWebSearch(this.#webSearchState(), endpoint, managed); }
   addWebSearchProfile(displayName, endpoint) { return addWebSearchProfile(this.#webSearchState(), displayName, endpoint); }
@@ -413,14 +415,12 @@ export class ExperienceEngine {
   async deployWebSearch() { return deployWebSearch(this.#webSearchState()); }
   async removeWebSearchDeployment() { return removeWebSearchDeployment(this.#webSearchState()); }
   manageWebSearch(action) { return manageWebSearch(this.#webSearchState(), action); }
-  gatewayCommand(args) { return runGatewayCommand(args, this.options.dataPaths ?? userDataPaths()); }
-  listSecrets() { this.#requirePrimarySecretManagement(); return listSecretsWithReferences(this.secretBroker, this.config); }
+  gatewayCommand(args) { return runGatewayCommand(args, this.dataPaths); } listSecrets() { this.#requirePrimarySecretManagement(); return listSecretsWithReferences(this.secretBroker, this.config); }
   createSecret(input) { this.#requirePrimarySecretManagement(); return this.secretBroker.create(input); } renameSecret(id, label) { this.#requirePrimarySecretManagement(); return this.secretBroker.update(id, { label }); }
   rotateSecret(id, fields) { this.#requirePrimarySecretManagement(); return this.secretBroker.rotate(id, fields); }
   setSecretEnabled(id, enabled) { this.#requirePrimarySecretManagement(); return this.secretBroker.setEnabled(id, enabled); }
   deleteSecret(id) { this.#requirePrimarySecretManagement(); return deleteUnreferencedSecret(this.secretBroker, this.config, id); }
-  webFetchCommand(args) { return runWebFetchCommand(args, this.options.dataPaths ?? userDataPaths()); }
-  reportError(error) {
+  webFetchCommand(args) { return runWebFetchCommand(args, this.dataPaths); } reportError(error) {
     this.projection.showNotice(error.code ?? 'console', error.message ?? 'Console input failed.');
     this.onChange();
   }
