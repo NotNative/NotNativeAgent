@@ -70,7 +70,13 @@ export async function runNndIntegrationCommand(args, paths, options = {}) {
   } catch (error) {
     // Invariant: a failed shutdown cannot release ownership while native writers may remain.
     if (!lease) throw error;
-    if (!(error instanceof AggregateError) && error.code !== 'nnd_setup_shutdown_timeout') await lease.close();
+    if (!(error instanceof AggregateError) && !['nnd_setup_shutdown_timeout', 'nnd_setup_cleanup_failed', 'nnd_setup_host_failed'].includes(error.code)) {
+      try { await lease.close(); }
+      catch (cleanupError) {
+        if (Object.isExtensible(error)) error.secondaryFailures = [...(error.secondaryFailures ?? []), cleanupError];
+        else throw new AggregateError([error, cleanupError], 'NND startup and lease cleanup failed.');
+      }
+    }
     throw error;
   }
 }
@@ -102,6 +108,7 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
   } catch (error) {
     try { await lifecycle.close(); }
     catch (shutdownError) {
+      if (owner === 'nnd') throw new AggregateError([error, shutdownError], 'NND listener startup and runtime cleanup failed.');
       if (Object.isExtensible(error)) error.secondaryFailures = [...(error.secondaryFailures ?? []), shutdownError];
     }
     throw error;
@@ -116,7 +123,8 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
     await waitForShutdown(options.signal, service.server);
   } catch (error) { failure = error; }
   try { await closeIntegrationLifecycle(service, lifecycle); } catch (error) {
-    if (!failure) failure = error;
+    if (owner === 'nnd') failure = new AggregateError(failure ? [failure, error] : [error], 'NND integration shutdown failed.');
+    else if (!failure) failure = error;
     else if (Object.isExtensible(failure)) failure.secondaryFailures = [...(failure.secondaryFailures ?? []), error];
   }
   if (failure) throw failure;
@@ -125,10 +133,13 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
 
 async function closeIntegrationLifecycle(service, lifecycle) {
   if (lifecycle.runtime) {
-    // Invariant: stop execution admission before an SSE client can hold listener drain open.
-    const results = await Promise.allSettled([lifecycle.close(), closeNndListener(service)]);
+    // Invariant: an admitted request retains its host until dispatch settles.
+    // Close long-lived SSE connections before draining ordinary requests.
+    service.stopAdmission();
+    const results = await Promise.allSettled([closeNndListener(service), service.drain()]);
     const failures = results.filter((result) => result.status === 'rejected').map((result) => result.reason);
     if (failures.length) throw new AggregateError(failures, 'NND integration shutdown failed.');
+    await lifecycle.close();
     return;
   }
   let failure;
@@ -142,8 +153,15 @@ async function closeIntegrationLifecycle(service, lifecycle) {
 
 function closeNndListener(service) {
   return new Promise((resolve, reject) => {
-    const force = setTimeout(() => service.server.closeAllConnections(), 1000);
-    const deadline = setTimeout(() => reject(new ContractError('nnd_setup_shutdown_timeout', 'NND listener shutdown exceeded its time bound.')), 2000);
+    let deadline;
+    const force = setTimeout(() => {
+      try { service.server.closeAllConnections(); }
+      catch (error) { clearTimeout(deadline); reject(error); }
+    }, 1000);
+    deadline = setTimeout(() => {
+      clearTimeout(force);
+      reject(new ContractError('nnd_setup_shutdown_timeout', 'NND listener shutdown exceeded its time bound.'));
+    }, 16000);
     service.close().then(() => { clearTimeout(force); clearTimeout(deadline); resolve(); },
       (error) => { clearTimeout(force); clearTimeout(deadline); reject(error); });
   });

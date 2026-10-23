@@ -9,6 +9,7 @@ import { createNndSetupRuntime } from '../src/nnd-setup-runtime.js';
 import { readNndSetupConfiguration } from '../src/nnd-setup-config.js';
 import { createIntegrationLifecycle, createIntegrationNndEngineHost, runNndIntegrationCommand } from '../src/integration-cli.js';
 import { NndEngineHost } from '../src/nnd-engine-host.js';
+import { ProviderProfileStore } from '../src/provider/profile-store.js';
 
 async function fixture(t) {
   const root = createScratchSync('.nna-setup-');
@@ -261,4 +262,43 @@ test('an open SSE connection cannot hold native CLI shutdown indefinitely', { ti
   assert.equal(shutdowns, 1);
   try { await reader.read(); } catch (error) { assert.equal(error.name, 'TypeError'); }
   reader.releaseLock();
+});
+
+test('native CLI drains an admitted provider request before disposing its host', { timeout: 5000 }, async (t) => {
+  const paths = await fixture(t);
+  await writeFile(join(paths.config, 'manifest.json'), JSON.stringify(manifest(paths.root)));
+  let enterRequest; let finishRequest;
+  const entered = new Promise((resolve) => { enterRequest = resolve; });
+  const held = new Promise((resolve) => { finishRequest = resolve; });
+  t.mock.method(ProviderProfileStore.prototype, 'inventory', async () => {
+    enterRequest(); await held; return { profiles: [] };
+  });
+  const actualShutdown = NndEngineHost.prototype.shutdown;
+  let shutdowns = 0;
+  t.mock.method(NndEngineHost.prototype, 'shutdown', async function (...args) {
+    shutdowns++; return actualShutdown.apply(this, args);
+  });
+  const controller = new AbortController(); let announce;
+  const announced = new Promise((resolve) => { announce = resolve; });
+  const running = runNndIntegrationCommand(['serve'], paths, { environment: {}, signal: controller.signal,
+    output: { write(line) { announce(JSON.parse(line)); } } });
+  t.after(async () => { finishRequest(); controller.abort(); await running; });
+  const frame = await announced;
+  const actor = { subject_id: 'operator', platform_role: 'user', permissions: ['provider.read', 'integration.health'],
+    workspace_ids: [], group_ids: [], trace_id: 'trace', request_id: 'request', issued_at: new Date().toISOString() };
+  const headers = { authorization: `Bearer ${frame.token}`, 'x-nna-principal': Buffer.from(JSON.stringify(actor)).toString('base64url') };
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const response = await fetch(frame.endpoint + '/v1/health', { headers });
+    if ((await response.json()).execution_state === 'ready') break;
+    if (attempt === 99) assert.fail('native host did not become ready');
+  }
+  const request = fetch(frame.endpoint + '/v1/provider-profiles', { headers });
+  await entered;
+  controller.abort();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(shutdowns, 0, 'an admitted request must retain the host while it is executing');
+  finishRequest();
+  await request;
+  await running;
+  assert.equal(shutdowns, 1);
 });
