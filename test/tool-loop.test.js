@@ -104,6 +104,18 @@ test('different search arguments count as progress even when their results are i
   assert.notEqual(toolProgressEvidence([item('alpha')], 0).value, toolProgressEvidence([item('beta')], 0).value);
 });
 
+test('progress digest separates result fields and result boundaries', () => {
+  const success = (toolName, content) => ({
+    request: { toolName, args: {} }, result: { status: 'succeeded', content },
+  });
+  const one = toolProgressEvidence([success('a', 'xbsucceeded{}c')]);
+  const two = toolProgressEvidence([success('a', 'x'), success('b', 'c')]);
+  assert.notEqual(one.value, two.value);
+  assert.equal(one.detail.summary.successful_tool_calls, 1);
+  assert.equal(two.detail.summary.successful_tool_calls, 2);
+  assert.doesNotThrow(() => toolProgressEvidence([success(42, 'content')]));
+});
+
 test('completed nonzero commands provide diagnostic progress once per distinct invocation', () => {
   const diagnostic = (script, content) => ({
     request: { args: { script, shell: 'auto' } },

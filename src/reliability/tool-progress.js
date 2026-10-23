@@ -19,23 +19,24 @@ export function toolProgressEvidence(items, steeringApplied = [], options = {}) 
     : [];
   if (completed.length === 0 && steeringIds.length === 0) return null;
   const hash = createHash('sha256');
-  if (Number.isSafeInteger(options.stateRevision) && options.stateRevision >= 0) {
-    hash.update('\0observable_state_revision\0').update(String(options.stateRevision));
-  }
+  putProgressField(hash, 'revision', Number.isSafeInteger(options.stateRevision) && options.stateRevision >= 0
+    ? options.stateRevision : 'absent');
+  putProgressField(hash, 'result_count', completed.length);
   const requestFingerprints = [];
   for (const item of completed) {
     const identity = recoveryToolIdentity(item);
-    hash.update(identity.toolName);
-    hash.update(item.result.status);
-    hash.update(stableRecoveryJson(identity.args));
+    putProgressField(hash, 'tool_name', identity.toolName);
+    putProgressField(hash, 'status', item.result.status);
+    putProgressField(hash, 'args', stableRecoveryJson(identity.args));
     // Successful observations may legitimately change while the request stays
     // constant. A nonzero diagnostic earns progress once per invocation shape;
     // volatile timestamps or counters in repeated output must not defeat the
     // unchanged-request loop boundary.
-    if (item.result.status === 'succeeded') hash.update(item.result.content);
+    if (item.result.status === 'succeeded') putProgressField(hash, 'content', item.result.content);
     requestFingerprints.push(recoveryToolFingerprint(identity.toolName, identity.args));
   }
-  for (const steeringId of steeringIds) hash.update('\0steering\0').update(steeringId);
+  putProgressField(hash, 'steering_count', steeringIds.length);
+  for (const steeringId of steeringIds) putProgressField(hash, 'steering_id', steeringId);
   return {
     value: hash.digest('hex'),
     detail: {
@@ -50,6 +51,11 @@ export function toolProgressEvidence(items, steeringApplied = [], options = {}) 
       },
     },
   };
+}
+
+function putProgressField(hash, field, value) {
+  const bytes = Buffer.isBuffer(value) ? value : Buffer.from(String(value ?? ''), 'utf8');
+  hash.update(field).update('\0').update(String(bytes.byteLength)).update('\0').update(bytes);
 }
 
 export function toolFailureFingerprint(items) {
