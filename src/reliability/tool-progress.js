@@ -74,12 +74,14 @@ export function toolFailureFingerprint(items) {
     // an exact repeated contract failure belongs to the same no-progress episode.
     return createHash('sha256').update([...new Set(shapes)].sort().join('\n')).digest('hex');
   }
+  // Invariant: volatile failure text cannot reset the same-request no-progress episode.
   const shapes = items.filter((item) => item.result?.status !== 'succeeded').map((item) => stableRecoveryJson({
     tool: recoveryToolIdentity(item).toolName,
     status: item.result?.status ?? 'unknown',
     reason: item.result?.reason_code ?? item.result?.reasonCode ?? 'unknown',
     args: recoveryToolIdentity(item).args,
-    error: item.result?.content ?? '',
+    effect_certainty: item.result?.effect_certainty ?? 'unknown',
+    partial_data: item.result?.partial_data ?? false,
     termination: processTerminationEvidence(item.result),
   }));
   if (shapes.length === 0) return null;

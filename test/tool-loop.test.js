@@ -192,17 +192,40 @@ test('failure fingerprints group only identical schema-contract repair attempts'
   } }]));
 });
 
-test('ordinary executor failures group only the same canonical request and diagnostic', () => {
-  const failed = (args, content = 'tool execution failed') => ({
+test('ordinary executor failures group by canonical request and structured outcome', () => {
+  const failed = (args, content = 'tool execution failed', reason = 'executor_failure') => ({
     request: { toolName: 'web_browse', args },
-    result: { status: 'failed', tool_name: 'web_browse', reason_code: 'executor_failure', content },
+    result: { status: 'failed', tool_name: 'web_browse', reason_code: reason, content },
   });
   const fill = failed({ action: 'fill', target: 'e2', value: '30' });
   const fingerprint = toolFailureFingerprint([fill]);
   assert.equal(fingerprint, toolFailureFingerprint([fill]));
   assert.notEqual(fingerprint, toolFailureFingerprint([failed({ action: 'click', target: 'e2' })]));
   assert.notEqual(fingerprint, toolFailureFingerprint([failed({ action: 'press', target: 'e2', key: 'ArrowRight' })]));
-  assert.notEqual(fingerprint, toolFailureFingerprint([failed(fill.request.args, 'target is not editable')]));
+  assert.equal(fingerprint, toolFailureFingerprint([failed(fill.request.args, 'target is not editable at 10:02')]));
+  assert.notEqual(fingerprint, toolFailureFingerprint([failed(fill.request.args, 'tool execution failed', 'target_not_editable')]));
+  assert.notEqual(fingerprint, toolFailureFingerprint([{
+    ...fill, result: { ...fill.result, effect_certainty: 'unknown', partial_data: true },
+  }]));
+  assert.notEqual(fingerprint, toolFailureFingerprint([{
+    ...fill, result: { ...fill.result, effect_certainty: 'none' },
+  }]));
+});
+
+test('volatile failure output cannot reset an unchanged-request recovery episode', () => {
+  const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
+  let repeated;
+  for (let count = 1; count <= 12; count += 1) {
+    const failure = {
+      request: { toolName: 'shell_run', args: { script: 'inspect service' } },
+      result: { status: 'failed', tool_name: 'shell_run', reason_code: 'executor_failure',
+        content: `service unavailable at 10:${String(count).padStart(2, '0')}` },
+    };
+    repeated = recovery.noProgress('tool_no_progress', null, {}, {
+      failureFingerprint: toolFailureFingerprint([failure]),
+    });
+  }
+  assert.deepEqual(repeated, { continue: false, exhausted: true, count: 12 });
 });
 
 test('exact tool request fingerprints are canonical', () => {
