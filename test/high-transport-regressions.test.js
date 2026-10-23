@@ -3,8 +3,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
+import { constants } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
+import { ContractError } from '../src/ids.js';
 import { TelegramApi } from '../src/gateway/telegram-api.js';
 import { SearxngClient } from '../src/searxng-client.js';
 import { localProviderFetch } from '../src/provider/local-http-transport.js';
@@ -70,4 +72,38 @@ test('transient outbox reads preserve notification files and report the failure'
   assert.equal((await read('/outbox', null, { onFileError: (name, code) => failures.push({ name, code }) })).length, 0);
   assert.deepEqual(failures, [{ name: 'abc.json', code: 'EIO' }]);
   assert.equal(deletions, 0);
+});
+
+test('notification file reads pin identity, bound growth, and close on rejection', async () => {
+  const text = await readFile(new URL('../src/notifications/telegram.js', import.meta.url), 'utf8');
+  const source = text.slice(text.indexOf('async function readPinnedNotification('), text.indexOf('function validNotification('));
+  const expected = { dev: 1, ino: 2, size: 1 };
+  let closed = 0;
+  let reads = 0;
+  let flags;
+  const opened = { dev: 1, ino: 2, size: 1, isFile: () => true };
+  const reader = vm.runInNewContext(`${source}\nreadPinnedNotification`, {
+    constants, Buffer, ContractError, MAX_OUTBOX_FILE_BYTES: 16_384,
+    open: async (_path, value) => {
+      flags = value;
+      return {
+        stat: async () => opened,
+        read: async (buffer, offset, length) => {
+          reads += 1;
+          buffer.fill(65, offset, offset + length);
+          return { bytesRead: length };
+        },
+        close: async () => { closed += 1; },
+      };
+    },
+  });
+  await assert.rejects(reader('/outbox/item.json', expected), { code: 'notification_intent_invalid' });
+  assert.equal(reads, 1);
+  assert.equal(closed, 1);
+  if (constants.O_NOFOLLOW !== undefined) assert.ok(flags & constants.O_NOFOLLOW);
+  if (constants.O_NONBLOCK !== undefined) assert.ok(flags & constants.O_NONBLOCK);
+  opened.ino = 3;
+  await assert.rejects(reader('/outbox/item.json', expected), { code: 'notification_intent_invalid' });
+  assert.equal(reads, 1);
+  assert.equal(closed, 2);
 });

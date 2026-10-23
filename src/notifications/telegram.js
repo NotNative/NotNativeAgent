@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, open, readFile, readdir, rename, stat, unlink } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { lstat, mkdir, open, readdir, rename, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError, requireExternalId } from '../ids.js';
 import { persistAtomicJsonIfAbsent } from '../persistence/atomic-json.js';
@@ -131,7 +132,7 @@ async function readReadyNotification(root, name) {
   try {
     const metadata = await lstat(path);
     if (!metadata.isFile() || metadata.size > MAX_OUTBOX_FILE_BYTES) { await unlink(path); return null; }
-    const bytes = await readFile(path);
+    const bytes = await readPinnedNotification(path, metadata);
     let value;
     try { value = JSON.parse(bytes.toString('utf8')); }
     catch { await unlink(path); return null; }
@@ -211,11 +212,33 @@ async function exists(path) { try { await stat(path); return true; } catch (erro
 async function readNotificationFile(path) {
   const metadata = await lstat(path);
   if (!metadata.isFile() || metadata.size > MAX_OUTBOX_FILE_BYTES) throw new ContractError('notification_intent_invalid', 'Telegram notification intent is not a bounded regular file');
-  try { return JSON.parse(await readFile(path, 'utf8')); }
+  try { return JSON.parse((await readPinnedNotification(path, metadata)).toString('utf8')); }
   catch (error) {
     if (error instanceof SyntaxError) throw new ContractError('notification_intent_invalid', 'Telegram notification intent is malformed');
     throw error;
   }
+}
+async function readPinnedNotification(path, expected) {
+  const invalid = () => new ContractError('notification_intent_invalid', 'Telegram notification file changed or exceeded its byte limit');
+  let handle;
+  // Security: on POSIX, fail symlink swaps and avoid blocking if a regular file becomes a FIFO.
+  try { handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)); }
+  catch (error) { if (error?.code === 'ELOOP') throw invalid(); throw error; }
+  try {
+    const actual = await handle.stat();
+    if (!actual.isFile() || actual.dev !== expected.dev || actual.ino !== expected.ino
+      || actual.size > MAX_OUTBOX_FILE_BYTES) throw invalid();
+    // Invariant: pin one file and read at most one byte beyond the accepted bound.
+    const bytes = Buffer.alloc(MAX_OUTBOX_FILE_BYTES + 1);
+    let length = 0;
+    while (length < bytes.length) {
+      const result = await handle.read(bytes, length, bytes.length - length, length);
+      if (result.bytesRead === 0) break;
+      length += result.bytesRead;
+    }
+    if (length > MAX_OUTBOX_FILE_BYTES) throw invalid();
+    return bytes.subarray(0, length);
+  } finally { await handle.close(); }
 }
 function validNotification(value, name) {
   if (typeof value?.message !== 'string' || !value.message.trim() || value.message.length > MAX_NOTIFICATION_LENGTH
