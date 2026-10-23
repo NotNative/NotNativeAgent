@@ -41,6 +41,24 @@ test('turn deadline ends an unhealthy provider recovery wait and clears its wait
   assert.ok(probes >= 1);
   assert.equal(active.providerRecoveryWaiter, null);
 });
+test('recovery without a turn deadline eventually retries an unhealthy or non-settling provider', async () => {
+  for (const health of [async () => false, async () => new Promise(() => {})]) {
+    const active = { controller: new AbortController() };
+    const started = Date.now();
+    assert.equal(await waitForProviderRecovery({ health }, active, {
+      delayMs: 1, maxWaitMs: 25, healthProbeTimeoutMs: 100,
+    }), 'retry');
+    assert.ok(Date.now() - started < 1_000);
+    assert.equal(active.providerRecoveryWaiter, null);
+  }
+});
+test('an unhealthy recovery episode retries before a much longer turn deadline', async () => {
+  const active = { controller: new AbortController() };
+  assert.equal(await waitForProviderRecovery({ health: async () => false }, active, {
+    delayMs: 1, deadlineAt: Date.now() + 1_000, maxWaitMs: 25,
+  }), 'retry');
+  assert.equal(active.providerRecoveryWaiter, null);
+});
 test('turn deadline interrupts a health probe that ignores abort', async () => {
   const active = { controller: new AbortController() };
   let entered;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const PROVIDER_RECOVERY_HEALTH_INTERVAL_MS = 10_000;
+const DEFAULT_RECOVERY_WAIT_MS = 30_000;
 
 export async function fallbackAfterContentFreeCompletion(options) {
   const { active, candidates, index, route } = options;
@@ -21,10 +22,13 @@ export async function waitForProviderRecovery(provider, active, options = {}) {
   const probeTimeoutMs = recoveryTiming(options.healthProbeTimeoutMs, 5000);
   const waiter = providerRecoveryWaiter(active.controller.signal);
   active.providerRecoveryWaiter = waiter;
-  // Invariant: a health probe or recovery delay cannot hold a turn past its configured deadline.
-  const remainingMs = Number.isSafeInteger(options.deadlineAt) ? options.deadlineAt - Date.now() : null;
-  const deadline = remainingMs === null ? null
-    : setTimeout(() => waiter.resolve('deadline'), Math.max(0, remainingMs));
+  // Invariant: one unhealthy recovery episode is bounded even if the turn's
+  // wall-clock ceiling is absent or much longer than a useful retry interval.
+  const episodeMs = Math.min(recoveryTiming(options.maxWaitMs, DEFAULT_RECOVERY_WAIT_MS), DEFAULT_RECOVERY_WAIT_MS);
+  const turnRemainingMs = Number.isSafeInteger(options.deadlineAt) ? options.deadlineAt - Date.now() : null;
+  const turnDeadlineFirst = turnRemainingMs !== null && turnRemainingMs <= episodeMs;
+  const waitMs = turnDeadlineFirst ? turnRemainingMs : episodeMs;
+  const deadline = setTimeout(() => waiter.resolve(turnDeadlineFirst ? 'deadline' : 'retry'), Math.max(0, waitMs));
   try {
     const initial = await recoveryDelay(delayMs, active.controller.signal, waiter.promise);
     if (initial !== 'completed') return initial;
@@ -42,7 +46,7 @@ export async function waitForProviderRecovery(provider, active, options = {}) {
       if (waited !== 'completed') return waited;
     }
   } finally {
-    if (deadline) clearTimeout(deadline);
+    clearTimeout(deadline);
     waiter.dispose();
     if (active.providerRecoveryWaiter === waiter) active.providerRecoveryWaiter = null;
   }
