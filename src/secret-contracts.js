@@ -5,10 +5,11 @@ export const LOCAL_SECRET_REALM = 'nna.local';
 export const SECRET_KINDS = Object.freeze(['api_key', 'token', 'username_password', 'text']);
 export const SECRET_SCOPE_KINDS = Object.freeze(['deployment', 'workspace', 'group', 'role', 'user']);
 const SECRET_FIELD_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u;
+const SECRET_LABEL_CONTROLS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 
 export function normalizeSecretLabel(value) {
-  const label = String(value ?? '').trim();
-  if (!label || label.length > 96 || /[\x00-\x1f\x7f]/u.test(label)) {
+  const label = typeof value === 'string' ? value.trim() : '';
+  if (!label || label.length > 96 || SECRET_LABEL_CONTROLS.test(value)) {
     throw new ContractError('secret_label_invalid', 'secret label must contain 1-96 visible characters');
   }
   return label;
@@ -42,8 +43,8 @@ export function normalizeSecretScope(value, realm) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new ContractError('secret_scope_invalid', 'managed secrets require an ownership scope');
   }
-  const kind = String(value.kind ?? '').trim();
-  const id = String(value.id ?? '').trim();
+  const kind = typeof value.kind === 'string' ? value.kind.trim() : '';
+  const id = typeof value.id === 'string' ? value.id.trim() : '';
   if (!SECRET_SCOPE_KINDS.includes(kind) || !id || id.length > 128 || /[\x00-\x1f\x7f]/u.test(id)) {
     throw new ContractError('secret_scope_invalid', 'secret scope kind or identifier is invalid');
   }
@@ -83,7 +84,7 @@ function normalizeMetadataValue(name, value) {
   if (typeof value === 'string' && value.length <= 2_000 && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/u.test(value)) return value;
   if (Array.isArray(value) && value.length <= 64
     && value.every((entry) => typeof entry === 'string' && entry.length <= 256)) {
-    return Object.freeze([...new Set(value)].sort((left, right) => left.localeCompare(right)));
+    return Object.freeze([...new Set(value)].sort());
   }
   throw new ContractError('secret_metadata_invalid', `secret metadata field ${name} is invalid`);
 }

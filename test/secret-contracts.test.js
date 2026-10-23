@@ -59,6 +59,7 @@ test('secret metadata grammar admits documented shapes and refuses each document
   assert.deepEqual({ ...normalizeSecretMetadata({ env: 'prod', tag: 'x' }) }, { env: 'prod', tag: 'x' });
   const normalized = normalizeSecretMetadata({ list: ['b', 'a', 'b'], flag: true, none: null, note: 'text' });
   assert.deepEqual([...normalized.list], ['a', 'b']);
+  assert.deepEqual([...normalizeSecretMetadata({ list: ['a', 'B', 'b'] }).list], ['B', 'a', 'b']);
   assert.equal(normalized.flag, true);
   assert.equal(normalized.none, null);
   // More than 32 entries is refused.
@@ -95,6 +96,8 @@ test('secret scope grammar admits the five kinds and refuses each documented bou
   rejects(() => normalizeSecretScope({ kind: 'user', id: 'x'.repeat(129) }, 'nno:one'), 'secret_scope_invalid');
   rejects(() => normalizeSecretScope({ kind: 'user', id: 'a\u0000b' }, 'nno:one'), 'secret_scope_invalid');
   rejects(() => normalizeSecretScope('user', 'nno:one'), 'secret_scope_invalid');
+  rejects(() => normalizeSecretScope({ kind: 'user', id: 1 }, 'nno:one'), 'secret_scope_invalid');
+  rejects(() => normalizeSecretScope({ kind: ['user'], id: 'one' }, 'nno:one'), 'secret_scope_invalid');
   // Why: the census prose said "null scope only in the local realm" - the validator actually permits a null scope for ANY realm; the test follows the real contract, not the prose.
 });
 
@@ -109,6 +112,13 @@ test('secret label grammar admits 1-96 visible characters and refuses each docum
   rejects(() => normalizeSecretLabel('bad\u0007bell'), 'secret_label_invalid');
   rejects(() => normalizeSecretLabel('bad\nnewline'), 'secret_label_invalid');
   rejects(() => normalizeSecretLabel(null), 'secret_label_invalid');
+  rejects(() => normalizeSecretLabel({ name: 'operator' }), 'secret_label_invalid');
+  rejects(() => normalizeSecretLabel(['operator']), 'secret_label_invalid');
+  for (const control of ['\u0085', '\u200b', '\u200d', '\u2028', '\u2029', '\u202e', '\u2066', '\ufeff']) {
+    rejects(() => normalizeSecretLabel(`safe${control}label`), 'secret_label_invalid');
+    rejects(() => normalizeSecretLabel(`${control}safe`), 'secret_label_invalid');
+    rejects(() => normalizeSecretLabel(`safe${control}`), 'secret_label_invalid');
+  }
 });
 
 test('case-folded per-realm label uniqueness refuses a case-variant duplicate', async () => {
