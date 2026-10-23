@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -133,6 +133,39 @@ test('model-facing audit reports measurable candidates without judging prose int
     { tool: 'work.example', field: 'inputSchema.properties.nested.properties.result' },
     { tool: 'work.example', field: 'inputSchema.properties.status' },
   ]);
+});
+
+test('model-facing schema cycles and excessive depth fail with a bounded error', () => {
+  const cycle = { type: 'object', properties: {} };
+  cycle.properties.self = cycle;
+  assert.throws(() => auditModelFacingDefinitions([{ name: 'cycle', inputSchema: cycle }]), /cycle/u);
+  const deep = { type: 'object' };
+  let current = deep;
+  for (let index = 0; index < 80; index += 1) current = (current.properties = { child: { type: 'object' } }).child;
+  assert.throws(() => auditModelFacingDefinitions([{ name: 'deep', inputSchema: deep }]), /depth/u);
+  const shared = { type: 'string', description: 'Shared description.' };
+  const report = auditModelFacingDefinitions([{ name: 'shared', inputSchema: {
+    type: 'object', properties: { first: shared, second: shared },
+  } }]);
+  assert.equal(report.stats.proseFields, 2);
+  const wide = { type: 'object', properties: {} };
+  for (let index = 0; index < 4_096; index += 1) wide.properties[`field${index}`] = { type: 'string' };
+  assert.throws(() => auditModelFacingDefinitions([{ name: 'wide', inputSchema: wide }]), /node count/u);
+});
+
+test('a report I/O error is not described as a stale report', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-ctl-report-'));
+  const sourceRoot = join(root, 'src');
+  const reportPath = join(root, 'report-directory');
+  const contractPath = join(root, 'contract.json');
+  try {
+    await mkdir(sourceRoot);
+    await mkdir(reportPath);
+    await writeFile(join(sourceRoot, 'source.js'), 'expose(value);');
+    await writeFile(contractPath, JSON.stringify(contract()));
+    await assert.rejects(runControlledLanguageGates({ root, contractPath, sourceRoot, reportPath, toolDefinitions: [] }),
+      /cannot read controlled-language report/u);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test('rationale audit counts only explicit comment markers', () => {

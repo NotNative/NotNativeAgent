@@ -230,17 +230,28 @@ export function countRationaleMarkers(markers, files) {
   return Object.freeze(counts);
 }
 
-function inspectSchema(schema, tool, path, prose, unqualified) {
+function inspectSchema(schema, tool, path, prose, unqualified, ancestors = new Set(), depth = 0, budget = { nodes: 0 }) {
   if (!record(schema)) return;
-  addProse(prose, tool, `${path}.description`, schema.description);
-  for (const [name, property] of Object.entries(schema.properties ?? {})) {
-    const field = `${path}.properties.${name}`;
-    if (UNQUALIFIED_BOUNDARY_FIELDS.has(name)) unqualified.push(Object.freeze({ tool, field }));
-    inspectSchema(property, tool, field, prose, unqualified);
-  }
-  if (schema.items) inspectSchema(schema.items, tool, `${path}.items`, prose, unqualified);
-  for (const keyword of ['oneOf', 'anyOf', 'allOf']) {
-    for (const [index, branch] of (schema[keyword] ?? []).entries()) inspectSchema(branch, tool, `${path}.${keyword}[${index}]`, prose, unqualified);
+  if (ancestors.has(schema)) throw new Error(`model-facing schema cycle at ${tool}.${path}`);
+  if (depth > 64) throw new Error(`model-facing schema depth exceeds 64 at ${tool}.${path}`);
+  budget.nodes += 1;
+  if (budget.nodes > 4_096) throw new Error(`model-facing schema node count exceeds 4096 at ${tool}.${path}`);
+  ancestors.add(schema);
+  try {
+    addProse(prose, tool, `${path}.description`, schema.description);
+    for (const [name, property] of Object.entries(schema.properties ?? {})) {
+      const field = `${path}.properties.${name}`;
+      if (UNQUALIFIED_BOUNDARY_FIELDS.has(name)) unqualified.push(Object.freeze({ tool, field }));
+      inspectSchema(property, tool, field, prose, unqualified, ancestors, depth + 1, budget);
+    }
+    if (schema.items) inspectSchema(schema.items, tool, `${path}.items`, prose, unqualified, ancestors, depth + 1, budget);
+    for (const keyword of ['oneOf', 'anyOf', 'allOf']) {
+      for (const [index, branch] of (schema[keyword] ?? []).entries()) {
+        inspectSchema(branch, tool, `${path}.${keyword}[${index}]`, prose, unqualified, ancestors, depth + 1, budget);
+      }
+    }
+  } finally {
+    ancestors.delete(schema);
   }
 }
 
@@ -279,7 +290,12 @@ export async function runControlledLanguageGates(options = {}) {
   const renderedReport = `${JSON.stringify(report, null, 2)}\n`;
   if (options.writeReport === true) await writeFile(reportPath, renderedReport, 'utf8');
   else {
-    const committed = await readFile(reportPath, 'utf8').catch(() => null);
+    let committed;
+    try { committed = await readFile(reportPath, 'utf8'); }
+    catch (error) {
+      if (error.code !== 'ENOENT') throw new Error(`cannot read controlled-language report ${reportPath}: ${error.message}`, { cause: error });
+      committed = null;
+    }
     if (committed !== renderedReport) errors.push('controlled-language report is stale; run npm run language:report');
   }
   return Object.freeze({
@@ -307,8 +323,10 @@ async function maximalBundledToolDefinitions(root) {
     telegramNotifications: { schedule() {} }, activeTurnId: () => 'controlled-language-audit',
     elevationBroker: { async execute() { return {}; } }, sessionHistory: { transcript() { return []; } },
   });
-  await registry.initialize();
-  try { return registry.snapshot(); } finally { await registry.close(); }
+  try {
+    await registry.initialize();
+    return registry.snapshot();
+  } finally { await registry.close(); }
 }
 
 function validateTerm(term, index, state, errors) {
