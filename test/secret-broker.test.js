@@ -5,6 +5,8 @@ import { appendFile, mkdtemp, readFile, readdir, unlink, writeFile } from 'node:
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SecretBroker } from '../src/secret-broker.js';
+import { SecretVault } from '../src/secret-vault.js';
+import { SessionLock } from '../src/persistence/session-lock.js';
 import { redactText } from '../src/redaction.js';
 
 async function fixture(realm = 'nna.local') {
@@ -64,6 +66,53 @@ test('missing key cannot be replaced while encrypted vault records remain', asyn
     consumer: 'test', destination: 'https://example.test', purpose: 'verify', reviewerDecisionId: 'review_1',
   }, async (fields) => fields.token), { code: 'secret_key_invalid' });
   await assert.rejects(() => readFile(keyPath, 'utf8'), { code: 'ENOENT' });
+});
+
+test('independent vaults in one directory queue behind the compatible lock', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-independent-vaults-'));
+  const first = new SecretVault({ path: join(root, 'first.json'), keyPath: join(root, 'first-key.json') });
+  const second = new SecretVault({ path: join(root, 'second.json'), keyPath: join(root, 'second-key.json') });
+  let release;
+  const hold = new Promise((resolve) => { release = resolve; });
+  let entered;
+  const inside = new Promise((resolve) => { entered = resolve; });
+  const firstWrite = first.update(async (vault) => { entered(); await hold; return vault; });
+  await inside;
+  let timeout;
+  let secondState = 'pending';
+  const secondWrite = second.update((vault) => vault).then(
+    () => { secondState = 'fulfilled'; },
+    (error) => { secondState = error; },
+  );
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(secondState, 'pending');
+    release();
+    await Promise.race([
+      secondWrite,
+      new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('independent vault was blocked')), 2_000); }),
+    ]);
+    assert.equal(secondState, 'fulfilled');
+  } finally {
+    clearTimeout(timeout);
+    release();
+    await firstWrite;
+  }
+});
+
+test('vault waits for a live legacy lock before updating', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-legacy-vault-lock-'));
+  const legacy = new SessionLock(root, 'secret-vault');
+  await legacy.acquire();
+  const vault = new SecretVault({ path: join(root, 'vault.json'), keyPath: join(root, 'key.json') });
+  let done = false;
+  const update = vault.update((current) => current).then(() => { done = true; });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(done, false);
+  } finally { await legacy.release(); }
+  await update;
+  assert.equal(done, true);
 });
 
 test('malformed stored metadata cannot reach a public secret projection', async () => {

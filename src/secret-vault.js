@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { mkdir, readFile, realpath } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { ContractError } from './ids.js';
 import {
   isSecretFieldName, normalizeSecretKind, normalizeSecretLabel, normalizeSecretMetadata, normalizeSecretScope,
@@ -13,6 +14,7 @@ const EMPTY = Object.freeze({ format: 1, keyVersion: 1, records: [] });
 const PATH_TAILS = new Map();
 const MASTER_KEY_BYTES = 32;
 const MASTER_KEY_CREATE_ATTEMPTS = 8;
+const VAULT_LOCK_WAIT_MS = 30_000;
 const ISO_STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 // Stable HKDF domain separator; changing it would make existing vault data unreadable.
 const REALM_KEY_INFO_PREFIX = 'nna-secret-realm-v';
@@ -24,8 +26,8 @@ const ERROR = Object.freeze({
 
 export class SecretVault {
   constructor(options) {
-    this.path = options.path;
-    this.keyPath = options.keyPath;
+    this.path = resolve(options.path);
+    this.keyPath = resolve(options.keyPath);
   }
 
   read() { return this.#serialized(() => this.#readUnlocked()); }
@@ -120,19 +122,38 @@ export class SecretVault {
   }
 
   async #serialized(operation) {
-    const prior = PATH_TAILS.get(this.path) ?? Promise.resolve();
+    const directory = dirname(this.path);
+    await mkdir(directory, { recursive: true, mode: 0o700 });
+    const root = await realpath(directory);
+    // Compatibility: older NNA processes use the directory-wide secret-vault lock.
+    // Sharing it prevents mixed-version writers from losing each other's updates.
+    const identity = process.platform === 'win32' ? root.toLowerCase() : root;
+    const prior = PATH_TAILS.get(identity) ?? Promise.resolve();
     let releaseTurn;
     const turn = new Promise((resolve) => { releaseTurn = resolve; });
-    PATH_TAILS.set(this.path, turn);
+    PATH_TAILS.set(identity, turn);
     await prior;
     try {
-      const lock = new SessionLock(dirname(this.path), 'secret-vault');
-      await lock.acquire();
+      const lock = new SessionLock(root, 'secret-vault');
+      await acquireVaultLock(lock);
       try { return await operation(); } finally { await lock.release(); }
     } finally {
       releaseTurn();
-      if (PATH_TAILS.get(this.path) === turn) PATH_TAILS.delete(this.path);
+      if (PATH_TAILS.get(identity) === turn) PATH_TAILS.delete(identity);
     }
+  }
+}
+
+async function acquireVaultLock(lock) {
+  const deadline = performance.now() + VAULT_LOCK_WAIT_MS;
+  let delay = 25;
+  for (;;) {
+    try { await lock.acquire(); return; }
+    catch (error) {
+      if (error?.code !== 'session_locked' || performance.now() >= deadline) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, Math.min(delay, Math.max(1, deadline - performance.now()))));
+    delay = Math.min(delay * 2, 250);
   }
 }
 
