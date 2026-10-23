@@ -23,7 +23,13 @@ export async function performEngineShutdown(engine, command) {
   const failures = [];
   if (engine.active) {
     const completion = engine.active.completion;
-    await engine.cancel(command);
+    try { await engine.cancel(command); }
+    catch (error) {
+      failures.push(error);
+      // A failed status publication must not leave the turn running through cleanup.
+      try { engine.active?.controller.abort(); }
+      catch (abortError) { failures.push(abortError); }
+    }
     await completion?.catch(() => undefined);
   }
   if (engine.state.state === 'idle') {
@@ -36,10 +42,14 @@ export async function performEngineShutdown(engine, command) {
   catch (error) { failures.push(error); }
   const cleanup = await Promise.allSettled([
     async () => engine.events.close(), async () => {
-      await engine.mcp.close();
+      const mcpFailures = [];
+      try { await engine.mcp.close(); }
+      catch (error) { mcpFailures.push(error); }
       // A deferred initialization may still own a late connection attempt;
       // await it so shutdown cannot return while that attempt is unsettled.
-      await engine.mcpInitialization;
+      try { await engine.mcpInitialization; }
+      catch (error) { mcpFailures.push(error); }
+      if (mcpFailures.length > 0) throw withSecondaryFailures(mcpFailures);
     }, async () => engine.attachments.close(),
     async () => engine.tools?.close?.(),
     async () => engine.extensions?.close(), async () => engine.store?.close(),
@@ -59,9 +69,12 @@ function withSecondaryFailures(failures) {
   const primary = failures[0];
   if (failures.length > 1 && primary && typeof primary === 'object') {
     try {
-      primary.secondaryFailures = Object.freeze(failures.slice(1).map((error) => Object.freeze({
+      // Invariant: nested cleanup groups retain their earlier failures when
+      // the outer shutdown collector adds failures from other components.
+      const prior = Array.isArray(primary.secondaryFailures) ? primary.secondaryFailures : [];
+      primary.secondaryFailures = Object.freeze([...prior, ...failures.slice(1).map((error) => Object.freeze({
         code: error?.code ?? 'shutdown_cleanup_failed',
-      })));
+      }))]);
     } catch { /* a non-extensible primary remains the causal error */ }
   }
   return primary;

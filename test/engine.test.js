@@ -532,6 +532,60 @@ test('AC-FAIL-05 shutdown attempts peer cleanup and surfaces a component failure
   assert.equal(output.some((item) => item.type === 'shutdown_complete'), false);
 });
 
+test('shutdown still aborts and closes peers after cancellation status fails', async () => {
+  const engine = new SessionEngine({
+    config: config(), providerFactory: () => new ScriptedProvider(), hookRoot: EMPTY_HOOK_ROOT,
+  });
+  await engine.initialize();
+  const controller = new AbortController();
+  engine.active = { controller, completion: Promise.resolve() };
+  const failure = Object.assign(new Error('status delivery failed'), { code: 'status_delivery_failed' });
+  engine.cancel = async () => { throw failure; };
+  let peerClosed = false;
+  engine.attachments.close = async () => { peerClosed = true; };
+  await assert.rejects(engine.shutdown({ request_id: 'cancel-status-failed', type: 'shutdown' }), failure);
+  assert.equal(controller.signal.aborted, true);
+  assert.equal(peerClosed, true);
+});
+
+test('shutdown waits for deferred MCP initialization even when MCP close fails', async () => {
+  const engine = new SessionEngine({
+    config: config(), providerFactory: () => new ScriptedProvider(), hookRoot: EMPTY_HOOK_ROOT,
+  });
+  await engine.initialize();
+  const failure = Object.assign(new Error('MCP close failed'), { code: 'mcp_close_failed' });
+  engine.mcp.close = async () => { throw failure; };
+  let finishInitialization;
+  engine.mcpInitialization = new Promise((resolve) => { finishInitialization = resolve; });
+  let settled = false;
+  const shutdown = engine.shutdown({ request_id: 'mcp-close-failed', type: 'shutdown' })
+    .finally(() => { settled = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(settled, false);
+  finishInitialization();
+  await assert.rejects(shutdown, failure);
+});
+
+test('shutdown retains deferred MCP and peer failures behind the primary close failure', async () => {
+  const engine = new SessionEngine({
+    config: config(), providerFactory: () => new ScriptedProvider(), hookRoot: EMPTY_HOOK_ROOT,
+  });
+  await engine.initialize();
+  const closeFailure = Object.assign(new Error('MCP close failed'), { code: 'mcp_close_failed' });
+  engine.mcp.close = async () => { throw closeFailure; };
+  engine.mcpInitialization = Promise.reject(Object.assign(new Error('MCP startup failed'), {
+    code: 'mcp_start_failed',
+  }));
+  engine.attachments.close = async () => { throw Object.assign(new Error('attachment close failed'), {
+    code: 'attachments_close_failed',
+  }); };
+
+  await assert.rejects(engine.shutdown({ request_id: 'multiple-cleanup-failures', type: 'shutdown' }), closeFailure);
+  assert.deepEqual(closeFailure.secondaryFailures?.map((failure) => failure.code), [
+    'mcp_start_failed', 'attachments_close_failed',
+  ]);
+});
+
 test('active mission expiration cancels a slow provider and terminates with the declared boundary', async (t) => {
   // Why: mocked deadlines keep engine setup off the tested expiration clock.
   t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
