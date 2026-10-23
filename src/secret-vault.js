@@ -94,6 +94,9 @@ export class SecretVault {
           throw new ContractError(ERROR.invalidKey, 'secret vault key file is invalid', { cause: error });
         }
       }
+      if ((await this.#readUnlocked()).records.length > 0) {
+        throw new ContractError(ERROR.invalidKey, 'secret vault key file is missing for existing records');
+      }
       const key = randomBytes(MASTER_KEY_BYTES);
       const value = { format: 1, protection: 'portable-file-v1', key: key.toString('base64') };
       try {

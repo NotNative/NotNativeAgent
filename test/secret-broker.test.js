@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFile, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SecretBroker } from '../src/secret-broker.js';
@@ -46,6 +46,20 @@ test('competing secret creators share one fully published key and retain readabl
   await writeFile(keyPath, '{malformed', 'utf8');
   await assert.rejects(() => brokers[0].rotate(created[0].id, { token: 'replacement' }), { code: 'secret_key_invalid' });
   assert.equal(await readFile(keyPath, 'utf8'), '{malformed');
+});
+
+test('missing key cannot be replaced while encrypted vault records remain', async () => {
+  const { root, broker } = await fixture();
+  const created = await broker.create({ label: 'Kept', kind: 'token', fields: { token: 'original' } });
+  const keyPath = join(root, 'key.json');
+  await unlink(keyPath);
+  await assert.rejects(() => broker.create({ label: 'Another', kind: 'token', fields: { token: 'new' } }), {
+    code: 'secret_key_invalid',
+  });
+  await assert.rejects(() => broker.withSecret(created.id, {
+    consumer: 'test', destination: 'https://example.test', purpose: 'verify', reviewerDecisionId: 'review_1',
+  }, async (fields) => fields.token), { code: 'secret_key_invalid' });
+  await assert.rejects(() => readFile(keyPath, 'utf8'), { code: 'ENOENT' });
 });
 
 test('malformed stored metadata cannot reach a public secret projection', async () => {
