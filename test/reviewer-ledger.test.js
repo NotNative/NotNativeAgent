@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { ReviewerLedger, requestDigest } from '../src/persistence/reviewer-ledger.js';
 import { JournalStore } from '../src/store.js';
+import { settleUndeliveredApproval } from '../src/reviewer-delivery.js';
 
 function request(id = 'tool-request-1') {
   return Object.freeze({
@@ -32,6 +33,53 @@ test('reviewer ledger refuses unknown decision outcomes at commit and replay', a
   await journal.close();
   const restored = new ReviewerLedger({ durable: true, root, sessionId: 'outcome-check' });
   await assert.rejects(restored.initialize(), { code: 'reviewer_ledger_corrupt' });
+});
+
+test('review failure reconciliation is durable and cannot erase an approved review', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-ledger-review-failure-'));
+  const options = { durable: true, root, sessionId: 'review-failure' };
+  const ledger = new ReviewerLedger(options);
+  await ledger.initialize();
+  const pending = request('pending-failure');
+  const approved = request('approved-before-delivery-failure');
+  const classification = { risk: 'review_required', scope: 'workspace' };
+  await ledger.propose(pending, classification, { turnId: 'turn-1' });
+  await ledger.propose(approved, classification, { turnId: 'turn-1' });
+  await ledger.commitDecision(approved.id, { id: 'approved', outcome: 'approve' });
+  const denial = { outcome: 'deny_with_guidance', reasonCode: 'mandatory_review_failed' };
+  await ledger.reconcileReviewFailure(pending.id, denial);
+  await ledger.reconcileReviewFailure(approved.id, denial);
+  assert.equal(ledger.completionState({ turnIds: ['turn-1'] }).unresolved_count, 0);
+  assert.equal(ledger.audit().find(item => item.request_id === approved.id).decision, 'approve');
+  assert.equal(ledger.audit().find(item => item.request_id === approved.id).boundary_revalidation, 'not_executed');
+  assert.equal(ledger.execution(approved.id).terminal.status, 'cancelled');
+  await ledger.close();
+  const restored = new ReviewerLedger(options);
+  await restored.initialize();
+  assert.equal(restored.completionState({ turnIds: ['turn-1'] }).unresolved_count, 0);
+  assert.equal(restored.audit().find(item => item.request_id === approved.id).decision, 'approve');
+  assert.equal(restored.audit().find(item => item.request_id === approved.id).boundary_revalidation, 'not_executed');
+  assert.equal(restored.execution(approved.id).terminal.effect_certainty, 'none');
+  await restored.close();
+});
+
+test('delivery reconciliation never settles a genuinely executed approval', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'executed-approval' });
+  const toolRequest = request('executed-approval');
+  await ledger.propose(toolRequest, { risk: 'review_required', scope: 'workspace' });
+  await ledger.commitDecision(toolRequest.id, { id: 'executed-decision', outcome: 'approve' });
+  await ledger.executionStarted(toolRequest.id, 'executed-decision');
+  await ledger.settle(toolRequest.id, {
+    status: 'succeeded', effect_certainty: 'completed', result_fingerprint: 'real-result',
+  });
+  await ledger.reconcileReviewFailure(toolRequest.id,
+    { outcome: 'deny_with_guidance', reasonCode: 'mandatory_review_failed' });
+  let settlements = 0;
+  const governance = { decision: () => ({ subjectRef: toolRequest.id, outcome: 'approve' }),
+    async settleDecision() { settlements += 1; } };
+  await settleUndeliveredApproval(ledger, governance, toolRequest.id);
+  assert.equal(settlements, 0);
+  assert.equal(ledger.audit()[0].result, 'succeeded');
 });
 
 test('operator decisions must settle an escalation instead of creating another one', async () => {

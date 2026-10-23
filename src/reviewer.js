@@ -5,9 +5,10 @@ import { safeReviewDefinition, safeReviewRequest } from './reviewer-packet.js';
 import { EMPTY_CONVERSATION_TEXT_LANE } from './conversation-text-lane.js';
 import { externalBrowserGuidance } from './reliability/external-browser.js';
 import { workspaceTransitionClassification } from './reliability/workspace-scope.js';
+import { recordAndSettleAuthorization } from './reviewer-delivery.js';
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
 const REVIEWER_SERVICE_FAILURES = new Set([
-  'mandatory_review_failed', 'provider_reasoning_control_rejected', 'semantic_review_unavailable', 'semantic_review_timeout',
+  'mandatory_review_failed', 'turn_cancelled', 'provider_reasoning_control_rejected', 'semantic_review_unavailable', 'semantic_review_timeout',
   'authority_anchor_missing', 'authority_anchor_invalid', 'process_effect_unclassified',
 ]);
 export class MandatoryReviewer {
@@ -74,7 +75,7 @@ export class MandatoryReviewer {
       }
       if (decision.outcome === 'approve') decision = refreshApprovalWindow(decision, this.decisionTtlMs);
       const committed = await this.ledger.commitDecision(request.id, decision);
-      await this.governance?.recordAuthorization(request, committed, { ...context, classification });
+      await recordAndSettleAuthorization(this, request, committed, { ...context, classification });
       recordReviewDecision(this, committed, classification, entry.repetition, correlation, started);
       return committed;
     } catch (error) {

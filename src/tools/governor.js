@@ -6,6 +6,7 @@ import { MAX_SUBSCRIPTION_TIMEOUT_MS } from '../events.js';
 import { redactExtensionData, redactText } from '../redaction.js';
 import { normalizeToolReasonCode } from './reason-code.js';
 import { validReviewOutcome } from './tool-result-contract.js';
+import { settleUndeliveredApproval } from '../reviewer-delivery.js';
 
 // This outer event boundary must remain above the largest configured semantic-review
 // deadline. The reviewer owns the operative timeout; this is only a stuck-handler backstop.
@@ -63,12 +64,19 @@ export class ToolGovernor {
   async review(request, context, event) {
     this.#pending.set(request.id, { request, context });
     try {
-      const dispatch = await this.events.dispatch(event, context.signal);
+      let dispatch;
+      try { dispatch = await this.events.dispatch(event, context.signal); }
+      catch (error) {
+        if (context.signal?.aborted) {
+          await this.#failedReview(request, 'Review cancelled.', 'turn_cancelled');
+          throw error;
+        }
+        return this.#failedReview(request, 'Mandatory review could not be completed.');
+      }
       const result = dispatch.results?.find((item) => item?.review)?.review;
-      if (result && !validReviewOutcome(result.outcome)) return Object.freeze({
-        outcome: 'deny_with_guidance', reasonCode: 'mandatory_review_failed',
-        guidance: 'Mandatory review returned an invalid decision.', requestId: request.id,
-      });
+      if (result && !validReviewOutcome(result.outcome)) {
+        return this.#failedReview(request, 'Mandatory review returned an invalid decision.');
+      }
       if (dispatch.decision === 'deny' && result?.outcome === 'approve') {
         await this.reviewer.ledger.executionStarted(request.id, result.id);
         await this.reviewer.ledger.settle(request.id, {
@@ -100,13 +108,20 @@ export class ToolGovernor {
         return committed;
       }
       if (result) return result;
-      return Object.freeze({
-        outcome: 'deny_with_guidance', reasonCode: 'mandatory_review_failed',
-        guidance: 'Mandatory review could not be completed.', requestId: request.id,
-      });
+      return this.#failedReview(request, 'Mandatory review could not be completed.');
     } finally {
       this.#pending.delete(request.id);
     }
+  }
+
+  async #failedReview(request, guidance, reasonCode = 'mandatory_review_failed') {
+    const denial = Object.freeze({
+      outcome: 'deny_with_guidance', reasonCode,
+      guidance, requestId: request.id,
+    });
+    await this.reviewer.ledger?.reconcileReviewFailure?.(request.id, denial);
+    await settleUndeliveredApproval(this.reviewer.ledger, this.governance, request.id);
+    return denial;
   }
 
   async beginExecution(request, decision, current) {

@@ -9,6 +9,7 @@ import { persistSupervisedResponse } from '../src/engine/terminal-declaration.js
 import { updateToolFailures } from '../src/engine/tool-failures.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { toolDecisionState } from '../src/engine/records.js';
+import { MandatoryReviewer } from '../src/reviewer.js';
 
 test('unknown reviewer outcomes fail closed instead of becoming an ordinary guidance denial', async () => {
   assert.throws(() => toolDecisionState('future_outcome'), { code: 'review_outcome_invalid' });
@@ -19,6 +20,103 @@ test('unknown reviewer outcomes fail closed instead of becoming an ordinary guid
     { signal: new AbortController().signal }, {});
   assert.equal(decision.outcome, 'deny_with_guidance');
   assert.equal(decision.reasonCode, 'mandatory_review_failed');
+});
+
+test('failed mandatory review settles a proposal before returning denial', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'failed-review' });
+  const request = { id: 'failed-review', toolName: 'fs_write_text',
+    args: { path: 'target.txt', content: 'x' }, resolved: { path: 'target.txt' } };
+  const events = { register: () => ({ updateTimeoutMs: () => true }), dispatch: async () => {
+    await ledger.propose(request, { risk: 'review_required', scope: 'workspace' }, { turnId: 'turn-1' });
+    return { decision: 'deny', results: [{ code: 'subscriber_failed' }] };
+  } };
+  const governor = new ToolGovernor({ events, reviewer: { ledger }, registry: {} });
+  const decision = await governor.review(request, { signal: new AbortController().signal }, {});
+  assert.equal(decision.reasonCode, 'mandatory_review_failed');
+  assert.equal(ledger.audit()[0].reason, 'mandatory_review_failed');
+  assert.equal(ledger.completionState({ turnIds: ['turn-1'] }).unresolved_count, 0);
+});
+
+test('a late approved review closes governance after its delivery failure', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'late-review' });
+  const request = { id: 'late-review', toolName: 'fs_read_text', args: { path: 'target.txt' },
+    resolved: { path: 'target.txt' }, workspaceRoot: 'workspace', createdAt: Date.now(),
+    expiresAt: Date.now() + 30_000, authorityId: 'authority', authorityVersion: 1,
+    policyVersion: 1, definitionVersion: 1 };
+  const context = { turnId: 'turn-1', definition: { name: 'fs_read_text', scope: 'workspace', sideEffect: 'read_only' },
+    authority: { id: 'authority', version: 1, intent: [] }, signal: new AbortController().signal };
+  let releaseAuthorization;
+  const authorizationGate = new Promise((resolve) => { releaseAuthorization = resolve; });
+  let authorizationStarted;
+  const enteredAuthorization = new Promise((resolve) => { authorizationStarted = resolve; });
+  let authorization = null;
+  let terminal = null;
+  const governance = {
+    async recordAuthorization(_request, decision) {
+      authorizationStarted();
+      await authorizationGate;
+      authorization = { id: decision.id, outcome: decision.outcome, subjectRef: request.id };
+    },
+    decision: (id) => authorization?.id === id ? authorization : null,
+    async settleDecision(_id, value) { terminal = value; },
+  };
+  const reviewer = new MandatoryReviewer({ ledger, governance });
+  let reviewOperation;
+  const events = { register: () => ({ updateTimeoutMs: () => true }), async dispatch() {
+    reviewOperation = reviewer.review(request, context);
+    await enteredAuthorization;
+    return { decision: 'deny', results: [{ code: 'subscriber_timeout' }] };
+  } };
+  const governor = new ToolGovernor({ events, reviewer, registry: {}, governance });
+  const denied = await governor.review(request, context, {});
+  assert.equal(denied.reasonCode, 'mandatory_review_failed');
+  assert.equal(ledger.audit()[0].boundary_revalidation, 'not_executed');
+  assert.equal(terminal, null);
+  releaseAuthorization();
+  await reviewOperation;
+  assert.equal(terminal.status, 'cancelled');
+  assert.equal(terminal.effectCertainty, 'none');
+  assert.equal(ledger.completionState({ turnIds: ['turn-1'] }).unresolved_count, 0);
+});
+
+test('a dispatch exception after proposal becomes a recorded fail-closed denial', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'dispatch-failure' });
+  const request = { id: 'dispatch-failure', toolName: 'fs_write_text', args: { path: 'x', content: 'x' } };
+  const events = { register: () => ({ updateTimeoutMs: () => true }), async dispatch() {
+    await ledger.propose(request, { risk: 'review_required', scope: 'workspace' }, { turnId: 'turn-1' });
+    throw new Error('dispatch failed');
+  } };
+  const governor = new ToolGovernor({ events, reviewer: { ledger }, registry: {} });
+  const result = await governor.review(request, { signal: new AbortController().signal }, {});
+  assert.equal(result.reasonCode, 'mandatory_review_failed');
+  assert.equal(ledger.completionState({ turnIds: ['turn-1'] }).unresolved_count, 0);
+});
+
+test('a cancelled dispatch settles its proposal without swallowing cancellation', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'dispatch-cancelled' });
+  const request = { id: 'dispatch-cancelled', toolName: 'fs_write_text', args: { path: 'x', content: 'x' } };
+  const controller = new AbortController();
+  const cancelled = new Error('operator cancelled');
+  const events = { register: () => ({ updateTimeoutMs: () => true }), async dispatch() {
+    await ledger.propose(request, { risk: 'review_required', scope: 'workspace' }, { turnId: 'turn-1' });
+    controller.abort();
+    throw cancelled;
+  } };
+  const governor = new ToolGovernor({ events, reviewer: { ledger }, registry: {} });
+  await assert.rejects(governor.review(request, { signal: controller.signal }, {}), (error) => error === cancelled);
+  assert.equal(ledger.audit()[0].reason, 'turn_cancelled');
+  assert.equal(ledger.completionState({ turnIds: ['turn-1'] }).unresolved_count, 0);
+});
+
+test('a reviewer ledger write failure is not converted to a successful denial', async () => {
+  const ledgerFailure = new Error('review journal unavailable');
+  const events = { register: () => ({ updateTimeoutMs: () => true }), async dispatch() {
+    return { decision: 'deny', results: [{ code: 'subscriber_failure' }] };
+  } };
+  const reviewer = { ledger: { async reconcileReviewFailure() { throw ledgerFailure; } } };
+  const governor = new ToolGovernor({ events, reviewer, registry: {} });
+  await assert.rejects(governor.review({ id: 'ledger-failure' },
+    { signal: new AbortController().signal }, {}), (error) => error === ledgerFailure);
 });
 
 async function execute(raw) {

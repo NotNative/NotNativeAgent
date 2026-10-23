@@ -9,6 +9,7 @@ const DEFAULT_RETENTION_ENTRIES = 10_000;
 const MAX_REPLAY_RECORDS = 1_000_000;
 const MAX_REPLACEMENT_RECORDS = 100_000;
 const MAX_COMPLETION_REQUESTS = 64;
+export const REVIEW_DELIVERY_FAILED_FINGERPRINT = 'review_delivery_failed';
 
 export class ReviewerLedger {
   #entries = new Map();
@@ -74,6 +75,37 @@ export class ReviewerLedger {
         await this.#enforceRetention();
       }
       return decision;
+    });
+  }
+
+  async reconcileReviewFailure(requestId, denial) {
+    return this.#serialize(async () => {
+      assertReviewerDecision(denial, 'reviewer_decision_invalid');
+      if (denial.outcome !== 'deny_with_guidance') {
+        throw new ContractError('reviewer_decision_invalid', 'Review failure must deny execution');
+      }
+      const entry = this.#entries.get(requestId);
+      // A failure before proposal has no ledger obligation to settle.
+      if (!entry) return;
+      if (!entry.decision) {
+        await this.#record('decision', { requestId, decision: denial });
+        entry.decision = denial;
+      } else if (entry.decision.outcome === 'approve' && !entry.execution) {
+        // The reviewer may finish after the event deadline. Its approval was never
+        // delivered to the governor, so record that no execution was admitted.
+        const execution = { decisionId: entry.decision.id, status: 'running', terminal: null };
+        await this.#record('execution_started', { requestId, execution });
+        entry.execution = execution;
+        const terminal = { status: 'cancelled', effect_certainty: 'none',
+          result_fingerprint: REVIEW_DELIVERY_FAILED_FINGERPRINT, elapsed_ms: 0, reason_code: denial.reasonCode };
+        await this.#record('execution_terminal', { requestId, terminal });
+        entry.execution.status = terminal.status;
+        entry.execution.terminal = terminal;
+      }
+      if (retentionSettled(entry)) {
+        this.#markRecentlySettled(entry);
+        await this.#enforceRetention();
+      }
     });
   }
 
@@ -145,7 +177,9 @@ export class ReviewerLedger {
       result: entry.execution?.terminal?.status ?? null,
       effect: entry.classification.effect, complexity: entry.classification.complexity,
       decision_provenance: entry.decision?.provenance ?? 'mandatory_reviewer',
-      boundary_revalidation: entry.execution ? 'passed' : 'not_executed',
+      boundary_revalidation: entry.execution
+        && entry.execution.terminal?.result_fingerprint !== REVIEW_DELIVERY_FAILED_FINGERPRINT
+        ? 'passed' : 'not_executed',
       elapsed_ms: entry.execution?.terminal?.elapsed_ms ?? null,
       effect_certainty: entry.execution?.terminal?.effect_certainty ?? 'none',
       target_fingerprint: entry.targetFingerprint, repetition: entry.repetition,
