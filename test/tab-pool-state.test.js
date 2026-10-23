@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveManifest } from '../src/config.js';
 import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engine.js';
+import { throwWorkspaceShutdownFailures } from '../src/experience/shutdown-failure.js';
 import { loadTabPool, saveTabPool } from '../src/experience/tab-pool.js';
 import { restorePresentation } from '../src/experience/presentation.js';
 
@@ -277,6 +278,49 @@ test('workspace shutdown attempts every engine and surfaces the first cleanup fa
 
   await assert.rejects(workspace.shutdown(), failure);
   assert.equal(otherClosed, true);
+});
+
+test('workspace shutdown preserves cleanup failures and still releases Console authority', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-workspace-shutdown-errors-'));
+  const poolFailure = Object.assign(new Error('pool write failed'), { code: 'tab_pool_unavailable' });
+  const engineFailure = Object.assign(new Error('engine cleanup failed'), { code: 'engine_close_failed' });
+  const clipboardFailure = new Error('clipboard close failed');
+  const waitFailure = new Error('tab persistence wait failed');
+  const releaseFailure = new Error('authority release failed');
+  let failPool = false;
+  const workspace = new InteractiveWorkspace({
+    config: configuration(root), tabPoolPath: join(root, 'pool.json'),
+    storeRoot: join(root, 'sessions'), reviewerRoot: join(root, 'reviewers'),
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
+    tabPoolWriter: async () => { if (failPool) throw poolFailure; },
+    clipboardClose: async () => { throw clipboardFailure; },
+  });
+  const main = await workspace.restore();
+  const closeMain = workspace.sessions.get(main).engine.shutdown.bind(workspace.sessions.get(main).engine);
+  workspace.sessions.get(main).engine.shutdown = async (...args) => { await closeMain(...args); throw engineFailure; };
+  const wait = workspace.tabPersistence.wait.bind(workspace.tabPersistence);
+  workspace.tabPersistence.wait = async () => { await wait(); throw waitFailure; };
+  const release = workspace.consoleAuthority.release.bind(workspace.consoleAuthority);
+  let released = false;
+  workspace.consoleAuthority.release = async () => { await release(); released = true; throw releaseFailure; };
+  failPool = true;
+  await assert.rejects(workspace.shutdown(), (error) => error === poolFailure
+    && error.code === 'tab_pool_unavailable'
+    && error.secondaryFailures.length === 4
+    && error.secondaryFailures[0] === engineFailure
+    && error.secondaryFailures[1] === clipboardFailure
+    && error.secondaryFailures[2] === waitFailure
+    && error.secondaryFailures[3] === releaseFailure);
+  assert.equal(released, true);
+  assert.equal(workspace.consoleAuthority.owned, false);
+});
+
+test('immutable primary shutdown errors retain secondary evidence through a wrapper', () => {
+  const primary = Object.freeze(Object.assign(new Error('pool write failed'), { code: 'tab_pool_unavailable' }));
+  const secondary = new Error('engine close failed');
+  assert.throws(() => throwWorkspaceShutdownFailures(primary, [{ status: 'rejected', reason: secondary }]),
+    (error) => error instanceof AggregateError && error.code === primary.code
+      && error.cause === primary && error.errors[0] === primary && error.errors[1] === secondary);
 });
 
 test('a failed tab save does not misreport a successfully created conversation', async () => {

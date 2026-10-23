@@ -44,6 +44,7 @@ import { deleteUnreferencedSecret, listSecretsWithReferences } from './secret-ma
 import { cancelWorkspaceSession, clearWorkspaceSession, compactWorkspaceSession, handoffWorkspaceSession, initializeWorkspaceSessionBroker, submitWorkspaceSession, workspaceBrokerSessions } from './experience/session-broker.js';
 import { settleConsoleQuestion } from './experience/question-control.js';
 import { acceptPendingSubmission, beginSessionSubmission, presentSubmissionFailure } from './experience/submission.js';
+import { throwWorkspaceShutdownFailures } from './experience/shutdown-failure.js';
 export class ExperienceEngine {
   #tasks = new Set();
   #creatingSessions = new Map();
@@ -257,12 +258,13 @@ export class ExperienceEngine {
     const shutdowns = await Promise.allSettled([...this.sessions.values()].map((session) => session.engine.shutdown({
       request_id: newId('tui_shutdown'), type: 'shutdown',
     })));
-    await Promise.allSettled([...this.#tasks]); await this.options.clipboardClose?.();
-    await this.tabPersistence.wait();
-    await this.consoleAuthority.release();
-    if (poolFailure) throw poolFailure;
-    const engineFailure = shutdowns.find((item) => item.status === 'rejected');
-    if (engineFailure) throw engineFailure.reason;
+    await Promise.allSettled([...this.#tasks]);
+    const cleanupFailures = [];
+    for (const cleanup of [() => this.options.clipboardClose?.(),
+      () => this.tabPersistence.wait(), () => this.consoleAuthority.release()]) {
+      try { await cleanup(); } catch (error) { cleanupFailures.push(error); }
+    }
+    throwWorkspaceShutdownFailures(poolFailure, shutdowns, cleanupFailures);
   }
   activeEngine() { return this._active().engine; }
   activeConfig() {
