@@ -1,7 +1,7 @@
 {
   "name": "not-native-agent",
-  "version": "20261022.0.48",
-  "nna_version": "20261022-48",
+  "version": "20261022.0.49",
+  "nna_version": "20261022-49",
   "description": "Local-first agent runtime and terminal interface",
   "type": "module",
   "license": "Apache-2.0",

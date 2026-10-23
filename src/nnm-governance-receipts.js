@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { open } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from './ids.js';
+import { assertBoundedReceiptContent, readBoundedReceiptJournal, receiptProjectFingerprint, writerUtcTimestampKey } from './nnm-receipt-journal.js';
 import { userDataPaths } from './product.js';
 
 const CONTRACT = 'nnm.turn-analysis-receipt/1.0';
-const MAX_BYTES = 4_194_304;
-const READ_CHUNK_BYTES = 65_536;
-const ISO_TIMESTAMP = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,6}))?(?:Z|\+00:00)$/u;
 const KEYS = new Set([
   'contract', 'receipt_id', 'session_id', 'turn_id', 'status', 'stored',
   'facts_stored', 'relationships_stored', 'summary_stored', 'candidates',
@@ -19,7 +15,7 @@ const STATUSES = new Set(['completed', 'partial', 'skipped', 'failed']);
 export class NnmGovernanceReceipts {
   constructor(options = {}) {
     this.path = options.path ?? userDataPaths().nnmGovernanceReceipts;
-    this.read = options.read ?? readReceiptFile;
+    this.read = options.read ?? readBoundedReceiptJournal;
     this.onDiagnostic = typeof options.onDiagnostic === 'function' ? options.onDiagnostic : null;
   }
 
@@ -34,11 +30,11 @@ export class NnmGovernanceReceipts {
     }
     const turns = new Set(input.turnIds ?? []);
     const sessions = new Set(input.sessionIds ?? []);
-    const project = digest(input.workspaceRoot);
+    const project = receiptProjectFingerprint(input.workspaceRoot);
     let content;
     try { content = await this.read(this.path, 'utf8'); }
     catch (error) { if (error?.code === 'ENOENT') return Object.freeze([]); throw error; }
-    if (Buffer.byteLength(content, 'utf8') > MAX_BYTES) throw receiptsTooLarge();
+    assertBoundedReceiptContent(content);
     const found = new Map();
     const conflicted = new Set();
     let malformedLines = 0;
@@ -59,7 +55,7 @@ export class NnmGovernanceReceipts {
           && previous.turn_id === parsed.turn_id && previous.project_fingerprint === parsed.project_fingerprint;
         // Why: NNM reuses an ID when a failed analyzer attempt is retried for the same turn.
         if (!sameAttribution || previous.status === 'completed'
-            || timestampKey(parsed.completed_at) <= timestampKey(previous.completed_at)) {
+            || writerUtcTimestampKey(parsed.completed_at) <= writerUtcTimestampKey(previous.completed_at)) {
           found.delete(parsed.receipt_id); conflicted.add(parsed.receipt_id); malformedLines += 1; continue;
         }
       }
@@ -76,28 +72,6 @@ export class NnmGovernanceReceipts {
   }
 }
 
-async function readReceiptFile(path) {
-  const handle = await open(path, 'r');
-  try {
-    if ((await handle.stat()).size > MAX_BYTES) throw receiptsTooLarge();
-    const chunks = [];
-    let length = 0;
-    while (length <= MAX_BYTES) {
-      const buffer = Buffer.alloc(Math.min(READ_CHUNK_BYTES, MAX_BYTES + 1 - length));
-      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
-      if (bytesRead === 0) break;
-      chunks.push(buffer.subarray(0, bytesRead));
-      length += bytesRead;
-    }
-    if (length > MAX_BYTES) throw receiptsTooLarge();
-    return Buffer.concat(chunks, length).toString('utf8');
-  } finally { await handle.close(); }
-}
-
-function receiptsTooLarge() {
-  return new ContractError('nnm_receipts_too_large', `NNM governance receipt journal exceeds ${MAX_BYTES / 1_048_576} MiB`);
-}
-
 function normalize(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)
       || Object.keys(value).some((key) => !KEYS.has(key)) || value.contract !== CONTRACT) {
@@ -105,7 +79,7 @@ function normalize(value) {
   }
   for (const key of ['receipt_id', 'session_id', 'turn_id', 'project_fingerprint']) bounded(value[key], key);
   if (!/^[a-f0-9]{64}$/u.test(value.receipt_id) || !/^[a-f0-9]{64}$/u.test(value.project_fingerprint)
-      || !STATUSES.has(value.status) || !validTimestamp(value.completed_at)
+      || !STATUSES.has(value.status) || writerUtcTimestampKey(value.completed_at) === null
       || (value.reason !== undefined && (typeof value.reason !== 'string' || Buffer.byteLength(value.reason, 'utf8') > 2_000))) {
     throw new ContractError('nnm_receipt_invalid', 'NNM governance receipt attribution is invalid');
   }
@@ -128,22 +102,8 @@ function normalize(value) {
   });
 }
 
-function validTimestamp(value) {
-  if (typeof value !== 'string') return false;
-  const match = ISO_TIMESTAMP.exec(value);
-  if (!match || !Number.isFinite(Date.parse(value))) return false;
-  const expected = `${match[1]}.${(match[2] ?? '').padEnd(3, '0').slice(0, 3)}Z`;
-  return new Date(value).toISOString() === expected;
-}
-
-function timestampKey(value) {
-  const match = ISO_TIMESTAMP.exec(value);
-  return `${match[1]}.${(match[2] ?? '').padEnd(6, '0')}Z`;
-}
-
 function bounded(value, label) {
   if (typeof value !== 'string' || value.length === 0 || Buffer.byteLength(value, 'utf8') > 160) {
     throw new ContractError('nnm_receipt_invalid', `${label} is invalid`);
   }
 }
-function digest(value) { return createHash('sha256').update(value).digest('hex'); }

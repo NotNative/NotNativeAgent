@@ -376,7 +376,7 @@ test('idle NNM hygiene uses a read-only hook receipt and creates attention, neve
   };
   const receipt = {
     contract: 'nnm.hygiene-receipt/1.0', receipt_id: 'b'.repeat(64), session_id: 'session',
-    status: 'completed', candidates: 3, categories: { conflict: 2, stale: 1 },
+    status: 'completed', candidates: 3, categories: { unresolved_conflict: 2, hot_unclassified: 1 },
     project_fingerprint: governanceFingerprint(root), completed_at: new Date().toISOString(),
   };
   const coordinator = new DreamCoordinator({
@@ -401,7 +401,7 @@ test('idle NNM hygiene uses a read-only hook receipt and creates attention, neve
   assert.equal(dispatched.event_name, 'maintenance.idle');
   assert.equal(dispatched.payload.evidence_packet_id, packet.id);
   assert.equal(candidate.kind, 'memory.hygiene_attention');
-  assert.deepEqual(candidate.payload, { candidates: 3, categories: { conflict: 2, stale: 1 } });
+  assert.deepEqual(candidate.payload, { candidates: 3, categories: { unresolved_conflict: 2, hot_unclassified: 1 } });
   assert.equal(pending, null);
 });
 
