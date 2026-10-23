@@ -61,11 +61,9 @@ export async function runNndIntegrationCommand(args, paths, options = {}) {
   }
   const lease = process.platform === 'win32' ? await acquireNndServiceLock({ dataRoot: paths.root }) : null;
   try {
-    if (lease) {
-      await assertNoNndInstallMarker({ data_root: paths.root });
-      await assertNoNndInstallTransaction({ data_root: paths.root });
-      await assertNoNndMigration({ data_root: paths.root });
-    }
+    await assertNoNndInstallMarker({ data_root: paths.root });
+    await assertNoNndInstallTransaction({ data_root: paths.root });
+    await assertNoNndMigration({ data_root: paths.root });
     const result = await runActivatedIntegrationCommand(paths, options, createNndLocalIntegrationActivation(), 'nnd');
     await lease?.close();
     return result;
@@ -232,7 +230,8 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
 async function createSelectedNndEngine(paths, options, startupConfig, activeConfig, startupTrusted, input) {
   const selectedRoot = input.workspaceBinding?.configured_root ?? activeConfig().workspaceRoot;
   const selectedTrusted = selectedRoot === startupConfig.workspaceRoot ? startupTrusted
-    : await workspaceIsTrusted(paths.trustedWorkspaces, selectedRoot);
+    : typeof paths.trustedWorkspaces === 'string'
+      ? await workspaceIsTrusted(paths.trustedWorkspaces, selectedRoot) : false;
   const selectedSkillRoots = options.skillRoots ?? runtimeSkillRoots(paths, {
     trusted: selectedTrusted, skillRoot: join(selectedRoot, '.nna', 'skills'),
   });

@@ -14,6 +14,7 @@ import { trustWorkspace } from '../src/experience/trust.js';
 import { ProviderProfileStore } from '../src/provider/profile-store.js';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { nativeNndPrincipal } from '../src/nnd-service-native.js';
+import { primaryNndWorkspaceBinding } from '../src/nnd-workspace-binding.js';
 
 test('NND and standalone browser catalogs stay separate even with NND installed', async () => {
   const root = createScratchSync('nna-browser-surfaces-');
@@ -279,6 +280,38 @@ test('integration NND host builds governed engines from the trusted manifest', a
   release({ accepted: true });
   await new Promise((resolve) => setImmediate(resolve));
   await host.close('session_a', principal);
+});
+
+test('an admitted alternate workspace stays untrusted when the trust store path is absent', async () => {
+  const root = createScratchSync('nna-nnd-alternate-trust-');
+  const alternate = join(root, 'alternate');
+  const configRoot = join(root, 'config');
+  await Promise.all([mkdir(configRoot, { recursive: true }), mkdir(alternate)]);
+  const alternateSkill = join(alternate, '.nna', 'skills', 'alternate-review');
+  await mkdir(alternateSkill, { recursive: true });
+  await writeFile(join(alternateSkill, 'SKILL.md'), [
+    '---', 'id: alternate-review', 'version: 1', 'description: Alternate workspace skill',
+    'invocation: both', '---', 'This skill requires workspace trust.',
+  ].join('\n'));
+  await writeFile(join(configRoot, 'manifest.json'), JSON.stringify({
+    format_version: 1, persistence: 'ephemeral', workspace_root: root,
+    providers: [{ id: 'primary', endpoint: 'http://127.0.0.1:1234/v1', model: 'test', trust_zone: 'loopback' }],
+    routes: { primary: { provider_id: 'primary', model: 'test' } },
+  }));
+  const [primaryBinding, alternateBinding] = await Promise.all([
+    primaryNndWorkspaceBinding(root), primaryNndWorkspaceBinding(alternate),
+  ]);
+  const host = await createIntegrationNndEngineHost({ root, config: configRoot,
+    sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') }, {
+    workspaceAdmissionService: { inventory: async () => ({ attached: primaryBinding, admitted: [alternateBinding] }) },
+  });
+  try {
+    const context = await host.create('alternate_session', {
+      subjectId: 'operator', workspaceIds: [alternateBinding.id],
+    }, { workspace_id: alternateBinding.id });
+    assert.equal(context.engine.config.workspaceRoot, alternate);
+    assert.equal(context.engine.skills.catalog().some((skill) => skill.id === 'alternate-review'), false);
+  } finally { await host.shutdown(); }
 });
 
 test('provider route activation changes future NND sessions without mutating existing engines', async () => {

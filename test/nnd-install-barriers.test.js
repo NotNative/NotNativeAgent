@@ -2,8 +2,7 @@
 import test from 'node:test';
 import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { runNndIntegrationCommand } from '../src/integration-cli.js';
 import { runNndServiceCommand } from '../src/nnd-service-cli.js';
@@ -23,12 +22,12 @@ test('stage CLI refuses missing and surplus arguments before reading an installa
   ]) await assert.rejects(runNndServiceCommand(args), { code: 'nnd_command_invalid' });
 });
 
-test('legacy serve preserves unfinished installer evidence and releases its failed-start lease', {
-  skip: process.platform !== 'win32',
-}, async t => {
+test('legacy serve refuses unfinished installer evidence on every platform', async t => {
   const root = createScratchSync('nna-install-barriers-');
   t.after(() => rm(root, { recursive: true, force: true }));
-  const runtime = (await ensurePrivateNndRuntimeDirectory(root)).path;
+  const runtime = process.platform === 'win32' ? (await ensurePrivateNndRuntimeDirectory(root)).path
+    : join(root, 'runtime', 'nnd');
+  if (process.platform !== 'win32') await mkdir(runtime, { recursive: true });
   let writes = 0;
   const options = { environment: {}, output: { write() { writes += 1; } } };
   for (const [name, code] of [
@@ -38,7 +37,7 @@ test('legacy serve preserves unfinished installer evidence and releases its fail
   ]) {
     const path = join(runtime, name), evidence = Buffer.from('incomplete ownership evidence');
     await writeFile(path, evidence);
-    // Invariant: repeated refusal proves the failed startup relinquished only its own lease.
+    // Repeated refusal preserves the evidence; on Windows it also proves the failed lease was released.
     for (let attempt = 0; attempt < 2; attempt += 1) {
       await assert.rejects(runNndIntegrationCommand(['serve'], { root }, options), { code });
       assert.deepEqual(await readFile(path), evidence);

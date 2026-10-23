@@ -10,7 +10,10 @@ async function markerPath(identity) {
   return join(directory.path, 'installation-guard.json');
 }
 export async function assertNoNndInstallMarker(identity) {
-  const path = await markerPath(identity);
+  // Compatibility: POSIX NND serves do not use the Windows ACL-backed installer,
+  // but must still refuse any pending marker in the shared runtime namespace.
+  const path = process.platform === 'win32' ? await markerPath(identity)
+    : join(identity.data_root, 'runtime', 'nnd', 'installation-guard.json');
   try { await lstat(path); }
   catch (error) { if (error.code === 'ENOENT') return; throw error; }
   throw new ContractError('nnd_install_guard_orphaned', 'NND installation has an unfinished guard. Verify installer writers stopped before native recovery.');
