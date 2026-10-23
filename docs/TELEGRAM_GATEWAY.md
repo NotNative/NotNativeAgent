@@ -118,6 +118,13 @@ is visible to the gateway. Delivery does not inject content into either conversa
 originating Console conversation is still available, Telegram includes an inline
 **Attach** button.
 
+The gateway snapshots the authorized recipient IDs when it first handles a notification.
+It checks current authorization before each send, skips revoked recipients, and does not
+add later grants to an older notification. Delivery progress is stored per recipient so
+one unavailable recipient cannot block the others. Failed recipients are retried in a
+rotating order across gateway restarts. A message may still appear twice if Telegram
+accepts it immediately before the gateway records delivery.
+
 Gateway sessions use the normal engine, reviewer, tools, model routes, context management,
 hooks, skills, forensic telemetry, and project-trust rules. A role without a dedicated
 provider profile inherits Primary just as it does in the Console. Telegram does not create

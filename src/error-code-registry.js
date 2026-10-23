@@ -242,6 +242,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnm_receipts_too_large', 'nno_install_invalid', 'nno_install_required',
     'nno_integration_activation_incompatible', 'nno_integration_activation_invalid', 'nno_integration_activation_missing',
     'nno_integration_activation_required', 'notification_backlog_full', 'notification_duplicate',
+    'notification_delivery_path_unsafe', 'notification_delivery_recipients_full', 'notification_delivery_state_invalid',
     'notification_intent_invalid', 'notification_invalid', 'notification_journal_changed',
     'notification_journal_invalid', 'notification_journal_path_changed',
     'notification_journal_path_unsafe', 'notification_journal_record_too_large',

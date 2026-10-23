@@ -2,7 +2,7 @@
 import test from 'node:test';
 import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
 import { createHash } from 'node:crypto';
 import { homedir, tmpdir } from 'node:os';
@@ -12,6 +12,7 @@ import {
 } from '../src/gateway/config.js';
 import { splitTelegramText, TelegramApi, telegramRetryDelayMs } from '../src/gateway/telegram-api.js';
 import { gatewayCompactionMessage, gatewaySessionId, TelegramGateway } from '../src/gateway/telegram.js';
+import { drainGatewayNotifications } from '../src/gateway/telegram-notifications.js';
 import { AttachedReplayState, loadGatewayState } from '../src/gateway/attached-replay.js';
 import { runGatewayContextAction } from '../src/gateway/context-actions.js';
 import { ConsoleSessionBroker, ConsoleSessionDirectory } from '../src/session-broker.js';
@@ -1600,4 +1601,193 @@ test('gateway acknowledges notifications after their source session closes', asy
   assert.equal(sent[0].chatId, '42');
   assert.match(sent[0].text, /completed turn is ready/u);
   assert.deepEqual(sent[0].options, {});
+});
+
+function notificationDeliveryGateway(root, sendMessage, ids = ['41', '42', '43']) {
+  return {
+    paths: { telegramOutbox: join(root, 'outbox'), sessions: join(root, 'sessions') },
+    config: { enabled: true, authorized_user_ids: ids },
+    controller: new AbortController(), notificationCursor: 0, notificationIntentCursor: 0,
+    invalidNotificationIntents: new Set(), attachments: new Map(),
+    sessionDirectory: { list: async () => [] },
+    logger: { record() {} }, api: { sendMessage },
+  };
+}
+
+async function readyDeliveryNotification(root, turnId, message) {
+  const queue = new TelegramNotificationQueue(join(root, 'outbox'), 'session-main');
+  await queue.schedule(turnId, message);
+  await terminalJournal(join(root, 'sessions'), 'session-main', turnId);
+  await queue.terminal({ type: 'turn_result', turn_id: turnId, outcome: 'completed' });
+}
+
+test('a failed Telegram recipient does not block later recipients or notifications; restart skips successes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-recipient-progress-'));
+  await readyDeliveryNotification(root, 'turn-1', 'first');
+  await readyDeliveryNotification(root, 'turn-2', 'second');
+  const sent = []; let fail42 = true;
+  const send = async (chatId, message) => {
+    sent.push(`${chatId}:${message.endsWith('first') ? 'first' : 'second'}`);
+    if (chatId === '42' && message.endsWith('first') && fail42) throw Object.assign(new Error('unavailable'), { code: 'telegram_unavailable' });
+  };
+  const gateway = notificationDeliveryGateway(root, send);
+  await drainGatewayNotifications(gateway);
+  assert(sent.includes('43:first'));
+  assert(sent.includes('41:second'));
+  assert.equal((await readTelegramOutbox(join(root, 'outbox'), join(root, 'sessions'))).length, 1);
+  fail42 = false;
+  await drainGatewayNotifications(notificationDeliveryGateway(root, send));
+  assert.equal(sent.filter((item) => item === '41:first').length, 1);
+  assert.equal(sent.filter((item) => item === '43:first').length, 1);
+  assert.equal(sent.filter((item) => item === '42:first').length, 2);
+  assert.deepEqual(await readTelegramOutbox(join(root, 'outbox'), join(root, 'sessions')), []);
+});
+
+test('Telegram delivery snapshot excludes new grants and skips revoked recipients after restart', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-recipient-revoke-'));
+  await readyDeliveryNotification(root, 'turn-1', 'finished');
+  const configPath = join(root, 'config.json');
+  await writeFile(configPath, JSON.stringify({ enabled: true, authorized_user_ids: ['41', '42'] }));
+  const sent = [];
+  const first = notificationDeliveryGateway(root, async (id) => {
+    sent.push(id);
+    if (id === '42') throw Object.assign(new Error('unavailable'), { code: 'telegram_unavailable' });
+  });
+  first.paths.gatewayConfig = configPath;
+  await drainGatewayNotifications(first);
+  assert.deepEqual(sent, ['41', '42']);
+  await writeFile(configPath, JSON.stringify({ enabled: true, authorized_user_ids: ['41', '43'] }));
+  const restarted = notificationDeliveryGateway(root, async (id) => { sent.push(id); });
+  restarted.paths.gatewayConfig = configPath;
+  await drainGatewayNotifications(restarted);
+  assert.deepEqual(sent, ['41', '42']);
+  assert.deepEqual(await readTelegramOutbox(join(root, 'outbox'), join(root, 'sessions')), []);
+});
+
+test('failed recipient checkpoint preserves ready notification and limits replay to uncheckpointed recipient', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-recipient-checkpoint-'));
+  await readyDeliveryNotification(root, 'turn-1', 'finished');
+  const sent = [];
+  const send = async (id) => { sent.push(id); };
+  const gateway = notificationDeliveryGateway(root, send);
+  await drainGatewayNotifications(gateway, { persistState: async () => {
+    throw Object.assign(new Error('disk failure'), { code: 'EIO' });
+  } });
+  assert.deepEqual(sent, ['41']);
+  assert.equal((await readTelegramOutbox(join(root, 'outbox'), join(root, 'sessions'))).length, 1);
+  await drainGatewayNotifications(notificationDeliveryGateway(root, send));
+  assert.deepEqual(sent, ['41', '41', '42', '43']);
+  assert.deepEqual(await readTelegramOutbox(join(root, 'outbox'), join(root, 'sessions')), []);
+});
+
+test('revoking every snapshotted Telegram recipient completes without sending to a new grant', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-revoke-all-'));
+  await readyDeliveryNotification(root, 'turn-1', 'finished');
+  const sent = [];
+  await drainGatewayNotifications(notificationDeliveryGateway(root, async (id) => {
+    sent.push(id);
+    throw Object.assign(new Error('unavailable'), { code: 'telegram_unavailable' });
+  }, ['41', '42']));
+  const restarted = notificationDeliveryGateway(root, async (id) => { sent.push(id); }, ['43']);
+  await drainGatewayNotifications(restarted);
+  assert.deepEqual(sent, ['41', '42']);
+  assert.deepEqual(await readTelegramOutbox(join(root, 'outbox'), join(root, 'sessions')), []);
+});
+
+test('Telegram notification with an empty authorized audience settles without sending or retaining backlog', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-empty-audience-'));
+  await readyDeliveryNotification(root, 'turn-1', 'finished');
+  const events = [];
+  const gateway = notificationDeliveryGateway(root, async () => {
+    assert.fail('an empty authorized audience must not receive a notification');
+  }, []);
+  gateway.logger.record = (event) => { events.push(event); };
+  await drainGatewayNotifications(gateway);
+  assert.deepEqual(await readTelegramOutbox(join(root, 'outbox'), join(root, 'sessions')), []);
+  assert(events.some((event) => event.type === 'gateway_notification_skipped' && event.revoked_count === 0));
+});
+
+test('malformed Telegram recipient progress preserves evidence and does not block another item', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-recipient-malformed-'));
+  await readyDeliveryNotification(root, 'turn-1', 'first');
+  await readyDeliveryNotification(root, 'turn-2', 'second');
+  const firstId = createHash('sha256').update('session-main\0turn-1').digest('hex');
+  const statePath = join(root, 'outbox', 'delivery', `${firstId}.json`);
+  await mkdir(join(root, 'outbox', 'delivery'));
+  await writeFile(statePath, '{');
+  const sent = [];
+  const gateway = notificationDeliveryGateway(root, async (_id, message) => { sent.push(message); }, ['41']);
+  await drainGatewayNotifications(gateway);
+  assert.equal(await readFile(statePath, 'utf8'), '{');
+  assert.deepEqual(sent.map((message) => message.endsWith('second')), [true]);
+  assert.equal((await readTelegramOutbox(join(root, 'outbox'), join(root, 'sessions'))).length, 1);
+});
+
+test('Telegram recipient progress rejects a non-object audience instead of acknowledging it', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-recipient-shape-'));
+  await readyDeliveryNotification(root, 'turn-1', 'finished');
+  const id = createHash('sha256').update('session-main\0turn-1').digest('hex');
+  const statePath = join(root, 'outbox', 'delivery', `${id}.json`);
+  await mkdir(join(root, 'outbox', 'delivery'));
+  const sent = [];
+  const gateway = notificationDeliveryGateway(root, async (chatId) => { sent.push(chatId); }, ['41']);
+  for (const recipients of [null, []]) {
+    await writeFile(statePath, JSON.stringify({ version: 1, notification_id: id, next_recipient: 0, recipients }));
+    await drainGatewayNotifications(gateway);
+    assert.deepEqual(sent, []);
+    assert.equal((await readTelegramOutbox(join(root, 'outbox'), join(root, 'sessions'))).length, 1);
+  }
+});
+
+test('Telegram recipient retry cursor reaches later recipients after four earlier failures and restart', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-recipient-fairness-'));
+  await readyDeliveryNotification(root, 'turn-1', 'finished');
+  const ids = ['41', '42', '43', '44', '45', '46'];
+  const sent = [];
+  const send = async (chatId) => {
+    sent.push(chatId);
+    if (ids.slice(0, 4).includes(chatId)) throw Object.assign(new Error('unavailable'), { code: 'telegram_unavailable' });
+  };
+  await drainGatewayNotifications(notificationDeliveryGateway(root, send, ids));
+  assert.deepEqual(sent, ids.slice(0, 4));
+  await drainGatewayNotifications(notificationDeliveryGateway(root, send, ids));
+  assert.deepEqual(sent, [...ids.slice(0, 4), '45', '46', '41', '42']);
+  assert.equal(sent.filter((id) => id === '45').length, 1);
+  assert.equal(sent.filter((id) => id === '46').length, 1);
+  assert.equal((await readTelegramOutbox(join(root, 'outbox'), join(root, 'sessions'))).length, 1);
+});
+
+test('Telegram delivery sidecar cleanup rotates through bounded orphan batches', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-recipient-orphans-'));
+  const directory = join(root, 'outbox', 'delivery');
+  await mkdir(directory, { recursive: true });
+  for (let index = 0; index < 40; index += 1) {
+    await writeFile(join(directory, `${index.toString(16).padStart(64, '0')}.json`), '{}');
+  }
+  const gateway = notificationDeliveryGateway(root, async () => undefined);
+  await drainGatewayNotifications(gateway);
+  assert.equal((await readdir(directory)).length, 8);
+  await drainGatewayNotifications(gateway);
+  assert.deepEqual(await readdir(directory), []);
+});
+
+test('bounded Telegram recipient delivery rotates through more ready items than one drain can send', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-delivery-rotation-'));
+  const queue = new TelegramNotificationQueue(join(root, 'outbox'), 'session-main');
+  const store = new JournalStore(join(root, 'sessions'), 'session-main');
+  await store.open();
+  for (let index = 0; index < 40; index += 1) {
+    const turnId = `turn-${index}`;
+    await queue.schedule(turnId, `message-${index}`);
+    await store.append('turn_outcome', { turn_id: turnId, outcome: 'completed' });
+    await queue.terminal({ type: 'turn_result', turn_id: turnId, outcome: 'completed' });
+  }
+  await store.close();
+  const sent = [];
+  const gateway = notificationDeliveryGateway(root, async (_id, message) => { sent.push(message); }, ['41']);
+  await drainGatewayNotifications(gateway);
+  assert.equal(sent.length, 32);
+  await drainGatewayNotifications(gateway);
+  assert.equal(sent.length, 40);
+  assert.deepEqual(await readTelegramOutbox(join(root, 'outbox'), join(root, 'sessions')), []);
 });
