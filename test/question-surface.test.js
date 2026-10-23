@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -53,6 +53,46 @@ test('interactive surfaces offer the question tool and headless surfaces do not'
   assert.ok(!headlessNames.includes('question'));
   assert.throws(() => headless.decideQuestion({ request_id: 'q', question_token: 'que_x', answers: [['a']] }, 'op'),
     { code: 'interactive_decision_forbidden' });
+});
+
+test('explicit question-broker opt-out leaves no unreachable question tool', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-question-disabled-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const engine = new SessionEngine({
+    config: manifest(root), surface: 'interactive_tui', questionBroker: false,
+    providerFactory: once(askingProvider()), output: async () => undefined,
+  });
+  await engine.initialize();
+  assert.equal(engine.questionBroker, null);
+  assert.ok(!engine.tools.providerDefinitions('release').some((item) => item.function.name === 'question'));
+  assert.throws(() => engine.decideQuestion({ request_id: 'q', question_token: 'que_x', answers: [['a']] }, 'op'),
+    { code: 'interactive_decision_forbidden' });
+});
+
+test('a missing execution manifest leaves tools disabled without a startup TypeError', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-missing-manifest-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const engine = new SessionEngine({
+    config: { ...manifest(root), executionManifest: undefined },
+    providerFactory: once(askingProvider()), output: async () => undefined,
+  });
+  await engine.initialize();
+  assert.equal(engine.tools.enabled, false);
+  assert.deepEqual(engine.tools.providerDefinitions('release'), []);
+});
+
+test('malformed execution capability stubs never enable tools', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-malformed-capabilities-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  for (const allowedCapabilities of ['tools', { includes: () => true }, null]) {
+    const engine = new SessionEngine({
+      config: { ...manifest(root), executionManifest: { allowedCapabilities } },
+      providerFactory: once(askingProvider()), output: async () => undefined,
+    });
+    await engine.initialize();
+    assert.equal(engine.tools.enabled, false);
+    assert.deepEqual(engine.tools.providerDefinitions('release'), []);
+  }
 });
 
 test('a mid-turn question pauses the tool call, resumes on the real answer, and continues the turn', async () => {

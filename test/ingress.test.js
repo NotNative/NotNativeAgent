@@ -66,3 +66,28 @@ test('a live ingress continues accepting more controls than its duplicate capaci
   }
   assert.equal(attempts, 16);
 });
+
+test('missing or malformed execution capabilities deny steering without invoking the engine', async () => {
+  for (const executionManifest of [undefined, {}, { allowedCapabilities: 'steering' },
+    { allowedCapabilities: { includes: () => true } }]) {
+    let invoked = false;
+    const ingress = new CanonicalIngress({
+      config: { executionManifest },
+      async steer() { invoked = true; return { accepted: true }; },
+    });
+    await assert.rejects(ingress.submit({ version: '1.0', type: 'steer',
+      request_id: 'steer-malformed', content: 'continue' }), { code: 'capability_not_allowed' });
+    assert.equal(invoked, false);
+  }
+});
+
+test('a local session without a host execution manifest can still steer', async () => {
+  let invoked = false;
+  const ingress = new CanonicalIngress({
+    config: { executionManifest: null },
+    async steer() { invoked = true; return { accepted: true }; },
+  });
+  assert.deepEqual(await ingress.submit({ version: '1.0', type: 'steer',
+    request_id: 'steer-local', content: 'continue' }), { accepted: true });
+  assert.equal(invoked, true);
+});

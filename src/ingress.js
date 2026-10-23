@@ -57,7 +57,9 @@ export class CanonicalIngress {
   async #route(command, principal) {
     if (command.type === 'submit') return this.engine.submit(command, principal);
     if (command.type === 'steer') {
-      if (this.engine.config.executionManifest?.allowedCapabilities.includes('steering') === false) {
+      const manifest = this.engine.config.executionManifest;
+      if (manifest !== null && (!Array.isArray(manifest?.allowedCapabilities)
+        || !manifest.allowedCapabilities.includes('steering'))) {
         throw new ContractError('capability_not_allowed', 'the host execution manifest does not allow steering');
       }
       return this.engine.steer(command, principal);

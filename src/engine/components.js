@@ -307,7 +307,8 @@ function outputTelemetry(record) {
 }
 
 function toolsAllowed(executionManifest) {
-  return executionManifest === null || executionManifest.allowedCapabilities.includes('tools');
+  return executionManifest === null || (Array.isArray(executionManifest?.allowedCapabilities)
+    && executionManifest.allowedCapabilities.includes('tools'));
 }
 
 function permissionBroker(engine, options) {
@@ -323,6 +324,7 @@ function permissionBroker(engine, options) {
 }
 
 function questionBroker(engine, options) {
+  if (options.questionBroker === false) return null;
   if (options.questionBroker) return options.questionBroker;
   if (engine.surface === 'nnd') return nndQuestionBroker(engine);
   if (engine.surface !== 'interactive_tui') return null;

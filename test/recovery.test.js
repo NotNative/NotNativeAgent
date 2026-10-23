@@ -76,6 +76,26 @@ test('a host without steering returns terminal bounded recovery instead of an at
   assert.equal(records[0].type, 'attention_unavailable');
 });
 
+test('missing or malformed execution capabilities do not enter an unreachable steering wait', async () => {
+  for (const executionManifest of [undefined, {}, { allowedCapabilities: 'steering' },
+    { allowedCapabilities: { includes: () => true } }]) {
+    const records = [];
+    const result = await awaitEngineAttention({
+      config: { executionManifest }, transcript: [],
+      reliability: {
+        exhaustionDetail: () => ({}), exhaustionText: () => 'Recovery stopped.',
+      },
+    }, {
+      recovery: {}, unresolvedToolFailures: [], turnId: 'turn-1', stepId: 'step-1',
+      controller: new AbortController(),
+    }, { category: 'tool_no_progress' }, {
+      persist: async (type) => records.push(type), consumeSteering: async () => [],
+    });
+    assert.equal(result.terminal, true);
+    assert.deepEqual(records, ['attention_unavailable']);
+  }
+});
+
 test('possible-effect failures persist across a success elsewhere while no-effect failures never bind completion', () => {
   const active = { toolFailureLedger: new Map() };
   const item = (path, status, effect = 'none') => ({
