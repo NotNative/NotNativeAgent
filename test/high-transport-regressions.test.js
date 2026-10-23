@@ -57,13 +57,17 @@ test('request metadata rejects malformed containers with a typed contract', () =
   }
 });
 
-test('transient outbox reads preserve notification files and expose the failure', async () => {
+test('transient outbox reads preserve notification files and report the failure', async () => {
   const text = await readFile(new URL('../src/notifications/telegram.js', import.meta.url), 'utf8');
-  let deletions = 0;
-  const read = vm.runInNewContext(`${text.slice(text.indexOf('export async function readTelegramOutbox('), text.indexOf('export async function acknowledgeTelegramNotification(')).replace('export ', '')}\nreadTelegramOutbox`, {
+  let deletions = 0; const failures = [];
+  const read = vm.runInNewContext(`${text.slice(text.indexOf('export async function readTelegramOutbox('), text.indexOf('export async function reconcileTelegramNotifications(')).replace('export ', '')}\nreadTelegramOutbox`, {
     readdir: async () => ['abc.json'], join: (...parts) => parts.join('/'), MAX_OUTBOX_BATCH: 128, MAX_OUTBOX_FILE_BYTES: 16384,
-    stat: async () => { throw Object.assign(new Error('temporary read failure'), { code: 'EIO' }); },
+    assertNotificationDirectory: async () => undefined,
+    isolatableNotificationFailure: (error) => error?.code === 'EIO',
+    lstat: async () => { throw Object.assign(new Error('temporary read failure'), { code: 'EIO' }); },
     unlink: async () => { deletions += 1; },
   });
-  await assert.rejects(read('/outbox'), { code: 'EIO' }); assert.equal(deletions, 0);
+  assert.equal((await read('/outbox', null, { onFileError: (name, code) => failures.push({ name, code }) })).length, 0);
+  assert.deepEqual(failures, [{ name: 'abc.json', code: 'EIO' }]);
+  assert.equal(deletions, 0);
 });

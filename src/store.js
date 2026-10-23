@@ -460,7 +460,7 @@ function encodeRecords(records) {
   });
 }
 
-function journalFormat(record) {
+export function journalFormat(record) {
   if (!record || typeof record !== 'object') return null;
   const format = record.format ?? 0;
   if (Number.isInteger(format) && format > 1) {
@@ -490,7 +490,7 @@ function parseRecord(line) {
   }
 }
 
-function digestWithoutHash(record) {
+export function digestWithoutHash(record) {
   const { hash: _hash, ...base } = record;
   return digest(base);
 }

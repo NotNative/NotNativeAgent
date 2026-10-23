@@ -111,7 +111,10 @@ delivery and can appear twice if delivery succeeds immediately before a gateway 
 Root interactive NNA sessions expose `notification_telegram`. When the operator asks to
 be notified after work finishes, the tool registers a harness-owned terminal-event
 notification. The message enters the local gateway outbox only when that turn reaches a
-terminal outcome. Delivery does not inject content into either conversation. If the
+terminal outcome. The tool durably stages the request before reporting success; after a
+restart, the gateway verifies the turn outcome in the session journal and promotes a
+still-pending request into the outbox. Scheduling requires a durable session whose journal
+is visible to the gateway. Delivery does not inject content into either conversation. If the
 originating Console conversation is still available, Telegram includes an inline
 **Attach** button.
 

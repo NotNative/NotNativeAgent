@@ -2,8 +2,9 @@
 import test from 'node:test';
 import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
+import { createHash } from 'node:crypto';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -14,7 +15,8 @@ import { gatewayCompactionMessage, gatewaySessionId, TelegramGateway } from '../
 import { AttachedReplayState, loadGatewayState } from '../src/gateway/attached-replay.js';
 import { runGatewayContextAction } from '../src/gateway/context-actions.js';
 import { ConsoleSessionBroker, ConsoleSessionDirectory } from '../src/session-broker.js';
-import { readTelegramOutbox, TelegramNotificationQueue } from '../src/notifications/telegram.js';
+import { readTelegramOutbox, reconcileTelegramNotifications, TelegramNotificationQueue } from '../src/notifications/telegram.js';
+import { JournalStore } from '../src/store.js';
 import { commandDefinition } from '../src/tui/commands.js';
 import { configOverlay, gatewayOverlay, overlayCommandDraft } from '../src/tui/overlays.js';
 import { gatewayShutdownDiagnostic, runGatewayCommand, runtimeStatus } from '../src/gateway-cli.js';
@@ -1308,23 +1310,236 @@ test('replayed attached update before route pin with vanished target never enter
   assert.match(sent[0], /not sent elsewhere/u);
 });
 
+async function terminalJournal(root, sessionId, turnId, outcome = 'completed') {
+  const store = new JournalStore(root, sessionId);
+  await store.open();
+  await store.append('turn_outcome', { turn_id: turnId, outcome });
+  await store.close();
+}
+
 test('Telegram notification queue publishes only at terminal turn state', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-telegram-outbox-'));
-  const queue = new TelegramNotificationQueue(root, 'session-main');
-  queue.schedule('turn-1', 'The audit is complete.');
-  assert.deepEqual(await readTelegramOutbox(root), []);
+  const sessions = join(root, 'sessions');
+  const outbox = join(root, 'outbox');
+  const queue = new TelegramNotificationQueue(outbox, 'session-main');
+  await queue.schedule('turn-1', 'The audit is complete.');
+  assert.deepEqual(await readTelegramOutbox(outbox, sessions), []);
+  await terminalJournal(sessions, 'session-main', 'turn-1');
   await queue.terminal({ type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
-  const [item] = await readTelegramOutbox(root);
+  const [item] = await readTelegramOutbox(outbox, sessions);
   assert.equal(item.message, 'The audit is complete.');
   assert.equal(item.session_id, 'session-main');
   assert.equal(item.outcome, 'completed');
 });
 
+test('Telegram notification intent survives restart and only reconciles after a verified outcome', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-reconcile-'));
+  const outbox = join(root, 'outbox');
+  const sessions = join(root, 'sessions');
+  const queue = new TelegramNotificationQueue(outbox, 'session-main');
+  await queue.schedule('turn-1', 'The audit is complete.');
+  assert.equal(await reconcileTelegramNotifications(outbox, sessions), 0);
+  assert.deepEqual(await readTelegramOutbox(outbox, sessions), []);
+  await terminalJournal(sessions, 'session-main', 'turn-1', 'failed');
+  assert.equal(await reconcileTelegramNotifications(outbox, sessions), 1);
+  assert.equal(await reconcileTelegramNotifications(outbox, sessions), 0);
+  const [item] = await readTelegramOutbox(outbox, sessions);
+  assert.equal(item.outcome, 'failed');
+  assert.equal(item.message, 'The audit is complete.');
+});
+
+test('malformed Telegram intent cannot block valid terminal notifications', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-malformed-intent-'));
+  const outbox = join(root, 'outbox');
+  const sessions = join(root, 'sessions');
+  const queue = new TelegramNotificationQueue(outbox, 'session-main');
+  await queue.schedule('turn-1', 'Finished safely.');
+  await terminalJournal(sessions, 'session-main', 'turn-1');
+  const invalid = join(outbox, 'pending', `${'0'.repeat(64)}.json`);
+  await writeFile(invalid, '{broken');
+  let invalidCount = 0;
+  assert.equal(await reconcileTelegramNotifications(outbox, sessions, { onInvalid: () => { invalidCount += 1; } }), 1);
+  assert.equal(invalidCount, 1);
+  assert.equal((await readTelegramOutbox(outbox, sessions))[0].message, 'Finished safely.');
+  assert.equal(await readFile(invalid, 'utf8'), '{broken');
+});
+
+test('ready Telegram notifications rotate past a batch of unavailable sources', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-outbox-batch-'));
+  const outbox = join(root, 'outbox');
+  const sessions = join(root, 'sessions');
+  await mkdir(outbox);
+  for (let index = 0; index < 128; index += 1) {
+    const sessionId = 'missing-session';
+    const turnId = `missing-${index}`;
+    const id = createHash('sha256').update(`${sessionId}\0${turnId}`).digest('hex');
+    await writeFile(join(outbox, `${id}.json`), JSON.stringify({
+      version: 2, id, session_id: sessionId, turn_id: turnId, message: 'Awaiting source',
+    }));
+  }
+  const id = 'f'.repeat(64);
+  await writeFile(join(outbox, `${id}.json`), JSON.stringify({
+    version: 1, id, session_id: 'legacy-session', outcome: 'completed', message: 'Legacy delivery',
+  }));
+  assert.deepEqual(await readTelegramOutbox(outbox, sessions, { offset: 0 }), []);
+  const items = await readTelegramOutbox(outbox, sessions, { offset: 128 });
+  assert.equal(items.length, 1);
+  assert.equal(items[0].message, 'Legacy delivery');
+});
+
+test('pending Telegram reconciliation rotates past unfinished turns', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-pending-batch-'));
+  const outbox = join(root, 'outbox');
+  const sessions = join(root, 'sessions');
+  const queue = new TelegramNotificationQueue(outbox, 'session-main');
+  let latest = { id: '', turnId: '' };
+  for (let index = 0; index < 129; index += 1) {
+    const turnId = `turn-${index}`;
+    await queue.schedule(turnId, 'Done');
+    const id = createHash('sha256').update(`session-main\0${turnId}`).digest('hex');
+    if (id > latest.id) latest = { id, turnId };
+  }
+  await terminalJournal(sessions, 'session-main', latest.turnId);
+  assert.equal(await reconcileTelegramNotifications(outbox, sessions, { offset: 0 }), 0);
+  assert.equal(await reconcileTelegramNotifications(outbox, sessions, { offset: 128 }), 1);
+  assert.equal((await readTelegramOutbox(outbox, sessions))[0].message, 'Done');
+});
+
+test('Telegram notification scheduling fails clearly without durable recovery', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-ephemeral-'));
+  const queue = new TelegramNotificationQueue(root, 'session-main', { durable: false });
+  await assert.rejects(queue.schedule('turn-1', 'Done'), { code: 'notification_recovery_unavailable' });
+  const unavailable = new TelegramNotificationQueue(root, 'session-main', { recoveryAvailable: false });
+  await assert.rejects(unavailable.schedule('turn-1', 'Done'), { code: 'notification_recovery_unavailable' });
+  assert.deepEqual(await readTelegramOutbox(root, join(root, 'sessions')), []);
+});
+
+test('Telegram notification queue rejects a redirected pending directory', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-pending-link-'));
+  const outbox = join(root, 'outbox');
+  const outside = join(root, 'outside');
+  await mkdir(outbox);
+  await mkdir(outside);
+  try { await symlink(outside, join(outbox, 'pending'), 'junction'); }
+  catch (error) {
+    if (['EPERM', 'EACCES', 'ENOTSUP'].includes(error?.code)) { context.skip('directory links are unavailable'); return; }
+    throw error;
+  }
+  const queue = new TelegramNotificationQueue(outbox, 'session-main');
+  await assert.rejects(queue.schedule('turn-1', 'Done'), { code: 'notification_path_unsafe' });
+  await assert.rejects(reconcileTelegramNotifications(outbox, join(root, 'sessions')), { code: 'notification_path_unsafe' });
+});
+
+test('Telegram notification reconciliation rejects a redirected session journal directory', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-session-link-'));
+  const outbox = join(root, 'outbox');
+  const outside = join(root, 'outside');
+  await mkdir(outside);
+  const queue = new TelegramNotificationQueue(outbox, 'session-main');
+  await queue.schedule('turn-1', 'Done');
+  try { await symlink(outside, join(root, 'sessions'), 'junction'); }
+  catch (error) {
+    if (['EPERM', 'EACCES', 'ENOTSUP'].includes(error?.code)) { context.skip('directory links are unavailable'); return; }
+    throw error;
+  }
+  await assert.rejects(reconcileTelegramNotifications(outbox, join(root, 'sessions')), { code: 'notification_path_unsafe' });
+});
+
+async function corruptTerminalJournal(root, sessionId) {
+  const path = join(root, `${sessionId}.journal.ndjson`);
+  const lines = (await readFile(path, 'utf8')).split('\n');
+  const record = JSON.parse(lines[0]);
+  record.payload.outcome = 'corrupted';
+  lines[0] = JSON.stringify(record);
+  await writeFile(path, lines.join('\n'));
+}
+
+test('a corrupt notification source does not block another pending session', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-pending-source-'));
+  const outbox = join(root, 'outbox');
+  const sessions = join(root, 'sessions');
+  const bad = new TelegramNotificationQueue(outbox, 'bad-session');
+  const good = new TelegramNotificationQueue(outbox, 'good-session');
+  await bad.schedule('bad-turn', 'Bad source');
+  await good.schedule('good-turn', 'Good source');
+  await terminalJournal(sessions, 'bad-session', 'bad-turn');
+  await terminalJournal(sessions, 'good-session', 'good-turn');
+  await corruptTerminalJournal(sessions, 'bad-session');
+  const failures = [];
+  assert.equal(await reconcileTelegramNotifications(outbox, sessions, {
+    onSourceError: (sessionId, code) => failures.push({ sessionId, code }),
+  }), 1);
+  assert.deepEqual(failures, [{ sessionId: 'bad-session', code: 'notification_journal_invalid' }]);
+  assert.equal((await readTelegramOutbox(outbox, sessions))[0].message, 'Good source');
+  const badId = createHash('sha256').update('bad-session\0bad-turn').digest('hex');
+  assert.equal(JSON.parse(await readFile(join(outbox, 'pending', `${badId}.json`), 'utf8')).message, 'Bad source');
+});
+
+test('a corrupt ready notification source does not block another ready session', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-ready-source-'));
+  const outbox = join(root, 'outbox');
+  const sessions = join(root, 'sessions');
+  const bad = new TelegramNotificationQueue(outbox, 'bad-session');
+  const good = new TelegramNotificationQueue(outbox, 'good-session');
+  await bad.schedule('bad-turn', 'Bad source');
+  await good.schedule('good-turn', 'Good source');
+  await terminalJournal(sessions, 'bad-session', 'bad-turn');
+  await terminalJournal(sessions, 'good-session', 'good-turn');
+  await bad.terminal({ turn_id: 'bad-turn', outcome: 'completed' });
+  await good.terminal({ turn_id: 'good-turn', outcome: 'completed' });
+  await corruptTerminalJournal(sessions, 'bad-session');
+  const failures = [];
+  const items = await readTelegramOutbox(outbox, sessions, {
+    onSourceError: (sessionId, code) => failures.push({ sessionId, code }),
+  });
+  assert.deepEqual(items.map((item) => item.message), ['Good source']);
+  assert.deepEqual(failures, [{ sessionId: 'bad-session', code: 'notification_journal_invalid' }]);
+  const badId = createHash('sha256').update('bad-session\0bad-turn').digest('hex');
+  assert.equal(JSON.parse(await readFile(join(outbox, `${badId}.json`), 'utf8')).message, 'Bad source');
+});
+
+test('a failed ready file read does not block another ready notification', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-ready-file-'));
+  const outbox = join(root, 'outbox');
+  const sessions = join(root, 'sessions');
+  const good = new TelegramNotificationQueue(outbox, 'good-session');
+  await good.schedule('good-turn', 'Good source');
+  await terminalJournal(sessions, 'good-session', 'good-turn');
+  await good.terminal({ turn_id: 'good-turn', outcome: 'completed' });
+  await mkdir(join(outbox, `${'0'.repeat(64)}.json`));
+  const failures = [];
+  const items = await readTelegramOutbox(outbox, sessions, {
+    onFileError: (name, code) => failures.push({ name, code }),
+  });
+  assert.deepEqual(items.map((item) => item.message), ['Good source']);
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0].name, `${'0'.repeat(64)}.json`);
+  assert.ok(['EISDIR', 'EPERM', 'EACCES'].includes(failures[0].code));
+});
+
+test('notification journal cancellation is not converted into a skipped source', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-source-cancel-'));
+  const outbox = join(root, 'outbox');
+  const sessions = join(root, 'sessions');
+  const queue = new TelegramNotificationQueue(outbox, 'session-main');
+  await queue.schedule('turn-1', 'Done');
+  await terminalJournal(sessions, 'session-main', 'turn-1');
+  const controller = new AbortController();
+  controller.abort();
+  let skipped = false;
+  await assert.rejects(reconcileTelegramNotifications(outbox, sessions, {
+    signal: controller.signal, onSourceError: () => { skipped = true; },
+  }), (error) => error?.name === 'AbortError' || error?.code === 'ABORT_ERR');
+  assert.equal(skipped, false);
+});
+
 test('gateway delivers terminal notifications out of band with an attach control', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-telegram-delivery-'));
   const outbox = join(root, 'outbox');
+  const sessions = join(root, 'sessions');
   const queue = new TelegramNotificationQueue(outbox, 'session-main');
-  queue.schedule('turn-1', 'Finished the requested audit.');
+  await queue.schedule('turn-1', 'Finished the requested audit.');
+  await terminalJournal(sessions, 'session-main', 'turn-1');
   await queue.terminal({ type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
   let sentResolve; const delivered = new Promise((resolve) => { sentResolve = resolve; });
   const sent = [];
@@ -1338,7 +1553,7 @@ test('gateway delivers terminal notifications out of band with an attach control
   };
   const target = { id: 'session-main', targetId: 'target123', alias: 'Main', summary: 'Audit', brokerId: 'broker', broker: {} };
   const gateway = new TelegramGateway({
-    api, paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), telegramOutbox: outbox },
+    api, paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions, reviewerLedger: join(root, 'reviewer'), telegramOutbox: outbox },
     engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
     config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
     sessionDirectory: { list: async () => [target] },
@@ -1353,8 +1568,10 @@ test('gateway delivers terminal notifications out of band with an attach control
 test('gateway acknowledges notifications after their source session closes', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-telegram-closed-source-'));
   const outbox = join(root, 'outbox');
+  const sessions = join(root, 'sessions');
   const queue = new TelegramNotificationQueue(outbox, 'closed-session');
-  queue.schedule('turn-1', 'The completed turn is ready.');
+  await queue.schedule('turn-1', 'The completed turn is ready.');
+  await terminalJournal(sessions, 'closed-session', 'turn-1');
   await queue.terminal({ type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
   const sent = [];
   const gateway = new TelegramGateway({
@@ -1366,7 +1583,7 @@ test('gateway acknowledges notifications after their source session closes', asy
       },
       async sendMessage(chatId, text, _signal, options) { sent.push({ chatId, text, options }); },
     },
-    paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),
+    paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions,
       reviewerLedger: join(root, 'reviewer'), telegramOutbox: outbox },
     engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
     config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
@@ -1375,7 +1592,7 @@ test('gateway acknowledges notifications after their source session closes', asy
   const running = gateway.run();
   try {
     await waitUntil(() => sent.length === 1);
-    await waitUntil(async () => (await readTelegramOutbox(outbox)).length === 0);
+    await waitUntil(async () => (await readTelegramOutbox(outbox, sessions)).length === 0);
   } finally {
     await gateway.shutdown();
     await running;

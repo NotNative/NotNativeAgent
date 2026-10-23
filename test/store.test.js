@@ -1,11 +1,52 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { appendFile, mkdir, mkdtemp, open, readFile, readdir, rm, stat, truncate, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, mkdtemp, open, readFile, readdir, rm, stat, symlink, truncate, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { JournalStore, readJournalPage, readJournalPrefix, recoverControlRecords, recoverJournal } from '../src/store.js';
+import { readVerifiedTurnOutcomes } from '../src/persistence/notification-journal.js';
+
+test('streamed turn-outcome scan finds an old outcome beyond a bounded transcript tail', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-journal-notification-scan-'));
+  try {
+    const store = new JournalStore(root, 'notification-scan');
+    await store.open();
+    await store.append('turn_outcome', { turn_id: 'old-turn', outcome: 'completed' });
+    for (let index = 0; index < 16; index += 1) await store.append('message', { index });
+    await store.close();
+    assert.equal((await recoverJournal(store.path, { tailLimit: 4 })).records.some((record) => record.payload?.turn_id === 'old-turn'), false);
+    const outcomes = await readVerifiedTurnOutcomes(store.path, { turnIds: new Set(['old-turn']) });
+    assert.equal(outcomes.get('old-turn'), 'completed');
+    const lines = (await readFile(store.path, 'utf8')).split('\n');
+    const changed = JSON.parse(lines[0]);
+    changed.payload.outcome = 'failed';
+    lines[0] = JSON.stringify(changed);
+    await writeFile(store.path, lines.join('\n'), 'utf8');
+    await assert.rejects(readVerifiedTurnOutcomes(store.path, { turnIds: new Set(['old-turn']) }), {
+      code: 'notification_journal_invalid',
+    });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('streamed turn-outcome scan rejects a redirected journal file', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-journal-notification-link-'));
+  const source = join(root, 'source.journal.ndjson');
+  const link = join(root, 'link.journal.ndjson');
+  const store = new JournalStore(root, 'source');
+  await store.open();
+  await store.append('turn_outcome', { turn_id: 'turn-1', outcome: 'completed' });
+  await store.close();
+  try { await symlink(source, link, 'file'); }
+  catch (error) {
+    if (['EPERM', 'EACCES', 'ENOTSUP'].includes(error?.code)) { context.skip('file links are unavailable'); return; }
+    throw error;
+  }
+  await assert.rejects(readVerifiedTurnOutcomes(link, { turnIds: new Set(['turn-1']) }), {
+    code: 'notification_journal_path_unsafe',
+  });
+});
 import { TuiProjection } from '../src/experience/projection.js';
 import { TuiRenderer } from '../src/tui/renderer.js';
 import { loadEarlierTranscriptPage } from '../src/experience/history.js';

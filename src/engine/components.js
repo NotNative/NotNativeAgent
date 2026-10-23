@@ -26,7 +26,7 @@ import { SkillRegistry } from '../skill-registry.js';
 import { GovernanceEngine } from '../governance-engine.js';
 import { GroundingPolicy } from '../governance/grounding-policy.js';
 import { ContractError } from '../ids.js';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { ConversationWork } from '../conversation-work.js';
 import { TelegramNotificationQueue } from '../notifications/telegram.js';
 import { CredentialResolver } from '../credential-bindings.js';
@@ -226,7 +226,18 @@ function installNotifications(engine, options) {
   if (engine.surface !== 'interactive_tui' || engine.config.executionManifest !== null) return;
   engine.telegramNotifications = options.telegramNotifications ?? new TelegramNotificationQueue(
     engine.dataPaths.telegramOutbox ?? userDataPaths().telegramOutbox, engine.sessionId,
+    {
+      durable: engine.config.persistence === 'durable',
+      recoveryAvailable: sameRecoveryRoot(engine.storeRoot, engine.dataPaths.sessions ?? userDataPaths().sessions),
+    },
   );
+}
+
+function sameRecoveryRoot(left, right) {
+  const normalizedLeft = resolve(left);
+  const normalizedRight = resolve(right);
+  return process.platform === 'win32'
+    ? normalizedLeft.toLowerCase() === normalizedRight.toLowerCase() : normalizedLeft === normalizedRight;
 }
 
 function browserToolOptions(engine, options, imageObserver) {

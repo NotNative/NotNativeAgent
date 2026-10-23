@@ -8,7 +8,7 @@ import { newId } from '../ids.js';
 import { StructuredLog } from '../structured-log.js';
 import { FairScheduler } from '../provider/fair-scheduler.js';
 import { ConsoleSessionDirectory } from '../session-broker.js';
-import { acknowledgeTelegramNotification, readTelegramOutbox } from '../notifications/telegram.js';
+import { drainGatewayNotifications } from './telegram-notifications.js';
 import { persistAtomicJson } from '../persistence/atomic-json.js';
 import { attachedSubmissionReply, turnFallback } from './attached-submission.js';
 import { AttachedReplayState, gatewayStateBytes, loadGatewayState, MAX_GATEWAY_STATE_BYTES, retainedUpdateError } from './attached-replay.js';
@@ -34,6 +34,9 @@ export class TelegramGateway {
     this.pendingClears = new Map();
     this.queues = new Map();
     this.compactionNotices = new Map();
+    this.notificationCursor = 0;
+    this.notificationIntentCursor = 0;
+    this.invalidNotificationIntents = new Set();
     this.offset = 0;
     this.inbox = [];
     this.activeUpdates = new Set();
@@ -113,6 +116,7 @@ export class TelegramGateway {
       this.pendingClears.clear();
       this.queues.clear();
       this.compactionNotices.clear();
+      this.invalidNotificationIntents.clear();
       this.logger.record({ type: 'gateway_stopped', status: 'completed' });
       await this.logger.flush();
     })();
@@ -429,23 +433,7 @@ export class TelegramGateway {
   }
 
   async #drainNotifications() {
-    const items = await readTelegramOutbox(this.paths.telegramOutbox);
-    if (items.length === 0) return;
-    const catalog = await this.sessionDirectory.list();
-    for (const item of items) {
-      const source = catalog.find((target) => target.id === item.session_id);
-      for (const chatId of this.config.authorized_user_ids) {
-        const attached = this.attachments.get(String(chatId));
-        const options = source && attached && attached.targetId === source.targetId ? attachedControls(source.alias)
-          : source ? { replyMarkup: { inline_keyboard: [[
-            { text: `Attach ${source.alias}`, callback_data: `nna:a:${source.targetId}` },
-            { text: 'Sessions', callback_data: 'nna:s' },
-          ]] } } : {};
-        await this.api.sendMessage(String(chatId), `NNA notification (${item.outcome}):\n${item.message}`, this.controller.signal, options);
-      }
-      await acknowledgeTelegramNotification(item);
-      this.logger.record({ type: 'gateway_notification_delivered', outcome: 'completed', session_id: item.session_id });
-    }
+    return drainGatewayNotifications(this);
   }
 
   async #session(chatId) {
