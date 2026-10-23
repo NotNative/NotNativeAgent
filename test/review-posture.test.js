@@ -11,6 +11,11 @@ import {
 } from '../src/tools/governor.js';
 import { semanticReviewTimeout } from '../src/config-bounds.js';
 import { ContractError } from '../src/ids.js';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { resolveManifest } from '../src/config.js';
+import { SessionEngine } from '../src/engine.js';
 
 function safeRequest(id = 'safe-1') {
   return Object.freeze({
@@ -36,6 +41,60 @@ test('mandatory review event ceiling exceeds the slowest configurable semantic r
 
 test('mandatory review event deadline follows the configured semantic reviewer with settlement grace', () => {
   assert.equal(mandatoryReviewEventTimeout(125_000), 130_000);
+});
+
+test('live semantic-review configuration updates the mandatory event backstop', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-review-timeout-update-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const raw = {
+    persistence: 'ephemeral', workspace_root: root,
+    provider: { id: 'fixture', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback' },
+    semantic_review_timeout_ms: 10_000,
+  };
+  const engine = new SessionEngine({
+    config: resolveManifest(raw), providerFactory: () => ({ async *stream() {} }),
+    output: async () => undefined,
+  });
+  await engine.initialize();
+  const observed = [];
+  engine.events.setObserver({ subscriberStarted: (_event, record) => observed.push(record.timeoutMs) });
+  const check = async () => engine.events.dispatch({
+    category: 'permission', phase: 'pre', payload: { request_id: 'missing' },
+  });
+  await check();
+  assert.equal(observed.at(-1), 15_000);
+  await engine.updateConfiguration({ request_id: 'review-timeout-increase', manifest: {
+    ...raw, semantic_review_timeout_ms: 20_000,
+  } }, 'authenticated-local-operator');
+  await check();
+  assert.equal(engine.reviewer.semanticTimeoutMs, 20_000);
+  assert.equal(observed.at(-1), 25_000);
+  await engine.updateConfiguration({ request_id: 'review-timeout-decrease', manifest: raw },
+    'authenticated-local-operator');
+  await check();
+  assert.equal(observed.at(-1), 15_000);
+});
+
+test('configuration rejects a missing governor timeout dependency before mutating state', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-review-timeout-dependency-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const raw = {
+    persistence: 'ephemeral', workspace_root: root,
+    provider: { id: 'fixture', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback' },
+    semantic_review_timeout_ms: 10_000,
+  };
+  const engine = new SessionEngine({
+    config: resolveManifest(raw), providerFactory: () => ({ async *stream() {} }),
+    output: async () => undefined,
+  });
+  await engine.initialize();
+  const original = engine.config;
+  engine.governor = null;
+  await assert.rejects(() => engine.updateConfiguration({
+    request_id: 'missing-review-timeout-dependency', manifest: { ...raw, semantic_review_timeout_ms: 20_000 },
+  }, 'authenticated-local-operator'), { code: 'configuration_runtime_unavailable' });
+  assert.equal(engine.config, original);
+  assert.equal(engine.reviewer.semanticTimeoutMs, 10_000);
 });
 
 test('execution revalidation rejects an approval without a finite expiry', async () => {

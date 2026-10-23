@@ -68,6 +68,7 @@ function applyConfiguration(engine, config, active) {
   });
   engine.memory.config = config.memory;
   engine.reviewer.semanticTimeoutMs = config.limits.semanticReviewMs;
+  engine.governor.configureReviewTimeout(config.limits.semanticReviewMs);
   if (engine.permissionBroker) engine.permissionBroker.timeoutMs = config.limits.approvalMs;
   engine.scheduler.configure(config.limits.providerConcurrency, config.limits.providerQueueLimit);
   engine.reviewer.semantic.setRouter?.(engine.router);
@@ -77,7 +78,8 @@ function applyConfiguration(engine, config, active) {
 
 function assertConfigurationDependencies(engine, active) {
   if (!engine || !engine.attachments || !engine.memory
-    || !engine.reviewer?.semantic || !engine.toolLoop || typeof engine.scheduler?.configure !== 'function'
+    || !engine.reviewer?.semantic || typeof engine.governor?.configureReviewTimeout !== 'function'
+    || !engine.toolLoop || typeof engine.scheduler?.configure !== 'function'
     || (active && typeof engine.authority?.snapshot !== 'function')) {
     throw new ContractError('configuration_runtime_unavailable', 'runtime configuration dependencies are unavailable');
   }

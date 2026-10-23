@@ -29,6 +29,7 @@ export function mandatoryReviewEventTimeout(semanticReviewMs) {
 export class ToolGovernor {
   #pending = new Map();
   #activeDecisions = new Map();
+  #reviewRegistration;
 
   constructor(options) {
     this.events = options.events;
@@ -40,7 +41,7 @@ export class ToolGovernor {
       options.subagentCancellationSettlementMs ?? SUBAGENT_CANCELLATION_SETTLEMENT_MS,
       'subagentCancellationSettlementMs',
     );
-    this.events.register({
+    this.#reviewRegistration = this.events.register({
       id: 'kernel.mandatory-reviewer', category: 'permission', phase: 'pre',
       blocking: true, mandatory: true, priority: -10_000,
       timeoutMs: options.reviewTimeoutMs ?? MANDATORY_REVIEW_EVENT_TIMEOUT_MS, failurePolicy: 'deny',
@@ -48,6 +49,14 @@ export class ToolGovernor {
       inputContract: 'nna.permission-review/1.0', outputContract: 'nna.review-decision/1.0',
       resourceBounds: Object.freeze({ maxOutputBytes: 65_536, maxConcurrent: 1 }),
     }, (event) => this.#reviewSubscription(event));
+  }
+
+  configureReviewTimeout(semanticReviewMs) {
+    const timeoutMs = mandatoryReviewEventTimeout(semanticReviewMs);
+    if (!this.#reviewRegistration.updateTimeoutMs(timeoutMs)) {
+      throw new Error('mandatory reviewer registration is unavailable');
+    }
+    return timeoutMs;
   }
 
   async review(request, context, event) {

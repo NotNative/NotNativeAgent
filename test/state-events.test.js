@@ -109,6 +109,43 @@ test('AC-EVENT-05 critical timeout denies and observer failure is isolated', asy
   await hub.drain();
 });
 
+test('a registration lease updates only its own future invocation timeout', async () => {
+  const observed = [];
+  const hub = new EventHub({ observer: { subscriberStarted: (_event, record) => observed.push(record.timeoutMs) } });
+  const first = hub.register(declaredSubscription({
+    id: 'first', category: 'turn', phase: 'pre', blocking: true,
+    timeoutMs: 10, failurePolicy: 'deny',
+  }), async () => ({ decision: 'continue' }));
+  const second = hub.register(declaredSubscription({
+    id: 'second', category: 'turn', phase: 'pre', blocking: true,
+    timeoutMs: 20, failurePolicy: 'deny',
+  }), async () => ({ decision: 'continue' }));
+  assert.equal(first.updateTimeoutMs(30).timeoutMs, 30);
+  assert.throws(() => first.updateTimeoutMs(0), { code: 'invalid_subscription_bound' });
+  assert.equal((await hub.dispatch({ category: 'turn', phase: 'pre' })).decision, 'continue');
+  assert.deepEqual(observed, [30, 20]);
+  assert.equal(first(), true);
+  assert.equal(first.updateTimeoutMs(40), false);
+  assert.equal(second(), true);
+});
+
+test('a stale registration lease cannot remove or update a replacement with the same id', async () => {
+  const observed = [];
+  const hub = new EventHub({ observer: { subscriberStarted: (_event, record) => observed.push(record.timeoutMs) } });
+  const declaration = (timeoutMs) => declaredSubscription({
+    id: 'replaceable', category: 'turn', phase: 'pre', blocking: true,
+    timeoutMs, failurePolicy: 'deny',
+  });
+  const first = hub.register(declaration(10), async () => ({ decision: 'continue' }));
+  assert.equal(first(), true);
+  const replacement = hub.register(declaration(20), async () => ({ decision: 'continue' }));
+  assert.equal(first(), false);
+  assert.equal(first.updateTimeoutMs(30), false);
+  assert.equal((await hub.dispatch({ category: 'turn', phase: 'pre' })).decision, 'continue');
+  assert.deepEqual(observed, [20]);
+  assert.equal(replacement(), true);
+});
+
 test('AC-EVENT-01 rejects undefined phases before handler execution', () => {
   const hub = new EventHub();
   let called = false;

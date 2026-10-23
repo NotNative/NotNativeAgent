@@ -51,7 +51,9 @@ export class EventHub {
     });
     this.#registration += 1;
     this.#subscriptions.push({ record, handler });
-    return record.mandatory ? () => false : () => this.#remove(record.id);
+    const unregister = record.mandatory ? () => false : () => this.#remove(record.id, record.order);
+    unregister.updateTimeoutMs = (timeoutMs) => this.#updateTimeout(record.id, record.order, timeoutMs);
+    return unregister;
   }
 
   async dispatch(event, signal) {
@@ -163,11 +165,22 @@ export class EventHub {
     return Object.freeze({ scheduled, queued: this.#background.size, dropped: this.#dropped });
   }
 
-  #remove(id) {
-    const index = this.#subscriptions.findIndex(({ record }) => record.id === id);
+  #remove(id, order) {
+    const index = this.#subscriptions.findIndex(({ record }) => record.id === id && record.order === order);
     if (index < 0) return false;
     this.#subscriptions.splice(index, 1);
     return true;
+  }
+
+  #updateTimeout(id, order, timeoutMs) {
+    if (this.#closed) throw new ContractError('event_hub_closed', 'event hub is closed');
+    requiredInteger(timeoutMs, 1, MAX_SUBSCRIPTION_TIMEOUT_MS);
+    const index = this.#subscriptions.findIndex(({ record }) => record.id === id && record.order === order);
+    if (index < 0) return false;
+    const { record, handler } = this.#subscriptions[index];
+    const updated = Object.freeze({ ...record, timeoutMs });
+    this.#subscriptions[index] = { record: updated, handler };
+    return updated;
   }
 }
 
