@@ -26,6 +26,10 @@ test('secret broker stores encrypted values and exposes metadata only', async ()
   assert.equal(bytes.includes('very-secret-value'), false);
   assert.equal(bytes.includes('Retail login'), true);
   assert.deepEqual((await broker.list()).map((item) => item.id), [created.id]);
+  const fields = await broker.withSecret(created.id, {
+    consumer: 'test', destination: 'https://example.test', purpose: 'verify', reviewerDecisionId: 'review_1',
+  }, async (values) => values);
+  assert.deepEqual(fields, { username: 'me', password: 'very-secret-value' });
 });
 
 test('competing secret creators share one fully published key and retain readable values', async () => {

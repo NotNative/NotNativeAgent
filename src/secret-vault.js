@@ -57,8 +57,13 @@ export class SecretVault {
   async decryptFields(record) {
     validateVaultRecord(record);
     const output = {};
+    const keys = new Map();
     for (const [name, field] of Object.entries(record.encryptedFields)) {
-      const key = await this.#realmKey(record.realm, field.keyVersion);
+      let key = keys.get(field.keyVersion);
+      if (!key) {
+        key = await this.#realmKey(record.realm, field.keyVersion);
+        keys.set(field.keyVersion, key);
+      }
       try {
         const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(field.nonce, 'base64'));
         decipher.setAAD(aad(record.realm, record.id, name, field.keyVersion));
@@ -111,7 +116,7 @@ export class SecretVault {
 
   async #realmKey(realm, version) {
     const info = Buffer.from(`${REALM_KEY_INFO_PREFIX}${version}`);
-    return Buffer.from(hkdfSync('sha256', await this.#masterKey(), Buffer.from(realm), info, 32));
+    return Buffer.from(hkdfSync('sha256', await this.#masterKey(), Buffer.from(realm), info, MASTER_KEY_BYTES));
   }
 
   async #serialized(operation) {
