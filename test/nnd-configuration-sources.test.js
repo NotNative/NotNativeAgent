@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, open, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -77,6 +78,13 @@ test('missing, invalid and oversized user sources remain unchanged without onboa
   }
   const handle = await open(f.userPath, 'w');
   try { await handle.truncate(2 ** 32); } finally { await handle.close(); }
+  await assert.rejects(readNndConfigurationSources(f.paths), { code: 'nnd_setup_configuration_invalid' });
+});
+
+test('native source reader rejects a named pipe without blocking', { skip: process.platform === 'win32' }, async (t) => {
+  const f = await fixture(t);
+  await rm(f.userPath);
+  execFileSync('mkfifo', [f.userPath]);
   await assert.rejects(readNndConfigurationSources(f.paths), { code: 'nnd_setup_configuration_invalid' });
 });
 

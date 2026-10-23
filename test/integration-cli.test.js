@@ -2,7 +2,8 @@
 import test from 'node:test';
 import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 import { createServer } from 'node:http';
@@ -364,6 +365,40 @@ test('provider route activation changes future NND sessions without mutating exi
     await assert.rejects(host.activateProviderRoute(), { code: 'nnd_manifest_invalid' });
     assert.deepEqual(host.nndModel, { providerID: 'new', modelID: 'new-model' });
   } finally { await host.shutdown(); }
+});
+
+test('NND integration bounds manifest bytes on startup and route refresh', async () => {
+  const root = createScratchSync('nna-nnd-manifest-bound-');
+  const configRoot = join(root, 'config');
+  const manifestPath = join(configRoot, 'manifest.json');
+  const paths = { root, config: configRoot, sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') };
+  await mkdir(configRoot, { recursive: true });
+  await writeFile(manifestPath, ' '.repeat(1_048_577));
+  await assert.rejects(createIntegrationNndEngineHost(paths), { code: 'manifest_too_large' });
+  await writeFile(manifestPath, JSON.stringify({ format_version: 1, persistence: 'ephemeral', workspace_root: root,
+    providers: [{ id: 'local', endpoint: 'http://127.0.0.1:1234/v1', model: 'fixture', trust_zone: 'loopback' }],
+    routes: { primary: { provider_id: 'local', model: 'fixture' } } }));
+  const host = await createIntegrationNndEngineHost(paths);
+  try {
+    await writeFile(manifestPath, ' '.repeat(1_048_577));
+    await assert.rejects(host.activateProviderRoute(), { code: 'manifest_too_large' });
+    await writeFile(manifestPath, Buffer.from([0xff]));
+    await assert.rejects(host.activateProviderRoute(), { code: 'nnd_manifest_invalid' });
+    await rm(manifestPath);
+    await mkdir(manifestPath);
+    await assert.rejects(host.activateProviderRoute(), { code: 'nnd_manifest_invalid' });
+  } finally { await host.shutdown(); }
+});
+
+test('NND integration rejects a named-pipe manifest without blocking startup', { skip: process.platform === 'win32' }, async () => {
+  const root = createScratchSync('nna-nnd-manifest-pipe-');
+  const configRoot = join(root, 'config');
+  await mkdir(configRoot, { recursive: true });
+  execFileSync('mkfifo', [join(configRoot, 'manifest.json')]);
+  const paths = { root, config: configRoot, sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') };
+  await assert.rejects(createIntegrationNndEngineHost(paths), { code: 'nnd_manifest_invalid' });
 });
 
 test('NND skills include project roots only after workspace trust', async () => {

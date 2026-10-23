@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { randomBytes, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { readFile } from 'node:fs/promises';
+import { constants as fileConstants } from 'node:fs';
+import { open, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { startIntegrationServer } from './integration-server.js';
@@ -30,6 +31,8 @@ import { acquireNndServiceLock } from './nnd-service-lock.js';
 import { assertNoNndMigration } from './nnd-migration-storage.js';
 import { assertNoNndInstallTransaction } from './nnd-install-storage.js';
 import { assertNoNndInstallMarker } from './nnd-install-marker.js';
+
+const INTEGRATION_MANIFEST_LIMIT = 1_048_576;
 
 export async function runIntegrationCommand(args, paths, options = {}) {
   if ((args[0] ?? '') !== 'serve' || args.length !== 1) {
@@ -285,11 +288,36 @@ async function initializeIntegrationHost(host, signal) {
 }
 
 async function readIntegrationManifest(path) {
-  let source;
-  try { source = await readFile(path, 'utf8'); }
-  catch (error) { throw new ContractError('nnd_manifest_unavailable', 'NND integration requires the NNA manifest', { cause: error }); }
-  try { return JSON.parse(source); }
+  let bytes;
+  try {
+    // Invariant: reject a named pipe before open; nonblocking open also closes the replacement race on POSIX.
+    if (!(await stat(path)).isFile()) throw new ContractError('nnd_manifest_invalid', 'NND integration manifest must be a regular file');
+    const file = await open(path, fileConstants.O_RDONLY | (fileConstants.O_NONBLOCK ?? 0));
+    try {
+      const info = await file.stat();
+      if (!info.isFile()) throw new ContractError('nnd_manifest_invalid', 'NND integration manifest must be a regular file');
+      if (info.size > INTEGRATION_MANIFEST_LIMIT) throw oversizedIntegrationManifest();
+      // Invariant: a manifest that grows after stat cannot cause unbounded allocation.
+      const buffer = Buffer.alloc(INTEGRATION_MANIFEST_LIMIT + 1);
+      let size = 0;
+      while (size < buffer.length) {
+        const { bytesRead } = await file.read(buffer, size, buffer.length - size, null);
+        if (bytesRead === 0) break;
+        size += bytesRead;
+      }
+      if (size > INTEGRATION_MANIFEST_LIMIT) throw oversizedIntegrationManifest();
+      bytes = buffer.subarray(0, size);
+    } finally { await file.close(); }
+  } catch (error) {
+    if (error instanceof ContractError) throw error;
+    throw new ContractError('nnd_manifest_unavailable', 'NND integration requires the NNA manifest', { cause: error });
+  }
+  try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
   catch (error) { throw new ContractError('nnd_manifest_invalid', 'NND integration manifest is invalid', { cause: error }); }
+}
+
+function oversizedIntegrationManifest() {
+  return new ContractError('manifest_too_large', 'NND integration manifest exceeds the size limit');
 }
 
 function waitForShutdown(signal, server) {

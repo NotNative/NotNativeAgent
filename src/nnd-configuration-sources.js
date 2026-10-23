@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { open } from 'node:fs/promises';
+import { constants as fileConstants } from 'node:fs';
+import { open, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
@@ -62,7 +63,9 @@ async function readOptionalSource(path, signal) {
 
 async function readSource(path, signal) {
   signal?.throwIfAborted();
-  const handle = await open(path, 'r');
+  // Invariant: a named pipe cannot hold configuration activation open, even if swapped in after stat.
+  if (!(await stat(path)).isFile()) throw invalid();
+  const handle = await open(path, fileConstants.O_RDONLY | (fileConstants.O_NONBLOCK ?? 0));
   try {
     const info = await handle.stat();
     if (!info.isFile() || info.size > MAX_MANIFEST_BYTES) throw invalid();
