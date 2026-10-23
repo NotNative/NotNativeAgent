@@ -11,6 +11,10 @@ const POWERSHELL_OBSERVATION_TRANSFORMS = new Set([
   'format-custom', 'format-list', 'format-table', 'format-wide', 'group-object',
   'measure-object', 'out-null', 'out-string', 'select-object', 'sort-object',
 ]);
+const REMOTE_OBSERVATION_PARAMETERS = Object.freeze([
+  'asjob', 'authentication', 'cimsession', 'computername', 'connectionuri',
+  'credential', 'session',
+]);
 
 export function shellObservationPurpose(script, shell) {
   return ['powershell', 'pwsh'].includes(shell) ? powershellObservationPurpose(script) : null;
@@ -32,6 +36,8 @@ function powershellObservationPurpose(value) {
     const operation = assignment?.[1]?.trim() ?? segment;
     if (operation.includes('$')) return false;
     const command = /^([A-Za-z][A-Za-z0-9-]*)\b/u.exec(operation)?.[1]?.toLowerCase();
+    if ((POWERSHELL_FILESYSTEM_OBSERVATIONS.has(command) || POWERSHELL_HOST_OBSERVATIONS.has(command))
+      && uncertainObservationTarget(operation)) return false;
     if (POWERSHELL_FILESYSTEM_OBSERVATIONS.has(command)) {
       purpose ??= 'filesystem_observation';
       continue;
@@ -43,4 +49,18 @@ function powershellObservationPurpose(value) {
     if (!POWERSHELL_OBSERVATION_TRANSFORMS.has(command)) return false;
   }
   return purpose;
+}
+
+function uncertainObservationTarget(operation) {
+  // Security: a Get-* verb alone does not prove local observation. PowerShell
+  // accepts abbreviated parameters, and UNC/URI targets can cause network use.
+  if (/(?:^|[\s'":])(?:\\\\|\/\/)[^\\/\s'"]+/u.test(operation)
+    || /[A-Za-z][A-Za-z0-9+.-]*:\/\//u.test(operation)) return true;
+  // Security: Windows PowerShell accepts Unicode dash characters as parameter
+  // prefixes and can bind a one-letter prefix such as Get-Process -C remotely.
+  for (const match of operation.matchAll(/(?:^|\s)[-\u2013\u2014\u2015]([A-Za-z][A-Za-z0-9]*)(?=\s|:|$)/gu)) {
+    const name = match[1].toLowerCase();
+    if (REMOTE_OBSERVATION_PARAMETERS.some((parameter) => parameter.startsWith(name))) return true;
+  }
+  return false;
 }

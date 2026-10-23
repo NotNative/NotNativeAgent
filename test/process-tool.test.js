@@ -434,6 +434,42 @@ test('shell_run classifies compound and destructive scripts for semantic review 
   assert.equal(hosted.definition('shell_run'), undefined);
 });
 
+test('remote PowerShell observation targets require semantic review', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-remote-observation-'));
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const shell = registry.definition('shell_run');
+  const processTool = registry.definition('process_run');
+  const uncertain = [
+    String.raw`Get-ChildItem -Path \\server\share | Select-Object -First 2`,
+    'Get-CimInstance Win32_OperatingSystem -ComputerName server | Format-Table',
+    'Get-Process -Comp server | Select-Object Name',
+    'Get-Process -C server | Select-Object Name',
+    'Get-Process -C:server | Select-Object Name',
+    'Get-Process –ComputerName server | Select-Object Name',
+    'Get-Process —C server | Select-Object Name',
+    'Get-WinEvent -LogName System -CimSession RemoteSession',
+    'Get-ChildItem -Path https://server/share',
+    String.raw`Get-ChildItem -Path 'FileSystem::\\server\share'`,
+    'Get-ChildItem -Path FileSystem:://server/share',
+    'Get-CimInstance Win32_OperatingSystem -AsJob',
+  ];
+  for (const script of uncertain) {
+    const shellRequest = await shell.validate({ shell: 'powershell', script });
+    assert.equal(shellRequest.resolved.readOnly, false, script);
+    assert.equal(shellRequest.resolved.reviewPurpose, null, script);
+    const processRequest = await processTool.validate({ executable: 'pwsh', args: ['-Command', script] });
+    assert.equal(processRequest.resolved.readOnly, false, script);
+    assert.equal(processRequest.resolved.reviewPurpose, null, script);
+  }
+  const local = await shell.validate({ shell: 'powershell',
+    script: 'Get-CimInstance Win32_OperatingSystem | Select-Object Caption | Format-Table' });
+  assert.equal(local.resolved.readOnly, true);
+  const localAbbreviation = await shell.validate({ shell: 'powershell',
+    script: 'Get-Process | Select-Object -First 2 Name | Format-Table -A' });
+  assert.equal(localAbbreviation.resolved.readOnly, true);
+});
+
 test('execution contracts identify detachment while preserving bounded wait forms', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-lifecycle-'));
   const registry = new ToolRegistry(root);
