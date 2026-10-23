@@ -147,7 +147,7 @@ function definition(name, purpose, properties, required, execute) {
       return { args: structuredClone(args), resolved: { scope: 'active_session' } };
     },
     executor: async (request, signal) => {
-      if (signal.aborted) throw new ContractError('tool_cancelled', 'session history lookup was cancelled');
+      assertNotCancelled(signal);
       return execute(request.args, signal);
     },
   };

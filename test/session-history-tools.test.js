@@ -70,6 +70,18 @@ test('history search honors one-character queries and rejects an empty type filt
   await assert.rejects(search.validate({ query: '5', types: [] }), { code: 'tool_schema_invalid' });
 });
 
+test('history tool executor accepts an omitted signal and rejects cancellation', async () => {
+  const definitions = sessionHistoryDefinitions({ transcript: () => [{ type: 'message', content: 'cobalt' }] });
+  const search = definitions.find((item) => item.name === 'session_search_history');
+  const read = definitions.find((item) => item.name === 'session_read_history');
+  assert.equal((await search.executor({ args: { query: 'cobalt' } })).metadata.matches, 1);
+  assert.equal(JSON.parse((await read.executor({ args: { record_index: 0 } })).content).records[0].record.content, 'cobalt');
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(search.executor({ args: { query: 'cobalt' } }, controller.signal), { code: 'tool_cancelled' });
+  await assert.rejects(read.executor({ args: { record_index: 0 } }, controller.signal), { code: 'tool_cancelled' });
+});
+
 test('history search scores redacted text so secrets are not queryable by existence', () => {
   const secret = 'test-only-history-secret-1246';
   registerSecretValue(secret, 'history-test');
