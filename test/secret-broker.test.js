@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFile, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SecretBroker } from '../src/secret-broker.js';
@@ -26,6 +26,26 @@ test('secret broker stores encrypted values and exposes metadata only', async ()
   assert.equal(bytes.includes('very-secret-value'), false);
   assert.equal(bytes.includes('Retail login'), true);
   assert.deepEqual((await broker.list()).map((item) => item.id), [created.id]);
+});
+
+test('competing secret creators share one fully published key and retain readable values', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-secret-key-race-'));
+  const paths = { vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') };
+  const brokers = Array.from({ length: 8 }, () => new SecretBroker(paths));
+  const created = await Promise.all(brokers.map((broker, index) => broker.create({
+    label: `Concurrent ${index}`, kind: 'token', fields: { token: `value-${index}` },
+  })));
+  for (const [index, secret] of created.entries()) {
+    const value = await brokers[index].withSecret(secret.id, {
+      consumer: 'test', destination: 'https://example.test', purpose: 'verify', reviewerDecisionId: 'review_1',
+    }, async (fields) => fields.token);
+    assert.equal(value, `value-${index}`);
+  }
+  assert.equal((await readdir(root)).some((name) => name.startsWith('key.json.tmp-')), false);
+  const keyPath = join(root, 'key.json');
+  await writeFile(keyPath, '{malformed', 'utf8');
+  await assert.rejects(() => brokers[0].rotate(created[0].id, { token: 'replacement' }), { code: 'secret_key_invalid' });
+  assert.equal(await readFile(keyPath, 'utf8'), '{malformed');
 });
 
 test('malformed stored metadata cannot reach a public secret projection', async () => {

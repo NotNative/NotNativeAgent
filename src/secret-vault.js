@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ContractError } from './ids.js';
 import {
   isSecretFieldName, normalizeSecretKind, normalizeSecretLabel, normalizeSecretMetadata, normalizeSecretScope,
 } from './secret-contracts.js';
 import { SessionLock } from './persistence/session-lock.js';
-import { persistAtomicJson } from './persistence/atomic-json.js';
+import { persistAtomicJson, persistAtomicJsonIfAbsent } from './persistence/atomic-json.js';
 
 const EMPTY = Object.freeze({ format: 1, keyVersion: 1, records: [] });
 const PATH_TAILS = new Map();
@@ -94,11 +94,10 @@ export class SecretVault {
           throw new ContractError(ERROR.invalidKey, 'secret vault key file is invalid', { cause: error });
         }
       }
-      await mkdir(dirname(this.keyPath), { recursive: true, mode: 0o700 });
       const key = randomBytes(MASTER_KEY_BYTES);
       const value = { format: 1, protection: 'portable-file-v1', key: key.toString('base64') };
       try {
-        await writeFile(this.keyPath, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+        await persistAtomicJsonIfAbsent(this.keyPath, value);
         return key;
       } catch (error) {
         if (error.code !== 'EEXIST') throw error;
