@@ -204,6 +204,14 @@ test('AC-AUTH-04 process_run seals shells and destructive commands for semantic 
   assert.deepEqual((await definition.validate({ executable: 'node', args: ['-'] })).resolved.reliabilitySignals, []);
   assert.equal((await definition.validate({ executable: 'git', args: ['reset', '--hard'] })).resolved.reviewComplexity, 'destructive_command');
   await assert.rejects(definition.validate({ executable: 'npm', args: ['--token=secret-value'] }), { code: 'process_secret_argument_forbidden' });
+  for (const args of [
+    ['--token', 'private-value'], ['-api-key', 'private-value'],
+    ['--access_token', 'private-value'],
+    ['-Command', 'probe --password private-value'],
+  ]) {
+    await assert.rejects(definition.validate({ executable: 'probe', args }), { code: 'process_secret_argument_forbidden' });
+  }
+  assert.equal((await definition.validate({ executable: 'probe', args: ['--tokenizer', 'simple'] })).args.args[1], 'simple');
   assert.equal((await definition.validate({ executable: 'node', args: ['file.js'], cwd: '..' })).resolved.insideWorkspace, false);
   const hosted = new ToolRegistry(root, { boundedToWorkspace: true });
   await hosted.initialize();
@@ -413,6 +421,14 @@ test('shell_run classifies compound and destructive scripts for semantic review 
     'Get-Process | Where-Object { $_.CPU -gt 1 }',
   ]) assert.equal((await definition.validate({ shell: 'powershell', script })).resolved.readOnly, false);
   await assert.rejects(definition.validate({ script: 'curl -H "Authorization: Bearer literal" example.test' }), { code: 'shell_secret_argument_forbidden' });
+  for (const script of [
+    'probe --token private-value', 'probe -api-key private-value',
+    'probe --access_token private-value',
+    'curl -H "Authorization: Basic private-value" example.test',
+  ]) {
+    await assert.rejects(definition.validate({ script }), { code: 'shell_secret_argument_forbidden' });
+  }
+  assert.equal((await definition.validate({ script: 'probe --tokenizer simple' })).args.script, 'probe --tokenizer simple');
   const hosted = new ToolRegistry(root, { hosted: true, boundedToWorkspace: true, allowedTools: ['shell_run'] });
   await hosted.initialize();
   assert.equal(hosted.definition('shell_run'), undefined);

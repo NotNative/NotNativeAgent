@@ -21,7 +21,9 @@ const MAX_SHELL_TIMEOUT_MS = 3_600_000;
 const MAX_OUTPUT_BYTES = 1_048_576;
 const MAX_CAPTURED_OUTPUT_BYTES = 262_144;
 const TERMINATION_ESCALATION_MS = 250;
-const SECRET_LITERAL = /(?:bearer\s*[:=]?\s+|(?:api[_-]?key|token|password)\s*["']?\s*[:=]\s*["']?)/iu;
+const SECRET_LITERAL = /(?:bearer\s*[:=]?\s+|authorization\s*:|(?:api[_-]?key|token|password)\s*["']?\s*[:=]\s*["']?)/iu;
+const SECRET_FLAG = /^--?(?:[\w-]*[-_])?(?:token|api[-_]?key|password|secret|credential|authorization|auth)$/iu;
+const SCRIPT_SECRET_FLAG = /(?:^|[\s"'])--?(?:[\w-]*[-_])?(?:token|api[-_]?key|password|secret|credential|authorization|auth)["']?\s+\S/iu;
 
 export function processRunDefinition(paths, references = null) {
   const inlineGuidance = inlineInterpreterGuidance();
@@ -81,7 +83,7 @@ async function validateShellRequest(paths, input, references, platform, administ
     || Object.keys(input).some((key) => !allowed.has(key))) {
     throw new ContractError('shell_request_invalid', 'shell requires one non-empty bounded script');
   }
-  if (SECRET_LITERAL.test(input.script)) {
+  if (SECRET_LITERAL.test(input.script) || SCRIPT_SECRET_FLAG.test(input.script)) {
     throw new ContractError('shell_secret_argument_forbidden', 'secret-like literal values cannot be placed in shell scripts');
   }
   rejectNativeElevationScript(input.script);
@@ -179,7 +181,9 @@ async function validateProcessRequest(paths, input, references) {
     || args.some((item) => typeof item !== 'string' || item.length > MAX_FIELD_LENGTH || item.includes('\0'))) {
     throw new ContractError('process_args_invalid', 'process argv is invalid or exceeds bounds');
   }
-  if (args.some((item) => SECRET_LITERAL.test(item))) {
+  if (args.some((item, index) => SECRET_LITERAL.test(item)
+    || (index > 0 && SECRET_FLAG.test(args[index - 1]))
+    || SCRIPT_SECRET_FLAG.test(item))) {
     throw new ContractError('process_secret_argument_forbidden', 'secret-like values cannot be placed in process argv');
   }
   rejectNativeElevationProcess(executable, args);
