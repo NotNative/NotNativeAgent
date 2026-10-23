@@ -258,6 +258,64 @@ class ScriptedProvider {
   }
 }
 
+test('parallel turn_finish declarations cannot choose a same-step outcome by execution order', async () => {
+  const engine = new SessionEngine({ config: config(), providerFactory: () => new ScriptedProvider(),
+    hookRoot: EMPTY_HOOK_ROOT });
+  await engine.initialize();
+  engine.active = { turnId: 'turn-1', stepId: 'step-1', terminalDeclaration: null };
+  const finish = engine.tools.definition('turn_finish');
+  const signal = new AbortController().signal;
+  const request = async (value) => ({ args: (await finish.validate(value)).args });
+  const [first, conflicting] = await Promise.allSettled([
+    request({ outcome: 'needs_input', question: 'Which target?' }).then((value) => finish.executor(value, signal)),
+    request({ outcome: 'blocked', reason_code: 'target_unknown' }).then((value) => finish.executor(value, signal)),
+  ]);
+  assert.equal(first.status, 'fulfilled', String(first.reason?.stack));
+  assert.equal(conflicting.status, 'rejected');
+  assert.equal(conflicting.reason.code, 'turn_declaration_conflict');
+  assert.equal(engine.active.terminalDeclaration.outcome, 'needs_input');
+
+  const repeated = await finish.executor(await request({ outcome: 'needs_input', question: 'Which target?' }), signal);
+  assert.equal(repeated.metadata.declared_outcome, 'needs_input');
+  engine.active.stepId = 'step-2';
+  const later = await finish.executor(await request({ outcome: 'blocked', reason_code: 'target_unknown' }), signal);
+  assert.equal(later.metadata.declared_outcome, 'blocked');
+  assert.equal(engine.active.terminalDeclaration.declaredAtStepId, 'step-2');
+  engine.active = null;
+  await engine.shutdown({ version: '1.0', type: 'shutdown', request_id: 'shutdown-finish-conflict' });
+});
+
+test('a conflicting turn_finish batch cannot settle the first declaration', async () => {
+  let calls = 0;
+  const provider = {
+    async *stream() {
+      calls += 1;
+      if (calls === 1) {
+        yield { type: 'tool_fragment', fragments: [
+          { index: 0, id: 'finish-input', function: { name: 'turn_finish', arguments: JSON.stringify({ outcome: 'needs_input', question: 'Which target?' }) } },
+          { index: 1, id: 'finish-blocked', function: { name: 'turn_finish', arguments: JSON.stringify({ outcome: 'blocked', reason_code: 'target_unknown' }) } },
+        ] };
+        yield { type: 'terminal', finishReason: 'tool_calls' };
+        return;
+      }
+      yield { type: 'text', text: 'The declarations conflicted; no terminal outcome was selected.' };
+      yield { type: 'terminal', finishReason: 'stop' };
+    },
+  };
+  const engine = new SessionEngine({ config: config(), providerFactory: () => provider,
+    hookRoot: EMPTY_HOOK_ROOT });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'request-finish-conflict', content: 'Check the result' }, 'operator');
+  assert.equal(calls, 2);
+  assert.equal(result.outcome, 'completed');
+  assert.equal(engine.active, null);
+  const results = engine.transcript.filter((item) => item.type === 'tool_result' && item.toolName === 'turn_finish');
+  assert.equal(results.length, 2);
+  assert.deepEqual(results.map((item) => item.toolLifecycleStatus), ['succeeded', 'failed']);
+  assert.equal(results[1].reasonCode, 'turn_declaration_conflict');
+  await engine.shutdown({ version: '1.0', type: 'shutdown', request_id: 'shutdown-finish-batch-conflict' });
+});
+
 test('AC-ENGP-01/AC-STATE-05/M1 successful turn finalizes exactly once', async () => {
   const output = [];
   const engine = new SessionEngine({

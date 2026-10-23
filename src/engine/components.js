@@ -201,6 +201,13 @@ function administratorAdapter(engine, options) {
 
 function declareTerminalOutcome(engine, value) {
   if (!engine.active) throw new ContractError('turn_inactive', 'turn_finish requires an active turn');
+  const prior = engine.active.terminalDeclaration;
+  if (prior?.declaredAtStepId === engine.active.stepId) {
+    if (prior.outcome === value.outcome && prior.reason_code === value.reason_code
+      && prior.question === value.question) return prior;
+    // Invariant: competing declarations in one provider step cannot select a terminal outcome by execution order.
+    throw new ContractError('turn_declaration_conflict', 'Conflicting turn_finish declarations in one model step');
+  }
   engine.active.terminalDeclaration = Object.freeze({ ...value, declaredAtStepId: engine.active.stepId });
   return engine.active.terminalDeclaration;
 }

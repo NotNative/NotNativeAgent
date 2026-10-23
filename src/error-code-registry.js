@@ -297,7 +297,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'tui_command_invalid', 'tui_editor_unavailable', 'tui_options_invalid',
     'tui_primary_duplicate', 'tui_projection_state', 'tui_session_limit',
     'tui_session_missing', 'tui_session_role', 'tui_surface_invalid', 'turn_active',
-    'turn_cancelled', 'turn_inactive', 'turn_state_invalid', 'turn_submission_pending',
+    'turn_cancelled', 'turn_declaration_conflict', 'turn_inactive', 'turn_state_invalid', 'turn_submission_pending',
     'uninstall_option_conflict', 'uninstall_option_invalid', 'uninstaller_inspection_failed',
     'uninstaller_launch_failed', 'uninstaller_missing', 'unknown_control',
     'unknown_security_key', 'unknown_tool', 'unknown_tui_command',
