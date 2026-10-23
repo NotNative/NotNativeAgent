@@ -63,6 +63,46 @@ test('a rejected completed declaration consumes a bounded recovery episode inste
   assert.deepEqual(settled, ['continued']);
 });
 
+test('a rejected declaration releases the old answer before a later declaration settles', async () => {
+  const { active, engine, items } = harness(gateState, [
+    { continue: true, progress: false, count: 1, action: null },
+  ]);
+  active.provisionalFinal = Object.freeze({ text: 'Old answer.', stepId: 'old-step' });
+  const first = await continueAfterTerminalDeclaration(engine, active, items, null,
+    () => {}, async () => {});
+  assert.equal(first.continue, true);
+  assert.equal(active.provisionalFinal, null);
+  assert.equal(active.terminalDeclaration, null);
+
+  engine.ledger.completionState = () => settledState;
+  active.stepId = 'new-step';
+  active.stepText = 'New answer with settled evidence.';
+  active.terminalDeclaration = Object.freeze({ outcome: 'completed' });
+  const second = await continueAfterTerminalDeclaration(engine, active, items, null,
+    () => {}, async () => {});
+  assert.equal(second.text, 'New answer with settled evidence.');
+  assert.equal(second.deliverableStepId, 'new-step');
+});
+
+test('a rejected truncated declaration cannot determine a later plain-text outcome', async () => {
+  const { active, engine, items } = harness(settledState, [
+    { continue: true, progress: false, count: 1, action: null },
+  ]);
+  active.terminalDeclaration = Object.freeze({ outcome: 'blocked', reason_code: 'old_blocker' });
+  active.finishReason = 'tool_calls';
+  active.attemptOutputLimitTokens = 8;
+  active.attemptUsage = { completion_tokens: 8 };
+  const result = await continueAfterTerminalDeclaration(engine, active, items, null,
+    () => {}, async () => {});
+  assert.equal(result.continue, true);
+  assert.equal(active.terminalDeclaration, null);
+
+  active.finishReason = 'stop';
+  active.attemptUsage = {};
+  active.stepText = 'The issue has been resolved.';
+  assert.equal(evaluateCompletion(active, active.stepText).disposition, 'completed');
+});
+
 test('an exhausted rejected terminal declaration parks for operator attention', async () => {
   const { active, engine, items } = harness(gateState, [
     { continue: false, exhausted: true, count: 3 },
@@ -97,6 +137,19 @@ test('a failed terminal declaration discards the preserved answer candidate', as
   assert.equal(await continueAfterTerminalDeclaration(engine, active, failed, null,
     () => { throw new Error('failed declaration must not settle'); }, () => {}), null);
   assert.equal(active.provisionalFinal, null);
+  assert.equal(active.terminalDeclaration, null);
+});
+
+test('a declaration mixed with other tools cannot govern a later answer', async () => {
+  const { active, engine, items } = harness(settledState, []);
+  active.terminalDeclaration = Object.freeze({ outcome: 'blocked', reason_code: 'stale_blocker' });
+  const mixed = [...items, { request: { toolName: 'fs_read_text' },
+    result: { tool_name: 'fs_read_text', status: 'succeeded' } }];
+  assert.equal(await continueAfterTerminalDeclaration(engine, active, mixed, null,
+    () => { throw new Error('mixed declaration must not settle'); }, () => {}), null);
+  assert.equal(active.terminalDeclaration, null);
+  active.stepText = 'Work completed after the read.';
+  assert.equal(evaluateCompletion(active, active.stepText).disposition, 'completed');
 });
 
 test('no-effect tool outcomes create no completion obligation while possible effects remain recorded', () => {

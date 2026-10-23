@@ -21,6 +21,9 @@ export async function persistSupervisedResponse(active, supervised, persist) {
 export async function continueAfterTerminalDeclaration(engine, active, items, trustedHandoff, settleStep, recordRecovery) {
   if (!isSuccessfulDeclarationBatch(items)) {
     active.provisionalFinal = null;
+    // Why: a failed or mixed tool batch cannot settle the declaration. Its
+    // outcome must not silently govern a later plain-text completion.
+    active.terminalDeclaration = null;
     return null;
   }
   // Why: turn_finish is bookkeeping for the completion supervisor, not another unit of
@@ -49,6 +52,10 @@ export async function continueAfterTerminalDeclaration(engine, active, items, tr
         terminalDeclarationSettled: true,
       });
     }
+    // Why: a rejected declaration and answer cannot reserve a terminal outcome for a
+    // later step. A fresh text-only step must not inherit the rejected disposition.
+    active.provisionalFinal = null;
+    active.terminalDeclaration = null;
     // Why: a rejected terminal declaration is a supervised continuation, not free
     // bookkeeping. Without episode accounting, a model repeating one unchanged answer
     // could be nudged forever because bookkeeping steps never consume the model-step
