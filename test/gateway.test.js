@@ -37,6 +37,13 @@ async function waitUntil(predicate, timeoutMs = 2_000) {
   assert.fail('condition did not settle before deadline');
 }
 
+function pendingUntilAbort(signal) {
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise((_, reject) => {
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  });
+}
+
 test('gateway refuses malformed or unsupported durable replay state without resetting its offset', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-gateway-corrupt-state-'));
   const statePath = join(root, 'state.json');
@@ -117,7 +124,7 @@ test('slow Telegram compaction notice does not block the governed turn', async (
     async getMe() { return { id: 1 }; },
     async getUpdates(_offset, _timeout, signal) {
       if (++polls === 1) return [{ update_id: 1, message: { text: 'hello', from: { id: 42 }, chat: { id: 42 } } }];
-      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      return pendingUntilAbort(signal);
     },
     async sendMessage(_chatId, text) {
       if (text.startsWith('NNA compacted context:')) return noticeGate;
@@ -277,7 +284,7 @@ test('Telegram polling waits for the rate-limit interval before retrying', async
         signalFirstPoll();
         throw Object.assign(new Error('rate limited'), { code: 'telegram_api_error', retryAfterMs: 7_000 });
       }
-      return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      return pendingUntilAbort(signal);
     },
   };
   const gateway = new TelegramGateway({
@@ -504,7 +511,7 @@ test('Telegram durably retains queue-full updates and eventually submits each up
     async getUpdates(_offset, _timeout, signal) {
       polls += 1;
       if (polls === 1) return updates;
-      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      return pendingUntilAbort(signal);
     },
     async sendMessage() {},
   };
@@ -558,7 +565,7 @@ test('authorized Telegram messages enter a durable chat session while unknown us
         { update_id: 1, message: { text: 'ignored', from: { id: 7 }, chat: { id: 70 } } },
         { update_id: 2, message: { text: 'hello', from: { id: 42 }, chat: { id: 420 } } },
       ];
-      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      return pendingUntilAbort(signal);
     },
     async sendMessage(chatId, text) { sent.push({ chatId, text }); sentResolve(); },
   };
@@ -598,7 +605,7 @@ test('Telegram explains internal maintenance failures without falsely discarding
     async getUpdates(_offset, _timeout, signal) {
       polls += 1;
       if (polls === 1) return [{ update_id: 1, message: { text: 'research this', from: { id: 42 }, chat: { id: 420 } } }];
-      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      return pendingUntilAbort(signal);
     },
     async sendMessage(chatId, text) { sent.push({ chatId, text }); delivered(); },
   };
@@ -696,7 +703,7 @@ test('Telegram compact and confirmed clear control the standalone session withou
         { update_id: 3, message: { text: '/clear', from: { id: 42 }, chat: { id: 42 } } },
         { update_id: 4, callback_query: { id: 'clear-confirm', data: 'nna:clear:y', from: { id: 42 }, message: { chat: { id: 42 } } } },
       ];
-      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      return pendingUntilAbort(signal);
     },
     async sendMessage(chatId, text, _signal, options) {
       sent.push({ chatId, text, options });
@@ -743,7 +750,7 @@ test('Telegram attach and detach controls are intercepted before the standalone 
         { update_id: 4, message: { text: '/detach', from: { id: 42 }, chat: { id: 42 } } },
         { update_id: 5, message: { text: 'standalone', from: { id: 42 }, chat: { id: 42 } } },
       ];
-      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      return pendingUntilAbort(signal);
     },
     async sendMessage(chatId, text, _signal, options) {
       sent.push({ chatId, text, options }); if (text.includes('standalone:standalone')) finished();
@@ -786,7 +793,7 @@ test('attached Telegram sender receives admission and broker failure replies bef
         { update_id: 2, message: { text: 'keep this message', from: { id: 42 }, chat: { id: 42 } } },
         { update_id: 3, message: { text: 'uncertain delivery', from: { id: 42 }, chat: { id: 42 } } },
       ];
-      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      return pendingUntilAbort(signal);
     },
     async sendMessage(_chatId, text) {
       sent.push(text);
@@ -837,7 +844,7 @@ test('attached failure reply survives Telegram send failure and restart without 
       async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
         if (++polls === 1) return [update(1, '/attach Main'), update(2, 'keep target')];
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage(_chatId, text) {
         if (text.includes('could not confirm delivery')) {
@@ -861,7 +868,7 @@ test('attached failure reply survives Telegram send failure and restart without 
     api: {
       async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage(chatId, text) { sent.push({ chatId, text }); },
     },
@@ -891,7 +898,7 @@ test('standalone answer survives Telegram send failure and restart without rerun
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
         if (++polls === 1) return [update];
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage() { failedDelivery(); throw Object.assign(new Error('offline'), { code: 'telegram_unavailable' }); } },
   });
@@ -909,7 +916,7 @@ test('standalone answer survives Telegram send failure and restart without rerun
     engineFactory: () => assert.fail('a completed standalone turn must not restart'),
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage(chatId, text, _signal, options) { sent.push({ chatId, text, options }); } },
   });
@@ -937,7 +944,7 @@ test('context command reply survives Telegram outage without repeating the commi
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
         if (++polls === 1) return [update];
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage() { failedDelivery(); throw Object.assign(new Error('offline'), { code: 'telegram_unavailable' }); } },
   });
@@ -953,7 +960,7 @@ test('context command reply survives Telegram outage without repeating the commi
     engineFactory: () => assert.fail('committed context control must not rerun'),
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage(_chatId, text) { sent.push(text); } },
   });
@@ -984,7 +991,7 @@ test('cancel reply survives send failure without cancelling a later attached tar
       cancelled += 1; return { accepted: true }; } },
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage() { failedDelivery(); throw Object.assign(new Error('offline'), { code: 'telegram_unavailable' }); } },
   });
@@ -1000,7 +1007,7 @@ test('cancel reply survives send failure without cancelling a later attached tar
       cancel: async () => assert.fail('replay must not cancel the later target') },
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage(_chatId, text) { sent.push(text); } },
   });
@@ -1028,7 +1035,7 @@ test('cancel fences an earlier queued chat submission across restart', async () 
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
         if (++polls === 1) return updates;
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       }, async sendMessage(_chatId, text) { sent.push(text); } },
   });
   const running = gateway.run();
@@ -1046,7 +1053,7 @@ test('cancel fences an earlier queued chat submission across restart', async () 
     engineFactory: () => assert.fail('durably suppressed work must not restart'),
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       }, async sendMessage(_chatId, text) { recovered.push(text); } },
   });
   const runningSecond = second.run();
@@ -1077,7 +1084,7 @@ test('cancel suppresses an earlier submission waiting for session initialization
           message: { text: 'do work', from: { id: 42 }, chat: { id: 42 } } }];
         if (polls === 2) return [{ update_id: 2,
           message: { text: '/cancel', from: { id: 42 }, chat: { id: 42 } } }];
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       }, async sendMessage(_chatId, text) { sent.push(text); } },
   });
   const running = gateway.run();
@@ -1151,7 +1158,7 @@ test('uncertain cancellation never replays into a changed attachment', async () 
       cancel: async () => assert.fail('uncertain cancel must not replay') },
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage(_chatId, text) { sent.push(text); } },
   });
@@ -1180,7 +1187,7 @@ test('recovered uncertain clear never clears another conversation', async () => 
       clear: async () => assert.fail('uncertain clear must not replay') },
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage(_chatId, text) { sent.push(text); } },
   });
@@ -1206,7 +1213,7 @@ test('replayed ordinal attach cannot select a different Console target', async (
     sessionDirectory: { list: async () => assert.fail('ordinal must not be resolved again') },
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage(_chatId, text) { sent.push(text); } },
   });
@@ -1232,7 +1239,7 @@ test('malformed context result after an attempted effect yields an uncertain dur
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
         if (++polls === 1) return [{ update_id: 4, message: { text: '/handoff', from: { id: 42 }, chat: { id: 42 } } }];
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage(_chatId, text) { sent.push(text); } },
   });
@@ -1271,7 +1278,7 @@ test('callback acknowledgment error cannot erase a retained command attempt', as
     engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
     api: { async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async answerCallbackQuery() { throw new Error('callback API offline'); },
       async sendMessage() { assert.fail('state-full attempt must not send a reply'); } },
@@ -1299,7 +1306,7 @@ test('replayed attached update before route pin with vanished target never enter
     api: {
       async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage(_chatId, text) { sent.push(text); },
     },
@@ -1548,7 +1555,7 @@ test('gateway delivers terminal notifications out of band with an attach control
     async getMe() { return { id: 1 }; },
     async getUpdates(_offset, _timeout, signal) {
       if (sent.length === 0) return [];
-      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+      return pendingUntilAbort(signal);
     },
     async sendMessage(chatId, text, _signal, options) { sent.push({ chatId, text, options }); sentResolve(); },
   };
@@ -1580,7 +1587,7 @@ test('gateway acknowledges notifications after their source session closes', asy
       async getMe() { return { id: 1 }; },
       async getUpdates(_offset, _timeout, signal) {
         if (sent.length === 0) return [];
-        return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+        return pendingUntilAbort(signal);
       },
       async sendMessage(chatId, text, _signal, options) { sent.push({ chatId, text, options }); },
     },
