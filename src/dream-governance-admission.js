@@ -11,10 +11,13 @@ export async function admitNnmReceipt(engine, receipt, workspaceRoot) {
   const completedAt = validateReceipt(receipt, workspaceRoot, 'nnm_receipt_invalid');
   const counts = ['stored', 'facts_stored', 'relationships_stored', 'candidates'];
   if (typeof receipt.turn_id !== 'string' || receipt.turn_id.length === 0
+    || !['completed', 'partial', 'skipped', 'failed'].includes(receipt.status)
     || counts.some((key) => !Number.isSafeInteger(receipt[key]) || receipt[key] < 0)
     || typeof receipt.summary_stored !== 'boolean') {
     throw new ContractError('nnm_receipt_invalid', 'NNM turn-analysis receipt fields are invalid');
   }
+  const completed = receipt.status === 'completed';
+  const skipped = receipt.status === 'skipped';
   return commitAdmission(engine, {
     evidence: {
       id: `evidence:nnm-receipt:${receipt.receipt_id}`,
@@ -25,19 +28,23 @@ export async function admitNnmReceipt(engine, receipt, workspaceRoot) {
       observedAt: completedAt, attributes: {
         stored: receipt.stored, facts_stored: receipt.facts_stored,
         relationships_stored: receipt.relationships_stored, candidates: receipt.candidates,
-        summary_stored: receipt.summary_stored,
+        summary_stored: receipt.summary_stored, analysis_status: receipt.status,
       },
     },
     decision: {
       id: `governance:nnm-receipt:${receipt.receipt_id}`, domain: MEMORY_ELIGIBILITY_DOMAIN,
       subjectRef: `turn:${receipt.turn_id}`, subjectFingerprint: receipt.receipt_id,
-      outcome: 'admit', reasonCode: 'nnm_effect_receipt_verified', policyVersion: NNM_RECONCILIATION_POLICY,
+      outcome: completed ? 'admit' : 'defer',
+      reasonCode: completed ? 'nnm_effect_receipt_verified' : `nnm_receipt_${receipt.status}`,
+      policyVersion: NNM_RECONCILIATION_POLICY,
       authorityRefs: [], decidedAt: completedAt, expiresAt: null,
-      attributes: { stored: receipt.stored, candidates: receipt.candidates },
+      attributes: { stored: receipt.stored, candidates: receipt.candidates, analysis_status: receipt.status },
     },
     terminal: {
-      status: 'applied', effectCertainty: 'completed', resultFingerprint: receipt.receipt_id,
-      reasonCode: 'nnm_effects_attributed',
+      status: completed ? 'applied' : (skipped ? 'not_applied' : 'unknown_effect'),
+      effectCertainty: completed ? 'completed' : (skipped ? 'none' : 'unknown'),
+      resultFingerprint: receipt.receipt_id,
+      reasonCode: completed ? 'nnm_effects_attributed' : `nnm_receipt_${receipt.status}`,
     },
   });
 }

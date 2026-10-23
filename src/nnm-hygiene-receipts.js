@@ -39,7 +39,12 @@ export class NnmHygieneReceipts {
     for (const line of content.split(/\r?\n/u)) {
       if (!line.trim()) continue;
       let parsed;
-      try { parsed = normalize(JSON.parse(line)); } catch { malformedLines += 1; continue; }
+      try {
+        const value = JSON.parse(line);
+        // Why: NNM writes turn-analysis and hygiene receipts to the same journal.
+        if (value?.contract === 'nnm.turn-analysis-receipt/1.0') continue;
+        parsed = normalize(value);
+      } catch { malformedLines += 1; continue; }
       if (parsed.project_fingerprint !== project || Date.parse(parsed.completed_at) < since) continue;
       if (!latest || parsed.completed_at > latest.completed_at) latest = parsed;
     }

@@ -265,25 +265,28 @@ export class DreamCoordinator {
         sessionIds: packet.payload.session_refs ?? [], turnIds: packet.payload.turn_refs ?? [],
       });
       if (signal.aborted) throw cancelled();
-      if (receipts.length === 0 && Date.now() - Date.parse(packet.created_at) < 900_000) {
-        this.store.finish(run.id, 'skipped', {
-          resultCode: 'nnm_receipt_pending', durationMs: performance.now() - started,
-        });
-        return { code: 'nnm_receipt_pending', packet_id: packet.id };
+      // Why: NNM records an analyzer exception before retrying the same turn with the same receipt ID.
+      // Defer admission so a later completed receipt does not collide with immutable governance identity.
+      const withinWait = Date.now() - Date.parse(packet.created_at) < 900_000;
+      const pendingCode = withinWait && (receipts.length === 0 ? 'nnm_receipt_pending'
+        : receipts.some((receipt) => receipt.may_retry) ? 'nnm_receipt_retry_pending' : null);
+      if (pendingCode) {
+        this.store.finish(run.id, 'skipped', { resultCode: pendingCode, durationMs: performance.now() - started });
+        return { code: pendingCode, packet_id: packet.id };
       }
       const engine = this.#engine();
       for (const receipt of receipts) await admitNnmReceipt(engine, receipt, this.config.workspaceRoot);
-      this.store.advancePacket(packet.id, 4, receipts.length > 0 ? 'nnm_reconciled' : 'nnm_receipt_timeout');
+      const resultCode = receipts.length === 0 ? 'nnm_receipt_timeout'
+        : receipts.every((receipt) => receipt.status === 'completed') ? 'nnm_reconciled' : 'nnm_receipt_outcome_observed';
+      this.store.advancePacket(packet.id, 4, resultCode);
       this.store.finish(run.id, receipts.length > 0 ? 'completed' : 'skipped', {
-        resultCode: receipts.length > 0 ? 'nnm_reconciled' : 'nnm_receipt_timeout',
-        durationMs: performance.now() - started,
+        resultCode, durationMs: performance.now() - started,
         outputFingerprint: fingerprint(receipts.map((item) => item.receipt_id)),
       });
-      this.store.commitWatermark({
-        runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
-        stage: 4, configGeneration: this.config.version,
-      });
-      const result = { code: receipts.length > 0 ? 'nnm_reconciled' : 'nnm_receipt_timeout', receipts: receipts.length };
+      this.store.commitWatermark({ runtimeKey: this.runtimeKey, sessionId: null,
+        turnSequence: packet.evidence_end, stage: 4, configGeneration: this.config.version });
+      const result = { code: resultCode, receipts: receipts.length,
+        completed_receipts: receipts.filter((receipt) => receipt.status === 'completed').length };
       this.state.lastResult = result;
       return result;
     } catch (error) {
@@ -301,10 +304,8 @@ export class DreamCoordinator {
   #finishNnmSkipped(run, packet, started, code) {
     this.store.advancePacket(packet.id, 4, code);
     this.store.finish(run.id, 'skipped', { resultCode: code, durationMs: performance.now() - started });
-    this.store.commitWatermark({
-      runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
-      stage: 4, configGeneration: this.config.version,
-    });
+    this.store.commitWatermark({ runtimeKey: this.runtimeKey, sessionId: null,
+      turnSequence: packet.evidence_end, stage: 4, configGeneration: this.config.version });
     const result = { code, packet_id: packet.id };
     this.state.lastResult = result;
     return result;

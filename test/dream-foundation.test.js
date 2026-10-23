@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,6 +9,7 @@ import { resolveManifest } from '../src/config.js';
 import { DreamStore } from '../src/dream-store.js';
 import { IdleArbiter } from '../src/idle-arbiter.js';
 import { DreamCoordinator } from '../src/dream-coordinator.js';
+import { NnmGovernanceReceipts } from '../src/nnm-governance-receipts.js';
 import { ForensicTelemetry } from '../src/forensic-telemetry.js';
 import { GovernanceEngine } from '../src/governance-engine.js';
 import { LearningCandidateRegistry } from '../src/learning-candidates.js';
@@ -401,6 +403,127 @@ test('idle NNM hygiene uses a read-only hook receipt and creates attention, neve
   assert.equal(candidate.kind, 'memory.hygiene_attention');
   assert.deepEqual(candidate.payload, { candidates: 3, categories: { conflict: 2, stale: 1 } });
   assert.equal(pending, null);
+});
+
+test('idle NNM reconciliation settles a failed analyzer receipt without crediting completed effects', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-nnm-failed-'));
+  const governance = new GovernanceEngine({ sessionId: 'session' });
+  await governance.initialize();
+  const receipt = {
+    contract: 'nnm.turn-analysis-receipt/1.0', receipt_id: 'a'.repeat(64),
+    session_id: 'session', turn_id: 'turn-1', status: 'failed', stored: 0,
+    facts_stored: 0, relationships_stored: 0, summary_stored: false, candidates: 0,
+    project_fingerprint: createHash('sha256').update(root).digest('hex'), completed_at: new Date().toISOString(),
+  };
+  const engine = {
+    state: { state: 'idle' }, governance, transcript: [],
+    hooks: { health: () => ({ bundles: [{ bundle: 'notnative-memory', version: '1.11.0', status: 'loaded' }] }) },
+  };
+  const coordinator = new DreamCoordinator({
+    workspace: { sessions: new Map([['session', { engine }]]) },
+    config: resolveManifest(manifest({ workspace_root: root })), path: join(root, 'dream.db'),
+    nnmReceipts: { matching: async () => [receipt] },
+  });
+  await coordinator.initialize();
+  const packet = coordinator.store.savePacket({
+    id: 'failed-nnm-packet', runtimeKey: coordinator.runtimeKey, evidenceStart: 1, evidenceEnd: 1,
+    evidenceId: 'evidence:window', payload: { records: 1, turn_refs: ['turn-1'], session_refs: ['session'] },
+  });
+  coordinator.store.advancePacket(packet.id, 2, 'diagnosed');
+  coordinator.store.advancePacket(packet.id, 3, 'project_memory_skipped');
+  try {
+    const stage = await coordinator.runNow();
+    assert.equal(stage.result.code, 'nnm_receipt_outcome_observed');
+    assert.equal(stage.result.completed_receipts, 0);
+    assert.equal(coordinator.store.pendingPacket(coordinator.runtimeKey).stage, 4);
+    assert.equal(governance.audit().find((item) => item.id === `governance:nnm-receipt:${receipt.receipt_id}`).outcome, 'defer');
+  } finally { coordinator.close(); }
+});
+
+test('idle NNM reconciliation waits for a retryable failure, then admits its completed retry', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-nnm-retry-'));
+  const governance = new GovernanceEngine({ sessionId: 'session' });
+  await governance.initialize();
+  const base = {
+    contract: 'nnm.turn-analysis-receipt/1.0', receipt_id: 'b'.repeat(64),
+    session_id: 'session', turn_id: 'turn-1', stored: 0,
+    facts_stored: 0, relationships_stored: 0, summary_stored: false, candidates: 0,
+    project_fingerprint: createHash('sha256').update(root).digest('hex'),
+  };
+  const failed = { ...base, status: 'failed', reason: 'private exception text',
+    completed_at: new Date(Date.now() - 2_000).toISOString() };
+  const completed = { ...base, status: 'completed', stored: 1,
+    completed_at: new Date(Date.now() - 1_000).toISOString() };
+  let journal = `${JSON.stringify(failed)}\n`;
+  const engine = {
+    state: { state: 'idle' }, governance, transcript: [],
+    hooks: { health: () => ({ bundles: [{ bundle: 'notnative-memory', version: '1.11.0', status: 'loaded' }] }) },
+  };
+  const coordinator = new DreamCoordinator({
+    workspace: { sessions: new Map([['session', { engine }]]) },
+    config: resolveManifest(manifest({ workspace_root: root })), path: join(root, 'dream.db'),
+    nnmReceipts: new NnmGovernanceReceipts({ read: async () => journal }),
+  });
+  await coordinator.initialize();
+  const packet = coordinator.store.savePacket({
+    id: 'retry-nnm-packet', runtimeKey: coordinator.runtimeKey, evidenceStart: 1, evidenceEnd: 1,
+    evidenceId: 'evidence:window', payload: { records: 1, turn_refs: ['turn-1'], session_refs: ['session'] },
+  });
+  coordinator.store.advancePacket(packet.id, 2, 'diagnosed');
+  coordinator.store.advancePacket(packet.id, 3, 'project_memory_skipped');
+  try {
+    const waiting = await coordinator.runNow();
+    assert.equal(waiting.result.code, 'nnm_receipt_retry_pending');
+    assert.equal(coordinator.store.pendingPacket(coordinator.runtimeKey).stage, 3);
+    assert.equal(governance.audit().length, 0);
+    journal += `${JSON.stringify(completed)}\n`;
+    const reconciled = await coordinator.runNow();
+    assert.equal(reconciled.result.code, 'nnm_reconciled');
+    assert.equal(reconciled.result.completed_receipts, 1);
+    assert.equal(governance.audit()[0].outcome, 'admit');
+    assert.equal(governance.audit()[0].terminal.effectCertainty, 'completed');
+  } finally { coordinator.close(); }
+});
+
+test('retryable NNM failures settle as observed failures after the bounded wait', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-nnm-timeout-'));
+  const governance = new GovernanceEngine({ sessionId: 'session' });
+  await governance.initialize();
+  const receipt = {
+    contract: 'nnm.turn-analysis-receipt/1.0', receipt_id: 'c'.repeat(64),
+    session_id: 'session', turn_id: 'turn-1', status: 'failed', reason: 'private exception text',
+    stored: 0, facts_stored: 0, relationships_stored: 0, summary_stored: false, candidates: 0,
+    project_fingerprint: createHash('sha256').update(root).digest('hex'),
+    completed_at: new Date().toISOString(),
+  };
+  const engine = {
+    state: { state: 'idle' }, governance, transcript: [],
+    hooks: { health: () => ({ bundles: [{ bundle: 'notnative-memory', version: '1.11.0', status: 'loaded' }] }) },
+  };
+  const coordinator = new DreamCoordinator({
+    workspace: { sessions: new Map([['session', { engine }]]) },
+    config: resolveManifest(manifest({ workspace_root: root })), path: join(root, 'dream.db'),
+    nnmReceipts: new NnmGovernanceReceipts({ read: async () => `${JSON.stringify(receipt)}\n` }),
+  });
+  await coordinator.initialize();
+  const packet = coordinator.store.savePacket({
+    id: 'timeout-nnm-packet', runtimeKey: coordinator.runtimeKey, evidenceStart: 1, evidenceEnd: 1,
+    evidenceId: 'evidence:window', payload: { records: 1, turn_refs: ['turn-1'], session_refs: ['session'] },
+  });
+  coordinator.store.advancePacket(packet.id, 2, 'diagnosed');
+  coordinator.store.advancePacket(packet.id, 3, 'project_memory_skipped');
+  try {
+    assert.equal((await coordinator.runNow()).result.code, 'nnm_receipt_retry_pending');
+    coordinator.store.db.prepare('UPDATE dream_packets SET created_at=? WHERE id=?')
+      .run(new Date(Date.now() - 901_000).toISOString(), packet.id);
+    const settled = await coordinator.runNow();
+    assert.equal(settled.result.code, 'nnm_receipt_outcome_observed');
+    assert.equal(coordinator.store.pendingPacket(coordinator.runtimeKey).stage, 4);
+    const decision = governance.audit()[0];
+    assert.equal(decision.outcome, 'defer');
+    assert.equal(decision.terminal.status, 'unknown_effect');
+    assert.equal(JSON.stringify(governance.audit()).includes(receipt.reason), false);
+  } finally { coordinator.close(); }
 });
 
 test('deterministic oversized NNM receipts settle each optional stage instead of retrying forever', async () => {

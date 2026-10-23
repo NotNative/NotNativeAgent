@@ -23,4 +23,20 @@ test('NNM hygiene receipt reader ignores malformed and unrelated contracts', asy
   assert.equal(await reader.latest({ workspaceRoot: 'x', since: 0 }), null);
 });
 
+test('known turn-analysis receipts in the shared journal are not malformed hygiene receipts', async () => {
+  const workspace = 'D:\\project';
+  const diagnostics = [];
+  const hygiene = {
+    contract: 'nnm.hygiene-receipt/1.0', receipt_id: 'a'.repeat(64),
+    session_id: 'session-1', status: 'completed', candidates: 0, categories: {},
+    project_fingerprint: digest(workspace), completed_at: '2026-08-06T01:02:03.000Z',
+  };
+  const reader = new NnmHygieneReceipts({
+    read: async () => `${JSON.stringify({ contract: 'nnm.turn-analysis-receipt/1.0' })}\n${JSON.stringify(hygiene)}\n`,
+    onDiagnostic: (event) => diagnostics.push(event),
+  });
+  assert.equal((await reader.latest({ workspaceRoot: workspace })).receipt_id, hygiene.receipt_id);
+  assert.deepEqual(diagnostics, []);
+});
+
 function digest(value) { return createHash('sha256').update(value).digest('hex'); }
