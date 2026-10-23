@@ -3,7 +3,7 @@ import { ContractError } from './ids.js';
 import { providerReasoningControls } from './provider/reasoning.js';
 import { providerRetryAfterMs } from './reliability/retry-after.js';
 import { localProviderFetch } from './provider/local-http-transport.js';
-import { CredentialResolver, normalizeCredentialBinding } from './credential-bindings.js';
+import { CredentialResolver, httpCredentialValue, normalizeCredentialBinding } from './credential-bindings.js';
 import { sanitizeProviderUsage, unrecognizedDeltaEvent } from './provider/event-shape.js';
 import { providerModelLimits } from './provider/model-metadata.js';
 import { chatCompletionBody } from './provider/tool-call-compatibility.js';
@@ -155,7 +155,7 @@ export class OpenAICompatibleProvider {
 
   #headers(secret) {
     const headers = { 'content-type': 'application/json', accept: 'text/event-stream' };
-    if (secret) headers.authorization = `Bearer ${secret}`;
+    if (secret) headers.authorization = `Bearer ${httpCredentialValue(secret)}`;
     return headers;
   }
 }

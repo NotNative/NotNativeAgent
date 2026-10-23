@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import { ContractError } from './ids.js';
 import { VERSION } from './product.js';
-import { CredentialResolver, normalizeCredentialBinding } from './credential-bindings.js';
+import { CredentialResolver, httpCredentialValue, normalizeCredentialBinding } from './credential-bindings.js';
 
 export const MCP_CURRENT_VERSION = '2026-07-28';
 const MAX_MCP_MESSAGE_BYTES = 2_097_152;
@@ -278,13 +278,15 @@ export class HttpMcpTransport {
     if (['tools/call', 'resources/read', 'prompts/get'].includes(method)) {
       headers['mcp-name'] = String(params.name ?? params.uri);
     }
-    if (credential) headers.authorization = `Bearer ${credential}`;
+    if (credential) headers.authorization = `Bearer ${httpCredentialValue(credential)}`;
     for (const [header, environmentName] of Object.entries(this.config.headerEnv ?? {})) {
       const secret = process.env[environmentName];
       if (!secret) throw new ContractError('missing_credential', `configured MCP header credential ${environmentName} is unavailable`);
-      headers[header] = secret;
+      headers[header] = httpCredentialValue(secret);
     }
-    Object.assign(headers, credentialHeaders);
+    for (const [header, secret] of Object.entries(credentialHeaders)) {
+      headers[header] = httpCredentialValue(secret);
+    }
     if (this.sessionId && this.protocolVersion !== MCP_CURRENT_VERSION) {
       headers['mcp-session-id'] = this.sessionId;
     }

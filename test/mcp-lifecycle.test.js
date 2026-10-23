@@ -172,6 +172,26 @@ test('structured Secret Broker header credentials resolve only at the HTTP bound
   assert.equal(JSON.stringify(config).includes('broker-boundary-secret'), false);
 });
 
+test('MCP HTTP rejects malformed bearer and custom header credentials before sending', async () => {
+  for (const config of [
+    { credential: { source: 'secret', secretId: 'sec_123', field: 'token' } },
+    { headerCredentials: { 'X-Workspace-Token': { source: 'secret', secretId: 'sec_123', field: 'token' } } },
+    { headerEnv: { 'X-Workspace-Token': 'NNA_TEST_MCP_BAD_HEADER' } },
+  ]) {
+    const prior = process.env.NNA_TEST_MCP_BAD_HEADER;
+    process.env.NNA_TEST_MCP_BAD_HEADER = 'secret\r\nX-Injected: yes';
+    try {
+      const transport = new HttpMcpTransport({
+        id: 'remote', endpoint: 'http://127.0.0.1:1/mcp', protocolVersion: MCP_CURRENT_VERSION, ...config,
+      }, { credentialResolver: { withCredential: async (_binding, _context, consumer) => consumer('secret\r\nX-Injected: yes') } });
+      await assert.rejects(() => transport.request('ping'), { code: 'credential_value_invalid' });
+    } finally {
+      if (prior === undefined) delete process.env.NNA_TEST_MCP_BAD_HEADER;
+      else process.env.NNA_TEST_MCP_BAD_HEADER = prior;
+    }
+  }
+});
+
 test('AC-MCP-02 stateful HTTP session shutdown is bounded and explicitly released', async (t) => {
   const protocolVersion = '2025-11-25';
   const requests = [];

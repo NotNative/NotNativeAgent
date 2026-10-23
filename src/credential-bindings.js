@@ -4,6 +4,14 @@ import { ContractError } from './ids.js';
 const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/u;
 const SECRET_ID = /^sec_[A-Za-z0-9-]{1,128}$/u;
 const FIELD_NAME = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u;
+const HTTP_HEADER_CONTROLS = /[\x00-\x1f\x7f]/u;
+
+export function httpCredentialValue(value) {
+  if (typeof value !== 'string' || !value || HTTP_HEADER_CONTROLS.test(value)) {
+    throw new ContractError('credential_value_invalid', 'configured HTTP credential contains invalid header characters');
+  }
+  return value;
+}
 
 export function normalizeCredentialBinding(value, legacyEnvironment) {
   if (value === null || value === undefined) {

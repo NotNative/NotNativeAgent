@@ -369,7 +369,7 @@ function isConnectionFailure(error) {
   if (error?.code === 'mcp_cancelled' || error?.code === 'mcp_remote_error' || error?.code === 'mcp_input_required') return false;
   return error?.retryable === true || [
     'mcp_closed', 'mcp_malformed', 'mcp_output_too_large', 'mcp_http_error',
-    'missing_credential', 'mcp_timeout',
+    'missing_credential', 'credential_value_invalid', 'mcp_timeout',
   ].includes(error?.code);
 }
 

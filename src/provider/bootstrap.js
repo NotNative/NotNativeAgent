@@ -8,6 +8,7 @@ import { OUTPUT_HEADROOM_VERSION } from '../reliability/output-headroom.js';
 import { withManifestLock, readLockedManifestSnapshot, transactLockedManifest } from '../persistence/manifest-transaction.js';
 import { quarantineMalformedJson } from '../persistence/atomic-json.js';
 import { SecretBroker } from '../secret-broker.js';
+import { httpCredentialValue } from '../credential-bindings.js';
 
 const CREDENTIAL_ENV = 'NNA_PROVIDER_INITIAL_KEY';
 const MAX_RESPONSE_BYTES = 1_048_576;
@@ -42,7 +43,7 @@ export async function providerBootstrapStatus(paths) {
 export async function discoverProviderModels(endpoint, key = '', options = {}) {
   const normalized = normalizeEndpoint(endpoint);
   const headers = { accept: 'application/json' };
-  if (key) headers.authorization = `Bearer ${key}`;
+  if (key) headers.authorization = `Bearer ${httpCredentialValue(key)}`;
   let response;
   try {
     response = await (options.fetch ?? globalThis.fetch)(`${normalized}/models`, {

@@ -50,6 +50,14 @@ test('installer provider bootstrap supports providers without authentication', a
   assert.equal(await loadManagedProviderCredentials(paths, {}), 0);
 });
 
+test('provider model discovery rejects malformed HTTP credential before sending', async () => {
+  let fetchCalls = 0;
+  await assert.rejects(discoverProviderModels('http://localhost:1234/v1', 'secret\r\nX-Injected: yes', {
+    fetch: async () => { fetchCalls += 1; throw new Error('fetch must not run'); },
+  }), { code: 'credential_value_invalid' });
+  assert.equal(fetchCalls, 0);
+});
+
 test('provider credentials publish atomically and malformed JSON is quarantined with an actionable path', async () => {
   const root = createScratchSync('nna-provider-atomic-');
   const paths = providerPaths(root);

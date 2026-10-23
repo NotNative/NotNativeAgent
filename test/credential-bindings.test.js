@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ContractError } from '../src/ids.js';
-import { CredentialResolver, environmentCredential, normalizeCredentialBinding, secretCredential } from '../src/credential-bindings.js';
+import { CredentialResolver, environmentCredential, httpCredentialValue, normalizeCredentialBinding, secretCredential } from '../src/credential-bindings.js';
 import { OpenAICompatibleProvider } from '../src/provider.js';
 import { resolveManifest } from '../src/config.js';
 
@@ -52,6 +52,24 @@ test('provider discovery injects a selected Secret Broker credential without env
   const capabilities = await provider.capabilities(new AbortController().signal);
   assert.equal(authorization, 'Bearer provider-secret-value');
   assert.deepEqual(capabilities.models, ['model']);
+});
+
+test('HTTP credentials reject control characters at the request boundary while stored text may be multiline', async () => {
+  const { validateSecretFields } = await import('../src/secret-contracts.js');
+  assert.equal(validateSecretFields('text', { body: 'first\nsecond' }).body, 'first\nsecond');
+  for (const value of ['line\r\ninjected', 'line\nnext', 'tab\tvalue', 'del\u007fvalue']) {
+    assert.throws(() => httpCredentialValue(value), { code: 'credential_value_invalid' });
+  }
+  let fetchCalls = 0;
+  const provider = new OpenAICompatibleProvider({
+    id: 'remote', endpoint: 'https://example.test/v1', model: 'model', trustZone: 'public_network',
+    credential: { source: 'environment', name: 'SERVER_TOKEN' }, capabilities: {},
+  }, {}, {
+    credentialResolver: new CredentialResolver({ environment: { SERVER_TOKEN: 'secret\r\nX-Injected: yes' } }),
+    fetch: async () => { fetchCalls += 1; throw new Error('fetch must not run'); },
+  });
+  await assert.rejects(() => provider.capabilities(new AbortController().signal), { code: 'credential_value_invalid' });
+  assert.equal(fetchCalls, 0);
 });
 
 test('credential binding grammar accepts environment names and secret references, and refuses violations with credential_binding_invalid', () => {
