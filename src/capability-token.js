@@ -2,7 +2,7 @@
 /** Token encode/verify internals for the renewable scoped capability
  *  (execution guide 02 L3). Verification enforces the bounded clock skew,
  *  renewal grace, revocation, generation/scope binding, and active-key
- *  identity before any HMAC comparison result is trusted. */
+ *  identity only after the HMAC comparison succeeds. */
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { ContractError } from './ids.js';
 
@@ -12,18 +12,14 @@ const BASE64URL = /^[A-Za-z0-9_-]+$/u;
 const MAX_TOKEN_CHARACTERS = 16 * 1024;
 
 export function encodeCapabilityToken(payload, key) {
-  const encodedPayload = Buffer.from(JSON.stringify({ v: PAYLOAD_VERSION, ...payload }), 'utf8').toString('base64url');
+  const encodedPayload = Buffer.from(JSON.stringify({ ...payload, v: PAYLOAD_VERSION }), 'utf8').toString('base64url');
   const signature = createHmac('sha256', key).update(encodedPayload).digest('base64url');
   return `${encodedPayload}.${signature}`;
 }
 
 export function verifyCapabilityToken(token, context) {
+  assertVerificationContext(context);
   const { boundGeneration, activeKey, activeKeyId, revoked, now, skewMs, graceMs, allowGrace } = context;
-  // Security: invalid clock inputs must not turn expiry or skew comparisons into false.
-  if (typeof now !== 'function' || !Number.isSafeInteger(skewMs) || skewMs < 0
-    || !Number.isSafeInteger(graceMs) || graceMs < 0) {
-    throw new ContractError('capability_invalid', 'capability clock and duration bounds are invalid');
-  }
   if (typeof token !== 'string' || token.length > MAX_TOKEN_CHARACTERS || !token.includes('.')) {
     throw new ContractError('capability_invalid', 'capability token is malformed');
   }
@@ -33,21 +29,21 @@ export function verifyCapabilityToken(token, context) {
   if (!BASE64URL.test(encodedPayload) || !BASE64URL.test(signature)) {
     throw new ContractError('capability_invalid', 'capability token must be base64url payload and signature');
   }
-  let value;
-  try { value = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')); }
-  catch { throw new ContractError('capability_invalid', 'capability payload is not JSON'); }
-  if (!value || typeof value !== 'object' || value.v !== PAYLOAD_VERSION
-    || value.scope !== SCOPE || !boundGeneration || value.generation !== boundGeneration
-    || typeof value.key_id !== 'string' || !value.key_id) {
-    throw new ContractError('capability_invalid', 'capability payload is out of scope for this service');
-  }
-  if (revoked.has(value.key_id)) throw new ContractError('capability_revoked', 'capability key is revoked');
-  if (value.key_id !== activeKeyId) throw new ContractError('capability_key_unknown', 'capability key is not active');
   const expected = createHmac('sha256', activeKey).update(encodedPayload).digest('base64url');
   const presented = Buffer.from(signature), expectedBuffer = Buffer.from(expected);
   if (presented.length !== expectedBuffer.length || !timingSafeEqual(presented, expectedBuffer)) {
     throw new ContractError('capability_invalid', 'capability signature is invalid');
   }
+  let value;
+  try { value = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')); }
+  catch { throw new ContractError('capability_invalid', 'capability payload is not JSON'); }
+  if (!value || typeof value !== 'object' || value.v !== PAYLOAD_VERSION
+    || value.scope !== SCOPE || value.generation !== boundGeneration
+    || typeof value.key_id !== 'string' || !value.key_id) {
+    throw new ContractError('capability_invalid', 'capability payload is out of scope for this service');
+  }
+  if (revoked.has(value.key_id)) throw new ContractError('capability_revoked', 'capability key is revoked');
+  if (value.key_id !== activeKeyId) throw new ContractError('capability_key_unknown', 'capability key is not active');
   const issuedAt = requiredTime(value.issued_at), expiresAt = requiredTime(value.expires_at);
   const timestamp = now();
   if (!Number.isSafeInteger(timestamp)) {
@@ -71,6 +67,21 @@ export function verifyCapabilityToken(token, context) {
     groupIds: requiredList(value.group_ids),
     keyId: value.key_id, issuedAt, expiresAt,
   });
+}
+
+function assertVerificationContext(context) {
+  if (!context || typeof context !== 'object') {
+    throw new ContractError('capability_invalid', 'capability verification context is invalid');
+  }
+  const { boundGeneration, activeKey, activeKeyId, revoked, now, skewMs, graceMs } = context;
+  // Security: invalid clock inputs must not turn expiry or skew comparisons into false.
+  if (typeof now !== 'function' || !Number.isSafeInteger(skewMs) || skewMs < 0
+    || !Number.isSafeInteger(graceMs) || graceMs < 0
+    || !(revoked instanceof Set) || typeof activeKeyId !== 'string' || !activeKeyId
+    || typeof boundGeneration !== 'string' || !boundGeneration
+    || !(typeof activeKey === 'string' || Buffer.isBuffer(activeKey)) || !activeKey.length) {
+    throw new ContractError('capability_invalid', 'capability context bounds are invalid');
+  }
 }
 
 function requiredTime(value) {

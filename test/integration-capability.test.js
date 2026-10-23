@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCapabilityAuthority } from '../src/integration-capability.js';
-import { verifyCapabilityToken } from '../src/capability-token.js';
+import { encodeCapabilityToken, verifyCapabilityToken } from '../src/capability-token.js';
 
 const PRINCIPAL = Object.freeze({
   subject_id: 'nnd-service:nna_test', platform_role: 'service',
@@ -81,18 +81,36 @@ test('revocation takes effect immediately and survives rotation semantics', () =
   cap.revoke();
   throwsCode(() => cap.verify(token), 'capability_revoked');
   cap.rotate();
-  throwsCode(() => cap.renew(token), 'capability_revoked');
+  throwsCode(() => cap.renew(token), 'capability_invalid');
   const fresh = cap.issue();
   assert.equal(cap.verify(fresh).keyId, cap.keyId);
 });
 
-test('unknown keys fail closed as restart evidence, not as revoked state', () => {
+test('unknown keys fail closed without disclosing key state before signature verification', () => {
   const cap = authority();
   const foreign = createCapabilityAuthority({
     generation: 'gen_1', principal: PRINCIPAL, key: 'j'.repeat(43), keyId: 'cap_other',
     ttlMs: 600_000, graceMs: 60_000, skewMs: 30_000, now: clock,
   });
-  throwsCode(() => cap.verify(foreign.issue()), 'capability_key_unknown');
+  throwsCode(() => cap.verify(foreign.issue()), 'capability_invalid');
+});
+
+test('unsigned key lifecycle claims do not reveal revocation or rotation state', () => {
+  const cap = authority();
+  const token = cap.issue();
+  const [payload, signature] = token.split('.');
+  const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  for (const keyId of ['cap_other', 'cap_test']) {
+    const tampered = Buffer.from(JSON.stringify({ ...claims, key_id: keyId,
+      subject_id: 'unsigned-tamper' })).toString('base64url');
+    cap.revoke();
+    throwsCode(() => cap.verify(`${tampered}.${signature}`), 'capability_invalid');
+  }
+});
+
+test('capability version cannot be overridden by an encoder caller', () => {
+  const encoded = encodeCapabilityToken({ v: 99, scope: 'nnd-service' }, 'k'.repeat(43));
+  assert.equal(JSON.parse(Buffer.from(encoded.split('.')[0], 'base64url').toString('utf8')).v, 1);
 });
 
 test('generation and scope bind the capability to one supervised service', () => {
@@ -142,6 +160,9 @@ test('invalid clock values and duration bounds never admit a capability', () => 
     revoked: new Set(), now: () => now, graceMs: 60_000, allowGrace: true,
   };
   throwsCode(() => verifyCapabilityToken(token, context), 'capability_invalid');
+  throwsCode(() => verifyCapabilityToken(token, undefined), 'capability_invalid');
+  throwsCode(() => verifyCapabilityToken(token, { ...context, skewMs: 0, revoked: null }), 'capability_invalid');
+  throwsCode(() => verifyCapabilityToken(token, { ...context, skewMs: 0, activeKey: null }), 'capability_invalid');
   now = 1_000_000 + 600_000 + 60_001;
   throwsCode(() => cap.verify(token), 'capability_expired');
 });

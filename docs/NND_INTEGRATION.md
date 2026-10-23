@@ -20,7 +20,8 @@ The supervised service child additionally receives an NNA-issued renewable
 scoped capability (`src/integration-capability.js`): an HMAC-bound token
 carrying exactly the issued subject, role, permissions, and workspace/group
 lists, with bounded clock skew, a renewal grace window, explicit revocation,
-and key rotation on NNA restart (old keys fail closed as `capability_key_unknown`).
+and key rotation on NNA restart (old keys fail closed without revealing key
+state before signature verification).
 The supervisor pushes a fresh capability to the child over the private control
 channel (`apply_capability` → `applied`) every five minutes, before expiry;
 renewal preserves authority by construction and a failed renewal fails the
