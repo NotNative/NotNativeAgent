@@ -4,6 +4,7 @@ import { constants } from 'node:fs';
 import { lstat, mkdir, open, readdir, rename, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError, requireExternalId } from '../ids.js';
+import { TURN_OUTCOMES } from '../contracts.js';
 import { persistAtomicJsonIfAbsent } from '../persistence/atomic-json.js';
 import { readVerifiedTurnOutcomes } from '../persistence/notification-journal.js';
 
@@ -244,7 +245,7 @@ function validNotification(value, name) {
   if (typeof value?.message !== 'string' || !value.message.trim() || value.message.length > MAX_NOTIFICATION_LENGTH
     || !validNotificationId(value.session_id)) return false;
   if (value.version === 1) return value.id === name.slice(0, -5)
-    && typeof value.outcome === 'string' && value.outcome.length > 0 && value.outcome.length <= 64;
+    && TURN_OUTCOMES.includes(value.outcome);
   return value.version === 2 && /^[a-f0-9]{64}\.json$/u.test(name)
     && value.id === name.slice(0, -5) && validNotificationId(value.turn_id)
     && notificationId(value.session_id, value.turn_id) === value.id;

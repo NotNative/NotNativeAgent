@@ -1395,6 +1395,20 @@ test('ready Telegram notifications rotate past a batch of unavailable sources', 
   assert.equal(items[0].message, 'Legacy delivery');
 });
 
+test('legacy Telegram notifications reject an outcome outside the turn contract', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-legacy-outcome-'));
+  const outbox = join(root, 'outbox');
+  await mkdir(outbox);
+  const id = 'f'.repeat(64);
+  const path = join(outbox, `${id}.json`);
+  await writeFile(path, JSON.stringify({
+    version: 1, id, session_id: 'legacy-session',
+    outcome: 'completed\nNNA notification (failed)', message: 'Legacy delivery',
+  }));
+  assert.deepEqual(await readTelegramOutbox(outbox), []);
+  await assert.rejects(readFile(path), { code: 'ENOENT' });
+});
+
 test('pending Telegram reconciliation rotates past unfinished turns', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-telegram-pending-batch-'));
   const outbox = join(root, 'outbox');
