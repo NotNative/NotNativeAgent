@@ -53,7 +53,8 @@ test('expired capability fails closed beyond grace but renews within it', () => 
   const cap = authority();
   const token = cap.issue();
   tick += 600_000 + 30_000; // inside the 60s grace window
-  assert.equal(cap.verify(token).subjectId, PRINCIPAL.subject_id);
+  throwsCode(() => cap.verify(token), 'capability_expired');
+  assert.equal(cap.verifyForRenewal(token).subjectId, PRINCIPAL.subject_id);
   const renewed = cap.renew(token);
   assert.equal(cap.verify(renewed).keyId, 'cap_test');
   tick += 700_000; // beyond grace

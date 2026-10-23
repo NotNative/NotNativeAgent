@@ -64,7 +64,9 @@ export function createCapabilityAuthority({
         ...authorityFields(verified, state), issued_at: issuedAt, expires_at: expiry(issuedAt, ttlMs),
       }, state.activeKey);
     },
-    verify: (token) => verifyToken(token, true),
+    // Grace only permits recovering a recently expired credential through renewal.
+    verify: (token) => verifyToken(token, false),
+    verifyForRenewal: (token) => verifyToken(token, true),
     revoke() { state.revoked.add(state.activeKeyId); },
     rotate() {
       state.revoked.add(state.activeKeyId);

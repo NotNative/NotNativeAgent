@@ -15,7 +15,7 @@ import { dispatchNndConfigurationRequest } from './nnd-configuration-routes.js';
 import { dispatchNndWorkspaceGrantRequest } from './nnd-workspace-grant-routes.js';
 import { dispatchNndWorkspaceAdmissionRequest } from './nnd-workspace-admission-routes.js';
 import { dispatchNndAttachmentUploadRequest } from './nnd-attachment-upload-routes.js';
-import { dispatchNndCapabilityRequest } from './nnd-capability-routes.js';
+import { dispatchNndCapabilityRequest, isCapabilityRenewalRequest } from './nnd-capability-routes.js';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 const PROVIDER_ROUTE = /^\/v1\/provider-profiles(?:\/([^/]+))?(?:\/(discover|test))?$/u;
@@ -70,7 +70,9 @@ async function dispatch(request, response, context) {
   // transport, not authority (execution guide 02 L3).
   if (context.capabilityAuthority) {
     try {
-      context.capabilityAuthority.verify(request.headers['x-nna-service-capability']);
+      const verify = isCapabilityRenewalRequest(request, new URL(request.url ?? '/', 'http://127.0.0.1'))
+        ? context.capabilityAuthority.verifyForRenewal : context.capabilityAuthority.verify;
+      verify(request.headers['x-nna-service-capability']);
     } catch (error) {
       if (!(error instanceof ContractError)) throw error;
       return send(response, 401, failure(error.code, error.message));

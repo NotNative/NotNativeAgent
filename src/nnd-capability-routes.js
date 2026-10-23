@@ -10,6 +10,10 @@ import { ContractError } from './ids.js';
 
 const RENEW_ROUTE = /^\/v1\/nnd\/capability\/renew$/u;
 
+export function isCapabilityRenewalRequest(request, url) {
+  return request.method === 'POST' && RENEW_ROUTE.test(url.pathname);
+}
+
 export async function dispatchNndCapabilityRequest(request, response, context) {
   if (!context.capabilityAuthority || !RENEW_ROUTE.test(context.url.pathname)) return false;
   if (request.method !== 'POST') {

@@ -53,7 +53,8 @@ export function verifyCapabilityToken(token, context) {
     throw new ContractError('capability_skew', 'capability issued_at is beyond the bounded clock skew');
   }
   if (timestamp > expiresAt + (allowGrace ? graceMs : 0)) {
-    throw new ContractError('capability_expired', 'capability is expired beyond the renewal grace window');
+    throw new ContractError('capability_expired', allowGrace
+      ? 'capability is expired beyond the renewal grace window' : 'capability is expired');
   }
   return Object.freeze({
     subject_id: requiredText(value.subject_id, 'subject_id'),

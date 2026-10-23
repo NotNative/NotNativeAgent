@@ -921,8 +921,28 @@ test('capability renewal endpoint renews within grace and fails closed', async (
     assert.equal((await renew(`${forged}.${signature}`)).status, 401);
     // GET is not renewal.
     assert.equal((await renew(fresh, 'GET')).status, 405);
+    // Grace is for renewal only; the same expired capability cannot execute.
+    tick += 630_000;
+    const graceExecution = await fetch(`${base}/session`, { headers: {
+      authorization: `Bearer ${TOKEN}`, 'x-nna-service-capability': fresh,
+      'x-nna-principal': Buffer.from(JSON.stringify(principal(['nnd.read']))).toString('base64url'),
+    } });
+    assert.equal(graceExecution.status, 401);
+    assert.equal((await graceExecution.json()).error.code, 'capability_expired');
+    assert.equal((await renew(fresh, 'GET')).status, 401);
+    const inGraceRenewal = await renew(fresh);
+    assert.equal(inGraceRenewal.status, 200);
+    assert.equal(authority.verify(inGraceRenewal.value.capability).subject_id, 'nnd-service:nna_test');
+    // Both presented capabilities are checked independently; grace does not
+    // let a valid header launder a forged body or bypass the static bearer.
+    assert.equal((await renew(`${forged}.${signature}`, 'POST', fresh)).status, 401);
+    const withoutBearer = await fetch(`${base}/v1/nnd/capability/renew`, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-nna-service-capability': fresh },
+      body: JSON.stringify({ capability: fresh }),
+    });
+    assert.equal(withoutBearer.status, 401);
     // Beyond grace the service must fail closed instead of extending authority.
-    tick += 700_000;
+    tick += 70_000;
     const expired = await renew(fresh);
     assert.equal(expired.status, 401);
     assert.equal(expired.value.error.code, 'capability_expired');
