@@ -12,6 +12,9 @@ import { encodeCapabilityToken, verifyCapabilityToken } from './capability-token
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_GRACE_MS = 60 * 1000;
 const DEFAULT_SKEW_MS = 30 * 1000;
+const MAX_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_GRACE_MS = 5 * 60 * 1000;
+const MAX_SKEW_MS = 5 * 60 * 1000;
 const AUTHORITY_KEYS = Object.freeze([
   'subject_id', 'platform_role', 'permissions', 'workspace_ids', 'group_ids',
 ]);
@@ -21,18 +24,16 @@ export function createCapabilityAuthority({
   keyId = `cap_${randomBytes(8).toString('hex')}`, ttlMs = DEFAULT_TTL_MS,
   graceMs = DEFAULT_GRACE_MS, skewMs = DEFAULT_SKEW_MS, now = () => Date.now(),
 } = {}) {
-  if (generation !== undefined && (typeof generation !== 'string' || !generation.trim())) {
-    throw new ContractError('capability_invalid', 'generation required');
-  }
-  if (typeof now !== 'function' || !Number.isSafeInteger(ttlMs) || ttlMs <= 0
-    || !Number.isSafeInteger(graceMs) || graceMs < 0
-    || !Number.isSafeInteger(skewMs) || skewMs < 0) {
-    throw new ContractError('capability_invalid', 'capability clock and duration bounds are invalid');
-  }
+  const { boundGeneration, normalizedKeyId, activeKey } = validatedOptions({
+    generation, key, keyId, ttlMs, graceMs, skewMs, now,
+  });
   const authority = freezeAuthority(principal);
-  const state = { activeKey: key, activeKeyId: keyId, revoked: new Set(), boundGeneration: generation };
+  const state = { activeKey, activeKeyId: normalizedKeyId, revoked: new Set(), boundGeneration };
   const context = (allowGrace) => ({ ...state, now, skewMs, graceMs, allowGrace });
   const issue = () => {
+    if (state.revoked.has(state.activeKeyId)) {
+      throw new ContractError('capability_revoked', 'rotate the capability key before issuing again');
+    }
     const issuedAt = clockTime(now);
     return encodeCapabilityToken({
       ...authorityFields(authority, state), issued_at: issuedAt, expires_at: expiry(issuedAt, ttlMs),
@@ -45,8 +46,7 @@ export function createCapabilityAuthority({
      *  listener has started, so construction may defer the binding. */
     bind(value) {
       if (state.boundGeneration) throw new ContractError('capability_invalid', 'generation already bound');
-      if (typeof value !== 'string' || !value.trim()) throw new ContractError('capability_invalid', 'generation required');
-      state.boundGeneration = value;
+      state.boundGeneration = requiredText(value, 'generation');
     },
     /** Renewal preserves subject, workspace, surface, and permitted actions by
      *  construction: the fresh authority is copied from the verified previous
@@ -75,6 +75,23 @@ export function createCapabilityAuthority({
     get keyId() { return state.activeKeyId; },
   });
 
+}
+
+function validatedOptions({ generation, key, keyId, ttlMs, graceMs, skewMs, now }) {
+  const boundGeneration = generation === undefined ? undefined : requiredText(generation, 'generation');
+  if (typeof now !== 'function' || !Number.isSafeInteger(ttlMs) || ttlMs <= 0 || ttlMs > MAX_TTL_MS
+    || !Number.isSafeInteger(graceMs) || graceMs < 0 || graceMs > MAX_GRACE_MS
+    || !Number.isSafeInteger(skewMs) || skewMs < 0 || skewMs > MAX_SKEW_MS) {
+    throw new ContractError('capability_invalid', 'capability clock and duration bounds are invalid');
+  }
+  const keyBytes = typeof key === 'string' ? Buffer.byteLength(key, 'utf8')
+    : Buffer.isBuffer(key) ? key.length : 0;
+  if (keyBytes < 32 || keyBytes > 4096) {
+    throw new ContractError('capability_invalid', 'capability signing key must be bounded and at least 32 bytes');
+  }
+  // Security: a caller wiping or reusing its Buffer cannot change this authority's signing key.
+  return { boundGeneration, normalizedKeyId: requiredText(keyId, 'key_id'),
+    activeKey: Buffer.isBuffer(key) ? Buffer.from(key) : key };
 }
 
 function authorityFields(source, state) {

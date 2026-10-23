@@ -80,10 +80,54 @@ test('revocation takes effect immediately and survives rotation semantics', () =
   const token = cap.issue();
   cap.revoke();
   throwsCode(() => cap.verify(token), 'capability_revoked');
+  throwsCode(() => cap.issue(), 'capability_revoked');
   cap.rotate();
   throwsCode(() => cap.renew(token), 'capability_invalid');
   const fresh = cap.issue();
   assert.equal(cap.verify(fresh).keyId, cap.keyId);
+});
+
+test('authority construction bounds keys, key IDs, generation and durations', () => {
+  const options = { generation: ' gen_1 ', principal: PRINCIPAL, key: 'k'.repeat(43),
+    keyId: ' cap_test ', now: () => 1_000_000 };
+  const cap = createCapabilityAuthority(options);
+  assert.equal(cap.keyId, 'cap_test');
+  assert.equal(cap.verify(cap.issue()).keyId, 'cap_test');
+  for (const override of [{ key: 'short' }, { key: '' }, { key: null },
+    { key: 'k'.repeat(4097) }, { keyId: '' }, { keyId: 'bad\nkey' },
+    { generation: ' '.repeat(4) }, { ttlMs: 0 }, { ttlMs: 86_400_001 },
+    { graceMs: 600_000 }, { graceMs: -1 }, { skewMs: 300_001 }]) {
+    throwsCode(() => createCapabilityAuthority({ ...options, ...override }), 'capability_invalid');
+  }
+});
+
+test('caller-owned signing key buffers cannot change an issued authority', () => {
+  const key = Buffer.alloc(32, 0x6b);
+  const cap = createCapabilityAuthority({
+    generation: 'gen_1', principal: PRINCIPAL, key, keyId: 'cap_test', now: () => 1_000_000,
+  });
+  const token = cap.issue();
+  key.fill(0); // A caller can wipe its copy without revoking or changing the authority.
+  assert.equal(cap.verify(token).subjectId, PRINCIPAL.subject_id);
+  assert.equal(cap.verify(cap.issue()).subjectId, PRINCIPAL.subject_id);
+});
+
+test('short-lived capabilities may retain a separately bounded renewal grace', () => {
+  const cap = createCapabilityAuthority({
+    generation: 'gen_1', principal: PRINCIPAL, key: 'k'.repeat(43), keyId: 'cap_test',
+    ttlMs: 30_000, now: () => 1_000_000,
+  });
+  const verified = cap.verify(cap.issue());
+  assert.equal(verified.expiresAt - verified.issuedAt, 30_000);
+});
+
+test('deferred generation binding stores the normalized value', () => {
+  const cap = createCapabilityAuthority({ generation: undefined, principal: PRINCIPAL,
+    key: 'k'.repeat(43), keyId: 'cap_test', now: () => 1_000_000 });
+  cap.bind(' gen_1 ');
+  const token = cap.issue();
+  assert.equal(JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString('utf8')).generation, 'gen_1');
+  assert.equal(cap.verify(token).subjectId, PRINCIPAL.subject_id);
 });
 
 test('unknown keys fail closed without disclosing key state before signature verification', () => {
