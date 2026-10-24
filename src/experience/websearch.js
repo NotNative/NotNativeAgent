@@ -4,6 +4,7 @@ import {
   replacePrimaryWebSearch, resetWebSearchConfig, saveWebSearchConfig,
 } from '../web-search-config.js';
 import { ContractError } from '../ids.js';
+import { requireSearxngValidation } from '../searxng-client.js';
 
 export async function webSearchStatus(state, test = false, profileId = null) {
   requireWebSearchState(state, { client: test });
@@ -14,7 +15,7 @@ export async function webSearchStatus(state, test = false, profileId = null) {
     checked = await state.client.test(profile.endpoint).catch((error) => ({
       ok: false, profile_id: profile.id, endpoint: profile.endpoint, error: error.code ?? error.message,
     }));
-    if (checked.ok) checked = { ...checked, profile_id: profile.id };
+    checked = { ...checked, profile_id: profile.id };
   }
   return { config, test: checked };
 }
@@ -25,6 +26,7 @@ export async function configureWebSearch(state, endpoint, managed = false) {
   const candidate = replacePrimaryWebSearch(current, endpoint, managed);
   try {
     const checked = await state.client.test(candidate.profiles[0].endpoint);
+    requireSearxngValidation(checked);
     return { config: await saveWebSearchConfig(state.path, candidate), test: checked };
   } catch (error) {
     throw operationFailure(error, 'web_search_configuration_failed', 'WebSearch configuration could not be verified and saved');
@@ -38,6 +40,7 @@ export async function addWebSearchProfile(state, displayName, endpoint) {
   const added = candidate.profiles.at(-1);
   try {
     const checked = await state.client.test(added.endpoint);
+    requireSearxngValidation(checked);
     return { config: await saveWebSearchConfig(state.path, candidate), test: { ...checked, profile_id: added.id } };
   } catch (error) {
     throw operationFailure(error, 'web_search_configuration_failed', 'WebSearch profile could not be verified and saved');

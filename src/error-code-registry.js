@@ -470,8 +470,9 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'web_fetch_type_rejected', 'web_fetch_url_already_failed', 'web_search_action_invalid',
     'web_search_config_invalid', 'web_search_config_too_large', 'web_search_config_unavailable',
     'web_search_disabled', 'web_search_endpoint_duplicate', 'web_search_endpoint_invalid', 'web_search_endpoint_required',
-    'web_search_health_timeout', 'web_search_timeout', 'web_search_http_error', 'web_search_page_invalid',
-    'web_search_port_unavailable', 'web_search_profile_duplicate', 'web_search_profile_id_exhausted',
+    'web_search_health_timeout', 'web_search_timeout', 'web_search_http_error', 'web_search_page_invalid', 'web_search_limit_invalid',
+    'web_search_request_invalid', 'web_search_upstream_degraded', 'web_search_port_unavailable',
+    'web_search_profile_duplicate', 'web_search_profile_id_exhausted',
     'web_search_profile_id_invalid', 'web_search_profile_invalid', 'web_search_profile_missing',
     'web_search_profile_name_invalid', 'web_search_profiles_failed', 'web_search_profiles_too_many',
     'web_search_provider_invalid', 'web_search_reference_failed',
@@ -479,7 +480,6 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'web_search_state_invalid',
   ]),
 });
-
 const FAILURE_CODE_DOMAINS = new Map();
 for (const [owner, codes] of Object.entries(ERROR_CODES_BY_OWNER)) {
   const domain = FAILURE_DOMAINS[owner];

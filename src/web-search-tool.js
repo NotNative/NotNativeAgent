@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
 import { loadWebSearchConfig } from './web-search-config.js';
-import { SearxngClient } from './searxng-client.js';
+import { MAX_RESULT_LIMIT, SearxngClient } from './searxng-client.js';
 import { normalizeArgumentAliases } from './tools/argument-normalization.js';
 
 const PROFILE_RECOVERY_GUIDANCE = 'Ask the user to add a backup SearXNG profile in /websearch. Public instances are listed at https://searx.space/.';
@@ -20,7 +20,7 @@ export function webSearchDefinition(options) {
         page: { type: 'integer', minimum: 1, maximum: 20, description: 'One-based results page. Defaults to 1.' },
         time_range: { type: 'string', enum: ['day', 'week', 'month', 'year'], description: 'Optional recency filter.' },
         safe_search: { type: 'integer', minimum: 0, maximum: 2, description: 'SearXNG safe-search level: 0 off, 1 moderate, or 2 strict.' },
-        limit: { type: 'integer', minimum: 1, maximum: 20, description: 'Maximum normalized results to return. Defaults to 8.' },
+        limit: { type: 'integer', minimum: 1, maximum: MAX_RESULT_LIMIT, description: 'Maximum normalized results to return. Defaults to 8.' },
       },
     },
     normalizeArgs: (args) => normalizeArgumentAliases(args, {
@@ -62,7 +62,7 @@ async function validate(args, configPath) {
     if (args[key] !== undefined && (typeof args[key] !== 'string' || args[key].length > (key === 'language' ? 32 : 256))) throw invalid();
   }
   if (args.page !== undefined && (!Number.isInteger(args.page) || args.page < 1 || args.page > 20)) throw invalid();
-  if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > 20)) throw invalid();
+  if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > MAX_RESULT_LIMIT)) throw invalid();
   if (args.safe_search !== undefined && ![0, 1, 2].includes(args.safe_search)) throw invalid();
   if (args.time_range !== undefined && !['day', 'week', 'month', 'year'].includes(args.time_range)) throw invalid();
   let config;

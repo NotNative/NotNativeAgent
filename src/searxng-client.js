@@ -6,6 +6,7 @@ import { VERSION } from './product.js';
 const MAX_RESPONSE_BYTES = 2_097_152;
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_RESULT_LIMIT = 8;
+export const MAX_RESULT_LIMIT = 20;
 const MAX_SUGGESTIONS = 8;
 const MAX_TITLE_CHARACTERS = 512;
 const MAX_URL_CHARACTERS = 4096;
@@ -15,6 +16,14 @@ const MAX_ENGINE_FAILURES = 16;
 const MAX_FAILURE_REASON_CHARACTERS = 256;
 const MAX_SOURCE_STRING_CHARACTERS = 32_768;
 
+export function requireSearxngValidation(checked) {
+  if (checked?.ok !== true) {
+    throw new ContractError('web_search_upstream_degraded',
+      'SearXNG validation did not return a usable search result');
+  }
+  return checked;
+}
+
 export class SearxngClient {
   constructor(options = {}) {
     this.fetch = options.fetch ?? globalThis.fetch;
@@ -23,20 +32,29 @@ export class SearxngClient {
 
   async test(endpoint, signal) {
     const result = await this.search(endpoint, { query: 'SearXNG', limit: 1 }, signal);
+    const ok = result.search_state !== 'upstream_degraded';
     return Object.freeze({
-      ok: true, endpoint: normalizeSearxngEndpoint(endpoint), results: result.results.length,
+      ok, endpoint: normalizeSearxngEndpoint(endpoint), results: result.results.length,
       search_state: result.search_state, upstream_failures: result.upstream_failures,
+      ...(ok ? {} : { error: 'web_search_upstream_degraded' }),
     });
   }
 
   async search(endpoint, input, signal) {
+    const limit = resultLimit(input);
     const url = searchUrl(endpoint, input);
     const value = await requestJson(this.fetch, url, signal, this.timeoutMs);
     if (!Array.isArray(value?.results)) {
       throw new ContractError('web_search_response_invalid', 'SearXNG did not return a JSON search result list');
     }
-    const limit = input.limit ?? DEFAULT_RESULT_LIMIT;
-    const results = Object.freeze(value.results.slice(0, limit).map(normalizeResult).filter(Boolean));
+    // Why: unsafe hits must not use the result allowance before valid sources are considered.
+    const results = [];
+    for (const candidate of value.results) {
+      const normalized = normalizeResult(candidate);
+      if (normalized) results.push(normalized);
+      if (results.length >= limit) break;
+    }
+    Object.freeze(results);
     const upstreamFailures = normalizeUpstreamFailures(value.unresponsive_engines);
     // Why: an empty result is valid evidence, but engine failures make that evidence inconclusive.
     return Object.freeze({
@@ -71,6 +89,9 @@ async function requestJson(fetch, url, outerSignal, timeoutMs) {
 }
 
 function searchUrl(endpoint, input) {
+  if (typeof input.query !== 'string' || !input.query.trim() || input.query.length > 2048) {
+    throw new ContractError('web_search_request_invalid', 'SearXNG query must be bounded nonempty text');
+  }
   const url = new URL(`${normalizeSearxngEndpoint(endpoint)}/search`);
   url.searchParams.set('q', input.query);
   url.searchParams.set('format', 'json');
@@ -85,11 +106,27 @@ function searchUrl(endpoint, input) {
   return url;
 }
 
+function resultLimit(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new ContractError('web_search_request_invalid', 'SearXNG search requires an input object');
+  }
+  const limit = input.limit === undefined ? DEFAULT_RESULT_LIMIT : input.limit;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_RESULT_LIMIT) {
+    throw new ContractError('web_search_limit_invalid', `SearXNG result limit must be an integer from 1 to ${MAX_RESULT_LIMIT}`);
+  }
+  return limit;
+}
+
 function normalizeResult(value) {
   if (!value || !shortString(value.url) || !shortString(value.title)) return null;
+  let url;
+  try { url = new URL(value.url); }
+  catch { return null; }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password
+    || url.href.length > MAX_URL_CHARACTERS) return null;
   return Object.freeze({
     title: truncateCharacters(value.title, MAX_TITLE_CHARACTERS),
-    url: truncateCharacters(value.url, MAX_URL_CHARACTERS),
+    url: url.href,
     content: shortString(value.content) ? truncateCharacters(value.content, MAX_CONTENT_CHARACTERS) : '',
     engine: shortString(value.engine) ? truncateCharacters(value.engine, MAX_ENGINE_CHARACTERS) : undefined,
     score: Number.isFinite(value.score) ? value.score : undefined,

@@ -23,6 +23,7 @@ export class SearxngDeployment {
     this.run = options.run ?? runProcess;
     this.client = options.client ?? new SearxngClient({ timeoutMs: 3_000 });
     this.portAvailable = options.portAvailable ?? isPortAvailable;
+    this.wait = options.wait ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   }
 
   async preflight() {
@@ -129,6 +130,8 @@ export class SearxngDeployment {
     try {
       return await this.#waitUntilReady();
     } catch (error) {
+      // Why: search-engine degradation does not mean the managed service is dead. Keep it running for recovery.
+      if (error?.code === 'web_search_upstream_degraded') throw error;
       try {
         await this.#compose(['down', '--remove-orphans']);
       } catch (cleanupError) {
@@ -141,9 +144,15 @@ export class SearxngDeployment {
   async #waitUntilReady() {
     let latest;
     for (let attempt = 0; attempt < HEALTH_ATTEMPTS; attempt += 1) {
-      try { return await this.client.test(MANAGED_SEARXNG_ENDPOINT); } catch (error) { latest = error; }
-      await new Promise((resolve) => setTimeout(resolve, HEALTH_POLL_INTERVAL_MS));
+      try {
+        const checked = await this.client.test(MANAGED_SEARXNG_ENDPOINT);
+        if (checked?.ok === true) return checked;
+        latest = new ContractError('web_search_upstream_degraded',
+          'Managed SearXNG did not return a usable search result');
+      } catch (error) { latest = error; }
+      if (attempt + 1 < HEALTH_ATTEMPTS) await this.wait(HEALTH_POLL_INTERVAL_MS);
     }
+    if (latest?.code === 'web_search_upstream_degraded') throw latest;
     throw new ContractError('web_search_health_timeout', `Managed SearXNG did not become ready: ${latest?.code ?? 'health check failed'}`);
   }
 }

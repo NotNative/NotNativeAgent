@@ -3,7 +3,7 @@ import {
   appendWebSearchProfile, loadWebSearchConfig, promoteWebSearchProfile, removeWebSearchProfile,
   replacePrimaryWebSearch, resetWebSearchConfig, saveWebSearchConfig,
 } from './web-search-config.js';
-import { SearxngClient } from './searxng-client.js';
+import { requireSearxngValidation, SearxngClient } from './searxng-client.js';
 import { SearxngDeployment } from './searxng-deployment.js';
 import { ContractError } from './ids.js';
 
@@ -41,14 +41,14 @@ export async function runWebSearchCommand(args, paths, options = {}) {
       throw new ContractError('web_search_endpoint_required', 'configure requires a SearXNG endpoint');
     }
     const candidate = replacePrimaryWebSearch(current, endpoint, false);
-    const test = await searchClient().test(candidate.profiles[0].endpoint);
+    const test = requireSearxngValidation(await searchClient().test(candidate.profiles[0].endpoint));
     return { config: await saveWebSearchConfig(paths.webSearchConfig, candidate), test };
   }
   if (action === ACTION.add) {
     if (!args[1] || !args[2]) throw new ContractError('web_search_endpoint_required', 'add requires PROFILE_NAME and URL');
     const candidate = appendWebSearchProfile(current, args[1], args[2]);
     const added = candidate.profiles.at(-1);
-    const test = await searchClient().test(added.endpoint);
+    const test = requireSearxngValidation(await searchClient().test(added.endpoint));
     return { config: await saveWebSearchConfig(paths.webSearchConfig, candidate), test: { ...test, profile_id: added.id } };
   }
   if (action === ACTION.promote) {

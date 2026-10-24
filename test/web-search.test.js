@@ -14,6 +14,7 @@ import {
 import { runWebSearchCommand } from '../src/web-search-cli.js';
 import { commandDefinition } from '../src/tui/commands.js';
 import { webSearchOverlay } from '../src/tui/websearch-overlay.js';
+import { webSearchStatus } from '../src/experience/websearch.js';
 
 test('global WebSearch configuration is absent-safe, normalized, and durable', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-web-config-'));
@@ -136,6 +137,49 @@ test('SearXNG client distinguishes an empty search from upstream engine degradat
     ],
   });
   assert.equal((await empty.search('https://search.example.test', { query: 'missing' })).search_state, 'no_results');
+  assert.deepEqual(await degraded.test('https://search.example.test'), {
+    ok: false, endpoint: 'https://search.example.test', results: 0,
+    search_state: 'upstream_degraded', upstream_failures: [
+      { engine: 'brave', reason: 'Too many requests' }, { engine: 'duckduckgo', reason: 'CAPTCHA' },
+    ], error: 'web_search_upstream_degraded',
+  });
+  assert.equal((await empty.test('https://search.example.test')).ok, true);
+});
+
+test('SearXNG client rejects invalid result limits before fetching', async () => {
+  let requests = 0;
+  const client = new SearxngClient({ fetch: async () => { requests += 1; return new Response('{}'); } });
+  for (const limit of [null, 0, -1, 1.5, 21, Number.POSITIVE_INFINITY]) {
+    await assert.rejects(client.search('https://search.example.test', { query: 'test', limit }),
+      { code: 'web_search_limit_invalid' });
+  }
+  await assert.rejects(client.search('https://search.example.test', null),
+    { code: 'web_search_request_invalid' });
+  await assert.rejects(client.search('https://search.example.test', { query: '' }),
+    { code: 'web_search_request_invalid' });
+  assert.equal(requests, 0);
+});
+
+test('SearXNG client omits unsafe result URLs', async () => {
+  const client = new SearxngClient({ fetch: async () => new Response(JSON.stringify({ results: [
+    { title: 'Safe', url: 'https://example.test/page' },
+    { title: 'Script', url: 'javascript:alert(1)' },
+    { title: 'Local', url: 'file:///C:/private' },
+    { title: 'Credential', url: 'https://user:secret@example.test/' },
+    { title: 'Truncated', url: `https://example.test/${'a'.repeat(4100)}` },
+  ] }), { status: 200 }) });
+  const result = await client.search('https://search.example.test', { query: 'test' });
+  assert.deepEqual(result.results.map((item) => item.url), ['https://example.test/page']);
+});
+
+test('invalid hits do not hide later valid results within the requested limit', async () => {
+  const client = new SearxngClient({ fetch: async () => new Response(JSON.stringify({ results: [
+    { title: 'Unsafe', url: 'javascript:alert(1)' },
+    { title: 'Safe', url: 'https://example.test/page' },
+  ] }), { status: 200 }) });
+  const result = await client.search('https://search.example.test', { query: 'test', limit: 1 });
+  assert.deepEqual(result.results.map((item) => item.url), ['https://example.test/page']);
+  assert.equal(result.search_state, 'results_returned');
 });
 
 test('web_search is globally configured and unavailable when disabled', async () => {
@@ -182,13 +226,18 @@ test('managed deployment preflights Docker, stages pinned resources, and validat
     if (args[0] === 'info') return { stdout: 'linux\n', stderr: '' };
     return { stdout: 'ok\n', stderr: '' };
   };
-  const client = { test: async () => ({ ok: true, endpoint: MANAGED_SEARXNG_ENDPOINT, results: 1 }) };
+  let healthChecks = 0;
+  const client = { test: async () => {
+    healthChecks += 1;
+    return { ok: healthChecks > 1, endpoint: MANAGED_SEARXNG_ENDPOINT, results: healthChecks > 1 ? 1 : 0 };
+  } };
   try {
     await mkdir(join(root, 'config'), { recursive: true });
     await writeFile(join(root, 'config', 'settings.yml'), 'stale: true\n');
     const deployment = new SearxngDeployment({ root, run, client, portAvailable: async () => true });
     const result = await deployment.deploy();
     assert.equal(result.endpoint, MANAGED_SEARXNG_ENDPOINT);
+    assert.equal(healthChecks, 2);
     assert.ok(calls.some((call) => call.includes('compose') && call.includes('up')));
     assert.ok(calls.some((call) => call.includes('compose') && call.includes('--force-recreate')));
     assert.match(await readFile(join(root, 'compose.yaml'), 'utf8'), /127\.0\.0\.1:8888:8080/u);
@@ -207,6 +256,47 @@ test('managed deployment preflights Docker, stages pinned resources, and validat
     await writeFile(join(root, 'config', 'settings.yml'), 'stale: true\n');
     assert.equal((await deployment.refreshIfNeeded()).refreshed, true);
     assert.doesNotMatch(await readFile(join(root, 'config', 'settings.yml'), 'utf8'), /stale: true/u);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('managed deployment preserves a responsive service when upstream engines remain degraded', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-searxng-degraded-'));
+  const calls = [];
+  let checks = 0;
+  const run = async (file, args) => {
+    calls.push([file, ...args]);
+    return { stdout: args[0] === 'info' ? 'linux\n' : 'ok\n', stderr: '' };
+  };
+  const client = { test: async () => {
+    checks += 1;
+    return { ok: false, search_state: 'upstream_degraded', error: 'web_search_upstream_degraded' };
+  } };
+  try {
+    const deployment = new SearxngDeployment({
+      root, run, client, portAvailable: async () => true, wait: async () => {},
+    });
+    await assert.rejects(deployment.deploy(), { code: 'web_search_upstream_degraded' });
+    assert.equal(checks, 30);
+    assert.equal(calls.some((call) => call.includes('down')), false);
+    assert.equal(calls.some((call) => call.includes('--force-recreate')), true);
+    assert.equal((await deployment.status()).search.ok, false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('managed deployment still stops a service that never responds', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-searxng-offline-'));
+  const calls = [];
+  const run = async (file, args) => {
+    calls.push([file, ...args]);
+    return { stdout: args[0] === 'info' ? 'linux\n' : 'ok\n', stderr: '' };
+  };
+  try {
+    const deployment = new SearxngDeployment({
+      root, run, client: { test: async () => { throw new ContractError('web_search_request_failed', 'offline'); } },
+      portAvailable: async () => true, wait: async () => {},
+    });
+    await assert.rejects(deployment.deploy(), { code: 'web_search_health_timeout' });
+    assert.equal(calls.some((call) => call.includes('down') && call.includes('--remove-orphans')), true);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -234,6 +324,32 @@ test('configuration is not persisted until endpoint validation succeeds', async 
       client: { test: async () => { throw Object.assign(new Error('offline'), { code: 'offline' }); } },
     }), { code: 'offline' });
     assert.equal((await loadWebSearchConfig(paths.webSearchConfig)).enabled, false);
+    const degraded = { test: async () => ({ ok: false, search_state: 'upstream_degraded' }) };
+    await assert.rejects(runWebSearchCommand(['configure', 'https://search.example'], paths, { client: degraded }),
+      { code: 'web_search_upstream_degraded' });
+    assert.equal((await loadWebSearchConfig(paths.webSearchConfig)).enabled, false);
+    await runWebSearchCommand(['configure', 'https://primary.example'], paths, {
+      client: { test: async () => ({ ok: true, search_state: 'no_results', results: 0 }) },
+    });
+    await assert.rejects(runWebSearchCommand(['add', 'backup', 'https://backup.example'], paths, { client: degraded }),
+      { code: 'web_search_upstream_degraded' });
+    assert.deepEqual((await loadWebSearchConfig(paths.webSearchConfig)).profiles.map((item) => item.id), ['primary']);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('failed fallback validation names the selected profile', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-web-status-'));
+  const path = join(root, 'config.json');
+  try {
+    await saveWebSearchConfig(path, { enabled: true, profiles: [
+      { id: 'primary', display_name: 'Primary', endpoint: 'https://primary.example' },
+      { id: 'backup', display_name: 'Backup', endpoint: 'https://backup.example' },
+    ] });
+    const status = await webSearchStatus({
+      path, client: { test: async () => ({ ok: false, error: 'web_search_upstream_degraded' }) },
+    }, true, 'backup');
+    assert.equal(status.test.profile_id, 'backup');
+    assert.match(JSON.stringify(webSearchOverlay(status)), /Failed for backup/u);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
