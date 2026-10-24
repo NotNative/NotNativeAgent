@@ -17,6 +17,13 @@ test('scalar descriptors are immutable static data with explicit unresolved defa
     assert.ok(Object.isFrozen(rule) && Object.isFrozen(rule.default) && Object.isFrozen(rule.unset));
     assert.ok(Object.isFrozen(rule.aliases) && Object.isFrozen(rule.dependencies));
     assert.ok(['integer', 'number'].includes(rule.type));
+    assert.ok(rule.minimum <= rule.maximum);
+    const validBound = rule.type === 'integer' ? Number.isSafeInteger : Number.isFinite;
+    assert.ok(validBound(rule.minimum) && validBound(rule.maximum));
+    if (rule.default.kind === 'literal' && rule.default.value !== null) {
+      assert.equal(validBound(rule.default.value), true);
+      assert.ok(rule.default.value >= rule.minimum && rule.default.value <= rule.maximum);
+    }
     assert.throws(() => { rule.minimum = -1; }, TypeError);
     if (rule.default.kind !== 'literal') {
       assert.equal(Object.hasOwn(rule.default, 'value'), false);

@@ -55,6 +55,7 @@ export const CONFIGURATION_RULES = Object.freeze(Object.fromEntries([
 function integer(path, fallback, minimum, maximum, options) { return rule(path, 'integer', fallback, minimum, maximum, options); }
 function number(path, fallback, minimum, maximum, options) { return rule(path, 'number', fallback, minimum, maximum, options); }
 function rule(path, type, fallback, minimum, maximum, options = {}) {
+  validateRuleBounds(path, type, fallback, minimum, maximum);
   return Object.freeze({ path, type, minimum, maximum, validator: type === 'integer' ? 'boundedInteger' : 'boundedNumber',
     default: Object.freeze(fallback !== null && typeof fallback === 'object' ? fallback : literal(fallback)),
     unset: Object.freeze({ absent: 'default', null: options.null ?? 'reject', zero: options.zero ?? (minimum <= 0 ? 'value' : 'reject') }),
@@ -64,6 +65,19 @@ function rule(path, type, fallback, minimum, maximum, options = {}) {
     ...(options.effectiveZero ? { effectiveZero: options.effectiveZero } : {}),
     ...(options.canonicalZero ? { canonicalZero: true } : {}),
   });
+}
+
+function validateRuleBounds(path, type, fallback, minimum, maximum) {
+  const validBound = type === 'integer' ? Number.isSafeInteger : Number.isFinite;
+  if (!validBound(minimum) || !validBound(maximum) || minimum > maximum) {
+    throw new ContractError('configuration_rule_invalid', `configuration rule ${path} has invalid bounds`);
+  }
+  // Invariant: null means no native default; inherited and computed values
+  // resolve at their call sites. Numeric literals must fit their own ranges.
+  if (fallback !== null && (typeof fallback !== 'object' || fallback === undefined)
+    && (!validBound(fallback) || fallback < minimum || fallback > maximum)) {
+    throw new ContractError('configuration_rule_invalid', `configuration rule ${path} has an invalid default`);
+  }
 }
 
 export function resolveConfigurationScalar(key, value, ...fallbackOverride) {
