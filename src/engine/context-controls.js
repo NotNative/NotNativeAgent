@@ -94,7 +94,7 @@ export async function clearEngineConversation(engine) {
   if (!Array.isArray(engine.transcript) || typeof engine.authority?.clearConversation !== 'function') {
     throw new ContractError('clear_unavailable', 'conversation context cannot be cleared in the current runtime');
   }
-  engine.telemetry?.record('context.clear', 'started', { trigger: 'operator_command' });
+  recordClearTelemetry(engine, 'started', { trigger: 'operator_command' });
   try {
     const removed = engine.transcript.length;
     if (engine.store) await engine.store.append('conversation_cleared', {
@@ -107,12 +107,18 @@ export async function clearEngineConversation(engine) {
     engine.latestTurnOutcome = null;
     engine.authority.clearConversation();
     await engine.work?.clear({ persist: false });
-    engine.telemetry?.record('context.clear', 'succeeded', { trigger: 'operator_command', removed_records: removed });
+    recordClearTelemetry(engine, 'succeeded', { trigger: 'operator_command', removed_records: removed });
     return Object.freeze({ removed, cleared: true });
   } catch (error) {
-    engine.telemetry?.record('context.clear', 'failed', {
-      trigger: 'operator_command', reason_code: error.code ?? 'clear_failed',
-    }, { reasonCode: error.code ?? 'clear_failed' });
+    recordClearTelemetry(engine, 'failed', {
+      trigger: 'operator_command', reason_code: error?.code ?? 'clear_failed',
+    }, { reasonCode: error?.code ?? 'clear_failed' });
     throw error;
   }
+}
+
+function recordClearTelemetry(engine, status, detail, correlation) {
+  // Invariant: telemetry cannot change the clear outcome, especially after its journal marker commits.
+  try { engine.telemetry?.record('context.clear', status, detail, correlation); }
+  catch { /* The durable journal and in-memory reset remain authoritative. */ }
 }

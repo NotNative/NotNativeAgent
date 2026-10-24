@@ -68,6 +68,25 @@ test('failed completion persistence preserves the staged active goal', async () 
   assert.equal(work.snapshot().pendingCompletion.goal.status, 'completed');
 });
 
+test('post-commit telemetry and output failures do not turn durable work into a failed mutation', async () => {
+  const records = []; const observations = [];
+  const work = new ConversationWork({
+    persist: async (type, payload) => records.push({ type, payload }),
+    telemetry: { record: (...args) => { observations.push(args); if (args[0] === 'work.state') throw new Error('telemetry down'); } },
+    output: async () => { throw Object.assign(new Error('output down'), { code: 'output_disconnected' }); },
+  });
+  const first = await work.setGoal('Durably track progress');
+  assert.equal(first.revision, 1);
+  assert.equal(records.length, 1);
+  assert.deepEqual(observations.map((item) => item.slice(0, 2)), [
+    ['work.state', 'succeeded'], ['work.output', 'failed'],
+  ]);
+  assert.equal(observations[1][2].reason, 'output_disconnected');
+  const second = await work.addTask('Continue after observation failure');
+  assert.equal(second.revision, 2);
+  assert.deepEqual(records.map((item) => item.payload.revision), [1, 2]);
+});
+
 test('conversation work restores the latest durable snapshot exactly', async () => {
   const records = [];
   const first = new ConversationWork({ persist: async (type, payload) => records.push({ type, payload }) });

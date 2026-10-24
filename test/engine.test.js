@@ -15,6 +15,20 @@ import { completionAdvisories, evaluateCompletion, requestsInput } from '../src/
 
 const EMPTY_HOOK_ROOT = join(process.cwd(), '.nna-test-hooks-none');
 
+test('failed runtime output telemetry still delivers work status', async () => {
+  const observed = [];
+  const engine = new SessionEngine({ config: config(), telemetry: false,
+    output: async (record) => observed.push(record) });
+  const failedTelemetry = { record() { throw new Error('telemetry sink failed'); } };
+  engine.telemetry = failedTelemetry;
+  engine.work.telemetry = failedTelemetry;
+  const work = await engine.work.setGoal('Keep the output host informed');
+  assert.equal(work.revision, 1);
+  assert.equal(engine.work.snapshot().revision, 1);
+  assert.deepEqual(observed.map((record) => record.type), ['work_status']);
+  assert.equal(observed[0].work.goal.objective, 'Keep the output host informed');
+});
+
 test('context-reset language is advisory while a clean stop completes normally', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],

@@ -254,14 +254,26 @@ export class ConversationWork {
       const snapshot = deepFreeze(structuredClone(next));
       if (options.persist !== false) await this.persist('work_state', snapshot);
       this.state = snapshot;
-      this.telemetry?.record('work.state', 'succeeded', {
-        action, revision: snapshot.revision, goal_status: snapshot.goal?.status ?? null,
-        task_id: taskId, task_counts: taskCounts(snapshot.tasks),
-      });
-      await this.output({
-        version: '1.0', type: 'work_status', session_id: this.sessionId,
-        action, work: snapshot,
-      });
+      // The durable state has committed. Observation failures cannot turn this
+      // successful mutation into a retryable error with a second revision.
+      try {
+        this.telemetry?.record('work.state', 'succeeded', {
+          action, revision: snapshot.revision, goal_status: snapshot.goal?.status ?? null,
+          task_id: taskId, task_counts: taskCounts(snapshot.tasks),
+        });
+      } catch { /* telemetry is best effort after the journal commit */ }
+      try {
+        await this.output({
+          version: '1.0', type: 'work_status', session_id: this.sessionId,
+          action, work: snapshot,
+        });
+      } catch (error) {
+        try {
+          this.telemetry?.record('work.output', 'failed', {
+            action, revision: snapshot.revision, reason: error?.code ?? 'output_unavailable',
+          });
+        } catch { /* output failure still cannot undo the commit */ }
+      }
       return snapshot;
     } finally {
       this.#committing = false;

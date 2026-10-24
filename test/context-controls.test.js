@@ -147,7 +147,7 @@ test('incomplete control scan cannot silently reset work whose boundary is outsi
   await assert.rejects(resumed.initialize(), { code: 'work_state_invalid' });
 });
 
-test('work status delivery failure after a committed clear cannot retain live conversation context', async () => {
+test('work status delivery failure after a committed clear still returns success without retaining context', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-clear-output-failure-'));
   const options = {
     config: configuration(root), sessionId: 'clear-output-failure', storeRoot: join(root, 'sessions'),
@@ -161,7 +161,8 @@ test('work status delivery failure after a committed clear cannot retain live co
   await first.setGoal('Old goal');
   first.transcript.push({ type: 'message', role: 'user', content: 'Old context' });
   first.authority.addAuthenticatedIntent('Old authority', 'operator');
-  await assert.rejects(first.clearConversation(), /output unavailable/u);
+  const cleared = await first.clearConversation();
+  assert.deepEqual(cleared, { removed: 1, cleared: true });
   assert.deepEqual(first.transcript, []);
   assert.equal(first.workStatus().goal, null);
   assert.deepEqual(first.authority.snapshot(first.config).intent, []);
@@ -172,6 +173,38 @@ test('work status delivery failure after a committed clear cannot retain live co
   assert.equal(resumed.workStatus().goal, null);
   assert.deepEqual(resumed.transcript, []);
   await resumed.shutdown({ request_id: 'stop-after-output-replay' });
+});
+
+test('telemetry failure after a committed clear cannot report a failed clear', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-clear-telemetry-failure-'));
+  const options = {
+    config: configuration(root), sessionId: 'clear-telemetry-failure', storeRoot: join(root, 'sessions'),
+    reviewerRoot: join(root, 'reviewers'),
+  };
+  const first = new SessionEngine(options);
+  await first.initialize();
+  await first.setGoal('Old goal');
+  first.transcript.push({ type: 'message', role: 'user', content: 'Old context' });
+  const priorRecord = first.telemetry.record;
+  const observed = [];
+  first.telemetry.record = (name, status, ...args) => {
+    if (name === 'context.clear') observed.push(status);
+    if (name === 'context.clear' && status === 'succeeded') throw new Error('telemetry sink failed');
+    return priorRecord.call(first.telemetry, name, status, ...args);
+  };
+  const cleared = await first.clearConversation();
+  first.telemetry.record = priorRecord;
+  assert.deepEqual(cleared, { removed: 1, cleared: true });
+  assert.deepEqual(observed, ['started', 'succeeded']);
+  assert.deepEqual(first.transcript, []);
+  assert.equal(first.workStatus().goal, null);
+  await first.shutdown({ request_id: 'stop-after-telemetry-failure' });
+
+  const resumed = new SessionEngine(options);
+  await resumed.initialize();
+  assert.equal(resumed.workStatus().goal, null);
+  assert.deepEqual(resumed.transcript, []);
+  await resumed.shutdown({ request_id: 'stop-after-telemetry-replay' });
 });
 
 test('terse handoff survives recovery while excluding prior transcript from future provider context', async () => {

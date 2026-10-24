@@ -83,15 +83,17 @@ function installReliability(engine, options, hooks) {
 function installOutput(engine, options) {
   const output = options.output ?? (async () => undefined);
   engine.output = async (record) => {
-    engine.telemetry?.record('runtime.output', outputStatus(record), outputTelemetry(record), {
-      turnId: record?.turn_id ?? engine.active?.turnId,
-      stepId: record?.step_id ?? engine.active?.stepId,
-      attemptId: record?.attempt_id ?? engine.active?.attemptId,
-      toolRequestId: record?.tool_request_id,
-      outcome: record?.outcome,
-      reasonCode: record?.reason_code ?? record?.code,
-      effectCertainty: record?.effect_certainty,
-    });
+    try {
+      engine.telemetry?.record('runtime.output', outputStatus(record), outputTelemetry(record), {
+        turnId: record?.turn_id ?? engine.active?.turnId,
+        stepId: record?.step_id ?? engine.active?.stepId,
+        attemptId: record?.attempt_id ?? engine.active?.attemptId,
+        toolRequestId: record?.tool_request_id,
+        outcome: record?.outcome,
+        reasonCode: record?.reason_code ?? record?.code,
+        effectCertainty: record?.effect_certainty,
+      });
+    } catch { /* Invariant: failed telemetry cannot suppress delivery to the output host. */ }
     return output(record);
   };
   engine.surface = options.surface ?? 'headless';
