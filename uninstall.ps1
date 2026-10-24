@@ -29,15 +29,55 @@ function Get-UninstallMutexHash([string]$Path) {
     } finally { $Hasher.Dispose() }
 }
 
+function Resolve-UninstallRoot([string]$Path, [string]$Role, [bool]$ForDeletion) {
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not [IO.Path]::IsPathRooted($Path)) {
+        throw "Refusing to uninstall: $Role root must be an absolute directory."
+    }
+    $GivenRoot = [IO.Path]::GetPathRoot($Path)
+    if ($GivenRoot -eq '\' -or $GivenRoot -match '^[A-Za-z]:$' -or
+        $Path.StartsWith('\\?\') -or $Path.StartsWith('\\.\')) {
+        throw "Refusing to uninstall: $Role root must be a fully qualified directory."
+    }
+    $Resolved = [IO.Path]::GetFullPath($Path)
+    $Identity = $Resolved.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+    $Forbidden = @([IO.Path]::GetPathRoot($Resolved), [Environment]::GetFolderPath('UserProfile'))
+    if ($Role -eq 'install' -or $ForDeletion) {
+        $Forbidden += [Environment]::GetFolderPath('LocalApplicationData')
+    }
+    foreach ($Candidate in $Forbidden) {
+        if ($Identity.Equals(([IO.Path]::GetFullPath($Candidate)).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar), [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing to uninstall: unsafe $Role root."
+        }
+    }
+    # Security: a junction in any ancestor can redirect recursive removal outside the selected root.
+    $Current = [IO.DirectoryInfo]::new($Resolved)
+    for ($Depth = 0; $null -ne $Current -and $Depth -lt 128; $Depth++) {
+        if ($Current.Exists -and ($Current.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            throw "Refusing to uninstall: $Role root has a reparse-point ancestor."
+        }
+        $Current = $Current.Parent
+    }
+    if ($null -ne $Current) { throw "Refusing to uninstall: $Role root is too deep." }
+    if ($ForDeletion -and -not [IO.Directory]::Exists($Resolved)) {
+        throw "Refusing to uninstall: $Role root is not a directory."
+    }
+    return $Identity
+}
+
+if ($PSBoundParameters.ContainsKey('InstallRoot') -and [string]::IsNullOrWhiteSpace($InstallRoot)) {
+    throw 'Refusing to uninstall: install root must be an absolute directory.'
+}
 if (-not $InstallRoot) { $InstallRoot = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'NotNativeAgent' }
-$InstallRoot = [IO.Path]::GetFullPath($InstallRoot)
+$InstallRoot = Resolve-UninstallRoot $InstallRoot 'install' $true
 $MarkerPath = Join-Path $InstallRoot 'install.json'
 if (-not (Test-Path -LiteralPath $MarkerPath)) { throw 'Refusing to uninstall: NotNativeAgent install marker is missing.' }
-$Marker = Get-Content -LiteralPath $MarkerPath -Raw | ConvertFrom-Json
-if ($Marker.product -ne 'NotNativeAgent' -or [IO.Path]::GetFullPath($Marker.install_root) -ne $InstallRoot) {
+$Marker = Get-Content -LiteralPath $MarkerPath -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($Marker.product -ne 'NotNativeAgent' -or
+    (Resolve-UninstallRoot ([string]$Marker.install_root) 'install' $true) -ne $InstallRoot) {
     throw 'Refusing to uninstall: install marker does not match the requested directory.'
 }
 if ($DeleteUserData -and $KeepUserData) { throw 'Choose either -DeleteUserData or -KeepUserData, not both.' }
+$DataRoot = Resolve-UninstallRoot ([string]$Marker.data_root) 'user data' $false
 
 if ([Console]::IsInputRedirected -or -not [Environment]::UserInteractive) {
     throw 'Refusing to uninstall without a directly attached interactive terminal. Run "nna uninstall" yourself and complete its confirmation challenge.'
@@ -60,7 +100,7 @@ if (-not $DeleteUserData -and -not $KeepUserData) {
     $ShouldDeleteUserData = $Confirmation -match '^(?i:y|yes)$'
 }
 
-$DataRoot = [IO.Path]::GetFullPath([string]$Marker.data_root)
+$DataRoot = Resolve-UninstallRoot $DataRoot 'user data' $ShouldDeleteUserData
 $InstallPrefix = $InstallRoot.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
 $DataInsideInstall = $DataRoot.Equals($InstallRoot, [StringComparison]::OrdinalIgnoreCase) -or $DataRoot.StartsWith($InstallPrefix, [StringComparison]::OrdinalIgnoreCase)
 if ($DataInsideInstall -and -not $ShouldDeleteUserData) {
@@ -69,8 +109,10 @@ if ($DataInsideInstall -and -not $ShouldDeleteUserData) {
 if ($ShouldDeleteUserData) {
     $DataMarkerPath = Join-Path $DataRoot '.nna-install.json'
     if (-not (Test-Path -LiteralPath $DataMarkerPath)) { throw 'Refusing full uninstall because the user-data marker is missing.' }
-    $DataMarker = Get-Content -LiteralPath $DataMarkerPath -Raw | ConvertFrom-Json
-    if ($DataMarker.product -ne 'NotNativeAgent' -or [IO.Path]::GetFullPath($DataMarker.data_root) -ne $DataRoot -or $DataMarker.deletable -ne $true) {
+    $DataMarker = Get-Content -LiteralPath $DataMarkerPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($DataMarker.product -ne 'NotNativeAgent' -or
+        (Resolve-UninstallRoot ([string]$DataMarker.data_root) 'user data' $true) -ne $DataRoot -or
+        $DataMarker.deletable -ne $true) {
         throw 'Refusing full uninstall because the user-data marker is invalid or the directory predates this NNA installation.'
     }
 }

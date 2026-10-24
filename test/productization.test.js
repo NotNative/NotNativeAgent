@@ -5,7 +5,7 @@ import { createScratchSync } from './scratch.js';
 import { existsSync } from 'node:fs';
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, parse, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { ensureUserDataPaths, userDataPaths, VERSION } from '../src/product.js';
@@ -126,6 +126,46 @@ test('Windows uninstall helpers run under the powershell.exe runtime without rem
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const expected = createHash('sha256').update(installation, 'utf8').digest('hex').slice(0, 24).toUpperCase();
   assert.equal(result.stdout.trim(), expected);
+});
+
+test('Windows uninstall preflight rejects unsafe roots and reads UTF-8 markers before confirmation', {
+  skip: process.platform !== 'win32',
+}, async () => {
+  const root = createScratchSync('nna-uninstall-preflight-');
+  const app = join(root, 'app-é');
+  const data = join(root, 'data-é');
+  const uninstall = join(projectRoot, 'uninstall.ps1');
+  const run = (installRoot) => spawnSync('powershell.exe', [
+    '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', uninstall,
+    '-InstallRoot', installRoot, '-KeepUserData', '-SkipPathUpdate',
+  ], { encoding: 'utf8', timeout: 10_000 });
+  try {
+    await mkdir(app, { recursive: true });
+    await mkdir(data, { recursive: true });
+    const marker = { product: 'NotNativeAgent', install_root: app, data_root: data };
+    await writeFile(join(app, 'install.json'), JSON.stringify(marker), 'utf8');
+    const valid = run(app);
+    assert.notEqual(valid.status, 0);
+    assert.match(valid.stderr, /directly attached interactive terminal/u);
+    assert.equal(existsSync(app), true);
+    assert.equal(existsSync(data), true);
+
+    const driveRoot = run(parse(app).root);
+    assert.match(driveRoot.stderr, /unsafe install root/u);
+    const driveRelative = run(`${parse(app).root.slice(0, 2)}relative`);
+    assert.match(driveRelative.stderr, /fully qualified directory/u);
+    const profileRoot = run(homedir());
+    assert.match(profileRoot.stderr, /unsafe install root/u);
+    const localAppDataRoot = run(process.env.LOCALAPPDATA);
+    assert.match(localAppDataRoot.stderr, /unsafe install root/u);
+
+    await writeFile(join(app, 'install.json'), JSON.stringify({ ...marker, data_root: 'relative-data' }), 'utf8');
+    const relativeData = run(app);
+    assert.match(relativeData.stderr, /user data root must be an absolute directory/u);
+    assert.equal(existsSync(app), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test('first run persists explicit environment configuration and reuses it', async () => {
