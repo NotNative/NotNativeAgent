@@ -28,6 +28,9 @@ export class DreamStore {
   constructor(options) {
     this.path = options.path;
     this.retentionDays = options.retentionDays ?? 30;
+    if (!Number.isSafeInteger(this.retentionDays) || this.retentionDays < 1 || this.retentionDays > 365) {
+      throw new ContractError('dream_retention_invalid', 'dream retention must be between one and 365 days');
+    }
     this.observe = typeof options.observe === 'function' ? options.observe : null;
     this.db = null;
     this.pendingObservations = null;

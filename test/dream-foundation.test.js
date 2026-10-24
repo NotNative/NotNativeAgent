@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -10,6 +10,7 @@ import { resolveManifest } from '../src/config.js';
 import { DreamStore } from '../src/dream-store.js';
 import { IdleArbiter } from '../src/idle-arbiter.js';
 import { DreamCoordinator } from '../src/dream-coordinator.js';
+import { initializeWorkspaceDream } from '../src/experience/dream.js';
 import { NnmGovernanceReceipts } from '../src/nnm-governance-receipts.js';
 import { ForensicTelemetry } from '../src/forensic-telemetry.js';
 import { GovernanceEngine } from '../src/governance-engine.js';
@@ -27,6 +28,36 @@ test('dream defaults are standalone-only and preserve explicit operator disablem
     },
   });
   assert.equal(hosted.dream.enabled, false);
+});
+
+test('dream store rejects invalid retention before opening or purging state', () => {
+  for (const retentionDays of [0, -1, 366, NaN, Infinity, 1.5, '30']) {
+    assert.throws(() => new DreamStore({ path: 'unused.db', retentionDays }), { code: 'dream_retention_invalid' });
+  }
+  assert.equal(new DreamStore({ path: 'unused.db', retentionDays: 365 }).retentionDays, 365);
+});
+
+test('workspace dream startup is shared, published only when ready, and retryable after failure', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-startup-'));
+  const blocked = join(root, 'blocking-file');
+  await writeFile(blocked, 'not a directory');
+  const workspace = {
+    config: resolveManifest(manifest({ dream: { enabled: false } })),
+    options: { dataPaths: { dreamState: join(blocked, 'dream.db') } },
+    sessions: new Map(),
+  };
+  const first = initializeWorkspaceDream(workspace);
+  const second = initializeWorkspaceDream(workspace);
+  assert.equal(workspace.dream, undefined);
+  const failures = await Promise.allSettled([first, second]);
+  assert.deepEqual(failures.map((result) => result.status), ['rejected', 'rejected']);
+  assert.equal(workspace.dream, undefined);
+  assert.equal(workspace.dreamStartup, null);
+  workspace.options.dataPaths.dreamState = join(root, 'dream.db');
+  const ready = await initializeWorkspaceDream(workspace);
+  assert.equal(ready.state, 'disabled');
+  assert.equal(workspace.dream.status().store.status, 'ready');
+  workspace.dream.close();
 });
 
 test('dream state commits watermarks and recovers interrupted runs after restart', async () => {

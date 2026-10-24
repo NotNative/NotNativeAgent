@@ -247,7 +247,7 @@ export class ExperienceEngine {
   }
   async shutdown() {
     this.#closing = true;
-    await Promise.allSettled([...this.#creatingSessions.values()]);
+    await Promise.allSettled([...this.#creatingSessions.values(), this.dreamStartup].filter(Boolean));
     this.projection.dispose(); this.dream?.close();
     await this.sessionBroker?.close?.();
     let poolFailure = null;

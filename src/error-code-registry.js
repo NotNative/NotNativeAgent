@@ -173,7 +173,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'dream_candidate_missing', 'dream_candidate_payload_invalid', 'dream_candidate_secret_forbidden',
     'dream_candidate_state_invalid', 'dream_candidate_transition_invalid', 'dream_command_invalid',
     'dream_packet_invalid', 'dream_packet_missing', 'dream_packet_transition_invalid',
-    'dream_run_active', 'dream_run_missing', 'dream_state_invalid', 'dream_transaction_invalid',
+    'dream_retention_invalid', 'dream_run_active', 'dream_run_missing', 'dream_state_invalid', 'dream_transaction_invalid',
     'dream_store_unavailable', 'dream_unavailable', 'duplicate_finalization',
     'duplicate_tool_call', 'editor_limit', 'elevation_args_invalid',
     'elevation_directory_unsafe', 'elevation_executable_invalid', 'elevation_executable_not_found', 'elevation_interactive_required',

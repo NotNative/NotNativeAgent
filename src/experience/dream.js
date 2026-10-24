@@ -11,10 +11,28 @@ const DREAM_USAGE = 'use /dream [status|pause|resume|run|candidates|inspect ID|r
 
 export async function initializeWorkspaceDream(workspace) {
   if (workspace.dream) return workspace.dream.status();
-  workspace.dream = new DreamCoordinator({
+  if (workspace.dreamStartup) return workspace.dreamStartup;
+  const coordinator = new DreamCoordinator({
     workspace, config: workspace.config, path: workspace.options.dataPaths?.dreamState,
   });
-  return workspace.dream.initialize();
+  workspace.dreamStartup = (async () => {
+    try {
+      const ready = await coordinator.initialize();
+      workspace.dream = coordinator;
+      return ready;
+    } catch (error) {
+      try { coordinator.close(); }
+      catch (cleanupError) {
+        throw new ContractError('dream_store_unavailable', 'dream startup and cleanup both failed', {
+          cause: new AggregateError([error, cleanupError], 'dream startup cleanup failed'),
+        });
+      }
+      throw error;
+    } finally {
+      workspace.dreamStartup = null;
+    }
+  })();
+  return workspace.dreamStartup;
 }
 
 export async function runWorkspaceDreamCommand(workspace, action) {
