@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { DreamStore } from '../src/dream-store.js';
@@ -44,8 +45,119 @@ test('dream state commits watermarks and recovers interrupted runs after restart
   assert.equal(second.watermark('workspace-a').turn_sequence, 12);
   assert.equal(second.run(completed.id).state, 'completed');
   assert.equal(second.run(interrupted.id).state, 'cancelled');
-  assert.equal(second.run(interrupted.id).result_code, 'restart_recovered');
+  assert.equal(second.run(interrupted.id).result_code, 'store_closed');
   second.close();
+});
+
+test('opening another dream store preserves a live process run and recovers a verified dead owner', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-owner-'));
+  const path = join(root, 'dream.db');
+  const live = new DreamStore({ path });
+  await live.initialize();
+  const run = live.begin({ runtimeKey: 'workspace-a', stage: 1 });
+  const peer = new DreamStore({ path });
+  await peer.initialize();
+  assert.equal(peer.run(run.id).state, 'running');
+  assert.equal(live.finish(run.id, 'completed', { resultCode: 'actual_result' }).result_code, 'actual_result');
+  peer.close();
+  live.close();
+
+  const priorIdentity = { version: 1, pid: 100, platform: 'fixture', start_id: 'first' };
+  const former = new DreamStore({ path, processIdentity: {
+    capture: async () => priorIdentity, compare: async () => 'same',
+  } });
+  await former.initialize();
+  const interrupted = former.begin({ runtimeKey: 'workspace-a', stage: 2 });
+  const replacement = new DreamStore({ path, processIdentity: {
+    capture: async () => ({ version: 1, pid: 101, platform: 'fixture', start_id: 'second' }),
+    compare: async (identity) => identity.start_id === 'first' ? 'dead' : 'same',
+  } });
+  await replacement.initialize();
+  assert.equal(replacement.run(interrupted.id).state, 'cancelled');
+  assert.equal(replacement.run(interrupted.id).result_code, 'restart_recovered');
+  former.close();
+  replacement.close();
+});
+
+test('dream store rejects an owner without a reusable process start identity', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-owner-unknown-'));
+  const store = new DreamStore({ path: join(root, 'dream.db'), processIdentity: {
+    capture: async () => ({ version: 1, pid: process.pid, platform: process.platform, start_id: null }),
+    compare: async () => 'unknown',
+  } });
+  await assert.rejects(store.initialize(), { code: 'dream_store_unavailable' });
+  assert.equal(store.db, null);
+  assert.throws(() => store.begin({ runtimeKey: 'workspace-a', stage: 1 }), { code: 'dream_store_unavailable' });
+});
+
+test('legacy unowned dream runs remain intact and are reported as unverified', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-legacy-owner-'));
+  const path = join(root, 'dream.db');
+  const first = new DreamStore({ path });
+  await first.initialize();
+  first.db.prepare("INSERT INTO dream_runs (id, runtime_key, stage, trigger, state, started_at) VALUES (?, ?, ?, ?, 'running', ?)")
+    .run('legacy-run', 'workspace-legacy', 1, 'idle', new Date().toISOString());
+  first.close();
+  const second = new DreamStore({ path });
+  await second.initialize();
+  assert.equal(second.run('legacy-run').state, 'running');
+  assert.equal(second.status().unverified_active_runs, 1);
+  assert.throws(() => second.begin({ runtimeKey: 'workspace-legacy', stage: 2 }), { code: 'dream_run_active' });
+  second.close();
+});
+
+test('concurrent dream initialization waits for owner identity before exposing the store', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-init-race-'));
+  let entered, resume;
+  const captured = new Promise((resolve) => { entered = resolve; });
+  const delayed = new Promise((resolve) => { resume = resolve; });
+  const store = new DreamStore({ path: join(root, 'dream.db'), processIdentity: {
+    capture: async () => { entered(); await delayed; return { version: 1, pid: process.pid, platform: process.platform, start_id: 'fixture-start' }; },
+    compare: async () => 'same',
+  } });
+  const first = store.initialize();
+  await captured;
+  const second = store.initialize();
+  assert.throws(() => store.begin({ runtimeKey: 'workspace-a', stage: 1 }), { code: 'dream_store_unavailable' });
+  resume();
+  await Promise.all([first, second]);
+  const run = store.begin({ runtimeKey: 'workspace-a', stage: 1 });
+  assert.equal(store.finish(run.id, 'completed').state, 'completed');
+  store.close();
+});
+
+test('closing during owner capture aborts initialization and releases the database', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-init-close-'));
+  let entered, resume;
+  const captured = new Promise((resolve) => { entered = resolve; });
+  const delayed = new Promise((resolve) => { resume = resolve; });
+  const store = new DreamStore({ path: join(root, 'dream.db'), processIdentity: {
+    capture: async () => { entered(); await delayed; return { version: 1, pid: process.pid, platform: process.platform, start_id: 'fixture-start' }; },
+    compare: async () => 'same',
+  } });
+  const initializing = store.initialize();
+  await captured;
+  store.close();
+  resume();
+  await assert.rejects(initializing, { code: 'dream_store_unavailable' });
+  assert.equal(store.db, null);
+});
+
+test('dream store releases its database after active-run close meets a busy writer', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-close-busy-'));
+  const path = join(root, 'dream.db');
+  const store = new DreamStore({ path });
+  await store.initialize();
+  store.begin({ runtimeKey: 'workspace-a', stage: 1 });
+  const writer = new DatabaseSync(path);
+  writer.exec('BEGIN IMMEDIATE');
+  try {
+    assert.throws(() => store.close(), /database is locked/u);
+    assert.equal(store.db, null);
+  } finally {
+    writer.exec('ROLLBACK');
+    writer.close();
+  }
 });
 
 test('malformed durable dream payloads are quarantined instead of poisoning restart', async () => {

@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { ContractError, newId } from './ids.js';
+import { ProcessIdentity, validIdentity } from './reliability/process-identity.js';
+import { migrateDreamRunOwner, recoverInterruptedDreamRuns, unverifiedActiveDreamRunCount } from './dream-run-ownership.js';
 
 const TERMINAL = new Set(['cancelled', 'completed', 'failed', 'skipped']);
 const STATES = new Set(['queued', 'running', ...TERMINAL]);
@@ -29,6 +31,11 @@ export class DreamStore {
     this.observe = typeof options.observe === 'function' ? options.observe : null;
     this.db = null;
     this.pendingObservations = null;
+    this.processIdentity = options.processIdentity ?? new ProcessIdentity();
+    this.ownerIdentity = null;
+    this.activeRunIds = new Set();
+    this.initializing = null;
+    this.closeRequested = false;
   }
   setObserver(observer) { this.observe = typeof observer === 'function' ? observer : null; }
   transaction(action) {
@@ -56,17 +63,44 @@ export class DreamStore {
       throw error;
     }
   }
-  async initialize() {
+  initialize() {
+    if (this.initializing) return this.initializing;
+    if (this.db) return Promise.resolve(this.status());
+    this.closeRequested = false;
+    this.initializing = this.#open().then((status) => {
+      if (this.closeRequested) throw new ContractError('dream_store_unavailable', 'dream store closed during initialization');
+      return status;
+    }).finally(() => {
+      this.initializing = null;
+      if (this.closeRequested && this.db) this.close();
+    });
+    return this.initializing;
+  }
+  async #open() {
     await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
+    this.#assertNotClosing();
     // This local maintenance store intentionally uses synchronous SQLite.
     this.db = new DatabaseSync(this.path);
-    this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=3000;');
-    this.db.exec(SCHEMA);
-    const now = new Date().toISOString();
-    this.db.prepare("UPDATE dream_runs SET state = 'cancelled', result_code = 'restart_recovered', finished_at = ? WHERE state IN ('queued','running')").run(now);
-    this.#quarantineMalformedRows();
-    this.cleanup();
-    return this.status();
+    try {
+      this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=3000;');
+      this.db.exec(SCHEMA);
+      migrateDreamRunOwner(this.db);
+      this.ownerIdentity = await this.processIdentity.capture(process.pid);
+      this.#assertNotClosing();
+      if (!validIdentity(this.ownerIdentity) || !this.ownerIdentity.start_id) {
+        throw new ContractError('dream_store_unavailable', 'dream process identity is unavailable');
+      }
+      await recoverInterruptedDreamRuns(this.db, this.processIdentity, () => this.#assertNotClosing());
+      this.#assertNotClosing();
+      this.#quarantineMalformedRows();
+      this.cleanup();
+      return this.status();
+    } catch (error) {
+      this.db?.close();
+      this.db = null;
+      this.ownerIdentity = null;
+      throw error;
+    }
   }
   watermark(runtimeKey) {
     this.#ready();
@@ -92,17 +126,20 @@ export class DreamStore {
     try {
       this.db.prepare(`INSERT INTO dream_runs
         (id, runtime_key, stage, trigger, evidence_start, evidence_end, state, started_at,
-         provider_fingerprint, input_fingerprint)
-        VALUES (?, ?, ?, ?, ?, ?, 'running', ?, ?, ?)`)
+         provider_fingerprint, input_fingerprint, owner_identity)
+        VALUES (?, ?, ?, ?, ?, ?, 'running', ?, ?, ?, ?)`)
         .run(id, input.runtimeKey, input.stage, input.trigger ?? 'idle', input.evidenceStart ?? null,
-          input.evidenceEnd ?? null, now, input.providerFingerprint ?? null, input.inputFingerprint ?? null);
+          input.evidenceEnd ?? null, now, input.providerFingerprint ?? null, input.inputFingerprint ?? null,
+          JSON.stringify(this.ownerIdentity));
     } catch (error) {
-      if (String(error?.message).includes('idx_dream_runs_active')) {
+      if (String(error?.message).includes('idx_dream_runs_active')
+          || String(error?.message).includes('UNIQUE constraint failed: dream_runs.runtime_key')) {
         throw new ContractError('dream_run_active', 'another process already owns idle maintenance for this workspace');
       }
       throw error;
     }
     const run = this.run(id);
+    this.activeRunIds.add(id);
     this.#observed('started', run);
     return run;
   }
@@ -111,7 +148,7 @@ export class DreamStore {
     if (!TERMINAL.has(state)) throw new ContractError('dream_state_invalid', 'dream run requires a terminal state');
     const current = this.run(id);
     if (!current) throw new ContractError('dream_run_missing', 'dream run does not exist');
-    if (TERMINAL.has(current.state)) return current;
+    if (TERMINAL.has(current.state)) { this.activeRunIds.delete(id); return current; }
     const now = new Date().toISOString();
     const update = this.db.prepare(`UPDATE dream_runs SET state=?, finished_at=?, result_code=?,
       duration_ms=?, input_tokens=?, output_tokens=?, output_fingerprint=? WHERE id=? AND state=?`)
@@ -120,10 +157,11 @@ export class DreamStore {
     if (update.changes === 0) {
       const winner = this.run(id);
       if (!winner) throw new ContractError('dream_run_missing', 'dream run does not exist');
-      if (TERMINAL.has(winner.state)) return winner;
+      if (TERMINAL.has(winner.state)) { this.activeRunIds.delete(id); return winner; }
       throw new ContractError('dream_state_invalid', 'dream run changed during completion');
     }
     const finished = this.run(id);
+    this.activeRunIds.delete(id);
     this.#observed('finished', finished);
     return finished;
   }
@@ -255,11 +293,25 @@ export class DreamStore {
     const candidates = this.db.prepare('SELECT state, COUNT(*) AS count FROM improvement_candidates GROUP BY state').all();
     return {
       status: 'ready', path: this.path,
+      unverified_active_runs: unverifiedActiveDreamRunCount(this.db),
       runs: Object.fromEntries(counts.map((row) => [row.state, Number(row.count)])),
       candidates: Object.fromEntries(candidates.map((row) => [row.state, Number(row.count)])),
     };
   }
-  close() { if (this.db) { this.db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); this.db.close(); this.db = null; } }
+  close() {
+    if (this.initializing) { this.closeRequested = true; return; }
+    if (!this.db) return;
+    try {
+      for (const id of this.activeRunIds) {
+        this.db.prepare("UPDATE dream_runs SET state='cancelled', result_code='store_closed', finished_at=? WHERE id=? AND state IN ('queued','running') AND owner_identity=?")
+          .run(new Date().toISOString(), id, JSON.stringify(this.ownerIdentity));
+      }
+    } finally {
+      this.activeRunIds.clear();
+      try { this.db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); }
+      finally { this.db.close(); this.db = null; this.ownerIdentity = null; }
+    }
+  }
   #observed(phase, run) {
     if (this.pendingObservations !== null) { this.pendingObservations.push({ phase, run }); return; }
     try { this.observe?.(Object.freeze({ phase, run: Object.freeze({ ...run }) })); }
@@ -283,7 +335,10 @@ export class DreamStore {
     for (const row of this.db.prepare("SELECT * FROM dream_packets WHERE state='pending'").all()) this.#packetValue(row);
     for (const row of this.db.prepare('SELECT * FROM improvement_candidates').all()) this.#candidateValue(row);
   }
-  #ready() { if (!this.db) throw new ContractError('dream_store_unavailable', 'dream state store is not initialized'); }
+  #ready() { if (!this.db || !this.ownerIdentity) throw new ContractError('dream_store_unavailable', 'dream state store is not initialized'); }
+  #assertNotClosing() {
+    if (this.closeRequested) throw new ContractError('dream_store_unavailable', 'dream store closed during initialization');
+  }
 }
 
 const SCHEMA = `
