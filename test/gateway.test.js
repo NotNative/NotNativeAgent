@@ -99,6 +99,68 @@ test('attached-only gateway shutdown waits for outstanding durable writes after 
   await rm(root, { recursive: true, force: true });
 });
 
+test('failed gateway state persistence stops polling and still closes engines and logs', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-write-failure-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs') };
+  let gateway; let polls = 0; let stopped = 0; let flushed = 0; const events = [];
+  const api = {
+    async getMe() {
+      // A directory at the state-file path makes the first durable write fail.
+      await mkdir(gateway.statePath);
+      gateway.sessions.set('existing', {
+        ingress: { async submit() { return { accepted: true }; } },
+        engine: { async shutdown() { stopped += 1; } },
+      });
+      return { id: 1 };
+    },
+    async getUpdates() {
+      polls += 1;
+      return [{ update_id: 1, message: { text: 'hello', from: { id: 42 }, chat: { id: 42 } } }];
+    },
+  };
+  gateway = new TelegramGateway({ api, paths,
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    logger: { async initialize() {}, record(event) { events.push(event); }, async flush() { flushed += 1; } },
+  });
+  await assert.rejects(gateway.run());
+  assert.equal(polls, 1);
+  assert.equal(stopped, 1);
+  assert.equal(flushed, 1);
+  assert.equal(gateway.running, false);
+  assert.equal(gateway.controller.signal.aborted, true);
+  await assert.rejects(gateway.shutdown());
+  assert.equal(events.find((event) => event.type === 'gateway_stopped')?.status, 'failed');
+  await assert.rejects(gateway.replay.queueReply(1, '42', '42', 'reply', ''), { code: 'gateway_state_write_failed' });
+  await rm(root, { recursive: true, force: true });
+});
+
+test('late Telegram poll response cannot admit updates after gateway shutdown', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-late-poll-'));
+  let releasePoll; let polling;
+  const enteredPoll = new Promise((resolve) => { polling = resolve; });
+  const heldPoll = new Promise((resolve) => { releasePoll = resolve; });
+  const gateway = new TelegramGateway({
+    api: {
+      async getMe() { return { id: 1 }; },
+      async getUpdates() { polling(); return heldPoll; },
+    },
+    paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs') },
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    logger: { async initialize() {}, record() {}, async flush() {} },
+  });
+  const running = gateway.run();
+  await enteredPoll;
+  await gateway.shutdown();
+  releasePoll([{ update_id: 1, message: { text: 'late', from: { id: 42 }, chat: { id: 42 } } }]);
+  await running;
+  assert.equal(gateway.offset, 0);
+  assert.deepEqual(gateway.inbox, []);
+  await assert.rejects(readFile(gateway.statePath, 'utf8'), { code: 'ENOENT' });
+  await rm(root, { recursive: true, force: true });
+});
+
 test('gateway shutdown diagnostics expose only a stable code', () => {
   const diagnostic = gatewayShutdownDiagnostic({ code: 'close failed', message: 'private token detail' });
   assert.equal(diagnostic, 'nna gateway: close_failed\n');

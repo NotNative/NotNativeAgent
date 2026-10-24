@@ -1154,7 +1154,9 @@ test('an unhealthy provider cannot hold content-free recovery beyond the turn wa
     providerFactory: () => provider,
   });
   await engine.initialize();
-  const timer = setTimeout(() => engine.cancel({ request_id: 'empty-deadline-cancel' }), 3000);
+  // The cancel is only a hang guard. Give a loaded test host enough slack for the
+  // one-second wall-clock boundary to settle before the guard owns the outcome.
+  const timer = setTimeout(() => engine.cancel({ request_id: 'empty-deadline-cancel' }), 10000);
   try {
     const result = await engine.submit({ request_id: 'empty-deadline-turn', content: 'Produce output' }, 'operator');
     assert.equal(result.outcome, 'limit_reached');

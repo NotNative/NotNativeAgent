@@ -9,7 +9,7 @@ import { StructuredLog } from '../structured-log.js';
 import { FairScheduler } from '../provider/fair-scheduler.js';
 import { ConsoleSessionDirectory } from '../session-broker.js';
 import { drainGatewayNotifications } from './telegram-notifications.js';
-import { persistAtomicJson } from '../persistence/atomic-json.js';
+import { gatewayStateSnapshot, queueGatewayStateWrite } from './state-write.js';
 import { attachedSubmissionReply, turnFallback } from './attached-submission.js';
 import { AttachedReplayState, gatewayStateBytes, loadGatewayState, MAX_GATEWAY_STATE_BYTES, retainedUpdateError } from './attached-replay.js';
 import { gatewayCompactionMessage } from './compaction-notice.js';
@@ -42,6 +42,7 @@ export class TelegramGateway {
     this.activeUpdates = new Set();
     this.updateOperations = new Set();
     this.stateWrites = Promise.resolve();
+    this.stateWriteFailure = null;
     this.running = false;
     this.controller = new AbortController();
     this.logger = options.logger ?? new StructuredLog({ path: join(this.paths.logs, 'gateway.ndjson') });
@@ -74,26 +75,39 @@ export class TelegramGateway {
   async run() {
     const bot = await this.initialize();
     this.running = true;
-    while (this.running && !this.controller.signal.aborted) {
-      this.#dispatchPending();
-      await this.replay.drain();
-      let updates;
-      try {
-        updates = await this.api.getUpdates(this.offset, this.config.polling_timeout_seconds, this.controller.signal);
-      } catch (error) {
-        if (this.controller.signal.aborted) break;
-        this.logger.record({ type: 'gateway_poll_failed', code: error.code ?? 'telegram_unavailable', outcome: 'failed' });
-        await delay(telegramRetryDelayMs(error), this.controller.signal).catch(() => undefined);
-        continue;
+    let runFailure = null;
+    try {
+      while (this.running && !this.controller.signal.aborted) {
+        this.#dispatchPending();
+        await this.replay.drain();
+        if (!this.running || this.controller.signal.aborted) break;
+        let updates;
+        try {
+          updates = await this.api.getUpdates(this.offset, this.config.polling_timeout_seconds, this.controller.signal);
+        } catch (error) {
+          if (this.controller.signal.aborted) break;
+          this.logger.record({ type: 'gateway_poll_failed', code: error.code ?? 'telegram_unavailable', outcome: 'failed' });
+          await delay(telegramRetryDelayMs(error), this.controller.signal).catch(() => undefined);
+          continue;
+        }
+        // Invariant: a late transport reply cannot admit work after shutdown has begun.
+        if (!this.running || this.controller.signal.aborted) break;
+        await this.#acceptUpdates(updates);
+        if (!this.running || this.controller.signal.aborted) break;
+        this.#dispatchPending();
+        await this.replay.drain();
+        if (!this.running || this.controller.signal.aborted) break;
+        await this.#drainNotifications().catch((error) => this.logger.record({
+          type: 'gateway_notification_failed', code: error.code ?? 'notification_delivery_failed', outcome: 'failed',
+        }));
       }
-      await this.#acceptUpdates(updates);
-      this.#dispatchPending();
-      await this.replay.drain();
-      await this.#drainNotifications().catch((error) => this.logger.record({
-        type: 'gateway_notification_failed', code: error.code ?? 'notification_delivery_failed', outcome: 'failed',
-      }));
+    } catch (error) {
+      runFailure = error;
     }
-    await this.shutdown();
+    try { await this.shutdown(); }
+    catch (error) { if (!runFailure) runFailure = error; }
+    if (runFailure) throw runFailure;
+    if (this.stateWriteFailure) throw this.stateWriteFailure;
     return bot;
   }
 
@@ -117,8 +131,10 @@ export class TelegramGateway {
       this.queues.clear();
       this.compactionNotices.clear();
       this.invalidNotificationIntents.clear();
-      this.logger.record({ type: 'gateway_stopped', status: 'completed' });
+      this.logger.record({ type: 'gateway_stopped', status: this.stateWriteFailure ? 'failed' : 'completed' });
       await this.logger.flush();
+      // Invariant: cleanup completion does not turn a failed durable write into successful shutdown.
+      if (this.stateWriteFailure) throw this.stateWriteFailure;
     })();
     return this.shutdownOperation;
   }
@@ -196,19 +212,11 @@ export class TelegramGateway {
   }
 
   #saveState() {
-    this.stateWrites = this.stateWrites.then(() => persistAtomicJson(this.statePath, {
-      version: 4, offset: this.offset, inbox: this.inbox, attachments: Object.fromEntries(this.attachments),
-      routes: this.replay.routes, replies: this.replay.replies, operations: this.replay.operations,
-      suppressed: this.replay.suppressed,
-    }));
-    return this.stateWrites;
+    return queueGatewayStateWrite(this);
   }
 
   #stateBytes(overrides = {}) {
-    return gatewayStateBytes({ version: 4, offset: this.offset, inbox: this.inbox,
-      attachments: Object.fromEntries(this.attachments),
-      routes: this.replay.routes, replies: this.replay.replies, operations: this.replay.operations,
-      suppressed: this.replay.suppressed, ...overrides });
+    return gatewayStateBytes(gatewayStateSnapshot(this, overrides));
   }
   async #failUpdate(updateId, error) {
     this.#recordUpdateFailure(error);
