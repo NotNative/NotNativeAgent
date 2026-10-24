@@ -9,6 +9,26 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function New-UninstallChallenge {
+    # Compatibility: powershell.exe uses .NET Framework, which has no RandomNumberGenerator.GetInt32.
+    $Random = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $Bytes = New-Object byte[] 4
+        $Random.GetBytes($Bytes)
+        return 100000 + ([BitConverter]::ToUInt32($Bytes, 0) % 900000)
+    } finally { $Random.Dispose() }
+}
+
+function Get-UninstallMutexHash([string]$Path) {
+    # Compatibility: SHA256.HashData and Convert.ToHexString are unavailable in Windows PowerShell 5.1.
+    $Hasher = [Security.Cryptography.SHA256]::Create()
+    try {
+        $Digest = $Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($Path))
+        return [BitConverter]::ToString($Digest).Replace('-', '').Substring(0, 24)
+    } finally { $Hasher.Dispose() }
+}
+
 if (-not $InstallRoot) { $InstallRoot = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'NotNativeAgent' }
 $InstallRoot = [IO.Path]::GetFullPath($InstallRoot)
 $MarkerPath = Join-Path $InstallRoot 'install.json'
@@ -22,7 +42,7 @@ if ($DeleteUserData -and $KeepUserData) { throw 'Choose either -DeleteUserData o
 if ([Console]::IsInputRedirected -or -not [Environment]::UserInteractive) {
     throw 'Refusing to uninstall without a directly attached interactive terminal. Run "nna uninstall" yourself and complete its confirmation challenge.'
 }
-$Challenge = [Security.Cryptography.RandomNumberGenerator]::GetInt32(100000, 1000000)
+$Challenge = New-UninstallChallenge
 Write-Host ''
 Write-Host "This will remove the NotNativeAgent application from '$InstallRoot'."
 Write-Host 'An agent, script, redirected command, or command-line flag cannot approve this action.'
@@ -55,7 +75,7 @@ if ($ShouldDeleteUserData) {
     }
 }
 
-$MutexHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($InstallRoot))).Substring(0, 24)
+$MutexHash = Get-UninstallMutexHash $InstallRoot
 $UninstallMutex = [Threading.Mutex]::new($false, "Local\NotNativeAgent-Uninstall-$MutexHash")
 if (-not $UninstallMutex.WaitOne(0)) {
     $UninstallMutex.Dispose()

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { createScratchSync } from './scratch.js';
 import { existsSync } from 'node:fs';
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
@@ -96,6 +97,35 @@ test('CLI bounds manifest reads and direct prompt arguments before parsing or co
 test('uninstall command rejects conflicting or unknown deletion choices before launch', async () => {
   await assert.rejects(runUninstallCommand(['--delete-user-data', '--keep-user-data']), { code: 'uninstall_option_conflict' });
   await assert.rejects(runUninstallCommand(['--force']), { code: 'uninstall_option_invalid' });
+});
+
+test('Windows uninstall helpers run under the powershell.exe runtime without removing files', {
+  skip: process.platform !== 'win32',
+}, () => {
+  const installation = 'C:\\Test\\NotNativeAgent';
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    '$tokens = $null; $parseErrors = $null',
+    '$ast = [System.Management.Automation.Language.Parser]::ParseFile($env:NNA_TEST_UNINSTALL_SCRIPT, [ref]$tokens, [ref]$parseErrors)',
+    "if ($parseErrors.Count -gt 0) { throw 'uninstall script did not parse' }",
+    "foreach ($name in @('New-UninstallChallenge', 'Get-UninstallMutexHash')) {",
+    '  $functions = $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)',
+    "  if ($functions.Count -ne 1) { throw \"missing helper $name\" }",
+    '  . ([scriptblock]::Create($functions[0].Extent.Text))',
+    '}',
+    '1..16 | ForEach-Object { $challenge = New-UninstallChallenge; if ($challenge -lt 100000 -or $challenge -ge 1000000) { throw "challenge outside six-digit range" } }',
+    `$hash = Get-UninstallMutexHash '${installation}'`,
+    'Write-Output $hash',
+  ].join('\n');
+  const result = spawnSync('powershell.exe', [
+    '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64'),
+  ], {
+    encoding: 'utf8', timeout: 10_000,
+    env: { ...process.env, NNA_TEST_UNINSTALL_SCRIPT: join(projectRoot, 'uninstall.ps1') },
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const expected = createHash('sha256').update(installation, 'utf8').digest('hex').slice(0, 24).toUpperCase();
+  assert.equal(result.stdout.trim(), expected);
 });
 
 test('first run persists explicit environment configuration and reuses it', async () => {
