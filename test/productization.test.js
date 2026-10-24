@@ -130,6 +130,48 @@ test('Windows uninstall helpers run under the powershell.exe runtime without rem
   assert.equal(result.stdout.trim(), expected);
 });
 
+test('Windows uninstall attempts both service stops and reports a failed native exit', {
+  skip: process.platform !== 'win32',
+}, async () => {
+  const root = createScratchSync('nna-uninstall-stop-');
+  const fakeNode = join(root, 'fake-node.cmd');
+  const log = join(root, 'stops.txt');
+  try {
+    await writeFile(fakeNode, '@echo off\r\necho %2>>"%NNA_TEST_STOP_LOG%"\r\nif /I "%2"=="gateway" exit /b 7\r\nexit /b 0\r\n', 'utf8');
+    const script = [
+      "$ErrorActionPreference = 'Stop'",
+      '$tokens = $null; $parseErrors = $null',
+      '$ast = [System.Management.Automation.Language.Parser]::ParseFile($env:NNA_TEST_UNINSTALL_SCRIPT, [ref]$tokens, [ref]$parseErrors)',
+      "if ($parseErrors.Count -gt 0) { throw 'uninstall script did not parse' }",
+      "foreach ($name in @('Invoke-UninstallServiceStop', 'Assert-UninstallNodePath')) {",
+      '  $helper = $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)',
+      '  if ($helper.Count -ne 1) { throw "missing helper $name" }',
+      '  . ([scriptblock]::Create($helper[0].Extent.Text))',
+      '}',
+      'Assert-UninstallNodePath $env:NNA_TEST_FAKE_NODE',
+      'Set-Location ((Split-Path -Qualifier $env:NNA_TEST_FAKE_NODE) + "\\")',
+      '$rootRelative = $env:NNA_TEST_FAKE_NODE.Substring(2)',
+      "if (-not (Test-Path -LiteralPath $rootRelative -PathType Leaf)) { throw 'root-relative fixture is missing' }",
+      '$rejected = $false; try { Assert-UninstallNodePath $rootRelative } catch { $rejected = $true }',
+      "if (-not $rejected) { throw 'root-relative node path was accepted' }",
+      "$gatewayStopped = Invoke-UninstallServiceStop $env:NNA_TEST_FAKE_NODE 'ignored-cli' 'gateway'",
+      "$opencodeStopped = Invoke-UninstallServiceStop $env:NNA_TEST_FAKE_NODE 'ignored-cli' 'opencode'",
+      "$missingStopped = Invoke-UninstallServiceStop (Join-Path $env:TEMP 'nna-uninstall-missing-node.exe') 'ignored-cli' 'gateway'",
+      "if ($gatewayStopped -ne $false -or $opencodeStopped -ne $true -or $missingStopped -ne $false) { throw 'service-stop outcomes were lost' }",
+    ].join('\n');
+    const result = spawnSync('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64'),
+    ], {
+      encoding: 'utf8', timeout: 10_000,
+      env: { ...process.env, NNA_TEST_UNINSTALL_SCRIPT: join(projectRoot, 'uninstall.ps1'),
+        NNA_TEST_FAKE_NODE: fakeNode, NNA_TEST_STOP_LOG: log },
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stderr, /gateway service could not be stopped cleanly \(exit code 7\)/u);
+    assert.deepEqual((await readFile(log, 'utf8')).trim().split(/\r?\n/u), ['gateway', 'opencode']);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('Windows uninstall preflight rejects unsafe roots and reads UTF-8 markers before confirmation', {
   skip: process.platform !== 'win32',
 }, async () => {
@@ -361,7 +403,7 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /not enabled; run nna opencode enable to install its login wiring/u);
   assert.match(windowsInstall, /could not be inspected while waiting for its runtime to stop/u);
   assert.match(windowsInstall, /\$OpencodeWasRunning = \$OpencodeStoppedForUpgrade -or \[bool\]\$OpencodeStatus\.runtime\.running/u);
-  assert.match(windowsUninstall, /opencode stop/u);
+  assert.match(windowsUninstall, /Invoke-UninstallServiceStop \$NodePath \$InstalledCli 'opencode'/u);
   assert.match(windowsUninstall, /NotNativeAgent-OpenCode\.vbs/u);
   assert.match(windowsUninstall, /The OpenCode startup entry belongs to another NNA installation/u);
   assert.match(windowsUninstall, /OPENCODE_SKIP_START/u);

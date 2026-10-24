@@ -43,6 +43,30 @@ function Enter-UninstallMutex([string]$Name, [int]$TimeoutMs, [string]$TimeoutMe
     }
 }
 
+function Invoke-UninstallServiceStop([string]$NodePath, [string]$CliPath, [string]$Service) {
+    try {
+        & $NodePath $CliPath $Service stop 2>$null | Out-Null
+        $ExitCode = $LASTEXITCODE
+        if ($ExitCode -ne 0) {
+            Write-Warning "The $Service service could not be stopped cleanly (exit code $ExitCode)."
+            return $false
+        }
+    } catch {
+        Write-Warning "The $Service service could not be stopped cleanly ($($_.Exception.Message))."
+        return $false
+    }
+    return $true
+}
+
+function Assert-UninstallNodePath([string]$Path) {
+    $Root = [IO.Path]::GetPathRoot($Path)
+    if (-not [IO.Path]::IsPathRooted($Path) -or $Root -eq '\' -or $Root -match '^[A-Za-z]:$' -or
+        $Path.StartsWith('\\?\') -or $Path.StartsWith('\\.\') -or
+        -not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw 'Refusing to uninstall: the installed Node.js runtime path is missing or unsafe.'
+    }
+}
+
 function Resolve-UninstallRoot([string]$Path, [string]$Role, [bool]$ForDeletion) {
     if ([string]::IsNullOrWhiteSpace($Path) -or -not [IO.Path]::IsPathRooted($Path)) {
         throw "Refusing to uninstall: $Role root must be an absolute directory."
@@ -138,13 +162,18 @@ try {
 $BinRoot = Join-Path $InstallRoot 'bin'
 $InstalledCli = Join-Path $InstallRoot 'installed\src\cli.js'
 if (Test-Path -LiteralPath $InstalledCli) {
+    $NodePath = [string]$Marker.node
+    Assert-UninstallNodePath $NodePath
     $PriorNnaHome = $env:NNA_HOME
     try {
         $env:NNA_HOME = [string]$Marker.data_root
-        & ([string]$Marker.node) $InstalledCli gateway stop 2>$null | Out-Null
-        & ([string]$Marker.node) $InstalledCli opencode stop 2>$null | Out-Null
-    } catch { Write-Warning 'A running Telegram gateway or OpenCode service could not be stopped cleanly; continuing uninstall.' }
+        $GatewayStopped = Invoke-UninstallServiceStop $NodePath $InstalledCli 'gateway'
+        $OpencodeStopped = Invoke-UninstallServiceStop $NodePath $InstalledCli 'opencode'
+    }
     finally { $env:NNA_HOME = $PriorNnaHome }
+    if (-not $GatewayStopped -or -not $OpencodeStopped) {
+        throw 'Refusing to remove the application while a service could still be running. Resolve the stop failure and retry uninstall.'
+    }
 }
 $GatewayStartup = Join-Path ([Environment]::GetFolderPath('Startup')) 'NotNativeAgent-Telegram.vbs'
 if (Test-Path -LiteralPath $GatewayStartup) {
