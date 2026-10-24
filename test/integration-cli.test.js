@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { createIntegrationNndEngineHost, integrationSecretRealm, runIntegrationCommand, runNndIntegrationCommand } from '../src/integration-cli.js';
-import { assertNnoIntegrationActivation, createNndLocalIntegrationActivation } from '../src/nno-integration-activation.js';
+import { assertNnoIntegrationActivation, createNndLocalIntegrationActivation, validateNnoIntegrationActivation } from '../src/nno-integration-activation.js';
 import { SecretBroker } from '../src/secret-broker.js';
 import { LOCAL_SECRET_REALM } from '../src/secret-contracts.js';
 import { trustWorkspace } from '../src/experience/trust.js';
@@ -57,7 +57,7 @@ test('NND local service starts without NNO activation and keeps its authenticate
   assert.equal(writes.length, 1);
   const frame = JSON.parse(writes[0]);
   assert.equal(frame.type, 'ready');
-  assert.equal(frame.protocol, '1.0');
+  assert.equal(frame.protocol, createNndLocalIntegrationActivation().protocol);
   assert.match(frame.endpoint, /^http:\/\/127\.0\.0\.1:\d+$/u);
   assert.match(frame.token, /^[A-Za-z0-9_-]{32,512}$/u);
   await assert.rejects(runNndIntegrationCommand(['extra'], {}, {}), { code: 'nnd_command_invalid' });
@@ -142,6 +142,7 @@ test('NND service uses the local secret realm for configured provider checks', a
         'x-nna-principal': Buffer.from(JSON.stringify(healthPrincipal)).toString('base64url'),
       } });
       const state = await health.json();
+      assert.equal(state.protocol, frame.protocol);
       if (state.execution_state === 'ready') { readyHost = true; break; }
       assert.equal(state.status, 'starting');
     }
@@ -195,7 +196,7 @@ test('integration child emits one atomic protocol-only readiness frame', async (
   const frame = JSON.parse(writes[0]);
   assert.deepEqual(Object.keys(frame).sort(), ['endpoint', 'instance_id', 'protocol', 'token', 'type']);
   assert.equal(frame.type, 'ready');
-  assert.equal(frame.protocol, '1.0');
+  assert.equal(frame.protocol, (await validateNnoIntegrationActivation(installRoot)).protocol);
   assert.match(frame.endpoint, /^http:\/\/127\.0\.0\.1:\d+$/u);
   assert.match(frame.instance_id, /^nna_[0-9a-f-]+$/u);
   assert.ok(frame.token.length >= 43);

@@ -88,7 +88,7 @@ async function dispatch(request, response, context) {
   if (request.method === 'GET' && url.pathname === '/v1/health') {
     requireIntegrationPermission(principal, 'integration.health');
     return send(response, 200, { status: context.nndRuntime?.snapshot().service_state ?? 'ready',
-      protocol: '1.0', instance_id: context.instanceId, ...(context.nndRuntime ? context.nndRuntime.snapshot() : {}) });
+      protocol: context.activation.protocol, instance_id: context.instanceId, ...(context.nndRuntime ? context.nndRuntime.snapshot() : {}) });
   }
   if (await dispatchNndSetupRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchNndBrowserRegistrationRequest(request, response, { ...context, principal, url })) return;

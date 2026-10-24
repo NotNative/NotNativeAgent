@@ -35,15 +35,16 @@ test('integration service authenticates exact principals and manages provider pr
       });
     },
   });
+  const admitted = await activation(root);
   const service = await startIntegrationServer({
-    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', providerStore, broker, port: 0,
+    activation: admitted, token: TOKEN, instanceId: 'nna_test', providerStore, broker, port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
   try {
     assert.equal((await fetch(`${base}/v1/health`)).status, 401);
     const readOnly = principal(['integration.health', 'provider.read']);
     const health = await request(base, '/v1/health', readOnly);
-    assert.deepEqual(health.value, { status: 'ready', protocol: '1.0', instance_id: 'nna_test' });
+    assert.deepEqual(health.value, { status: 'ready', protocol: admitted.protocol, instance_id: 'nna_test' });
     const listed = await request(base, '/v1/provider-profiles', readOnly);
     assert.equal(listed.value.profiles.length, 2);
     assert.deepEqual(listed.value.configured_primary_route, { providerID: 'one', modelID: 'one' });

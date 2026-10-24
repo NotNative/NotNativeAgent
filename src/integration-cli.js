@@ -122,7 +122,7 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
   try {
     // Security: stdout is one readiness frame for the owning local process; the token is not logged.
     lifecycle.runtime?.start();
-    output.write(`${JSON.stringify({ type: 'ready', protocol: '1.0', endpoint, instance_id: instanceId, token })}\n`);
+    output.write(`${JSON.stringify({ type: 'ready', protocol: activation.protocol, endpoint, instance_id: instanceId, token })}\n`);
     await waitForShutdown(options.signal, service.server);
   } catch (error) { failure = error; }
   try { await closeIntegrationLifecycle(service, lifecycle); } catch (error) {
