@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile } from 'node:fs/promises';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { collectProductionSources } from './source-catalog.js';
+import { auditDependencyRegistry } from './dependency-registry-gate.js';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const MAX_FILE_LINES = 500;
@@ -12,7 +13,6 @@ const MAX_FUNCTION_LINES = 60;
 const MAX_SOURCE_BYTES = 400_000;
 const TS_CONFIGS = ['packages/ui/tsconfig.json', 'packages/web/tsconfig.ui.json', 'packages/web/tsconfig.server.json'];
 const SPDX_TOKEN = 'SPDX-License-Identifier: Apache-2.0';
-const DEP_REGISTRY = 'docs/architecture/dependency-registry.json';
 
 async function main() {
   const files = await collectProductionSources(root);
@@ -26,7 +26,7 @@ async function main() {
     if (/\.(m?js)$/u.test(path)) checkSyntaxNative(path, errors);
   }
   await runTypeScriptCompiles(errors);
-  await auditDependencyRegistry(errors);
+  await auditDependencyRegistry(root, errors);
   spawnGate('scripts/repository-graph.js', ['--check'], 'repository graph check failed', errors);
   spawnGate('scripts/controlled-language-gates.js', [], 'controlled-language check failed', errors);
   finishGate(files, errors);
@@ -85,35 +85,6 @@ function resolveTypeScriptBinary(startDir) {
     if (existsSync(candidate)) return candidate;
     if (dir === resolve(dir, '..')) return null;
   }
-}
-
-async function auditDependencyRegistry(errors) {
-  let registry;
-  try { registry = JSON.parse(await readFile(join(root, DEP_REGISTRY), 'utf8')); }
-  catch (error) { errors.push(`dependency registry unreadable: ${error?.message ?? error}`); return; }
-  const registered = new Set((registry.dependencies ?? []).map((entry) => entry.name));
-  const declared = collectDeclaredDependencies();
-  for (const name of declared.keys()) {
-    if (!registered.has(name)) errors.push(`runtime dependency '${name}' is missing from ${DEP_REGISTRY}`);
-  }
-  for (const entry of registry.dependencies ?? []) {
-    if (!declared.has(entry.name)) errors.push(`registry entry '${entry.name}' is not a declared runtime dependency`);
-  }
-}
-
-function collectDeclaredDependencies() {
-  const declared = new Set();
-  for (const manifest of ['package.json', 'packages/ui/package.json', 'packages/web/package.json']) {
-    const pkg = readPackageJson(join(root, manifest));
-    if (!pkg) continue;
-    for (const name of Object.keys(pkg.dependencies ?? {})) declared.add(name);
-  }
-  return declared;
-}
-
-function readPackageJson(path) {
-  try { return JSON.parse(readFileSync(path, 'utf8')); }
-  catch { return null; }
 }
 
 function failureText(result) {
