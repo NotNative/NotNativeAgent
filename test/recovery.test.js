@@ -1331,6 +1331,58 @@ test('operator cancellation wakes an empty-completion recovery wait immediately'
   assert.equal(engine.active, null);
 });
 
+test('failed recovery journal append closes its child before terminal turn settlement', { timeout: 10_000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-recovery-append-fail-'));
+  const provider = { async *stream() { yield { type: 'terminal', finishReason: 'stop' }; } };
+  const engine = new RuntimeSessionEngine({
+    config: config(root, 'durable'), providerFactory: () => provider,
+    storeRoot: join(root, 'sessions'),
+  });
+  await engine.initialize();
+  const append = engine.store.append.bind(engine.store);
+  engine.store.append = async (type, payload) => {
+    if (type === 'recovery_decision') throw new Error('simulated recovery journal failure');
+    return append(type, payload);
+  };
+
+  const result = await engine.submit({ request_id: 'recovery-append-fail', content: 'Reply.' }, 'operator');
+
+  assert.equal(result.outcome, 'failed');
+  assert.equal(engine.state.state, 'idle');
+  assert.equal(engine.active, null);
+  const lifecycles = engine.lifecycles.snapshot();
+  assert.equal(lifecycles.filter((item) => item.outcome === null).length, 0);
+  assert.equal(lifecycles.filter((item) => item.kind === 'recovery' && item.outcome === 'failed').length, 1);
+  const { records } = await engine.store.readRecords();
+  assert.equal(records.filter((item) => item.type === 'turn_outcome').length, 1);
+});
+
+test('failed recovery start publication closes its child before terminal turn settlement', { timeout: 10_000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-recovery-publish-fail-'));
+  const provider = { async *stream() { yield { type: 'terminal', finishReason: 'stop' }; } };
+  const engine = new RuntimeSessionEngine({
+    config: config(root, 'durable'), providerFactory: () => provider,
+    storeRoot: join(root, 'sessions'),
+  });
+  await engine.initialize();
+  const dispatch = engine.events.dispatch.bind(engine.events);
+  engine.events.dispatch = async (event, signal) => {
+    if (event.event_name === 'recovery.started') throw new Error('simulated recovery publication failure');
+    return dispatch(event, signal);
+  };
+
+  const result = await engine.submit({ request_id: 'recovery-publish-fail', content: 'Reply.' }, 'operator');
+
+  assert.equal(result.outcome, 'failed');
+  assert.equal(engine.state.state, 'idle');
+  assert.equal(engine.active, null);
+  const lifecycles = engine.lifecycles.snapshot();
+  assert.equal(lifecycles.filter((item) => item.outcome === null).length, 0);
+  assert.equal(lifecycles.filter((item) => item.kind === 'recovery' && item.outcome === 'failed').length, 1);
+  const { records } = await engine.store.readRecords();
+  assert.equal(records.filter((item) => item.type === 'turn_outcome').length, 1);
+});
+
 test('empty continuation recovery preserves a useful committed checkpoint', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-empty-partial-'));
   await writeFile(join(root, 'target.txt'), 'verified evidence', 'utf8');

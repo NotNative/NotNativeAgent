@@ -362,11 +362,14 @@ export class SessionEngine {
   async #recordRecovery(action, active) {
     await emitEngineStatus(this, 'recovering', active);
     const lifecycle = this.lifecycles.start('recovery', active.stepId ?? active.turnId);
-    await this.#publish('recovery.started', 'recovery', 'active', active);
-    await this.#persist('recovery_decision', {
-      ...action, turnId: active.turnId, stepId: active.stepId, lifecycleId: lifecycle.id,
-    });
-    this.lifecycles.finish(lifecycle.id, 'applied');
+    let applied = false;
+    try {
+      await this.#publish('recovery.started', 'recovery', 'active', active);
+      await this.#persist('recovery_decision', {
+        ...action, turnId: active.turnId, stepId: active.stepId, lifecycleId: lifecycle.id,
+      });
+      applied = true;
+    } finally { this.lifecycles.finish(lifecycle.id, applied ? 'applied' : 'failed'); }
     await this.#publish('recovery.terminal', 'recovery', 'terminal', active, 'applied');
   }
   async #consumeSteering(active) {
