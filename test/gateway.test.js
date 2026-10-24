@@ -55,11 +55,59 @@ test('Telegram admission measures the exact durable JSON format', async () => {
   assert.ok(Buffer.byteLength(JSON.stringify(combined)) <= MAX_GATEWAY_STATE_BYTES);
   assert.ok(gatewayStateBytes(combined) > MAX_GATEWAY_STATE_BYTES);
   assert.equal(gatewayStateBytes(combined), Buffer.byteLength(`${JSON.stringify(combined, null, 2)}\n`));
-  const blocked = await acceptGatewayUpdates(gateway, updates,
+  const blocked = await acceptGatewayUpdates(gateway, updates.values(),
     (overrides) => gatewayStateBytes(gatewayStateSnapshot(gateway, overrides)), async () => {});
   assert.equal(blocked, true);
   assert.equal(gateway.offset, 2);
   assert.deepEqual(gateway.inbox, [updates[0]]);
+});
+
+test('a fitting Telegram batch has one durable-state size check', async () => {
+  const updates = Array.from({ length: 20 }, (_, index) => ({ update_id: index + 1,
+    message: { text: `message-${index}`, from: { id: 42 }, chat: { id: 42 } } }));
+  const gateway = { offset: 0, inbox: [], attachments: new Map(),
+    replay: { routes: {}, replies: [], operations: {}, suppressed: {} } };
+  let checks = 0;
+  const blocked = await acceptGatewayUpdates(gateway, updates, (overrides) => {
+    checks += 1;
+    return gatewayStateBytes(gatewayStateSnapshot(gateway, overrides));
+  }, async () => {});
+  assert.equal(blocked, false);
+  assert.equal(checks, 1);
+  assert.equal(gateway.offset, 21);
+  assert.deepEqual(gateway.inbox, updates);
+});
+
+test('Telegram batch admission skips stale and duplicate IDs without changing replay order', async () => {
+  const retained = { update_id: 8, message: { text: 'already retained' } };
+  const fresh = { update_id: 10, message: { text: 'new' } };
+  const gateway = { offset: 9, inbox: [retained], attachments: new Map(),
+    replay: { routes: {}, replies: [], operations: {}, suppressed: {} } };
+  let saves = 0;
+  const blocked = await acceptGatewayUpdates(gateway,
+    [{ update_id: 8 }, fresh, { update_id: 10 }, { update_id: 9 }, { update_id: 12 }],
+    (overrides) => gatewayStateBytes(gatewayStateSnapshot(gateway, overrides)),
+    async () => { saves += 1; });
+  assert.equal(blocked, false);
+  assert.equal(gateway.offset, 13);
+  assert.deepEqual(gateway.inbox.map((item) => item.update_id), [8, 10, 12]);
+  assert.equal(saves, 1);
+});
+
+test('Telegram batch overflow retains the fitting prefix and leaves its first blocked update for replay', async () => {
+  const updates = [1, 2, 3].map((update_id) => ({ update_id,
+    message: { text: 'x'.repeat(380_000), from: { id: 42 }, chat: { id: 42 } } }));
+  const gateway = { offset: 0, inbox: [], attachments: new Map(),
+    replay: { routes: {}, replies: [], operations: {}, suppressed: {} } };
+  let saved;
+  const blocked = await acceptGatewayUpdates(gateway, updates.values(),
+    (overrides) => gatewayStateBytes(gatewayStateSnapshot(gateway, overrides)),
+    async () => { saved = gatewayStateSnapshot(gateway); });
+  assert.equal(blocked, true);
+  assert.equal(gateway.offset, 3);
+  assert.deepEqual(gateway.inbox, updates.slice(0, 2));
+  assert.equal(saved.offset, 3);
+  assert.deepEqual(saved.inbox, updates.slice(0, 2));
 });
 
 test('queued Telegram state writes persist the snapshot from enqueue time', async () => {
