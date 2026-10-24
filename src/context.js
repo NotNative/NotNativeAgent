@@ -35,25 +35,37 @@ export function buildContext(config, transcript, currentContent, enrichment = {}
 }
 
 function appendTranscriptMessages(messages, records) {
-  const groups = toolRequestGroups(records);
+  const { requests: pairedRequests, results: pairedResults } = pairedToolRecords(records);
+  const groups = toolRequestGroups(records, pairedRequests);
   const emitted = new Set();
+  const emittedCalls = new Set();
+  const appendRequests = (calls, content = null) => {
+    const request = toolRequestMessage(calls, content);
+    messages.push(request);
+    for (const call of request.tool_calls) {
+      if (typeof call.id === 'string' && call.id.length > 0) emittedCalls.add(call.id);
+    }
+  };
   for (const item of records) {
     if (item.type === 'message') {
       const key = item.role === 'assistant' ? toolStepKey(item) : null;
       const calls = key ? groups.get(key) : null;
       if (calls && !emitted.has(key)) {
-        messages.push(toolRequestMessage(calls, item.content));
+        appendRequests(calls, item.content);
         emitted.add(key);
       } else messages.push({ role: item.role, content: item.content, provenance: 'transcript', trust: item.trust });
     } else if (item.type === 'tool_request') {
       const key = toolStepKey(item);
-      if (!key) messages.push(toolRequestMessage([item]));
+      if (!pairedRequests.has(item)) continue;
+      if (!key) appendRequests([item]);
       else if (!emitted.has(key)) {
-        messages.push(toolRequestMessage(groups.get(key) ?? [item]));
+        appendRequests(groups.get(key) ?? [item]);
         emitted.add(key);
       }
     } else if (item.type === 'tool_result') {
-      messages.push(toolResultMessage(item));
+      // A retained result without its assistant request is invalid provider
+      // history. Its exact bytes remain in the ledger for explicit retrieval.
+      if (pairedResults.has(item) && emittedCalls.has(item.providerCallId)) messages.push(toolResultMessage(item));
     } else if (item.type === 'compaction') {
       messages.push({
         role: 'system', content: item.summary,
@@ -68,10 +80,33 @@ function appendTranscriptMessages(messages, records) {
   }
 }
 
-function toolRequestGroups(records) {
+function pairedToolRecords(records) {
+  // Provider history must replay complete exchanges. Match in ledger order so
+  // an early/orphan result cannot satisfy a request that appears later.
+  const pending = new Map();
+  const requests = new Set();
+  const results = new Set();
+  for (const item of records) {
+    const id = item?.providerCallId;
+    if (typeof id !== 'string' || id.length === 0) continue;
+    if (item.type === 'tool_request') {
+      if (!pending.has(id)) pending.set(id, []);
+      pending.get(id).push(item);
+    } else if (item.type === 'tool_result') {
+      const queue = pending.get(id);
+      if (!queue?.length) continue;
+      requests.add(queue.shift());
+      results.add(item);
+      if (queue.length === 0) pending.delete(id);
+    }
+  }
+  return { requests, results };
+}
+
+function toolRequestGroups(records, pairedRequests) {
   const groups = new Map();
   for (const item of records) {
-    if (item?.type !== 'tool_request') continue;
+    if (item?.type !== 'tool_request' || !pairedRequests.has(item)) continue;
     const key = toolStepKey(item);
     if (!key) continue;
     if (!groups.has(key)) groups.set(key, []);

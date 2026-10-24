@@ -17,6 +17,43 @@ function project(record) {
   ], '').find((item) => item.role === 'tool').content);
 }
 
+test('provider context omits tool results whose request was not emitted first', () => {
+  const context = buildContext({ workspaceRoot: process.cwd(), limits: { maxContextBytes: 1_048_576 } }, [
+    { type: 'tool_result', providerCallId: 'orphan', toolName: 'fs_read', content: 'retained without request' },
+    { type: 'tool_result', providerCallId: 'paired', toolName: 'fs_read', content: 'premature result' },
+    { type: 'tool_request', providerCallId: 'paired', toolName: 'fs_read', args: { path: 'file.txt' } },
+    { type: 'tool_result', providerCallId: 'paired', toolName: 'fs_read', content: 'paired result' },
+  ], '');
+  assert.deepEqual(context.flatMap((item) => item.tool_calls?.map((call) => call.id) ?? []), ['paired']);
+  const results = context.filter((item) => item.role === 'tool');
+  assert.deepEqual(results.map((item) => item.tool_call_id), ['paired']);
+  assert.equal(JSON.parse(results[0].content).content, 'paired result');
+});
+
+test('provider context omits unmatched calls in a grouped step and keeps its assistant prose', () => {
+  const context = buildContext({ workspaceRoot: process.cwd(), limits: { maxContextBytes: 1_048_576 } }, [
+    { type: 'message', role: 'assistant', turnId: 'turn', stepId: 'step', content: 'Checking both files.' },
+    { type: 'tool_request', turnId: 'turn', stepId: 'step', providerCallId: 'paired', toolName: 'fs_read', args: { path: 'a.txt' } },
+    { type: 'tool_request', turnId: 'turn', stepId: 'step', providerCallId: 'missing', toolName: 'fs_read', args: { path: 'b.txt' } },
+    { type: 'tool_result', providerCallId: 'paired', toolName: 'fs_read', content: 'file a' },
+    { type: 'message', role: 'assistant', content: 'I found one file.' },
+  ], '');
+  const requests = context.filter((item) => item.tool_calls?.length);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].content, 'Checking both files.');
+  assert.deepEqual(requests[0].tool_calls.map((call) => call.id), ['paired']);
+  assert.deepEqual(context.filter((item) => item.role === 'tool').map((item) => item.tool_call_id), ['paired']);
+});
+
+test('provider context keeps prose when every call in a step lacks a result', () => {
+  const context = buildContext({ workspaceRoot: process.cwd(), limits: { maxContextBytes: 1_048_576 } }, [
+    { type: 'message', role: 'assistant', turnId: 'turn', stepId: 'step', content: 'Checking a file.' },
+    { type: 'tool_request', turnId: 'turn', stepId: 'step', providerCallId: 'missing', toolName: 'fs_read', args: { path: 'a.txt' } },
+  ], '');
+  assert.equal(context.some((item) => item.tool_calls?.length || item.role === 'tool'), false);
+  assert.equal(context.some((item) => item.role === 'assistant' && item.content === 'Checking a file.'), true);
+});
+
 test('receipt projection has one byte-accounting block and a literal excerpt', () => {
   const record = { type: 'tool_result', toolName: 'fs_read', providerCallId: 'call', requestId: 'request',
     toolLifecycleStatus: 'succeeded', content: 'source line\n'.repeat(2000) };

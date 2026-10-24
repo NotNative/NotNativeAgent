@@ -127,7 +127,8 @@ test('result cache restores legacy journal status through the compatibility read
 });
 
 test('raw executor truncation cannot be labeled full provider evidence', () => {
-  const messages = buildContext({ workspaceRoot: process.cwd(), limits: { maxContextBytes: 1_048_576 } }, [{
+  const messages = buildContext({ workspaceRoot: process.cwd(), limits: { maxContextBytes: 1_048_576 } }, [
+    { type: 'tool_request', providerCallId: 'bounded', toolName: 'fs_read', args: { path: 'a.txt' } }, {
     type: 'tool_result', providerCallId: 'bounded', toolName: 'fs_read', toolLifecycleStatus: 'succeeded',
     content: 'partial', truncated: true, metadata: { originalBytes: 50, projectionReason: 'tool_output_bound' },
   }], '');
