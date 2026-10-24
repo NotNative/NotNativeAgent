@@ -22,11 +22,25 @@ function New-UninstallChallenge {
 
 function Get-UninstallMutexHash([string]$Path) {
     # Compatibility: SHA256.HashData and Convert.ToHexString are unavailable in Windows PowerShell 5.1.
+    # Security: Windows path casing cannot create a second lock for the same installation.
     $Hasher = [Security.Cryptography.SHA256]::Create()
     try {
-        $Digest = $Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($Path))
+        $Digest = $Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($Path.ToUpperInvariant()))
         return [BitConverter]::ToString($Digest).Replace('-', '').Substring(0, 24)
     } finally { $Hasher.Dispose() }
+}
+
+function Enter-UninstallMutex([string]$Name, [int]$TimeoutMs, [string]$TimeoutMessage) {
+    $Mutex = [Threading.Mutex]::new($false, $Name)
+    try {
+        try { $Acquired = $Mutex.WaitOne($TimeoutMs) }
+        catch [Threading.AbandonedMutexException] { $Acquired = $true }
+        if (-not $Acquired) { throw $TimeoutMessage }
+        return $Mutex
+    } catch {
+        $Mutex.Dispose()
+        throw
+    }
 }
 
 function Resolve-UninstallRoot([string]$Path, [string]$Role, [bool]$ForDeletion) {
@@ -118,11 +132,7 @@ if ($ShouldDeleteUserData) {
 }
 
 $MutexHash = Get-UninstallMutexHash $InstallRoot
-$UninstallMutex = [Threading.Mutex]::new($false, "Local\NotNativeAgent-Uninstall-$MutexHash")
-if (-not $UninstallMutex.WaitOne(0)) {
-    $UninstallMutex.Dispose()
-    throw 'Another uninstall is already operating on this NotNativeAgent installation.'
-}
+$UninstallMutex = Enter-UninstallMutex "Local\NotNativeAgent-Uninstall-$MutexHash" 0 'Another uninstall is already operating on this NotNativeAgent installation.'
 
 try {
 $BinRoot = Join-Path $InstallRoot 'bin'
@@ -176,12 +186,22 @@ if ($OpencodeOwnedByThisInstall) {
     }
 }
 if (-not $SkipPathUpdate) {
-    $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    # Split only on semicolons outside quoted entries and preserve empty entries verbatim.
-    $Entries = @([regex]::Split([string]$UserPath, ';(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)'))
-    $NormalizedBinRoot = $BinRoot.Trim().Trim('"').TrimEnd('\', '/')
-    $Entries = @($Entries | Where-Object { $_.Trim().Trim('"').TrimEnd('\', '/') -ine $NormalizedBinRoot })
-    [Environment]::SetEnvironmentVariable('Path', ($Entries -join ';'), 'User')
+    $CurrentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $PathMutex = Enter-UninstallMutex "Local\NotNativeAgent-UserPath-$CurrentSid" 30000 'Timed out waiting to update the user PATH.'
+    try {
+        $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+        # Split only on semicolons outside quoted entries and preserve empty entries verbatim.
+        $Entries = @([regex]::Split([string]$UserPath, ';(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)'))
+        $NormalizedBinRoot = $BinRoot.Trim().Trim('"').TrimEnd('\', '/')
+        $RetainedEntries = @($Entries | Where-Object { $_.Trim().Trim('"').TrimEnd('\', '/') -ine $NormalizedBinRoot })
+        # Invariant: an uninstall without a matching PATH entry does not rewrite unrelated user settings.
+        if ($RetainedEntries.Count -ne $Entries.Count) {
+            [Environment]::SetEnvironmentVariable('Path', ($RetainedEntries -join ';'), 'User')
+        }
+    } finally {
+        $PathMutex.ReleaseMutex()
+        $PathMutex.Dispose()
+    }
 }
 if ($ParentProcessId -gt 0) {
     $ParentProcess = Get-Process -Id $ParentProcessId -ErrorAction SilentlyContinue

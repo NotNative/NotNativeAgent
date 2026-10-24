@@ -115,6 +115,8 @@ test('Windows uninstall helpers run under the powershell.exe runtime without rem
     '}',
     '1..16 | ForEach-Object { $challenge = New-UninstallChallenge; if ($challenge -lt 100000 -or $challenge -ge 1000000) { throw "challenge outside six-digit range" } }',
     `$hash = Get-UninstallMutexHash '${installation}'`,
+    `$caseAlias = Get-UninstallMutexHash '${installation.toLowerCase()}'`,
+    "if ($hash -ne $caseAlias) { throw 'case aliases acquired different uninstall locks' }",
     'Write-Output $hash',
   ].join('\n');
   const result = spawnSync('powershell.exe', [
@@ -124,7 +126,7 @@ test('Windows uninstall helpers run under the powershell.exe runtime without rem
     env: { ...process.env, NNA_TEST_UNINSTALL_SCRIPT: join(projectRoot, 'uninstall.ps1') },
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  const expected = createHash('sha256').update(installation, 'utf8').digest('hex').slice(0, 24).toUpperCase();
+  const expected = createHash('sha256').update(installation.toUpperCase(), 'utf8').digest('hex').slice(0, 24).toUpperCase();
   assert.equal(result.stdout.trim(), expected);
 });
 
