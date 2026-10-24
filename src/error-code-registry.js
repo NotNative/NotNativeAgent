@@ -352,7 +352,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'manifest_request_invalid', 'manifest_revision_conflict', 'manifest_publication_failed',
     'nnd_configuration_resolution_conflict', 'nnd_configuration_unavailable', 'nnd_mcp_unavailable',
     'manifest_publication_unknown', 'gateway_config_publication_unknown',
-    'gateway_route_unrecoverable', 'gateway_control_replay_unrecoverable', 'gateway_state_invalid',
+    'gateway_route_unrecoverable', 'gateway_control_replay_unrecoverable', 'gateway_state_invalid', 'gateway_state_full',
     'manifest_cleanup_failed', 'manifest_validation_failed',
     'nnd_lock_acquire_failed', 'nnd_lock_lost', 'nnd_service_already_running',
     'nnd_private_storage_unavailable',

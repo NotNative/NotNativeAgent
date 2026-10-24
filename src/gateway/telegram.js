@@ -9,6 +9,7 @@ import { StructuredLog } from '../structured-log.js';
 import { FairScheduler } from '../provider/fair-scheduler.js';
 import { ConsoleSessionDirectory } from '../session-broker.js';
 import { drainGatewayNotifications } from './telegram-notifications.js';
+import { acceptGatewayUpdates } from './inbox.js';
 import { gatewayStateSnapshot, queueGatewayStateWrite } from './state-write.js';
 import { attachedSubmissionReply, turnFallback } from './attached-submission.js';
 import { AttachedReplayState, gatewayStateBytes, loadGatewayState, MAX_GATEWAY_STATE_BYTES, retainedUpdateError } from './attached-replay.js';
@@ -18,7 +19,7 @@ import { runGatewayContextAction } from './context-actions.js';
 import { telegramRetryDelayMs } from './telegram-api.js';
 export { gatewayCompactionMessage } from './compaction-notice.js';
 
-const MAX_PENDING_CHAT_UPDATES = 16; const MAX_PENDING_COMPACTION_NOTICES = 4; const MAX_DURABLE_UPDATES = 256;
+const MAX_PENDING_CHAT_UPDATES = 16; const MAX_PENDING_COMPACTION_NOTICES = 4;
 const GATEWAY_HELP = 'NNA gateway ready. Send a request, use /sessions to attach to a Console conversation, /compact to reduce older context, /handoff for a terse continuation, /clear to start fresh, or /cancel to stop active work.';
 
 export class TelegramGateway {
@@ -92,11 +93,13 @@ export class TelegramGateway {
         }
         // Invariant: a late transport reply cannot admit work after shutdown has begun.
         if (!this.running || this.controller.signal.aborted) break;
-        await this.#acceptUpdates(updates);
+        const ingressBlocked = await this.#acceptUpdates(updates);
         if (!this.running || this.controller.signal.aborted) break;
         this.#dispatchPending();
         await this.replay.drain();
         if (!this.running || this.controller.signal.aborted) break;
+        // Backpressure must not turn a full durable inbox into a tight Telegram poll loop.
+        if (ingressBlocked) await delay(500, this.controller.signal).catch(() => undefined);
         await this.#drainNotifications().catch((error) => this.logger.record({
           type: 'gateway_notification_failed', code: error.code ?? 'notification_delivery_failed', outcome: 'failed',
         }));
@@ -170,19 +173,7 @@ export class TelegramGateway {
   #dispatchPending() { for (const update of this.inbox) this.#dispatch(update); }
 
   async #acceptUpdates(updates) {
-    const known = new Set(this.inbox.map((item) => Number(item.update_id)));
-    for (const update of updates) {
-      const updateId = Number(update?.update_id);
-      if (!Number.isSafeInteger(updateId) || updateId < this.offset) continue;
-      if (this.inbox.length >= MAX_DURABLE_UPDATES) break;
-      if (!known.has(updateId)) {
-        const candidate = [...this.inbox, update];
-        if (this.#stateBytes({ offset: updateId + 1, inbox: candidate }) > MAX_GATEWAY_STATE_BYTES) break;
-        this.inbox = candidate; known.add(updateId);
-      }
-      this.offset = updateId + 1;
-    }
-    await this.#saveState();
+    return acceptGatewayUpdates(this, updates, (overrides) => this.#stateBytes(overrides), () => this.#saveState());
   }
 
   async #ackUpdate(updateId) {
@@ -488,6 +479,8 @@ export function gatewaySessionId(chatId) {
 
 function gatewayPrincipal(userId) { return `authenticated-telegram-user:${userId}`; }
 function delay(ms, signal) { return new Promise((resolve, reject) => {
-  const timer = setTimeout(resolve, ms);
-  signal?.addEventListener('abort', () => { clearTimeout(timer); reject(signal.reason); }, { once: true });
+  if (signal?.aborted) { reject(signal.reason); return; }
+  const aborted = () => { clearTimeout(timer); reject(signal.reason); };
+  const timer = setTimeout(() => { signal?.removeEventListener('abort', aborted); resolve(); }, ms);
+  signal?.addEventListener('abort', aborted, { once: true });
 }); }

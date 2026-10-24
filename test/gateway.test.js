@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
-import { EventEmitter } from 'node:events';
+import { EventEmitter, getEventListeners } from 'node:events';
 import { createHash } from 'node:crypto';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -611,6 +611,58 @@ test('Telegram durably retains queue-full updates and eventually submits each up
     // Early assertion failures must not leave the held submission or poll alive.
     await gateway.shutdown().catch(() => undefined);
     await running.catch(() => undefined);
+  }
+});
+
+test('Telegram stops visibly when one update cannot fit in durable state', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-oversize-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs') };
+  let polls = 0;
+  const gateway = new TelegramGateway({
+    api: {
+      async getMe() { return { id: 1 }; },
+      async getUpdates() {
+        polls += 1;
+        return [{ update_id: 1, message: { text: 'x'.repeat(1_048_576), from: { id: 42 }, chat: { id: 42 } } }];
+      },
+    },
+    paths, config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    logger: { async initialize() {}, record() {}, async flush() {} },
+  });
+  try {
+    await assert.rejects(gateway.run(), { code: 'gateway_state_full' });
+    assert.equal(polls, 1);
+    assert.equal(gateway.offset, 0);
+    assert.deepEqual(gateway.inbox, []);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Telegram poll retry releases its abort listener after the delay resolves', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-poll-delay-'));
+  let polls = 0, listenersAfterRetry = null;
+  const gateway = new TelegramGateway({
+    api: {
+      async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) {
+        if (++polls === 1) throw Object.assign(new Error('retry'), { code: 'telegram_api_error', retryAfterMs: 1 });
+        listenersAfterRetry = getEventListeners(signal, 'abort').length;
+        return pendingUntilAbort(signal);
+      },
+    },
+    paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs') },
+    config: { authorized_user_ids: [], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    logger: { async initialize() {}, record() {}, async flush() {} },
+  });
+  const running = gateway.run();
+  try {
+    await waitUntil(() => polls >= 2);
+    assert.equal(listenersAfterRetry, 0);
+  } finally {
+    await gateway.shutdown();
+    await running;
+    await rm(root, { recursive: true, force: true });
   }
 });
 
