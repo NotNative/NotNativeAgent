@@ -6,6 +6,7 @@ import { ContractError, newId } from './ids.js';
 import { routeReasoningFields } from './provider/reasoning.js';
 import { CapabilityCache } from './capability-cache.js';
 import { reachedOutputCeiling } from './reliability/output-headroom.js';
+import { declaredAttachmentKeys, validAttachmentFilename, validLocalAttachmentPath } from './attachment-descriptor.js';
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 const TEXT_TYPE = 'text/plain';
@@ -398,9 +399,11 @@ function annotateRouteError(error, logicalRequestId, attempts) {
 
 function validateInput(input) {
   if (!input || typeof input !== 'object'
-    || !(typeof input.path === 'string' && input.upload_id === undefined
+    || !declaredAttachmentKeys(input)
+    || !(validLocalAttachmentPath(input.path) && input.upload_id === undefined
       || typeof input.upload_id === 'string' && input.path === undefined && /^[A-Za-z0-9_-]{1,128}$/u.test(input.upload_id))
-    || !(IMAGE_TYPES.has(input.mime_type) || input.mime_type === TEXT_TYPE)) {
+    || !(IMAGE_TYPES.has(input.mime_type) || input.mime_type === TEXT_TYPE)
+    || !validAttachmentFilename(input.filename)) {
     throw new ContractError('attachment_invalid', 'attachment requires a supported file path and MIME type');
   }
 }

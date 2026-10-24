@@ -70,14 +70,31 @@ test('a file-only native upload reaches the provider through its managed copy', 
   await engine.shutdown({ request_id: 'file-only-shutdown' });
 });
 
-test('attachment display names reject path-like and oversized metadata before submission', () => {
+test('attachment display names reject path-like and oversized metadata at both boundaries', async () => {
   const command = { version: '1.0', type: 'submit', request_id: 'display_name', content: '',
     attachments: [{ upload_id: 'upload_one', mime_type: 'text/plain', filename: 'notes.txt' }] };
+  const manager = new AttachmentManager({ config: { enabled: true }, root: 'unused', persist: async () => undefined });
   assert.equal(validateCommand(command).attachments[0].filename, 'notes.txt');
   for (const filename of ['../private.txt', 'C:\\private.txt', 'a'.repeat(256), 'bad\nname']) {
     assert.throws(() => validateCommand({ ...command, attachments: [{ ...command.attachments[0], filename }] }),
       { code: 'invalid_attachment' });
+    await assert.rejects(manager.prepare([{ ...command.attachments[0], filename }], '', new AbortController().signal),
+      { code: 'attachment_invalid' });
   }
+});
+
+test('attachment descriptors reject malformed local paths and undeclared fields at both boundaries', async () => {
+  const command = { version: '1.0', type: 'submit', request_id: 'attachment_shape', content: 'Read',
+    attachments: [{ path: 'notes.txt', mime_type: 'text/plain' }] };
+  const manager = new AttachmentManager({ config: { enabled: true }, root: 'unused', persist: async () => undefined });
+  for (const path of ['', '   ', 'bad\0name', 'bad\nname', 'a'.repeat(4097)]) {
+    const input = { path, mime_type: 'text/plain' };
+    assert.throws(() => validateCommand({ ...command, attachments: [input] }), { code: 'invalid_attachment' });
+    await assert.rejects(manager.prepare([input], 'Read', new AbortController().signal), { code: 'attachment_invalid' });
+  }
+  const unexpected = { path: 'notes.txt', mime_type: 'text/plain', sha256: 'untrusted' };
+  assert.throws(() => validateCommand({ ...command, attachments: [unexpected] }), { code: 'invalid_attachment' });
+  await assert.rejects(manager.prepare([unexpected], 'Read', new AbortController().signal), { code: 'attachment_invalid' });
 });
 
 test('plain-text admission refuses invalid UTF-8 and never changes the source', async () => {
