@@ -3,7 +3,12 @@
 // network-owned; a waiting update activates only after the user chooses Reload.
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'NOTNATIVE_ACTIVATE_UPDATE') {
-    void self.skipWaiting();
+    // Security: only a same-origin window may request activation of this update.
+    try {
+      if (event.source?.type === 'window' && new URL(event.source.url).origin === self.location.origin) {
+        event.waitUntil(self.skipWaiting());
+      }
+    } catch { /* ignore messages without a valid local window source */ }
   }
   if (event.data?.type === 'NOTNATIVE_BADGE_STATE') {
     try {

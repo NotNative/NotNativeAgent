@@ -136,7 +136,11 @@ describe('shipped push service worker', () => {
     const { self, dispatch } = worker();
     await dispatch('message', { data: { type: 'other' } });
     expect(self.skipWaiting).not.toHaveBeenCalled();
+    await dispatch('message', { source: { type: 'window', url: 'https://other.example/' }, data: { type: 'NOTNATIVE_ACTIVATE_UPDATE' } });
+    await dispatch('message', { source: { type: 'worker', url: 'https://nnd.example/' }, data: { type: 'NOTNATIVE_ACTIVATE_UPDATE' } });
     await dispatch('message', { data: { type: 'NOTNATIVE_ACTIVATE_UPDATE' } });
+    expect(self.skipWaiting).not.toHaveBeenCalled();
+    await dispatch('message', { source: { type: 'window', url: 'https://nnd.example/' }, data: { type: 'NOTNATIVE_ACTIVATE_UPDATE' } });
     expect(self.skipWaiting).toHaveBeenCalledOnce();
     await dispatch('activate');
     expect(self.clients.claim).toHaveBeenCalledOnce();
