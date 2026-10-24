@@ -3,13 +3,14 @@ import { ContractError, newId, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
 import { NndSessionRegistry } from './nnd-session-registry.js';
 import { NndAttachmentUploads } from './nnd-attachment-uploads.js';
-import { activityStatus, observeChildLifecycle, publishNndChildEvent, turnActivity } from './nnd-child-stream.js';
+import { activityStatus, observeChildLifecycle, publishNndChildEvent } from './nnd-child-stream.js';
 import { hasPersistedSubmission, reservedProjectedMessageId } from './nnd-transcript-identity.js';
 import { nndMessages } from './nnd-message-list.js';
 import { nndContextObservation } from './nnd-context-observation.js';
 import { observeNndSessionState } from './nnd-turn-state.js';
 import { NndActiveTools } from './nnd-active-tools.js';
 import { nndCompactionActivity, observeNndPhaseActivity } from './nnd-phase-activity.js';
+import { publishNndTurnCompletion, reportNndCompletionFailure } from './nnd-turn-completion.js';
 import { parentChildActivity } from './nnd-parent-child-activity.js';
 import { describe, nextUpdatedAt, sessionIdOrder, titleOf, directoryOf, directoryFor } from './nnd-session-description.js';
 import { createWireEventBus } from './opencode/wire-events.js';
@@ -273,16 +274,18 @@ export class NndEngineHost {
     try { started = context.ingress.start(command, scopedPrincipal(context, principal)); }
     catch (error) { context.liveTurn = previousTurn; throw error; }
     if (started.duplicate) { context.liveTurn = previousTurn; return started.result; }
-    this.#uploads.markUsed(sessionId, command.request_id, command.attachments);
-    // Why: callers receive the acknowledgement promptly; the engine remains
-    // the single owner of turn completion and transcript publication.
-    this.#publish(context, 'session.status', { sessionID: sessionId, status: { type: 'busy' } });
-    this.#activity(context, `${sessionId}:start:${command.request_id}`, 'turn', 'started', 'Turn started', command.request_id);
-    this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
     void started.operation.then(
-      (result) => { this.#uploads.release(sessionId, command.request_id); this.#publishCompletion(context, turn, result?.accepted === false); },
-      () => { this.#uploads.release(sessionId, command.request_id); this.#publishCompletion(context, turn, true); },
-    );
+      (result) => this.#publishCompletion(context, turn, result?.accepted === false),
+      () => this.#publishCompletion(context, turn, true),
+    ).catch((error) => reportNndCompletionFailure(context, error, 'completion_settlement'));
+    // Why: the engine has already accepted work; display preparation cannot turn its
+    // acknowledgement into a false rejection or remove the completion observer.
+    try {
+      this.#uploads.markUsed(sessionId, command.request_id, command.attachments);
+      this.#publish(context, 'session.status', { sessionID: sessionId, status: { type: 'busy' } });
+      this.#activity(context, `${sessionId}:start:${command.request_id}`, 'turn', 'started', 'Turn started', command.request_id);
+      this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
+    } catch (error) { reportNndCompletionFailure(context, error, 'start_projection'); }
     return { accepted: true, request_id: command.request_id };
   }
   async uploadAttachment(sessionId, principal, input) {
@@ -440,25 +443,14 @@ export class NndEngineHost {
     return context;
   }
   #publishCompletion(context, turn, rejected) {
-    if (context.closing) return;
-    if (turn.opened) this.#publish(context, 'message.removed', { sessionID: context.sessionId, messageID: turn.messageId }, true);
-    for (const entry of this.messages(context.sessionId, { subjectId: context.subjectId, workspaceIds: [...context.workspaceIds] })) {
-      this.#publish(context, 'message.updated', { sessionID: context.sessionId, info: entry.info }, true);
-      for (const part of entry.parts) this.#publish(context, 'message.part.updated', { sessionID: context.sessionId, part }, true);
-    }
-    const result = turnActivity(turn.outcome, rejected);
-    this.#activity(context, turn.activityId, 'turn', result.status, result.summary, turn.requestId, undefined, result.turnOutcome);
-    if (context.liveTurn === turn) {
-      context.liveTurn = null;
-      context.turnState = 'idle';
-      context.updatedAt = nextUpdatedAt(context);
-      this.#publish(context, 'session.status', { sessionID: context.sessionId, status: { type: 'idle' } });
-      this.#publish(context, 'session.idle', { sessionID: context.sessionId });
-    }
-    this.#publish(context, 'session.updated', { sessionID: context.sessionId, info: describe(context) }, true);
-    if (context.contextUsage) void this.#commitCatalogChange(() => {}, () => {}).catch(() => {
-      if (!context.closing) this.#activity(context, `${context.sessionId}:context-save:${turn.requestId}`,
-        'notice', 'failed', 'Context estimate could not be saved');
+    try {
+      this.#uploads.release(context.sessionId, turn.requestId);
+    } catch (error) { reportNndCompletionFailure(context, error, 'completion_upload_release'); }
+    publishNndTurnCompletion(context, turn, rejected, {
+      messages: (...args) => this.messages(...args),
+      publish: (...args) => this.#publish(context, ...args),
+      activity: (...args) => this.#activity(context, ...args),
+      commitCatalogChange: () => this.#commitCatalogChange(() => {}, () => {}),
     });
   }
   #activity(context, id, kind, status, summary, evidenceMessageID, toolEvidence, turnOutcome) {
@@ -478,15 +470,15 @@ export class NndEngineHost {
     } finally { this.childSnapshotStore.observe(type, child, parent, this.childSessions, this.#childActivity.get(child.id) ?? []); }
   }
   #publish(context, type, properties, mirror = false) {
-    if (type === 'nnd.activity') {
-      if (properties?.sessionID !== context.sessionId) return;
-      const record = appendActivity(context.activity, properties);
-      if (!record) return;
-      properties = record;
-      if (this.catalogPath) { context.activityRevision += 1; scheduleActivityWrite(context, this.catalogPath, this.persistActivity); }
-    }
     // Why: a broken display subscriber cannot turn governed work into a false failure.
     try {
+      if (type === 'nnd.activity') {
+        if (properties?.sessionID !== context.sessionId) return;
+        const record = appendActivity(context.activity, properties);
+        if (!record) return;
+        properties = record;
+        if (this.catalogPath) { context.activityRevision += 1; scheduleActivityWrite(context, this.catalogPath, this.persistActivity); }
+      }
       publishNndProjection(this.eventBus, { directory: directoryFor(context), project: context.workspaceIds.values().next().value,
         subjectId: context.subjectId, workspaceIds: [...context.workspaceIds], sessionID: context.sessionId, type, properties, mirror });
     } catch (error) {

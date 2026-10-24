@@ -1075,6 +1075,75 @@ test('NND engine host publishes a busy-to-idle reconciliation sequence', async (
   assert.equal(cadence.at(-3).properties.status.type, 'idle');
 });
 
+test('NND completion clears busy state when canonical transcript projection fails', async () => {
+  let release;
+  const events = []; const diagnostics = [];
+  const engine = fakeEngine();
+  engine.telemetry = { record(...args) { diagnostics.push(args); } };
+  engine.submit = async () => new Promise((resolve) => { release = resolve; });
+  const host = new NndEngineHost({ createEngine: async () => engine,
+    eventBus: { publishSession: (event) => events.push(event) } });
+  await host.create('session_a', owner);
+  assert.equal(host.submitAsync('session_a', { version: '1.0', type: 'submit',
+    request_id: 'prompt_a', content: 'first' }, owner).accepted, true);
+  engine.transcript = null;
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(events.filter((event) => event.type === 'session.idle').length, 1);
+  assert.equal(host.activity('session_a', owner).filter((entry) => entry.kind === 'turn').at(-1).status, 'completed');
+  assert.ok(diagnostics.some(([type, outcome, detail]) => type === 'nnd.event_delivery'
+    && outcome === 'failed' && detail.event_type === 'completion_projection'));
+  engine.transcript = [];
+  assert.equal(host.submitAsync('session_a', { version: '1.0', type: 'submit',
+    request_id: 'prompt_b', content: 'second' }, owner).accepted, true);
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(events.filter((event) => event.type === 'session.idle').length, 2);
+});
+
+test('NND releases a consumed upload before publishing the idle event', async () => {
+  let release; let observedCode; let host;
+  const engine = fakeEngine();
+  engine.config.attachments = { enabled: true, maxBytes: 1_000_000 };
+  engine.transcript = [];
+  engine.submit = async () => new Promise((resolve) => { release = resolve; });
+  host = new NndEngineHost({ createEngine: async () => engine,
+    eventBus: { publishSession(event) {
+      if (event.type !== 'session.idle') return;
+      try { host.uploadedAttachments('session_a', owner, 'prompt_b', [{ upload_id: 'upload_a' }]); }
+      catch (error) { observedCode = error.code; }
+    } } });
+  await host.create('session_a', owner);
+  await host.uploadAttachment('session_a', owner, { upload_id: 'upload_a', filename: 'notes.txt',
+    mime_type: 'text/plain', data_url: `data:text/plain;base64,${Buffer.from('hello').toString('base64')}` });
+  assert.equal(host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a',
+    content: 'first', attachments: [{ upload_id: 'upload_a', mime_type: 'text/plain', filename: 'notes.txt' }] }, owner).accepted, true);
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(observedCode, 'nnd_attachment_upload_expired');
+});
+
+test('NND acknowledges launched work despite a failed start projection', async () => {
+  let release;
+  const events = []; const diagnostics = [];
+  const engine = fakeEngine(); const config = engine.config;
+  engine.transcript = [];
+  engine.telemetry = { record(...args) { diagnostics.push(args); } };
+  engine.submit = async () => new Promise((resolve) => { release = resolve; });
+  const host = new NndEngineHost({ createEngine: async () => engine,
+    eventBus: { publishSession(event) { events.push(event); } } });
+  await host.create('session_a', owner);
+  Object.defineProperty(engine, 'config', { configurable: true, get() { throw new Error('projection unavailable'); } });
+  assert.equal(host.submitAsync('session_a', { version: '1.0', type: 'submit',
+    request_id: 'prompt_a', content: 'first' }, owner).accepted, true);
+  assert.ok(diagnostics.some(([type, outcome, detail]) => type === 'nnd.event_delivery'
+    && outcome === 'failed' && detail.event_type === 'start_projection'));
+  Object.defineProperty(engine, 'config', { configurable: true, writable: true, value: config });
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(events.filter((event) => event.type === 'session.idle').length, 1);
+});
+
 test('NND engine host streams text and tool activity before authoritative completion', async () => {
   let output;
   let release;
