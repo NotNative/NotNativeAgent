@@ -1,0 +1,554 @@
+{
+  "packages/ui/src/chat/archive-view.tsx": [
+    {
+      "length": 73,
+      "digest": "9a1cdb2e0d7c71da9ae7155281be1756606fa2f956f91fa65c23d104ce582df5"
+    }
+  ],
+  "packages/ui/src/chat/blocking-cards.tsx": [
+    {
+      "length": 68,
+      "digest": "a3bba26b210e417ceca41421677a8615c867276e7ed1a8b3de4de55330ac8dda"
+    }
+  ],
+  "packages/ui/src/chat/browser-annotation-controls.tsx": [
+    {
+      "length": 383,
+      "digest": "8d2e058ad1a805b7ff17b8726ae9cb72a2b6a0bea43cdf09444d47a4e2368d90"
+    }
+  ],
+  "packages/ui/src/chat/browser-surface.tsx": [
+    {
+      "length": 448,
+      "digest": "e779efc15e1d43144390a93ba820af8a6d2be2cf3eb9293879100aed9eda7576"
+    },
+    {
+      "length": 158,
+      "digest": "324a0ff456a9a34d6f029885a44a949e108ef9a8e98300ee5a763766dfafff15"
+    }
+  ],
+  "packages/ui/src/chat/chat-view.tsx": [
+    {
+      "length": 259,
+      "digest": "d6234dbf76c20c44729e30a9364be8a3b89389873f6848470be47c6314918797"
+    }
+  ],
+  "packages/ui/src/chat/child-session-controls.tsx": [
+    {
+      "length": 85,
+      "digest": "2cdc23fe3f77ed57e1f19f5e8595ff9332e153f5c27e8c59b89ea11b9dd5162d"
+    }
+  ],
+  "packages/ui/src/chat/composer-bits.tsx": [
+    {
+      "length": 76,
+      "digest": "37fb1b86f0d31b4b09db7e2b38872cf4ac3d25c037cb5e088a642ad216bd7728"
+    }
+  ],
+  "packages/ui/src/chat/composer.tsx": [
+    {
+      "length": 434,
+      "digest": "bad56398177f4eeb3fa2814f1f5346948c6d3694848f227fec0ccd12e6e00621"
+    },
+    {
+      "length": 79,
+      "digest": "83f830c04d431907128dac1354925a776e0a626e209704184916d9c1aa2aae37"
+    }
+  ],
+  "packages/ui/src/chat/context-memory.tsx": [
+    {
+      "length": 93,
+      "digest": "3949b5977de6eefd449ae664f5c5da4bdcd408a3dd4ee23fbf541ec9f9bb2641"
+    }
+  ],
+  "packages/ui/src/chat/deleted-activity-window.tsx": [
+    {
+      "length": 72,
+      "digest": "15959c88dff67efe9556670e24e1180bf125dfe587ba167d4060895995e32331"
+    }
+  ],
+  "packages/ui/src/chat/multirun-fusion-dialog.tsx": [
+    {
+      "length": 114,
+      "digest": "39be4933dd0125bbb725b40f0d20f0cf7789073167a1d8f7b1226265b75b67d7"
+    }
+  ],
+  "packages/ui/src/chat/operator-activity-surface.tsx": [
+    {
+      "length": 102,
+      "digest": "eb0f3a2e93ecbe3e0dbd3da43dc5cb75a56e4aee3dadda7fbe93e2ceca333f4e"
+    }
+  ],
+  "packages/ui/src/chat/operator-rail.tsx": [
+    {
+      "length": 324,
+      "digest": "2b083737085bdda0fee937b50edcfa527559f41bcc24fe7743270b0f66b04db2"
+    }
+  ],
+  "packages/ui/src/chat/project-notes.tsx": [
+    {
+      "length": 172,
+      "digest": "6bb9a947454b86030956c22769e7b7381a175b676bec3f6c3a052c6da246dbcd"
+    }
+  ],
+  "packages/ui/src/chat/saved-activity-window.tsx": [
+    {
+      "length": 65,
+      "digest": "e9f3179fba66af9051b06605492423fc0c8dd9bde7ddcb4f69d1f12941c1690b"
+    }
+  ],
+  "packages/ui/src/chat/session-goal-controls.tsx": [
+    {
+      "length": 86,
+      "digest": "352e0d9bd7a63b5b5c87fbff7faf12f76b223ec22044d21701f06e6c9c0d4bdf"
+    }
+  ],
+  "packages/ui/src/chat/session-sidebar.tsx": [
+    {
+      "length": 295,
+      "digest": "6bad72aa7e2987fb3fe67c0543ceb812e120b462e80dc05ca3c5d5c2ab97dd2c"
+    },
+    {
+      "length": 137,
+      "digest": "3111e630a698a5624dd65cfc2f46718ba2256dc3ea415bd2e8574526b768c0d0"
+    }
+  ],
+  "packages/ui/src/chat/timeline-dialog.tsx": [
+    {
+      "length": 108,
+      "digest": "856252d25865eca3c7ec8e28f078710aaa2c219dc3188c4c6ff10954c3e6b7fd"
+    }
+  ],
+  "packages/ui/src/chat/transcript.tsx": [
+    {
+      "length": 168,
+      "digest": "4cab78ca735d0cef06497ba9f919026f058457249b3bcc1df76836775d5fc171"
+    }
+  ],
+  "packages/ui/src/chat/use-workspace-addition.tsx": [
+    {
+      "length": 65,
+      "digest": "f6594188b24884079a4ced41cd8478168355c80d1a12d8a16fef027e45c96d55"
+    }
+  ],
+  "packages/ui/src/chat/walkthrough-preview.tsx": [
+    {
+      "length": 88,
+      "digest": "6ee1c55735bde57f0cdbf36efbb0a6c054011dd9b0ea7b83f43740b331bacd03"
+    }
+  ],
+  "packages/ui/src/chat/work-status-panel.tsx": [
+    {
+      "length": 316,
+      "digest": "1675d0749c9dd9853a6f09758113ea48ea8ea1d48ca4055d291bb574e5f938e5"
+    }
+  ],
+  "packages/ui/src/components/ChatView.tsx": [
+    {
+      "length": 76,
+      "digest": "e6cd978301556c01a7ab0f2691da2067f77e8050852aafd9bb8bba3d8c8b2a2a"
+    }
+  ],
+  "packages/ui/src/components/MainLayout.tsx": [
+    {
+      "length": 365,
+      "digest": "2959e8cf2c39daa7aed0b8d331d5098c42f97b9ed2ce454abe053fcac34ac714"
+    }
+  ],
+  "packages/ui/src/components/agent-groups/AgentManagerView.tsx": [
+    {
+      "length": 167,
+      "digest": "8237b0795ca469a984a3aab490c0f1f098e1e2c93823ca71d94db76fafd518a4"
+    }
+  ],
+  "packages/ui/src/components/files/FilesView.tsx": [
+    {
+      "length": 474,
+      "digest": "4b44941643167ce5cc3069f6630e7b90c20d45b0fee56871f84f1de054870e83"
+    },
+    {
+      "length": 84,
+      "digest": "4a6884f42561d5abc7f0c35617d64457fd3ff4ee8f2bddddce8ca4569ef05b82"
+    }
+  ],
+  "packages/ui/src/components/files/editor-stage.tsx": [
+    {
+      "length": 80,
+      "digest": "e292e70adb7800e03969281d43f3ec8d47418f7f5a7728565cc3e9e3a83af2a8"
+    }
+  ],
+  "packages/ui/src/components/git/GitView.tsx": [
+    {
+      "length": 382,
+      "digest": "c084c2ddecc42fd95b6f8d4dd43c451b722efc1455cd25b1b34018ae6bb60857"
+    }
+  ],
+  "packages/ui/src/components/git/git-dialogs.tsx": [
+    {
+      "length": 105,
+      "digest": "cc992d09e49ed7cd7ae67ca0198dfb1996eb5717a6d43431a2503422588bcef2"
+    }
+  ],
+  "packages/ui/src/components/scheduled/scheduled-task-editor-dialog.tsx": [
+    {
+      "length": 96,
+      "digest": "a82613fd1114945f5932e77a2907f94bb79f5dba4467409b876311317bbbe65d"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/appearance.tsx": [
+    {
+      "length": 135,
+      "digest": "60008663190b5343969ae874eb1fff079df8309188628ef52b7da2270f75e13b"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/chat.tsx": [
+    {
+      "length": 169,
+      "digest": "fd9d0785ab28873105d0eed35f6ef99558a6bd4483a99d6eae384d7b875744a4"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/compatibility-service.tsx": [
+    {
+      "length": 176,
+      "digest": "7356acdef54619050abefeb36a8e3ee7e70be964a2d59d7e80475c5aeef5286c"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/desktop-ssh-catalog.tsx": [
+    {
+      "length": 241,
+      "digest": "f11385df31aa2cc44612570495a191a2d1da82711ba3b2427dff44f8ec9b597a"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/gateway-runtime.tsx": [
+    {
+      "length": 100,
+      "digest": "b5f53fcde40733d9a581545666f837de40f78d2550f956b4293c992b3d8fcb38"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/managed-mcp-credentials.tsx": [
+    {
+      "length": 168,
+      "digest": "b2ed46d5d6f4a2c899a5f1484d177df80c1f3175dd2613ba77473a4a35700a18"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/mcp-advanced.tsx": [
+    {
+      "length": 83,
+      "digest": "071c618cbf4323d606457cbccd5274654f01eb0467a20d3426351954fa36c728"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/mcp-inventory.tsx": [
+    {
+      "length": 73,
+      "digest": "e4f6aea5b623a587fdf5f86dead2aaa77e3583785dbdedaa607d906bc759271c"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/mcp-legacy.tsx": [
+    {
+      "length": 368,
+      "digest": "55304111ead1b1c836f61e1b60c5694e72a7f6a75d8354256c4432147c07a53e"
+    },
+    {
+      "length": 84,
+      "digest": "dac518c3ff77c1223897fbfc0533ae9332578edd94fa76c25a80259cc025dd2b"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/native-configuration-controls.tsx": [
+    {
+      "length": 370,
+      "digest": "a4f259dec8285462f4ccf4fc52a1d1bfeaed6b96093423b559cc06b86bfc88a2"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/native-configuration.tsx": [
+    {
+      "length": 113,
+      "digest": "085f7c0d37518357894c4bac133a45e5cccea66eb02b907844ca35f818ae442b"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/native-gateway-timeout.tsx": [
+    {
+      "length": 164,
+      "digest": "ac9ed1eba9b699bd404ec7428a7b68bd69bfb0ed46a93e07ba5fcebc04169ee2"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/native-update-state.tsx": [
+    {
+      "length": 63,
+      "digest": "87f84ac7fabd4400a97c38a805673a7ce9dbb4e2d7d0bb42bd3a399f4b9bebe7"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/notifications.tsx": [
+    {
+      "length": 72,
+      "digest": "5b86bc4bed43bac4303d396b812d5b19e7f8a10f2dc850b85afba1ec8f1400c3"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/provider-diagnostics.tsx": [
+    {
+      "length": 73,
+      "digest": "664d4526a78e305568fb88c6b298d47e095679f22c1ba110bc1e115bfc0f9e11"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/providers.tsx": [
+    {
+      "length": 90,
+      "digest": "7138b1e953b6b0d7bdd09d9c69445974db5395e730ce39aa8081b29a4a24b465"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/remote-instances.tsx": [
+    {
+      "length": 193,
+      "digest": "849ca0d68b7c31e4c4568ce6fb66a187d3b8a7fa56db88f51a366456f31757aa"
+    },
+    {
+      "length": 97,
+      "digest": "23e3a55731d833da65331c9085bf31ea0f9532fc009bf1cd233b2318d76ab0ef"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/searxng-deployment.tsx": [
+    {
+      "length": 64,
+      "digest": "5130d7c8d86b82ec5f2dce7b07b4931db38d006f196e98227891ad0e072af11a"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/secrets-metadata.tsx": [
+    {
+      "length": 62,
+      "digest": "1a6b42af16252ec9062b4ecfd397cccb218a8f786839fdfcb46bc508675a194d"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/sessions.tsx": [
+    {
+      "length": 63,
+      "digest": "e8c4f535b3f56e348e3035f7502fb8faf494f647b5bb8f670d7bf771850c1f05"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/shortcuts.tsx": [
+    {
+      "length": 65,
+      "digest": "ed32d6b1bb37237a18c2b7e24ccb38dc912c2cc3f7520d6d9e6eb6793e47d2ef"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/skills-catalog.tsx": [
+    {
+      "length": 327,
+      "digest": "36bc6fc165f893adb473e8c82e79d6f701299501b54696a8e4a11740c9266d2f"
+    },
+    {
+      "length": 81,
+      "digest": "474292abeb0bf74a86f7d54b50585735204a0108e2a65990f6ebc2bddb2be2a6"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/speech.tsx": [
+    {
+      "length": 79,
+      "digest": "4f86bba5ba94ca5d388f0fed5e0b9111725a75f70f49247ee334146967168fea"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/subagent-route-editor.tsx": [
+    {
+      "length": 62,
+      "digest": "298b12d928e7319842ca7f6761ca2677a21647e768ad1392756ffdf6d2cfa6fa"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/web-fetch-trust.tsx": [
+    {
+      "length": 145,
+      "digest": "9cad1ce103b6d3f209b44593fcfef166094757b6b53a65c67fafc6feec544e92"
+    }
+  ],
+  "packages/ui/src/components/settings/pages/web-search-settings.tsx": [
+    {
+      "length": 167,
+      "digest": "98b1709899a94e7a0f083f4a4a0be5989c41259c34e2ad33664539a00a1db3a4"
+    }
+  ],
+  "packages/ui/src/components/settings/recorder-dialog.tsx": [
+    {
+      "length": 97,
+      "digest": "507a354691d1523b01203dfb70bc76016e7953c7d7eb6b00854f114f1d1106d6"
+    }
+  ],
+  "packages/ui/src/components/setup/setup-wizard.tsx": [
+    {
+      "length": 123,
+      "digest": "b01d6e94ae497400b5f7365bf14b684c7728a712159cd9d92009a6bdf77de598"
+    }
+  ],
+  "packages/ui/src/components/worktrees/WorktreesView.tsx": [
+    {
+      "length": 71,
+      "digest": "5469f89701576f184451e128c502cf1a950bc91f2b60ba0fd312783dd492c4c1"
+    }
+  ],
+  "packages/ui/src/lib/desktop-relay-host.ts": [
+    {
+      "length": 67,
+      "digest": "ae99332ffd0f4521db5ecd1ba46386dae4a95f93385929bd507f230e60c1506d"
+    }
+  ],
+  "packages/ui/src/lib/desktop-relay-pairing.ts": [
+    {
+      "length": 63,
+      "digest": "7a10e36727135e750204493570aa86bade60e424874d7abd55c9c79f2f4ec17e"
+    }
+  ],
+  "packages/ui/src/lib/git/store.ts": [
+    {
+      "length": 193,
+      "digest": "c2ba8c23716497eb9d75999fd8a904ef10fb43ce3daa04d6ddf7b538a994b221"
+    }
+  ],
+  "packages/ui/src/lib/terminal/store.ts": [
+    {
+      "length": 85,
+      "digest": "c124af2184c698935eeb33b11e30f229013882e68f1a16b1745177dc02de94dc"
+    }
+  ],
+  "packages/ui/src/stores/useConfigStore.ts": [
+    {
+      "length": 62,
+      "digest": "2f8114a292fda64a6d6e3060b5a199375b97b197098b4335653e035aa2ed24a4"
+    }
+  ],
+  "packages/ui/src/stores/useMcpConfigStore.ts": [
+    {
+      "length": 172,
+      "digest": "ae314411dd241268c2f3fd60f51dcba79e62beca378ccec9e1b232f873c1521a"
+    }
+  ],
+  "packages/ui/src/stores/useMcpStore.ts": [
+    {
+      "length": 172,
+      "digest": "6d3c30ddb6b556439a7c3379c81031cfe487cf2c7a0ee6a8dc53f1c5e44edf22"
+    }
+  ],
+  "packages/ui/src/stores/useMessageQueueStore.ts": [
+    {
+      "length": 147,
+      "digest": "834a7a6bb33b3aa17ed33e589e90c7c669ce2fccff6dd8ba30ad09ac22597797"
+    }
+  ],
+  "packages/ui/src/stores/useSessionFoldersStore.ts": [
+    {
+      "length": 84,
+      "digest": "61042b728e903f461a541081f93f1093a72273fd8187fba9ac1d200ec2858ae6"
+    }
+  ],
+  "packages/ui/src/stores/useSessionsStore.ts": [
+    {
+      "length": 74,
+      "digest": "cc25c9b1714f3588c1129c7a9f9208358f0035b2ce25f0a2c7c2814fc92928a6"
+    }
+  ],
+  "packages/ui/src/stores/useSkillsCatalogStore.ts": [
+    {
+      "length": 111,
+      "digest": "b945970f75bc2bf9d55fad95a5fc88c73ac913c2a2a0baae3d43302dc527b1c4"
+    }
+  ],
+  "packages/ui/src/sync/global-stores.ts": [
+    {
+      "length": 66,
+      "digest": "084c77d18312a0afa3ee16386b996ba15ef2bd35240094a5451a2ea7025e78c5"
+    }
+  ],
+  "packages/web/src/server/harness/mock/index.ts": [
+    {
+      "length": 304,
+      "digest": "30ca6638705fa0106c1c7ba4da03ff16ffe4bb6bfcf6b20e2a6c4642ffb820d2"
+    }
+  ],
+  "packages/web/src/server/index.ts": [
+    {
+      "length": 89,
+      "digest": "a11eb43b2c524d1ab46daa53dd79da87e94d0a44e3ad1db444b7ad02ddd4ea23"
+    }
+  ],
+  "packages/web/src/server/lib/dev-tunnel/client.mjs": [
+    {
+      "length": 135,
+      "digest": "1f9511a2ec64aa4b2cccd1eaa22f31496dc283a765985d251f6a0516deffdce1"
+    }
+  ],
+  "packages/web/src/server/routes/git-walkthrough-generate.ts": [
+    {
+      "length": 66,
+      "digest": "05a9801488875b6011bd28cef975a1138289c5b1a22dcb452d31b3f26efd1a5a"
+    }
+  ],
+  "packages/web/src/server/session-orchestration/session-orchestration-selection.ts": [
+    {
+      "length": 77,
+      "digest": "fc16202cd449193f49ff576309e268ff75dd7914739422746b67014b151966cb"
+    }
+  ],
+  "scripts/installed-attachment-probe.mjs": [
+    {
+      "length": 70,
+      "digest": "53a81b4c6a37e24dde5f7c1e45be6c039b36493029f402e3471a9029811519ec"
+    },
+    {
+      "length": 69,
+      "digest": "1dfd78656f60e7a60285a0ea81c9054a88648b5bde9a746d27695cb9680cdc42"
+    }
+  ],
+  "scripts/installed-browser-only-journey.mjs": [
+    {
+      "length": 107,
+      "digest": "3acacad96843e8b4a0c0644ccff2f46c8a810986d296dc282b10397c38a7b4d9"
+    },
+    {
+      "length": 98,
+      "digest": "e1ea096b844afce263c45bf731e00ebdfbe53bad94ae28ddd9b5bf082151ddb4"
+    },
+    {
+      "length": 93,
+      "digest": "caf61b0d8078554c52b75b5cc53ba8db49f6e3ed1477588aef51fa100eb02c07"
+    }
+  ],
+  "scripts/installed-setup-probe.mjs": [
+    {
+      "length": 83,
+      "digest": "2856ae3606e4df117f87aa3dcc7bb7eb989729db89848daa76842b7a187cc543"
+    }
+  ],
+  "scripts/installed-source-acceptance.mjs": [
+    {
+      "length": 61,
+      "digest": "166ce420f7e6a99ae4018a6d07b972a2911bd607ecae791178cbe3721746c5ba"
+    },
+    {
+      "length": 61,
+      "digest": "55020e338ac1009408290b8ef0af7b5118fe7956ff7b8950a9c1dd2135e8f824"
+    }
+  ],
+  "scripts/nna-live-settings-observation.mjs": [
+    {
+      "length": 173,
+      "digest": "bf3e450a205ba0110b5f17cbf3db743ee1e46d5abff7368745f730e8ec5d0276"
+    }
+  ],
+  "scripts/nna-native-multi-root-smoke.mjs": [
+    {
+      "length": 89,
+      "digest": "e855cf975e33da78ac00bcf18d61cacce262d8286ad2b42377026433a659e8c0"
+    }
+  ],
+  "scripts/nna-source-smoke.mjs": [
+    {
+      "length": 107,
+      "digest": "8731588f82bbea021daf9282934af00f1e64c0a038adb2304af4c74ba29723a7"
+    },
+    {
+      "length": 92,
+      "digest": "caf1f7ef5b6dc692f55716407f7f8a42b420b60be909f810b5a34d26d227033e"
+    }
+  ],
+  "scripts/serve-supervised.mjs": [
+    {
+      "length": 87,
+      "digest": "9932ab53b54fcde2380f3ea29375b64b413d60e9a7c921ad7a4f92382f5bc883"
+    }
+  ]
+}

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { collectProductionSources } from './source-catalog.js';
 import { auditDependencyRegistry } from './dependency-registry-gate.js';
+import { functionSpans } from './function-spans.js';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const MAX_FILE_LINES = 500;
@@ -13,18 +14,27 @@ const MAX_FUNCTION_LINES = 60;
 const MAX_SOURCE_BYTES = 400_000;
 const TS_CONFIGS = ['packages/ui/tsconfig.json', 'packages/web/tsconfig.ui.json', 'packages/web/tsconfig.server.json'];
 const SPDX_TOKEN = 'SPDX-License-Identifier: Apache-2.0';
+const FUNCTION_BASELINE = new URL('./function-length-baseline.json', import.meta.url);
 
 async function main() {
   const files = await collectProductionSources(root);
   const errors = [];
+  const functionDebt = {};
   for (const path of files) {
     const label = relative(root, path).replaceAll('\\', '/');
     let source;
     try { source = await readFile(path, 'utf8'); }
     catch (error) { errors.push(`${label} could not be read: ${error.code ?? error.message}`); continue; }
-    auditFile(label, source, errors);
+    auditFile(label, source, errors, functionDebt);
     if (/\.(m?js)$/u.test(path)) checkSyntaxNative(path, errors);
   }
+  if (process.argv.includes('--write-function-baseline')) {
+    if (errors.length > 0) { finishGate(files, errors); return; }
+    await writeFile(FUNCTION_BASELINE, `${JSON.stringify(functionDebt, null, 2)}\n`);
+    process.stdout.write(`wrote function-length baseline for ${Object.keys(functionDebt).length} files\n`);
+    return;
+  }
+  await auditFunctionDebt(functionDebt, errors);
   await runTypeScriptCompiles(errors);
   await auditDependencyRegistry(root, errors);
   spawnGate('scripts/repository-graph.js', ['--check'], 'repository graph check failed', errors);
@@ -41,7 +51,7 @@ function finishGate(files, errors) {
   }
 }
 
-function auditFile(label, source, errors) {
+function auditFile(label, source, errors, functionDebt) {
   const lines = source.split(/\r?\n/u);
   if (lines.at(-1) === '') lines.pop();
   if (lines.length > MAX_FILE_LINES) errors.push(`${label} has ${lines.length} lines (max ${MAX_FILE_LINES})`);
@@ -50,10 +60,31 @@ function auditFile(label, source, errors) {
   if (!source.includes(SPDX_TOKEN)) errors.push(`${label} lacks SPDX identifier`);
   // Encoding incident guard (P2/P5-6 history): CP1252-misread UTF-8 remnants.
   if (/\u00C2[\u0080-\u00BF]|\u00E2\u20AC/u.test(source)) errors.push(`${label} has CP1252-mojibake sequences (encoding incident)`);
-  const clean = lines.map((line) => blankLine(line));
-  for (const span of functionSpans(clean)) {
-    if (span.length > MAX_FUNCTION_LINES) {
-      errors.push(`${label}:${span.start} function has ${span.length} lines (max ${MAX_FUNCTION_LINES})`);
+  let spans;
+  try { spans = functionSpans(source, label); }
+  catch (error) { errors.push(error.message); return; }
+  const debt = spans.filter((span) => span.length > MAX_FUNCTION_LINES)
+    .map(({ length, digest }) => ({ length, digest }))
+    .sort((a, b) => b.length - a.length || (a.digest < b.digest ? -1 : a.digest > b.digest ? 1 : 0));
+  if (debt.length > 0) functionDebt[label] = debt;
+}
+
+async function auditFunctionDebt(observed, errors) {
+  let baseline;
+  try { baseline = JSON.parse(await readFile(FUNCTION_BASELINE, 'utf8')); }
+  catch (error) { errors.push(`function-length baseline unavailable: ${error.code ?? error.message}`); return; }
+  if (!baseline || typeof baseline !== 'object' || Array.isArray(baseline)) {
+    errors.push('function-length baseline must be a file map'); return;
+  }
+  for (const label of new Set([...Object.keys(baseline), ...Object.keys(observed)])) {
+    const expected = Object.hasOwn(baseline, label) ? baseline[label] : [];
+    if (!Array.isArray(expected) || expected.some((span) => !span || !Number.isSafeInteger(span.length)
+      || span.length <= MAX_FUNCTION_LINES || !/^[a-f0-9]{64}$/u.test(span.digest))) {
+      errors.push(`function-length baseline is invalid for ${label}`); continue;
+    }
+    const actual = observed[label] ?? [];
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+      errors.push(`${label} function-length debt changed; review the functions and regenerate the baseline`);
     }
   }
 }
@@ -91,114 +122,6 @@ function failureText(result) {
   if (result.error) return `${result.error.code ?? 'spawn_failed'}: ${result.error.message}`;
   if (result.signal) return `terminated by ${result.signal}`;
   return String(result.stderr?.trim() || result.stdout?.trim() || `exit ${result.status}`).trim();
-}
-
-// ── noise blanking + function span detection (TS/TSX heuristic, bounded) ─────
-
-function blankLine(line) {
-  const out = [];
-  let mode = 'code';
-  let index = 0;
-  while (index < line.length) {
-    if (mode === 'code') {
-      const ch = line[index];
-      const next = line[index + 1];
-      if (ch === '/' && next === '/') break;
-      if (ch === '/' && next === '*') { mode = 'block'; out.push(' ', ' '); index += 2; continue; }
-      if (isQuote(ch) || startsRegexLiteral(line, index, out)) { mode = ch === "'" || ch === '"' || ch === '`' ? ch : 'regex'; out.push(' '); index += 1; continue; }
-      out.push(ch);
-      index += 1;
-      continue;
-    }
-    const consumed = skipMode(mode, line, index);
-    for (let i = 0; i < consumed; i += 1) out.push(' ');
-    if (consumed === 0) {
-      out.push(' ');
-      index += 1;
-    } else {
-      index += consumed;
-      mode = 'code';
-    }
-  }
-  return out.join('');
-}
-
-function skipMode(mode, line, index) {
-  const ch = line[index];
-  const next = line[index + 1];
-  if (mode === 'block') return ch === '*' && next === '/' ? 2 : ch === '\n' ? 1 : 1;
-  if (mode === 'regex') return regexEnds(line, index) ? 1 : 1;
-  return ch === mode ? 1 : 1;
-}
-
-function isQuote(ch) {
-  return ch === "'" || ch === '"' || ch === '`';
-}
-
-const REGEX_PRECEDERS = new Set(['(', ',', '=', ':', '!', '&', '|', '?', '+', '-', '*', '%', '^', '~', ';', '[', '{', '(', ' ', '']);
-
-function startsRegexLiteral(line, index, out) {
-  if (line[index] !== '/') return false;
-  const before = [];
-  for (let i = out.length - 1; i >= 0 && before.length < 16; i -= 1) before.push(out[i]);
-  const previous = before.join('').replace(/\s+$/u, '').at(-1);
-  if (!previous) return true;
-  if (/[\w.\)\]]$/u.test(previous)) return false;
-  if (REGEX_PRECEDERS.has(previous)) return true;
-  const statement = /^.*\b(return|case|typeof|delete|in|of|new|instanceof|await)(\s*)$/u.exec(('\n' + out.join('')));
-  return Boolean(statement);
-}
-
-function regexEnds(line, index) {
-  let escaped = false;
-  let inClass = false;
-  for (let i = index + 1; i < line.length; i += 1) {
-    const ch = line[i];
-    if (escaped) { escaped = false; continue; }
-    if (ch === '\\') { escaped = true; continue; }
-    if (ch === '[') inClass = true;
-    else if (ch === ']') inClass = false;
-    else if (ch === '/' && !inClass) return true;
-  }
-  return false;
-}
-
-function functionSpans(clean) {
-  const spans = [];
-  for (let index = 0; index < clean.length; index += 1) {
-    if (!looksLikeFunctionStart(clean[index])) continue;
-    const length = blockLengthFrom(clean, index);
-    if (length > 0) spans.push({ start: index + 1, length });
-  }
-  return spans;
-}
-
-const TYPELIKE_PREFIX = /^\s*(?:export\s+)?(?:type\s|interface\s|enum\s)/u;
-const DECORATED = /^(?:(?:export\s+)?(?:default\s+)?(?:async\s+)?function\b)/u;
-const CONST_ARROW = /^(?:export\s+)?const\s+[A-Za-z_$][\w$]*\s*=\s*(?:async\s*)?(?:\([^;{}]*\)|[A-Za-z_$][\w$]*)\s*=>/u;
-const METHOD_SHAPE = /^\s*(?:(?:public|private|protected|static|get|set|override)\s+)*(?:async\s+)?(?:\*?)(?:constructor\b|[A-Za-z_$][\w$]*)\s*\([^;{}]*\)\s*(?::\s[^{;]+)?\s*\{/u;
-const PROP_ARROW = /^\s*(?:public|private|protected|readonly|static)?\s*[A-Za-z_$][\w$]*\s*=\s*(?:async\s*)?\([^;{}]*\)\s*(?::\s[^=;{]+)?\s*=>/u;
-
-function looksLikeFunctionStart(line) {
-  if (/^\s*(?:if|for|while|switch|catch|with)\s*\(/u.test(line)) return false;
-  if (TYPELIKE_PREFIX.test(line)) return false;
-  if (DECORATED.test(line)) return true;
-  if (CONST_ARROW.test(line) && line.includes('{', line.indexOf('=>'))) return true;
-  if (METHOD_SHAPE.test(line) || PROP_ARROW.test(line)) return true;
-  return false;
-}
-
-function blockLengthFrom(clean, start) {
-  let depth = 0;
-  let opened = false;
-  for (let index = start; index < clean.length; index += 1) {
-    for (const character of clean[index]) {
-      if (character === '{') { depth += 1; opened = true; }
-      if (character === '}') depth -= 1;
-    }
-    if (opened && depth <= 0) return index - start + 1;
-  }
-  return 0;
 }
 
 main().catch((error) => {
