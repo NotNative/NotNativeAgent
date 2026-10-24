@@ -44,6 +44,7 @@ test('review evidence truncates UTF-8 content without splitting code points or e
   assert.ok(packet.metadata.packetBytes <= 12_288);
   assert.ok(Buffer.byteLength(packet.evidence[0].content, 'utf8') <= 2_048);
   assert.doesNotMatch(packet.evidence[0].content, /\uFFFD/u);
+  assert.equal(packet.metadata.packetTruncated, true);
 });
 
 test('review evidence combines recent turns with relevant older causal history', () => {
@@ -88,8 +89,58 @@ test('long current turns retain relevant earlier evidence beyond the newest caus
   assert.equal(prior?.tool, 'web_browse');
   assert.equal(prior?.tool_lifecycle_status, 'succeeded');
   assert.match(prior?.content ?? '', /localhost:8123/u);
-  assert.equal(packet.metadata.recentRecords, 7);
+  assert.equal(packet.metadata.recentRecords, 6);
+  assert.equal(packet.metadata.historyMatches, 1);
   assert.equal(packet.metadata.packetTruncated, true);
+});
+
+test('older relevant turns claim history slots before overflow from a busy recent turn', () => {
+  const transcript = [
+    ...Array.from({ length: 4 }, (_, index) => ({
+      type: 'tool_result', turnId: `older-${index}`, requestId: `older-${index}`,
+      toolName: 'fs_read', status: 'succeeded', content: `fixture-host older evidence ${index}`,
+    })),
+    { type: 'message', role: 'assistant', turnId: 'middle-1', content: 'Continuing.' },
+    { type: 'message', role: 'assistant', turnId: 'middle-2', content: 'Continuing.' },
+    ...Array.from({ length: 12 }, (_, index) => ({
+      type: 'tool_result', turnId: 'current', requestId: `recent-${index}`,
+      toolName: 'fs_read', status: 'succeeded', content: `fixture-host recent evidence ${index}`,
+    })),
+  ];
+  const packet = buildReviewEvidence(transcript, {
+    currentTurnId: 'current', request: { args: { path: 'fixture-host' } },
+  });
+  assert.equal(packet.evidence.length, 10);
+  assert.equal(packet.metadata.recentRecords, 6);
+  assert.equal(packet.metadata.historyMatches, 4);
+  assert.deepEqual(packet.evidence.filter((item) => item.source === 'history_match')
+    .map((item) => item.recordIndex), [0, 1, 2, 3]);
+});
+
+test('long selected observations share the byte budget without dropping newest or historical evidence', () => {
+  const transcript = [
+    ...Array.from({ length: 4 }, (_, index) => ({
+      type: 'tool_result', turnId: `old-${index}`, requestId: `old-${index}`,
+      toolName: 'fs_read', status: 'succeeded', content: `fixture-host old-${index} ${'a'.repeat(4_000)}`,
+    })),
+    { type: 'message', role: 'assistant', turnId: 'separator-1', content: 'Continuing.' },
+    { type: 'message', role: 'assistant', turnId: 'separator-2', content: 'Continuing.' },
+    ...Array.from({ length: 12 }, (_, index) => ({
+      type: 'tool_result', turnId: 'current', requestId: `recent-${index}`,
+      toolName: 'fs_read', status: 'succeeded', content: `fixture-host recent-${index} ${'b'.repeat(4_000)}`,
+    })),
+  ];
+  const packet = buildReviewEvidence(transcript, {
+    currentTurnId: 'current', request: { args: { path: 'fixture-host' } },
+  });
+  assert.equal(packet.evidence.length, 10);
+  assert.equal(packet.metadata.recentRecords, 6);
+  assert.equal(packet.metadata.historyMatches, 4);
+  assert.deepEqual(packet.evidence.filter((item) => item.source === 'history_match')
+    .map((item) => item.recordIndex), [0, 1, 2, 3]);
+  assert.equal(packet.evidence.at(-1)?.recordIndex, 17);
+  assert.ok(packet.metadata.packetBytes <= 12_288);
+  assert.ok(packet.evidence.every((item) => Buffer.byteLength(item.content, 'utf8') < 2_048));
 });
 
 test('conversation intent keeps earlier task evidence relevant after later continuation turns', () => {

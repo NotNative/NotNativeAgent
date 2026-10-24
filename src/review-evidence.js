@@ -41,32 +41,8 @@ export function buildReviewEvidence(transcript, options = {}) {
     if (relevance > 0) candidates.push({ ...item, source: 'history_match', relevance });
   }
 
-  const recent = candidates
-    .filter((item) => item.source === 'recent')
-    .sort((left, right) => left.recordIndex - right.recordIndex);
-  const recentTail = recent.slice(-MAX_RECENT_RECORDS);
-  const recentTailIndexes = new Set(recentTail.map((item) => item.recordIndex));
-  const relevant = candidates
-    .filter((item) => item.relevance > 0 && !recentTailIndexes.has(item.recordIndex))
-    .sort((left, right) => right.relevance - left.relevance || right.recordIndex - left.recordIndex);
-  const selected = [...recentTail, ...relevant.slice(0, MAX_HISTORY_MATCHES)]
-    .filter((item, index, all) => all.findIndex((entry) => entry.recordIndex === item.recordIndex) === index)
-    .slice(0, MAX_RECORDS)
-    .sort((left, right) => left.recordIndex - right.recordIndex);
-
-  const evidence = [];
-  let remaining = MAX_TOTAL_BYTES;
-  for (const item of selected) {
-    const content = takeBytes(item.content, Math.min(MAX_ITEM_BYTES, remaining));
-    if (content.length === 0) continue;
-    const contentBytes = Buffer.byteLength(content, 'utf8');
-    if (contentBytes > remaining) continue;
-    evidence.push(Object.freeze({ ...item, content }));
-    remaining -= contentBytes;
-    if (remaining <= 0) break;
-  }
-
-  const packetBytes = MAX_TOTAL_BYTES - remaining;
+  const selected = selectEvidenceCandidates(candidates);
+  const { evidence, packetBytes, contentTruncated } = packEvidence(selected);
   const metadata = Object.freeze({
     recordsScanned: scanned,
     scanTruncated: scanned < records.length,
@@ -75,9 +51,69 @@ export function buildReviewEvidence(transcript, options = {}) {
     matchedRecordIndexes: Object.freeze(evidence.map((item) => item.recordIndex)),
     relevanceScores: Object.freeze(evidence.map((item) => item.relevance)),
     packetBytes,
-    packetTruncated: selected.length > evidence.length || candidates.length > selected.length,
+    packetTruncated: contentTruncated || selected.length > evidence.length || candidates.length > selected.length,
   });
   return Object.freeze({ evidence: Object.freeze(evidence), metadata });
+}
+
+function selectEvidenceCandidates(candidates) {
+  const recent = candidates
+    .filter((item) => item.source === 'recent')
+    .sort((left, right) => left.recordIndex - right.recordIndex);
+  const recentTail = recent.slice(-MAX_RECENT_RECORDS);
+  const byRelevance = (left, right) => right.relevance - left.relevance || right.recordIndex - left.recordIndex;
+  const historical = candidates
+    .filter((item) => item.source === 'history_match')
+    .sort(byRelevance)
+    .slice(0, MAX_HISTORY_MATCHES);
+  // Earlier observations from a long recent turn remain useful when historical
+  // turns have not filled their reserved lane. Count them as relevance matches,
+  // never as additional recent-tail records.
+  const recentOverflow = recent.slice(0, -MAX_RECENT_RECORDS)
+    .filter((item) => item.relevance > 0)
+    .map((item) => ({ ...item, source: 'history_match' }))
+    .sort(byRelevance)
+    .slice(0, MAX_HISTORY_MATCHES - historical.length);
+  return [...recentTail, ...historical, ...recentOverflow]
+    .filter((item, index, all) => all.findIndex((entry) => entry.recordIndex === item.recordIndex) === index)
+    .slice(0, MAX_RECORDS)
+    .sort((left, right) => left.recordIndex - right.recordIndex);
+
+}
+
+function packEvidence(selected) {
+  const evidence = [];
+  // Invariant: a selected causal record must not disappear because earlier
+  // records consumed the shared byte budget. Cap large records equally, while
+  // allowing short records to leave their unused space for the others.
+  const itemByteLimit = fairItemByteLimit(selected);
+  let remaining = MAX_TOTAL_BYTES;
+  let contentTruncated = false;
+  for (const item of selected) {
+    const content = takeBytes(item.content, Math.min(itemByteLimit, remaining));
+    if (content.length === 0) continue;
+    const contentBytes = Buffer.byteLength(content, 'utf8');
+    if (contentBytes > remaining) continue;
+    if (Buffer.byteLength(String(item.content), 'utf8') > contentBytes) contentTruncated = true;
+    evidence.push(Object.freeze({ ...item, content }));
+    remaining -= contentBytes;
+    if (remaining <= 0) break;
+  }
+
+  return { evidence, packetBytes: MAX_TOTAL_BYTES - remaining, contentTruncated };
+}
+
+function fairItemByteLimit(selected) {
+  let low = 0;
+  let high = MAX_ITEM_BYTES;
+  const lengths = selected.map((item) => Buffer.byteLength(String(item.content), 'utf8'));
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    const required = lengths.reduce((total, length) => total + Math.min(length, middle), 0);
+    if (required <= MAX_TOTAL_BYTES) low = middle;
+    else high = middle - 1;
+  }
+  return low;
 }
 
 export function recentReviewEvidence(transcript, currentRequestId) {
