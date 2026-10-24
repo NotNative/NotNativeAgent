@@ -110,6 +110,101 @@ test('recovered integration principal timestamps remain bounded like authenticat
   }]), { code: 'authority_journal_invalid' });
 });
 
+test('authenticated origin is owned before admission and cannot be rewritten through a snapshot', () => {
+  const authority = new AuthorityRecord();
+  const origin = { subjectId: 'operator', platformRole: 'operator', permissions: ['workspace.read'],
+    workspaceIds: ['original'], groupIds: [], traceId: 'trace',
+    issuedAt: new Date('2026-09-25T00:00:00.000Z'), requestId: 'request' };
+  const admitted = authority.addAuthenticatedIntent('Read original', origin);
+  origin.workspaceIds[0] = 'different';
+  origin.permissions.push('workspace.write');
+  origin.issuedAt.setUTCFullYear(2030);
+  const snapshot = authority.snapshot(resolveManifest({ provider }));
+  assert.deepEqual(admitted.origin.workspaceIds, ['original']);
+  assert.deepEqual(snapshot.intent[0].origin.permissions, ['workspace.read']);
+  assert.equal(snapshot.intent[0].origin.issuedAt, '2026-09-25T00:00:00.000Z');
+  assert.throws(() => snapshot.intent[0].origin.workspaceIds.push('other'), TypeError);
+  const restored = new AuthorityRecord();
+  restored.restore([admitted]);
+  assert.deepEqual(restored.snapshot(resolveManifest({ provider })).intent[0].origin, admitted.origin);
+});
+
+test('bounded NND principals keep their sparse authenticated shape through recovery', () => {
+  const authority = new AuthorityRecord();
+  const principal = { subjectId: 'owner', workspaceIds: ['workspace_a'], permissions: ['nnd.session.submit'] };
+  const admitted = authority.addAuthenticatedIntent('Ask me a question', principal);
+  principal.workspaceIds[0] = 'different';
+  const restored = new AuthorityRecord();
+  restored.restore([admitted]);
+  assert.deepEqual(restored.snapshot(resolveManifest({ provider })).intent[0].origin,
+    { subjectId: 'owner', workspaceIds: ['workspace_a'], permissions: ['nnd.session.submit'] });
+});
+
+test('sparse origin ownership excludes absent fields and rejects hidden authority metadata', () => {
+  const authority = new AuthorityRecord();
+  const admitted = authority.addAuthenticatedIntent('Read', {
+    subjectId: 'owner', workspaceIds: ['workspace_a'], permissions: undefined,
+  });
+  assert.deepEqual(admitted.origin, { subjectId: 'owner', workspaceIds: ['workspace_a'] });
+  const restored = new AuthorityRecord();
+  restored.restore([JSON.parse(JSON.stringify(admitted))]);
+  assert.deepEqual(restored.snapshot(resolveManifest({ provider })).intent[0].origin, admitted.origin);
+
+  const inherited = Object.create({ subjectId: 'owner', workspaceIds: ['workspace_a'] });
+  assert.throws(() => authority.addAuthenticatedIntent('Read', inherited), { code: 'authority_origin_invalid' });
+  assert.throws(() => restored.restore([{ ...admitted, origin: inherited }]), { code: 'authority_journal_invalid' });
+  const symbolKey = Symbol('metadata');
+  const symbolOrigin = { subjectId: 'owner', workspaceIds: ['workspace_a'], [symbolKey]: { mutable: true } };
+  assert.throws(() => authority.addAuthenticatedIntent('Read', symbolOrigin), { code: 'authority_origin_invalid' });
+  const hiddenField = { subjectId: 'owner', workspaceIds: ['workspace_a'] };
+  Object.defineProperty(hiddenField, 'permissions', { value: ['workspace.write'] });
+  assert.throws(() => authority.addAuthenticatedIntent('Read', hiddenField), { code: 'authority_origin_invalid' });
+  assert.throws(() => restored.restore([{ ...admitted, origin: hiddenField }]),
+    { code: 'authority_journal_invalid' });
+});
+
+test('invalid authenticated intent does not advance the journal version', () => {
+  const authority = new AuthorityRecord();
+  authority.addAuthenticatedIntent('First', 'operator');
+  assert.throws(() => authority.addAuthenticatedIntent('Bad kind', 'operator', { kind: 'unknown' }),
+    { code: 'authority_statement_kind_invalid' });
+  assert.throws(() => authority.addAuthenticatedIntent('Bad turn', 'operator', { turnId: '' }),
+    { code: 'authority_turn_id_invalid' });
+  assert.throws(() => authority.addAuthenticatedIntent('Bad origin', { issuedAt: new Date() }),
+    { code: 'authority_origin_invalid' });
+  const next = authority.addAuthenticatedIntent('Second', 'operator');
+  assert.equal(next.sequence, 2);
+  assert.equal(authority.snapshot(resolveManifest({ provider })).version, 2);
+});
+
+test('authority recovery commits journal and mission usage only after complete validation', () => {
+  const authority = new AuthorityRecord();
+  const original = authority.addAuthenticatedIntent('Original', 'operator');
+  authority.restore([original], [{ missionId: 'original', turns: 1, toolCalls: 2, startedAt: 123 }],
+    { conversationComplete: false });
+  const before = authority.snapshot(resolveManifest({ provider }));
+  const usage = authority.missionUsage('original');
+  const replacement = { content: 'Replacement', origin: 'operator', lineageId: 'auth_replacement' };
+  assert.throws(() => authority.restore([replacement, { ...replacement, origin: {} }], []),
+    { code: 'authority_journal_invalid' });
+  assert.throws(() => authority.restore([replacement], [
+    { missionId: 'replacement', turns: 1, toolCalls: 1, startedAt: 456 },
+    { missionId: 'invalid', turns: 0, toolCalls: 1, startedAt: 456 },
+  ]), { code: 'authority_journal_invalid' });
+  assert.throws(() => authority.restore([replacement], new Array(1_000_001)),
+    { code: 'authority_journal_invalid' });
+  assert.deepEqual(authority.snapshot(resolveManifest({ provider })), before);
+  assert.deepEqual(authority.missionUsage('original'), usage);
+  assert.deepEqual(authority.missionUsage('replacement'), { turns: 0, toolCalls: 0, startedAt: null });
+  authority.restore([replacement], [{ missionId: 'replacement', turns: 1, startedAt: 456 }]);
+  const after = authority.snapshot(resolveManifest({ provider }));
+  assert.equal(after.id, 'auth_replacement');
+  assert.equal(after.version, 1);
+  assert.equal(after.complete, true);
+  assert.equal(authority.missionUsage('replacement').turns, 1);
+  assert.equal(authority.missionUsage('original').turns, 0);
+});
+
 test('AC-AUTH-02 mission authority is accepted only from the authenticated headless host', () => {
   assert.throws(() => resolveManifest({ provider, mission: mission() }), { code: 'mission_authority_forbidden' });
   const config = resolveManifest({ provider, mission: mission() }, { missionPrincipal: 'authenticated-stdio-host' });

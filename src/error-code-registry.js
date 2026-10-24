@@ -17,7 +17,7 @@ const FAILURE_DOMAINS = Object.freeze({
 // Why: an added code must make its failure boundary visible in review instead of inheriting one by prefix.
 const ERROR_CODES_BY_OWNER = Object.freeze({
   authorization: Object.freeze([
-    'authority_journal_invalid', 'authority_rollback_invalid', 'authority_statement_kind_invalid',
+    'authority_journal_invalid', 'authority_origin_invalid', 'authority_rollback_invalid', 'authority_statement_kind_invalid',
     'authority_turn_id_invalid',
     'credential_binding_invalid', 'credential_consumer_invalid', 'credential_reference_invalid', 'credential_value_invalid',
     'governance_attributes_invalid', 'governance_checkpoint_invalid', 'governance_decision_invalid', 'governance_decision_missing',

@@ -15,16 +15,16 @@ export class AuthorityRecord {
   #missionStartedAt = new Map();
 
   addAuthenticatedIntent(content, origin, options = {}) {
-    this.#version += 1;
     const kind = options.kind ?? 'statement';
     if (!AUTHORITY_STATEMENT_KINDS.has(kind)) {
-      this.#version -= 1;
       throw new ContractError('authority_statement_kind_invalid', 'authenticated authority statement kind is invalid');
     }
     const turnId = options.turnId === undefined ? undefined : this.#assertTurnId(options.turnId);
+    const owned = ownedOrigin(origin, true);
+    this.#version += 1;
     if (kind === 'restriction') this.#restrictionVersion += 1;
     const item = Object.freeze({
-      content, origin, sequence: this.#version, kind,
+      content, origin: owned, sequence: this.#version, kind,
       ...(turnId === undefined ? {} : { turnId }),
     });
     this.#intent.push(item);
@@ -33,7 +33,6 @@ export class AuthorityRecord {
 
   #assertTurnId(value) {
     if (typeof value !== 'string' || value.length === 0 || value.length > 256) {
-      this.#version -= 1;
       throw new ContractError('authority_turn_id_invalid', 'authenticated authority turn identity is invalid');
     }
     return value;
@@ -49,25 +48,33 @@ export class AuthorityRecord {
 
   restore(records, missionUsage = [], options = {}) {
     if (!Array.isArray(records) || records.length > 1_000_000) throw new ContractError('authority_journal_invalid', 'authority recovery exceeds bounds');
+    if (!Array.isArray(missionUsage) || missionUsage.length > 1_000_000) {
+      throw new ContractError('authority_journal_invalid', 'mission budget recovery exceeds bounds');
+    }
     if (options.requireMissionUsage && options.missionUsageComplete === false) {
       throw new ContractError('mission_budget_history_incomplete', 'mission budget history is outside the bounded recovery window');
     }
-    this.#complete = options.conversationComplete ?? true;
-    this.#version = 0; this.#restrictionVersion = 0; this.#intent = [];
     let lineage = null;
+    let restrictionVersion = 0;
+    const intent = [];
     for (const record of records) {
       if (!record || typeof record.content !== 'string' || !validRestoredOrigin(record.origin)
         || typeof record.lineageId !== 'string' || (lineage && record.lineageId !== lineage)) {
         throw new ContractError('authority_journal_invalid', 'authority recovery record is invalid');
       }
       lineage ??= record.lineageId;
-      this.addAuthenticatedIntent(record.content, record.origin, {
-        kind: record.kind ?? 'statement', turnId: record.turnId,
-      });
+      const kind = record.kind ?? 'statement';
+      if (!AUTHORITY_STATEMENT_KINDS.has(kind)) {
+        throw new ContractError('authority_statement_kind_invalid', 'authenticated authority statement kind is invalid');
+      }
+      const turnId = record.turnId === undefined ? undefined : this.#assertTurnId(record.turnId);
+      if (kind === 'restriction') restrictionVersion += 1;
+      intent.push(Object.freeze({ content: record.content, origin: ownedOrigin(record.origin),
+        sequence: intent.length + 1, kind, ...(turnId === undefined ? {} : { turnId }) }));
     }
-    if (lineage) this.#id = lineage;
-    this.#missionTurns.clear();
-    this.#missionToolCalls.clear(); this.#missionStartedAt.clear();
+    const missionTurns = new Map();
+    const missionToolCalls = new Map();
+    const missionStartedAt = new Map();
     for (const record of missionUsage) {
       const toolCalls = record?.toolCalls ?? 0;
       const startedAt = record?.startedAt
@@ -76,10 +83,18 @@ export class AuthorityRecord {
         || !Number.isSafeInteger(toolCalls) || toolCalls < 0 || !Number.isFinite(startedAt)) {
         throw new ContractError('authority_journal_invalid', 'mission budget recovery record is invalid');
       }
-      this.#missionTurns.set(record.missionId, Math.max(this.#missionTurns.get(record.missionId) ?? 0, record.turns));
-      this.#missionToolCalls.set(record.missionId, Math.max(this.#missionToolCalls.get(record.missionId) ?? 0, toolCalls));
-      this.#missionStartedAt.set(record.missionId, Math.min(this.#missionStartedAt.get(record.missionId) ?? startedAt, startedAt));
+      missionTurns.set(record.missionId, Math.max(missionTurns.get(record.missionId) ?? 0, record.turns));
+      missionToolCalls.set(record.missionId, Math.max(missionToolCalls.get(record.missionId) ?? 0, toolCalls));
+      missionStartedAt.set(record.missionId, Math.min(missionStartedAt.get(record.missionId) ?? startedAt, startedAt));
     }
+    if (lineage) this.#id = lineage;
+    this.#complete = options.conversationComplete ?? true;
+    this.#version = intent.length;
+    this.#restrictionVersion = restrictionVersion;
+    this.#intent = intent;
+    this.#missionTurns = missionTurns;
+    this.#missionToolCalls = missionToolCalls;
+    this.#missionStartedAt = missionStartedAt;
   }
 
   clearConversation() {
@@ -172,16 +187,45 @@ export class AuthorityRecord {
 function validRestoredOrigin(value) {
   if (typeof value === 'string') return true;
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  // Security: integration principals are journaled after authentication. Recovery
-  // accepts that exact bounded shape, not arbitrary objects as authority origins.
+  // Security: NNO principals carry the complete envelope; NND session hosts can
+  // supply a smaller authenticated principal. Recovery accepts only owned fields.
   const keys = ['subjectId', 'platformRole', 'permissions', 'workspaceIds', 'groupIds', 'traceId', 'issuedAt', 'requestId'];
   const bounded = (text) => typeof text === 'string' && text.trim().length > 0 && text.length <= 256
     && !/[\u0000-\u001f\u007f]/u.test(text);
   const list = (items) => Array.isArray(items) && items.length <= 512 && items.every(bounded);
-  return Object.keys(value).length === keys.length && Object.keys(value).every((key) => keys.includes(key))
-    && bounded(value.subjectId) && bounded(value.platformRole) && bounded(value.traceId) && bounded(value.requestId)
-    && list(value.permissions) && list(value.workspaceIds) && list(value.groupIds)
-    && bounded(value.issuedAt) && Number.isFinite(Date.parse(value.issuedAt));
+  const ownKeys = Reflect.ownKeys(value);
+  return ownKeys.length === Object.keys(value).length && ownKeys.every((key) => keys.includes(key))
+    && Object.hasOwn(value, 'subjectId') && Object.hasOwn(value, 'workspaceIds')
+    && bounded(value.subjectId) && list(value.workspaceIds)
+    && (value.platformRole === undefined || bounded(value.platformRole))
+    && (value.traceId === undefined || bounded(value.traceId))
+    && (value.requestId === undefined || bounded(value.requestId))
+    && (value.permissions === undefined || list(value.permissions))
+    && (value.groupIds === undefined || list(value.groupIds))
+    && (value.issuedAt === undefined || bounded(value.issuedAt) && Number.isFinite(Date.parse(value.issuedAt)));
+}
+
+function ownedOrigin(origin, allowDate = false) {
+  if (typeof origin === 'string') return origin;
+  if (origin && typeof origin === 'object' && Reflect.ownKeys(origin).length !== Object.keys(origin).length) {
+    throw new ContractError('authority_origin_invalid', 'authenticated authority origin is invalid');
+  }
+  const issuedAt = allowDate && origin?.issuedAt instanceof Date && Number.isFinite(origin.issuedAt.getTime())
+    ? origin.issuedAt.toISOString() : origin?.issuedAt;
+  const candidate = origin && typeof origin === 'object' && !Array.isArray(origin)
+    ? { ...origin, ...(Object.hasOwn(origin, 'issuedAt') ? { issuedAt } : {}) } : origin;
+  if (!validRestoredOrigin(candidate)) {
+    throw new ContractError('authority_origin_invalid', 'authenticated authority origin is invalid');
+  }
+  const owned = { subjectId: candidate.subjectId,
+    workspaceIds: Object.freeze([...candidate.workspaceIds]) };
+  for (const key of ['platformRole', 'traceId', 'requestId', 'issuedAt']) {
+    if (candidate[key] !== undefined) owned[key] = candidate[key];
+  }
+  for (const key of ['permissions', 'groupIds']) {
+    if (candidate[key] !== undefined) owned[key] = Object.freeze([...candidate[key]]);
+  }
+  return Object.freeze(owned);
 }
 
 export function assertMissionBudget(active, additionalToolCalls = 0) {
