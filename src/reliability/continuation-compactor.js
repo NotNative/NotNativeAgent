@@ -13,9 +13,11 @@ export class ContinuationCompactor {
     this.telemetry = options.telemetry;
     this.timeoutMs = options.timeoutMs ?? 300_000;
     this.recordTokenReceipt = options.recordTokenReceipt;
+    this.captureTokenReceiptOwner = options.captureTokenReceiptOwner;
   }
 
   setTokenReceiptRecorder(recorder) { this.recordTokenReceipt = recorder; }
+  setTokenReceiptOwner(capture) { this.captureTokenReceiptOwner = capture; }
 
   async refine(fact, router, route, runtime, parentSignal, options = {}) {
     return this.#run(fact, router, route, runtime, parentSignal, 'compaction', options);
@@ -26,15 +28,14 @@ export class ContinuationCompactor {
   }
 
   async #run(fact, router, route, runtime, parentSignal, mode, options) {
-    const provider = router.provider(route);
+    const receiptOwner = this.captureTokenReceiptOwner?.(), provider = router.provider(route);
     if (typeof provider.runtimeSnapshot !== 'function') return fact;
     const controller = new AbortController();
     const cancel = () => controller.abort();
     parentSignal?.addEventListener('abort', cancel, { once: true });
     const timer = setTimeout(() => controller.abort(), route.deadlineMs == null
       ? this.timeoutMs : Math.min(this.timeoutMs, route.deadlineMs));
-    let release = null;
-    let alignment = null;
+    let release = null; let alignment = null;
     let request = null;
     const accounting = { dispatched: false, usage: null, outputBytes: 0, outcome: 'failed', reasonCode: null };
     const attemptId = newId(`semantic_${mode}`);
@@ -77,6 +78,7 @@ export class ContinuationCompactor {
       try {
         if (accounting.dispatched) await this.recordTokenReceipt?.({
           request, context: request.messages, route, role: `semantic_${mode}`, attemptId,
+          receiptOwner,
           outcome: accounting.outcome, reasonCode: accounting.reasonCode, usage: accounting.usage, outputBytes: accounting.outputBytes,
         });
       } finally {

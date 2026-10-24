@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
+import { ModelRouter } from '../src/provider/router.js';
+import { RoutedSemanticReviewer } from '../src/provider/model-reviewer.js';
 import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { EventHub } from '../src/events.js';
 import { ToolRegistry } from '../src/tool-registry.js';
@@ -1012,6 +1014,74 @@ test('AC-REV-05/AC-TOOL-04 semantic timeout denies write and leaves file unchang
   assert.equal(await readFile(path, 'utf8'), 'before');
   assert.equal(engine.reviewerAudit()[0].decision, 'deny_with_guidance');
   assert.equal(engine.reviewerAudit()[0].result, null);
+});
+
+test('a reviewer receipt arriving after timeout belongs to its original turn', { timeout: 10_000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-late-review-receipt-'));
+  const path = join(root, 'target.txt');
+  await writeFile(path, 'before', 'utf8');
+  const config = resolveManifest({
+    persistence: 'durable', workspace_root: root,
+    provider: { id: 'fixture', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback' },
+  });
+  const primary = new TwoStepProvider({ name: 'fs_write_text', args: { path: 'target.txt', content: 'after' } });
+  let reviewerStarted; let releaseReviewer; let lateSettled;
+  let secondStarted; let releaseSecond;
+  const reviewerReady = new Promise((resolve) => { reviewerStarted = resolve; });
+  const reviewerGate = new Promise((resolve) => { releaseReviewer = resolve; });
+  const lateDone = new Promise((resolve) => { lateSettled = resolve; });
+  const secondReady = new Promise((resolve) => { secondStarted = resolve; });
+  const secondGate = new Promise((resolve) => { releaseSecond = resolve; });
+  const provider = { async *stream(request, signal) {
+    if (request.messages.some((message) => message.role === 'user' && message.content === 'Second turn')) {
+      secondStarted(); await secondGate;
+    }
+    yield* primary.stream(request, signal);
+  } };
+  const engine = new SessionEngine({ config, sessionId: 'late-review-receipt',
+    storeRoot: join(root, 'sessions'), reviewerRoot: join(root, 'reviewer'),
+    providerFactory: () => provider, semanticReviewTimeoutMs: 20 });
+  let secondTurn;
+  try {
+    await engine.initialize();
+    await seedReadReceipt(engine, 'target.txt');
+    const reviewerProvider = { async *stream() {
+      reviewerStarted(); await reviewerGate;
+      yield { type: 'usage', usage: { prompt_tokens: 17, completion_tokens: 3, total_tokens: 20 } };
+      yield { type: 'text', text: JSON.stringify({ outcome: 'deny_with_guidance', confidence: 1,
+        reason_code: 'late_review', guidance: 'Do not change this file.' }) };
+      yield { type: 'terminal' };
+    } };
+    const routed = new RoutedSemanticReviewer(new ModelRouter(config, () => reviewerProvider), {
+      recordTokenReceipt: engine.recordProviderAttempt,
+      captureTokenReceiptOwner: engine.captureProviderAttemptOwner,
+    });
+    engine.reviewer.semantic = { review(...args) { return routed.review(...args).finally(lateSettled); } };
+    const firstTurn = engine.submit({ request_id: 'first', content: 'Change target.txt' }, 'operator');
+    await reviewerReady;
+    const first = await firstTurn;
+    assert.equal(first.outcome, 'blocked');
+    assert.equal(first.token_accounting.by_role.reviewer, undefined);
+    secondTurn = engine.submit({ request_id: 'second', content: 'Second turn' }, 'operator');
+    await secondReady;
+    const secondId = engine.active.turnId;
+    releaseReviewer();
+    await lateDone;
+    const receipts = (await engine.store.readRecords()).records
+      .filter((entry) => entry.type === 'provider_token_receipt' && entry.payload.role === 'reviewer');
+    assert.equal(receipts.length, 1);
+    assert.equal(receipts[0].payload.turn_id, first.turn_id);
+    assert.notEqual(receipts[0].payload.turn_id, secondId);
+    assert.equal(engine.active.tokenReceipts.some((receipt) => receipt.role === 'reviewer'), false);
+    releaseSecond();
+    const second = await secondTurn;
+    assert.equal(second.token_accounting.by_role.reviewer, undefined);
+    assert.equal(await readFile(path, 'utf8'), 'before');
+  } finally {
+    releaseReviewer(); releaseSecond();
+    await secondTurn?.catch(() => undefined);
+    await engine.shutdown({ request_id: 'stop-late-review' }).catch(() => undefined);
+  }
 });
 
 test('AC-STATE-04 cancellation interrupts semantic review and cannot begin an approved mutation', async () => {

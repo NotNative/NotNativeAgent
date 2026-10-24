@@ -252,16 +252,18 @@ export class AttachmentObservationRouter {
     this.router = router;
     this.cache = cache;
     this.recordTokenReceipt = options.recordTokenReceipt;
+    this.captureTokenReceiptOwner = options.captureTokenReceiptOwner;
   }
 
   async observe(item, prompt, signal) {
+    const receiptOwner = this.captureTokenReceiptOwner?.();
     const logicalRequestId = newId('vision_request');
     const attempts = [];
     const primary = this.router.resolve('primary');
     const vision = this.router.resolve('vision');
     if (!sameRoute(primary, vision)) {
       try {
-        const result = await observeWith(this.router, vision, 'vision', item, prompt, signal, this.recordTokenReceipt);
+        const result = await observeWith(this.router, vision, 'vision', item, prompt, signal, this.recordTokenReceipt, receiptOwner);
         this.cache.record(vision, 'image_input', this.router.config.version, true);
         attempts.push(attemptFact(vision, 'consumed'));
         return { ...result, logicalRequestId, attempts };
@@ -272,7 +274,7 @@ export class AttachmentObservationRouter {
       }
     }
     try {
-      const result = await observeWith(this.router, primary, 'primary', item, prompt, signal, this.recordTokenReceipt);
+      const result = await observeWith(this.router, primary, 'primary', item, prompt, signal, this.recordTokenReceipt, receiptOwner);
       this.cache.record(primary, 'image_input', this.router.config.version, true);
       attempts.push(attemptFact(primary, 'consumed'));
       return { ...result, logicalRequestId, attempts };
@@ -291,7 +293,7 @@ export class AttachmentObservationRouter {
   }
 }
 
-async function observeWith(router, resolution, role, item, prompt, signal, recordTokenReceipt) {
+async function observeWith(router, resolution, role, item, prompt, signal, recordTokenReceipt, receiptOwner) {
   if (signal?.aborted) throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
   const bytes = await readFile(item.managedPath);
   if (signal?.aborted) throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
@@ -319,6 +321,7 @@ async function observeWith(router, resolution, role, item, prompt, signal, recor
   } finally {
     await recordTokenReceipt?.({
       request, context: request.messages, route: resolution, role: `vision_${role}`, attemptId,
+      receiptOwner,
       outcome: accounting.outcome, reasonCode: accounting.reasonCode,
       usage: accounting.usage, outputBytes: accounting.outputBytes,
       durationMs: Number(process.hrtime.bigint() - started) / 1_000_000,

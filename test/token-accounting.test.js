@@ -301,3 +301,30 @@ test('failed retry usage and successful usage both produce durable attempt recei
   assert.ok(receipts.every((item) => /^[a-f0-9]{64}$/u.test(item.payload.receipt_id)));
   await store.close();
 });
+
+test('an idle auxiliary provider receipt is durable without adopting a later turn', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-idle-receipt-'));
+  const stores = join(root, 'sessions');
+  const engine = new SessionEngine({
+    config: resolveManifest({ persistence: 'durable', workspace_root: root,
+      provider: { id: 'fixture', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture', trust_zone: 'loopback' } }),
+    sessionId: 'idle-receipt', storeRoot: stores, reviewerRoot: join(root, 'reviewers'),
+  });
+  await engine.initialize();
+  try {
+    const route = engine.router.resolve('primary');
+    const request = { model: route.model, messages: [{ role: 'user', content: 'Create a handoff.' }],
+      tools: [], maxOutputTokens: 64 };
+    const receipt = await engine.recordProviderAttempt({ request, context: request.messages, route,
+      receiptOwner: engine.captureProviderAttemptOwner(), role: 'semantic_handoff', attemptId: 'handoff-idle',
+      outcome: 'completed', usage: { prompt_tokens: 8, completion_tokens: 2, total_tokens: 10 } });
+    assert.equal(receipt.turn_id, null);
+    assert.equal(receipt.step_id, null);
+    assert.equal(receipt.accounting.accounted_total_tokens, 10);
+    const records = (await engine.store.readRecords()).records
+      .filter((entry) => entry.type === 'provider_token_receipt');
+    assert.equal(records.length, 1);
+    assert.equal(records[0].payload.turn_id, null);
+    assert.equal(records[0].payload.role, 'semantic_handoff');
+  } finally { await engine.shutdown({ request_id: 'stop-idle-receipt' }); }
+});

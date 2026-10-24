@@ -18,6 +18,7 @@ export class RoutedSemanticReviewer {
     this.dialects = options.dialects;
     this.sessionId = options.sessionId ?? 'semantic-reviewer';
     this.recordTokenReceipt = options.recordTokenReceipt;
+    this.captureTokenReceiptOwner = options.captureTokenReceiptOwner;
   }
 
   setRouter(router) {
@@ -25,6 +26,7 @@ export class RoutedSemanticReviewer {
   }
 
   async review(input, signal, correlation = {}) {
+    const receiptOwner = this.captureTokenReceiptOwner?.();
     // Invariant: server-side JSON grammar is an optimization, not a prerequisite for locally validated review.
     const routes = this.router.candidates('reviewer');
     if (routes.length === 0) {
@@ -57,6 +59,7 @@ export class RoutedSemanticReviewer {
       try {
         return await runReviewerAttempts(route, input, signal, state, (request) => this.#runAttempt({
           provider, request, signal, route, profileId, logicalRequestId, correlation,
+          receiptOwner,
         }));
       } catch (error) {
         lastError = error;
@@ -68,7 +71,7 @@ export class RoutedSemanticReviewer {
     throw lastError ?? new ContractError('reviewer_output_malformed', 'reviewer repair attempt did not produce a decision');
   }
 
-  async #runAttempt({ provider, request, signal, route, profileId, logicalRequestId, correlation }) {
+  async #runAttempt({ provider, request, signal, route, profileId, logicalRequestId, correlation, receiptOwner }) {
     const attemptId = newId('reviewer_attempt');
     const spanId = `provider-request:${attemptId}`;
     const started = process.hrtime.bigint();
@@ -100,6 +103,7 @@ export class RoutedSemanticReviewer {
     } finally {
       if (accounting.dispatched) await this.recordTokenReceipt?.({
         request, context: request.messages, route, role: 'reviewer', attemptId, logicalRequestId,
+        receiptOwner,
         outcome: accounting.outcome, reasonCode: accounting.reasonCode,
         usage: accounting.usage, outputBytes: accounting.outputBytes, durationMs: elapsedMs(started),
       });

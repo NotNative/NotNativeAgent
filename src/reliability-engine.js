@@ -44,6 +44,7 @@ export class ReliabilityEngine {
       scheduler: options.scheduler,
       telemetry: options.telemetry,
       recordTokenReceipt: options.tokenReceiptRecorder,
+      captureTokenReceiptOwner: options.captureTokenReceiptOwner,
     });
     this.contextRequestTokenCounter = options.contextRequestTokenCounter ?? null;
     this.contextTokenCounter = options.contextTokenCounter ?? null;

@@ -64,6 +64,7 @@ function installRouting(engine, options) {
 
 function installReliability(engine, options, hooks) {
   const recorder = (facts) => recordAuxiliaryProviderReceipt(engine, hooks, facts);
+  const captureReceiptOwner = () => captureAuxiliaryReceiptOwner(engine);
   engine.reliability = options.reliability ?? new ReliabilityEngine({
     modelDialects: options.modelDialects,
     modelDialectPath: options.modelDialectPath ?? (process.env.NODE_TEST_CONTEXT ? null : engine.dataPaths.modelDialects ?? userDataPaths().modelDialects),
@@ -75,9 +76,12 @@ function installReliability(engine, options, hooks) {
     contextTokenizerIdentity: options.contextTokenizerIdentity,
     contextTokenizerExact: options.contextTokenizerExact,
     tokenReceiptRecorder: recorder,
+    captureTokenReceiptOwner: captureReceiptOwner,
   });
   engine.reliability.continuationCompactor?.setTokenReceiptRecorder?.(recorder);
+  engine.reliability.continuationCompactor?.setTokenReceiptOwner?.(captureReceiptOwner);
   engine.recordProviderAttempt = recorder;
+  engine.captureProviderAttemptOwner = captureReceiptOwner;
 }
 
 function installOutput(engine, options) {
@@ -217,6 +221,7 @@ function declareTerminalOutcome(engine, value) {
 function createImageObserver(engine) {
   return new AttachmentObservationRouter(engine.router, undefined, {
     recordTokenReceipt: engine.recordProviderAttempt,
+    captureTokenReceiptOwner: engine.captureProviderAttemptOwner,
   });
 }
 
@@ -280,6 +285,7 @@ function installReview(engine, options) {
       scheduler: engine.scheduler, telemetry: engine.telemetry, modelRuntime: engine.modelRuntime,
       dialects: engine.reliability, sessionId: engine.sessionId,
       recordTokenReceipt: engine.recordProviderAttempt,
+      captureTokenReceiptOwner: engine.captureProviderAttemptOwner,
     }),
     semanticTimeoutMs,
     decisionTtlMs: engine.config.limits.approvalMs,
@@ -415,8 +421,9 @@ function providerRunner(engine, hooks) {
 }
 
 async function recordAuxiliaryProviderReceipt(engine, hooks, facts) {
-  const active = engine.active;
-  if (!active || !facts?.request || !facts?.route) return null;
+  if (!facts?.request || !facts?.route) return null;
+  const owner = facts.receiptOwner ?? { active: null, snapshot: null };
+  const active = owner.snapshot;
   const context = facts.context ?? facts.request.messages ?? [];
   const manifest = engine.reliability.providerRequestManifest(
     facts.request, context, facts.route, active,
@@ -425,22 +432,40 @@ async function recordAuxiliaryProviderReceipt(engine, hooks, facts) {
   return recordProviderReceipt(engine, hooks, manifest, active, {
     ...facts, providerProfile: facts.route.profile?.id ?? facts.route.providerId,
     model: facts.route.model,
-  });
+  }, owner.active);
 }
 
-async function recordProviderReceipt(engine, hooks, manifest, active, detail) {
+function captureAuxiliaryReceiptOwner(engine) {
+  const active = engine.active;
+  if (!active) return Object.freeze({ active: null, snapshot: null });
+  // Invariant: a late provider result keeps the origin's identity, never a later turn's mutable state.
+  return Object.freeze({ active, snapshot: Object.freeze({
+    turnId: active.turnId, stepId: active.stepId, logicalRequestId: active.logicalRequestId,
+    providerToolSurface: active.providerToolSurface,
+    contextBudget: active.contextBudget && { outputReserveTokens: active.contextBudget.outputReserveTokens },
+    attemptId: active.attemptId, finishReason: active.finishReason,
+    providerResource: active.providerResource, modelName: active.modelName,
+  }) });
+}
+
+async function recordProviderReceipt(engine, hooks, manifest, active, detail, auxiliaryOwner = undefined) {
   const receipt = engine.reliability.providerTokenReceipt(manifest, active, detail);
   await hooks.persist('provider_token_receipt', receipt);
-  active.tokenReceipts.push(receipt);
-  active.tokenAccounting = engine.reliability.aggregateTokenReceipts(active.tokenReceipts);
+  const accountToTurn = auxiliaryOwner === undefined || (auxiliaryOwner && engine.active === auxiliaryOwner && !auxiliaryOwner.finalized);
+  if (accountToTurn) {
+    const turn = auxiliaryOwner ?? active;
+    turn.tokenReceipts.push(receipt);
+    turn.tokenAccounting = engine.reliability.aggregateTokenReceipts(turn.tokenReceipts);
+  }
   engine.telemetry?.record('provider.token_accounting', 'recorded', {
     receipt_id: receipt.receipt_id, role: receipt.role, outcome: receipt.outcome,
     measurement: receipt.accounting.measurement,
     measured_total_tokens: receipt.accounting.measured_total_tokens,
     estimated_unreported_tokens: receipt.accounting.estimated_unreported_tokens,
+    attribution: accountToTurn ? 'turn' : auxiliaryOwner ? 'late' : 'standalone',
   }, {
-    turnId: active.turnId, stepId: active.stepId, attemptId: receipt.attempt_id,
-    providerRequestId: active.logicalRequestId,
+    turnId: active?.turnId, stepId: active?.stepId, attemptId: receipt.attempt_id,
+    providerRequestId: active?.logicalRequestId,
   });
   return receipt;
 }

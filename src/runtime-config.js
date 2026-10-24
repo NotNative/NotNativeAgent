@@ -65,6 +65,7 @@ function applyConfiguration(engine, config, active) {
   engine.attachments.config = config.attachments;
   engine.attachments.router = new AttachmentObservationRouter(engine.router, undefined, {
     recordTokenReceipt: engine.recordProviderAttempt,
+    captureTokenReceiptOwner: engine.captureProviderAttemptOwner,
   });
   engine.memory.config = config.memory;
   engine.reviewer.semanticTimeoutMs = config.limits.semanticReviewMs;
