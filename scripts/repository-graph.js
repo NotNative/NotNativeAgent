@@ -36,7 +36,8 @@ const COMPONENTS = Object.freeze([
   )),
   component('integrations', 'Integration surfaces', 'Owns headless, NNO, sub-agent, and service boundaries.', (path) => (
     path === 'headless.js' || path.startsWith('integration-') || path.startsWith('nno-')
-    || path.startsWith('secret-broker-') || path.startsWith('session-broker') || path.startsWith('subagent-')
+    || path.startsWith('nnd-') || path === 'secret-broker.js' || path.startsWith('secret-broker-')
+    || path.startsWith('session-broker') || path.startsWith('subagent-')
   )),
   component('opencode-surface', 'OpenCode surface', 'Serves the OpenCode wire contract over live session engines.', matches('opencode/')),
   component('foundation', 'Product foundation', 'Provides shared configuration, contracts, telemetry, and product utilities.', () => true),
@@ -140,27 +141,31 @@ async function main() {
   const json = `${JSON.stringify(graph, null, 2)}\n`;
   const document = renderDocument(graph);
   if (process.argv.includes('--check')) {
-    const mismatches = [];
-    if (await existing(graphPath) !== json) mismatches.push(portable(relative(root, graphPath)));
-    if (await existing(documentPath) !== document) mismatches.push(portable(relative(root, documentPath)));
-    if (mismatches.length > 0) {
+    const [currentJson, currentDocument] = await Promise.all([existing(graphPath), existing(documentPath)]);
+    const freshness = graphFreshness(currentJson, currentDocument, json, document);
+    if (freshness === 'bootstrap') {
       // The graph artifacts are local-only (untracked): generate them when a fresh
-      // checkout has none so the quality gate's freshness check can proceed; real
-      // drift on a checkout that still has them fails with the run-command hint.
-      if (await existing(graphPath) === null || await existing(documentPath) === null) {
-        await mkdir(dirname(graphPath), { recursive: true });
-        await Promise.all([writeFile(graphPath, json, 'utf8'), writeFile(documentPath, document, 'utf8')]);
-        process.stdout.write(`repository graph generated for ${graph.counts.modules} modules\n`);
-        return;
-      }
-      throw new Error(`repository graph is stale: ${mismatches.join(', ')}; run npm run graph:build`);
+      // checkout has neither; a partial pair is never silently replaced.
+      await mkdir(dirname(graphPath), { recursive: true });
+      await Promise.all([writeFile(graphPath, json, 'utf8'), writeFile(documentPath, document, 'utf8')]);
+      process.stdout.write(`repository graph generated for ${graph.counts.modules} modules\n`);
+      return;
     }
+    const mismatches = [];
+    if (currentJson !== json) mismatches.push(portable(relative(root, graphPath)));
+    if (currentDocument !== document) mismatches.push(portable(relative(root, documentPath)));
+    if (mismatches.length > 0) throw new Error(`repository graph is stale: ${mismatches.join(', ')}; run npm run graph:build`);
     process.stdout.write(`repository graph is current for ${graph.counts.modules} modules\n`);
     return;
   }
   await mkdir(dirname(graphPath), { recursive: true });
   await Promise.all([writeFile(graphPath, json, 'utf8'), writeFile(documentPath, document, 'utf8')]);
   process.stdout.write(`repository graph written for ${graph.counts.modules} modules\n`);
+}
+
+export function graphFreshness(currentJson, currentDocument, expectedJson, expectedDocument) {
+  if (currentJson === null && currentDocument === null) return 'bootstrap';
+  return currentJson === expectedJson && currentDocument === expectedDocument ? 'current' : 'stale';
 }
 
 async function collectJavaScript(directory) {
