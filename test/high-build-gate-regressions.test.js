@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, posix, win32 } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import vm from 'node:vm';
@@ -82,6 +82,63 @@ test('release scan failure cannot return a partial file list for sealing', async
   await assert.rejects(collect('/denied'), /release file scan failed.*EACCES/u);
 });
 
+test('release scan prunes excluded trees before traversal', async () => {
+  const text = await source('release-gates.js');
+  const visited = [];
+  const collect = vm.runInNewContext(`${text.slice(text.indexOf('async function collect('), text.indexOf('function run('))}\ncollect`, {
+    readdir: async (directory) => {
+      visited.push(directory);
+      if (directory === '/root') return [
+        { name: 'src', isDirectory: () => true }, { name: 'node_modules', isDirectory: () => true },
+        { name: 'desktop', isDirectory: () => true },
+      ];
+      if (directory === '/root/src') return [{ name: 'product.js', isDirectory: () => false }];
+      throw new Error(`excluded directory was traversed: ${directory}`);
+    },
+    join: posix.join, relative: posix.relative, root: '/root',
+    RELEASE_EXCLUDED_PREFIXES: ['node_modules/', 'desktop/'],
+    RELEASE_INCLUDED_ROOT_FILES: new Set(), RELEASE_INCLUDED_PREFIXES: ['src/'],
+  });
+  assert.deepEqual(Array.from(await collect('/root')), ['/root/src/product.js']);
+  assert.deepEqual(visited, ['/root', '/root/src']);
+});
+
+test('release scan prunes excluded trees with Windows paths', async () => {
+  const text = await source('release-gates.js');
+  const root = 'D:\\repo';
+  const visited = [];
+  const collect = vm.runInNewContext(`${text.slice(text.indexOf('async function collect('), text.indexOf('function run('))}\ncollect`, {
+    readdir: async (directory) => {
+      visited.push(directory);
+      if (directory === root) return [
+        { name: 'docs', isDirectory: () => true },
+        { name: 'node_modules', isDirectory: () => true },
+      ];
+      if (directory === `${root}\\docs`) return [
+        { name: 'planning', isDirectory: () => true },
+        { name: 'INSTALLATION.md', isDirectory: () => false },
+      ];
+      throw new Error(`excluded directory was traversed: ${directory}`);
+    },
+    join: win32.join, relative: win32.relative, root,
+    RELEASE_EXCLUDED_PREFIXES: ['node_modules/', 'docs/planning/'],
+    RELEASE_INCLUDED_ROOT_FILES: new Set(), RELEASE_INCLUDED_PREFIXES: ['docs/'],
+  });
+  assert.deepEqual(Array.from(await collect(root)), [`${root}\\docs\\INSTALLATION.md`]);
+  assert.deepEqual(visited, [root, `${root}\\docs`]);
+});
+
+test('release gate reports unreadable required source as a gate error', async () => {
+  const text = await source('release-gates.js');
+  const errors = [];
+  const requiredText = vm.runInNewContext(`${text.slice(text.indexOf('async function requiredText('), text.indexOf('async function latestConformancePath('))}\nrequiredText`, {
+    readFile: async () => { throw Object.assign(new Error('denied'), { code: 'EACCES' }); },
+    join: (...parts) => parts.join('/'), root: '/root', errors,
+  });
+  assert.equal(await requiredText('src/product.js'), null);
+  assert.deepEqual(errors, ['src/product.js could not be read: EACCES']);
+});
+
 test('a conflicting release seal blocks hash rewriting even when other gates fail', async () => {
   const text = await source('release-gates.js');
   const errors = [];
@@ -131,13 +188,42 @@ test('release hash refresh remains possible with unrelated gate errors and stabl
   await finish(true, 1);
   assert.deepEqual(JSON.parse(JSON.stringify(calls)), [[false, false], 'hashes']);
 
-  const digestSource = text.slice(text.indexOf('async function candidateDigest('), text.indexOf('async function collect('));
+  const digestSource = text.slice(text.indexOf('async function candidateDigest('), text.indexOf('async function readReleaseFile('));
   const order = [];
   const candidateDigest = vm.runInNewContext(`${digestSource}\ncandidateDigest`, {
     collect: async () => ['a', 'A'], root: '/', relative: (_root, path) => path,
-    releaseEligible: () => true, readFile: async () => 'bytes',
+    releaseEligible: () => true, readReleaseFile: async () => 'bytes',
     createHash: () => ({ update(value) { if (value === 'a' || value === 'A') order.push(value); return this; }, digest: () => 'digest' }),
   });
   assert.equal(await candidateDigest(), 'digest');
   assert.deepEqual(order, ['A', 'a']);
+});
+
+test('release candidate digest reads one included file at a time', async () => {
+  const text = await source('release-gates.js');
+  const digestSource = text.slice(text.indexOf('async function candidateDigest('), text.indexOf('async function readReleaseFile('));
+  let active = 0;
+  let maximum = 0;
+  const candidateDigest = vm.runInNewContext(`${digestSource}\ncandidateDigest`, {
+    collect: async () => ['file-a', 'file-b', 'file-c'], root: '/', relative: (_root, path) => path,
+    releaseEligible: () => true,
+    readReleaseFile: async () => {
+      active += 1;
+      maximum = Math.max(maximum, active);
+      await new Promise((resolve) => setImmediate(resolve));
+      active -= 1;
+      return Buffer.from('bytes');
+    },
+    createHash: () => ({ update() { return this; }, digest: () => 'digest' }),
+  });
+  assert.equal(await candidateDigest(), 'digest');
+  assert.equal(maximum, 1);
+});
+
+test('release file read failure names the file and remains a gate error', async () => {
+  const text = await source('release-gates.js');
+  const readReleaseFile = vm.runInNewContext(`${text.slice(text.indexOf('async function readReleaseFile('), text.indexOf('async function collect('))}\nreadReleaseFile`, {
+    readFile: async () => { throw Object.assign(new Error('denied'), { code: 'EACCES' }); },
+  });
+  await assert.rejects(readReleaseFile('/root/VERSION', 'VERSION'), /release file could not be read: VERSION: EACCES/u);
 });

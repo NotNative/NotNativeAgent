@@ -22,14 +22,14 @@ const RELEASE_INCLUDED_ROOT_FILES = new Set([
   'THIRD_PARTY_NOTICES.md', 'SBOM.spdx.json', 'RELEASE_MANIFEST.sha256', 'RELEASE_VERSIONS.json',
   'install.ps1', 'install.sh', 'uninstall.ps1', 'uninstall.sh',
 ]);
-const releaseVersion = (await readFile(join(root, 'VERSION'), 'utf8')).trim();
+const releaseVersion = (await requiredText('VERSION'))?.trim() ?? '';
 const packageJson = await json('package.json');
 const sbom = await json('SBOM.spdx.json');
 const thirdPartyNotices = await readFile(join(root, 'THIRD_PARTY_NOTICES.md'), 'utf8').catch(() => '');
 const conformancePath = await latestConformancePath();
 const conformance = conformancePath ? await json(conformancePath) : null;
 const versionLedger = await json('RELEASE_VERSIONS.json');
-const productSource = await readFile(join(root, 'src/product.js'), 'utf8');
+const productSource = await requiredText('src/product.js') ?? '';
 if (packageJson && packageJson.license !== 'Apache-2.0') errors.push('package license is not Apache-2.0');
 if (packageJson && Object.keys(packageJson.dependencies ?? {}).length > 0) errors.push('runtime dependencies are not empty');
 if (sbom && sbom.spdxVersion !== 'SPDX-2.3') errors.push('SBOM format is invalid');
@@ -74,7 +74,8 @@ const writeRequested = process.argv.includes('--write-hashes');
 // red (e.g. operator-owned platform conformance awaiting its rerun); writing
 // hashes certifies nothing — this gate still exits 1 below on those errors,
 // and the verify path (no flag) still enforces the recorded hashes.
-await finishReleaseHashes(writeRequested, errors.length);
+try { await finishReleaseHashes(writeRequested, errors.length); }
+catch (error) { errors.push(`release file validation failed: ${error.message}`); }
 if (errors.length > 0) {
   process.stderr.write(`${errors.join('\n')}\n`); process.exitCode = 1;
 } else process.stdout.write('automated release-candidate gates passed\n');
@@ -115,10 +116,12 @@ async function writeHashes() {
   const files = (await collect(root)).filter((path) => (
     !path.endsWith('RELEASE_MANIFEST.sha256') && releaseEligible(path)
   ));
-  const lines = await Promise.all(files.sort().map(async (path) => {
-    const hash = createHash('sha256').update(await readFile(path)).digest('hex');
-    return `${hash} *${relative(root, path).replaceAll('\\', '/')}`;
-  }));
+  const lines = [];
+  for (const path of files.sort()) {
+    const name = relative(root, path).replaceAll('\\', '/');
+    const hash = createHash('sha256').update(await readReleaseFile(path, name)).digest('hex');
+    lines.push(`${hash} *${name}`);
+  }
   await writeFile(join(root, 'RELEASE_MANIFEST.sha256'), `${lines.join('\n')}\n`, 'utf8');
 }
 
@@ -136,10 +139,8 @@ async function verifyReleaseHashes() {
     .filter((path) => !path.endsWith('RELEASE_MANIFEST.sha256') && releaseEligible(path))
     .map((path) => relative(root, path).replaceAll('\\', '/')).sort();
   const differences = [];
-  const actualHashes = await Promise.all(actualPaths.map(async (name) => [
-    name, createHash('sha256').update(await readFile(join(root, name))).digest('hex'),
-  ]));
-  for (const [name, actualHash] of actualHashes) {
+  for (const name of actualPaths) {
+    const actualHash = createHash('sha256').update(await readReleaseFile(join(root, name), name)).digest('hex');
     const expectedHash = expected.get(name);
     if (!expectedHash) { differences.push(`release manifest missing file: ${name}`); continue; }
     if (actualHash !== expectedHash) differences.push(`release artifact mismatch: ${name}`);
@@ -191,11 +192,18 @@ async function candidateDigest() {
   })).filter((item) => !excluded.has(item.name) && releaseEligible(item.path))
     .sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
   const digest = createHash('sha256');
-  const contents = await Promise.all(files.map((file) => readFile(file.path)));
-  for (let index = 0; index < files.length; index += 1) {
-    digest.update(files[index].name); digest.update('\0'); digest.update(contents[index]); digest.update('\0');
+  for (const file of files) {
+    digest.update(file.name); digest.update('\0');
+    digest.update(await readReleaseFile(file.path, file.name)); digest.update('\0');
   }
   return digest.digest('hex');
+}
+
+async function readReleaseFile(path, name) {
+  try { return await readFile(path); }
+  catch (error) {
+    throw new Error(`release file could not be read: ${name}: ${error.code ?? error.message}`, { cause: error });
+  }
 }
 
 async function collect(directory) {
@@ -207,14 +215,18 @@ async function collect(directory) {
   }
   for (const entry of entries) {
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) result.push(...await collect(path));
+    if (entry.isDirectory()) {
+      if (!releaseEligible(path, true)) continue;
+      for (const child of await collect(path)) result.push(child);
+    }
     else result.push(path);
   }
   return result;
 }
 
-function releaseEligible(path) {
-  const name = relative(root, path).replaceAll('\\', '/');
+function releaseEligible(path, isDirectory = false) {
+  // Invariant: path.relative strips trailing separators on both POSIX and Windows.
+  const name = relative(root, path).replaceAll('\\', '/') + (isDirectory ? '/' : '');
   if (RELEASE_EXCLUDED_PREFIXES.some((prefix) => name.startsWith(prefix))) return false;
   return RELEASE_INCLUDED_ROOT_FILES.has(name)
     || RELEASE_INCLUDED_PREFIXES.some((prefix) => name.startsWith(prefix));
@@ -228,6 +240,11 @@ function run(command, args) {
 async function json(path) {
   try { return JSON.parse(await readFile(join(root, path), 'utf8')); }
   catch (error) { errors.push(`${path} could not be read as JSON: ${error.code ?? error.message}`); return null; }
+}
+
+async function requiredText(path) {
+  try { return await readFile(join(root, path), 'utf8'); }
+  catch (error) { errors.push(`${path} could not be read: ${error.code ?? error.message}`); return null; }
 }
 
 async function latestConformancePath() {
