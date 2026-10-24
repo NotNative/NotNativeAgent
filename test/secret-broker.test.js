@@ -289,6 +289,103 @@ test('durable secret mutations succeed when audit observation fails', async () =
   const created = await broker.create({ label: 'Still durable', kind: 'token', fields: { token: 'durable-secret' } });
   assert.equal((await broker.get(created.id)).label, 'Still durable');
   assert.equal(broker.lastAuditFailure, 'observer_unavailable');
+  await assert.rejects(broker.auditEvents(), { code: 'secret_audit_unavailable' });
+});
+
+test('secondary observer failure does not hide a complete file audit ledger', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-secret-observer-failure-'));
+  const broker = new SecretBroker({
+    vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json'), auditPath: join(root, 'audit.ndjson'),
+    audit: async () => { throw Object.assign(new Error('observer unavailable'), { code: 'observer_unavailable' }); },
+  });
+  await broker.create({ label: 'Observed', kind: 'token', fields: { token: 'private-value' } });
+  assert.equal(broker.lastAuditFailure, 'observer_unavailable');
+  assert.deepEqual((await broker.auditEvents()).map((entry) => entry.event), ['secret.created']);
+});
+
+test('failed secret uses are audited before plaintext reaches a consumer', async () => {
+  const { broker } = await fixture();
+  const created = await broker.create({ label: 'Audited failures', kind: 'token', fields: { token: 'private-value' } });
+  const request = { consumer: 'test', destination: 'https://example.test', purpose: 'test', reviewerDecisionId: 'review_1' };
+  await assert.rejects(broker.withSecret(created.id, null, async () => undefined), { code: 'secret_use_request_invalid' });
+  await broker.setEnabled(created.id, false);
+  let called = false;
+  await assert.rejects(broker.withSecret(created.id, request, async () => { called = true; }), { code: 'secret_revoked' });
+  assert.equal(called, false);
+  const failures = (await broker.auditEvents()).filter((entry) => entry.event === 'secret.used' && entry.outcome === 'failed');
+  assert.deepEqual(failures.map((entry) => entry.reason), ['secret_use_request_invalid', 'secret_revoked']);
+  assert.equal(JSON.stringify(failures).includes('private-value'), false);
+});
+
+test('an unreadable request property cannot mask a secret-use rejection or its audit event', async () => {
+  const { broker } = await fixture();
+  const secret = await broker.create({ label: 'Malformed request', kind: 'token', fields: { token: 'private-value' } });
+  const request = new Proxy({}, { get() { throw new Error('unreadable request'); } });
+  await assert.rejects(broker.withSecret(secret.id, request, async () => undefined), /unreadable request/u);
+  const rejected = (await broker.auditEvents()).find((entry) => entry.event === 'secret.used');
+  assert.equal(rejected.outcome, 'failed');
+  assert.equal(rejected.consumer, null);
+});
+
+test('denied secret mutations leave records unchanged and emit failure audit events', async () => {
+  const { broker } = await fixture();
+  const created = await broker.create({ label: 'Protected', kind: 'token', fields: { token: 'private-value' } });
+  const before = await broker.get(created.id);
+  const deny = () => { throw Object.assign(new Error('denied'), { code: 'secret_scope_denied' }); };
+  for (const action of [
+    () => broker.update(created.id, { label: 'Changed' }, deny),
+    () => broker.rotate(created.id, { token: 'replacement' }, deny),
+    () => broker.setEnabled(created.id, false, deny),
+    () => broker.remove(created.id, deny),
+  ]) await assert.rejects(action(), { code: 'secret_scope_denied' });
+  assert.deepEqual(await broker.get(created.id), before);
+  const failed = (await broker.auditEvents()).filter((entry) => entry.outcome === 'failed');
+  assert.deepEqual(failed.map((entry) => entry.event), [
+    'secret.updated', 'secret.rotated', 'secret.revoked', 'secret.deleted',
+  ]);
+  assert.equal(failed.every((entry) => entry.reason === 'secret_scope_denied'), true);
+});
+
+test('failed update audit retains the stored scope after a partially changed in-memory record', async () => {
+  const { broker } = await fixture();
+  const originalScope = { kind: 'user', id: 'original' };
+  const secret = await broker.create({ label: 'Scoped', kind: 'token', scope: originalScope,
+    fields: { token: 'private-value' } });
+  await assert.rejects(broker.update(secret.id, {
+    scope: { kind: 'user', id: 'attempted' }, metadata: { invalid: { nested: 'value' } },
+  }), { code: 'secret_metadata_invalid' });
+  assert.deepEqual((await broker.get(secret.id)).scope, originalScope);
+  const failed = (await broker.auditEvents()).find((entry) => entry.event === 'secret.updated');
+  assert.equal(failed.outcome, 'failed');
+  assert.deepEqual(failed.scope, originalScope);
+});
+
+test('post-mutation persistence uncertainty does not falsely audit a failed update', async () => {
+  const { broker } = await fixture();
+  const secret = await broker.create({ label: 'Original', kind: 'token', fields: { token: 'private-value' } });
+  const update = broker.vault.update.bind(broker.vault);
+  broker.vault.update = async (mutate) => {
+    await update(mutate);
+    throw Object.assign(new Error('completion acknowledgement lost'), { code: 'vault_ack_lost' });
+  };
+  await assert.rejects(broker.update(secret.id, { label: 'Changed' }), { code: 'vault_ack_lost' });
+  assert.equal((await broker.get(secret.id)).label, 'Changed');
+  const uncertain = (await broker.auditEvents()).find((entry) => entry.event === 'secret.updated');
+  assert.equal(uncertain.outcome, 'unknown');
+  assert.equal(uncertain.reason, 'vault_ack_lost');
+});
+
+test('consumer failure after plaintext handoff has an unknown effect outcome', async () => {
+  const { broker } = await fixture();
+  const secret = await broker.create({ label: 'Consumer', kind: 'token', fields: { token: 'private-value' } });
+  const request = { consumer: 'test', destination: 'https://example.test', purpose: 'test', reviewerDecisionId: 'review_1' };
+  await assert.rejects(broker.withSecret(secret.id, request, async () => {
+    throw Object.assign(new Error('remote response lost'), { code: 'consumer_ack_lost' });
+  }), { code: 'consumer_ack_lost' });
+  const uncertain = (await broker.auditEvents()).find((entry) => entry.event === 'secret.used');
+  assert.equal(uncertain.outcome, 'unknown');
+  assert.equal(uncertain.reason, 'consumer_ack_lost');
+  assert.equal((await broker.get(secret.id)).useCount, 0);
 });
 
 test('secret use requires the four-field envelope of non-empty strings', async () => {

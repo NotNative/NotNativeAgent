@@ -16,6 +16,7 @@ export class SecretBroker {
     this.realm = options.realm ?? LOCAL_SECRET_REALM;
     this.audit = options.audit ?? (() => undefined);
     this.lastAuditFailure = null;
+    this.auditGap = false;
   }
 
   async list() {
@@ -53,8 +54,7 @@ export class SecretBroker {
 
   async update(id, patch, authorize = null) {
     let updated;
-    await this.vault.update((vault) => {
-      const record = requireRecord(vault, this.realm, id);
+    await this.#updateRecord('secret.updated', id, (vault, record) => {
       authorize?.(publicSecret(record));
       const label = patch.label === undefined ? record.label : normalizeSecretLabel(patch.label);
       assertUniqueLabel(vault, this.realm, label, record);
@@ -70,8 +70,7 @@ export class SecretBroker {
 
   async rotate(id, fields, authorize = null) {
     let updated;
-    await this.vault.update(async (vault) => {
-      const record = requireRecord(vault, this.realm, id);
+    await this.#updateRecord('secret.rotated', id, async (vault, record) => {
       authorize?.(publicSecret(record));
       const validated = validateSecretFields(record.kind, fields);
       const now = new Date().toISOString();
@@ -85,20 +84,20 @@ export class SecretBroker {
 
   async setEnabled(id, enabled, authorize = null) {
     let updated;
-    await this.vault.update((vault) => {
-      const record = requireRecord(vault, this.realm, id);
+    const event = enabled ? 'secret.enabled' : 'secret.revoked';
+    await this.#updateRecord(event, id, (vault, record) => {
       authorize?.(publicSecret(record));
       record.enabled = Boolean(enabled); record.updatedAt = new Date().toISOString(); updated = record;
       return vault;
     });
-    await this.#record(enabled ? 'secret.enabled' : 'secret.revoked', updated, 'succeeded');
+    await this.#record(event, updated, 'succeeded');
     return publicSecret(updated);
   }
 
   async remove(id, authorize = null) {
     let removed;
-    await this.vault.update((vault) => {
-      const record = requireRecord(vault, this.realm, id); removed = record;
+    await this.#updateRecord('secret.deleted', id, (vault, record) => {
+      removed = record;
       authorize?.(publicSecret(record));
       vault.records = vault.records.filter((candidate) => candidate !== record);
       return vault;
@@ -108,24 +107,27 @@ export class SecretBroker {
   }
 
   async withSecret(id, request, consumer) {
-    if (typeof consumer !== 'function') throw new ContractError('secret_consumer_invalid', 'trusted secret consumer is required');
-    let record;
-    const vault = await this.vault.read();
-    record = requireRecord(vault, this.realm, id);
-    if (!record.enabled) throw new ContractError('secret_revoked', 'secret is disabled or revoked');
-    requireUseRequest(request);
-    const fields = await this.vault.decryptFields(record);
+    let record = null;
+    let consumerInvoked = false;
     const registered = [];
     try {
+      record = requireRecord(await this.vault.read(), this.realm, id);
+      if (typeof consumer !== 'function') throw new ContractError('secret_consumer_invalid', 'trusted secret consumer is required');
+      if (!record.enabled) throw new ContractError('secret_revoked', 'secret is disabled or revoked');
+      requireUseRequest(request);
+      const fields = await this.vault.decryptFields(record);
       for (const value of Object.values(fields)) {
         if (registerSecretValue(value, record.id)) registered.push(value);
       }
+      consumerInvoked = true;
       const result = await consumer(Object.freeze({ ...fields }));
       await this.#markUsed(record.id);
       await this.#record('secret.used', record, 'succeeded', request);
       return result;
     } catch (error) {
-      await this.#record('secret.used', record, 'failed', request, error.code ?? 'consumer_failed');
+      // Invariant: after the consumer receives plaintext, its external effect may have happened.
+      if (record) await this.#record('secret.used', record, consumerInvoked ? 'unknown' : 'failed',
+        request, error.code ?? 'consumer_failed');
       throw error;
     } finally {
       for (const value of registered) releaseSecretValue(value);
@@ -133,6 +135,7 @@ export class SecretBroker {
   }
 
   async auditEvents(limit = 500) {
+    if (this.auditGap) throw new ContractError('secret_audit_unavailable', 'secret audit observation has a known gap');
     if (!this.auditPath) return [];
     const bounded = Math.max(1, Math.min(Number(limit) || 500, 2_000));
     try {
@@ -152,28 +155,60 @@ export class SecretBroker {
     });
   }
 
+  async #updateRecord(event, id, mutate) {
+    let target = null;
+    let mutationReturned = false;
+    try {
+      return await this.vault.update(async (vault) => {
+        const record = requireRecord(vault, this.realm, id);
+        target = { id: record.id, realm: record.realm, scope: record.scope };
+        const next = await mutate(vault, record);
+        mutationReturned = true;
+        return next;
+      });
+    } catch (error) {
+      // Invariant: once the mutator returns, publication may have happened before a later error.
+      // A failed outcome would falsely claim that a committed change did not take effect.
+      if (target) await this.#record(event, target, mutationReturned ? 'unknown' : 'failed',
+        {}, error.code ?? 'mutation_failed');
+      throw error;
+    }
+  }
+
   async #record(event, record, outcome, request = {}, reason = null) {
     const entry = Object.freeze({
       format: 1, id: `secret_event_${randomUUID()}`, at: new Date().toISOString(), event, outcome,
-      realm: record.realm, secretId: record.id, scope: record.scope, consumer: request.consumer ?? null,
-      destination: request.destination ?? null, purpose: request.purpose ?? null,
-      sessionId: request.sessionId ?? null, reviewerDecisionId: request.reviewerDecisionId ?? null, reason,
+      realm: record.realm, secretId: record.id, scope: record.scope, consumer: auditField(request, 'consumer'),
+      destination: auditField(request, 'destination'), purpose: auditField(request, 'purpose'),
+      sessionId: auditField(request, 'sessionId'), reviewerDecisionId: auditField(request, 'reviewerDecisionId'), reason,
     });
+    let ledgerAppended = false;
     try {
       if (this.auditPath) {
         const auditRoot = dirname(this.auditPath);
         await mkdir(auditRoot, { recursive: true, mode: 0o700 });
         await chmod(auditRoot, 0o700);
         await appendFile(this.auditPath, `${JSON.stringify(entry)}\n`, { encoding: 'utf8', mode: 0o600 });
+        ledgerAppended = true;
         await chmod(this.auditPath, 0o600);
       }
       await this.audit(entry);
-      this.lastAuditFailure = null;
+      if (!this.auditGap) this.lastAuditFailure = null;
     } catch (error) {
-      // The vault mutation is already durable; do not report it as failed solely because observation degraded.
+      // Invariant: an audit failure cannot change a durable mutation or replace its original error.
       this.lastAuditFailure = error?.code ?? 'secret_audit_write_failed';
+      if (!ledgerAppended) this.auditGap = true;
     }
   }
+}
+
+function auditText(value) {
+  return typeof value === 'string' ? value.slice(0, 512) : null;
+}
+
+function auditField(request, key) {
+  // Security: a malformed request must not prevent its rejection from reaching the audit ledger.
+  try { return auditText(request?.[key]); } catch { return null; }
 }
 
 function assertUniqueLabel(vault, realm, label, excluded = null) {
