@@ -5,6 +5,7 @@ import { restoreSessionRecords } from '../src/persistence/session-history.js';
 import { journalEvents, transcriptEvents } from '../src/experience/transcript.js';
 import { estimateTokenValue } from '../src/reliability/context-token-measurement.js';
 import { compactWorkspaceConversation } from '../src/experience/context.js';
+import { registerSecretValue, releaseSecretValue } from '../src/redaction.js';
 
 test('AC-SESS-02 semantic transcript preserves partial text, tool pairs, compaction, and exact outcome order', () => {
   const records = [
@@ -70,6 +71,25 @@ test('durable journal projection restores tool activity, checkpoints, and one co
   assert.equal(projected[3].before_estimated_tokens, 777);
   assert.equal(projected[3].after_estimated_tokens,
     estimateTokenValue({ type: 'message' }) + estimateTokenValue('A bounded continuation.'));
+});
+
+test('historical tool targets use the live presentation redaction without changing journal evidence', () => {
+  const secret = 'history-target-secret-8917';
+  registerSecretValue(secret, 'history-target');
+  try {
+    const args = { path: `src/${secret}.js`, query: secret };
+    const records = [
+      record('tool_request', { type: 'tool_request', requestId: 'request-secret',
+        toolName: 'fs_search_text', args }),
+      record('tool_result', { type: 'tool_result', requestId: 'request-secret',
+        toolName: 'fs_search_text', status: 'succeeded' }),
+    ];
+    const [event] = journalEvents(records);
+    assert.equal(event.type, 'tool_status');
+    assert.doesNotMatch(event.target, /history-target-secret-8917/u);
+    assert.match(event.target, /nna-redacted:history-target/u);
+    assert.deepEqual(records[0].payload.args, args);
+  } finally { releaseSecretValue(secret); }
 });
 
 test('journal replay does not invent compaction token counts from byte-only history', () => {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
 import { presentedToolTarget } from '../engine/records.js';
+import { safeToolArguments } from '../tools/presentation.js';
 import { estimateTokenValue } from '../reliability/context-token-measurement.js';
 
 const RECORD = Object.freeze({ message: 'message', outcome: 'turn_outcome' });
@@ -118,7 +119,8 @@ function historicalToolEvent(item, requests) {
     type: 'tool_status', turn_id: turnIdentity(item),
     tool_request_id: item.requestId ?? null, provider_call_id: item.providerCallId ?? null,
     tool: item.toolName ?? request?.toolName ?? 'unknown_tool', status: item.status,
-    target: presentedToolTarget(item.toolName ?? request?.toolName, request?.args),
+    target: presentedToolTarget(item.toolName ?? request?.toolName,
+      request?.args && typeof request.args === 'object' ? safeToolArguments(request.args) : null),
     elapsed_ms: item.elapsedMs ?? null, effect_certainty: item.effectCertainty ?? null,
     reason_code: item.reasonCode ?? null,
     observation_outcome: item.metadata?.observation_outcome ?? null,
