@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -170,4 +170,93 @@ test('version rollback report names only artifacts whose restoration failed', as
     assert.doesNotMatch(error.message, /two/u);
     return true;
   });
+});
+
+test('overlapping version bumps cannot publish the same stamp', async () => {
+  const root = await fixture();
+  let release;
+  let entered;
+  const held = new Promise((resolve) => { release = resolve; });
+  const started = new Promise((resolve) => { entered = resolve; });
+  try {
+    const first = bumpVersion(root, { date: '20261231', iteration: 2 }, {
+      writeFile: async (path, content, encoding) => {
+        if (path === join(root, 'VERSION')) { entered(); await held; }
+        return writeFile(path, content, encoding);
+      },
+    });
+    await started;
+    await assert.rejects(bumpVersion(root, { date: '20261231', iteration: 2 }), /already active/u);
+    release();
+    await first;
+    assert.equal(await readFile(join(root, 'VERSION'), 'utf8'), '20261231-2\n');
+    await assert.rejects(readFile(join(root, '.nna-version-bump.lock'), 'utf8'), { code: 'ENOENT' });
+  } finally { release?.(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('version publication refuses drift and preserves an external edit', async () => {
+  const values = new Map([['one', 'old-one'], ['two', 'old-two']]);
+  await assert.rejects(writeSynchronized([
+    { path: 'one', before: 'old-one', after: 'new-one' },
+    { path: 'two', before: 'old-two', after: 'new-two' },
+  ], async (path, value) => {
+    values.set(path, value);
+    if (path === 'one' && value === 'new-one') values.set('two', 'external-edit');
+  }, { read: async (path) => values.get(path) }), /version source changed during publication/u);
+  assert.equal(values.get('one'), 'old-one');
+  assert.equal(values.get('two'), 'external-edit');
+});
+
+test('version rollback does not overwrite a third-party edit to a published file', async () => {
+  const values = new Map([['one', 'old-one'], ['two', 'old-two']]);
+  await assert.rejects(writeSynchronized([
+    { path: 'one', before: 'old-one', after: 'new-one' },
+    { path: 'two', before: 'old-two', after: 'new-two' },
+  ], async (path, value) => {
+    values.set(path, value);
+    if (path === 'two' && value === 'new-two') {
+      values.set('one', 'external-edit');
+      throw new Error('simulated later write failure');
+    }
+  }, { read: async (path) => values.get(path) }), (error) => {
+    assert.ok(error instanceof AggregateError);
+    assert.match(error.message, /one/u);
+    return true;
+  });
+  assert.equal(values.get('one'), 'external-edit');
+  assert.equal(values.get('two'), 'old-two');
+});
+
+test('atomic version publication preserves existing POSIX file modes', { skip: process.platform === 'win32' }, async () => {
+  const root = await fixture();
+  const path = join(root, 'src', 'product.js');
+  try {
+    await chmod(path, 0o755);
+    await bumpVersion(root, { date: '20261231', iteration: 2 });
+    assert.equal((await stat(path)).mode & 0o777, 0o755);
+    assert.equal(await readFile(path, 'utf8'), "export const VERSION = '20261231-2';\n");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('production atomic writer rolls back published files and releases its lock after a later failure', async () => {
+  const root = await fixture();
+  const paths = ['VERSION', 'package.json', join('src', 'product.js'), 'SBOM.spdx.json',
+    join('desktop', 'VERSION'), join('desktop', 'package.json')];
+  const before = await Promise.all(paths.map((path) => readFile(join(root, path), 'utf8')));
+  let productReads = 0;
+  try {
+    await assert.rejects(bumpVersion(root, { date: '20261231', iteration: 2 }, {
+      readFile: async (path, encoding) => {
+        if (path === join(root, 'src', 'product.js') && ++productReads === 2) {
+          throw new Error('simulated publication check failure');
+        }
+        return readFile(path, encoding);
+      },
+    }), /simulated publication check failure/u);
+    assert.deepEqual(await Promise.all(paths.map((path) => readFile(join(root, path), 'utf8'))), before);
+    for (const directory of [root, join(root, 'src'), join(root, 'desktop')]) {
+      assert.deepEqual((await readdir(directory)).filter((name) => name.includes('.nna-bump-')), []);
+    }
+    await assert.rejects(readFile(join(root, '.nna-version-bump.lock'), 'utf8'), { code: 'ENOENT' });
+  } finally { await rm(root, { recursive: true, force: true }); }
 });

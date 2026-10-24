@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile, writeFile } from 'node:fs/promises';
+import { open, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 export async function bumpVersion(root, options = {}, io = {}) {
+  return withVersionLock(root, () => bumpVersionLocked(root, options, io));
+}
+
+async function bumpVersionLocked(root, options, io) {
   const read = io.readFile ?? readFile;
-  const write = io.writeFile ?? writeFile;
+  const write = io.writeFile ?? atomicWrite;
   const versionPath = join(root, 'VERSION');
   const packagePath = join(root, 'package.json');
   const productPath = join(root, 'src', 'product.js');
@@ -55,14 +60,17 @@ export async function bumpVersion(root, options = {}, io = {}) {
     { path: sbomPath, before: originals[3], after: `${JSON.stringify(sbom, null, 2)}\n` },
     { path: desktopVersionPath, before: desktopOriginals[0], after: `${version}\n` },
     { path: desktopPackagePath, before: desktopOriginals[1], after: `${JSON.stringify(desktopPackageJson, null, 2)}\n` },
-  ], write);
+  ], write, io.writeFile ? {} : { read });
   return Object.freeze({ current, version });
 }
 
-export async function writeSynchronized(entries, write = writeFile) {
+export async function writeSynchronized(entries, write = writeFile, options = {}) {
   const attempted = [];
   try {
     for (const entry of entries) {
+      if (options.read && await options.read(entry.path, 'utf8') !== entry.before) {
+        throw new Error(`version source changed during publication: ${entry.path}`);
+      }
       // A write can truncate the destination before rejecting. Include that path in rollback.
       attempted.push(entry);
       await write(entry.path, entry.after, 'utf8');
@@ -70,13 +78,60 @@ export async function writeSynchronized(entries, write = writeFile) {
   } catch (error) {
     const rollbackFailures = []; const affected = [];
     for (const entry of [...attempted].reverse()) {
-      try { await write(entry.path, entry.before, 'utf8'); }
+      try {
+        if (options.read) {
+          const current = await options.read(entry.path, 'utf8');
+          if (current === entry.before) continue;
+          if (current !== entry.after) throw new Error(`version destination changed before rollback: ${entry.path}`);
+        }
+        await write(entry.path, entry.before, 'utf8');
+      }
       catch (rollbackError) { rollbackFailures.push(rollbackError); affected.push(entry.path); }
     }
     if (rollbackFailures.length > 0) {
       throw new AggregateError([error, ...rollbackFailures], `version update and rollback failed for: ${affected.join(', ')}`, { cause: error });
     }
     throw error;
+  }
+}
+
+async function withVersionLock(root, action) {
+  const path = join(root, '.nna-version-bump.lock');
+  let handle;
+  try { handle = await open(path, 'wx', 0o600); }
+  catch (error) {
+    if (error.code === 'EEXIST') throw new Error(`version bump is already active; verify no bump is running before removing ${path}`);
+    throw error;
+  }
+  try {
+    await handle.writeFile(`${process.pid}\n`, 'utf8');
+    await handle.sync();
+    return await action();
+  } finally {
+    try { await handle.close(); }
+    finally { await unlink(path); }
+  }
+}
+
+async function atomicWrite(path, content) {
+  const staged = `${path}.nna-bump-${process.pid}-${randomUUID()}.tmp`;
+  let handle;
+  try {
+    // Invariant: replacement preserves POSIX readability and executable bits of the source.
+    const mode = process.platform === 'win32' ? null : (await stat(path)).mode & 0o777;
+    handle = await open(staged, 'wx', 0o600);
+    await handle.writeFile(content, 'utf8');
+    if (mode !== null) await handle.chmod(mode);
+    await handle.sync();
+    await handle.close(); handle = null;
+    await rename(staged, path);
+    if (process.platform !== 'win32') {
+      const directory = await open(dirname(path), 'r');
+      try { await directory.sync(); } finally { await directory.close(); }
+    }
+  } finally {
+    if (handle) await handle.close();
+    await unlink(staged).catch((error) => { if (error.code !== 'ENOENT') throw error; });
   }
 }
 
