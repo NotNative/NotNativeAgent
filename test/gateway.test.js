@@ -1423,6 +1423,82 @@ test('replayed ordinal attach cannot select a different Console target', async (
   assert.equal(persisted.attachments['42'].targetId, 'original');
 });
 
+test('an attachment that cannot fit leaves no false uncertain replay marker', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-attach-full-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs') };
+  await mkdir(paths.gateway, { recursive: true });
+  const update = { update_id: 6, message: { text: '/attach 1', from: { id: 42 }, chat: { id: 42 } } };
+  const state = { version: 4, offset: 7, inbox: [update], attachments: {}, routes: {},
+    replies: [], operations: {}, suppressed: {} };
+  const entries = Array.from({ length: 6_000 }, (_, index) => [String(1_000 + index),
+    { targetId: 't'.repeat(70), alias: 'a'.repeat(70) }]);
+  const marker = { 6: { action: 'attach', targetId: 'selected' } };
+  let low = 0; let high = entries.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    state.attachments = Object.fromEntries(entries.slice(0, middle));
+    if (gatewayStateBytes({ ...state, operations: marker }) <= MAX_GATEWAY_STATE_BYTES) low = middle;
+    else high = middle - 1;
+  }
+  state.attachments = Object.fromEntries(entries.slice(0, low));
+  const gap = MAX_GATEWAY_STATE_BYTES - gatewayStateBytes({ ...state, operations: marker });
+  if (gap > 20) state.attachments['1000'].alias += 'a'.repeat(gap - 20);
+  const selected = { targetId: 'selected', brokerId: 'broker', id: 'session', alias: 'Selected' };
+  const attachment = { targetId: selected.targetId, brokerId: selected.brokerId,
+    sessionId: selected.id, alias: selected.alias };
+  assert.ok(gatewayStateBytes({ ...state, operations: marker }) <= MAX_GATEWAY_STATE_BYTES);
+  assert.ok(gatewayStateBytes({ ...state, operations: marker,
+    attachments: { ...state.attachments, 42: attachment } }) > MAX_GATEWAY_STATE_BYTES);
+  await writeFile(join(paths.gateway, 'state.json'), JSON.stringify(state));
+  const failures = [];
+  const gateway = new TelegramGateway({ paths,
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    sessionDirectory: { list: async () => [selected] },
+    logger: { async initialize() {}, record(event) { failures.push(event); }, async flush() {} },
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) { return pendingUntilAbort(signal); } },
+  });
+  await gateway.run();
+  const persisted = JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8'));
+  assert.deepEqual(persisted.operations, {});
+  assert.equal(persisted.attachments['42'], undefined);
+  assert.deepEqual(persisted.inbox, [update]);
+  assert.ok(failures.some((event) => event.type === 'gateway_update_failed' && event.code === 'gateway_state_full'));
+});
+
+test('a near-full state can detach when the combined revision fits', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-detach-full-'));
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs') };
+  await mkdir(paths.gateway, { recursive: true });
+  const update = { update_id: 6, message: { text: '/detach', from: { id: 42 }, chat: { id: 42 }, padding: '' } };
+  const state = { version: 4, offset: 7, inbox: [update],
+    attachments: { 42: { targetId: 'selected', alias: 'Selected', brokerId: 'b'.repeat(1_000) } }, routes: {},
+    replies: [], operations: {}, suppressed: {} };
+  update.message.padding = 'x'.repeat(MAX_GATEWAY_STATE_BYTES - gatewayStateBytes(state) - 20);
+  const marker = { 6: { action: 'detach', targetId: 'selected' } };
+  assert.ok(gatewayStateBytes(state) <= MAX_GATEWAY_STATE_BYTES);
+  assert.ok(gatewayStateBytes({ ...state, operations: marker }) > MAX_GATEWAY_STATE_BYTES);
+  assert.ok(gatewayStateBytes({ ...state, operations: marker, attachments: {} }) < MAX_GATEWAY_STATE_BYTES);
+  await writeFile(join(paths.gateway, 'state.json'), JSON.stringify(state));
+  const sent = [];
+  const gateway = new TelegramGateway({ paths,
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    api: { async getMe() { return { id: 1 }; },
+      async getUpdates(_offset, _timeout, signal) { return pendingUntilAbort(signal); },
+      async sendMessage(_chatId, text) { sent.push(text); } },
+  });
+  const running = gateway.run();
+  await waitUntil(() => sent.length === 1);
+  await gateway.shutdown(); await running;
+  const persisted = JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8'));
+  assert.deepEqual(persisted.attachments, {});
+  assert.deepEqual(persisted.operations, {});
+  assert.deepEqual(persisted.inbox, []);
+  assert.match(sent[0], /Detached from/u);
+});
+
 test('malformed context result after an attempted effect yields an uncertain durable reply', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-gateway-control-malformed-'));
   const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'),

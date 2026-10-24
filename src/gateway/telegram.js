@@ -317,30 +317,38 @@ export class TelegramGateway {
   }
 
   async #attach(chatId, target, receipt) {
-    this.pendingClears.delete(chatId);
-    await this.replay.beginControl(receipt.updateId, 'attach', target.targetId);
-    const prior = this.attachments.get(chatId);
-    this.attachments.set(chatId, { targetId: target.targetId, brokerId: target.brokerId, sessionId: target.id, alias: target.alias });
-    if (this.#stateBytes() > MAX_GATEWAY_STATE_BYTES) {
-      if (prior) this.attachments.set(chatId, prior); else this.attachments.delete(chatId);
-      throw retainedUpdateError('gateway_state_full');
-    }
-    try { await this.#saveState(); }
-    catch { if (prior) this.attachments.set(chatId, prior); else this.attachments.delete(chatId); throw retainedUpdateError('gateway_state_write_failed'); }
+    await this.#commitAttachment(chatId, receipt.updateId, 'attach', target.targetId,
+      { targetId: target.targetId, brokerId: target.brokerId, sessionId: target.id, alias: target.alias });
     await this.replay.queueReply(receipt.updateId, chatId, receipt.userId,
       `Attached to ${target.alias}. Messages now continue that Console conversation.`, target.alias);
   }
 
   async #detach(chatId, receipt) {
-    this.pendingClears.delete(chatId);
     const prior = this.attachments.get(chatId);
-    await this.replay.beginControl(receipt.updateId, 'detach', prior?.targetId ?? null);
-    this.attachments.delete(chatId);
-    try { await this.#saveState(); }
-    catch { if (prior) this.attachments.set(chatId, prior); throw retainedUpdateError('gateway_state_write_failed'); }
+    await this.#commitAttachment(chatId, receipt.updateId, 'detach', prior?.targetId ?? null, null);
     await this.replay.queueReply(receipt.updateId, chatId, receipt.userId, prior
       ? `Detached from ${prior.alias}. The standalone Telegram conversation is active again.`
       : 'Telegram is already using its standalone conversation.', '');
+  }
+
+  async #commitAttachment(chatId, updateId, action, targetId, attachment) {
+    const prior = this.attachments.get(chatId);
+    const priorOperation = this.replay.operations[updateId];
+    let measured = false;
+    // Invariant: the local selection and its replay marker share one durable revision.
+    try {
+      this.replay.operations[updateId] = { action, targetId };
+      if (attachment) this.attachments.set(chatId, attachment); else this.attachments.delete(chatId);
+      if (this.#stateBytes() > MAX_GATEWAY_STATE_BYTES) throw retainedUpdateError('gateway_state_full');
+      measured = true;
+      await this.#saveState();
+    } catch (error) {
+      if (prior) this.attachments.set(chatId, prior); else this.attachments.delete(chatId);
+      if (priorOperation) this.replay.operations[updateId] = priorOperation;
+      else delete this.replay.operations[updateId];
+      throw error?.retainUpdate ? error : retainedUpdateError(measured ? 'gateway_state_write_failed' : 'gateway_state_invalid');
+    }
+    this.pendingClears.delete(chatId);
   }
 
   async #callback(callback, chatId, receipt) {
