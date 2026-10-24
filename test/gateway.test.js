@@ -13,7 +13,9 @@ import {
 import { splitTelegramText, TelegramApi, telegramRetryDelayMs } from '../src/gateway/telegram-api.js';
 import { gatewayCompactionMessage, gatewaySessionId, TelegramGateway } from '../src/gateway/telegram.js';
 import { drainGatewayNotifications } from '../src/gateway/telegram-notifications.js';
-import { AttachedReplayState, loadGatewayState } from '../src/gateway/attached-replay.js';
+import { AttachedReplayState, gatewayStateBytes, loadGatewayState, MAX_GATEWAY_STATE_BYTES } from '../src/gateway/attached-replay.js';
+import { acceptGatewayUpdates } from '../src/gateway/inbox.js';
+import { gatewayStateSnapshot, queueGatewayStateWrite } from '../src/gateway/state-write.js';
 import { runGatewayContextAction } from '../src/gateway/context-actions.js';
 import { ConsoleSessionBroker, ConsoleSessionDirectory } from '../src/session-broker.js';
 import { readTelegramOutbox, reconcileTelegramNotifications, TelegramNotificationQueue } from '../src/notifications/telegram.js';
@@ -43,6 +45,40 @@ function pendingUntilAbort(signal) {
     signal.addEventListener('abort', () => reject(signal.reason), { once: true });
   });
 }
+
+test('Telegram admission measures the exact durable JSON format', async () => {
+  const updates = [1, 2].map((id) => ({ update_id: id,
+    message: { text: 'x'.repeat(524_100), from: { id: 42 }, chat: { id: 42 } } }));
+  const gateway = { offset: 0, inbox: [], attachments: new Map(),
+    replay: { routes: {}, replies: [], operations: {}, suppressed: {} } };
+  const combined = gatewayStateSnapshot(gateway, { offset: 3, inbox: updates });
+  assert.ok(Buffer.byteLength(JSON.stringify(combined)) <= MAX_GATEWAY_STATE_BYTES);
+  assert.ok(gatewayStateBytes(combined) > MAX_GATEWAY_STATE_BYTES);
+  assert.equal(gatewayStateBytes(combined), Buffer.byteLength(`${JSON.stringify(combined, null, 2)}\n`));
+  const blocked = await acceptGatewayUpdates(gateway, updates,
+    (overrides) => gatewayStateBytes(gatewayStateSnapshot(gateway, overrides)), async () => {});
+  assert.equal(blocked, true);
+  assert.equal(gateway.offset, 2);
+  assert.deepEqual(gateway.inbox, [updates[0]]);
+});
+
+test('queued Telegram state writes persist the snapshot from enqueue time', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-snapshot-'));
+  let release; const held = new Promise((resolve) => { release = resolve; });
+  const gateway = { statePath: join(root, 'state.json'), offset: 1, inbox: [], attachments: new Map(),
+    replay: { routes: {}, replies: [], operations: {}, suppressed: {} },
+    stateWrites: held, stateWriteFailure: null, running: true, controller: new AbortController() };
+  try {
+    const write = queueGatewayStateWrite(gateway);
+    gateway.offset = 2;
+    gateway.inbox.push({ update_id: 1, message: { text: 'later' } });
+    release();
+    await write;
+    const persisted = JSON.parse(await readFile(gateway.statePath, 'utf8'));
+    assert.equal(persisted.offset, 1);
+    assert.deepEqual(persisted.inbox, []);
+  } finally { release(); await rm(root, { recursive: true, force: true }); }
+});
 
 test('gateway refuses malformed or unsupported durable replay state without resetting its offset', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-gateway-corrupt-state-'));

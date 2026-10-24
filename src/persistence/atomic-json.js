@@ -9,7 +9,7 @@ export async function persistAtomicJson(path, value, options = {}) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const temporary = temporaryPath(path);
   try {
-    await writeSynced(temporary, serialized(value));
+    await writeSynced(temporary, serializeAtomicJson(value));
     if (options.backup) await copyExisting(path, `${path}.bak`);
     await replaceFile(temporary, path);
     await (options.syncDirectory ?? syncDirectory)(directory);
@@ -21,7 +21,7 @@ export async function persistAtomicJsonIfAbsent(path, value, options = {}) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const temporary = temporaryPath(path);
   try {
-    await writeSynced(temporary, serialized(value));
+    await writeSynced(temporary, serializeAtomicJson(value));
     await link(temporary, path);
     await (options.syncDirectory ?? syncDirectory)(directory);
   } finally { await rm(temporary, { force: true }).catch(() => undefined); }
@@ -58,7 +58,7 @@ async function copyExisting(source, destination) {
   });
 }
 
-function serialized(value) { return `${JSON.stringify(value, null, 2)}\n`; }
+export function serializeAtomicJson(value) { return `${JSON.stringify(value, null, 2)}\n`; }
 function temporaryPath(path) { return `${path}.tmp-${process.pid}-${randomUUID()}`; }
 
 async function replaceFile(source, destination) {

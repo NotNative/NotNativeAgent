@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { open } from 'node:fs/promises';
 import { ContractError } from '../ids.js';
+import { serializeAtomicJson } from '../persistence/atomic-json.js';
 import { telegramRetryDelayMs } from './telegram-api.js';
 
 export const MAX_GATEWAY_STATE_BYTES = 1_048_576;
@@ -88,7 +89,7 @@ export class AttachedReplayState {
   }
 }
 
-export function gatewayStateBytes(state) { return Buffer.byteLength(JSON.stringify(state)); }
+export function gatewayStateBytes(state) { return Buffer.byteLength(serializeAtomicJson(state)); }
 export function retainedUpdateError(code) { return Object.assign(new Error(code), { code, retainUpdate: true }); }
 
 export async function loadGatewayState(path) {
