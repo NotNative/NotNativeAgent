@@ -113,10 +113,16 @@ export class DreamStore {
     if (!current) throw new ContractError('dream_run_missing', 'dream run does not exist');
     if (TERMINAL.has(current.state)) return current;
     const now = new Date().toISOString();
-    this.db.prepare(`UPDATE dream_runs SET state=?, finished_at=?, result_code=?,
-      duration_ms=?, input_tokens=?, output_tokens=?, output_fingerprint=? WHERE id=?`)
+    const update = this.db.prepare(`UPDATE dream_runs SET state=?, finished_at=?, result_code=?,
+      duration_ms=?, input_tokens=?, output_tokens=?, output_fingerprint=? WHERE id=? AND state=?`)
       .run(state, now, detail.resultCode ?? null, detail.durationMs ?? null,
-        detail.inputTokens ?? null, detail.outputTokens ?? null, detail.outputFingerprint ?? null, id);
+        detail.inputTokens ?? null, detail.outputTokens ?? null, detail.outputFingerprint ?? null, id, current.state);
+    if (update.changes === 0) {
+      const winner = this.run(id);
+      if (!winner) throw new ContractError('dream_run_missing', 'dream run does not exist');
+      if (TERMINAL.has(winner.state)) return winner;
+      throw new ContractError('dream_state_invalid', 'dream run changed during completion');
+    }
     const finished = this.run(id);
     this.#observed('finished', finished);
     return finished;

@@ -102,6 +102,34 @@ test('dream store emits content-free lifecycle observations for every stage', as
   assert.equal(JSON.stringify(events).includes('prompt'), false);
 });
 
+test('concurrent dream completion preserves the first terminal result and emits no losing observation', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-finish-race-'));
+  const path = join(root, 'dream.db');
+  const observations = [];
+  const first = new DreamStore({ path, observe: (event) => observations.push(event) });
+  const second = new DreamStore({ path });
+  await first.initialize();
+  await second.initialize();
+  const run = first.begin({ runtimeKey: 'workspace-a', stage: 1 });
+  const originalRun = first.run.bind(first);
+  let raced = false;
+  first.run = (id) => {
+    const seen = originalRun(id);
+    if (!raced && id === run.id && seen.state === 'running') {
+      raced = true;
+      second.finish(id, 'failed', { resultCode: 'first_writer' });
+    }
+    return seen;
+  };
+  const result = first.finish(run.id, 'completed', { resultCode: 'late_writer' });
+  assert.equal(result.state, 'failed');
+  assert.equal(result.result_code, 'first_writer');
+  assert.equal(second.run(run.id).result_code, 'first_writer');
+  assert.deepEqual(observations.map((event) => event.phase), ['started']);
+  first.close();
+  second.close();
+});
+
 test('dream stage durability is independent from a failed telemetry observer', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-dream-observer-failure-'));
   const store = new DreamStore({
