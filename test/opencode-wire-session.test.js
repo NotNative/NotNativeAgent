@@ -150,8 +150,10 @@ test('prompt validation rejects empty, oversized, and non-text parts before any 
   assert.throws(() => wireSession.prompt([]), /at least one text part/u);
   assert.throws(() => wireSession.prompt([{ type: 'file', mime: 'text/x' }]), /only text prompt parts/u);
   assert.throws(() => wireSession.prompt([{ type: 'text', text: '' }]), /require text/u);
-  const oversized = { type: 'text', text: '.'.repeat(769) };
+  const oversized = { type: 'text', text: '.'.repeat(65) };
   assert.throws(() => wireSession.prompt([oversized]), /exceeds bounds/u);
+  assert.throws(() => wireSession.prompt([{ type: 'text', text: '.'.repeat(40) },
+    { type: 'text', text: '.'.repeat(24) }]), /combined prompt text exceeds bounds/u);
   assert.equal(bus.frames.length, 0, 'the recording stub emits nothing; validation rejects before lift-off');
 });
 

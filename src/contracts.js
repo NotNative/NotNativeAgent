@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, requireExternalId } from './ids.js';
 import { failureEnvelope } from './failure-envelope.js';
-import { physicalContextAllowance } from './reliability/context-budget.js';
+import { physicalWireAllowance } from './reliability/context-budget.js';
 import { declaredAttachmentKeys, validAttachmentFilename, validLocalAttachmentPath } from './attachment-descriptor.js';
 
 export const PROTOCOL_VERSION = Object.freeze({ major: 1, minor: 1 });
@@ -28,7 +28,7 @@ const INPUT_TYPES = new Set([
 export function parseProtocolLine(line, limits = {}) {
   if (typeof line !== 'string') throw new ContractError('malformed_json', 'input must be a text line');
   limits = isRecord(limits) ? limits : {};
-  const maxBytes = boundedProtocolLimit(limits.maxLineBytes, limits.contextWindowTokens ? physicalContextAllowance(limits.contextWindowTokens) : PROTOCOL_LIMITS.lineBytes);
+  const maxBytes = boundedProtocolLimit(limits.maxLineBytes, protocolTextAllowance(limits.contextWindowTokens, PROTOCOL_LIMITS.lineBytes));
   if (Buffer.byteLength(line, 'utf8') > maxBytes) {
     throw new ContractError('line_too_large', `input exceeds ${maxBytes} bytes`);
   }
@@ -188,7 +188,7 @@ function validateContent(value, contextWindowTokens = null, allowEmpty = false) 
   if (typeof value !== 'string' || value.length === 0 && !allowEmpty) {
     throw new ContractError('invalid_content', 'submit content must be non-empty text');
   }
-  if (Buffer.byteLength(value, 'utf8') > (contextWindowTokens ? physicalContextAllowance(contextWindowTokens) : PROTOCOL_LIMITS.contentBytes)) {
+  if (Buffer.byteLength(value, 'utf8') > protocolTextAllowance(contextWindowTokens, PROTOCOL_LIMITS.contentBytes)) {
     throw new ContractError('content_too_large', 'submit content exceeds token-derived input allowance');
   }
 }
@@ -209,7 +209,7 @@ function validateTree(root, limits = {}) {
     if (count > maxNodes || item.depth > maxDepth) {
       throw new ContractError('structure_too_large', 'input structure exceeds bounds');
     }
-    if (typeof item.value === 'string' && item.value.length > (limits.contextWindowTokens ? physicalContextAllowance(limits.contextWindowTokens) : PROTOCOL_LIMITS.stringChars)) {
+    if (typeof item.value === 'string' && item.value.length > protocolTextAllowance(limits.contextWindowTokens, PROTOCOL_LIMITS.stringChars)) {
       throw new ContractError('string_too_large', 'input string exceeds bound');
     }
     if (Array.isArray(item.value)) pushChildren(stack, item.value, item.depth);
@@ -220,6 +220,11 @@ function validateTree(root, limits = {}) {
 function boundedProtocolLimit(value, ceiling) {
   if (!Number.isSafeInteger(value) || value < 1) return ceiling;
   return Math.min(value, ceiling);
+}
+
+function protocolTextAllowance(contextWindowTokens, fallback) {
+  return Number.isSafeInteger(contextWindowTokens) && contextWindowTokens > 0
+    ? physicalWireAllowance(contextWindowTokens) : fallback;
 }
 
 function pushChildren(stack, values, depth) {

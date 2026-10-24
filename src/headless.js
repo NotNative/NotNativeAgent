@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { physicalContextAllowance } from './reliability/context-budget.js';
+import { physicalWireAllowance } from './reliability/context-budget.js';
 import { once } from 'node:events';
 import { access } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -22,10 +22,11 @@ export async function runHeadless(input, output, diagnostics, options = {}) {
   let activeRequestId = null; let unregisterFatalCleanup = () => undefined;
   const owned = new Set();
   try {
-    for await (const line of interruptibleLines(input, writer, () => options.maxLineBytes ?? (engine ? physicalContextAllowance(engine.lastContextMeasurement?.windowTokens ?? 65536) : 262_144))) {
+    for await (const line of interruptibleLines(input, writer, () => options.maxLineBytes
+      ?? (engine ? physicalWireAllowance(headlessWindowTokens(engine)) : 262_144))) {
       if (line.trim().length === 0) continue;
       activeRequestId = null;
-      const command = parseProtocolLine(line, engine ? { contextWindowTokens: engine.lastContextMeasurement?.windowTokens ?? 65536 } : {});
+      const command = parseProtocolLine(line, engine ? { contextWindowTokens: headlessWindowTokens(engine) } : {});
       activeRequestId = command.request_id;
       if (!engine) {
         const initialized = await initialize(command, writer, logger, options);
@@ -111,9 +112,26 @@ async function initialize(command, writer, logger, options) {
     output: (record) => writeObserved(writer, logger, record, sessionId),
   });
   await engine.initialize();
+  await refreshIngressWindow(engine);
   const ingress = new CanonicalIngress(engine);
   await writeObserved(writer, logger, initializedFrame(command, engine, config), sessionId);
   return { engine, ingress };
+}
+
+async function refreshIngressWindow(engine) {
+  // Why: the first submit reaches the byte reader before any turn has measured
+  // its model window. Discovery is optional and has a bounded fallback.
+  try {
+    const route = engine.router.candidates('primary', { requiredCapabilities: ['tools'] })[0];
+    if (!route) return;
+    const runtime = await engine.modelRuntime.resolve(engine.router, route);
+    engine.ingressContextWindowTokens = Number.isSafeInteger(runtime.contextWindowTokens) && runtime.contextWindowTokens > 0
+      ? runtime.contextWindowTokens : null;
+  } catch { engine.ingressContextWindowTokens = null; }
+}
+
+function headlessWindowTokens(engine) {
+  return engine.lastContextMeasurement?.windowTokens ?? engine.ingressContextWindowTokens ?? 65_536;
 }
 
 function initializedFrame(command, engine, config) {
@@ -214,8 +232,8 @@ export class ProtocolWriter {
 
   constructor(stream, limits = {}) {
     this.stream = stream;
-    this.maxQueuedBytes = limits?.maxQueuedBytes ?? physicalContextAllowance(32000);
-    this.maxLineBytes = limits?.maxLineBytes ?? physicalContextAllowance(32000);
+    this.maxQueuedBytes = limits?.maxQueuedBytes ?? physicalWireAllowance(32000);
+    this.maxLineBytes = limits?.maxLineBytes ?? physicalWireAllowance(32000);
     this.failure = new Promise((_resolve, reject) => { this.#rejectFailure = reject; });
     this.failure.catch(() => undefined);
     stream.on('error', (error) => this.#fail(error));

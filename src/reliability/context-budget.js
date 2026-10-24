@@ -11,6 +11,7 @@ const OUTPUT_RESERVE_RATIO = 0.125;
 const TARGET_MIN_OUTPUT_RESERVE_TOKENS = 1024;
 const MAX_OUTPUT_RESERVE_TOKENS = DEFAULT_MODEL_OUTPUT_TOKENS;
 const CONSERVATIVE_UNKNOWN_WINDOW_TOKENS = 65_536;
+const MAX_WIRE_BYTES_PER_CONTEXT_TOKEN = 64;
 
 export function contextBudget(config, routes, runtime, retryScale = 1, estimateScale = 1) {
   // Why: an unknown provider window cannot mean unbounded context pressure. A conservative
@@ -104,7 +105,14 @@ function boundedEstimateScale(value) {
 
 export function physicalContextAllowance(tokens) {
   const count = Number.isSafeInteger(tokens) && tokens > 0 ? tokens : CONSERVATIVE_UNKNOWN_WINDOW_TOKENS;
-  // A deliberately wide transport allowance covers vocabulary bytes and sixfold JSON escaping.
-  // Context admission still uses the measured request in tokens, never this allowance.
+  // Compatibility: context byte projections retain their historical scale; token accounting
+  // governs context admission. Protocol transport uses a separate, narrower envelope.
   return Math.min(Number.MAX_SAFE_INTEGER, count * 768);
+}
+
+export function physicalWireAllowance(tokens) {
+  const count = Number.isSafeInteger(tokens) && tokens > 0 ? tokens : CONSERVATIVE_UNKNOWN_WINDOW_TOKENS;
+  // Why: bound bytes retained before JSON parsing. This covers ordinary UTF-8 and escaped
+  // JSON with substantial headroom over the dependency-free ASCII token estimate.
+  return Math.min(Number.MAX_SAFE_INTEGER, count * MAX_WIRE_BYTES_PER_CONTEXT_TOKEN);
 }

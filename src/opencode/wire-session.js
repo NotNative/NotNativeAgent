@@ -7,12 +7,12 @@
 // frames ride bare; the sync prompt response resolves after the turn closes.
 import { ContractError, newId } from '../ids.js';
 import { createHash } from 'node:crypto';
-import { physicalContextAllowance } from '../reliability/context-budget.js';
+import { physicalWireAllowance } from '../reliability/context-budget.js';
 
 const QUEUE_LIMIT = 64;
 const HISTORY_LIMIT = 64;
 const MAX_PROMPT_PARTS = 128;
-const DEFAULT_PART_TEXT_ALLOWANCE = physicalContextAllowance(65_536);
+const DEFAULT_PART_TEXT_ALLOWANCE = physicalWireAllowance(65_536);
 const ZERO_TOKENS = Object.freeze({ total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } });
 
 export function createWireSession({ record, bus, info, version }) {
@@ -73,7 +73,7 @@ function observeEngineRecord(state, record) {
 }
 
 function admit(state, parts, input = {}) {
-  const text = buildPromptCommand(parts, { maxText: physicalContextAllowance(
+  const text = buildPromptCommand(parts, { maxText: physicalWireAllowance(
     state.record.engine?.ingressContextWindowTokens ?? state.record.engine?.lastContextMeasurement?.windowTokens ?? 65_536,
   ) });
   if (pendingCount(state) >= QUEUE_LIMIT) {
@@ -309,8 +309,12 @@ function composePromptText(parts, limits) {
   }
   if (parts.length > maxParts) throw new ContractError('opencode_prompt_parts_invalid', 'prompt exceeds part bounds');
   const texts = [];
+  let totalBytes = 0;
   for (const part of parts) {
-    texts.push(requireTextPart(part, maxText));
+    const text = requireTextPart(part, maxText);
+    totalBytes += Buffer.byteLength(text, 'utf8') + Number(texts.length > 0);
+    if (totalBytes > maxText) throw new ContractError('opencode_prompt_parts_invalid', 'combined prompt text exceeds bounds');
+    texts.push(text);
   }
   return texts.join('\n');
 }

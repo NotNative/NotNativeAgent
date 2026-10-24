@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SessionEngine } from '../src/engine.js';
 import { resolveManifest } from '../src/config.js';
-import { contextBudget } from '../src/reliability/context-budget.js';
+import { contextBudget, physicalContextAllowance, physicalWireAllowance } from '../src/reliability/context-budget.js';
 import { measureProviderEnvelope } from '../src/reliability/token-accounting.js';
 import { compactTranscript } from '../src/reliability/compaction.js';
 import { estimateTokenValue, boundedTokenText } from '../src/reliability/context-token-measurement.js';
@@ -38,6 +38,8 @@ test('physical allowances follow the token window rather than a fixed configured
   const budget = contextBudget({ limits: { maxContextBytes: 1024 } }, [], { contextWindowTokens: 1000000 });
   assert.equal(budget.windowTokens, 1000000);
   assert.ok(budget.hardLimitBytes > 1024);
+  assert.equal(budget.hardLimitBytes, physicalContextAllowance(budget.windowTokens));
+  assert.ok(physicalWireAllowance(budget.windowTokens) < budget.hardLimitBytes);
 });
 
 test('wire JSON escaping is physical overhead and does not inflate semantic text counting', () => {
@@ -72,4 +74,13 @@ test('headless parser accepts token-valid escaped text beyond the former line by
   const line = JSON.stringify({ version: '1.0', type: 'submit', request_id: 'large-input', content });
   assert.ok(Buffer.byteLength(line, 'utf8') > 262_144);
   assert.equal(parseProtocolLine(line, { contextWindowTokens: 300_000 }).content, content);
+});
+
+test('token-derived wire allowance rejects disproportionate protocol lines before JSON parsing', () => {
+  const windowTokens = 65_536;
+  const maxBytes = physicalWireAllowance(windowTokens);
+  assert.ok(maxBytes > 262_144);
+  assert.ok(maxBytes < 8_000_000);
+  const line = JSON.stringify({ version: '1.0', type: 'submit', request_id: 'oversized', content: 'x'.repeat(maxBytes) });
+  assert.throws(() => parseProtocolLine(line, { contextWindowTokens: windowTokens }), { code: 'line_too_large' });
 });

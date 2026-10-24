@@ -7,6 +7,7 @@ import { Readable, Writable } from 'node:stream';
 import test from 'node:test';
 import { runHeadless } from '../src/headless.js';
 import { resolveManifest } from '../src/config.js';
+import { physicalWireAllowance } from '../src/reliability/context-budget.js';
 
 const provider = { endpoint: 'http://127.0.0.1:9/v1', model: 'fixture', trust_zone: 'loopback' };
 
@@ -63,6 +64,28 @@ test('headless ingress errors retain the request id of the rejected control', as
   })}\n${JSON.stringify({ version: '1.0', type: 'shutdown', request_id: 'ingress-stop' })}\n`);
   const error = result.records.find((record) => record.type === 'error');
   assert.equal(error?.request_id, 'bad-config');
+});
+
+test('first headless submit uses the selected large model window before a turn is measured', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-headless-window-'));
+  const content = '"\\'.repeat(1_100_000);
+  const submit = JSON.stringify({ version: '1.0', type: 'submit', request_id: 'wide-submit', content });
+  assert.ok(Buffer.byteLength(submit) > physicalWireAllowance(65_536));
+  let stdout = '';
+  const output = new Writable({ write(chunk, _encoding, next) { stdout += chunk; next(); } });
+  const diagnostics = new Writable({ write(_chunk, _encoding, next) { next(); } });
+  try {
+    const initialize = JSON.stringify({ version: '1.0', type: 'initialize', request_id: 'wide-init',
+      manifest: { persistence: 'ephemeral', provider } });
+    await runHeadless(Readable.from([`${initialize}\n`, `${submit}\n`]), output, diagnostics, {
+      storeRoot: join(root, 'sessions'), reviewerRoot: join(root, 'reviewer'), hookRoot: join(root, 'hooks'),
+      providerFactory: () => ({ runtimeSnapshot: async () => ({ contextWindowTokens: 1_048_576, source: 'fixture' }),
+        async *stream() { yield { type: 'text', text: 'done' }; yield { type: 'terminal', finishReason: 'stop' }; } }),
+    });
+    const records = stdout.trim().split('\n').map(JSON.parse);
+    assert.equal(records.some((record) => record.request_id === 'wide-submit' && record.type === 'accepted'), true);
+    assert.equal(records.some((record) => record.request_id === 'wide-submit' && record.type === 'error'), false);
+  } finally { process.exitCode = undefined; await rm(root, { recursive: true, force: true }); }
 });
 
 test('host selects a saved provider by canonical manifest id and acknowledges the effective route', async () => {
