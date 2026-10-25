@@ -49,20 +49,9 @@ export class OpenAICompatibleProvider {
 
   async runtimeSnapshot(signal, model = this.profile.model) {
     const declared = declaredRuntime(this.profile, model);
-    if (this.profile.trustZone === 'public_network') {
-      return runtimeFromCapabilities(await this.capabilities(signal, model), declared, 'openai_models');
-    }
-    const root = this.profile.endpoint.replace(/\/+v1\/?$/u, '');
-    for (const [path, parser] of [['/api/v1/models', parseLmStudioV1], ['/api/v0/models', parseLmStudioV0]]) {
-      try {
-        const response = await this.#fetch(`${root}${path}`, { signal }, 'Discover provider runtime limits');
-        if (!response.ok) continue;
-        const snapshot = parser(await boundedResponseJson(response), model, declared);
-        if (snapshot) return snapshot;
-      } catch (error) {
-        if (signal?.aborted) throw error;
-      }
-    }
+    // Why: one discovery path for every compatible engine. Identifying the engine to ask
+    // it a private question meant a matching-but-empty answer could shadow the declared
+    // model card, so planning silently fell back to a conservative window.
     return runtimeFromCapabilities(await this.capabilities(signal, model), declared, 'openai_models');
   }
 
@@ -205,52 +194,6 @@ function runtimeFromCapabilities(capabilities, declared, source) {
     outputLimitTokens: knownPositiveInteger(capabilities.outputLimitTokens) ?? declared.outputLimitTokens,
     parallelCapacity: knownPositiveInteger(capabilities.parallelCapacity),
     source,
-  });
-}
-
-function parseLmStudioV1(body, model, declared) {
-  const entries = Array.isArray(body?.models) ? body.models.slice(0, 4096) : [];
-  for (const entry of entries) {
-    const instances = Array.isArray(entry?.loaded_instances) ? entry.loaded_instances.slice(0, 64) : [];
-    const selected = instances.find((item) => modelIdentityMatches(model, item?.id))
-      ?? (modelIdentityMatches(model, entry?.key) || modelIdentityMatches(model, entry?.selected_variant)
-        ? instances[0] : null);
-    const entryMatches = modelIdentityMatches(model, entry?.key)
-      || modelIdentityMatches(model, entry?.selected_variant);
-    if (!selected && !entryMatches) continue;
-    const contextWindowTokens = knownPositiveInteger(selected?.config?.context_length)
-      ?? knownPositiveInteger(entry?.max_context_length);
-    // Why: a matching key without LM Studio limits is not an LM Studio snapshot; the
-    // declared window from /v1/models must still reach planning.
-    if (contextWindowTokens === null) continue;
-    return Object.freeze({
-      ...declared,
-      contextWindowTokens,
-      outputLimitTokens: knownPositiveInteger(selected?.config?.max_output_tokens) ?? declared.outputLimitTokens,
-      parallelCapacity: knownPositiveInteger(selected?.config?.parallel),
-      source: 'lmstudio_v1',
-    });
-  }
-  return null;
-}
-
-function parseLmStudioV0(body, model, declared) {
-  const entries = Array.isArray(body?.data) ? body.data.slice(0, 4096) : [];
-  const selected = entries.find((item) => modelIdentityMatches(model, item?.id)
-    && (item?.state === undefined || item.state === 'loaded'));
-  if (!selected) return null;
-  const contextWindowTokens = knownPositiveInteger(selected.loaded_context_length)
-    ?? knownPositiveInteger(selected.context_length) ?? knownPositiveInteger(selected.max_context_length);
-  // Why: an OpenAI-compatible server also answers /api/v0/models with a plain model
-  // list. Claiming an LM Studio snapshot with no limits discarded the declared window
-  // that /v1/models reports, and planning then fell back to a 65k assumption.
-  if (contextWindowTokens === null) return null;
-  return Object.freeze({
-    ...declared,
-    contextWindowTokens,
-    outputLimitTokens: knownPositiveInteger(selected.max_output_tokens) ?? declared.outputLimitTokens,
-    parallelCapacity: knownPositiveInteger(selected.parallel),
-    source: 'lmstudio_v0',
   });
 }
 

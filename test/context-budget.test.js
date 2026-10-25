@@ -13,23 +13,6 @@ const route = Object.freeze({
   maxOutputTokens: 8192, budget: 1,
 });
 
-test('LM Studio runtime discovery uses the loaded per-request window and parallel capacity', async () => {
-  const seen = [];
-  const provider = new OpenAICompatibleProvider({
-    id: 'local', endpoint: 'http://127.0.0.1:1234/v1', model: 'qwen', trustZone: 'loopback', capabilities: {},
-  }, {}, { fetch: async (url) => {
-    seen.push(url);
-    return jsonResponse({ models: [{ key: 'qwen', loaded_instances: [{
-      id: 'qwen', config: { context_length: 131072, parallel: 4, max_output_tokens: 8192 },
-    }] }] });
-  } });
-  const snapshot = await provider.runtimeSnapshot(new AbortController().signal);
-  assert.equal(snapshot.contextWindowTokens, 131072);
-  assert.equal(snapshot.parallelCapacity, 4);
-  assert.equal(snapshot.source, 'lmstudio_v1');
-  assert.deepEqual(seen, ['http://127.0.0.1:1234/api/v1/models']);
-});
-
 test('an OpenAI-compatible server answering /api/v0/models keeps its declared window', async () => {
   // Regression: a plain model list on the LM Studio probe path produced a snapshot with
   // no limits, which discarded the 1M window from /v1/models and planned against 65k.
@@ -54,27 +37,20 @@ test('an OpenAI-compatible server answering /api/v0/models keeps its declared wi
   assert.equal(budget.compressionThresholdTokens, 406_630);
 });
 
-test('LM Studio runtime discovery accepts a model maximum without a loaded instance', async () => {
+test('every compatible engine is measured through the same model list', async () => {
+  // Invariant: discovery never identifies the engine. One endpoint path answers for all.
+  const seen = [];
   const provider = new OpenAICompatibleProvider({
     id: 'local', endpoint: 'http://127.0.0.1:1234/v1', model: 'qwen', trustZone: 'loopback', capabilities: {},
-  }, {}, { fetch: async () => jsonResponse({
-    models: [{ key: 'qwen', max_context_length: 262144, loaded_instances: [] }],
-  }) });
+  }, {}, { fetch: async (url) => {
+    seen.push(url);
+    return jsonResponse({ object: 'list', data: [{ id: 'qwen', max_model_len: 131_072 }] });
+  } });
   const snapshot = await provider.runtimeSnapshot(new AbortController().signal);
-  assert.equal(snapshot.contextWindowTokens, 262144);
-  assert.equal(snapshot.source, 'lmstudio_v1');
-});
-
-test('LM Studio runtime discovery selects the route model among loaded instances', async () => {
-  const provider = new OpenAICompatibleProvider({
-    id: 'local', endpoint: 'http://127.0.0.1:1234/v1', model: 'large', trustZone: 'loopback', capabilities: {},
-  }, {}, { fetch: async () => jsonResponse({ models: [
-    { key: 'large', loaded_instances: [{ id: 'large', config: { context_length: 300_000 } }] },
-    { key: 'small', loaded_instances: [{ id: 'small', config: { context_length: 16_000 } }] },
-  ] }) });
-  const snapshot = await provider.runtimeSnapshot(new AbortController().signal, 'small');
-  assert.equal(snapshot.contextWindowTokens, 16_000);
-  assert.equal(snapshot.source, 'lmstudio_v1');
+  assert.equal(snapshot.contextWindowTokens, 131_072);
+  assert.equal(snapshot.source, 'openai_models');
+  assert.equal(snapshot.parallelCapacity, null, 'no engine-private capacity is claimed');
+  assert.deepEqual(seen, ['http://127.0.0.1:1234/v1/models']);
 });
 
 test('OpenAI-compatible model cards normalize common context and output limit fields', async () => {
@@ -162,7 +138,7 @@ test('model runtime registry caches normalized discovery and degrades safely', a
   const registry = new ModelRuntimeRegistry({ ttlMs: 60_000, timeoutMs: 50 });
   const router = { provider: () => ({ runtimeSnapshot: async () => {
     calls += 1;
-    return { contextWindowTokens: 65536, parallelCapacity: 2, source: 'lmstudio_v1' };
+    return { contextWindowTokens: 65536, parallelCapacity: 2, source: 'openai_models' };
   } }) };
   const first = await registry.resolve(router, route, new AbortController().signal);
   const second = await registry.resolve(router, route, new AbortController().signal);

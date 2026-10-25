@@ -324,11 +324,10 @@ admission remains Primary-first and uses an assigned Vision profile only when Pr
 process the image.
 
 The global `context_limit_bytes` remains an independent safety ceiling. Before provider
-work, NNA queries a short-lived provider-neutral runtime snapshot. LM Studio endpoints use
-`/api/v1/models`, then `/api/v0/models`, then generic `/v1/models`; the loaded
-`context_length` is treated as a per-request window and is never divided by `parallel`.
-LM Studio's model-level `max_context_length` remains authoritative when no loaded-instance
-record is present. Generic OpenAI-compatible model cards have no standard limit fields, so NNA
+work, NNA queries a short-lived provider-neutral runtime snapshot from the model list at
+`/v1/models`. Discovery never identifies the engine: one request path answers for every
+compatible server, so a server that also exposes a private endpoint cannot shadow the
+declared model card. Generic OpenAI-compatible model cards have no standard limit fields, so NNA
 accepts a bounded explicit compatibility vocabulary. Total-context forms include
 `context_length`, `context_window`, `max_context_length`, `max_context_window`,
 `max_model_len`, `max_total_tokens`, `max_sequence_length`, `context_size`, and llama.cpp's
@@ -339,11 +338,9 @@ OpenRouter-style `top_provider` limits take precedence over aggregate model limi
 NNA deliberately does not interpret `max_input_tokens`, `max_prompt_tokens`, or
 `input_token_limit` as a total context window because reserving output from an input-only limit
 would double-count that reserve. Missing or malformed values retain the conservative fallback.
-  The reported parallel value establishes the shared scheduler capacity for the exact loaded
-  provider/model resource when NNA launches concurrent sub-agents. This permits independent
-  exploration agents to use the model host's real parallel slots without a separate hard-coded
-  agent count. When discovery is unavailable, configured concurrency remains the conservative
-  fallback and sub-agent batches execute sequentially.
+When a model card reports no parallel capacity, NNA schedules one request at a time for that
+resource; configured concurrency remains the conservative fallback and sub-agent batches
+execute sequentially.
 NNA reserves the route's bounded output allowance and manages prompt pressure in progressive
 stages. The request ceiling is automatically reduced when necessary so input plus reserved
 output fit a small discovered context window; explicit lower route/provider limits remain

@@ -94,7 +94,7 @@ function normalizeSnapshot(route, value = {}) {
     source: typeof value.source === 'string' ? value.source : 'provider',
     // Why: model-card limits are provider-owned runtime facts. Their spelling is
     // non-standard, but a recognized positive value is not an NNA estimate.
-    authoritative: ['lmstudio_v1', 'lmstudio_v0', 'openai_models'].includes(value.source),
+    authoritative: ['openai_models'].includes(value.source),
   });
 }
 
