@@ -65,6 +65,49 @@ test('receipt pressure preserves schema-valid native tool request arguments exac
   assert.equal(Object.hasOwn(request.args, 'ledgerRef'), false);
 });
 
+test('compression projects completed turns so older history cannot bypass every tier', () => {
+  // Regression: only the active turn was compressed, so a long session reached
+  // compaction with its bulk still intact.
+  const records = [
+    { type: 'message', role: 'user', turnId: 'turn-old-1', content: 'first request' },
+    { type: 'message', role: 'assistant', turnId: 'turn-old-1', stepId: 'o1-s1', content: 'first answer with a long explanation' },
+    { type: 'tool_request', turnId: 'turn-old-1', stepId: 'o1-s1', requestId: 'r-o1', providerCallId: 'c-o1', toolName: 'fs_read', args: { path: 'old.txt' } },
+    { type: 'tool_result', turnId: 'turn-old-1', stepId: 'o1-s1', requestId: 'r-o1', providerCallId: 'c-o1', toolName: 'fs_read', toolLifecycleStatus: 'succeeded', content: 'x'.repeat(4_000) },
+    { type: 'message', role: 'user', turnId: 'turn-now', content: 'current request' },
+    { type: 'message', role: 'assistant', turnId: 'turn-now', stepId: 'n-s1', content: 'current step' },
+  ];
+  const projected = projectActiveTurn(records, { turnId: 'turn-now', stepId: 'n-s1', tier: 'receipts' });
+  // The completed turn is demoted, not passed through untouched.
+  assert.notStrictEqual(projected.records[3], records[3]);
+  assert.match(projected.records[3].content, /excerpt|omitted|ledger/u);
+  // The newest active turn stays hot.
+  assert.strictEqual(projected.records[5], records[5]);
+  assert.equal(projected.records[1].content.startsWith('first answer'), true, 'assistant prose is bounded, not discarded');
+});
+
+test('aggressive pressure removes more than checkpoint pressure', () => {
+  const records = [
+    { type: 'message', role: 'user', turnId: 'turn-old', content: 'older objective' },
+    { type: 'message', role: 'assistant', turnId: 'turn-old', stepId: 'o-s1', content: 'older assistant prose that is long enough to matter '.repeat(20) },
+    { type: 'tool_request', turnId: 'turn-old', stepId: 'o-s1', requestId: 'r-1', providerCallId: 'c-1', toolName: 'fs_read', args: { path: 'a.txt' } },
+    { type: 'tool_result', turnId: 'turn-old', stepId: 'o-s1', requestId: 'r-1', providerCallId: 'c-1', toolName: 'fs_read', toolLifecycleStatus: 'succeeded', content: 'y'.repeat(3_000) },
+    { type: 'message', role: 'user', turnId: 'turn-now', content: 'continue' },
+    { type: 'message', role: 'assistant', turnId: 'turn-now', stepId: 'n-s1', content: 'working on the release gate '.repeat(30) },
+    { type: 'message', role: 'assistant', turnId: 'turn-now', stepId: 'n-s2', content: 'latest step result' },
+    { type: 'message', role: 'user', turnId: 'turn-fresh', content: 'next request' },
+    { type: 'message', role: 'assistant', turnId: 'turn-fresh', stepId: 'f-s1', content: 'next answer' },
+  ];
+  const bytes = (items) => Buffer.byteLength(JSON.stringify(items), 'utf8');
+  const tiers = ['receipts', 'checkpoint', 'aggressive']
+    .map((tier) => ({ tier, size: bytes(projectActiveTurn(records, { turnId: 'turn-fresh', tier }).records) }));
+  // Invariant: a higher measured tier never leaves a larger context than a lower one.
+  assert.ok(tiers[1].size < tiers[0].size, `${tiers[1].tier} must be smaller than ${tiers[0].tier}`);
+  assert.ok(tiers[2].size < tiers[1].size, `${tiers[2].tier} must be smaller than ${tiers[1].tier}`);
+  const aggressive = projectActiveTurn(records, { turnId: 'turn-fresh', tier: 'aggressive' });
+  assert.equal(aggressive.records.at(-1).content, records.at(-1).content, 'the newest assistant message stays exact');
+  assert.ok(aggressive.records.some((item) => item.type === 'context_checkpoint'), 'the checkpoint carries the dropped evidence');
+});
+
 test('checkpoint pressure journals settled work and retains only hot active steps in prompt projection', () => {
   const records = fixture();
   const projected = projectActiveTurn(records, { turnId: 'turn-1', stepId: 'step-4', tier: 'checkpoint' });

@@ -45,18 +45,32 @@ export function projectActiveTurn(records, options) {
     .filter((entry) => recordTurnId(entry.item) === options.turnId);
   if (active.length === 0) return unchanged(records, tier, options.turnId);
   const steps = orderedSteps(active);
-  const keepCount = ({ receipts: 3, checkpoint: 2 }[tier] ?? 1);
+  const keepCount = ({ receipts: 3, checkpoint: 2, aggressive: 1 }[tier] ?? 1);
   const hotSteps = new Set(steps.slice(-keepCount));
-  const cold = new Set(active.filter((entry) => isCold(entry.item, hotSteps)).map((entry) => entry.index));
+  const completed = completedTurnIndexes(records, options.turnId);
+  // Invariant: the hot window protects only the newest active-turn steps. Completed
+  // turns carry no step from this turn, so they demote first and the projection
+  // measures the whole conversation rather than one turn's tail. Duplicate detection
+  // keeps its original hot-step contract; completed turns are never protected.
+  const cold = new Set(records.map((item, index) => ({ item, index }))
+    .filter((entry) => completed.has(entry.index) || isCold(entry.item, hotSteps)).map((entry) => entry.index));
   if (cold.size === 0) return unchanged(records, tier, options.turnId);
   const checkpoint = createActiveCheckpoint(records, cold, options, tier);
   const protectedIndexes = new Set(records.map((_item, index) => index).filter((index) => !cold.has(index)));
-  const duplicates = tier === 'receipts'
+  // Invariant: the ladder reduces monotonically. Each tier keeps a strictly smaller
+  // view than the one below it, so a higher measured tier can never leave more context.
+  const duplicates = tier === 'receipts' || tier === 'aggressive'
     ? projectDuplicateToolResults(records, protectedIndexes)
     : { records, duplicateRecords: 0, bytesSaved: 0 };
+  // The checkpoint projection carries only operator intent and the hot steps; the
+  // checkpoint body replaces every cold record. Aggressive keeps the same cold
+  // handling and additionally bounds the hot-window assistant prose, which receipts
+  // would otherwise have left exact.
   const projected = tier === 'receipts'
     ? receiptProjection(duplicates.records, cold)
-    : checkpointProjection(records, cold, checkpoint);
+    : tier === 'aggressive'
+      ? suppressHotAssistantProse(boundOperatorDirectives(checkpointProjection(duplicates.records, cold, checkpoint), options.turnId), hotSteps, cold)
+      : checkpointProjection(duplicates.records, cold, checkpoint);
   const evidenceRetention = measureEvidenceRetention(records, projected, options.turnId);
   return Object.freeze({
     records: Object.freeze(projected), checkpoint, tier,
@@ -65,6 +79,30 @@ export function projectActiveTurn(records, options) {
     duplicateResultBytesSaved: duplicates.bytesSaved,
     sourceFingerprint: checkpoint.sourceFingerprint, evidenceRetention,
   });
+}
+
+// Why: the checkpoint tier keeps the hot window verbatim. Aggressive is the same
+// projection with that window's assistant prose bounded in place, so the tier above
+// checkpoint is strictly smaller while the newest tool exchange stays exact.
+function suppressHotAssistantProse(records, hotSteps, cold) {
+  return records.map((item, index) => {
+    if (cold.has(index) || item.type !== 'message' || item.role !== 'assistant') return item;
+    if (item.metadata?.compacted === true || item.pressureCompacted === true) return item;
+    return { ...item, content: boundedHeadTail(item.content ?? '', 512), pressureCompacted: true };
+  });
+}
+
+// Why: the hot window protects only the newest active-turn steps. Completed turns
+// carry no step from this turn, so they demote first and the projection measures the
+// whole conversation rather than one turn's tail. Duplicate detection keeps its
+// original hot-step contract; completed turns are never protected from demotion.
+function completedTurnIndexes(records, activeTurnId) {
+  const completed = new Set();
+  for (let index = 0; index < records.length; index += 1) {
+    const turnId = recordTurnId(records[index]);
+    if (turnId && turnId !== activeTurnId) completed.add(index);
+  }
+  return completed;
 }
 
 function receiptProjection(records, cold) {
@@ -96,17 +134,34 @@ function checkpointProjection(records, cold, checkpoint) {
   return projected;
 }
 
+// Why: a bounded operator directive is the last exact record above the checkpoint tier.
+// Aggressive replaces it with the same statement the checkpoint already carries, so the
+// ladder keeps reducing after every other record has been projected.
+function boundOperatorDirectives(records, turnId) {
+  return records.map((item) => {
+    if (recordTurnId(item) !== turnId || item.type !== 'message' || item.role !== 'user') return item;
+    if (item.metadata?.compacted === true || item.pressureCompacted === true) return item;
+    return { ...item, content: boundedHeadTail(item.content ?? '', 512), pressureCompacted: true };
+  });
+}
+
 function createActiveCheckpoint(records, cold, options, tier) {
   const selected = [...cold].sort((a, b) => a - b).map((index) => records[index]);
   const { requests } = toolExchanges(records);
   const operator = records.filter((item) => recordTurnId(item) === options.turnId
     && item.type === 'message' && item.role === 'user').at(0);
+  // Invariant: the aggressive checkpoint carries fewer retained lines than the
+  // checkpoint tier, so the ladder continues to reduce after every record is projected.
+  const aggressive = tier === 'aggressive';
+  const progressLimit = aggressive ? 3 : 6;
+  const toolsLimit = aggressive ? 8 : 20;
+  const excerptLimit = aggressive ? 96 : 192;
   const progress = selected.filter((item) => item.type === 'message' && item.role === 'assistant')
-    .map((item) => boundedHeadTail(item.content ?? '', 256)).filter(Boolean).slice(-6);
-  const tools = selected.filter((item) => item.type === 'tool_result').slice(-20).map((item) => {
+    .map((item) => boundedHeadTail(item.content ?? '', aggressive ? 160 : 256)).filter(Boolean).slice(-progressLimit);
+  const tools = selected.filter((item) => item.type === 'tool_result').slice(-toolsLimit).map((item) => {
     const request = requests.get(item);
     const target = requestTarget(request);
-    const excerpt = boundedHeadTail(item.content ?? '', 192).replace(/\s+/gu, ' ').trim();
+    const excerpt = boundedHeadTail(item.content ?? '', excerptLimit).replace(/\s+/gu, ' ').trim();
     return Object.freeze({
       tool: item.toolName ?? request?.toolName ?? 'unknown', toolLifecycleStatus: toolLifecycleStatus(item) ?? 'unknown',
       requestId: item.requestId ?? item.providerCallId ?? null, target,

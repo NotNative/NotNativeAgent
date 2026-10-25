@@ -4,7 +4,11 @@ import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { redactExtensionData, redactText, redactionMayIntroduceSearchText } from './redaction.js';
 
 const MAX_QUERY = 512;
-const MAX_SCAN_RECORDS = 50_000;
+// Why: depth costs time, not a record count. A cooperative deadline bounds the walk
+// the way the reference harnesses do, so a long conversation cannot hide its oldest
+// evidence behind an arbitrary window while a short one pays for nothing.
+const DEFAULT_SCAN_BUDGET_MS = 30_000;
+const MAX_INLINE_BYTES = 4_096;
 const MAX_SNIPPET = 720;
 const DEFAULT_RESULTS = 8;
 const MAX_RESULTS = 20;
@@ -30,6 +34,7 @@ function searchDefinition(control) {
       query: { type: 'string', minLength: 1, maxLength: MAX_QUERY, description: 'Required words or phrase to find in older conversation records.' },
       limit: { type: 'integer', minimum: 1, maximum: MAX_RESULTS, description: `Maximum matching records to return. Defaults to ${DEFAULT_RESULTS}.` },
       types: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: MAX_TYPES, description: 'Optional exact record-type filters, such as message or tool_result.' },
+      budget_ms: { type: 'integer', minimum: 1, maximum: 60_000, description: `Cooperative scan budget in milliseconds. Defaults to ${DEFAULT_SCAN_BUDGET_MS}; the walk stops and reports scan_truncated when it expires.` },
     }, ['query'], async (args, signal) => {
       const records = transcript(control);
       const result = await cooperativeSearchHistory(records, args, signal);
@@ -47,13 +52,13 @@ function readDefinition(control) {
   return definition('session_read_history',
     'Read one record by record_index or a receipt ledger_ref. Ledger lookup selects the exact tool result. Optionally include neighboring records.', {
       record_index: { type: 'integer', minimum: 0, description: 'Exact index from session_search_history. Supply either record_index or ledger_ref, not both.' },
-      ledger_ref: { type: 'string', minLength: 1, maxLength: 256, description: 'Exact receipt ledger_ref (request or provider-call ID). Searches the newest 50000 retained records.' },
+      ledger_ref: { type: 'string', minLength: 1, maxLength: 256, description: 'Exact receipt ledger_ref (request or provider-call ID). The lookup walks newest-first under a cooperative time budget.' },
       surrounding: { type: 'integer', minimum: 0, maximum: 3, description: 'Neighboring records to include on each side. Defaults to 0.' },
     }, [], async (args, signal) => {
       const records = transcript(control);
       const recordIndex = args.ledger_ref === undefined ? args.record_index : await ledgerRecordIndex(records, args.ledger_ref, signal);
       if (recordIndex < 0 || recordIndex >= records.length) {
-        throw new ContractError('session_history_record_missing', 'record is unavailable in retained history; ledger_ref lookup searches the newest 50000 records');
+        throw new ContractError('session_history_record_missing', 'record is unavailable in retained history; ledger_ref lookup walks newest-first under a cooperative time budget');
       }
       const surrounding = args.surrounding ?? 0;
       const start = Math.max(0, recordIndex - surrounding);
@@ -96,16 +101,23 @@ function* historyScan(records, input, signal) {
     throw new ContractError('session_history_limit_invalid', `history search limit must be between 1 and ${MAX_RESULTS}`);
   }
   const types = normalizeTypes(input.types);
-  const start = Math.max(0, records.length - MAX_SCAN_RECORDS);
+  const deadline = cooperativeDeadline(input.budget_ms);
+  // Invariant: a deadline-bounded walk starts at the oldest record; only the
+  // cooperative budget may stop it early, so old evidence stays reachable.
+  const start = 0;
   const terms = [...new Set(query.toLowerCase().split(/[^\p{L}\p{N}_.:/-]+/u)
     .filter(Boolean))].slice(0, MAX_QUERY_TERMS);
   const phrase = query.toLowerCase();
   const redactionMayMatch = redactionMayIntroduceSearchText([phrase, ...terms]);
   const matches = [];
   let searchTextTruncatedRecords = 0;
+  let scanned = 0;
+  let budgetExhausted = false;
   for (let index = start; index < records.length; index += 1) {
     if ((index - start) % 32 === 0) yield;
     assertNotCancelled(signal);
+    if (deadline.expired()) { budgetExhausted = true; break; }
+    scanned += 1;
     const record = records[index];
     const type = String(record?.type ?? 'unknown');
     if (types && !types.has(type)) continue;
@@ -125,12 +137,36 @@ function* historyScan(records, input, signal) {
   matches.sort((left, right) => right.score - left.score || right.index - left.index);
   const budget = { remaining: RECORD_BYTE_BUDGET - 4096 };
   return Object.freeze({
-    query, scanned: records.length - start, scan_truncated: start > 0,
+    query, scanned, scan_truncated: budgetExhausted,
+    scan_budget_ms: deadline.budgetMs,
     search_text_truncated_records: searchTextTruncatedRecords,
     matches: matches.slice(0, limit).map((item) => ({
-      ...projectRecord(item.record, item.index, true, budget), relevance: item.score,
+      ...projectMatch(item.record, item.index, budget), relevance: item.score,
     })),
   });
+}
+
+// Why: a search that returns only an index forces a second call to learn anything.
+// Small records come back whole; large ones carry the snippet plus the exact
+// receipt reference, so recovery is one precise read instead of another search.
+function projectMatch(record, index, budget) {
+  const redacted = redactExtensionData(record);
+  const encoded = JSON.stringify(redacted);
+  const complete = typeof encoded === 'string' && Buffer.byteLength(encoded, 'utf8') <= MAX_INLINE_BYTES;
+  if (complete) {
+    const projected = projectRecord(record, index, false, budget);
+    return { ...projected, inline_complete: true };
+  }
+  const projected = projectRecord(record, index, true, budget);
+  const ledgerRef = record?.requestId ?? record?.providerCallId ?? record?.request_id ?? record?.provider_call_id ?? null;
+  return { ...projected, inline_complete: false, ledger_ref: typeof ledgerRef === 'string' ? ledgerRef.slice(0, 256) : null };
+}
+
+function cooperativeDeadline(budgetMs) {
+  const requested = Number.isSafeInteger(budgetMs) && budgetMs > 0 ? budgetMs : DEFAULT_SCAN_BUDGET_MS;
+  const budget = Math.min(requested, 60_000);
+  const startedAt = Date.now();
+  return Object.freeze({ budgetMs: budget, expired: () => Date.now() - startedAt >= budget });
 }
 
 function definition(name, purpose, properties, required, execute) {
@@ -161,7 +197,7 @@ function validateArguments(name, args) {
     if (args.record_index < 0 || args.surrounding < 0 || args.surrounding > 3) invalid(name);
   }
   if (Object.hasOwn(args, 'query') && (typeof args.query !== 'string' || args.query.trim().length < 1 || args.query.length > MAX_QUERY)) invalid(name);
-  for (const key of ['limit', 'record_index', 'surrounding']) {
+  for (const key of ['limit', 'record_index', 'surrounding', 'budget_ms']) {
     if (Object.hasOwn(args, key) && !Number.isSafeInteger(args[key])) invalid(name);
   }
   if (Object.hasOwn(args, 'types') && (!Array.isArray(args.types) || args.types.length < 1 || args.types.length > MAX_TYPES
@@ -170,10 +206,14 @@ function validateArguments(name, args) {
 }
 
 async function ledgerRecordIndex(records, reference, signal) {
-  const start = Math.max(0, records.length - MAX_SCAN_RECORDS);
-  for (let index = records.length - 1; index >= start; index -= 1) {
+  // Why: a ledger reference names one request, so a depth cap makes exact recovery
+  // fail on the very evidence a receipt pointed at. Recency bounds the walk by
+  // budget, not by a fixed newest-N window.
+  const deadline = cooperativeDeadline();
+  for (let index = records.length - 1; index >= 0; index -= 1) {
     if ((records.length - 1 - index) % 32 === 0) await yieldToEventLoop();
     assertNotCancelled(signal);
+    if (deadline.expired()) return -1;
     const record = records[index];
     if (record?.type === 'tool_result'
       && [record.requestId, record.providerCallId, record.request_id, record.provider_call_id].includes(reference)) return index;
