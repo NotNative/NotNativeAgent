@@ -30,6 +30,30 @@ test('LM Studio runtime discovery uses the loaded per-request window and paralle
   assert.deepEqual(seen, ['http://127.0.0.1:1234/api/v1/models']);
 });
 
+test('an OpenAI-compatible server answering /api/v0/models keeps its declared window', async () => {
+  // Regression: a plain model list on the LM Studio probe path produced a snapshot with
+  // no limits, which discarded the 1M window from /v1/models and planned against 65k.
+  const seen = [];
+  const provider = new OpenAICompatibleProvider({
+    id: 'cluster', endpoint: 'http://127.0.0.1:8015/v1', model: 'spark', trustZone: 'private_network', capabilities: {},
+  }, {}, { fetch: async (url) => {
+    seen.push(url);
+    if (url.endsWith('/api/v1/models')) return { ok: false, status: 404, json: async () => ({}) };
+    if (url.endsWith('/api/v0/models')) return jsonResponse({ object: 'list', data: [{ id: 'spark', object: 'model' }] });
+    return jsonResponse({ object: 'list', data: [{ id: 'spark', object: 'model', max_model_len: 1_048_576 }] });
+  } });
+  const snapshot = await provider.runtimeSnapshot(new AbortController().signal, 'spark');
+  assert.equal(snapshot.contextWindowTokens, 1_048_576);
+  assert.equal(snapshot.source, 'openai_models');
+  assert.ok(seen.some((url) => url.endsWith('/v1/models')), 'capability discovery is reached');
+  const budget = contextBudget({ limits: { contextCompactionThreshold: 0.85 } }, [
+    { profile: { id: 'cluster' }, model: 'spark', maxOutputTokens: null },
+  ], snapshot);
+  assert.equal(budget.thresholdTokens, 864_089);
+  // The default compression share is 0.40 of usable input.
+  assert.equal(budget.compressionThresholdTokens, 406_630);
+});
+
 test('LM Studio runtime discovery accepts a model maximum without a loaded instance', async () => {
   const provider = new OpenAICompatibleProvider({
     id: 'local', endpoint: 'http://127.0.0.1:1234/v1', model: 'qwen', trustZone: 'loopback', capabilities: {},

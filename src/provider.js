@@ -218,10 +218,14 @@ function parseLmStudioV1(body, model, declared) {
     const entryMatches = modelIdentityMatches(model, entry?.key)
       || modelIdentityMatches(model, entry?.selected_variant);
     if (!selected && !entryMatches) continue;
+    const contextWindowTokens = knownPositiveInteger(selected?.config?.context_length)
+      ?? knownPositiveInteger(entry?.max_context_length);
+    // Why: a matching key without LM Studio limits is not an LM Studio snapshot; the
+    // declared window from /v1/models must still reach planning.
+    if (contextWindowTokens === null) continue;
     return Object.freeze({
       ...declared,
-      contextWindowTokens: knownPositiveInteger(selected?.config?.context_length)
-        ?? knownPositiveInteger(entry?.max_context_length),
+      contextWindowTokens,
       outputLimitTokens: knownPositiveInteger(selected?.config?.max_output_tokens) ?? declared.outputLimitTokens,
       parallelCapacity: knownPositiveInteger(selected?.config?.parallel),
       source: 'lmstudio_v1',
@@ -235,10 +239,15 @@ function parseLmStudioV0(body, model, declared) {
   const selected = entries.find((item) => modelIdentityMatches(model, item?.id)
     && (item?.state === undefined || item.state === 'loaded'));
   if (!selected) return null;
+  const contextWindowTokens = knownPositiveInteger(selected.loaded_context_length)
+    ?? knownPositiveInteger(selected.context_length) ?? knownPositiveInteger(selected.max_context_length);
+  // Why: an OpenAI-compatible server also answers /api/v0/models with a plain model
+  // list. Claiming an LM Studio snapshot with no limits discarded the declared window
+  // that /v1/models reports, and planning then fell back to a 65k assumption.
+  if (contextWindowTokens === null) return null;
   return Object.freeze({
     ...declared,
-    contextWindowTokens: knownPositiveInteger(selected.loaded_context_length)
-      ?? knownPositiveInteger(selected.context_length) ?? knownPositiveInteger(selected.max_context_length),
+    contextWindowTokens,
     outputLimitTokens: knownPositiveInteger(selected.max_output_tokens) ?? declared.outputLimitTokens,
     parallelCapacity: knownPositiveInteger(selected.parallel),
     source: 'lmstudio_v0',
