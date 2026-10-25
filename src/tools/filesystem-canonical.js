@@ -24,48 +24,81 @@ const DEFAULT_SKIPS = new Set(['.git', 'node_modules']);
 
 export function canonicalFilesystemDefinitions(paths, legacy) {
   const list = listDefinition(paths);
-  return [readDefinition(legacy), list, directoryDefinition(paths, list)];
+  return [boundedDefaultWindow(legacy), list, directoryDefinition(paths, list)];
 }
 
-function readDefinition(legacy) {
+// Why: the repository enforces MAX_FILE_LINES = 500 in its own quality gates, so a
+// source file larger than that has already left the codebase's size discipline. A
+// no-argument read returns the complete file while it fits that bound, and otherwise
+// returns one window plus a cursor so a large document never arrives as one record.
+const NO_ARGUMENT_WINDOW_LINES = 500;
+
+function boundedDefaultWindow(legacy) {
   const whole = requiredLegacy(legacy, 'fs_read_text');
   const lines = requiredLegacy(legacy, 'fs_read_lines');
   return {
     name: 'fs_read', version: 1,
-    purpose: 'Read bounded UTF-8 text from one accessible file. Omit line arguments for the complete file, or provide start_line and line_count for a numbered window. Every result records the snapshot receipt required by later edits.',
-    // Why: installed Windows roots can spend the former 10-second budget in
-    // native identity and path revalidation before a bounded file read begins.
+    purpose: 'Read bounded UTF-8 text from one accessible file. Omit line arguments for the complete file while it is at most 500 lines; longer files return the first 500-line window with a cursor. Provide start_line and line_count for a numbered window. Every result records the snapshot receipt required by later edits.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 30_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required path to one UTF-8 text file.' },
-      start_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Optional first one-based line. Omit for the complete file.' },
-      line_count: { type: 'integer', minimum: 1, maximum: 400, description: 'Optional maximum lines to return. Defaults to 200 when start_line is provided; without start_line, begins at line 1.' },
+      start_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Optional first one-based line. Omit for the complete file, or the first 500-line window when the file is longer.' },
+      line_count: { type: 'integer', minimum: 1, maximum: 400, description: 'Optional maximum lines to return. Defaults to 200 when start_line is provided; without line arguments the window is up to 500 lines.' },
     }, ['path']),
     normalizeArgs: (args) => normalizeArgumentAliases(args, READ_ARGUMENT_ALIASES),
     validate: async (args) => {
       shape(args, ['path'], ['start_line', 'line_count']);
       const windowed = args.start_line !== undefined || args.line_count !== undefined;
-      const delegated = windowed
-        ? await lines.validate({ path: args.path, start_line: args.start_line ?? 1, line_count: args.line_count ?? 200 })
-        : await whole.validate({ path: args.path });
-      return {
-        args: {
-          path: args.path,
-          ...(windowed ? { start_line: delegated.args.start_line, line_count: delegated.args.line_count } : {}),
-        },
-        resolved: { ...delegated.resolved, readMode: windowed ? 'lines' : 'full' },
-      };
+      if (windowed) {
+        const delegated = await lines.validate({ path: args.path, start_line: args.start_line ?? 1, line_count: args.line_count ?? 200 });
+        return {
+          args: { path: args.path, start_line: delegated.args.start_line, line_count: delegated.args.line_count },
+          resolved: { ...delegated.resolved, readMode: 'lines' },
+        };
+      }
+      const delegated = await whole.validate({ path: args.path });
+      return { args: { path: args.path }, resolved: { ...delegated.resolved, readMode: 'full' } };
     },
-    executor: (request, signal) => {
-      // args.mode is accepted only as an internal backward-compatibility path
-      // for already-sealed requests created before readMode moved to metadata.
+    executor: async (request, signal) => {
       const readMode = request.resolved.readMode ?? request.args.mode;
-      const delegate = readMode === 'lines' ? lines : whole;
-      const args = readMode === 'lines'
-        ? { path: request.args.path, start_line: request.args.start_line, line_count: request.args.line_count }
-        : { path: request.args.path };
-      return delegate.executor({ ...request, args }, signal);
+      if (readMode === 'lines') {
+        return lines.executor({
+          ...request, args: { path: request.args.path, start_line: request.args.start_line, line_count: request.args.line_count },
+        }, signal);
+      }
+      const complete = await whole.executor({ ...request, args: { path: request.args.path } }, signal);
+      const totalLines = lineCountOf(complete.content);
+      if (totalLines <= NO_ARGUMENT_WINDOW_LINES) return complete;
+      const windowed = await lines.executor({
+        ...request,
+        args: { path: request.args.path, start_line: 1, line_count: Math.min(400, NO_ARGUMENT_WINDOW_LINES) },
+      }, signal);
+      return boundedWindowResult(windowed, totalLines);
     },
+  };
+}
+
+function lineCountOf(content) {
+  if (typeof content !== 'string' || content.length === 0) return 0;
+  const newlines = countNewlines(content);
+  return content.endsWith('\n') ? newlines : newlines + 1;
+}
+
+function countNewlines(content) {
+  let count = 0;
+  for (let index = 0; index < content.length; index += 1) if (content[index] === '\n') count += 1;
+  return count;
+}
+
+// Why: the windowed path must say how much was withheld and which tool avoids paging.
+function boundedWindowResult(windowed, totalLines) {
+  const next = (windowed.metadata?.end_line ?? 0) + 1;
+  const notice = `File is ${totalLines} lines; showing 1-${windowed.metadata?.end_line ?? 0}. `
+    + 'Prefer fs_search_text to locate a section; use start_line to page.';
+  return {
+    ...windowed,
+    content: `${windowed.content}\n\n${notice}`,
+    metadata: { ...windowed.metadata, full: false, total_lines: totalLines, next_start_line: next, notice },
   };
 }
 
