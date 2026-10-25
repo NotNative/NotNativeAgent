@@ -90,8 +90,8 @@ export class ContinuationCompactor {
 // several local servers answer 400), which made every semantic refinement fail and
 // silently fall back to the deterministic summary. The schema now travels in the
 // prompt and the reply is validated locally, so every engine takes the same path.
-const CONTINUATION_SCHEMA_TEXT = '{"summary":string,"intent":string,"decisions":[string],"errors_and_fixes":[string],'
-  + '"open_questions":[string],"next_actions":[string]}';
+const CONTINUATION_SCHEMA_TEXT = '{"overall_summary":string,"summary":string,"intent":string,"decisions":[string],'
+  + '"errors_and_fixes":[string],"open_questions":[string],"next_actions":[string]}';
 const HANDOFF_SCHEMA_TEXT = '{"objective":string,"decisions":[string],"completed_work":[string],'
   + '"verified_state":[string],"blockers":[string],"next_actions":[string]}';
 
@@ -99,11 +99,13 @@ const HANDOFF_SCHEMA_TEXT = '{"objective":string,"decisions":[string],"completed
 // continue and echo it until the output cap truncates the JSON. The instruction states
 // the deliverable explicitly and bounds every entry, so a reply is short by construction.
 const CONTINUATION_INSTRUCTION = 'Write a compact orientation record for the worker who continues this '
-  + 'work from scratch. Condense; never copy the supplied text. State the situation and where it '
-  + 'stands in "summary" (at most 3 sentences). Put decisions with their reasons in "decisions", '
-  + 'resolved failures in "errors_and_fixes" as "error: how it was resolved", remaining unknowns in '
-  + '"open_questions", and immediate actions in "next_actions". At most 6 entries per array, each '
-  + 'under 240 characters. Do not restate the objective in "intent" unless the operator restated it. '
+  + 'work from scratch. Condense; never copy the supplied text. In "overall_summary" state the '
+  + 'overall direction and how it changed across the session; extend any summary already supplied '
+  + 'and drop what is finished, in at most 3 sentences. In "summary" state only where this span '
+  + 'now stands. Put decisions with their reasons in "decisions", resolved failures in '
+  + '"errors_and_fixes" as "error: how it was resolved", remaining unknowns in "open_questions", '
+  + 'and immediate actions in "next_actions". At most 6 entries per array, each under 240 '
+  + 'characters. Do not restate the objective in "intent" unless the operator restated it. '
   + 'Do not mention this summarization, context compaction, or that records were omitted.';
 
 function alignedCompactionRequest(route, fact, prefix) {
@@ -209,12 +211,15 @@ function validateSemantic(value) {
   // snake_case keys or the record's camelCase keys. Accept either spelling, never both.
   const groups = [['decisions'], ['errors_and_fixes', 'errorsAndFixes'],
     ['open_questions', 'openQuestions'], ['next_actions', 'nextActions']];
-  const allowed = new Set(['summary', 'intent', ...groups.flat()]);
+  const allowed = new Set(['overall_summary', 'overallSummary', 'summary', 'intent', ...groups.flat()]);
   if (Object.keys(value).some((key) => !allowed.has(key))) throw codeError('semantic_compaction_invalid');
   if (groups.some(([snake, camel]) => camel && Object.hasOwn(value, snake) && Object.hasOwn(value, camel))) {
     throw codeError('semantic_compaction_invalid');
   }
   const result = {
+    overallSummary: boundedOverallSummary(
+      Object.hasOwn(value, 'overall_summary') ? value.overall_summary : value.overallSummary,
+    ),
     summary: boundedText(value.summary), intent: boundedText(value.intent),
   };
   for (const [snake, camel] of groups) {
@@ -248,6 +253,14 @@ function boundedText(value) {
     throw codeError('semantic_compaction_invalid');
   }
   return value.slice(0, 1_024);
+}
+
+// Why: the overall summary is optional metadata. A missing or non-text answer keeps the
+// value earlier compactions carried instead of failing the whole refinement.
+function boundedOverallSummary(value) {
+  if (value === undefined || value === null) return '';
+  if (typeof value !== 'string') throw codeError('semantic_compaction_invalid');
+  return value.trim().slice(0, 1_200);
 }
 
 function validateHandoff(value) {

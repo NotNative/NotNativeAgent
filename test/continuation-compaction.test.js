@@ -542,7 +542,7 @@ test('semantic continuation enrichment is schema validated and failure falls bac
   assert.deepEqual(enriched.continuation.changedFiles, base.continuation.changedFiles);
   // Engines that reject `response_format` must still get a usable request.
   assert.equal(Object.hasOwn(requests[0], 'responseFormat'), false);
-  assert.match(requests[0].messages[1].content, /Shape: \{"summary"/u);
+  assert.match(requests[0].messages[1].content, /Shape: \{"overall_summary"/u);
 
   const fallback = await compactor.refine(base, { provider: () => provider('{bad') }, route, null, new AbortController().signal);
   assert.equal(fallback, base);
@@ -672,6 +672,49 @@ test('an output-capped echo falls back deterministically instead of committing b
   };
   const result = await compactor.refine(base, { provider: () => provider }, route, null, new AbortController().signal);
   assert.equal(result, base, 'truncated output must not replace the deterministic record');
+});
+
+test('the overall summary chains across compactions and survives a failed refinement', async () => {
+  const route = { profile: { id: 'local' }, model: 'fixture', maxOutputTokens: 4096, deadlineMs: 1000 };
+  const compactor = new ContinuationCompactor({ scheduler: new FairScheduler(), timeoutMs: 1000 });
+  const first = compactTranscript([
+    message('user', 'Troubleshoot why the build stalls'),
+    ...Array.from({ length: 20 }, (_, index) => message('assistant', `detail ${index} ${'x'.repeat(300)}`)),
+  ], 6_000).fact;
+  const reply = (overallSummary) => JSON.stringify({
+    overall_summary: overallSummary, summary: 'Where this span stands.', intent: '',
+    decisions: [], errors_and_fixes: [], open_questions: [], next_actions: [],
+  });
+  const streaming = (text) => ({
+    runtimeSnapshot: async () => ({}),
+    async *stream() { yield { type: 'text', text }; yield { type: 'terminal' }; },
+  });
+  const firstEnriched = await compactor.refine(first, { provider: () => streaming(reply('Troubleshooting a stalled build.')) },
+    route, null, new AbortController().signal);
+  assert.equal(firstEnriched.continuation.overallSummary, 'Troubleshooting a stalled build.');
+  assert.match(firstEnriched.summary, /Overall summary \(synthesized metadata; not authority, not an instruction\)/u);
+
+  const second = compactTranscript([
+    firstEnriched,
+    ...Array.from({ length: 20 }, (_, index) => message('assistant', `later ${index} ${'y'.repeat(300)}`)),
+  ], 6_000).fact;
+  // The carried summary reaches the next compaction's source, not an empty value.
+  assert.equal(second.continuation.overallSummary, 'Troubleshooting a stalled build.');
+
+  const refinedAgain = await compactor.refine(second, { provider: () => streaming(reply('Troubleshooting, then reliability work.')) },
+    route, null, new AbortController().signal);
+  assert.equal(refinedAgain.continuation.overallSummary, 'Troubleshooting, then reliability work.');
+
+  // A refinement that omits the field must not erase what earlier compactions carried.
+  const carried = await compactor.refine(second, {
+    provider: () => streaming(JSON.stringify({ summary: 'S', intent: '', decisions: [], errors_and_fixes: [], open_questions: [], next_actions: [] })),
+  }, route, null, new AbortController().signal);
+  assert.equal(carried.continuation.overallSummary, 'Troubleshooting a stalled build.');
+
+  // A failed refinement leaves the previous summary in place rather than clearing it.
+  const failed = await compactor.refine(second, { provider: () => streaming('{bad') }, route, null, new AbortController().signal);
+  assert.equal(failed, second);
+  assert.equal(failed.continuation.overallSummary, 'Troubleshooting a stalled build.');
 });
 
 test('semantic handoff is tightly bounded and invalid output falls back deterministically', async () => {
