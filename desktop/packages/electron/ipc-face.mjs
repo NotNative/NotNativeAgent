@@ -430,7 +430,12 @@ export function createInvokeFace(input, dependencies) {
     }
     if (command.startsWith('desktop_browser_')) return browserCommand(command, payload, event);
     if (command === 'desktop_dev_tunnel_open') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       if (payload?.relay !== true) return { ok: false, error: 'direct-dev-tunnel-unavailable' };
+      if (typeof payload.targetKey !== 'string' || payload.targetKey.length === 0 || payload.targetKey.length > 256
+        || !Number.isInteger(payload.remotePort) || payload.remotePort < 1 || payload.remotePort > 65535) {
+        return { ok: false, error: 'relay-dev-tunnel-input-invalid' };
+      }
       const bridge = input.relayDevTunnel?.();
       if (!bridge) return { ok: false, error: 'relay-dev-tunnel-unavailable' };
       try {
@@ -443,16 +448,22 @@ export function createInvokeFace(input, dependencies) {
       } catch (error) { return { ok: false, error: stringifyError(error) }; }
     }
     if (command === 'desktop_dev_tunnel_close') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       if (payload?.relay !== true) return { ok: false, error: 'direct-dev-tunnel-unavailable' };
+      if (typeof payload.targetKey !== 'string' || payload.targetKey.length === 0 || payload.targetKey.length > 256
+        || !Number.isInteger(payload.remotePort) || payload.remotePort < 1 || payload.remotePort > 65535) {
+        return { ok: false, error: 'relay-dev-tunnel-input-invalid' };
+      }
       const bridge = input.relayDevTunnel?.();
       if (!bridge) return { ok: false, error: 'relay-dev-tunnel-unavailable' };
       try { return { ok: true, result: bridge.close({ targetKey: payload.targetKey, remotePort: payload.remotePort, webContents: event.sender }) }; }
       catch (error) { return { ok: false, error: stringifyError(error) }; }
     }
     if (command === 'desktop_relay_dev_tunnel_close_all') {
+      if (!isDesktopLocalMainSender(event)) return { ok: false, error: 'desktop-main-frame-required' };
       const bridge = input.relayDevTunnel?.();
       if (!bridge) return { ok: false, error: 'relay-dev-tunnel-unavailable' };
-      bridge.closeAll();
+      bridge.closeForWebContents(event.sender.id);
       return { ok: true, result: { closed: true } };
     }
     if (command === 'desktop_open_external') {

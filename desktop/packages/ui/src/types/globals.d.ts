@@ -30,6 +30,14 @@ declare global {
       result?: unknown;
       error?: string;
     }>;
+    /** Narrow relay dev-tunnel controls; ports arrive only through the preload's main-frame event. */
+    __NOTNATIVE_RELAY_DEV_TUNNEL__?: {
+      open(payload: { relay: true; targetKey: string; remotePort: number }): Promise<{
+        ok: boolean; result?: { localPort: number; reused: boolean }; error?: string;
+      }>;
+      close(payload: { relay: true; targetKey: string; remotePort: number }): Promise<{ ok: boolean }>;
+      closeAll(): Promise<{ ok: boolean }>;
+    };
     __NOTNATIVE_DESKTOP_UPDATER__?: {
       check(): Promise<{ ok: boolean; result?: unknown; error?: string }>;
       download(): Promise<{ ok: boolean; result?: unknown; error?: string }>;

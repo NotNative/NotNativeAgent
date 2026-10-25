@@ -6,16 +6,19 @@
  * MessagePort. The 15-second budget covers the whole readiness exchange.
  */
 import { getApiBaseUrl } from '../runtime-url.ts';
+import { getActiveRelayTunnel } from '../runtime-tunnel.ts';
+import { setDesktopTunnelBridge } from './dev-tunnel.ts';
 import {
   clearCachedUrlAuthToken, getCurrentUrlToken, refreshRuntimeUrlAuthToken,
 } from '../runtime-auth.ts';
 
 const DEFAULT_READINESS_TIMEOUT_MS = 15_000;
-const CONNECT_CHANNEL = 'openchamber:relay-dev-tunnel-connect';
+const CONNECT_CHANNEL = 'notnative:relay-dev-tunnel';
 
 export interface RelayDevTunnelPort {
   onmessage: ((event: { data: unknown }) => void) | null;
-  onclose: (() => void) | null;
+  onclose?: (() => void) | null;
+  addEventListener?: (type: 'close', listener: () => void) => void;
   postMessage(message: unknown): void;
   start?: () => void;
   close?: () => void;
@@ -44,17 +47,57 @@ export interface RelayDevTunnelConnectInput {
 }
 
 export function installRelayDevTunnelListener(options: {
-  webContents: {
-    onConnect: (listener: (event: { data?: unknown; ports?: unknown[] }) => void) => () => void;
-    dispatchEvent: (type: string, data?: unknown) => void;
-  };
+  target?: Pick<Window, 'addEventListener' | 'removeEventListener' | 'location'>;
+  onConnect: (connection: { connectionId: string; remotePort: number; bridgePort: RelayDevTunnelPort }) => void;
 }): () => void {
-  return options.webContents.onConnect((event) => {
-    const message = event.data as { type?: unknown } | null;
-    if (message?.type !== 'connect') return;
+  const target = options.target ?? window;
+  const listener = (event: MessageEvent): void => {
+    if (event.source !== target || event.origin !== target.location.origin) return;
+    const envelope = event.data as { channel?: unknown; payload?: Record<string, unknown> } | null;
+    const payload = envelope?.payload;
     const port = event.ports?.[0];
-    if (port) options.webContents.dispatchEvent('relay-dev-tunnel-connect', { ...message, port });
+    if (envelope?.channel !== CONNECT_CHANNEL || payload?.type !== 'connect'
+      || typeof payload.connectionId !== 'string' || payload.connectionId.length === 0 || payload.connectionId.length > 128
+      || !Number.isInteger(payload.remotePort) || (payload.remotePort as number) < 1 || (payload.remotePort as number) > 65535
+      || !port) return;
+    options.onConnect({ connectionId: payload.connectionId, remotePort: payload.remotePort as number,
+      bridgePort: port as unknown as RelayDevTunnelPort });
+  };
+  target.addEventListener('message', listener);
+  return () => target.removeEventListener('message', listener);
+}
+
+/** Install the Electron relay tunnel bridge once before UI consumers can open previews. */
+export function installDesktopRelayDevTunnel(): () => void {
+  const api = window.__NOTNATIVE_RELAY_DEV_TUNNEL__;
+  if (!api) return () => {};
+  setDesktopTunnelBridge({
+    async open({ baseUrl, port }) {
+      const targetKey = new URL(baseUrl).origin;
+      const reply = await api.open({ relay: true, targetKey, remotePort: port });
+      if (!reply.ok || !reply.result || !Number.isInteger(reply.result.localPort)) {
+        throw new Error(reply.error ?? 'Relay dev tunnel could not be opened.');
+      }
+      return { localPort: reply.result.localPort, reused: reply.result.reused === true,
+        url: `http://127.0.0.1:${reply.result.localPort}` };
+    },
+    close({ baseUrl, port }) {
+      void api.close({ relay: true, targetKey: new URL(baseUrl).origin, remotePort: port });
+      return { closed: true };
+    },
   });
+  const removeListener = installRelayDevTunnelListener({ onConnect: ({ connectionId, remotePort, bridgePort }) => {
+    const relayTunnel = getActiveRelayTunnel();
+    if (!relayTunnel) { bridgePort.close?.(); return; }
+    void connectRelayDevTunnel({ connectionId, remotePort, bridgePort,
+      relayTunnel: relayTunnel as unknown as RelayDevTunnelConnectInput['relayTunnel'],
+      apiBaseUrl: getApiBaseUrl() }).catch(() => bridgePort.close?.());
+  } });
+  return () => {
+    removeListener();
+    setDesktopTunnelBridge(null);
+    void api.closeAll();
+  };
 }
 
 function bytesFor(data: unknown): Uint8Array | null {
@@ -140,7 +183,8 @@ function connectRelayBridgePort(context: RelayBridgeContext): void {
       }
     }
   };
-  connectPort.onclose = finish;
+  if (connectPort.onclose !== undefined) connectPort.onclose = finish;
+  else connectPort.addEventListener?.('close', finish);
   connectPort.start?.();
   virtual.onopen = () => signalRelayOpen(context);
   if (state.done) signalRelayOpen(context);

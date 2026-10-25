@@ -546,6 +546,34 @@ test('relay pairing completion accepts responses only from the desktop local mai
   assert.deepEqual(calls, [{ requestId: 'request-1', result: { ok: true, clientToken: 'token' } }]);
 });
 
+test('relay dev tunnel requires the local main frame and validates route inputs', async () => {
+  const contents = { id: 44, mainFrame: { processId: 1, routingId: 1 }, send() {} };
+  const calls = [];
+  const invoke = registeredInvoke({ contents, relayDevTunnel: () => ({
+    open: async (input) => { calls.push(['open', input]); return { localPort: 40001, reused: false }; },
+    close: (input) => { calls.push(['close', input]); return { closed: true }; },
+    closeForWebContents: (id) => calls.push(['close-owner', id]),
+  }) });
+  const local = ipcEvent(contents, 'notnative-ui://app/index.html');
+  assert.equal((await invoke(local, 'desktop_dev_tunnel_open', { relay: true, targetKey: 'https://host', remotePort: 3000 })).ok, true);
+  const remote = ipcEvent(contents, 'https://remote.example/');
+  assert.equal((await invoke(remote, 'desktop_dev_tunnel_open', { relay: true, targetKey: 'x', remotePort: 3000 })).error, 'sender-not-allowed');
+  const child = ipcEvent(contents, 'notnative-ui://app/index.html');
+  child.senderFrame.routingId = 2;
+  assert.equal((await invoke(child, 'desktop_dev_tunnel_open', { relay: true, targetKey: 'x', remotePort: 3000 })).error, 'desktop-main-frame-required');
+  for (const payload of [
+    { relay: true, targetKey: '', remotePort: 3000 },
+    { relay: true, targetKey: 'x', remotePort: 0 },
+    { relay: true, targetKey: 'x', remotePort: 65536 },
+    { relay: true, targetKey: 'x', remotePort: '3000' },
+  ]) assert.equal((await invoke(local, 'desktop_dev_tunnel_open', payload)).error, 'relay-dev-tunnel-input-invalid');
+  await invoke(local, 'desktop_relay_dev_tunnel_close_all');
+  assert.deepEqual(calls.map(([kind, value]) => [kind, kind === 'close-owner' ? value : undefined]), [
+    ['open', undefined], ['close-owner', 44],
+  ]);
+  assert.equal(calls[0][1].webContents, contents);
+});
+
 test('desktop_pick_directory opens the native chooser and honours cancellation', async () => {
   const contents = { mainFrame: { processId: 1, routingId: 1 }, send() {} };
   const dialogCalls = [];

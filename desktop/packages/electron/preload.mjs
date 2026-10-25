@@ -175,21 +175,23 @@ ipcRenderer.on('openchamber:emit', (_event, envelope) => {
   }
 });
 
+const RELAY_DEV_TUNNEL_CHANNEL = 'openchamber:relay-dev-tunnel-connect';
+ipcRenderer.on(RELAY_DEV_TUNNEL_CHANNEL, (event, payload) => {
+  const port = event.ports?.[0];
+  if (payload?.type !== 'connect' || typeof payload.connectionId !== 'string'
+    || !Number.isInteger(payload.remotePort) || !port) return;
+  // Keep the MessagePort inside the preload/main-world boundary. The
+  // main-world listener additionally verifies same-window source/origin.
+  window.dispatchEvent(new MessageEvent('message', {
+    data: { channel: 'notnative:relay-dev-tunnel', payload },
+    origin: window.location.origin, source: window, ports: [port],
+  }));
+});
+
 contextBridge.exposeInMainWorld('__NOTNATIVE_RELAY_DEV_TUNNEL__', Object.freeze({
   open: (payload) => invoke('desktop_dev_tunnel_open', payload),
   close: (payload) => invoke('desktop_dev_tunnel_close', payload),
   closeAll: () => invoke('desktop_relay_dev_tunnel_close_all'),
-  onConnect(handler) {
-    if (typeof handler !== 'function') return () => {};
-    const listener = (event) => {
-      const payload = event.data;
-      if (payload?.type !== 'connect') return;
-      const port = event.ports?.[0];
-      if (port) handler({ ...payload, port });
-    };
-    ipcRenderer.on('openchamber:relay-dev-tunnel-connect', listener);
-    return () => ipcRenderer.removeListener('openchamber:relay-dev-tunnel-connect', listener);
-  },
 }));
 
 // The isolated guest has no preload. Only the top-level NND renderer receives

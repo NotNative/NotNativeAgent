@@ -15,6 +15,11 @@ function validateRemotePort(port) {
   }
 }
 
+function isMessagePort(port) {
+  return Boolean(port && typeof port.postMessage === 'function' && typeof port.close === 'function'
+    && (typeof port.on === 'function' || 'onmessage' in port));
+}
+
 function listen(server) {
   return new Promise((resolve, reject) => {
     const succeed = () => { server.off('error', fail); resolve(); };
@@ -41,6 +46,10 @@ export function createRelayDevTunnelBridge(options = {}) {
     ports?.delete(connection);
     if (ports?.size === 0) connectionsByLocalPort.delete(connection.localPort);
     try { connection.bridgePort.close(); } catch { /* already closed */ }
+    // If transfer failed, rendererPort is still owned by this process. After a
+    // successful transfer it is detached, so close is either harmless or
+    // throws and is intentionally best-effort.
+    try { connection.rendererPort.close(); } catch { /* detached or already closed */ }
     try { connection.source.destroy(); } catch { /* already gone */ }
   }
 
@@ -65,6 +74,13 @@ export function createRelayDevTunnelBridge(options = {}) {
     try { created = options.createPorts?.() ?? [null, null]; }
     catch { source.destroy(); return; }
     const [bridgePort, rendererPort] = Array.isArray(created) ? created : [null, null];
+    if (!isMessagePort(bridgePort) || !isMessagePort(rendererPort)) {
+      for (const port of [bridgePort, rendererPort]) {
+        try { port?.close?.(); } catch { /* invalid or already closed */ }
+      }
+      source.destroy();
+      return;
+    }
     const connectionId = `relay-dev-tunnel-${nextConnectionId += 1}`;
     const connection = {
       id: connectionId, localPort: route.localPort, source, bridgePort, rendererPort,
@@ -75,7 +91,11 @@ export function createRelayDevTunnelBridge(options = {}) {
     connectionsByLocalPort.set(route.localPort, ports);
     connection.timer = setTimeout(() => closeConnection(connection), readinessTimeoutMs);
     const handleMessage = (event) => {
-      const message = event?.data ?? event;
+      // Electron MessagePortMain emits a MessageEvent (`type === "message"`),
+      // while Node MessagePort emits the payload directly. Normalize both.
+      const message = event && typeof event === 'object' && 'data' in event
+        && (event.type === 'message' || !('connectionId' in event))
+        ? event.data : event;
       if (message?.connectionId !== connectionId || connection.closed) return;
       if (message.type === 'ready') {
         clearTimeout(connection.timer);
@@ -88,6 +108,10 @@ export function createRelayDevTunnelBridge(options = {}) {
           connection.pending = { bytes: 0, chunks: [] };
           source.resume();
         } catch { closeConnection(connection); }
+      } else if (message.type === 'data' && connection.ready) {
+        const data = message.data;
+        if (data instanceof Uint8Array) source.write(Buffer.from(data));
+        else if (data instanceof ArrayBuffer) source.write(Buffer.from(data));
       } else if (message.type === 'close') closeConnection(connection);
     };
     const handleClose = () => closeConnection(connection);
@@ -124,7 +148,7 @@ export function createRelayDevTunnelBridge(options = {}) {
       closeConnection(connection);
       try { bridgePort.postMessage({ type: 'close', connectionId }); } catch { /* renderer gone */ }
     });
-    try { options.postMessage?.({ connectionId, remotePort }, [rendererPort]); }
+    try { options.postMessage?.({ connectionId, remotePort }, [rendererPort], route.webContents); }
     catch { closeConnection(connection); }
   }
 
@@ -141,7 +165,21 @@ export function createRelayDevTunnelBridge(options = {}) {
       createBridgePort(route, input.remotePort, source);
     });
     await listen(server);
-    const route = { localPort: server.address().port, server, webContentsId };
+    // Multiple IPC opens for the same owner/target can reach this await before
+    // either listener is registered. Keep only the first route and close the
+    // redundant listener so concurrent preview resolution cannot leak ports.
+    const raced = mappings.get(key);
+    if (raced) {
+      server.close();
+      server.closeAllConnections?.();
+      return { localPort: raced.localPort, reused: true };
+    }
+    if (input.webContents.isDestroyed?.()) {
+      server.close();
+      server.closeAllConnections?.();
+      throw new Error('Relay dev-tunnel webContents is gone.');
+    }
+    const route = { localPort: server.address().port, server, webContentsId, webContents: input.webContents };
     mappings.set(key, route);
     const routes = routesByWebContents.get(webContentsId) ?? new Set();
     routes.add(key);

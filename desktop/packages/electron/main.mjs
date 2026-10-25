@@ -64,8 +64,16 @@ if (USE_UI_PROTOCOL) {
   } }]);
 }
 
-const relayDevTunnel =
-  createRelayDevTunnelBridge({ createPorts: () => [new MessageChannelMain().port1, new MessageChannelMain().port2] });
+const relayDevTunnel = createRelayDevTunnelBridge({
+  createPorts: () => {
+    const channel = new MessageChannelMain();
+    return [channel.port1, channel.port2];
+  },
+  postMessage: (payload, ports, webContents) => {
+    if (!webContents || webContents.isDestroyed()) throw new Error('Relay dev-tunnel renderer is gone.');
+    webContents.postMessage('openchamber:relay-dev-tunnel-connect', { type: 'connect', ...payload }, ports);
+  },
+});
 
 let mainWindow = null;
 const miniChatWindows = new Map();
