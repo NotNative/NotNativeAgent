@@ -254,6 +254,36 @@ test('large reasoning-capable windows reserve the full default completion headro
   assert.equal(budget.effectiveInputTokens, 99_072);
 });
 
+test('a million-token model without a provider completion cap plans against its real window', () => {
+  // Regression: the live session advertised max_model_len 1,048,576 with no output
+  // cap, and a 20 KB tool result still triggered a context rewrite.
+  const config = { limits: { contextCompactionThreshold: 0.85, contextCompressionThreshold: 0.25,
+    contextCompressionLevel2Threshold: 0.55, contextCompressionLevel3Threshold: 0.70 } };
+  const uncapped = { ...route, maxOutputTokens: null };
+  const budget = contextBudget(config, [uncapped], {
+    contextWindowTokens: 1_048_576, outputLimitTokens: null, source: 'openai_models',
+  });
+  assert.equal(budget.windowTokens, 1_048_576);
+  assert.equal(budget.outputReserveTokens, 32_000);
+  assert.equal(budget.effectiveInputTokens, 1_016_576);
+  assert.equal(budget.thresholdTokens, 864_089);
+  assert.equal(budget.compressionThresholdTokens, 254_144);
+  // A 7,242-token tool result is nowhere near any window-relative boundary.
+  assert.ok(7_242 < budget.compressionThresholdTokens);
+});
+
+test('an absent provider cap reserves the route ceiling the request actually sends', () => {
+  const config = { limits: { contextCompactionThreshold: 0.85 } };
+  const uncappedRoute = { ...route, maxOutputTokens: null };
+  const declaredWindow = contextBudget(config, [uncappedRoute], {
+    contextWindowTokens: 262_144, outputLimitTokens: null, source: 'openai_models',
+  });
+  const unknownWindow = contextBudget(config, [uncappedRoute], { contextWindowTokens: null });
+  assert.equal(declaredWindow.outputReserveTokens, 32_000);
+  assert.equal(unknownWindow.outputReserveTokens, 16_384);
+  assert.equal(unknownWindow.effectiveInputTokens, 65_536 - 16_384);
+});
+
 test('route output cap bounds reserved headroom even when discovery reports a larger provider limit', () => {
   const config = { limits: { contextCompactionThreshold: 0.85 } };
   const capped = { ...route, maxOutputTokens: 2_000 };

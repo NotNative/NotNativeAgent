@@ -35,7 +35,7 @@ export async function buildReportedContext(
   active.contextLimitBytes = limitBytes;
   const rawContext = buildContext(engine.config, records, content, baseEnrichment, Number.MAX_SAFE_INTEGER);
   const rawContextBytes = measureContext(rawContext);
-  const rawContextTokens = completeInputTokens(engine, rawContext, active, budget);
+  const rawContextTokens = completeInputTokens(engine, rawContext, active, budget, options.outputReserveTokens);
   const projection = options.projectContext ? await options.projectContext({
     records, rawContextBytes, rawContextTokens,
     effectiveInputTokens: budget?.effectiveInputTokens ?? null,
@@ -128,13 +128,14 @@ export function selectedContextLimit(config, routes) {
   return Math.min(config.limits.maxContextBytes, ...(known.length > 0 ? known : [config.limits.maxContextBytes]));
 }
 
-function completeInputTokens(engine, context, active, budget) {
+function completeInputTokens(engine, context, active, budget, outputReserveTokens = undefined) {
   const routes = engine.router?.candidates('primary', { requiredCapabilities: ['tools'] }) ?? [];
   const route = routes.find((candidate) => candidate.targetRole === active.contextBudgetRoute?.targetRole
     && candidate.profile.id === active.contextBudgetRoute?.profileId
     && candidate.model === active.contextBudgetRoute?.model) ?? routes[0];
   if (!route || !engine.reliability?.providerEnvelope) return estimateContextTokens(context);
-  const request = providerRequest(engine, route, context, { outputReserveTokens: budget?.outputReserveTokens,
+  const reserve = outputReserveTokens ?? budget?.outputReserveTokens;
+  const request = providerRequest(engine, route, context, { outputReserveTokens: reserve,
     conversationIntent: active.conversationIntent, approvedProposal: active.approvedProposal });
-  return engine.reliability.providerEnvelope(request, context, { outputReserveTokens: budget?.outputReserveTokens }).estimated_input_tokens;
+  return engine.reliability.providerEnvelope(request, context, { outputReserveTokens: reserve }).estimated_input_tokens;
 }

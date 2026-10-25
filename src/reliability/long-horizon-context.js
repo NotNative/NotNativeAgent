@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { estimateTokenValue } from './context-token-measurement.js';
 import { ContractError } from '../ids.js';
 
-/** Refresh older turns under measured pressure, or reduce a substantial tool payload. */
+/** Refresh older turns only when measured context pressure reaches the window-relative threshold. */
 export const LONG_HORIZON_POLICY = Object.freeze({
-  completedTurns: 8, toolPayloadRatio: 0.10,
+  completedTurns: 8,
 });
 
 export function longHorizonCompressionTrigger(records, options = {}) {
@@ -20,15 +19,12 @@ export function longHorizonCompressionTrigger(records, options = {}) {
     throw new ContractError('long_horizon_options_invalid', 'refresh pressure threshold must be between zero and one');
   }
   const inputTokens = Number(options.estimatedInputTokens);
+  // Why: compaction follows consumption as a share of the model's usable window.
+  // Which tool produced the bytes is not evidence of pressure; a 20 KB read on a
+  // 1M-token window is far from any boundary and must not trigger a rewrite.
   if (completedTurns >= LONG_HORIZON_POLICY.completedTurns
     && effectiveInputTokens > 0 && inputTokens >= effectiveInputTokens * refreshThreshold) {
     return trigger('completed_turn_interval', checkpoint?.index ?? -1, records, { completedTurns });
-  }
-  const payloadTokens = tail.filter((record) => record.type === 'tool_result')
-    .reduce((sum, record) => sum + estimateTokenValue(record.content ?? ''), 0);
-  if (payloadTokens > 0 && effectiveInputTokens > 0
-    && payloadTokens >= Math.max(1, Math.floor(effectiveInputTokens * LONG_HORIZON_POLICY.toolPayloadRatio))) {
-    return trigger('tool_payload_budget', checkpoint?.index ?? -1, records, { payloadTokens, effectiveInputTokens });
   }
   return null;
 }

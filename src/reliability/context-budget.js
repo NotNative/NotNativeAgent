@@ -20,11 +20,11 @@ export function contextBudget(config, routes, runtime, retryScale = 1, estimateS
   const windowTokens = declaredWindowTokens ?? CONSERVATIVE_UNKNOWN_WINDOW_TOKENS;
   const outputLimits = [runtime?.outputLimitTokens, routes[0]?.maxOutputTokens]
     .map(positiveValue).filter((value) => value !== null);
-  // Invariant: the reserved output cannot exceed the cap sent on the selected route.
-  const declaredOutputLimit = outputLimits.length > 0 ? Math.min(...outputLimits) : DEFAULT_MODEL_OUTPUT_TOKENS;
-  const outputReserveTokens = declaredWindowTokens
-    ? adaptiveOutputReserve(windowTokens, declaredOutputLimit)
-    : Math.min(windowTokens - 1, declaredOutputLimit);
+  const declaredOutputLimit = outputLimits.length > 0 ? Math.min(...outputLimits) : null;
+  const outputReserveTokens = declaredOutputLimit === null
+    ? providerOutputReserve(routes[0], runtime, windowTokens)
+    : declaredWindowTokens ? adaptiveOutputReserve(windowTokens, declaredOutputLimit)
+      : Math.min(windowTokens - 1, declaredOutputLimit);
   const effectiveInputTokens = windowTokens ? Math.max(1, windowTokens - outputReserveTokens) : null;
   const compactionThreshold = config.limits.contextCompactionThreshold ?? 0.75;
   const compressionThreshold = config.limits.contextCompressionThreshold ?? 0.40;
@@ -54,7 +54,7 @@ export function contextBudget(config, routes, runtime, retryScale = 1, estimateS
   });
 }
 
-function adaptiveOutputReserve(windowTokens, declaredOutputLimit) {
+export function adaptiveOutputReserve(windowTokens, declaredOutputLimit) {
   const proportionalReserve = Math.floor(windowTokens * OUTPUT_RESERVE_RATIO);
   const smallWindowSafetyCap = Math.max(1, Math.floor(windowTokens * 0.25));
   const constrainedMinimum = Math.min(
@@ -65,6 +65,19 @@ function adaptiveOutputReserve(windowTokens, declaredOutputLimit) {
   const providerReserveCap = Math.min(declaredOutputLimit, MAX_OUTPUT_RESERVE_TOKENS);
   const inputPreservingCap = windowTokens - 1;
   return Math.max(1, Math.min(inputPreservingCap, smallWindowSafetyCap, providerReserveCap, desiredReserve));
+}
+
+// Why: a provider request is bounded by the ceiling it actually sends. An absent
+// provider cap is not permission to reserve the largest route default; measuring
+// and enforcing against a reserve the wire never carries understates usable input.
+export function providerOutputReserve(route, runtime, windowTokens) {
+  const routeLimit = positiveValue(route?.maxOutputTokens);
+  const providerLimit = positiveValue(runtime?.outputLimitTokens);
+  if (routeLimit !== null && providerLimit !== null) return Math.min(routeLimit, providerLimit);
+  const declared = routeLimit ?? providerLimit;
+  const window = positiveValue(windowTokens);
+  if (declared !== null) return window !== null ? adaptiveOutputReserve(window, declared) : declared;
+  return window !== null ? adaptiveOutputReserve(window, MAX_OUTPUT_RESERVE_TOKENS) : TARGET_MIN_OUTPUT_RESERVE_TOKENS;
 }
 
 export function estimateContextTokens(messages) {

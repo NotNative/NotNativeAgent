@@ -17,6 +17,11 @@ const RECORD_BUDGET_RATIO = 0.55;
 const EMERGENCY_THRESHOLD_RATIO = 0.65;
 const SUMMARY_BUDGET_RATIO = 0.35;
 const MINIMUM_SUMMARY_BYTES = 1_024;
+// Invariant: the retained continuation must carry more than a truncated echo of the
+// dropped records. Below this share of its own budget a summary cannot state the
+// objective and the settled receipts, so compaction rewrites context without gain.
+const MINIMUM_SUMMARY_TOKEN_RATIO = 0.25;
+const MINIMUM_SUMMARY_TOKENS = 1_024;
 const COLD_MESSAGE_BYTES = 32_768;
 export function compactTranscript(transcript, maxBytes, options = {}) {
   const sizing = compactionSizing(options);
@@ -41,7 +46,7 @@ export function compactTranscript(transcript, maxBytes, options = {}) {
   }
   const omitted = Math.max(0, source.length - selected.length);
   const continuation = hierarchicalContinuationArtifact(source, omitted);
-  const summaryBudget = Math.min(maxBytes, Math.max(sizing.summaryMinimum, Math.floor(maxBytes * SUMMARY_BUDGET_RATIO)));
+  const summaryBudget = summaryBudgetFor(maxBytes, sizing);
   const summary = sizing.text(renderContinuation(continuation, Number.MAX_SAFE_INTEGER), summaryBudget);
   const fact = Object.freeze({
     type: 'compaction', version: 2, omitted,
@@ -395,6 +400,17 @@ function shrinkOversizedProtectedRecords(entries, budget, sizing) {
 
 function ledgerReference(item) {
   return item.requestId ?? item.providerCallId ?? item.turnId ?? item.turn_id ?? null;
+}
+
+function summaryBudgetFor(maxBytes, sizing) {
+  if (sizing.measure !== estimateTokenValue) {
+    return Math.min(maxBytes, Math.max(sizing.summaryMinimum, Math.floor(maxBytes * SUMMARY_BUDGET_RATIO)));
+  }
+  // Why: on a large window the proportional share is generous, but the previous
+  // floor of 256 tokens clipped every continuation down to an excerpt of the
+  // dropped tool output. The floor scales with the budget it shares.
+  const floor = Math.min(maxBytes, Math.max(MINIMUM_SUMMARY_TOKENS, Math.floor(maxBytes * MINIMUM_SUMMARY_TOKEN_RATIO)));
+  return Math.min(maxBytes, Math.max(floor, Math.floor(maxBytes * SUMMARY_BUDGET_RATIO)));
 }
 
 function boundedMetadata(value) {

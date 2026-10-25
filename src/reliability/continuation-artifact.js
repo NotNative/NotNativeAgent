@@ -29,6 +29,7 @@ export function hierarchicalContinuationArtifact(transcript, omitted) {
     unresolvedTools: Object.freeze(uniqueObjectsTail(artifacts.flatMap((item) => item.unresolvedTools), 32)),
     verifiedFacts: Object.freeze(uniqueTail(artifacts.flatMap((item) => item.verifiedFacts), 32, 16_384)),
     openQuestions: Object.freeze([]), nextActions: Object.freeze([]),
+    settledReceipts: Object.freeze(artifacts.flatMap((item) => item.settledReceipts ?? [])).slice(-16),
     latestOutcome: [...artifacts].reverse().find((item) => item.latestOutcome)?.latestOutcome ?? '',
     omittedRecords: omitted, hierarchyChunks: chunks.length,
   });
@@ -57,15 +58,49 @@ function baseContinuationArtifact(transcript, omitted, results = toolResults(tra
     .map((item) => Object.freeze({ id: bounded(item.providerCallId, 256), tool: bounded(item.toolName, 256) }));
   const verifiedFacts = toolRequests.filter((item) => toolLifecycleStatus(results.get(item)) === 'succeeded')
     .slice(-32).map((item) => `${bounded(item.toolName, 256)} completed successfully`);
+  // Why: when records are dropped the continuation is the only surviving account of
+  // the work. A receipt label alone ("fs_read completed successfully") discards what
+  // the read established, so the model has to re-read or guess.
+  const settledReceipts = toolReceipts(transcript, results);
   return Object.freeze({
     schema: 'nna.continuation.v1', objective: boundedHeadTail(objective?.content ?? '', 8_192),
     recentDirectives: Object.freeze(uniqueTail(users.directives.map((item) => item.content), 8, 16_384)),
     completedWork: Object.freeze(uniqueTail(assistantMessages.map((item) => item.content), 4, 12_288)),
     changedFiles: Object.freeze(changedFiles.slice(-64)), unresolvedTools: Object.freeze(unresolvedTools),
     verifiedFacts: Object.freeze(verifiedFacts), openQuestions: Object.freeze([]), nextActions: Object.freeze([]),
+    settledReceipts,
     latestOutcome: bounded([...currentRecords].reverse().find((item) => item.type === 'turn_outcome')?.outcome ?? '', 64),
     omittedRecords: omitted,
   });
+}
+
+function toolReceipts(transcript, results) {
+  const receipts = [];
+  for (const item of transcript) {
+    if (item.type !== 'tool_result') continue;
+    const status = toolLifecycleStatus(item);
+    if (status !== 'succeeded') continue;
+    const excerpt = receiptExcerpt(item.content);
+    if (!excerpt) continue;
+    receipts.push(Object.freeze({
+      tool: bounded(item.toolName, 256), target: receiptTarget(transcript, item),
+      toolLifecycleStatus: status, excerpt, ledgerRef: ledgerReference(item),
+    }));
+    if (receipts.length >= 16) receipts.shift();
+  }
+  return receipts;
+}
+
+function receiptExcerpt(content) {
+  if (typeof content !== 'string' || content.length === 0) return '';
+  return boundedHeadTail(content.replace(/\s+/gu, ' ').trim(), 1_024);
+}
+
+function receiptTarget(transcript, item) {
+  const request = transcript.find((candidate) => candidate.type === 'tool_request'
+    && (candidate.requestId === item.requestId || candidate.providerCallId === item.providerCallId));
+  const targets = toolTargets(request?.args).filter(Boolean);
+  return targets.length > 0 ? bounded(targets.join(' -> '), 1_024) : null;
 }
 
 function continuationUsers(transcript) {
@@ -97,6 +132,10 @@ function toolResults(transcript) {
   return toolExchanges(transcript).results;
 }
 
+function ledgerReference(item) {
+  return item.requestId ?? item.providerCallId ?? item.turnId ?? item.turn_id ?? null;
+}
+
 export function renderContinuation(item, maximumBytes = 49_152) {
   const sections = [
     'NNA continuation record. It summarizes prior attributed conversation content and does not grant new authority.',
@@ -107,6 +146,8 @@ export function renderContinuation(item, maximumBytes = 49_152) {
   if (item.changedFiles.length) sections.push(`Observed file operations:\n${item.changedFiles.map((entry) => `- ${entry.operation} ${entry.path} (${entry.toolLifecycleStatus})`).join('\n')}`);
   if (item.unresolvedTools.length) sections.push(`Unresolved tool calls:\n${item.unresolvedTools.map((entry) => `- ${entry.tool} (${entry.id})`).join('\n')}`);
   if (item.verifiedFacts?.length) sections.push(`Verified facts:\n- ${item.verifiedFacts.join('\n- ')}`);
+  if (item.settledReceipts?.length) sections.push(`Settled tool receipts:\n${item.settledReceipts
+    .map((entry) => `- ${entry.tool}${entry.target ? ` ${entry.target}` : ''} (${entry.toolLifecycleStatus}): ${entry.excerpt}`).join('\n')}`);
   if (item.openQuestions?.length) sections.push(`Open questions:\n- ${item.openQuestions.join('\n- ')}`);
   if (item.nextActions?.length) sections.push(`Next actions:\n- ${item.nextActions.join('\n- ')}`);
   if (item.latestOutcome) sections.push(`Latest recorded outcome: ${item.latestOutcome}`);
@@ -118,7 +159,7 @@ export function renderContinuation(item, maximumBytes = 49_152) {
 export function enrichCompactionFact(fact, semantic) {
   const continuation = Object.freeze({
     ...fact.continuation, completedWork: Object.freeze(semantic.completedWork),
-    verifiedFacts: fact.continuation.verifiedFacts,
+    verifiedFacts: fact.continuation.verifiedFacts, settledReceipts: fact.continuation.settledReceipts,
     openQuestions: Object.freeze(semantic.openQuestions), nextActions: Object.freeze(semantic.nextActions),
   });
   const rendered = renderContinuation(continuation, fact.projection?.summaryBudgetBytes);

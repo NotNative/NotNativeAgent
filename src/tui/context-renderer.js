@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const TRIGGERS = Object.freeze({
-  tool_payload_budget: 'tool payload budget (early cleanup)',
+  // Compatibility: legacy journal records may still carry the retired payload trigger.
+  tool_payload_budget: 'tool payload budget (retired; context now follows measured consumption)',
   completed_turn_interval: 'conversation refresh under context pressure',
   provider_context_limit: 'provider rejected context size',
   stale_continuation_artifact: 'continuation integrity repair',
@@ -20,6 +21,8 @@ export function contextCompactionText(record) {
       ? ` | saved ${formatTokens(Math.max(0, record.before_estimated_tokens - record.after_estimated_tokens))}` : '';
     summary = `  CONTEXT | compacted | reason: ${reason}\n  ${basis}: ${formatTokens(record.before_estimated_tokens)} -> ${formatTokens(record.after_estimated_tokens)}${saved}${utilization(record.after_estimated_tokens, record.effective_input_tokens)}`;
     summary += `\n  Retained ${record.retained_records ?? 0} recent records | protected ${record.protected_turns ?? 0} recent turns | reduced ${record.payload_compacted_records ?? 0} payloads`;
+    const summaryTokens = record.summary_budget_tokens ?? record.continuation_tokens;
+    if (Number.isFinite(summaryTokens)) summary += `\n  Continuation keeps up to ${formatTokens(summaryTokens)} of dropped evidence`;
   } else if (record.status === 'skipped') {
     summary = `  CONTEXT | compaction skipped | input preserved | ${record.reason_code ?? 'unknown'}`;
   } else return `  CONTEXT | compaction failed | ${record.reason_code ?? 'unknown'}`;

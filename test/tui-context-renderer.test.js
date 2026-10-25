@@ -16,9 +16,9 @@ test('context compaction status is concise and visible', () => {
 
 test('compaction display identifies estimated input, trigger, and model window', () => {
   const text = contextCompactionText({ status: 'started', measurement_basis: 'complete_provider_input',
-    before_estimated_tokens: 55938, target_tokens: 41953, trigger: 'tool_payload_budget', context_window_tokens: 300000 });
+    before_estimated_tokens: 55938, target_tokens: 41953, trigger: 'completed_turn_interval', context_window_tokens: 300000 });
   assert.match(text, /estimated complete input: 55,938 tokens/u);
-  assert.match(text, /tool payload budget \(early cleanup\)/u);
+  assert.match(text, /conversation refresh under context pressure/u);
   assert.match(text, /Window: 300,000 tokens/u);
 });
 
@@ -26,7 +26,7 @@ test('compaction shows usable input, output reserve, savings and pressure separa
   const text = contextCompactionText({ status: 'completed', measurement_basis: 'complete_provider_input',
     before_estimated_tokens: 30408, after_estimated_tokens: 21660, context_window_tokens: 131072,
     effective_input_tokens: 99072, output_reserve_tokens: 32000, admissible_ceiling_tokens: 74304,
-    binding_ceiling: 'token_budget', trigger: 'tool_payload_budget', source: 'openai_models' });
+    binding_ceiling: 'token_budget', trigger: 'completed_turn_interval', source: 'openai_models' });
   assert.match(text, /saved 8,748 tokens/u);
   assert.match(text, /21.9% of usable input/u);
   assert.match(text, /usable input: 99,072 tokens/u);
@@ -37,6 +37,11 @@ test('compaction shows usable input, output reserve, savings and pressure separa
 test('skipped compaction preserves input and unknown budgets never invent percentages', () => {
   assert.match(contextCompactionText({ status: 'skipped' }), /skipped.*input preserved/u);
   assert.doesNotMatch(contextCompactionText({ status: 'started', before_estimated_tokens: 12 }), /%/u);
+});
+
+test('legacy payload-trigger records render as retired rather than as a live trigger', () => {
+  assert.match(contextCompactionText({ status: 'started', before_estimated_tokens: 1000, trigger: 'tool_payload_budget' }),
+    /retired[\s\S]*measured consumption/u);
 });
 
 test('compaction block has surrounding blank lines and off-white color including wrapped rows', () => {

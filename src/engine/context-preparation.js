@@ -147,7 +147,7 @@ async function fitCompactedContext(engine, records, active, operations, plan) {
       }
       // Invariant: optional refresh cannot increase input or create a checkpoint merely for cadence.
       if (after >= plan.beforeEstimatedTokens && compactionTrigger(active) !== 'stale_continuation_artifact') {
-        if (['completed_turn_interval', 'tool_payload_budget'].includes(compactionTrigger(active))
+        if (['completed_turn_interval'].includes(compactionTrigger(active))
           && plan.beforeEstimatedTokens <= plan.validationBudget) {
           assertCompleteEnvelope(engine, plan.route, plan.beforeContext, plan.planned, active);
           return { fact: null, context: plan.beforeContext, rejectedEstimatedTokens: after };
@@ -222,9 +222,11 @@ async function createCompactionCandidate(engine, records, active, plan) {
 }
 
 function validateCompactionCandidate(engine, fact, active, plan, probe = false) {
+  // Invariant: a candidate is validated against the same reserve the dispatch will
+  // send, so a compaction is never planned against an inflated input ceiling.
   return buildReportedContext(
     engine, [...engine.transcript, fact], '', active.enrichment, active,
-    plan.validationBudget, plan.hardLimit, plan.planned, { probe },
+    plan.validationBudget, plan.hardLimit, plan.planned, { probe, outputReserveTokens: plan.planned.outputReserveTokens },
   ).then((context) => {
     assertCompleteEnvelope(engine, plan.route, context, plan.planned, active);
     return context;
@@ -232,14 +234,12 @@ function validateCompactionCandidate(engine, fact, active, plan, probe = false) 
 }
 
 function assertCompleteEnvelope(engine, route, context, budget, active) {
-  const request = providerRequest(engine, route, context, {
-    outputReserveTokens: budget?.outputReserveTokens,
-    conversationIntent: active.conversationIntent,
-    approvedProposal: active.approvedProposal,
-  });
-  const envelope = engine.reliability.providerEnvelope(request, context, {
-    outputReserveTokens: budget?.outputReserveTokens,
-  });
+  // Invariant: admission measures the request the wire will carry, including the
+  // planned output reserve; otherwise the reserve silently vanishes at preflight.
+  const reserve = budget?.outputReserveTokens; // Invariant: the wire carries this reserve.
+  const request = providerRequest(engine, route, context, { outputReserveTokens: reserve,
+    conversationIntent: active.conversationIntent, approvedProposal: active.approvedProposal });
+  const envelope = engine.reliability.providerEnvelope(request, context, { outputReserveTokens: reserve });
   engine.reliability.assertProviderEnvelopeFits(envelope, budget);
 }
 
@@ -421,6 +421,8 @@ function compactionCompletedDetail(active, fact, beforeEstimatedTokens) {
     payload_compacted_records: fact.projection?.payloadCompactedRecords ?? 0,
     bounded_receipt_records: fact.projection?.boundedReceiptRecords ?? 0,
     hierarchy_chunks: fact.projection?.hierarchyChunks ?? 1,
+    summary_budget_tokens: fact.projection?.summaryBudgetTokens ?? null,
+    settled_receipts: fact.continuation?.settledReceipts?.length ?? 0,
     task_checkpoint: Boolean(fact.continuation?.taskStatePath),
   };
 }

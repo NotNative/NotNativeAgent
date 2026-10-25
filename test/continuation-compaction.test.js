@@ -73,6 +73,33 @@ test('an emergency checkpoint carries the original objective and steer into late
   assert.equal(third.fact.continuation.objective, 'Report your findings.');
 });
 
+test('a tool-sized continuation keeps the settled receipt rather than only its label', () => {
+  // Regression: the live session showed "reduced 1 payloads" while the continuation
+  // carried only "git_inspect completed successfully", so the model could not answer.
+  const status = `${'## main\n M README.md\n?? docs/build/PARITY-STATUS.md\n'.repeat(400)}`;
+  const transcript = [
+    { type: 'message', role: 'user', turnId: 'turn-live', content: 'Report the build status.' },
+    { type: 'message', role: 'assistant', turnId: 'turn-live', stepId: 'step-1', content: 'Inspecting the repository now.' },
+    { type: 'tool_request', turnId: 'turn-live', stepId: 'step-1', requestId: 'tool-1', providerCallId: 'call-1',
+      toolName: 'git_inspect', args: { operation: 'status' } },
+    { type: 'tool_result', turnId: 'turn-live', stepId: 'step-1', requestId: 'tool-1', providerCallId: 'call-1',
+      toolName: 'git_inspect', toolLifecycleStatus: 'succeeded', content: status },
+  ];
+  const budget = 762_432;
+  const compacted = compactTranscript(transcript, budget, {
+    activeTurnId: 'turn-live', activeStepId: 'step-1', protectedActiveSteps: 3, requireProgress: true, unit: 'tokens',
+  });
+  const fact = compacted.fact;
+  assert.equal(fact.projection.payloadCompactedRecords, 1);
+  // A summary share proportional to the window, not the former 256-token floor.
+  assert.ok(fact.projection.summaryBudgetTokens >= 1_024);
+  assert.ok(fact.projection.summaryBudgetTokens <= budget);
+  assert.deepEqual(fact.continuation.settledReceipts.map((item) => item.tool), ['git_inspect']);
+  assert.match(fact.summary, /Settled tool receipts:/u);
+  assert.match(fact.summary, /M README\.md/u);
+  assert.doesNotMatch(fact.summary, /fs_read completed successfully/u);
+});
+
 test('compaction preserves the active turn and paired calls while bounding oversized tool output', () => {
   const transcript = [
     message('user', 'Earlier design discussion'), message('assistant', 'Earlier answer'),

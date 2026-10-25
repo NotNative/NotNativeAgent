@@ -24,21 +24,46 @@ test('turn cadence alone cannot compact a small conversation on a large-window m
   assert.equal(longHorizonCompressionTrigger(records, { effectiveInputTokens: 268000 }), null);
 });
 
-test('historical tool payload budget scales with the effective model input window', () => {
-  const records = [{ type: 'tool_result', content: 'x'.repeat(4_100), status: 'succeeded' }];
-  const trigger = longHorizonCompressionTrigger(records, { effectiveInputTokens: 10_000 });
-  assert.equal(trigger.reason, 'tool_payload_budget');
-  assert.equal(trigger.effectiveInputTokens, 10_000);
-  assert.equal(trigger.payloadTokens, 1367);
-  assert.equal(longHorizonCompressionTrigger(records, { effectiveInputTokens: 20_000 }), null);
+test('tool payload size alone never initiates compression on a large window', () => {
+  // Regression: a 20 KB `git_inspect` result on a 1M-token model measured well
+  // under 1% of usable input yet used to trigger a rewrite of the live turn.
+  const records = [
+    { type: 'message', role: 'user', turnId: 'active', content: 'Report the build status.' },
+    { type: 'tool_result', turnId: 'active', content: 'x'.repeat(20_977), status: 'succeeded' },
+  ];
+  assert.equal(longHorizonCompressionTrigger(records, {
+    activeTurnId: 'active', effectiveInputTokens: 1_018_576, estimatedInputTokens: 7_100,
+  }), null);
+  assert.equal(longHorizonCompressionTrigger(records, {
+    activeTurnId: 'active', effectiveInputTokens: 1_018_576, estimatedInputTokens: 100_000,
+  }), null);
 });
 
-test('tool payload pressure measures structured content and rejects cycles explicitly', () => {
+test('a large tool payload only compresses once measured input crosses the window share', () => {
+  const records = Array.from({ length: 40 }, (_, index) => ({
+    type: 'message', role: 'user', turnId: `turn-${index}`, content: 'x'.repeat(1_500),
+  }));
+  const trigger = longHorizonCompressionTrigger(records, {
+    effectiveInputTokens: 262_144, estimatedInputTokens: 110_000,
+  });
+  assert.equal(trigger.reason, 'completed_turn_interval');
+  assert.equal(longHorizonCompressionTrigger(records, {
+    effectiveInputTokens: 262_144, estimatedInputTokens: 60_000,
+  }), null);
+});
+
+test('tool payload pressure rejects cycles explicitly without inventing a trigger', () => {
   const records = [{ type: 'tool_result', content: { text: 'x'.repeat(5_000) } }];
-  assert.equal(longHorizonCompressionTrigger(records, { effectiveInputTokens: 10_000 })?.reason, 'tool_payload_budget');
+  assert.equal(longHorizonCompressionTrigger(records, { effectiveInputTokens: 10_000 }), null);
   const cyclic = {};
   cyclic.self = cyclic;
   assert.throws(() => retainedRecordsFingerprint([cyclic]), { code: 'long_horizon_records_invalid' });
+});
+
+test('structured tool payloads stay below the window share they consume', () => {
+  assert.equal(longHorizonCompressionTrigger([{ type: 'tool_result', content: { text: 'x'.repeat(5_000) } }], {
+    effectiveInputTokens: 1_000_000, estimatedInputTokens: 2_000,
+  }), null);
 });
 
 test('unknown context capacity does not turn an empty payload into a compression trigger', () => {

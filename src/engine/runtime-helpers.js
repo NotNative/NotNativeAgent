@@ -88,9 +88,21 @@ function flattenLeadingSystemMessages(messages) {
 
 function providerAccountingSections(messages, context, injectedIndexes) {
   const injected = new Set(injectedIndexes);
+  // Compatibility: flattening the leading system messages merges several context
+  // sources into one. Attribute it to them all, so engine-authored compaction and
+  // recovery guidance stays visible instead of becoming unattributed transport bytes.
+  const mergedCount = Math.max(0, context.length - (messages.length - injected.size));
+  let leading = 0;
+  while (context[leading]?.role === 'system') leading += 1;
   let contextIndex = 0;
   return messages.map((message, index) => {
     if (injected.has(index)) return { id: 'request.injected_system', message };
+    if (mergedCount > 1 && contextIndex < leading) {
+      const sources = context.slice(0, leading);
+      contextIndex = leading;
+      return { id: `context.${sectionLabel(sources.find((item) => item.provenance !== 'engine_policy'
+        && item.provenance !== 'application_policy')?.provenance ?? sources[0]?.provenance)}`, message };
+    }
     const provenance = context[contextIndex]?.provenance;
     contextIndex += 1;
     return { id: `context.${sectionLabel(provenance)}`, message };

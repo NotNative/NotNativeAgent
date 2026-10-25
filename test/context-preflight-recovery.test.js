@@ -52,7 +52,7 @@ test('final context overflow triggers bounded compaction before returning a prov
 test('ineffective optional refresh preserves input and commits no checkpoint', async () => {
   const run = fixture();
   run.engine.transcript = [{ type: 'message', role: 'user', turnId: 'current', content: 'Hello.' }];
-  run.active.contextCompressionTrigger = 'tool_payload_budget';
+  run.active.contextCompressionTrigger = 'completed_turn_interval';
   run.active.contextCompressionTriggerKey = 'same-payload';
   const context = await prepareEngineContext(run.engine, run.engine.transcript, '', run.active, true, run.operations);
   assert.equal(run.facts.length, 0);
@@ -225,8 +225,8 @@ test('tool-schema overflow is included in preflight and cannot be hidden by comp
 test('skipped refresh memory is bounded to an unchanged source, including A/B/A triggers', () => {
   const active = { skippedCompactionTriggers: new Set(), skippedCompactionSourceFingerprint: null };
   const records = [{ type: 'message', content: 'same evidence' }];
-  const a = { reason: 'tool_payload_budget', checkpointIndex: 0, completedTurns: 2, payloadTokens: 900 };
-  const b = { ...a, reason: 'completed_turn_interval' };
+  const a = { reason: 'completed_turn_interval', checkpointIndex: 0, completedTurns: 2 };
+  const b = { ...a, reason: 'completed_turn_interval', completedTurns: 3 };
   const first = compactionRefreshDecision(active, a, records);
   assert.equal(first.refresh, a);
   active.skippedCompactionTriggers.add(first.triggerKey);
@@ -274,7 +274,7 @@ test('compaction compares complete provider input and keeps journal metadata sep
     run.engine.output = async (record) => output.push(record);
     run.engine.telemetry = { record: (event, status, detail) => telemetry.push({ event, status, detail }) };
     run.engine.transcript = [{ type: 'message', role: 'user', turnId: 'current', content: 'inspect', metadata: { diagnostic } }];
-    run.active.contextCompressionTrigger = 'tool_payload_budget';
+    run.active.contextCompressionTrigger = 'completed_turn_interval';
     const context = await prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active, true, run.operations);
     const started = output.find((record) => record.type === 'context_compaction_status' && record.status === 'started');
     const completed = output.find((record) => record.type === 'context_compaction_status' && record.status === 'skipped');
@@ -317,7 +317,7 @@ test('non-TUI output receives every compaction lifecycle outcome with matching t
     run.engine.telemetry = { record: (event, status, detail) => telemetry.push({ event, status, detail }) };
     if (expected === 'skipped') {
       run.engine.transcript = [{ type: 'message', role: 'user', turnId: 'current', content: 'Hello.' }];
-      run.active.contextCompressionTrigger = 'tool_payload_budget';
+      run.active.contextCompressionTrigger = 'completed_turn_interval';
     }
     const action = prepareEngineContext(run.engine, [...run.engine.transcript], '', run.active,
       expected === 'skipped', run.operations);
