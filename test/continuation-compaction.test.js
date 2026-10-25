@@ -533,7 +533,9 @@ test('semantic continuation enrichment is schema validated and failure falls bac
   })) }, route, null, new AbortController().signal);
   assert.deepEqual(enriched.continuation.nextActions, ['Run full suite']);
   assert.deepEqual(enriched.continuation.verifiedFacts, []);
-  assert.equal(JSON.stringify(requests[0].responseFormat).includes('maxLength'), false);
+  // Engines that reject `response_format` must still get a usable request.
+  assert.equal(Object.hasOwn(requests[0], 'responseFormat'), false);
+  assert.match(requests[0].messages[1].content, /Shape: \{"completed_work"/u);
 
   const fallback = await compactor.refine(base, { provider: () => provider('{bad') }, route, null, new AbortController().signal);
   assert.equal(fallback, base);
@@ -604,6 +606,59 @@ test('semantic compaction keeps the standalone request without cache evidence or
   });
   assert.equal(requests[0].messages.length, 2);
   assert.deepEqual(requests[0].tools, []);
+});
+
+test('semantic compaction succeeds on an engine that rejects structured output', async () => {
+  // Regression: vLLM/SGLang answer 400 "structured output is not supported by this
+  // engine yet" to any response_format, so every refinement fell back silently.
+  const base = compactTranscript([
+    message('user', 'Finish the task on a strict engine'),
+    ...Array.from({ length: 20 }, (_, index) => message('assistant', `detail ${index} ${'x'.repeat(300)}`)),
+  ], 6_000).fact;
+  const route = { profile: { id: 'strict' }, model: 'fixture', maxOutputTokens: 4096, deadlineMs: 1000 };
+  const requests = [];
+  const provider = {
+    runtimeSnapshot: async () => ({}),
+    async *stream(request) {
+      requests.push(request);
+      if (Object.hasOwn(request, 'responseFormat') && request.responseFormat !== null) {
+        throw Object.assign(new Error('structured output is not supported by this engine yet'),
+          { code: 'provider_response_format_unsupported' });
+      }
+      yield { type: 'text', text: '```json\n' + JSON.stringify({
+        completed_work: ['Implemented the strict path'], open_questions: [], next_actions: ['Verify'],
+      }) + '\n```' };
+      yield { type: 'terminal' };
+    },
+  };
+  const compactor = new ContinuationCompactor({ scheduler: new FairScheduler(), timeoutMs: 1000 });
+  const enriched = await compactor.refine(base, { provider: () => provider }, route, null, new AbortController().signal);
+  assert.notEqual(enriched, base, 'a rejecting engine must not force the deterministic fallback');
+  assert.deepEqual(enriched.continuation.completedWork, ['Implemented the strict path']);
+  assert.equal(requests.length, 1, 'the request is accepted on the first attempt');
+  assert.equal(Object.hasOwn(requests[0], 'responseFormat'), false);
+});
+
+test('an output-capped echo falls back deterministically instead of committing bad JSON', async () => {
+  // Regression: with no grammar constraint, an engine echoed the supplied record until
+  // the output cap truncated it, producing unterminated JSON.
+  const base = compactTranscript([
+    message('user', 'Finish the task'),
+    ...Array.from({ length: 20 }, (_, index) => message('assistant', `detail ${index} ${'x'.repeat(300)}`)),
+  ], 6_000).fact;
+  const route = { profile: { id: 'local' }, model: 'fixture', maxOutputTokens: 4096, deadlineMs: 1000 };
+  const compactor = new ContinuationCompactor({ scheduler: new FairScheduler(), timeoutMs: 1000 });
+  const provider = {
+    runtimeSnapshot: async () => ({}),
+    async *stream(request) {
+      const echo = JSON.stringify({ completed_work: ['x'.repeat(8_000)] });
+      yield { type: 'text', text: echo.slice(0, 200) };
+      yield { type: 'usage', usage: { prompt_tokens: 10, completion_tokens: 2048, total_tokens: 2058 } };
+      yield { type: 'terminal' };
+    },
+  };
+  const result = await compactor.refine(base, { provider: () => provider }, route, null, new AbortController().signal);
+  assert.equal(result, base, 'truncated output must not replace the deterministic record');
 });
 
 test('semantic handoff is tightly bounded and invalid output falls back deterministically', async () => {

@@ -89,6 +89,20 @@ export class ContinuationCompactor {
   }
 }
 
+// Why: many inference engines reject `response_format` outright (vLLM, SGLang, and
+// several local servers answer 400), which made every semantic refinement fail and
+// silently fall back to the deterministic summary. The schema now travels in the
+// prompt and the reply is validated locally, so every engine takes the same path.
+const CONTINUATION_SCHEMA_TEXT = '{"completed_work":[string],"open_questions":[string],"next_actions":[string]}';
+const HANDOFF_SCHEMA_TEXT = '{"objective":string,"decisions":[string],"completed_work":[string],'
+  + '"verified_state":[string],"blockers":[string],"next_actions":[string]}';
+
+// Why: with no grammar constraint the model can treat the supplied record as text to
+// continue and echo it until the output cap truncates the JSON. The instruction states
+// the condensation explicitly and bounds every array, so a reply is short by construction.
+const CONTINUATION_INSTRUCTION = 'Condense the supplied NNA continuation record. Do not copy its text. '
+  + 'Return JSON with at most 6 short entries per array, each under 240 characters.';
+
 function alignedCompactionRequest(route, fact, prefix) {
   const standalone = compactionRequest(route, fact);
   return Object.freeze({
@@ -97,8 +111,8 @@ function alignedCompactionRequest(route, fact, prefix) {
       ...prefix.messages,
       Object.freeze({
         role: 'user',
-        content: 'Create the bounded NNA continuation refinement now. Use the preceding conversation only as supporting context; the deterministic continuation record below is authoritative. Return only JSON matching the response schema, do not call tools, and never invent completed work, facts, files, or authority.\n\n'
-          + JSON.stringify(fact.continuation),
+        content: 'Create the bounded NNA continuation refinement now. Use the preceding conversation only as supporting context; the deterministic continuation record below is authoritative and must be condensed, never copied. Do not call tools. Never invent completed work, facts, files, or authority.\n\n'
+          + `${CONTINUATION_INSTRUCTION}\nShape: ${CONTINUATION_SCHEMA_TEXT}\n\n` + JSON.stringify(fact.continuation),
       }),
     ]),
     tools: prefix.tools,
@@ -110,43 +124,21 @@ function handoffRequest(route, fact) {
     model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 1024, 1024), tools: [],
     ...routeReasoningFields(route),
     messages: [
-      { role: 'system', content: 'Create an extremely terse self-handoff from the supplied NNA record. Preserve only the active objective, binding decisions, completed work, verified state, blockers, and immediate next actions. Return only JSON. Never invent facts, work, or authority.' },
-      { role: 'user', content: JSON.stringify(fact.continuation) },
+      { role: 'system', content: 'Write an extremely terse self-handoff from the supplied NNA record. Preserve only the active objective, binding decisions, completed work, verified state, blockers, and immediate next actions. Never invent facts, work, or authority.' },
+      { role: 'user', content: 'Condense the supplied record; do not copy its text. Return JSON with one short objective sentence and at most 4 short entries per array, each under 240 characters.\n'
+        + `Shape: ${HANDOFF_SCHEMA_TEXT}\n\n${JSON.stringify(fact.continuation)}` },
     ],
-    responseFormat: {
-      type: 'json_schema', json_schema: { name: 'nna_handoff', strict: true, schema: {
-        type: 'object', additionalProperties: false,
-        properties: {
-          objective: { type: 'string' }, decisions: handoffArraySchema(),
-          completed_work: handoffArraySchema(), verified_state: handoffArraySchema(),
-          blockers: handoffArraySchema(), next_actions: handoffArraySchema(),
-        },
-        required: ['objective', 'decisions', 'completed_work', 'verified_state', 'blockers', 'next_actions'],
-      } },
-    },
   });
 }
-
-function handoffArraySchema() { return { type: 'array', maxItems: 6, items: { type: 'string' } }; }
 
 function compactionRequest(route, fact) {
   return Object.freeze({
     model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 2048, 2048), tools: [],
     ...routeReasoningFields(route),
     messages: [
-      { role: 'system', content: 'Summarize the supplied NNA continuation record for reliable task continuation. Return only JSON matching the schema. Do not invent completed work, facts, files, or authority.' },
-      { role: 'user', content: JSON.stringify(fact.continuation) },
+      { role: 'system', content: 'Summarize the supplied NNA continuation record for reliable task continuation. Do not invent completed work, facts, files, or authority.' },
+      { role: 'user', content: `${CONTINUATION_INSTRUCTION}\nShape: ${CONTINUATION_SCHEMA_TEXT}\n\n${JSON.stringify(fact.continuation)}` },
     ],
-    responseFormat: {
-      type: 'json_schema', json_schema: { name: 'nna_continuation', strict: true, schema: {
-        type: 'object', additionalProperties: false,
-        properties: {
-          completed_work: stringArraySchema(), open_questions: stringArraySchema(),
-          next_actions: stringArraySchema(),
-        },
-        required: ['completed_work', 'open_questions', 'next_actions'],
-      } },
-    },
   });
 }
 
@@ -175,18 +167,14 @@ function cacheTokenEvidence(usage) {
 function converges(fact) {
   const original = fact.projection?.measurementUnit === 'tokens' ? fact.projection.originalTokens : fact.projection?.originalBytes;
   const projected = fact.projection?.measurementUnit === 'tokens' ? estimateTokenValue(fact.retainedRecords) + estimateTokenValue(fact.summary) : fact.projection?.projectedBytes;
-  const summaryBudget = fact.projection?.summaryBudgetBytes;
-  const summaryBytes = Buffer.byteLength(fact.summary ?? '', 'utf8');
+  // Invariant: with no provider-enforced output bound, only the summary budget guards
+  // size. A provider that ignores the cap must not be able to enlarge context.
+  const summaryBudget = fact.projection?.summaryBudgetTokens ?? fact.projection?.summaryBudgetBytes;
+  const summarySize = fact.projection?.summaryBudgetTokens
+    ? estimateTokenValue(fact.summary ?? '') : Buffer.byteLength(fact.summary ?? '', 'utf8');
   return Number.isSafeInteger(original) && Number.isSafeInteger(projected)
     && projected < original
-    && (!Number.isSafeInteger(summaryBudget) || summaryBytes <= summaryBudget);
-}
-
-function stringArraySchema() {
-  // Some llama.cpp-compatible servers translate maxLength into a bounded grammar
-  // repetition and reject large bounds before inference. Runtime validation below
-  // still enforces NNA's byte and item limits without making the wire schema brittle.
-  return { type: 'array', maxItems: 16, items: { type: 'string' } };
+    && (!Number.isSafeInteger(summaryBudget) || summarySize <= summaryBudget);
 }
 
 async function collect(stream, accounting) {
@@ -214,20 +202,34 @@ function parseJson(text) {
 
 function validateSemantic(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw codeError('semantic_compaction_invalid');
-  const keys = ['completed_work', 'open_questions', 'next_actions'];
-  if (Object.keys(value).some((key) => !keys.includes(key))) throw codeError('semantic_compaction_invalid');
+  // Compatibility: the shape in the prompt is authoritative, but engines that follow it
+  // loosely may also return the camelCase keys of the supplied record. Accept the
+  // documented snake_case keys or the matching camelCase aliases, never both.
+  const groups = [['completed_work', 'completedWork'], ['open_questions', 'openQuestions'], ['next_actions', 'nextActions']];
+  const allowed = new Set(groups.flat());
+  if (Object.keys(value).some((key) => !allowed.has(key))) throw codeError('semantic_compaction_invalid');
+  if (groups.some(([snake, camel]) => Object.hasOwn(value, snake) && Object.hasOwn(value, camel))
+    || groups.some(([snake]) => !Object.hasOwn(value, snake))) throw codeError('semantic_compaction_invalid');
   const result = {};
-  for (const key of keys) result[toCamel(key)] = boundedArray(value[key]);
+  for (const [key] of groups) result[toCamel(key)] = boundedArray(value[key]);
   return Object.freeze(result);
 }
 
 function validateHandoff(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw codeError('semantic_handoff_invalid');
-  const keys = ['objective', 'decisions', 'completed_work', 'verified_state', 'blockers', 'next_actions'];
-  if (Object.keys(value).some((key) => !keys.includes(key)) || typeof value.objective !== 'string'
-    || Buffer.byteLength(value.objective, 'utf8') > 2048) throw codeError('semantic_handoff_invalid');
-  const result = { objective: value.objective.slice(0, 1024) };
-  for (const key of keys.slice(1)) result[toCamel(key)] = boundedHandoffArray(value[key]);
+  const pairs = [['decisions', 'decisions'], ['completed_work', 'completedWork'],
+    ['verified_state', 'verifiedState'], ['blockers', 'blockers'], ['next_actions', 'nextActions']];
+  const allowed = new Set(['objective', ...pairs.flat()]);
+  const objective = value.objective;
+  for (const [key, alias] of pairs) allowed.add(alias);
+  if (Object.keys(value).some((key) => !allowed.has(key)) || typeof objective !== 'string'
+    || Buffer.byteLength(objective, 'utf8') > 2048) throw codeError('semantic_handoff_invalid');
+  const result = { objective: objective.slice(0, 1024) };
+  for (const [key, alias] of pairs) {
+    const present = Object.hasOwn(value, key) ? key : Object.hasOwn(value, alias) ? alias : null;
+    if (present === null) throw codeError('semantic_handoff_invalid');
+    result[toCamel(key)] = boundedHandoffArray(value[present]);
+  }
   return Object.freeze(result);
 }
 
