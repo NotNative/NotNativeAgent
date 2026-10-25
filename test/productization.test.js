@@ -406,10 +406,7 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsUninstall, /Invoke-UninstallServiceStop \$NodePath \$InstalledCli 'opencode'/u);
   assert.match(windowsUninstall, /NotNativeAgent-OpenCode\.vbs/u);
   assert.match(windowsUninstall, /The OpenCode startup entry belongs to another NNA installation/u);
-  assert.match(windowsUninstall, /OPENCODE_SKIP_START/u);
-  assert.match(windowsUninstall, /OPENCODE_SERVER_PASSWORD/u);
-  assert.match(windowsUninstall, /OpencodeOwnedByThisInstall/u);
-  assert.match(windowsUninstall, /config\\opencode\.json/u);
+  assert.doesNotMatch(windowsUninstall, /OpencodeOwnedByThisInstall|OPENCODE_SERVER_PASSWORD/u);
   assert.match(windowsInstall, /--disable-warning=ExperimentalWarning/u);
   assert.match(windowsUninstall, /DeleteUserData/u);
   assert.match(windowsUninstall, /KeepUserData/u);

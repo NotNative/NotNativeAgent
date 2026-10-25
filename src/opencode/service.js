@@ -4,32 +4,20 @@
 // Why: this module deliberately parallels gateway-cli.js with version-2 pid
 // records only; the gateway's legacy adoption path predates process identity
 // and has no equivalent here.
-import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { open, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { join, resolve } from 'node:path';
-import { promisify } from 'node:util';
 import { ContractError } from '../ids.js';
 import { SessionLock } from '../persistence/session-lock.js';
 import { persistAtomicJson } from '../persistence/atomic-json.js';
 import { ProcessIdentity, validIdentity } from '../reliability/process-identity.js';
 import { loadOpenCodeConfig, openCodeConfigExists, opencodePublicStatus, saveOpenCodeConfig, bindUrl, generateOpencodePassword } from './config.js';
+import { applyUserEnvironment, clearUserEnvironment, observeUserEnvironment, runPowershell } from './user-environment.js';
 
 const STARTUP_SCRIPT_NAME = 'NotNativeAgent-OpenCode.vbs';
-const USER_ENVIRONMENT_NAMES = [
-  'OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SERVER_USERNAME',
-];
 const DEFAULT_BASIC_USERNAME = 'opencode';
 const OPENCODE_CONSOLE_LOG_FILE = 'opencode-console.log';
-const POWERSHELL_TIMEOUT_MS = 20_000;
-// Why: each user-scope value write broadcasts WM_SETTINGCHANGE to top-level
-// windows, which a desktop with stalled handlers delays by seconds and
-// measured linearly (~7.4s per name), so a four-name wiring set exceeds the
-// read and probe budget; writes are idempotent, so a generous budget can only
-// slow a failing run, never falsify its outcome.
-const POWERSHELL_WRITE_TIMEOUT_MS = 120_000;
-
 export async function enableOpencodeService(options, paths, scope = {}) {
   assertWindowsWiring(scope);
   const prior = await loadOpenCodeConfig(paths.opencodeConfig);
@@ -133,8 +121,21 @@ export async function startOpencodeService(options, paths, scope = {}) {
 }
 
 export async function stopOpencodeService(options, paths, scope = {}) {
-  const stopped = await stopManagedRuntime(paths, scope);
-  return { ...stopped, ...(await clearRuntimeEnvironment(scope)) };
+  const stopLock = new SessionLock(paths.opencode, 'opencode-start');
+  try {
+    await stopLock.acquire();
+  } catch (error) {
+    if (error?.code !== 'session_locked') throw error;
+    return { stopped: false, reason: 'operation_in_progress',
+      environment: (scope.platform ?? process.platform) === 'win32'
+        ? { supported: true, written: [], removed: [] } : { supported: false } };
+  }
+  try {
+    const stopped = await stopManagedRuntime(paths, scope);
+    return { ...stopped, ...(await clearRuntimeEnvironment(paths, scope)) };
+  } finally {
+    await stopLock.release();
+  }
 }
 
 async function stopManagedRuntime(paths, scope = {}) {
@@ -326,85 +327,17 @@ function quoteForVbs(value) {
   return String(value).replace(/"/gu, '""').trim();
 }
 
-async function applyUserEnvironment(config, scope = {}) {
-  const pairs = [
-    ['OPENCODE_SKIP_START', 'true'],
-    ['OPENCODE_HOST', bindUrl(config)],
-    ['OPENCODE_SERVER_PASSWORD', config.password],
-    // Why: the default username leaves no value behind, but a username from an
-    // earlier custom identity must still be cleared on install; a stale
-    // OPENCODE_SERVER_USERNAME would otherwise fail OpenChamber's Basic auth
-    // against this surface with no local hint of the cause.
-    ...(config.username === DEFAULT_BASIC_USERNAME
-      ? [['OPENCODE_SERVER_USERNAME', null]]
-      : [['OPENCODE_SERVER_USERNAME', config.username]]),
-  ];
-  const observed = await observedUserScopeValues(scope);
-  const pending = pairs.filter((pair) => pendingUserScopeWrite(observed, pair));
-  try {
-    if (pending.length > 0) {
-      const write = scope.userEnvironmentWrite ?? writeUserEnvironment;
-      await write(Object.fromEntries(pending), scope);
-    }
-    return {
-      supported: true,
-      written: pending.filter((pair) => pair[1] !== null).map(([name]) => name),
-      removed: pending.filter((pair) => pair[1] === null).map(([name]) => name),
-      unchanged: pairs.filter((pair) => !pending.includes(pair)).map(([name]) => name),
-    };
-  } catch (error) {
-    throw asWiringFailure(error, 'opencode_user_environment_failed', 'the OpenChamber user environment could not be updated');
-  }
-}
-
 async function applyRuntimeEnvironment(config, scope = {}) {
   if ((scope.platform ?? process.platform) !== 'win32') return { environment: { supported: false } };
-  return { environment: await applyUserEnvironment(config, scope) };
+  return { environment: await applyUserEnvironment(config, scope, bindUrl, DEFAULT_BASIC_USERNAME) };
 }
 
-// Why: every user-scope write broadcasts WM_SETTINGCHANGE to top-level
-// windows before returning, and a desktop with stalled handlers delays each
-// call by seconds (measured near-linear at ~7.4s per name); reading first and
-// transmitting only names whose value differs keeps a steady-state re-enable
-// well inside any budget. A failed read degrades to a full wiring set because
-// the desired values land safely whether or not they were already present.
-async function observedUserScopeValues(scope = {}) {
-  const read = scope.userEnvironmentRead ?? readUserEnvironment;
-  try {
-    return await read(USER_ENVIRONMENT_NAMES, scope);
-  } catch {
-    return null;
-  }
-}
-
-function pendingUserScopeWrite(observed, pair) {
-  if (observed === null) return true;
-  const [name, value] = pair;
-  const current = typeof observed[name] === 'string' ? observed[name] : '';
-  if (value === null) return current.length > 0;
-  return current !== value;
-}
-
-async function clearUserEnvironment(scope = {}) {
-  try {
-    // Why: stop owns all four names. Read first to avoid needless broadcasts;
-    // an unavailable read safely degrades to clearing the full set.
-    const observed = await observedUserScopeValues(scope);
-    const pairs = USER_ENVIRONMENT_NAMES.map((name) => [name, null]);
-    const pending = observed === null ? pairs : pairs.filter((pair) => pendingUserScopeWrite(observed, pair));
-    if (pending.length > 0) {
-      const write = scope.userEnvironmentWrite ?? writeUserEnvironment;
-      await write(Object.fromEntries(pending), scope);
-    }
-    return { supported: true, written: [], removed: [...USER_ENVIRONMENT_NAMES] };
-  } catch (error) {
-    throw asWiringFailure(error, 'opencode_user_environment_failed', 'the OpenChamber user environment could not be cleared');
-  }
-}
-
-async function clearRuntimeEnvironment(scope = {}) {
+async function clearRuntimeEnvironment(paths, scope = {}) {
   if ((scope.platform ?? process.platform) !== 'win32') return { environment: { supported: false } };
-  return { environment: await clearUserEnvironment(scope) };
+  let config;
+  try { config = await loadOpenCodeConfig(paths.opencodeConfig); }
+  catch { return { environment: { supported: true, written: [], removed: [], preserved: true, reason: 'ownership_unverified' } }; }
+  return { environment: await clearUserEnvironment(config, scope, bindUrl, DEFAULT_BASIC_USERNAME) };
 }
 
 async function loginWiringStatus(scope = {}) {
@@ -426,70 +359,6 @@ async function loginWiringStatus(scope = {}) {
     const failure = asWiringFailure(error, 'opencode_login_wiring_probe_failed', 'the opencode login wiring could not be inspected');
     return { supported: true, installed: null, script_path: null, error: failure.code };
   }
-}
-
-async function observeUserEnvironment(scope = {}) {
-  if ((scope.platform ?? process.platform) !== 'win32') {
-    return { supported: false, skip_start: null, host: null, password_present: null, username: null };
-  }
-  try {
-    const read = scope.userEnvironmentRead ?? readUserEnvironment;
-    const observed = await read(USER_ENVIRONMENT_NAMES, scope);
-    const present = (name) => (typeof observed[name] === 'string' && observed[name].length > 0 ? observed[name] : null);
-    return {
-      supported: true,
-      skip_start: present('OPENCODE_SKIP_START'),
-      host: present('OPENCODE_HOST'),
-      // Why: presence only; the password never re-enters command output.
-      password_present: present('OPENCODE_SERVER_PASSWORD') !== null,
-      username: present('OPENCODE_SERVER_USERNAME'),
-    };
-  } catch (error) {
-    const failure = asWiringFailure(error, 'opencode_user_environment_probe_failed', 'the OpenChamber user environment could not be inspected');
-    return {
-      supported: true, skip_start: null, host: null, password_present: null, username: null, error: failure.code,
-    };
-  }
-}
-
-async function writeUserEnvironment(removals, scope = {}) {
-  const script = Object.entries(removals ?? {})
-    .map(([name, value]) => `  [Environment]::SetEnvironmentVariable('${escapeSingle(name)}', ${value === null ? '$null' : `'${escapeSingle(value)}'`}, 'User')`)
-    .join('\n');
-  await runPowershell(script, scope, POWERSHELL_WRITE_TIMEOUT_MS);
-}
-
-async function readUserEnvironment(names, scope = {}) {
-  // Why: redirected Windows PowerShell stdout is encoded in the console code
-  // page, so an observed non-ASCII credential (normalizeUsername accepts one)
-  // rounds back as replacement characters, diverges from the desired value on
-  // every enable, and the delta optimization re-broadcasts it forever; the
-  // read latches the console to UTF-8 before emitting values.
-  const latch = '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;';
-  const script = `${latch}\n${(names ?? []).map((name) => `Write-Output ('${escapeSingle(name)}=' + [Environment]::GetEnvironmentVariable('${escapeSingle(name)}', 'User'))`).join('\n')}`;
-  const stdout = (await runPowershell(script, scope)).replace(/^\uFEFF/u, '');
-  const observed = {};
-  for (const line of stdout.split(/\r?\n/u)) {
-    const separator = line.indexOf('=');
-    if (separator <= 0) continue;
-    observed[line.slice(0, separator)] = line.slice(separator + 1);
-  }
-  return observed;
-}
-
-async function runPowershell(script, scope = {}, timeoutMs = POWERSHELL_TIMEOUT_MS) {
-  if (scope.powershell) {
-    const result = await scope.powershell(script, timeoutMs);
-    return typeof result === 'string' ? result : result?.stdout ?? '';
-  }
-  const { stdout } = await promisify(execFile)('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
-    timeout: timeoutMs, windowsHide: true,
-  });
-  return stdout;
-}
-
-function escapeSingle(value) {
-  return String(value).replace(/'/gu, "''");
 }
 
 function asWiringFailure(error, code, message) {

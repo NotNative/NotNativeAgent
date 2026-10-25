@@ -188,7 +188,7 @@ function throwProjectionHelp(keys) {
 }
 
 /** stopOpencodeService returns {stopped:true,pid} or {stopped:false,
- * reason:'not_running'} plus the cleared/non-Windows environment view. */
+ * reason:'not_running'|'operation_in_progress'} plus the environment view. */
 function projectStop(value) {
   const keys = new Set(Object.keys(value));
   if (value.stopped !== true && value.stopped !== false) throw projection();
@@ -198,8 +198,8 @@ function projectStop(value) {
     return { stopped: true, reason: null, pid: value.pid, environment: projectEnvironment(value.environment) };
   }
   if (keys.size !== 3 || !['environment', 'reason', 'stopped'].every(key => keys.has(key))
-    || value.reason !== 'not_running') throw projection();
-  return { stopped: false, reason: 'not_running', pid: null, environment: projectEnvironment(value.environment) };
+    || (value.reason !== 'not_running' && value.reason !== 'operation_in_progress')) throw projection();
+  return { stopped: false, reason: value.reason, pid: null, environment: projectEnvironment(value.environment) };
 }
 
 function projectService(value) {
@@ -283,16 +283,21 @@ function projectEnvironment(value) {
   const keys = [...new Set(Object.keys(value))];
   if (value.supported === false && keys.length === 1) return { supported: false };
   if (value.supported !== true) throw projection();
-  if (keys.length !== 3 && keys.length !== 4) throw projection();
-  if (keys.length === 3 && (value.written.length !== 0 || 'unchanged' in value)) throw projection();
-  const listKeys = keys.length === 4 ? ['written', 'removed', 'unchanged'] : ['written', 'removed'];
+  if (keys.some(key => !['supported', 'written', 'removed', 'unchanged', 'preserved', 'reason'].includes(key))
+    || !keys.includes('written') || !keys.includes('removed')) throw projection();
+  if (value.preserved !== undefined && value.preserved !== true && value.preserved !== false) throw projection();
+  if (value.reason !== undefined && (typeof value.reason !== 'string' || value.reason.length < 1
+    || value.reason.length > 64 || CONTROL.test(value.reason))) throw projection();
+  if (value.reason !== undefined && value.preserved !== true) throw projection();
+  const listKeys = value.unchanged === undefined ? ['written', 'removed'] : ['written', 'removed', 'unchanged'];
   for (const key of listKeys) {
     const list = value[key];
     if (!Array.isArray(list) || list.length > 4 || list.some(name => typeof name !== 'string'
       || name.length < 1 || name.length > 64 || CONTROL.test(name))) throw projection();
   }
+  if (value.unchanged === undefined && value.written.length !== 0) throw projection();
   return { supported: true, written: value.written.slice(), removed: value.removed.slice(),
-    ...(keys.length === 4 ? { unchanged: value.unchanged.slice() } : {}) };
+    ...(value.unchanged !== undefined ? { unchanged: value.unchanged.slice() } : {}) };
 }
 
 /** The status view's environment observation: presence only (the OpenChamber

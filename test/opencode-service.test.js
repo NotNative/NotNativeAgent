@@ -6,6 +6,7 @@ import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { Buffer } from 'node:buffer';
 import { join } from 'node:path';
+import { SessionLock } from '../src/persistence/session-lock.js';
 import { DEFAULT_OPENCODE_CONFIG, generateOpencodePassword, loadOpenCodeConfig, normalizeOpenCodeConfig, opencodePublicStatus, saveOpenCodeConfig } from '../src/opencode/config.js';
 import { disableOpencodeService, enableOpencodeService, opencodeRuntimeStatus, opencodeServiceStatus, requireServiceRuntime, startOpencodeService, stopOpencodeService } from '../src/opencode/service.js';
 
@@ -77,8 +78,77 @@ test('stop clears environment while preserving auto-start configuration', async 
   await writeFile(join(paths.opencode, 'opencode.pid'), JSON.stringify({ version: 2, pid: 44, process_identity: { version: 1, pid: 44, platform: 'fixture', start_id: 'fixture' } }));
   const result = await stopOpencodeService({}, paths, { platform: 'win32', processIdentity: identity(), kill: () => undefined, userEnvironmentRead: env.read, userEnvironmentWrite: env.write });
   assert.equal(result.stopped, true);
-  assert.deepEqual(Object.keys(env.writes[0]).sort(), ['OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SKIP_START']);
+  assert.deepEqual(Object.keys(env.writes[0]).sort(), ['OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SERVER_USERNAME', 'OPENCODE_SKIP_START']);
   assert.equal((await loadOpenCodeConfig(paths.opencodeConfig)).enabled, true);
+});
+
+test('stop preserves user environment when it no longer matches this install', async () => {
+  const paths = await servicePaths(); const localPassword = generateOpencodePassword();
+  const foreignPassword = generateOpencodePassword();
+  const env = environment({ OPENCODE_SKIP_START: 'true', OPENCODE_HOST: 'http://192.168.1.8:8000',
+    OPENCODE_SERVER_PASSWORD: foreignPassword, OPENCODE_SERVER_USERNAME: 'other-user' });
+  await saveOpenCodeConfig(paths.opencodeConfig, { hostname: '127.0.0.1', port: 4095, username: 'opencode', password: localPassword });
+  const result = await stopOpencodeService({}, paths, {
+    platform: 'win32', userEnvironmentRead: env.read, userEnvironmentWrite: env.write,
+  });
+  assert.equal(result.stopped, false);
+  assert.deepEqual(env.writes, []);
+  assert.equal(env.state.OPENCODE_HOST, 'http://192.168.1.8:8000');
+  assert.equal(env.state.OPENCODE_SERVER_PASSWORD, foreignPassword);
+  assert.equal(result.environment.preserved, true);
+  assert.equal(result.environment.reason, 'ownership_unverified');
+});
+
+test('stop preserves shared values when config or ownership cannot be verified', async () => {
+  const paths = await servicePaths(); const password = generateOpencodePassword();
+  const env = environment({ OPENCODE_SKIP_START: 'true', OPENCODE_HOST: 'http://127.0.0.1:4095', OPENCODE_SERVER_PASSWORD: password });
+  await saveOpenCodeConfig(paths.opencodeConfig, { password });
+  const result = await stopOpencodeService({}, paths, {
+    platform: 'win32', userEnvironmentRead: async () => { throw new Error('registry read failed'); },
+    userEnvironmentWrite: env.write,
+  });
+  assert.deepEqual(env.writes, []);
+  assert.equal(env.state.OPENCODE_SERVER_PASSWORD, password);
+  assert.equal(result.environment.preserved, true);
+  await writeFile(paths.opencodeConfig, '{invalid');
+  const invalid = await stopOpencodeService({}, paths, { platform: 'win32', userEnvironmentRead: env.read, userEnvironmentWrite: env.write });
+  assert.deepEqual(env.writes, []);
+  assert.equal(invalid.environment.preserved, true);
+});
+
+test('production environment cleanup compares ownership and clears under the shared mutex', async () => {
+  const paths = await servicePaths(); const password = generateOpencodePassword(); let script = '';
+  await saveOpenCodeConfig(paths.opencodeConfig, { hostname: '127.0.0.1', port: 4095, username: 'opencode', password });
+  const result = await stopOpencodeService({}, paths, {
+    platform: 'win32',
+    powershell: async (value) => { script = value; return 'cleared\n'; },
+  });
+  assert.equal(result.environment.preserved, false);
+  assert.match(script, /NotNativeAgent-OpenCodeEnvironment-/u);
+  assert.match(script, /WaitOne\(30000\)/u);
+  assert.match(script, /\$Current -cne \$Expected\[\$Name\]/u);
+  assert.ok(script.indexOf('$Mutex.WaitOne') < script.indexOf('$Current -cne'));
+  assert.ok(script.indexOf('$Current -cne') < script.indexOf("SetEnvironmentVariable($Name, $null, 'User')"));
+  assert.match(script, /catch \[Threading\.AbandonedMutexException\]/u);
+  assert.match(script, /\$Mutex\.ReleaseMutex\(\)/u);
+});
+
+test('stop does not clear shared environment while the same instance is starting', async () => {
+  const paths = await servicePaths(); const password = generateOpencodePassword();
+  await saveOpenCodeConfig(paths.opencodeConfig, { password });
+  const startLock = new SessionLock(paths.opencode, 'opencode-start');
+  await startLock.acquire();
+  try {
+    let powershellCalled = false;
+    const result = await stopOpencodeService({}, paths, {
+      platform: 'win32', powershell: async () => { powershellCalled = true; return 'cleared'; },
+    });
+    assert.deepEqual(result, { stopped: false, reason: 'operation_in_progress',
+      environment: { supported: true, written: [], removed: [] } });
+    assert.equal(powershellCalled, false);
+  } finally {
+    await startLock.release();
+  }
 });
 
 test('POSIX stop retains verified runtime identity until graceful exit is observable', async () => {

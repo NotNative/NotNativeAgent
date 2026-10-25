@@ -73,6 +73,15 @@ test('stop is an honest no-op on absent and stale runtimes, and a verified kill 
     assert.equal(projected.reason, 'not_running');
     assert.equal(projected.pid, null);
     assert.deepEqual(projected.environment, { supported: false });
+    const busy = projectAction({ ...raw, value: { stopped: false, reason: 'operation_in_progress',
+      environment: { supported: true, written: [], removed: [] } } }, 'stop', 'stop_service', true);
+    assert.equal(busy.stopped, false);
+    assert.equal(busy.reason, 'operation_in_progress');
+    assert.deepEqual(busy.environment, { supported: true, written: [], removed: [] });
+    const ownershipUnknown = projectAction({ ...raw, value: { stopped: false, reason: 'not_running',
+      environment: { supported: true, written: [], removed: [], preserved: true,
+        reason: 'ownership_unverified' } } }, 'stop', 'stop_service', true);
+    assert.deepEqual(ownershipUnknown.environment, { supported: true, written: [], removed: [] });
     // A stale record with a dead identity is reported honestly, never stopped.
     await writeRuntimePid(f.paths, 4242, { port: 4095, url: 'http://127.0.0.1:4095' },
       { processIdentity: identityStub('dead') });
@@ -85,16 +94,24 @@ test('stop is an honest no-op on absent and stale runtimes, and a verified kill 
     await writeRuntimePid(f.paths, 4242, { port: 4095, url: 'http://127.0.0.1:4095' },
       { processIdentity: identityStub('same') });
     await removeRuntimePid(f.paths).catch(() => {});
+    const password = 'stored-password-value-used-.--only-for-absence-checks..';
+    await saveOpenCodeConfig(f.paths.opencodeConfig, { password });
+    const removedEnvironment = [];
     await writeRuntimePid(f.paths, 4242, { port: 4095, url: 'http://127.0.0.1:4095' },
       { processIdentity: identityStub('same') });
     const stoppedService = createNndCompatibilityLifecycleService({ paths: f.paths, environment: {},
       installationId: identity.installation_id, dataId: identity.data_id, scope: {
         platform: 'win32', kill: (pid) => { kills.push(pid); },
-        processIdentity: identityStub('same'), userEnvironmentRead: async () => ({}) } });
+        processIdentity: identityStub('same'),
+        userEnvironmentRead: async () => ({ OPENCODE_SKIP_START: 'true', OPENCODE_HOST: 'http://127.0.0.1:4095',
+          OPENCODE_SERVER_PASSWORD: password, OPENCODE_SERVER_USERNAME: '' }),
+        userEnvironmentWrite: async (values) => { removedEnvironment.push(values); } } });
     const stopped = await stoppedService.stop();
     assert.equal(stopped.value.stopped, true);
     assert.equal(stopped.value.pid, 4242);
     assert.deepEqual(kills, [4242]);
+    assert.deepEqual(removedEnvironment, [{ OPENCODE_SKIP_START: null, OPENCODE_HOST: null,
+      OPENCODE_SERVER_PASSWORD: null, OPENCODE_SERVER_USERNAME: null }]);
     const receipt = projectAction(stopped, 'stop', 'stop_service', true);
     assert.equal(receipt.stopped, true);
     assert.equal(receipt.reason, null);

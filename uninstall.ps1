@@ -193,27 +193,6 @@ if (Test-Path -LiteralPath $OpencodeStartup) {
         Write-Warning 'The OpenCode startup entry belongs to another NNA installation and was preserved.'
     }
 }
-# Why: OpenCode login wiring lives in user-scope environment variables, so an
-# uninstall that leaves them dangling would make the next NNA install inherit
-# credentials and a host URL for a service that no longer exists here. The
-# four names carry no owner marker, hold a single owner per Windows user, and
-# the startup entry above is already preserved for another installation; the
-# clear therefore runs only when this install's data-root record proves
-# enablement, because an absent, disabled, or unreadable record is proof of
-# nothing and every stale value is rewritten by the next local
-# `nna opencode enable` read-and-transmit anyway.
-$OpencodeOwnedByThisInstall = $false
-$OpencodeConfigPath = Join-Path $DataRoot 'config\opencode.json'
-if (Test-Path -LiteralPath $OpencodeConfigPath) {
-    try { $OpencodeOwnedByThisInstall = (Get-Content -LiteralPath $OpencodeConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json).enabled -eq $true } catch { }
-}
-if ($OpencodeOwnedByThisInstall) {
-    foreach ($Name in @('OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_USERNAME', 'OPENCODE_SERVER_PASSWORD')) {
-        if ($null -ne [Environment]::GetEnvironmentVariable($Name, 'User')) {
-            [Environment]::SetEnvironmentVariable($Name, $null, 'User')
-        }
-    }
-}
 if (-not $SkipPathUpdate) {
     $CurrentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     $PathMutex = Enter-UninstallMutex "Local\NotNativeAgent-UserPath-$CurrentSid" 30000 'Timed out waiting to update the user PATH.'
