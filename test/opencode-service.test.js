@@ -151,6 +151,18 @@ test('stop does not clear shared environment while the same instance is starting
   }
 });
 
+test('runtime-only stop preserves the shared environment for uninstall rollback safety', async () => {
+  const paths = await servicePaths(); let powershellCalled = false;
+  await saveOpenCodeConfig(paths.opencodeConfig, { password: generateOpencodePassword() });
+  const result = await stopOpencodeService({ preserveEnvironment: true }, paths, {
+    platform: 'win32', powershell: async () => { powershellCalled = true; return ''; },
+  });
+  assert.equal(result.stopped, false);
+  assert.equal(result.reason, 'not_running');
+  assert.equal(powershellCalled, false);
+  assert.equal(Object.hasOwn(result, 'environment'), false);
+});
+
 test('POSIX stop retains verified runtime identity until graceful exit is observable', async () => {
   const paths = await servicePaths(); const killed = []; let comparison = 'same';
   const pidPath = join(paths.opencode, 'opencode.pid');

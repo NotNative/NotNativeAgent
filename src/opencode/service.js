@@ -132,7 +132,7 @@ export async function stopOpencodeService(options, paths, scope = {}) {
   }
   try {
     const stopped = await stopManagedRuntime(paths, scope);
-    return { ...stopped, ...(await clearRuntimeEnvironment(paths, scope)) };
+    return { ...stopped, ...(options.preserveEnvironment ? {} : await clearRuntimeEnvironment(paths, scope)) };
   } finally {
     await stopLock.release();
   }

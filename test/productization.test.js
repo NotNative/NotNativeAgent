@@ -137,13 +137,13 @@ test('Windows uninstall attempts both service stops and reports a failed native 
   const fakeNode = join(root, 'fake-node.cmd');
   const log = join(root, 'stops.txt');
   try {
-    await writeFile(fakeNode, '@echo off\r\necho %2>>"%NNA_TEST_STOP_LOG%"\r\nif /I "%2"=="gateway" exit /b 7\r\nexit /b 0\r\n', 'utf8');
+    await writeFile(fakeNode, '@echo off\r\necho %2:%4>>"%NNA_TEST_STOP_LOG%"\r\nif /I "%2"=="gateway" exit /b 7\r\nexit /b 0\r\n', 'utf8');
     const script = [
       "$ErrorActionPreference = 'Stop'",
       '$tokens = $null; $parseErrors = $null',
       '$ast = [System.Management.Automation.Language.Parser]::ParseFile($env:NNA_TEST_UNINSTALL_SCRIPT, [ref]$tokens, [ref]$parseErrors)',
       "if ($parseErrors.Count -gt 0) { throw 'uninstall script did not parse' }",
-      "foreach ($name in @('Invoke-UninstallServiceStop', 'Assert-UninstallNodePath')) {",
+      "foreach ($name in @('Invoke-UninstallServiceStop', 'Assert-UninstallNodePath', 'Get-UninstallOpenCodeEnvironment', 'Test-UninstallOpenCodeEnvironmentOwner')) {",
       '  $helper = $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)',
       '  if ($helper.Count -ne 1) { throw "missing helper $name" }',
       '  . ([scriptblock]::Create($helper[0].Extent.Text))',
@@ -155,9 +155,17 @@ test('Windows uninstall attempts both service stops and reports a failed native 
       '$rejected = $false; try { Assert-UninstallNodePath $rootRelative } catch { $rejected = $true }',
       "if (-not $rejected) { throw 'root-relative node path was accepted' }",
       "$gatewayStopped = Invoke-UninstallServiceStop $env:NNA_TEST_FAKE_NODE 'ignored-cli' 'gateway'",
-      "$opencodeStopped = Invoke-UninstallServiceStop $env:NNA_TEST_FAKE_NODE 'ignored-cli' 'opencode'",
+      "$opencodeStopped = Invoke-UninstallServiceStop $env:NNA_TEST_FAKE_NODE 'ignored-cli' 'opencode' -PreserveEnvironment",
       "$missingStopped = Invoke-UninstallServiceStop (Join-Path $env:TEMP 'nna-uninstall-missing-node.exe') 'ignored-cli' 'gateway'",
       "if ($gatewayStopped -ne $false -or $opencodeStopped -ne $true -or $missingStopped -ne $false) { throw 'service-stop outcomes were lost' }",
+      "$expected = Get-UninstallOpenCodeEnvironment ([pscustomobject]@{ hostname = '::1'; port = 4095; username = 'opencode'; password = 'uninstall-environment-password-value' })",
+      "if ($expected.OPENCODE_HOST -ne 'http://[::1]:4095' -or $expected.OPENCODE_SERVER_USERNAME -ne '') { throw 'OpenCode ownership tuple is malformed' }",
+      "$caseSensitiveUsername = Get-UninstallOpenCodeEnvironment ([pscustomobject]@{ hostname = 'localhost'; port = 4095; username = 'OPENCODE'; password = 'uninstall-environment-password-value' })",
+      "if ($caseSensitiveUsername.OPENCODE_SERVER_USERNAME -cne 'OPENCODE') { throw 'case-sensitive OpenCode username was normalized as the default' }",
+      "$trimmedUsername = Get-UninstallOpenCodeEnvironment ([pscustomobject]@{ hostname = 'localhost'; port = 4095; username = ' opencode '; password = 'uninstall-environment-password-value' })",
+      "if ($trimmedUsername.OPENCODE_SERVER_USERNAME -ne '') { throw 'default OpenCode username whitespace was not normalized' }",
+      "$current = @{}; foreach ($name in $expected.Keys) { $current[$name] = $expected[$name] }; if (-not (Test-UninstallOpenCodeEnvironmentOwner $expected $current)) { throw 'matching OpenCode tuple was not recognized' }",
+      "$current.OPENCODE_HOST = 'http://other:4095'; if (Test-UninstallOpenCodeEnvironmentOwner $expected $current) { throw 'foreign OpenCode tuple was treated as owned' }",
     ].join('\n');
     const result = spawnSync('powershell.exe', [
       '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64'),
@@ -168,8 +176,61 @@ test('Windows uninstall attempts both service stops and reports a failed native 
     });
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(result.stderr, /gateway service could not be stopped cleanly \(exit code 7\)/u);
-    assert.deepEqual((await readFile(log, 'utf8')).trim().split(/\r?\n/u), ['gateway', 'opencode']);
+    assert.deepEqual((await readFile(log, 'utf8')).trim().split(/\r?\n/u), ['gateway:', 'opencode:--preserve-environment']);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Windows uninstall recovery state is bound to the marker and survives partial payload deletion', {
+  skip: process.platform !== 'win32',
+}, async () => {
+  const root = createScratchSync('nna-uninstall-recovery-');
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    '$tokens = $null; $parseErrors = $null',
+    '$ast = [System.Management.Automation.Language.Parser]::ParseFile($env:NNA_TEST_UNINSTALL_SCRIPT, [ref]$tokens, [ref]$parseErrors)',
+    "if ($parseErrors.Count -gt 0) { throw 'uninstall script did not parse' }",
+    "foreach ($name in @('Get-UninstallMarkerHash', 'Test-UninstallRecoveryState', 'Write-UninstallRecoveryState', 'Remove-UninstallPayloadPreservingState')) {",
+    '  $helper = $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)',
+    '  if ($helper.Count -ne 1) { throw "missing helper $name" }',
+    '  . ([scriptblock]::Create($helper[0].Extent.Text))',
+    '}',
+    '$fixture = $env:NNA_TEST_RECOVERY_ROOT; New-Item -ItemType Directory -Path $fixture -Force | Out-Null',
+    '$marker = Join-Path $fixture "install.json"; [pscustomobject]@{ product = "NotNativeAgent" } | ConvertTo-Json | Set-Content -LiteralPath $marker -Encoding UTF8',
+    '$state = Join-Path $fixture ".nna-uninstall-state.json"; $installer = Join-Path $fixture "uninstall.ps1"; [IO.File]::WriteAllText($installer, "fixture")',
+    'Write-UninstallRecoveryState $state $fixture $marker',
+    "if (-not (Test-UninstallRecoveryState $state $fixture $marker)) { throw 'matching recovery state was rejected' }",
+    '$parsed = Get-Content -LiteralPath $state -Raw -Encoding UTF8 | ConvertFrom-Json; $parsed.product = "Other"; $parsed | ConvertTo-Json -Compress | Set-Content -LiteralPath $state -Encoding UTF8',
+    "if (Test-UninstallRecoveryState $state $fixture $marker) { throw 'tampered product was accepted' }",
+    'Remove-Item -LiteralPath $state -Force; Write-UninstallRecoveryState $state $fixture $marker',
+    '$parsed = Get-Content -LiteralPath $state -Raw -Encoding UTF8 | ConvertFrom-Json; $parsed.install_root = (Join-Path $fixture "other"); $parsed | ConvertTo-Json -Compress | Set-Content -LiteralPath $state -Encoding UTF8',
+    "if (Test-UninstallRecoveryState $state $fixture $marker) { throw 'tampered install root was accepted' }",
+    'Remove-Item -LiteralPath $state -Force; Write-UninstallRecoveryState $state $fixture $marker',
+    '$parsed = Get-Content -LiteralPath $state -Raw -Encoding UTF8 | ConvertFrom-Json; $parsed.services_stopped = @("gateway"); $parsed | ConvertTo-Json -Compress | Set-Content -LiteralPath $state -Encoding UTF8',
+    "if (Test-UninstallRecoveryState $state $fixture $marker) { throw 'incomplete stop state was accepted' }",
+    'Remove-Item -LiteralPath $state -Force; Write-UninstallRecoveryState $state $fixture $marker',
+    '[pscustomobject]@{ product = "Changed" } | ConvertTo-Json | Set-Content -LiteralPath $marker -Encoding UTF8',
+    "if (Test-UninstallRecoveryState $state $fixture $marker) { throw 'changed marker hash was accepted' }",
+    '[pscustomobject]@{ product = "NotNativeAgent" } | ConvertTo-Json | Set-Content -LiteralPath $marker -Encoding UTF8',
+    'Remove-Item -LiteralPath $state -Force; New-Item -ItemType Directory -Path $state | Out-Null',
+    "if (Test-UninstallRecoveryState $state $fixture $marker) { throw 'directory was accepted as a recovery-state file' }",
+    'Remove-Item -LiteralPath $state -Force -Recurse; Write-UninstallRecoveryState $state $fixture $marker',
+    '$payload = Join-Path $fixture "payload"; New-Item -ItemType Directory -Path $payload | Out-Null',
+    '$removable = Join-Path $fixture "a-removable.txt"; [IO.File]::WriteAllText($removable, "removable")',
+    '$locked = Join-Path $payload "locked.txt"; [IO.File]::WriteAllText($locked, "locked")',
+    '$lock = [IO.File]::Open($locked, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)',
+    '$failed = $false; try { Remove-UninstallPayloadPreservingState $fixture } catch { $failed = $true }',
+    "if (-not $failed) { throw 'locked payload did not fail removal' }",
+    'foreach ($required in @($marker, $state, $installer)) { if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "recovery artifact was lost: $required" } }',
+    '$lock.Dispose(); Remove-UninstallPayloadPreservingState $fixture',
+    "if (Test-Path -LiteralPath $payload) { throw 'payload remained after retry' }",
+    'foreach ($required in @($marker, $state, $installer)) { if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "recovery artifact was lost after retry: $required" } }',
+  ].join('\n');
+  const result = spawnSync('powershell.exe', [
+    '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64'),
+  ], { encoding: 'utf8', timeout: 15_000,
+    env: { ...process.env, NNA_TEST_UNINSTALL_SCRIPT: join(projectRoot, 'uninstall.ps1'), NNA_TEST_RECOVERY_ROOT: root } });
+  try { assert.equal(result.status, 0, result.stderr || result.stdout); }
+  finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test('Windows uninstall preflight rejects unsafe roots and reads UTF-8 markers before confirmation', {
@@ -403,10 +464,16 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /not enabled; run nna opencode enable to install its login wiring/u);
   assert.match(windowsInstall, /could not be inspected while waiting for its runtime to stop/u);
   assert.match(windowsInstall, /\$OpencodeWasRunning = \$OpencodeStoppedForUpgrade -or \[bool\]\$OpencodeStatus\.runtime\.running/u);
-  assert.match(windowsUninstall, /Invoke-UninstallServiceStop \$NodePath \$InstalledCli 'opencode'/u);
+  assert.match(windowsUninstall, /Invoke-UninstallServiceStop \$NodePath \$InstalledCli 'opencode' -PreserveEnvironment/u);
+  const installRemoval = windowsUninstall.indexOf('Remove-UninstallPayloadPreservingState $InstallRoot');
+  assert.ok(installRemoval >= 0);
+  assert.ok(windowsUninstall.indexOf('NotNativeAgent-Telegram.vbs') > installRemoval);
+  assert.ok(windowsUninstall.indexOf('NotNativeAgent-UserPath-') > installRemoval);
+  assert.ok(windowsUninstall.indexOf('Clear-UninstallOpenCodeEnvironment $DataRoot') > installRemoval);
   assert.match(windowsUninstall, /NotNativeAgent-OpenCode\.vbs/u);
-  assert.match(windowsUninstall, /The OpenCode startup entry belongs to another NNA installation/u);
-  assert.doesNotMatch(windowsUninstall, /OpencodeOwnedByThisInstall|OPENCODE_SERVER_PASSWORD/u);
+  assert.match(windowsUninstall, /startup entry .* belongs to another NNA installation/u);
+  assert.doesNotMatch(windowsUninstall, /OpencodeOwnedByThisInstall/u);
+  assert.match(windowsUninstall, /Test-UninstallOpenCodeEnvironmentOwner/u);
   assert.match(windowsInstall, /--disable-warning=ExperimentalWarning/u);
   assert.match(windowsUninstall, /DeleteUserData/u);
   assert.match(windowsUninstall, /KeepUserData/u);

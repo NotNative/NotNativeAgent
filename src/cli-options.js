@@ -41,6 +41,7 @@ export function parseCli(argv) {
     else if (mode === 'opencode' && value === '--port') {
       options.servePort = parseServePort(requiredValue(argv[++index], value));
     }
+    else if (mode === 'opencode' && value === '--preserve-environment') options.preserveEnvironment = true;
     else if (mode === 'opencode' && OPENCODE_ACTIONS.has(value)) {
       if (options.serveAction) throw new ContractError('invalid_option', 'opencode accepts exactly one action');
       options.serveAction = value;
@@ -53,6 +54,9 @@ export function parseCli(argv) {
   }
   if (mode === 'headless' && [options.providerEndpoint, options.model, options.providerCredentialEnv].some(Boolean)) {
     throw new ContractError('host_override_requires_manifest', 'host endpoint, model, and credential overrides must be supplied by its authenticated initialization manifest');
+  }
+  if (options.preserveEnvironment && (mode !== 'opencode' || options.serveAction !== 'stop')) {
+    throw new ContractError('invalid_option', '--preserve-environment is only valid with opencode stop');
   }
   return Object.freeze({ ...options, mode });
 }

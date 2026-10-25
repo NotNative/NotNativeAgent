@@ -32,6 +32,12 @@ test('opencode lifecycle actions parse into single actions', () => {
   }
 });
 
+test('uninstall can stop the OpenCode runtime without mutating shared environment', () => {
+  assert.equal(parseCli(['opencode', 'stop', '--preserve-environment']).preserveEnvironment, true);
+  assert.throws(() => parseCli(['opencode', 'start', '--preserve-environment']), { code: 'invalid_option' });
+  assert.throws(() => parseCli(['gateway', '--preserve-environment']), { code: 'invalid_option' });
+});
+
 test('opencode enable accepts port and hostname overrides', () => {
   const parsed = parseCli(['opencode', 'enable', '--port', '4939', '--hostname', '0.0.0.0']);
   assert.equal(parsed.serveAction, 'enable');

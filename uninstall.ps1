@@ -30,6 +30,78 @@ function Get-UninstallMutexHash([string]$Path) {
     } finally { $Hasher.Dispose() }
 }
 
+function Get-UninstallMarkerHash([string]$Path) {
+    $Hasher = [Security.Cryptography.SHA256]::Create()
+    try {
+        $Bytes = [IO.File]::ReadAllBytes($Path)
+        return [BitConverter]::ToString($Hasher.ComputeHash($Bytes)).Replace('-', '')
+    } finally { $Hasher.Dispose() }
+}
+
+function Test-UninstallRecoveryState([string]$StatePath, [string]$InstallRoot, [string]$MarkerPath) {
+    try {
+        $StateFile = Get-Item -LiteralPath $StatePath -Force -ErrorAction Stop
+        if ($StateFile.PSIsContainer -or ($StateFile.Attributes -band [IO.FileAttributes]::ReparsePoint)) { return $false }
+        $State = Get-Content -LiteralPath $StatePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $Services = @($State.services_stopped | ForEach-Object { [string]$_ })
+        $RootMatches = ([string]$State.install_root).Equals($InstallRoot, [StringComparison]::OrdinalIgnoreCase)
+        $HashMatches = ([string]$State.install_marker_sha256).Equals((Get-UninstallMarkerHash $MarkerPath), [StringComparison]::OrdinalIgnoreCase)
+        return ($State.format_version -eq 1 -and $State.product -ceq 'NotNativeAgent' -and
+            $RootMatches -and $HashMatches -and $Services.Count -eq 2 -and
+            $Services -contains 'gateway' -and $Services -contains 'opencode')
+    } catch { return $false }
+}
+
+function Write-UninstallRecoveryState([string]$StatePath, [string]$InstallRoot, [string]$MarkerPath) {
+    $State = [ordered]@{
+        format_version = 1
+        product = 'NotNativeAgent'
+        install_root = $InstallRoot
+        install_marker_sha256 = Get-UninstallMarkerHash $MarkerPath
+        services_stopped = @('gateway', 'opencode')
+    }
+    $TemporaryPath = "$StatePath.tmp-$PID-$([guid]::NewGuid().ToString('N'))"
+    $Stream = $null
+    try {
+        $Bytes = (New-Object Text.UTF8Encoding($false)).GetBytes(($State | ConvertTo-Json -Compress))
+        $Stream = [IO.File]::Open($TemporaryPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        $Stream.Write($Bytes, 0, $Bytes.Length)
+        $Stream.Flush($true)
+        $Stream.Dispose(); $Stream = $null
+        [IO.File]::Move($TemporaryPath, $StatePath)
+    } catch {
+        if ($null -ne $Stream) { $Stream.Dispose() }
+        Remove-Item -LiteralPath $TemporaryPath -Force -ErrorAction SilentlyContinue
+        throw
+    }
+}
+
+function Assert-UninstallServicesNotRunning([string]$NodePath, [string]$CliPath) {
+    try { $Processes = @(Get-WmiObject -Class Win32_Process -ErrorAction Stop) }
+    catch { throw "Refusing to resume uninstall because service process state could not be verified ($($_.Exception.Message))." }
+    foreach ($Process in $Processes) {
+        if (-not $Process.ExecutablePath -or
+            -not ([string]$Process.ExecutablePath).Equals($NodePath, [StringComparison]::OrdinalIgnoreCase)) { continue }
+        $CommandLine = [string]$Process.CommandLine
+        if (-not $CommandLine) {
+            throw 'Refusing to resume uninstall because an NNA Node process has no inspectable command line.'
+        }
+        if ($CommandLine.IndexOf($CliPath, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+            $CommandLine -match '(?i)(?:^|\s)(?:gateway|opencode)\s+run(?:\s|$)') {
+            return $false
+        }
+    }
+    return $true
+}
+
+function Remove-UninstallPayloadPreservingState([string]$InstallRoot) {
+    $Preserved = @('install.json', '.nna-uninstall-state.json', 'uninstall.ps1')
+    foreach ($Entry in @(Get-ChildItem -LiteralPath $InstallRoot -Force -ErrorAction Stop)) {
+        if ($Preserved -contains $Entry.Name) { continue }
+        Remove-Item -LiteralPath $Entry.FullName -Recurse -Force -ErrorAction Stop
+    }
+}
+
 function Enter-UninstallMutex([string]$Name, [int]$TimeoutMs, [string]$TimeoutMessage) {
     $Mutex = [Threading.Mutex]::new($false, $Name)
     try {
@@ -43,9 +115,11 @@ function Enter-UninstallMutex([string]$Name, [int]$TimeoutMs, [string]$TimeoutMe
     }
 }
 
-function Invoke-UninstallServiceStop([string]$NodePath, [string]$CliPath, [string]$Service) {
+function Invoke-UninstallServiceStop([string]$NodePath, [string]$CliPath, [string]$Service, [switch]$PreserveEnvironment) {
     try {
-        & $NodePath $CliPath $Service stop 2>$null | Out-Null
+        $Arguments = @($CliPath, $Service, 'stop')
+        if ($PreserveEnvironment) { $Arguments += '--preserve-environment' }
+        & $NodePath @Arguments 2>$null | Out-Null
         $ExitCode = $LASTEXITCODE
         if ($ExitCode -ne 0) {
             Write-Warning "The $Service service could not be stopped cleanly (exit code $ExitCode)."
@@ -56,6 +130,56 @@ function Invoke-UninstallServiceStop([string]$NodePath, [string]$CliPath, [strin
         return $false
     }
     return $true
+}
+
+function Get-UninstallOpenCodeEnvironment([object]$Config) {
+    if (-not $Config -or -not $Config.hostname -or -not $Config.port -or -not $Config.password) { return $null }
+    $HostName = ([string]$Config.hostname).Trim().Trim('[', ']')
+    if ($HostName.Contains(':')) { $HostName = "[$HostName]" }
+    $Username = ([string]$Config.username).Trim()
+    if (-not $Username -or $Username -ceq 'opencode') { $Username = '' }
+    return @{
+        OPENCODE_SKIP_START = 'true'
+        OPENCODE_HOST = ('http://{0}:{1}' -f $HostName, $Config.port)
+        OPENCODE_SERVER_PASSWORD = [string]$Config.password
+        OPENCODE_SERVER_USERNAME = $Username
+    }
+}
+
+function Test-UninstallOpenCodeEnvironmentOwner([hashtable]$Expected, [hashtable]$Current) {
+    if (-not $Expected -or -not $Current) { return $false }
+    foreach ($Name in @('OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SERVER_USERNAME')) {
+        if ([string]$Current[$Name] -cne [string]$Expected[$Name]) { return $false }
+    }
+    return $true
+}
+
+function Clear-UninstallOpenCodeEnvironment([string]$DataRoot) {
+    $ConfigPath = Join-Path $DataRoot 'config\opencode.json'
+    try {
+        $Config = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $Expected = Get-UninstallOpenCodeEnvironment $Config
+        if (-not $Expected) {
+            Write-Warning 'OpenCode user environment was preserved because this installation owner could not be verified.'
+            return
+        }
+        $Sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+        $Mutex = Enter-UninstallMutex "Local\NotNativeAgent-OpenCodeEnvironment-$Sid" 30000 'Timed out waiting to update the OpenCode user environment.'
+        try {
+            $Current = @{}
+            foreach ($Name in $Expected.Keys) { $Current[$Name] = [Environment]::GetEnvironmentVariable($Name, 'User') }
+            if (-not (Test-UninstallOpenCodeEnvironmentOwner $Expected $Current)) {
+                Write-Warning 'OpenCode user environment was preserved because it no longer matches this installation.'
+                return
+            }
+            foreach ($Name in $Expected.Keys) { [Environment]::SetEnvironmentVariable($Name, $null, 'User') }
+        } finally {
+            $Mutex.ReleaseMutex()
+            $Mutex.Dispose()
+        }
+    } catch {
+        Write-Warning "OpenCode user environment was preserved because ownership could not be verified ($($_.Exception.Message))."
+    }
 }
 
 function Assert-UninstallNodePath([string]$Path) {
@@ -108,6 +232,7 @@ if ($PSBoundParameters.ContainsKey('InstallRoot') -and [string]::IsNullOrWhiteSp
 if (-not $InstallRoot) { $InstallRoot = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'NotNativeAgent' }
 $InstallRoot = Resolve-UninstallRoot $InstallRoot 'install' $true
 $MarkerPath = Join-Path $InstallRoot 'install.json'
+$RecoveryStatePath = Join-Path $InstallRoot '.nna-uninstall-state.json'
 if (-not (Test-Path -LiteralPath $MarkerPath)) { throw 'Refusing to uninstall: NotNativeAgent install marker is missing.' }
 $Marker = Get-Content -LiteralPath $MarkerPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($Marker.product -ne 'NotNativeAgent' -or
@@ -161,55 +286,41 @@ $UninstallMutex = Enter-UninstallMutex "Local\NotNativeAgent-Uninstall-$MutexHas
 try {
 $BinRoot = Join-Path $InstallRoot 'bin'
 $InstalledCli = Join-Path $InstallRoot 'installed\src\cli.js'
-if (Test-Path -LiteralPath $InstalledCli) {
+$RecoveryStateValid = Test-UninstallRecoveryState $RecoveryStatePath $InstallRoot $MarkerPath
+    if (Test-Path -LiteralPath $InstalledCli -PathType Leaf) {
     $NodePath = [string]$Marker.node
     Assert-UninstallNodePath $NodePath
-    $PriorNnaHome = $env:NNA_HOME
-    try {
-        $env:NNA_HOME = [string]$Marker.data_root
-        $GatewayStopped = Invoke-UninstallServiceStop $NodePath $InstalledCli 'gateway'
-        $OpencodeStopped = Invoke-UninstallServiceStop $NodePath $InstalledCli 'opencode'
-    }
-    finally { $env:NNA_HOME = $PriorNnaHome }
-    if (-not $GatewayStopped -or -not $OpencodeStopped) {
-        throw 'Refusing to remove the application while a service could still be running. Resolve the stop failure and retry uninstall.'
-    }
-}
-$GatewayStartup = Join-Path ([Environment]::GetFolderPath('Startup')) 'NotNativeAgent-Telegram.vbs'
-if (Test-Path -LiteralPath $GatewayStartup) {
-    $GatewayStartupSource = Get-Content -LiteralPath $GatewayStartup -Raw
-    if ($GatewayStartupSource.IndexOf($InstalledCli, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
-        Remove-Item -LiteralPath $GatewayStartup -Force
-    } else {
-        Write-Warning 'The Telegram startup entry belongs to another NNA installation and was preserved.'
-    }
-}
-$OpencodeStartup = Join-Path ([Environment]::GetFolderPath('Startup')) 'NotNativeAgent-OpenCode.vbs'
-if (Test-Path -LiteralPath $OpencodeStartup) {
-    $OpencodeStartupSource = Get-Content -LiteralPath $OpencodeStartup -Raw
-    if ($OpencodeStartupSource.IndexOf($InstalledCli, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
-        Remove-Item -LiteralPath $OpencodeStartup -Force
-    } else {
-        Write-Warning 'The OpenCode startup entry belongs to another NNA installation and was preserved.'
-    }
-}
-if (-not $SkipPathUpdate) {
-    $CurrentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-    $PathMutex = Enter-UninstallMutex "Local\NotNativeAgent-UserPath-$CurrentSid" 30000 'Timed out waiting to update the user PATH.'
-    try {
-        $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-        # Split only on semicolons outside quoted entries and preserve empty entries verbatim.
-        $Entries = @([regex]::Split([string]$UserPath, ';(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)'))
-        $NormalizedBinRoot = $BinRoot.Trim().Trim('"').TrimEnd('\', '/')
-        $RetainedEntries = @($Entries | Where-Object { $_.Trim().Trim('"').TrimEnd('\', '/') -ine $NormalizedBinRoot })
-        # Invariant: an uninstall without a matching PATH entry does not rewrite unrelated user settings.
-        if ($RetainedEntries.Count -ne $Entries.Count) {
-            [Environment]::SetEnvironmentVariable('Path', ($RetainedEntries -join ';'), 'User')
+    $ServiceProcessesAbsent = Assert-UninstallServicesNotRunning $NodePath $InstalledCli
+    if (-not $RecoveryStateValid -or -not $ServiceProcessesAbsent) {
+        if (-not $RecoveryStateValid -and (Test-Path -LiteralPath $RecoveryStatePath)) {
+            $PriorState = Get-Item -LiteralPath $RecoveryStatePath -Force
+            if ($PriorState.PSIsContainer -or ($PriorState.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+                throw 'Refusing to replace an unsafe uninstall recovery state file.'
+            }
+            Remove-Item -LiteralPath $RecoveryStatePath -Force
         }
-    } finally {
-        $PathMutex.ReleaseMutex()
-        $PathMutex.Dispose()
+        $PriorNnaHome = $env:NNA_HOME
+        try {
+            $env:NNA_HOME = [string]$Marker.data_root
+            $GatewayStopped = Invoke-UninstallServiceStop $NodePath $InstalledCli 'gateway'
+            $OpencodeStopped = Invoke-UninstallServiceStop $NodePath $InstalledCli 'opencode' -PreserveEnvironment
+        }
+        finally { $env:NNA_HOME = $PriorNnaHome }
+        if (-not $GatewayStopped -or -not $OpencodeStopped) {
+            throw 'Refusing to remove the application while a service could still be running. Resolve the stop failure and retry uninstall.'
+        }
+        if (-not (Assert-UninstallServicesNotRunning $NodePath $InstalledCli)) {
+            throw 'Refusing to remove the application because a service process is still running after the stop request.'
+        }
+        if (-not $RecoveryStateValid) { Write-UninstallRecoveryState $RecoveryStatePath $InstallRoot $MarkerPath }
     }
+} elseif ($RecoveryStateValid) {
+    $NodePath = [string]$Marker.node
+    if (-not (Assert-UninstallServicesNotRunning $NodePath $InstalledCli)) {
+        throw 'Refusing to resume uninstall because an NNA service process is running; restore the installed CLI, stop the service, and retry.'
+    }
+} else {
+    throw 'Refusing to remove the application because its installed CLI is missing and no matching recovery state proves service shutdown. Repair or remove the installation manually.'
 }
 if ($ParentProcessId -gt 0) {
     $ParentProcess = Get-Process -Id $ParentProcessId -ErrorAction SilentlyContinue
@@ -217,8 +328,45 @@ if ($ParentProcessId -gt 0) {
         throw 'Refusing to remove the application while the NNA launcher is still running.'
     }
 }
-try { Remove-Item -LiteralPath $InstallRoot -Recurse -Force }
-catch { throw "Failed to remove NotNativeAgent from '$InstallRoot'. Close running NNA processes and, if access was denied, run the uninstaller with sufficient privileges. $($_.Exception.Message)" }
+try { Remove-UninstallPayloadPreservingState $InstallRoot }
+catch { throw "Partial removal of NotNativeAgent from '$InstallRoot' failed. The install marker and recovery state were retained; close locked processes and retry uninstall. $($_.Exception.Message)" }
+
+# Why: only detach user-wide launch state after all app files are gone. OpenCode
+# runtime stop above explicitly preserved its shared environment for this step.
+foreach ($StartupName in @('NotNativeAgent-Telegram.vbs', 'NotNativeAgent-OpenCode.vbs')) {
+    try {
+        $StartupPath = Join-Path ([Environment]::GetFolderPath('Startup')) $StartupName
+        if (Test-Path -LiteralPath $StartupPath) {
+            $StartupSource = Get-Content -LiteralPath $StartupPath -Raw
+            if ($StartupSource.IndexOf($InstalledCli, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                Remove-Item -LiteralPath $StartupPath -Force
+            } else {
+                Write-Warning "The startup entry '$StartupName' belongs to another NNA installation and was preserved."
+            }
+        }
+    } catch { Write-Warning "Could not clean the startup entry '$StartupName' ($($_.Exception.Message))." }
+}
+if (-not $SkipPathUpdate) {
+    try {
+        $CurrentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+        $PathMutex = Enter-UninstallMutex "Local\NotNativeAgent-UserPath-$CurrentSid" 30000 'Timed out waiting to update the user PATH.'
+        try {
+            $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+            # Split only on semicolons outside quoted entries and preserve empty entries verbatim.
+            $Entries = @([regex]::Split([string]$UserPath, ';(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)'))
+            $NormalizedBinRoot = $BinRoot.Trim().Trim('"').TrimEnd('\', '/')
+            $RetainedEntries = @($Entries | Where-Object { $_.Trim().Trim('"').TrimEnd('\', '/') -ine $NormalizedBinRoot })
+            if ($RetainedEntries.Count -ne $Entries.Count) {
+                [Environment]::SetEnvironmentVariable('Path', ($RetainedEntries -join ';'), 'User')
+            }
+        } finally { $PathMutex.ReleaseMutex(); $PathMutex.Dispose() }
+    } catch { Write-Warning "Could not remove the NNA bin directory from user PATH ($($_.Exception.Message))." }
+}
+Clear-UninstallOpenCodeEnvironment $DataRoot
+foreach ($FinalPath in @($RecoveryStatePath, $MarkerPath, (Join-Path $InstallRoot 'uninstall.ps1'))) {
+    if (Test-Path -LiteralPath $FinalPath) { Remove-Item -LiteralPath $FinalPath -Force }
+}
+Remove-Item -LiteralPath $InstallRoot -Force
 Write-Output "Removed NotNativeAgent from $InstallRoot"
 
 if ($ShouldDeleteUserData -and -not $DataInsideInstall) {
