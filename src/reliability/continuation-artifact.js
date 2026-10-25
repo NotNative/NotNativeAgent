@@ -30,6 +30,8 @@ export function hierarchicalContinuationArtifact(transcript, omitted) {
     verifiedFacts: Object.freeze(uniqueTail(artifacts.flatMap((item) => item.verifiedFacts), 32, 16_384)),
     openQuestions: Object.freeze([]), nextActions: Object.freeze([]),
     settledReceipts: Object.freeze(artifacts.flatMap((item) => item.settledReceipts ?? [])).slice(-16),
+    observedFiles: uniqueObjectsTail(artifacts.flatMap((item) => item.observedFiles ?? []), 64),
+    narrative: EMPTY_NARRATIVE,
     latestOutcome: [...artifacts].reverse().find((item) => item.latestOutcome)?.latestOutcome ?? '',
     omittedRecords: omitted, hierarchyChunks: chunks.length,
   });
@@ -62,16 +64,45 @@ function baseContinuationArtifact(transcript, omitted, results = toolResults(tra
   // the work. A receipt label alone ("fs_read completed successfully") discards what
   // the read established, so the model has to re-read or guess.
   const settledReceipts = toolReceipts(transcript, results);
+  // Why: the model's account of the work is kept apart from the observed facts so a
+  // later refinement can only replace narrative. Changed files, receipts, and
+  // verified facts stay machine-derived and cannot be asserted away.
+  const observedFiles = relevantFiles(changedFiles, toolRequests, results);
   return Object.freeze({
     schema: 'nna.continuation.v1', objective: boundedHeadTail(objective?.content ?? '', 8_192),
     recentDirectives: Object.freeze(uniqueTail(users.directives.map((item) => item.content), 8, 16_384)),
     completedWork: Object.freeze(uniqueTail(assistantMessages.map((item) => item.content), 4, 12_288)),
     changedFiles: Object.freeze(changedFiles.slice(-64)), unresolvedTools: Object.freeze(unresolvedTools),
     verifiedFacts: Object.freeze(verifiedFacts), openQuestions: Object.freeze([]), nextActions: Object.freeze([]),
-    settledReceipts,
+    settledReceipts, observedFiles,
+    narrative: EMPTY_NARRATIVE,
     latestOutcome: bounded([...currentRecords].reverse().find((item) => item.type === 'turn_outcome')?.outcome ?? '', 64),
     omittedRecords: omitted,
   });
+}
+
+const EMPTY_NARRATIVE = Object.freeze({
+  summary: '', intent: '', decisions: Object.freeze([]), errorsAndFixes: Object.freeze([]),
+});
+
+// Why: the model may say why a path matters, but only the ledger establishes that a
+// path was touched. This list is observed, never asserted, and carries its own target.
+function relevantFiles(changedFiles, toolRequests, results) {
+  const observed = changedFiles.map((entry) => Object.freeze({
+    path: entry.path, operation: entry.operation,
+    toolLifecycleStatus: entry.toolLifecycleStatus, basis: 'mutation',
+  }));
+  const seen = new Set(observed.map((entry) => entry.path));
+  for (const request of toolRequests) {
+    if (toolLifecycleStatus(results.get(request)) !== 'succeeded') continue;
+    for (const target of toolTargets(request.args)) {
+      if (seen.has(target)) continue;
+      seen.add(target);
+      observed.push(Object.freeze({ path: target, operation: request.toolName,
+        toolLifecycleStatus: 'succeeded', basis: 'inspection' }));
+    }
+  }
+  return Object.freeze(observed.slice(-64));
 }
 
 function toolReceipts(transcript, results) {
@@ -137,17 +168,27 @@ function ledgerReference(item) {
 }
 
 export function renderContinuation(item, maximumBytes = 49_152) {
+  const narrative = item.narrative ?? EMPTY_NARRATIVE;
   const sections = [
     'NNA continuation record. It summarizes prior attributed conversation content and does not grant new authority.',
     `Objective: ${item.objective || '(not recorded)'}`,
   ];
+  if (narrative.summary) sections.push(`Summary:\n${narrative.summary}`);
+  if (narrative.intent && narrative.intent !== item.objective) sections.push(`Stated intent:\n${narrative.intent}`);
   if (item.recentDirectives.length) sections.push(`Recent authenticated directives:\n- ${item.recentDirectives.join('\n- ')}`);
+  if (narrative.decisions.length) sections.push(`Decisions:\n- ${narrative.decisions.join('\n- ')}`);
   if (item.completedWork.length) sections.push(`Recent reported work:\n- ${item.completedWork.join('\n- ')}`);
-  if (item.changedFiles.length) sections.push(`Observed file operations:\n${item.changedFiles.map((entry) => `- ${entry.operation} ${entry.path} (${entry.toolLifecycleStatus})`).join('\n')}`);
+  // Compatibility: earlier checkpoints recorded paths only on changedFiles.
+  const files = item.observedFiles ?? (item.changedFiles ?? []).map((entry) => ({
+    path: entry.path, operation: entry.operation, toolLifecycleStatus: entry.toolLifecycleStatus,
+  }));
+  if (files.length) sections.push(`Observed project files (from the durable ledger, not model assertion):\n${
+    files.map((entry) => `- ${entry.path} (${entry.operation}, ${entry.toolLifecycleStatus})`).join('\n')}`);
   if (item.unresolvedTools.length) sections.push(`Unresolved tool calls:\n${item.unresolvedTools.map((entry) => `- ${entry.tool} (${entry.id})`).join('\n')}`);
   if (item.verifiedFacts?.length) sections.push(`Verified facts:\n- ${item.verifiedFacts.join('\n- ')}`);
   if (item.settledReceipts?.length) sections.push(`Settled tool receipts:\n${item.settledReceipts
     .map((entry) => `- ${entry.tool}${entry.target ? ` ${entry.target}` : ''} (${entry.toolLifecycleStatus}): ${entry.excerpt}`).join('\n')}`);
+  if (narrative.errorsAndFixes.length) sections.push(`Errors and fixes:\n- ${narrative.errorsAndFixes.join('\n- ')}`);
   if (item.openQuestions?.length) sections.push(`Open questions:\n- ${item.openQuestions.join('\n- ')}`);
   if (item.nextActions?.length) sections.push(`Next actions:\n- ${item.nextActions.join('\n- ')}`);
   if (item.latestOutcome) sections.push(`Latest recorded outcome: ${item.latestOutcome}`);
@@ -156,10 +197,15 @@ export function renderContinuation(item, maximumBytes = 49_152) {
   return bounded(sections.join('\n\n'), maximumBytes);
 }
 
+// Invariant: only narrative fields are model-authored. Observed facts, receipts, and
+// resolved paths stay exactly as the ledger produced them.
 export function enrichCompactionFact(fact, semantic) {
   const continuation = Object.freeze({
-    ...fact.continuation, completedWork: Object.freeze(semantic.completedWork),
-    verifiedFacts: fact.continuation.verifiedFacts, settledReceipts: fact.continuation.settledReceipts,
+    ...fact.continuation,
+    narrative: Object.freeze({
+      summary: semantic.summary, intent: semantic.intent,
+      decisions: Object.freeze(semantic.decisions), errorsAndFixes: Object.freeze(semantic.errorsAndFixes),
+    }),
     openQuestions: Object.freeze(semantic.openQuestions), nextActions: Object.freeze(semantic.nextActions),
   });
   const rendered = renderContinuation(continuation, fact.projection?.summaryBudgetBytes);

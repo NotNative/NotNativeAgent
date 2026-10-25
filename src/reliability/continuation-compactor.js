@@ -51,17 +51,14 @@ export class ContinuationCompactor {
       const text = await collect(provider.stream(request, controller.signal), accounting);
       const semantic = mode === 'handoff' ? validateHandoff(parseJson(text)) : validateSemantic(parseJson(text));
       const enriched = mode === 'handoff' ? enrichHandoffFact(fact, semantic) : enrichCompactionFact(fact, semantic);
-      if (mode === 'compaction' && !converges(enriched)) throw codeError('semantic_compaction_no_net_reduction');
-      recordTelemetry(this.telemetry, `context.semantic_${mode}`, 'succeeded', {
-        provider_profile: route.profile.id, model: route.model,
-        source_fingerprint: fact.sourceFingerprint,
-        request_mode: alignment ? 'cache_aligned' : 'standalone',
-        cache_evidence_tokens: alignment?.cacheTokens ?? 0,
-        prefix_fingerprint: alignment?.fingerprint ?? null,
-        prefix_bytes: alignment?.bytes ?? 0,
-        original_bytes: fact.projection?.originalBytes ?? null,
-        projected_bytes: enriched.projection?.projectedBytes ?? null,
-      });
+      // Why: an identical re-projection means the model added no information, not that it
+      // failed. Rejecting it discarded a valid orientation record whenever the deterministic
+      // summary was already at its budget.
+      if (mode === 'compaction' && !converges(enriched) && !sameRendering(enriched, fact)) {
+        throw codeError('semantic_compaction_no_net_reduction');
+      }
+      recordTelemetry(this.telemetry, `context.semantic_${mode}`, 'succeeded',
+        refinementDetail(route, fact, alignment, enriched));
       accounting.outcome = 'completed';
       return enriched;
     } catch (error) {
@@ -93,15 +90,21 @@ export class ContinuationCompactor {
 // several local servers answer 400), which made every semantic refinement fail and
 // silently fall back to the deterministic summary. The schema now travels in the
 // prompt and the reply is validated locally, so every engine takes the same path.
-const CONTINUATION_SCHEMA_TEXT = '{"completed_work":[string],"open_questions":[string],"next_actions":[string]}';
+const CONTINUATION_SCHEMA_TEXT = '{"summary":string,"intent":string,"decisions":[string],"errors_and_fixes":[string],'
+  + '"open_questions":[string],"next_actions":[string]}';
 const HANDOFF_SCHEMA_TEXT = '{"objective":string,"decisions":[string],"completed_work":[string],'
   + '"verified_state":[string],"blockers":[string],"next_actions":[string]}';
 
 // Why: with no grammar constraint the model can treat the supplied record as text to
 // continue and echo it until the output cap truncates the JSON. The instruction states
-// the condensation explicitly and bounds every array, so a reply is short by construction.
-const CONTINUATION_INSTRUCTION = 'Condense the supplied NNA continuation record. Do not copy its text. '
-  + 'Return JSON with at most 6 short entries per array, each under 240 characters.';
+// the deliverable explicitly and bounds every entry, so a reply is short by construction.
+const CONTINUATION_INSTRUCTION = 'Write a compact orientation record for the worker who continues this '
+  + 'work from scratch. Condense; never copy the supplied text. State the situation and where it '
+  + 'stands in "summary" (at most 3 sentences). Put decisions with their reasons in "decisions", '
+  + 'resolved failures in "errors_and_fixes" as "error: how it was resolved", remaining unknowns in '
+  + '"open_questions", and immediate actions in "next_actions". At most 6 entries per array, each '
+  + 'under 240 characters. Do not restate the objective in "intent" unless the operator restated it. '
+  + 'Do not mention this summarization, context compaction, or that records were omitted.';
 
 function alignedCompactionRequest(route, fact, prefix) {
   const standalone = compactionRequest(route, fact);
@@ -202,17 +205,49 @@ function parseJson(text) {
 
 function validateSemantic(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw codeError('semantic_compaction_invalid');
-  // Compatibility: the shape in the prompt is authoritative, but engines that follow it
-  // loosely may also return the camelCase keys of the supplied record. Accept the
-  // documented snake_case keys or the matching camelCase aliases, never both.
-  const groups = [['completed_work', 'completedWork'], ['open_questions', 'openQuestions'], ['next_actions', 'nextActions']];
-  const allowed = new Set(groups.flat());
+  // Compatibility: engines that follow the prompt loosely may use either the documented
+  // snake_case keys or the record's camelCase keys. Accept either spelling, never both.
+  const groups = [['decisions'], ['errors_and_fixes', 'errorsAndFixes'],
+    ['open_questions', 'openQuestions'], ['next_actions', 'nextActions']];
+  const allowed = new Set(['summary', 'intent', ...groups.flat()]);
   if (Object.keys(value).some((key) => !allowed.has(key))) throw codeError('semantic_compaction_invalid');
-  if (groups.some(([snake, camel]) => Object.hasOwn(value, snake) && Object.hasOwn(value, camel))
-    || groups.some(([snake]) => !Object.hasOwn(value, snake))) throw codeError('semantic_compaction_invalid');
-  const result = {};
-  for (const [key] of groups) result[toCamel(key)] = boundedArray(value[key]);
+  if (groups.some(([snake, camel]) => camel && Object.hasOwn(value, snake) && Object.hasOwn(value, camel))) {
+    throw codeError('semantic_compaction_invalid');
+  }
+  const result = {
+    summary: boundedText(value.summary), intent: boundedText(value.intent),
+  };
+  for (const [snake, camel] of groups) {
+    const present = Object.hasOwn(value, snake) ? snake : camel && Object.hasOwn(value, camel) ? camel : null;
+    if (present === null) throw codeError('semantic_compaction_invalid');
+    result[toCamel(snake)] = boundedArray(value[present]);
+  }
   return Object.freeze(result);
+}
+
+function sameRendering(enriched, fact) {
+  return Number.isSafeInteger(fact.projection?.projectedTokens) && Number.isSafeInteger(fact.projection?.originalTokens)
+    && enriched.projection?.projectedTokens === fact.projection.projectedTokens;
+}
+
+function refinementDetail(route, fact, alignment, enriched) {
+  return {
+    provider_profile: route.profile.id, model: route.model,
+    source_fingerprint: fact.sourceFingerprint,
+    request_mode: alignment ? 'cache_aligned' : 'standalone',
+    cache_evidence_tokens: alignment?.cacheTokens ?? 0,
+    prefix_fingerprint: alignment?.fingerprint ?? null,
+    prefix_bytes: alignment?.bytes ?? 0,
+    original_bytes: fact.projection?.originalBytes ?? null,
+    projected_bytes: enriched.projection?.projectedBytes ?? null,
+  };
+}
+
+function boundedText(value) {
+  if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > 4_096) {
+    throw codeError('semantic_compaction_invalid');
+  }
+  return value.slice(0, 1_024);
 }
 
 function validateHandoff(value) {

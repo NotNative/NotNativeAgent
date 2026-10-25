@@ -529,13 +529,20 @@ test('semantic continuation enrichment is schema validated and failure falls bac
     async *stream(request) { requests.push(request); yield { type: 'text', text }; yield { type: 'terminal' }; },
   });
   const enriched = await compactor.refine(base, { provider: () => provider(JSON.stringify({
-    completed_work: ['Implemented parser'], open_questions: [], next_actions: ['Run full suite'],
+    summary: 'Parser work started; suite not yet run.', intent: '',
+    decisions: ['Chose the incremental parser because it bounds memory'], errors_and_fixes: [],
+    open_questions: [], next_actions: ['Run full suite'],
   })) }, route, null, new AbortController().signal);
   assert.deepEqual(enriched.continuation.nextActions, ['Run full suite']);
+  assert.equal(enriched.continuation.narrative.summary, 'Parser work started; suite not yet run.');
+  // Invariant: a refinement may only replace narrative; observed facts stay machine-derived.
   assert.deepEqual(enriched.continuation.verifiedFacts, []);
+  assert.deepEqual(enriched.continuation.observedFiles, base.continuation.observedFiles);
+  assert.deepEqual(enriched.continuation.settledReceipts, base.continuation.settledReceipts);
+  assert.deepEqual(enriched.continuation.changedFiles, base.continuation.changedFiles);
   // Engines that reject `response_format` must still get a usable request.
   assert.equal(Object.hasOwn(requests[0], 'responseFormat'), false);
-  assert.match(requests[0].messages[1].content, /Shape: \{"completed_work"/u);
+  assert.match(requests[0].messages[1].content, /Shape: \{"summary"/u);
 
   const fallback = await compactor.refine(base, { provider: () => provider('{bad') }, route, null, new AbortController().signal);
   assert.equal(fallback, base);
@@ -595,7 +602,8 @@ test('semantic compaction keeps the standalone request without cache evidence or
     runtimeSnapshot: async () => ({}),
     async *stream(request) {
       requests.push(request);
-      yield { type: 'text', text: JSON.stringify({ completed_work: [], open_questions: [], next_actions: [] }) };
+      yield { type: 'text', text: JSON.stringify({ summary: 'Standalone refinement.', intent: '',
+        decisions: [], errors_and_fixes: [], open_questions: [], next_actions: [] }) };
       yield { type: 'terminal' };
     },
   };
@@ -626,7 +634,10 @@ test('semantic compaction succeeds on an engine that rejects structured output',
           { code: 'provider_response_format_unsupported' });
       }
       yield { type: 'text', text: '```json\n' + JSON.stringify({
-        completed_work: ['Implemented the strict path'], open_questions: [], next_actions: ['Verify'],
+        summary: 'Strict engine path implemented.', intent: '',
+        decisions: ['Kept the prompt-only shape because the engine rejects grammars'],
+        errors_and_fixes: ['provider_response_format_unsupported: removed the response_format field'],
+        open_questions: [], next_actions: ['Verify'],
       }) + '\n```' };
       yield { type: 'terminal' };
     },
@@ -634,7 +645,9 @@ test('semantic compaction succeeds on an engine that rejects structured output',
   const compactor = new ContinuationCompactor({ scheduler: new FairScheduler(), timeoutMs: 1000 });
   const enriched = await compactor.refine(base, { provider: () => provider }, route, null, new AbortController().signal);
   assert.notEqual(enriched, base, 'a rejecting engine must not force the deterministic fallback');
-  assert.deepEqual(enriched.continuation.completedWork, ['Implemented the strict path']);
+  assert.equal(enriched.continuation.narrative.summary, 'Strict engine path implemented.');
+  assert.deepEqual(enriched.continuation.narrative.errorsAndFixes,
+    ['provider_response_format_unsupported: removed the response_format field']);
   assert.equal(requests.length, 1, 'the request is accepted on the first attempt');
   assert.equal(Object.hasOwn(requests[0], 'responseFormat'), false);
 });

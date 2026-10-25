@@ -53,8 +53,11 @@ export function renderTaskCheckpoint(engine, fact) {
   addList(lines, 'Current tasks', Array.isArray(work?.tasks) ? work.tasks.map(taskLine)
     : work?.tasks == null ? [] : ['(task state unavailable)']);
   addList(lines, 'Recent directives', continuation.recentDirectives);
+  addList(lines, 'Summary', continuation.narrative?.summary ? [continuation.narrative.summary] : []);
+  addList(lines, 'Decisions', continuation.narrative?.decisions);
   addList(lines, 'Completed work', continuation.completedWork);
   addList(lines, 'Changed files', continuation.changedFiles?.map(fileLine));
+  addList(lines, 'Errors and fixes', continuation.narrative?.errorsAndFixes);
   addList(lines, 'Verified facts', continuation.verifiedFacts);
   addList(lines, 'Unresolved tools and blockers', continuation.unresolvedTools?.map(toolLine));
   addList(lines, 'Open questions', continuation.openQuestions);
