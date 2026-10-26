@@ -986,3 +986,35 @@ test('AC-ARCH-01/AC-PROD-02 provider adapters and input surfaces preserve canoni
   assert.equal(headless.outcome, 'completed');
   assert.deepEqual(interactive, headless);
 });
+
+test('whitespace-only provider content beside a tool call persists no assistant message', async () => {
+  class WhitespaceToolCallProvider {
+    async *stream(request) {
+      if (!hasFinishCall(request)) {
+        yield { type: 'text', text: '\n\n' };
+        yield* finishCall('completed');
+        return;
+      }
+      yield { type: 'text', text: 'Audit complete.' };
+      yield { type: 'terminal', finishReason: 'stop' };
+    }
+  }
+  const engine = new SessionEngine({ config: config(), providerFactory: () => new WhitespaceToolCallProvider(),
+    hookRoot: EMPTY_HOOK_ROOT });
+  await engine.initialize();
+  const turn = engine.submit({ request_id: 'ws-tool-call', content: 'Run the audit.' }, 'operator');
+  const result = await turn;
+  assert.equal(result.outcome, 'completed');
+  // The declaration settled with provider padding as the only step text: no
+  // assistant message may be persisted and the delivered text must be empty.
+  assert.equal(engine.transcript.filter((item) => item.role === 'assistant').length, 0);
+  assert.equal(result.text ?? '', '');
+  // A narrated turn still persists its assistant message untouched.
+  const second = engine.submit({ request_id: 'ws-narrated', content: 'Summarize.' }, 'operator');
+  const secondResult = await second;
+  assert.equal(secondResult.outcome, 'completed');
+  const assistant = engine.transcript.filter((item) => item.role === 'assistant');
+  assert.equal(assistant.length, 1);
+  assert.equal(assistant[0].content, 'Audit complete.');
+  await engine.shutdown({ version: '1.0', type: 'shutdown', request_id: 'shutdown-ws-tool-call' });
+});

@@ -21,10 +21,17 @@ export function renderMarkdownRows(value, width, firstPrefix = '', continuationP
     }
     const normalized = fenced ? `  ${raw.replaceAll('\t', '  ')}` : markdownLine(raw);
     const prefix = rows.length === 0 ? firstPrefix : continuationPrefix;
+    // Why: providers may emit whitespace-only assistant content beside tool calls.
+    // A decorative prefix (bullet, quote marker) on an empty line renders as an
+    // orphaned marker row; indentation-only prefixes still render as blank lines.
+    if (!fenced && normalized.trim().length === 0 && prefix.trim().length > 0) continue;
     const kind = fenced ? 'code' : markdownKind(raw);
     rows.push(...typedRows(wrapTerminalLine(normalized, width, prefix, hangingPrefix(continuationPrefix, normalized)), kind));
   }
-  return rows.length > 0 ? rows : [{ text: firstPrefix, kind: 'paragraph' }];
+  // Why: an entirely blank message must not synthesize a decorative marker row;
+  // only indentation-only prefixes represent a renderable blank line.
+  if (rows.length > 0) return rows;
+  return firstPrefix.trim().length > 0 ? [] : [{ text: firstPrefix, kind: 'paragraph' }];
 }
 
 function typedRows(lines, kind) {

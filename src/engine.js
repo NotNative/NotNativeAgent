@@ -26,7 +26,7 @@ import { clearEngineConversation, compactEngineConversation, handoffEngineConver
 import { recoverContentFreeCompletion, recoverProviderContextLimit, recoverReasoningOnly } from './engine/provider-recovery.js';
 import { settleEngineAttempt, settleEngineStep } from './engine/lifecycle-settlement.js';
 import { acceptEngineText, emitEngineStatus } from './engine/output.js';
-import { assertTurnActive } from './turn-cancellation.js';
+import { assertTurnActive, requestTurnCancel } from './turn-cancellation.js';
 import { createEngineTelemetry } from './engine/telemetry.js';
 import { prepareEngineContext } from './engine/context-preparation.js';
 import { initializeEngine } from './engine/initialize.js';
@@ -44,6 +44,7 @@ import { validateSessionLineage } from './session-lineage.js'; import { forkInge
 import { supportConfiguration } from './support-configuration.js';
 import { initializeReviewerCarry, refreshReviewerCompletion, reviewerCompletionHint } from './engine/reviewer-completion.js';
 import { steerEngineTurn } from './engine/steering.js';
+import { abandonOrphanedSteering } from './engine/steering-restore.js';
 import { primaryProviderRequest } from './engine/route-request.js';
 import { preparePrimaryRoutes } from './engine/primary-routes.js';
 export class SessionEngine {
@@ -156,11 +157,7 @@ export class SessionEngine {
       && this.active.turnId !== command.expected_turn_id) return { accepted: true, already_terminal: true };
     this.active.cancelled = true;
     this.active.controller.abort();
-    if (!['cancelling', 'finalizing_turn', 'idle'].includes(this.state.state)) {
-      this.state.transition('cancelling', { trigger: 'cancel_command', turnId: this.active.turnId });
-    }
-    await emitEngineStatus(this, 'cancelling', this.active);
-    return { accepted: true, turn_id: this.active.turnId, request_id: command.request_id };
+    return requestTurnCancel(this, command);
   }
 
   decidePermission(command, principal) {
@@ -289,7 +286,8 @@ export class SessionEngine {
     }
     if (calls.length === 0) return this.#afterTextStep(active);
     await this.#settleAttempt(active, 'completed'); groundCapabilityPhase(active); this.reliability.captureReasoningContinuation(active, calls); suppressPostToolReasoningReplay(active);
-    if (active.stepText.length > 0) {
+    // Why: provider whitespace beside tool calls must not persist as an assistant message.
+    if (active.stepText.trim().length > 0) {
       await this.#persist('message', assistantMessage(active.turnId, active.stepText, { stepId: active.stepId }));
       active.committedStepText = active.stepText;
     }
@@ -494,6 +492,9 @@ export class SessionEngine {
     this.toolLoop.restore(restored.transcript, records);
     await this.toolLoop.reconcilePendingSettlements();
     this.steering.push(...restored.steering);
+    // Why: an orphaned admission (its turn boundary outside the recovery window) can
+    // neither be resumed nor silently dropped; record durable abandonment and surface it.
+    await abandonOrphanedSteering(this, restored.orphanedSteering);
     return restored.interrupted;
   }
 }

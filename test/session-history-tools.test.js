@@ -52,14 +52,17 @@ test('history tools redact secrets and read exact neighboring records', async ()
   }
 });
 
-test('history search bounds scanning to the newest fifty thousand records', () => {
+test('history search scans past the retired newest-fifty-thousand bound so ancient evidence stays reachable', () => {
+  // 20261025-1: the walk starts at the oldest record and bounds itself with the
+  // cooperative deadline, so a long conversation cannot hide its oldest evidence.
   const records = Array.from({ length: 50_002 }, (_, index) => ({
     type: 'message', role: 'user', content: index === 0 ? 'ancient needle' : `record ${index}`,
   }));
   const result = searchHistory(records, { query: 'ancient needle' });
-  assert.equal(result.scan_truncated, true);
-  assert.equal(result.scanned, 50_000);
-  assert.equal(result.matches.length, 0);
+  assert.equal(result.scan_truncated, false);
+  assert.equal(result.scanned, 50_002);
+  assert.equal(result.matches.length, 1);
+  assert.equal(result.matches[0].record_index, 0);
 });
 
 test('history search honors one-character queries and rejects an empty type filter', async () => {

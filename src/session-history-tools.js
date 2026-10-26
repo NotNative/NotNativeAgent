@@ -153,13 +153,16 @@ function projectMatch(record, index, budget) {
   const redacted = redactExtensionData(record);
   const encoded = JSON.stringify(redacted);
   const complete = typeof encoded === 'string' && Buffer.byteLength(encoded, 'utf8') <= MAX_INLINE_BYTES;
+  // Invariant: every match carries a snippet, so one search result is self-sufficient
+  // whether the record arrived inline or as a bounded excerpt with a ledger reference.
+  const snippet = redactText(searchableText(redacted).text).replace(/\s+/gu, ' ').trim().slice(0, MAX_SNIPPET);
   if (complete) {
     const projected = projectRecord(record, index, false, budget);
-    return { ...projected, inline_complete: true };
+    return { ...projected, snippet, inline_complete: true };
   }
   const projected = projectRecord(record, index, true, budget);
   const ledgerRef = record?.requestId ?? record?.providerCallId ?? record?.request_id ?? record?.provider_call_id ?? null;
-  return { ...projected, inline_complete: false, ledger_ref: typeof ledgerRef === 'string' ? ledgerRef.slice(0, 256) : null };
+  return { ...projected, snippet, inline_complete: false, ledger_ref: typeof ledgerRef === 'string' ? ledgerRef.slice(0, 256) : null };
 }
 
 function cooperativeDeadline(budgetMs) {
@@ -273,14 +276,17 @@ function relevance(text, phrase, terms) {
 }
 
 function projectRecord(record, index, snippetOnly, budget) {
-  const base = { record_index: index, type: String(record?.type ?? 'unknown').slice(0, MAX_TYPE_LENGTH) };
+  const turnId = record?.turn_id ?? record?.turnId;
+  // Invariant: every projection is addressable, so turn_id rides on both the
+  // inline and snippet shapes instead of only the bounded excerpt shape.
+  const base = { record_index: index, type: String(record?.type ?? 'unknown').slice(0, MAX_TYPE_LENGTH),
+    turn_id: typeof turnId === 'string' ? turnId.slice(0, 256) : null };
   const redacted = redactExtensionData(record);
   if (!snippetOnly) return { ...base, record: boundValue(redacted, budget, 0) };
   // Why: a snippet does not return the complete record; spending the shared
   // read budget on discarded fields erases later search matches.
   const text = redactText(searchableText(redacted).text).replace(/\s+/gu, ' ').trim();
-  const turnId = record?.turn_id ?? record?.turnId;
-  return { ...base, turn_id: typeof turnId === 'string' ? turnId.slice(0, 256) : null, snippet: text.slice(0, MAX_SNIPPET) };
+  return { ...base, snippet: text.slice(0, MAX_SNIPPET) };
 }
 
 function boundValue(value, budget, depth) {

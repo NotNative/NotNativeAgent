@@ -4,6 +4,7 @@ import { emitEngineText } from './output.js';
 import { hookPayload } from './hooks.js';
 import { settleEngineChildren } from './lifecycle-settlement.js';
 import { FinalizationFaults } from '../finalization-faults.js';
+import { dropUnconsumedSteering } from './steering-restore.js';
 import { refreshReviewerCompletion } from './reviewer-completion.js';
 
 export async function finalizeEngineTurn(engine, outcome, text, failureDetail, options, operations) {
@@ -57,8 +58,10 @@ async function finalizeOnce(engine, active, text, options, operations, faults) {
   const terminalBeforePersistence = terminalRecord(engine, active, faults.outcome, text, faults.primary, faults.secondary);
   await operations.persist('turn_outcome', terminalBeforePersistence);
   faults.latchCommit();
-  // Invariant: unconsumed steering belongs to this turn and cannot authorize the next.
-  engine.steering = (engine.steering ?? []).filter((item) => item.turnId !== active.turnId);
+  // Invariant: unconsumed steering belongs to this turn and cannot authorize the next;
+  // each drop records a durable steering_abandoned successor, never a silent removal.
+  await faults.capture('persistence', () => dropUnconsumedSteering(engine, active,
+    (type, payload) => operations.persist(type, payload)));
   await faults.capture('state', () => engine.state.transition(
     'idle', { trigger: 'finalization_committed', turnId: active.turnId },
   ));

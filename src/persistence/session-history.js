@@ -62,13 +62,13 @@ export function restoreSessionRecords(records, options = {}) {
       replaySteeringRecord(record, { steering, transcript, authority, control, terminalTurns, hidden });
     } else if (record.type === 'workspace_changed') { workspaceRoot = validatedWorkspaceRoot(record.payload); }
   }
-  let authorityOutcome = { authorityReset };
-  if (control !== null) authorityOutcome = replayAuthorityControl(control, authority, missionTurns);
-  const pendingSteering = pendingSteeringForReplay(control, options, steering, activeTurns, hidden);
+  const authorityOutcome = control !== null ? replayAuthorityControl(control, authority, missionTurns) : { authorityReset };
+  const { pending, orphaned } = pendingSteeringForReplay(control, options, steering, activeTurns, hidden);
   return Object.freeze({
     transcript: Object.freeze(transcript),
     latestTurnOutcome,
-    steering: Object.freeze(pendingSteering),
+    steering: Object.freeze(pending),
+    orphanedSteering: Object.freeze(orphaned),
     authority: Object.freeze(authority),
     authorityReset: authorityOutcome.authorityReset,
     missionTurns: Object.freeze(missionTurns),
@@ -168,10 +168,19 @@ function replaySteeringControl(control, hidden) {
 function pendingSteeringForReplay(control, options, steering, activeTurns, hidden) {
   // Security: pending steering requires the complete genesis-anchored control stream.
   // A partial scan or a tail without its original admission cannot prove eligibility.
-  if (control === null) return [...steering.values()].filter((item) => activeTurns.has(item.turnId));
-  if (options.controlComplete === false) return [];
+  if (control === null) {
+    const values = [...steering.values()];
+    // Why: a turn whose acceptance record falls outside the bounded window cannot be
+    // proven open, so its queued steering stays unresumed but is returned separately
+    // for durable, visible abandonment rather than a silent drop.
+    const pending = values.filter((item) => activeTurns.has(item.turnId));
+    const orphaned = values.filter((item) => !activeTurns.has(item.turnId))
+      .map(({ id, turnId }) => ({ id, turnId, reason: 'outside_recovery_window' }));
+    return { pending, orphaned };
+  }
+  if (options.controlComplete === false) return { pending: [], orphaned: [] };
   // Invariant: a revert point can precede the bounded transcript tail.
-  return replaySteeringControl(control, hiddenTurnIds(control));
+  return { pending: replaySteeringControl(control, hiddenTurnIds(control)), orphaned: [] };
 }
 
 function validatedWorkspaceRoot(payload) {

@@ -548,6 +548,18 @@ test('wrapped transcript lines retain semantic hanging indentation', () => {
   assert.equal(list.slice(1).every((line) => line.startsWith('    ')), true);
 });
 
+test('whitespace-only assistant content renders no orphaned bullet row', () => {
+  // Providers may emit "\n\n" as content beside tool calls; a decorative prefix
+  // must never render alone on an otherwise empty line.
+  assert.deepEqual(renderMarkdownRows('\n\n', 80, '* ', '  '), []);
+  assert.deepEqual(renderMarkdownRows(' \n\t\n', 80, '> ', '  '), []);
+  const narrated = renderMarkdownRows('Inspection plan.\n\n', 80, '* ', '  ');
+  assert.deepEqual(narrated.map((row) => row.text), ['* Inspection plan.']);
+  // A mid-message paragraph break is indentation-only and stays a blank line.
+  const paragraphs = renderMarkdownRows('para one\n\npara two', 80, '* ', '  ');
+  assert.deepEqual(paragraphs.map((row) => row.text), ['* para one', '  ', '  para two']);
+});
+
 test('wrapped markdown rows retain their logical type across every terminal width', () => {
   const rows = renderMarkdownRows(
     '- A deliberately long list item whose continuation must retain list styling after wrapping.',

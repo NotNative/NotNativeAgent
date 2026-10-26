@@ -12,6 +12,10 @@ export async function persistSupervisedResponse(active, supervised, persist) {
     active.provisionalFinal = Object.freeze({ text: candidate.content, stepId: candidate.stepId });
     return null;
   }
+  // Why: some providers emit whitespace-only content alongside tool calls; persisting
+  // it as an assistant message replays dead weight into every later request, and an
+  // all-whitespace answer must not become the turn's delivered text.
+  if (active.stepText.trim().length === 0) return '';
   await persist('message', assistantMessage(active.turnId, active.stepText, {
     partial_data: true, stepId: active.stepId,
   }));
@@ -44,12 +48,11 @@ export async function continueAfterTerminalDeclaration(engine, active, items, tr
       // Generating another answer after settlement duplicates visible output and gives a
       // later provider call an opportunity to diverge from the reviewed turn evidence.
       await settleStep(supervised.disposition);
+      // Why: delivered text must not carry provider whitespace padding; gating above
+      // already ran on the raw text, so only the payload is trimmed here.
       return Object.freeze({
-        continue: false,
-        text: candidate.text,
-        outcome: supervised.disposition,
-        deliverableStepId: candidate.stepId,
-        terminalDeclarationSettled: true,
+        continue: false, text: candidate.text.trim(), outcome: supervised.disposition,
+        deliverableStepId: candidate.stepId, terminalDeclarationSettled: true,
       });
     }
     // Why: a rejected declaration and answer cannot reserve a terminal outcome for a
