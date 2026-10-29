@@ -35,7 +35,7 @@ export async function saveGatewayConfig(path, value) {
   return updateGatewayConfig(path, () => config);
 }
 
-/** Serialize first-party writes with native NND CAS and derive CLI changes from the locked latest source. */
+/** Serialize first-party writes with native desktop CAS and derive CLI changes from the locked latest source. */
 export async function updateGatewayConfig(path, mutate) {
   if (typeof mutate !== 'function') throw new ContractError('gateway_config_invalid', 'gateway configuration update is invalid');
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });

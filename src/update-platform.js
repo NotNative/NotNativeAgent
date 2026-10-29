@@ -31,7 +31,7 @@ export async function verifyDesktopUpdateSource(root, expectedVersion, before) {
     const version = (await readFile(join(root, 'desktop', 'VERSION'), 'utf8')).trim();
     const manifest = JSON.parse(await readFile(join(root, 'desktop', 'package.json'), 'utf8'));
     await access(join(root, 'desktop', 'install.cmd'));
-    if (version !== expectedVersion || manifest.nnd_version !== expectedVersion) throw new Error('version');
+    if (version !== expectedVersion || manifest.desktop_version !== expectedVersion) throw new Error('version');
   } catch {
     throw new ContractError('update_desktop_source_invalid', 'Selected update lacks its matching registered desktop payload; existing files were preserved');
   }
@@ -41,7 +41,7 @@ export async function verifyUpdatePlatform(marker, expectedVersion, before, runP
   if (platform !== 'win32') return null;
   const after = await observeUpdatePlatform(marker, runProcess, platform);
   if (!before && !after) return null;
-  const registration = await observe(marker, runProcess, ['nnd', 'package', 'status']);
+  const registration = await observe(marker, runProcess, ['desktop', 'package', 'status']);
   const sameRoot = (left, right) => resolve(left).toLowerCase() === resolve(right).toLowerCase();
   if (!after || registration?.registered !== true || registration.valid !== true
     || registration.version !== expectedVersion || after.version !== expectedVersion

@@ -8,7 +8,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { transactManifest, readManifestSnapshot, withManifestLock, readLockedManifestSnapshot, readManifestOperation, readLockedManifestOperation, transactLockedManifest } from '../src/persistence/manifest-transaction.js';
 import { manifestTarget, serializeManifestBytes } from '../src/persistence/manifest-files.js';
-import { runPrivateWindowsProgram } from '../src/nnd-service-private-windows.js';
+import { runPrivateWindowsProgram } from '../src/desktop-service-private-windows.js';
 
 async function fixture(t) {
   const parent = process.platform === 'win32' ? process.env.USERPROFILE : tmpdir();
@@ -84,11 +84,11 @@ test('Windows private helper preserves a bounded check stage without treating an
     await assert.rejects(runPrivateWindowsProgram(String.raw`
       [Console]::Out.WriteLine('{"error_code":"unexpected_error","check_stage":"manifest_file"}')
       exit 1
-    `, {}), error=>error.code==='nnd_private_storage_unavailable' && error.checkStage==='manifest_file');
+    `, {}), error=>error.code==='desktop_private_storage_unavailable' && error.checkStage==='manifest_file');
     await assert.rejects(runPrivateWindowsProgram(String.raw`
-      [Console]::Out.WriteLine('{"error_code":"nnd_private_acl_unsafe","check_stage":"untrusted_stage"}')
+      [Console]::Out.WriteLine('{"error_code":"desktop_private_acl_unsafe","check_stage":"untrusted_stage"}')
       exit 1
-    `, {}), error=>error.code==='nnd_private_acl_unsafe' && error.checkStage===undefined);
+    `, {}), error=>error.code==='desktop_private_acl_unsafe' && error.checkStage===undefined);
   });
 
 test('Windows manifest entries require trusted ACLs and operator full control',
@@ -116,7 +116,7 @@ test('Windows manifest entries require trusted ACLs and operator full control',
     assert.equal(restrict.status,0,restrict.stderr);
     try {
       await assert.rejects(manifestTarget(path),error=>error.code==='manifest_target_unsafe'
-        && error.manifestHelperCode==='nnd_private_acl_unsafe' && error.manifestCheckStage==='storage_entry');
+        && error.manifestHelperCode==='desktop_private_acl_unsafe' && error.manifestCheckStage==='storage_entry');
     } finally {
       const restore=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',String.raw`
         $ErrorActionPreference='Stop'

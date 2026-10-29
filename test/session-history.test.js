@@ -276,7 +276,7 @@ test('complete control replay preserves steering beyond the tail and excludes te
   assert.deepEqual(restoreSessionRecords(tail, { controlRecords: [accepted,
     record('conversation_cleared', {}),
   ] }).steering, []);
-  // An NND revert can leave a hidden interrupted turn outside the bounded tail.
+  // An desktop revert can leave a hidden interrupted turn outside the bounded tail.
   assert.deepEqual(restoreSessionRecords(tail, { controlRecords: [accepted,
     record('revert_point', { reverted_turn_ids: ['open-turn'] }),
   ] }).steering, []);

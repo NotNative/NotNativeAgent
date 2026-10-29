@@ -59,7 +59,7 @@ export class SessionEngine {
     this.runtimeId = options.runtimeId ?? newId('runtime');
     this.sessionId = options.sessionId ?? newId('session');
     this.sessionLineage = validateSessionLineage(options.sessionLineage, this.sessionId); this.forkIngest = forkIngestContract(options.forkIngest);
-    this.nndSessionRegistry = options.nndSessionRegistry ?? null; this.dataPaths = resolveUserDataPaths(options.dataPaths); this.subagentDepth = options.subagentDepth ?? 0;
+    this.desktopSessionRegistry = options.desktopSessionRegistry ?? null; this.dataPaths = resolveUserDataPaths(options.dataPaths); this.subagentDepth = options.subagentDepth ?? 0;
     this.subagentOptions = {
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer, secretBroker: options.secretBroker,
       memoryAdapter: options.memoryAdapter, mcpTransportFactory: options.mcpTransportFactory,

@@ -17,7 +17,7 @@ async function fixture(t, failure) {
   await writeFile(join(payload, 'VERSION'), oldVersion);
   for (const [name, text] of Object.entries({ VERSION: version, 'package.json': JSON.stringify({ name: 'not-native-agent', nna_version: version }),
     'install.ps1': '# fixture', 'install.sh': '# fixture', 'desktop/VERSION': version,
-    'desktop/package.json': JSON.stringify({ nnd_version: version }), 'desktop/install.cmd': '@echo off' })) await writeFile(join(source, name), text);
+    'desktop/package.json': JSON.stringify({ desktop_version: version }), 'desktop/install.cmd': '@echo off' })) await writeFile(join(source, name), text);
   const archive = join(root, 'release.tar.gz');
   const packed = spawnSync('tar', ['-czf', archive, '-C', join(root, 'source'), 'candidate'], { windowsHide: true }); assert.equal(packed.status, 0);
   const requests = []; let installs = 0;

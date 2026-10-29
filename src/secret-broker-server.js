@@ -162,51 +162,51 @@ function requireScope(principal, scope) {
   if (!canAccessSecretScope(principal, scope)) throw new ContractError('secret_scope_forbidden', 'principal cannot manage the requested secret scope');
 }
 function failure(code, message) { return { error: { code, message } }; }
-const UPLOAD_STATUS = Object.freeze({ nnd_attachment_upload_scope_denied: 403,
-  nnd_attachment_upload_expired: 410, nnd_attachment_upload_conflict: 409, nnd_attachment_upload_capacity: 409 });
+const UPLOAD_STATUS = Object.freeze({ desktop_attachment_upload_scope_denied: 403,
+  desktop_attachment_upload_expired: 410, desktop_attachment_upload_conflict: 409, desktop_attachment_upload_capacity: 409 });
 function failureStatus(code) {
   if (UPLOAD_STATUS[code]) return UPLOAD_STATUS[code];
-  if (code === 'nnd_trial_mutation_denied') return 403;
-  if (code === 'nnd_trial_admission_invalid' || code === 'nnd_configuration_unavailable') return 503;
+  if (code === 'desktop_trial_mutation_denied') return 403;
+  if (code === 'desktop_trial_admission_invalid' || code === 'desktop_configuration_unavailable') return 503;
   // Failed installation verification closes its read surface.
-  if (['nnd_install_descriptor_unavailable', 'nnd_install_descriptor_invalid', 'nnd_install_runtime_unavailable', 'nnd_skills_catalog_unavailable'].includes(code)) return 503;
-  if (code === 'nnd_setup_activation_timeout' || code === 'nnd_setup_shutdown_timeout') return 504;
-  if (code === 'nnd_setup_required' || code === 'nnd_setup_stopped' || code === 'nnd_setup_cleanup_failed') return 503;
-  if (code === 'nnd_setup_busy' || code === 'secret_in_use' || code === 'nnd_session_exists' || code === 'provider_revision_conflict') return 409;
+  if (['desktop_install_descriptor_unavailable', 'desktop_install_descriptor_invalid', 'desktop_install_runtime_unavailable', 'desktop_skills_catalog_unavailable'].includes(code)) return 503;
+  if (code === 'desktop_setup_activation_timeout' || code === 'desktop_setup_shutdown_timeout') return 504;
+  if (code === 'desktop_setup_required' || code === 'desktop_setup_stopped' || code === 'desktop_setup_cleanup_failed') return 503;
+  if (code === 'desktop_setup_busy' || code === 'secret_in_use' || code === 'desktop_session_exists' || code === 'provider_revision_conflict') return 409;
   // The manifest may already have been published. The caller must inspect its
   // original operation ID before deciding whether any retry is safe.
   if (['manifest_publication_unknown', 'manifest_publication_failed', 'manifest_cleanup_failed'].includes(code)) return 503;
-  if (['nnd_configuration_resolution_conflict', 'nnd_configuration_repair_unnecessary', 'configuration_source_shadowed', 'manifest_revision_conflict', 'manifest_operation_conflict'].includes(code)) return 409;
+  if (['desktop_configuration_resolution_conflict', 'desktop_configuration_repair_unnecessary', 'configuration_source_shadowed', 'manifest_revision_conflict', 'manifest_operation_conflict'].includes(code)) return 409;
   if (['principal_required', 'principal_invalid', 'principal_stale'].includes(code)) return 401;
   // Renewable-capability failures are authentication failures, never 500s.
   if (code.startsWith('capability_')) return 401;
   if (code.includes('permission') || code.includes('forbidden')) return 403;
-  if (code.includes('not_found') || ['provider_missing', 'nnd_session_unavailable', 'question_unknown', 'nnd_fork_boundary_unknown'].includes(code)) return 404;
-  if (['nnd_goal_conflict', 'nnd_goal_audit_conflict', 'nnd_goal_audit_busy', 'nnd_walkthrough_busy', 'nnd_assist_busy',
-    'nnd_fork_busy', 'nnd_fork_boundary_unsettled', 'nnd_revert_busy', 'nnd_revert_none', 'nnd_shutdown_busy'].includes(code)) return 409;
-  if (['nnd_goal_audit_unavailable', 'nnd_pending_unavailable',
-    'nnd_activity_tombstones_unavailable', 'nnd_walkthrough_unavailable', 'nnd_assist_unavailable',
-    'nnd_fork_unavailable', 'nnd_revert_unavailable'].includes(code)) return 503;
-  if (['nnd_goal_audit_timeout', 'nnd_walkthrough_timeout', 'nnd_assist_timeout', 'nnd_notification_timeout'].includes(code)) return 504;
-  if (code.startsWith('nnd_goal_audit_output_') || code === 'nnd_goal_audit_tool_violation') return 502;
-  if (code.startsWith('nnd_walkthrough_output_') || code === 'nnd_walkthrough_tool_violation') return 502;
-  if (code.startsWith('nnd_assist_output_') || code === 'nnd_assist_tool_violation') return 502;
-  if (['nnd_walkthrough_context_large', 'nnd_environment_value_too_large',
-    'nnd_skills_catalog_too_large'].includes(code)) return 413;
-  if (code === 'nnd_activity_tombstones_invalid' || code === 'nnd_configuration_internal_failure') return 500;
+  if (code.includes('not_found') || ['provider_missing', 'desktop_session_unavailable', 'question_unknown', 'desktop_fork_boundary_unknown'].includes(code)) return 404;
+  if (['desktop_goal_conflict', 'desktop_goal_audit_conflict', 'desktop_goal_audit_busy', 'desktop_walkthrough_busy', 'desktop_assist_busy',
+    'desktop_fork_busy', 'desktop_fork_boundary_unsettled', 'desktop_revert_busy', 'desktop_revert_none', 'desktop_shutdown_busy'].includes(code)) return 409;
+  if (['desktop_goal_audit_unavailable', 'desktop_pending_unavailable',
+    'desktop_activity_tombstones_unavailable', 'desktop_walkthrough_unavailable', 'desktop_assist_unavailable',
+    'desktop_fork_unavailable', 'desktop_revert_unavailable'].includes(code)) return 503;
+  if (['desktop_goal_audit_timeout', 'desktop_walkthrough_timeout', 'desktop_assist_timeout', 'desktop_notification_timeout'].includes(code)) return 504;
+  if (code.startsWith('desktop_goal_audit_output_') || code === 'desktop_goal_audit_tool_violation') return 502;
+  if (code.startsWith('desktop_walkthrough_output_') || code === 'desktop_walkthrough_tool_violation') return 502;
+  if (code.startsWith('desktop_assist_output_') || code === 'desktop_assist_tool_violation') return 502;
+  if (['desktop_walkthrough_context_large', 'desktop_environment_value_too_large',
+    'desktop_skills_catalog_too_large'].includes(code)) return 413;
+  if (code === 'desktop_activity_tombstones_invalid' || code === 'desktop_configuration_internal_failure') return 500;
   // Trust rows must never degrade to an empty list; repairs retry after the honest failure surfaces.
   // F1 admission: conflicts 409, missing 404, unavailable 503, grammar 400.
-  if (['nnd_workspace_admission_root_conflict', 'nnd_workspace_admission_secondary_clear', 'nnd_workspace_in_use',
+  if (['desktop_workspace_admission_root_conflict', 'desktop_workspace_admission_secondary_clear', 'desktop_workspace_in_use',
     'workspace_trust_busy'].includes(code)) return 409;
-  if (code === 'workspace_trust_target_missing' || code === 'nnd_workspace_admission_target_missing') return 404;
-  if (['nnd_workspace_admission_unavailable'].includes(code)) return 503;
+  if (code === 'workspace_trust_target_missing' || code === 'desktop_workspace_admission_target_missing') return 404;
+  if (['desktop_workspace_admission_unavailable'].includes(code)) return 503;
   // Broken server builds (projection drift) are 500s, not client errors.
-  if (['nnd_compatibility_projection_invalid', 'nnd_secrets_projection_invalid',
-    'nnd_hooks_projection_invalid', 'nnd_update_projection_invalid',
-    'nnd_package_projection_invalid', 'nnd_service_projection_invalid',
-    'nnd_installation_projection_invalid', 'nnd_browser_projection_invalid',
-    'nnd_skills_projection_invalid', 'nnd_action_triage_projection_invalid',
-    'nnd_invocation_projection_invalid', 'nnd_mcp_advanced_projection_invalid', 'nnd_provider_observation_projection_invalid'].includes(code)) return 500;
+  if (['desktop_compatibility_projection_invalid', 'desktop_secrets_projection_invalid',
+    'desktop_hooks_projection_invalid', 'desktop_update_projection_invalid',
+    'desktop_package_projection_invalid', 'desktop_service_projection_invalid',
+    'desktop_installation_projection_invalid', 'desktop_browser_projection_invalid',
+    'desktop_skills_projection_invalid', 'desktop_action_triage_projection_invalid',
+    'desktop_invocation_projection_invalid', 'desktop_mcp_advanced_projection_invalid', 'desktop_provider_observation_projection_invalid'].includes(code)) return 500;
   // Compatibility-service lifecycle: grammar stays at the default 400, but the
   // operational failures are honest 503s — the runtime could not be started or
   // its identity could not be verified, and the surface refuses harmlessly.
@@ -219,9 +219,9 @@ function failureStatus(code) {
   if (['secret_vault_corrupt', 'secret_key_invalid', 'secret_vault_integrity_failed',
     'mcp_credentials_invalid'].includes(code)) return 503;
   if (code === 'workspace_trust_invalid') return 503;
-  if (['mcp_credentials_busy', 'mcp_credentials_full', 'nnd_notification_busy'].includes(code)) return 409;
-  if (code === 'nnd_notification_unavailable') return 503;
-  if (code.startsWith('nnd_notification_output_') || code === 'nnd_notification_tool_violation') return 502;
+  if (['mcp_credentials_busy', 'mcp_credentials_full', 'desktop_notification_busy'].includes(code)) return 409;
+  if (code === 'desktop_notification_unavailable') return 503;
+  if (code.startsWith('desktop_notification_output_') || code === 'desktop_notification_tool_violation') return 502;
   return code === 'internal_failure' ? 500 : 400;
 }
 function securityHeaders(response) {

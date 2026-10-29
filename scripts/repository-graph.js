@@ -36,7 +36,7 @@ const COMPONENTS = Object.freeze([
   )),
   component('integrations', 'Integration surfaces', 'Owns headless, NNO, sub-agent, and service boundaries.', (path) => (
     path === 'headless.js' || path.startsWith('integration-') || path.startsWith('nno-')
-    || path.startsWith('nnd-') || path === 'secret-broker.js' || path.startsWith('secret-broker-')
+    || path.startsWith('desktop-') || path === 'secret-broker.js' || path.startsWith('secret-broker-')
     || path.startsWith('session-broker') || path.startsWith('subagent-')
   )),
   component('opencode-surface', 'OpenCode surface', 'Serves the OpenCode wire contract over live session engines.', matches('opencode/')),

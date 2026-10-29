@@ -8,7 +8,7 @@ import { sseFrame, sseClose } from './protocol.js';
 
 const REPLAY_LIMIT = 2048;
 const REPLAY_BYTES_LIMIT = 16 * 1024 * 1024;
-// NND considers an idle event stream stale after 30 seconds. A comment frame
+// desktop considers an idle event stream stale after 30 seconds. A comment frame
 // keeps the transport alive without creating a replayable event or cursor.
 const HEARTBEAT_INTERVAL_MS = 10_000;
 
@@ -27,7 +27,7 @@ export function createWireEventBus({ heartbeatIntervalMs = HEARTBEAT_INTERVAL_MS
     checkpointSession({ directory, sessionID, project, subjectId, workspaceIds }) {
       const id = eventId();
       const scope = { project, subjectId, workspaceIds };
-      retainReplay(replay, scopedEnvelope(directory, project, id, 'nnd.activity.boundary', { sessionID }), scope);
+      retainReplay(replay, scopedEnvelope(directory, project, id, 'desktop.activity.boundary', { sessionID }), scope);
       return replay.entries.some((entry) => entry.envelope.payload.id === id) ? id : null;
     },
     // Why: observed OC shapes — server/global events ride as {payload}; every
@@ -135,7 +135,7 @@ function replayAdmission(entries, cursor, subscriber) {
   if (typeof cursor !== 'string' || cursor.length > 256) return { replayStatus: 'gap', replayIndex: -1 };
   const replayIndex = entries.findIndex((entry) => entry.envelope.payload.id === cursor);
   if (replayIndex < 0 || !visibleTo(subscriber, entries[replayIndex].envelope, entries[replayIndex].scope)
-    || entries[replayIndex].envelope.payload.type === 'nnd.activity.boundary'
+    || entries[replayIndex].envelope.payload.type === 'desktop.activity.boundary'
       && !sameCheckpointScope(subscriber, entries[replayIndex].scope)) {
     return { replayStatus: 'gap', replayIndex: -1 };
   }

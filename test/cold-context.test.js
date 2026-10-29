@@ -82,12 +82,12 @@ test('reported context inventories projected-out evidence and emits content-free
   assert.equal(JSON.stringify(telemetry[0]).includes('cobalt'), false);
 });
 
-test('headless NND context output is opt-in and contains measurements, not context text', async () => {
+test('headless desktop context output is opt-in and contains measurements, not context text', async () => {
   const output = [];
-  const engine = { config, surface: 'headless', emitContextStatus: true, sessionId: 'session-nnd',
+  const engine = { config, surface: 'headless', emitContextStatus: true, sessionId: 'session-desktop',
     skills: { catalog: () => [] }, work: { snapshot: () => null },
     output: async (record) => output.push(record) };
-  const active = { turnId: 'turn-nnd', stepId: 'step-nnd' };
+  const active = { turnId: 'turn-desktop', stepId: 'step-desktop' };
   await buildReportedContext(engine, [], 'private operator text', {}, active,
     1_048_576, 1_048_576, { effectiveInputTokens: 16_000 });
   assert.equal(output.length, 1);

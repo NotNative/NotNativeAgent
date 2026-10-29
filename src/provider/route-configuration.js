@@ -219,7 +219,7 @@ export function withRouteDeadline(config, role, deadlineMs = null) {
     // provider_timeout_ms and clears the routes.primary.deadline_ms alias.
     // manifestFromConfig never serializes the primary deadline, so the pair value
     // round-trips through every later canonical transaction.
-    // Compatibility: the generic NND intent contract normalizes its primary-deadline
+    // Compatibility: the generic desktop intent contract normalizes its primary-deadline
     // operations onto this same pair, so all entry points converge on this state.
     if (deadlineMs === null) delete manifest.provider_timeout_ms;
     else manifest.provider_timeout_ms = deadlineMs;

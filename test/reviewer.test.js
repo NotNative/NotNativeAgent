@@ -1267,20 +1267,20 @@ test('external browser processes are denied before semantic review in favor of m
   assert.equal(semanticCalls, 0);
 });
 
-test('NND external browser denial points to the desktop browser capability', async () => {
-  const reviewer = new MandatoryReviewer({ ledger: new ReviewerLedger({ durable: false, sessionId: 'nnd-external-browser' }) });
+test('desktop external browser denial points to the desktop browser capability', async () => {
+  const reviewer = new MandatoryReviewer({ ledger: new ReviewerLedger({ durable: false, sessionId: 'desktop-external-browser' }) });
   const request = {
-    ...readRequest('nnd-external-browser'), toolName: 'shell_run',
+    ...readRequest('desktop-external-browser'), toolName: 'shell_run',
     args: { shell: 'powershell', script: '& chrome.exe --headless page.html' },
     resolved: { path: 'D:/workspace', reviewComplexity: 'simple_shell', reliabilitySignals: ['external_browser'] },
   };
   const result = await reviewer.review(request, {
-    ...context, surface: 'nnd',
+    ...context, surface: 'desktop',
     authority: { ...context.authority, intent: [{ content: 'Verify the page in a browser.', sequence: 1 }] },
     definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(result.outcome, 'deny_with_guidance');
-  assert.match(result.guidance, /nnd_browser/iu);
+  assert.match(result.guidance, /desktop_browser/iu);
   assert.doesNotMatch(result.guidance, /web_browse/iu);
 });
 

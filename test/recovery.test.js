@@ -2314,8 +2314,8 @@ test('durable recovery retains an authenticated integration principal origin', a
     config: config(root, 'durable'), sessionId: 'integrated-origin',
     storeRoot: stores, reviewerRoot: join(root, 'reviewers'), providerFactory: () => provider,
   });
-  const principal = Object.freeze({ subjectId: 'nnd-local-operator', platformRole: 'operator',
-    permissions: ['nnd.read', 'nnd.session.submit'], workspaceIds: ['local'], groupIds: [],
+  const principal = Object.freeze({ subjectId: 'desktop-local-operator', platformRole: 'operator',
+    permissions: ['desktop.read', 'desktop.session.submit'], workspaceIds: ['local'], groupIds: [],
     traceId: 'trace_a', issuedAt: new Date('2026-09-25T00:00:00.000Z'), requestId: 'request_a' });
   const first = createEngine();
   await first.initialize();

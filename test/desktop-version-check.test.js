@@ -19,17 +19,17 @@ async function fixture(packageJson) {
 
 test('desktop version check reports missing or non-string package stamps', async () => {
   for (const packageJson of [{ version: '20261022.0.29' },
-    { version: 20261022, nnd_version: '20261022-29' },
-    { version: '20261022.0.29', nnd_version: 20261022 }]) {
+    { version: 20261022, desktop_version: '20261022-29' },
+    { version: '20261022.0.29', desktop_version: 20261022 }]) {
     const { root, desktop } = await fixture(packageJson);
     try {
-      await assert.rejects(checkVersionPairing(desktop), /must contain string version and nnd_version fields/u);
+      await assert.rejects(checkVersionPairing(desktop), /must contain string version and desktop_version fields/u);
     } finally { await rm(root, { recursive: true, force: true }); }
   }
 });
 
 test('desktop version check uses its real checkout when its CLI entrypoint is a symlink', async (context) => {
-  const { root, desktop } = await fixture({ version: '20991231.0.1', nnd_version: '20991231-1' });
+  const { root, desktop } = await fixture({ version: '20991231.0.1', desktop_version: '20991231-1' });
   try {
     await writeFile(join(root, 'VERSION'), '20991231-1\n');
     await writeFile(join(desktop, 'VERSION'), '20991231-1\n');

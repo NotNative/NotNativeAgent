@@ -481,12 +481,12 @@ test('failed web fetch continuation requires browser fallback before abandoning 
 
 test('failed web fetch continuation names only the browser registered for the surface', () => {
   const failure = [{ result: { status: 'failed', tool_name: 'web_fetch' } }];
-  const desktop = toolContinuationHint(failure, null, { definition: (name) => name === 'nnd_browser' ? {} : undefined });
-  assert.match(desktop, /nnd_browser with action open/iu);
+  const desktop = toolContinuationHint(failure, null, { definition: (name) => name === 'desktop_browser' ? {} : undefined });
+  assert.match(desktop, /desktop_browser with action open/iu);
   assert.doesNotMatch(desktop, /web_browse/iu);
   const detached = toolContinuationHint(failure, null, { definition: () => undefined });
   assert.match(detached, /No interactive browser tool is available/iu);
-  assert.doesNotMatch(detached, /web_browse|nnd_browser/iu);
+  assert.doesNotMatch(detached, /web_browse|desktop_browser/iu);
 });
 
 test('completed nonzero continuation distinguishes diagnostic progress from successful verification', () => {

@@ -12,8 +12,8 @@ test('repository graph classifies authoritative engine ownership before fallback
   assert.equal(classify('governance/reviewer.js'), 'governance-engine');
   assert.equal(classify('experience/tool-lifecycle.js'), 'experience-engine');
   assert.equal(classify('reliability/context-budget.js'), 'reliability-engine');
-  assert.equal(classify('nnd-engine-host.js'), 'integrations');
-  assert.equal(classify('nnd-configuration-routes.js'), 'integrations');
+  assert.equal(classify('desktop-engine-host.js'), 'integrations');
+  assert.equal(classify('desktop-configuration-routes.js'), 'integrations');
   assert.equal(classify('secret-broker.js'), 'integrations');
   assert.equal(classify('secret-broker-server.js'), 'integrations');
   assert.equal(classify('subagent-runtime.js'), 'integrations');

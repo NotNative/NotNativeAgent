@@ -7,7 +7,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { ContractError } from './ids.js';
 
 export const PAYLOAD_VERSION = 1;
-export const SCOPE = 'nnd-service';
+export const SCOPE = 'desktop-service';
 const BASE64URL = /^[A-Za-z0-9_-]+$/u;
 const MAX_TOKEN_CHARACTERS = 16 * 1024;
 

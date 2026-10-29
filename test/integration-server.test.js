@@ -9,10 +9,10 @@ import { SecretBroker } from '../src/secret-broker.js';
 import { startIntegrationServer } from '../src/integration-server.js';
 import { validateNnoIntegrationActivation } from '../src/nno-integration-activation.js';
 import { ProviderProfileStore } from '../src/provider/profile-store.js';
-import { NndEngineHost } from '../src/nnd-engine-host.js';
+import { DesktopEngineHost } from '../src/desktop-engine-host.js';
 import { resolveManifest } from '../src/config.js';
-import { nndMcpInventory } from '../src/nnd-mcp-inventory.js';
-import { nndAgentInventory } from '../src/nnd-agent-inventory.js';
+import { desktopMcpInventory } from '../src/desktop-mcp-inventory.js';
+import { desktopAgentInventory } from '../src/desktop-agent-inventory.js';
 import { ContractError } from '../src/ids.js';
 import { createCapabilityAuthority } from '../src/integration-capability.js';
 import { VERSION } from '../src/product.js';
@@ -162,14 +162,14 @@ test('route activation is separately authorized and old sessions keep their mode
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
   const submitted = []; let checked = 0;
   const host = {
-    nndModel: { providerID: 'one', modelID: 'one' },
-    async activateProviderRoute() { this.nndModel = { providerID: 'two', modelID: 'two' }; return this.nndModel; },
-    get() { return { metadata: { nnd: { configuredModel: { providerID: 'one', modelID: 'one' } } } }; },
+    desktopModel: { providerID: 'one', modelID: 'one' },
+    async activateProviderRoute() { this.desktopModel = { providerID: 'two', modelID: 'two' }; return this.desktopModel; },
+    get() { return { metadata: { desktop: { configuredModel: { providerID: 'one', modelID: 'one' } } } }; },
     async assertWorkspaceBound() { checked++; },
     submitAsync(_id, command) { submitted.push(command); return { accepted: true }; },
   };
   const service = await startIntegrationServer({
-    activation: await activation(root), token: TOKEN, instanceId: 'nna_activate', nndEngineHost: host,
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_activate', desktopEngineHost: host,
     providerStore: new ProviderProfileStore({ configRoot }), port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
@@ -177,20 +177,20 @@ test('route activation is separately authorized and old sessions keep their mode
     assert.equal((await request(base, '/v1/provider-route/activate', principal(['provider.route.manage']), { method: 'POST' })).status, 403);
     const activated = await request(base, '/v1/provider-route/activate', principal(['provider.route.activate']), { method: 'POST' });
     assert.deepEqual(activated.value, { runtime_route: { providerID: 'two', modelID: 'two' }, existing_sessions_unchanged: true });
-    assert.equal((await request(base, '/session/old/prompt_async', principal(['nnd.session.submit']), {
+    assert.equal((await request(base, '/session/old/prompt_async', principal(['desktop.session.submit']), {
       method: 'POST', body: { messageID: 'prompt_old', model: { providerID: 'one', modelID: 'one' }, parts: [{ type: 'text', text: 'hello' }] },
     })).status, 204);
     assert.equal(submitted.length, 1);
     assert.equal(checked, 1);
-    assert.equal((await request(base, '/session/old/prompt_async', principal(['nnd.session.submit']), {
+    assert.equal((await request(base, '/session/old/prompt_async', principal(['desktop.session.submit']), {
       method: 'POST', body: { messageID: 'prompt_wrong', model: { providerID: 'two', modelID: 'two' }, parts: [{ type: 'text', text: 'hello' }] },
     })).status, 400);
-    host.assertWorkspaceBound = async () => { throw new ContractError('nnd_workspace_binding_invalid', 'replaced root'); };
-    const denied = await request(base, '/session/old/prompt_async', principal(['nnd.session.submit']), {
+    host.assertWorkspaceBound = async () => { throw new ContractError('desktop_workspace_binding_invalid', 'replaced root'); };
+    const denied = await request(base, '/session/old/prompt_async', principal(['desktop.session.submit']), {
       method: 'POST', body: { messageID: 'prompt_replaced', model: { providerID: 'one', modelID: 'one' }, parts: [{ type: 'text', text: 'hello' }] },
     });
     assert.equal(denied.status, 400);
-    assert.equal(denied.value.error.code, 'nnd_workspace_binding_invalid');
+    assert.equal(denied.value.error.code, 'desktop_workspace_binding_invalid');
     assert.equal(submitted.length, 1, 'binding denial must not queue the prompt');
   } finally { await service.close(); }
 });
@@ -214,7 +214,7 @@ test('integration principal rejects stale and role-only authority', async () => 
   } finally { await service.close(); }
 });
 
-test('provider inventory separates configured primary from the running NND route', async () => {
+test('provider inventory separates configured primary from the running desktop route', async () => {
   const root = createScratchSync('nna-provider-route-drift-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
@@ -223,7 +223,7 @@ test('provider inventory separates configured primary from the running NND route
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(document));
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
-    nndEngineHost: { nndModel: { providerID: 'one', modelID: 'one' } },
+    desktopEngineHost: { desktopModel: { providerID: 'one', modelID: 'one' } },
     providerStore: new ProviderProfileStore({ configRoot }),
     broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }), port: 0,
   });
@@ -244,8 +244,8 @@ test('provider inventory separates configured primary from the running NND route
   } finally { await service.close(); }
 });
 
-test('NND capability projection fails closed without a steering grant', async () => {
-  const root = createScratchSync('nna-nnd-integration-');
+test('desktop capability projection fails closed without a steering grant', async () => {
+  const root = createScratchSync('nna-desktop-integration-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
@@ -253,7 +253,7 @@ test('NND capability projection fails closed without a steering grant', async ()
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
     providerStore: new ProviderProfileStore({ configRoot }),
     broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }),
-    nndEngineHost: { resolveChildSession: async (sessionId) => {
+    desktopEngineHost: { resolveChildSession: async (sessionId) => {
       if (sessionId === 'ses_live') return { sessionId, revision: 1, availability: 'ungranted', steerSubagent: false };
       if (sessionId === 'ses_granted') return {
         sessionId, revision: 2, availability: 'granted', steerSubagent: true,
@@ -264,24 +264,24 @@ test('NND capability projection fails closed without a steering grant', async ()
   });
   const base = `http://127.0.0.1:${service.address.port}`;
   try {
-    const reader = principal(['nnd.read']);
-    const projection = await request(base, '/v1/nnd/sessions/ses_live/capabilities', reader);
+    const reader = principal(['desktop.read']);
+    const projection = await request(base, '/v1/desktop/sessions/ses_live/capabilities', reader);
     assert.equal(projection.status, 200);
     assert.equal(projection.value.capabilities.steer_subagent, false);
-    assert.equal((await request(base, '/v1/nnd/sessions/ses_live/steer', principal(['nnd.steer']), {
+    assert.equal((await request(base, '/v1/desktop/sessions/ses_live/steer', principal(['desktop.steer']), {
       method: 'POST', body: { request_id: 'steer_test', content: 'stop' },
     })).status, 409);
-    const accepted = await request(base, '/v1/nnd/sessions/ses_granted/steer', principal(['nnd.steer']), {
+    const accepted = await request(base, '/v1/desktop/sessions/ses_granted/steer', principal(['desktop.steer']), {
       method: 'POST', body: { request_id: 'steer_granted', content: 'pause' },
     });
     assert.equal(accepted.status, 202);
     assert.deepEqual(accepted.value, { accepted: true, request_id: 'steer_granted', subject_id: 'u_test' });
-    assert.equal((await request(base, '/v1/nnd/sessions/ses_granted/capabilities', principal([]))).status, 403);
+    assert.equal((await request(base, '/v1/desktop/sessions/ses_granted/capabilities', principal([]))).status, 403);
   } finally { await service.close(); }
 });
 
-test('NND MCP inventory projects configured state without destinations or credentials', async () => {
-  const root = createScratchSync('nna-nnd-mcp-');
+test('desktop MCP inventory projects configured state without destinations or credentials', async () => {
+  const root = createScratchSync('nna-desktop-mcp-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   const input = { ...manifest(root), mcp_servers: [{
@@ -289,34 +289,34 @@ test('NND MCP inventory projects configured state without destinations or creden
     endpoint: 'https://mcp.example/private?api_key=SECRET_QUERY', credential_env: 'SECRET_ENV',
   }] };
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(input));
-  const inventory = nndMcpInventory(resolveManifest(input));
+  const inventory = desktopMcpInventory(resolveManifest(input));
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
-    nndEngineHost: { nndMcpInventory: inventory },
+    desktopEngineHost: { desktopMcpInventory: inventory },
     providerStore: new ProviderProfileStore({ configRoot }),
     broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }), port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
   try {
-    const result = await request(base, '/v1/nnd/mcp', principal(['nnd.read']));
+    const result = await request(base, '/v1/desktop/mcp', principal(['desktop.read']));
     assert.deepEqual(result.value, { version: 1, state: 'configured', servers: [{
       id: 'memory', transport: 'streamable_http', enabled: true, trusted: false,
     }] });
     assert.equal(JSON.stringify(result.value).includes('SECRET_'), false);
     assert.equal(JSON.stringify(result.value).includes('mcp.example'), false);
-    assert.equal((await request(base, '/v1/nnd/mcp', principal([]))).status, 403);
-    assert.equal((await request(base, '/v1/nnd/mcp', principal(['nnd.read']), { method: 'POST' })).status, 405);
+    assert.equal((await request(base, '/v1/desktop/mcp', principal([]))).status, 403);
+    assert.equal((await request(base, '/v1/desktop/mcp', principal(['desktop.read']), { method: 'POST' })).status, 405);
   } finally { await service.close(); }
 });
 
-test('NND skills inventory is read-only and omits source paths and bodies', async () => {
-  const root = createScratchSync('nna-nnd-skills-');
+test('desktop skills inventory is read-only and omits source paths and bodies', async () => {
+  const root = createScratchSync('nna-desktop-skills-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
-    nndEngineHost: { readNndSkillsInventory: async () => ({ version: 1, state: 'discovered', skills: [
+    desktopEngineHost: { readDesktopSkillsInventory: async () => ({ version: 1, state: 'discovered', skills: [
       { id: 'review', version: '1', description: 'Review code', invocation: 'both' },
     ] }) },
     providerStore: new ProviderProfileStore({ configRoot }),
@@ -324,21 +324,21 @@ test('NND skills inventory is read-only and omits source paths and bodies', asyn
   });
   const base = `http://127.0.0.1:${service.address.port}`;
   try {
-    const result = await request(base, '/v1/nnd/skills', principal(['nnd.read']));
+    const result = await request(base, '/v1/desktop/skills', principal(['desktop.read']));
     assert.deepEqual(result.value.skills, [{ id: 'review', version: '1', description: 'Review code', invocation: 'both' }]);
-    assert.equal((await request(base, '/v1/nnd/skills', principal([]))).status, 403);
-    assert.equal((await request(base, '/v1/nnd/skills', principal(['nnd.read']), { method: 'POST' })).status, 405);
+    assert.equal((await request(base, '/v1/desktop/skills', principal([]))).status, 403);
+    assert.equal((await request(base, '/v1/desktop/skills', principal(['desktop.read']), { method: 'POST' })).status, 405);
   } finally { await service.close(); }
 });
 
-test('NND command catalog maps the skills inventory honestly and refuses execution', async () => {
-  const root = createScratchSync('nna-nnd-commands-');
+test('desktop command catalog maps the skills inventory honestly and refuses execution', async () => {
+  const root = createScratchSync('nna-desktop-commands-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
-    nndEngineHost: { readNndSkillsInventory: async () => ({ version: 1, state: 'discovered', skills: [
+    desktopEngineHost: { readDesktopSkillsInventory: async () => ({ version: 1, state: 'discovered', skills: [
       { id: 'review', version: '1', description: 'Review code', invocation: 'both' },
       { id: 'prepare', version: '2', description: 'Agent-only prep', invocation: 'agent' },
     ] }) },
@@ -349,53 +349,53 @@ test('NND command catalog maps the skills inventory honestly and refuses executi
   try {
     // Skill-sourced entries only: NNA owns no command-execution concept, so no
     // template-bearing executable entries are ever fabricated.
-    const result = await request(base, '/command', principal(['nnd.read']));
+    const result = await request(base, '/command', principal(['desktop.read']));
     assert.deepEqual(result.value, [{ name: 'review', description: 'Review code', source: 'skill' }]);
     // An empty inventory yields an empty catalog, not fake entries.
     const empty = await startIntegrationServer({
       activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
-      nndEngineHost: { readNndSkillsInventory: async () => ({ version: 1, state: 'discovered', skills: [] }) },
+      desktopEngineHost: { readDesktopSkillsInventory: async () => ({ version: 1, state: 'discovered', skills: [] }) },
       providerStore: new ProviderProfileStore({ configRoot }),
       broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }), port: 0,
     });
     try {
       const emptyBase = `http://127.0.0.1:${empty.address.port}`;
-      assert.deepEqual((await request(emptyBase, '/command', principal(['nnd.read']))).value, []);
+      assert.deepEqual((await request(emptyBase, '/command', principal(['desktop.read']))).value, []);
     } finally { await empty.close(); }
     assert.equal((await request(base, '/command', principal([]))).status, 403);
-    assert.equal((await request(base, '/command', principal(['nnd.read']), { method: 'POST' })).status, 405);
+    assert.equal((await request(base, '/command', principal(['desktop.read']), { method: 'POST' })).status, 405);
     // An unavailable inventory fails with the registered skills code, not a fabricated catalog.
     const broken = await startIntegrationServer({
       activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
-      nndEngineHost: {}, providerStore: new ProviderProfileStore({ configRoot }), port: 0,
+      desktopEngineHost: {}, providerStore: new ProviderProfileStore({ configRoot }), port: 0,
     });
     const brokenBase = `http://127.0.0.1:${broken.address.port}`;
-    try { assert.equal((await request(brokenBase, '/command', principal(['nnd.read']))).status, 503); }
+    try { assert.equal((await request(brokenBase, '/command', principal(['desktop.read']))).status, 503); }
     finally { await broken.close(); }
   } finally { await service.close(); }
 });
 
-test('NND agent inventory exposes built-in roles and the running delegation route without grants', async () => {
-  const root = createScratchSync('nna-nnd-agents-');
+test('desktop agent inventory exposes built-in roles and the running delegation route without grants', async () => {
+  const root = createScratchSync('nna-desktop-agents-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
-  const inventory = nndAgentInventory(resolveManifest(manifest(root)));
+  const inventory = desktopAgentInventory(resolveManifest(manifest(root)));
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
-    nndEngineHost: { nndAgentInventory: inventory },
+    desktopEngineHost: { desktopAgentInventory: inventory },
     providerStore: new ProviderProfileStore({ configRoot }), port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
   try {
-    const result = await request(base, '/v1/nnd/agents', principal(['nnd.read']));
+    const result = await request(base, '/v1/desktop/agents', principal(['desktop.read']));
     assert.equal(result.value.state, 'configured');
     assert.deepEqual(result.value.route, { providerID: 'one', modelID: 'one' });
     assert.deepEqual(result.value.roles.map((item) => item.id), ['general', 'planner', 'coder', 'tester', 'reviewer']);
     assert.equal(JSON.stringify(result.value).includes('endpoint'), false);
     assert.equal(JSON.stringify(result.value).includes('permissions'), false);
-    assert.equal((await request(base, '/v1/nnd/agents', principal([]))).status, 403);
-    assert.equal((await request(base, '/v1/nnd/agents', principal(['nnd.read']), { method: 'POST' })).status, 405);
+    assert.equal((await request(base, '/v1/desktop/agents', principal([]))).status, 403);
+    assert.equal((await request(base, '/v1/desktop/agents', principal(['desktop.read']), { method: 'POST' })).status, 405);
   } finally { await service.close(); }
 });
 
@@ -405,10 +405,10 @@ test('subagent route edits are authorized, durable, and separate from running de
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
   const store = new ProviderProfileStore({ configRoot });
-  const host = { nndAgentInventory: { route: { providerID: 'one', modelID: 'one' } } };
+  const host = { desktopAgentInventory: { route: { providerID: 'one', modelID: 'one' } } };
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
-    nndEngineHost: host, providerStore: store, port: 0,
+    desktopEngineHost: host, providerStore: store, port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
   try {
@@ -439,20 +439,20 @@ test('subagent route edits are authorized, durable, and separate from running de
   } finally { await service.close(); }
 });
 
-test('NND goals persist with id-guarded writes and never grant arbitrary metadata updates', async () => {
-  const root = createScratchSync('nna-nnd-goal-');
+test('desktop goals persist with id-guarded writes and never grant arbitrary metadata updates', async () => {
+  const root = createScratchSync('nna-desktop-goal-');
   const catalogPath = join(root, 'catalog.json');
-  const makeHost = () => new NndEngineHost({ catalogPath, createEngine: async () => ({
+  const makeHost = () => new DesktopEngineHost({ catalogPath, createEngine: async () => ({
     config: { workspaceRoot: root, routes: { primary: { providerId: 'one', model: 'one' } } },
     transcript: [], async initialize() {}, async shutdown() {},
   }) });
   const host = makeHost();
   const service = await startIntegrationServer({
-    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host,
-    nndWorkspaceRoot: root, port: 0,
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', desktopEngineHost: host,
+    desktopWorkspaceRoot: root, port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
-  const owner = principal(['nnd.read', 'nnd.session.create', 'nnd.goal.manage']);
+  const owner = principal(['desktop.read', 'desktop.session.create', 'desktop.goal.manage']);
   const now = Date.now();
   const goal = { id: 'goal_test', objective: 'Ship MVP', objectiveFile: false, status: 'active',
     tokenBudget: null, tokensUsed: 0, tokensBaseline: 0, tokensCommitted: 0, turnsUsed: 0,
@@ -461,20 +461,20 @@ test('NND goals persist with id-guarded writes and never grant arbitrary metadat
   let sessionId;
   try {
     sessionId = (await request(base, '/session', owner, { method: 'POST', body: { title: 'Goal session' } })).value.id;
-    const path = `/v1/nnd/sessions/${sessionId}/goal`;
-    const evidencePath = `/v1/nnd/sessions/${sessionId}/goal-evidence`;
+    const path = `/v1/desktop/sessions/${sessionId}/goal`;
+    const evidencePath = `/v1/desktop/sessions/${sessionId}/goal-evidence`;
     assert.deepEqual((await request(base, evidencePath, owner)).value, {
       session_id: sessionId, turns: [], latest_request_id: null, window_truncated: false,
     });
-    assert.equal((await request(base, evidencePath, principal(['nnd.goal.manage']))).status, 403);
+    assert.equal((await request(base, evidencePath, principal(['desktop.goal.manage']))).status, 403);
     assert.deepEqual((await request(base, path, owner)).value, { goal: null, revision: 0 });
-    const outsider = principal(['nnd.read', 'nnd.goal.manage'], { subject_id: 'other_user' });
+    const outsider = principal(['desktop.read', 'desktop.goal.manage'], { subject_id: 'other_user' });
     assert.equal((await request(base, path, outsider)).status, 404);
     assert.equal((await request(base, evidencePath, outsider)).status, 404);
     assert.equal((await request(base, path, outsider, {
       method: 'PUT', body: { goal, expected_id: null, expected_revision: 0 },
     })).status, 404);
-    assert.equal((await request(base, path, principal(['nnd.read']), {
+    assert.equal((await request(base, path, principal(['desktop.read']), {
       method: 'PUT', body: { goal, expected_id: null, expected_revision: 0 },
     })).status, 403);
     assert.equal((await request(base, path, owner, {
@@ -489,7 +489,7 @@ test('NND goals persist with id-guarded writes and never grant arbitrary metadat
     assert.deepEqual((await request(base, path, owner, {
       method: 'PUT', body: { goal, expected_id: null, expected_revision: 0 },
     })).value, { goal, revision: 1 });
-    assert.deepEqual((await request(base, `/session/${sessionId}`, owner)).value.metadata.nnd.goal, goal);
+    assert.deepEqual((await request(base, `/session/${sessionId}`, owner)).value.metadata.desktop.goal, goal);
     assert.equal((await request(base, path, owner, {
       method: 'PUT', body: { goal: { ...goal, status: 'complete' }, expected_id: null, expected_revision: 1 },
     })).status, 409);
@@ -508,17 +508,17 @@ test('NND goals persist with id-guarded writes and never grant arbitrary metadat
   const restored = makeHost();
   await restored.initialize();
   try {
-    assert.equal(restored.get(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).metadata.nnd.goal.status, 'complete');
+    assert.equal(restored.get(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).metadata.desktop.goal.status, 'complete');
     assert.equal(restored.goal(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).revision, 3);
     assert.equal(restored.goal(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).goal.objectiveFileKey, 'a'.repeat(64));
     await restored.clearGoal(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }, goal.id, 3);
-    assert.equal(restored.get(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).metadata.nnd.goal, undefined);
+    assert.equal(restored.get(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).metadata.desktop.goal, undefined);
   } finally { await restored.shutdown(); }
 });
 
-test('NND goal revision remains unchanged when catalog persistence fails', async () => {
+test('desktop goal revision remains unchanged when catalog persistence fails', async () => {
   let rejectWrites = false;
-  const host = new NndEngineHost({ catalogPath: 'test-goal-catalog', createEngine: async () => ({
+  const host = new DesktopEngineHost({ catalogPath: 'test-goal-catalog', createEngine: async () => ({
     config: { routes: { primary: { providerId: 'one', model: 'one' } } }, transcript: [],
     async initialize() {}, async shutdown() {},
   }), persistCatalog: async () => { if (rejectWrites) throw new Error('catalog write failed'); } });
@@ -540,14 +540,14 @@ test('NND goal revision remains unchanged when catalog persistence fails', async
   await host.shutdown();
 });
 
-test('NND harness session routes bind creation to the complete principal workspace grant', async () => {
-  const root = createScratchSync('nna-nnd-harness-');
+test('desktop harness session routes bind creation to the complete principal workspace grant', async () => {
+  const root = createScratchSync('nna-desktop-harness-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
   const factoryOptions = [];
   const engines = [];
-  const nndEngineHost = new NndEngineHost({ createEngine: async (options) => {
+  const desktopEngineHost = new DesktopEngineHost({ createEngine: async (options) => {
     factoryOptions.push(options);
     const engine = { config: { executionManifest: null, attachments: { enabled: true, maxBytes: 1_000_000 } }, active: null, transcript: [],
       async initialize() {}, async submit(command) { this.lastSubmission = command; },
@@ -555,15 +555,15 @@ test('NND harness session routes bind creation to the complete principal workspa
     engines.push(engine);
     return engine;
   } });
-  nndEngineHost.nndModel = { providerID: 'primary', modelID: 'test' };
+  desktopEngineHost.desktopModel = { providerID: 'primary', modelID: 'test' };
   const service = await startIntegrationServer({
-    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost, nndWorkspaceRoot: root,
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', desktopEngineHost, desktopWorkspaceRoot: root,
     dataPaths: { root: join(root, 'nna-data'), config: join(root, 'nna-data', 'config') },
     broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }), port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
   try {
-    const owner = principal(['nnd.read', 'nnd.session.create'], { workspace_ids: ['w_one', 'w_two'] });
+    const owner = principal(['desktop.read', 'desktop.session.create'], { workspace_ids: ['w_one', 'w_two'] });
     const health = await request(base, '/global/health', owner);
     assert.deepEqual(health.value, { healthy: true, version: VERSION });
     const path = (await request(base, '/path', owner)).value;
@@ -575,7 +575,7 @@ test('NND harness session routes bind creation to the complete principal workspa
     const config = await request(base, '/config', owner);
     assert.deepEqual(config.value, {
       model: 'primary/test', default_agent: 'nna',
-      nnd: { engine: 'nna', modelSelection: 'configured', primaryModel: { providerID: 'primary', modelID: 'test' } },
+      desktop: { engine: 'nna', modelSelection: 'configured', primaryModel: { providerID: 'primary', modelID: 'test' } },
     });
     assert.equal(JSON.stringify(config.value).includes('endpoint'), false);
     assert.equal((await request(base, '/config', principal([]))).status, 403);
@@ -597,15 +597,15 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.equal(created.value.directory, root);
     assert.equal(factoryOptions[0].dataPaths, undefined);
     assert.equal(factoryOptions[0].directory, root);
-    assert.equal((await request(base, `/session/${created.value.id}`, principal(['nnd.read'], { workspace_ids: ['w_two'] }))).status, 404);
+    assert.equal((await request(base, `/session/${created.value.id}`, principal(['desktop.read'], { workspace_ids: ['w_two'] }))).status, 404);
     assert.deepEqual((await request(base, `/session/${created.value.id}/activity`, owner)).value, []);
     assert.equal((await request(base, `/session/${created.value.id}/activity`, principal([], { workspace_ids: ['w_one', 'w_two'] }))).status, 403);
-    assert.equal((await request(base, `/session/${created.value.id}/activity`, principal(['nnd.read'], { workspace_ids: ['w_two'] }))).status, 404);
+    assert.equal((await request(base, `/session/${created.value.id}/activity`, principal(['desktop.read'], { workspace_ids: ['w_two'] }))).status, 404);
     const childEngine = { config: { workspaceRoot: root }, active: { finalized: false }, transcript: [
       { type: 'message', role: 'user', content: 'Inspect this' },
       { type: 'message', role: 'assistant', content: 'Private finding' },
     ], steer: async () => ({ accepted: true }) };
-    const stopChild = nndEngineHost.childSessions.register('agent_coder_http', created.value.id,
+    const stopChild = desktopEngineHost.childSessions.register('agent_coder_http', created.value.id,
       { subjectId: 'u_test', workspaceIds: ['w_one', 'w_two'] }, childEngine, { type: 'coder' });
     assert.deepEqual((await request(base, '/session', owner)).value.map((session) => session.id), [created.value.id, 'agent_coder_http']);
     assert.deepEqual((await request(base, '/session?roots=true', owner)).value.map((session) => session.id), [created.value.id]);
@@ -628,36 +628,36 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.deepEqual(olderPage.value.map((message) => message.parts[0].text), ['Inspect this']);
     assert.equal(olderPage.nextCursor, null);
     assert.equal((await request(base, '/session/agent_coder_http/message?limit=1&before=not-a-message', owner)).status, 400);
-    assert.equal((await request(base, '/session/agent_coder_http/message?limit=1&before=nnd-live-boundary%3Abm90LWEtbWVzc2FnZQ', owner)).status, 400);
+    assert.equal((await request(base, '/session/agent_coder_http/message?limit=1&before=desktop-live-boundary%3Abm90LWEtbWVzc2FnZQ', owner)).status, 400);
     assert.equal((await request(base, '/session/agent_coder_http/message?limit=1&before=a&before=b', owner)).status, 400);
     assert.equal((await request(base, '/session/agent_coder_http/message?before=agent_coder_http%3Amessage%3A1', owner)).status, 400);
     for (const limit of ['0', '201', 'NaN', '1.5', '1&limit=2']) {
       assert.equal((await request(base, `/session/agent_coder_http/message?limit=${limit}`, owner)).status, 400);
     }
-    const partialReader = principal(['nnd.read'], { workspace_ids: ['w_one'] });
+    const partialReader = principal(['desktop.read'], { workspace_ids: ['w_one'] });
     assert.deepEqual((await request(base, '/session', partialReader)).value, []);
     assert.equal((await request(base, '/session/agent_coder_http', partialReader)).status, 404);
     assert.equal((await request(base, '/session/agent_coder_http/message', partialReader)).status, 404);
     assert.equal((await request(base, '/session/agent_coder_http/activity', partialReader)).status, 404);
     assert.equal((await request(base, `/session/${created.value.id}/children`, partialReader)).status, 404);
-    nndEngineHost.childSessions.observeOutput('agent_coder_http', {
+    desktopEngineHost.childSessions.observeOutput('agent_coder_http', {
       type: 'stream_delta', session_id: 'agent_coder_http', turn_id: 'turn_live', text: 'Finalizing',
     });
     const livePage = await request(base, '/session/agent_coder_http/message?limit=1', owner);
     assert.equal(livePage.value[0].info.id, 'agent_coder_http:live');
-    assert.match(livePage.nextCursor, /^nnd-live-boundary:/u);
+    assert.match(livePage.nextCursor, /^desktop-live-boundary:/u);
     childEngine.transcript.push({ type: 'message', role: 'assistant', content: 'Finalized' });
     stopChild();
     const afterLivePage = await request(base, `/session/agent_coder_http/message?limit=1&before=${encodeURIComponent(livePage.nextCursor)}`, owner);
     assert.equal(afterLivePage.value[0].parts[0].text, 'Private finding');
     assert.equal(afterLivePage.nextCursor, 'agent_coder_http:message:1');
     assert.equal((await request(base, '/session/agent_coder_http/message', owner)).value[1].parts[0].text, 'Private finding');
-    const prompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+    const prompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['desktop.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { messageID: 'msg_prompt', model: { providerID: 'primary', modelID: 'test' }, agent: 'nna', parts: [{ type: 'text', text: 'hello NNA' }] },
     });
     assert.equal(prompt.status, 204);
-    const uploadPath = `/v1/nnd/sessions/${created.value.id}/attachments`;
-    const uploader = principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] });
+    const uploadPath = `/v1/desktop/sessions/${created.value.id}/attachments`;
+    const uploader = principal(['desktop.session.submit'], { workspace_ids: ['w_one', 'w_two'] });
     const uploaded = await request(base, uploadPath, uploader, { method: 'POST', body: {
       upload_id: 'upload_http', filename: 'notes.txt', mime_type: 'text/plain',
       data_url: `data:text/plain;base64,${Buffer.from('Review this file').toString('base64')}`,
@@ -682,12 +682,12 @@ test('NND harness session routes bind creation to the complete principal workspa
     })).status, 204);
     assert.equal(engines[0].transcript.filter(item => item.requestId === 'msg_file').length, 1);
     engines[0].transcript.pop();
-    const unsupportedPart = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+    const unsupportedPart = await request(base, `/session/${created.value.id}/prompt_async`, principal(['desktop.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { messageID: 'msg_attachment', parts: [
         { type: 'text', text: 'summarize this' }, { type: 'file', url: 'file:///private/marker.txt', mime: 'text/plain' }] },
     });
     assert.equal(unsupportedPart.status, 400);
-    assert.equal(unsupportedPart.value.error.code, 'nnd_prompt_part_unsupported');
+    assert.equal(unsupportedPart.value.error.code, 'desktop_prompt_part_unsupported');
     // A mixed text + uploaded-file prompt delivers both: the text content
     // reaches the engine together with the resolved attachment (the stale
     // 2026-10-01 "textContent filters parts to text" gap, rechecked).
@@ -704,55 +704,55 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.equal(engines[0].lastSubmission.content, 'summarize this');
     assert.deepEqual(engines[0].lastSubmission.attachments,
       [{ upload_id: 'upload_mixed', mime_type: 'text/plain', filename: 'notes.txt' }]);
-    const wrongModel = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+    const wrongModel = await request(base, `/session/${created.value.id}/prompt_async`, principal(['desktop.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { model: { providerID: 'mock', modelID: 'mock-smart' }, parts: [{ type: 'text', text: 'wrong route' }] },
     });
     assert.equal(wrongModel.status, 400);
-    assert.equal(wrongModel.value.error.code, 'nnd_model_override_unsupported');
-    const wrongAgent = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+    assert.equal(wrongModel.value.error.code, 'desktop_model_override_unsupported');
+    const wrongAgent = await request(base, `/session/${created.value.id}/prompt_async`, principal(['desktop.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { agent: 'build', parts: [{ type: 'text', text: 'wrong agent' }] },
     });
     assert.equal(wrongAgent.status, 400);
-    assert.equal(wrongAgent.value.error.code, 'nnd_agent_override_unsupported');
-    // CTL-DATA: NND's variant (effort) and delivery (steer|queue) fields must fail
+    assert.equal(wrongAgent.value.error.code, 'desktop_agent_override_unsupported');
+    // CTL-DATA: desktop's variant (effort) and delivery (steer|queue) fields must fail
     // loudly here — NNA cannot apply either, so the boundary rejects instead of dropping.
-    const variantPrompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+    const variantPrompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['desktop.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { variant: 'high', parts: [{ type: 'text', text: 'effort override' }] },
     });
     assert.equal(variantPrompt.status, 400);
-    assert.equal(variantPrompt.value.error.code, 'nnd_variant_override_unsupported');
-    const deliveryPrompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+    assert.equal(variantPrompt.value.error.code, 'desktop_variant_override_unsupported');
+    const deliveryPrompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['desktop.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { delivery: 'steer', parts: [{ type: 'text', text: 'delivery override' }] },
     });
     assert.equal(deliveryPrompt.status, 400);
-    assert.equal(deliveryPrompt.value.error.code, 'nnd_delivery_override_unsupported');
+    assert.equal(deliveryPrompt.value.error.code, 'desktop_delivery_override_unsupported');
     assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, principal([], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { parts: [{ type: 'text', text: 'denied' }] },
     })).status, 403);
-    assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+    assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, principal(['desktop.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { parts: [] },
     })).status, 400);
-    assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.read'], { workspace_ids: ['w_one', 'w_two'] }))).status, 405);
+    assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, principal(['desktop.read'], { workspace_ids: ['w_one', 'w_two'] }))).status, 405);
     assert.equal((await request(base, '/session/%', owner)).status, 400);
     assert.equal((await request(base, `/session/${created.value.id}`, owner, {
       method: 'PATCH', body: { title: 'Denied rename' },
     })).status, 403);
-    const archived = await request(base, `/session/${created.value.id}`, principal(['nnd.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
+    const archived = await request(base, `/session/${created.value.id}`, principal(['desktop.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'PATCH', body: { time: { archived: Date.now() } },
     });
     assert.equal(archived.status, 200);
     assert.ok(archived.value.time.archived > 0);
     assert.deepEqual((await request(base, '/session', owner)).value, []);
     assert.equal((await request(base, '/session?archived=true', owner)).value[0].id, created.value.id);
-    assert.equal((await request(base, `/session/${created.value.id}`, principal(['nnd.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
+    assert.equal((await request(base, `/session/${created.value.id}`, principal(['desktop.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'PATCH', body: { time: { archived: -1 } },
     })).status, 400);
-    const restored = await request(base, `/session/${created.value.id}`, principal(['nnd.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
+    const restored = await request(base, `/session/${created.value.id}`, principal(['desktop.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'PATCH', body: { time: { archived: 0 } },
     });
     assert.equal(restored.status, 200);
     assert.equal(restored.value.time.archived, undefined);
-    const renamed = await request(base, `/session/${created.value.id}`, principal(['nnd.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
+    const renamed = await request(base, `/session/${created.value.id}`, principal(['desktop.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'PATCH', body: { title: 'Renamed session' },
     });
     assert.equal(renamed.status, 200);
@@ -769,108 +769,108 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.equal(rootOlder.nextCursor, null);
     assert.equal((await request(base, `/session/${created.value.id}/message?limit=1&before=${encodeURIComponent(rootNewest.nextCursor)}`, partialReader)).status, 404);
     assert.equal((await request(base, `/session/${created.value.id}/abort`, owner, { method: 'POST' })).status, 403);
-    assert.equal((await request(base, `/session/${created.value.id}/abort`, principal(['nnd.session.abort'], { workspace_ids: ['w_one', 'w_two'] }), { method: 'POST' })).status, 200);
+    assert.equal((await request(base, `/session/${created.value.id}/abort`, principal(['desktop.session.abort'], { workspace_ids: ['w_one', 'w_two'] }), { method: 'POST' })).status, 200);
     assert.equal((await request(base, `/session/${created.value.id}`, owner, { method: 'DELETE' })).status, 403);
-    const removed = await request(base, `/session/${created.value.id}`, principal(['nnd.session.delete'], { workspace_ids: ['w_one', 'w_two'] }), { method: 'DELETE' });
+    const removed = await request(base, `/session/${created.value.id}`, principal(['desktop.session.delete'], { workspace_ids: ['w_one', 'w_two'] }), { method: 'DELETE' });
     assert.equal(removed.status, 200);
     assert.equal(removed.value, true);
     assert.equal((await request(base, `/session/${created.value.id}`, owner)).status, 404);
   } finally { await service.close(); }
 });
 
-test('NND goal audit endpoint requires goal-management permission and forwards a scoped request', async () => {
-  const root = createScratchSync('nna-nnd-audit-route-');
+test('desktop goal audit endpoint requires goal-management permission and forwards a scoped request', async () => {
+  const root = createScratchSync('nna-desktop-audit-route-');
   const calls = [];
   const host = { async auditGoal(sessionId, actor, body) {
     calls.push({ sessionId, actor, body });
     return { text: '{"verdict":"continue","note":"More work"}', providerID: 'local', modelID: 'model-x' };
   } };
   const service = await startIntegrationServer({
-    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host, port: 0,
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', desktopEngineHost: host, port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
-  const path = '/v1/nnd/sessions/session_test/goal-audit';
+  const path = '/v1/desktop/sessions/session_test/goal-audit';
   const body = { expected_id: 'goal_test', expected_revision: 2, request_id: 'request-1', objective: 'Ship MVP' };
   try {
-    assert.equal((await request(base, path, principal(['nnd.read']), { method: 'POST', body })).status, 403);
-    assert.equal((await request(base, path, principal(['nnd.goal.manage']))).status, 405);
+    assert.equal((await request(base, path, principal(['desktop.read']), { method: 'POST', body })).status, 403);
+    assert.equal((await request(base, path, principal(['desktop.goal.manage']))).status, 405);
     assert.equal(calls.length, 0);
-    const result = await request(base, path, principal(['nnd.goal.manage']), { method: 'POST', body });
+    const result = await request(base, path, principal(['desktop.goal.manage']), { method: 'POST', body });
     assert.equal(result.status, 200);
     assert.equal(result.value.modelID, 'model-x');
     assert.equal(calls.length, 1);
     assert.equal(calls[0].sessionId, 'session_test');
     assert.equal(calls[0].actor.subjectId, 'u_test');
     assert.deepEqual(calls[0].body, body);
-    host.auditGoal = async () => { throw new ContractError('nnd_goal_audit_conflict', 'goal changed'); };
-    assert.equal((await request(base, path, principal(['nnd.goal.manage']), { method: 'POST', body })).status, 409);
-    host.auditGoal = async () => { throw new ContractError('nnd_goal_audit_unavailable', 'route changed'); };
-    assert.equal((await request(base, path, principal(['nnd.goal.manage']), { method: 'POST', body })).status, 503);
+    host.auditGoal = async () => { throw new ContractError('desktop_goal_audit_conflict', 'goal changed'); };
+    assert.equal((await request(base, path, principal(['desktop.goal.manage']), { method: 'POST', body })).status, 409);
+    host.auditGoal = async () => { throw new ContractError('desktop_goal_audit_unavailable', 'route changed'); };
+    assert.equal((await request(base, path, principal(['desktop.goal.manage']), { method: 'POST', body })).status, 503);
   } finally { await service.close(); }
 });
 
-test('NND walkthrough endpoint requires its own generation permission and forwards a scoped digest', async () => {
-  const root = createScratchSync('nna-nnd-walkthrough-route-');
+test('desktop walkthrough endpoint requires its own generation permission and forwards a scoped digest', async () => {
+  const root = createScratchSync('nna-desktop-walkthrough-route-');
   const calls = [];
   const host = { async generateWalkthrough(sessionId, actor, body) {
     calls.push({ sessionId, actor, body });
     return { text: '{"chapters":[]}', providerID: 'local', modelID: 'small', revision: body.revision };
   } };
   const service = await startIntegrationServer({
-    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host, port: 0,
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', desktopEngineHost: host, port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
-  const path = '/v1/nnd/sessions/session_test/walkthrough';
+  const path = '/v1/desktop/sessions/session_test/walkthrough';
   const body = { revision: 'a'.repeat(64), digest: [{ alias: 'h1', scope: 'working',
     path: 'main.js', header: '@@ -1 +1 @@', patch: '-old\n+new' }] };
   try {
-    assert.equal((await request(base, path, principal(['nnd.read']), { method: 'POST', body })).status, 403);
-    assert.equal((await request(base, path, principal(['nnd.walkthrough.generate']))).status, 405);
+    assert.equal((await request(base, path, principal(['desktop.read']), { method: 'POST', body })).status, 403);
+    assert.equal((await request(base, path, principal(['desktop.walkthrough.generate']))).status, 405);
     assert.equal(calls.length, 0);
-    const result = await request(base, path, principal(['nnd.walkthrough.generate']), { method: 'POST', body });
+    const result = await request(base, path, principal(['desktop.walkthrough.generate']), { method: 'POST', body });
     assert.equal(result.status, 200);
     assert.equal(result.value.revision, body.revision);
     assert.equal(calls[0].sessionId, 'session_test');
     assert.equal(calls[0].actor.subjectId, 'u_test');
     assert.deepEqual(calls[0].body, body);
-    host.generateWalkthrough = async () => { throw new ContractError('nnd_walkthrough_busy', 'busy'); };
-    assert.equal((await request(base, path, principal(['nnd.walkthrough.generate']), { method: 'POST', body })).status, 409);
+    host.generateWalkthrough = async () => { throw new ContractError('desktop_walkthrough_busy', 'busy'); };
+    assert.equal((await request(base, path, principal(['desktop.walkthrough.generate']), { method: 'POST', body })).status, 409);
   } finally { await service.close(); }
 });
 
 test('notification text requires its dedicated grant and forwards authenticated session scope', async () => {
-  const root = createScratchSync('nna-nnd-notification-route-'); const calls = [];
+  const root = createScratchSync('nna-desktop-notification-route-'); const calls = [];
   const host = { async generateNotification(sessionId, actor, body) { calls.push({ sessionId, actor, body }); return { text: '{"title":"T","body":"B"}' }; } };
-  const service = await startIntegrationServer({ activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host, port: 0 });
-  const base = `http://127.0.0.1:${service.address.port}`; const path = '/v1/nnd/sessions/session_test/notification-text';
+  const service = await startIntegrationServer({ activation: await activation(root), token: TOKEN, instanceId: 'nna_test', desktopEngineHost: host, port: 0 });
+  const base = `http://127.0.0.1:${service.address.port}`; const path = '/v1/desktop/sessions/session_test/notification-text';
   const body = { kind: 'completion', title: 'Finished', body: 'Done', assistantText: 'Checked' };
   try {
-    assert.equal((await request(base, path, principal(['nnd.read']), { method: 'POST', body })).status, 403);
-    assert.equal((await request(base, path, principal(['nnd.notification.generate']))).status, 405);
+    assert.equal((await request(base, path, principal(['desktop.read']), { method: 'POST', body })).status, 403);
+    assert.equal((await request(base, path, principal(['desktop.notification.generate']))).status, 405);
     assert.equal(calls.length, 0);
-    assert.equal((await request(base, path, principal(['nnd.notification.generate']), { method: 'POST', body })).status, 200);
+    assert.equal((await request(base, path, principal(['desktop.notification.generate']), { method: 'POST', body })).status, 200);
     assert.equal(calls[0].sessionId, 'session_test'); assert.equal(calls[0].actor.subjectId, 'u_test'); assert.deepEqual(calls[0].body, body);
-    host.generateNotification = async () => { throw new ContractError('nnd_notification_unavailable', 'missing route'); };
-    assert.equal((await request(base, path, principal(['nnd.notification.generate']), { method: 'POST', body })).status, 503);
+    host.generateNotification = async () => { throw new ContractError('desktop_notification_unavailable', 'missing route'); };
+    assert.equal((await request(base, path, principal(['desktop.notification.generate']), { method: 'POST', body })).status, 503);
   } finally { await service.close(); }
 });
 
 test('assist generation requires its dedicated grant and forwards authenticated session scope', async () => {
-  const root = createScratchSync('nna-nnd-assist-route-'); const calls = [];
+  const root = createScratchSync('nna-desktop-assist-route-'); const calls = [];
   const host = { async generateAssist(sessionId, actor, body) { calls.push({ sessionId, actor, body }); return { text: 'ok', providerID: 'local', modelID: 'small' }; } };
-  const service = await startIntegrationServer({ activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host, port: 0 });
-  const base = `http://127.0.0.1:${service.address.port}`; const path = '/v1/nnd/sessions/session_test/assist';
+  const service = await startIntegrationServer({ activation: await activation(root), token: TOKEN, instanceId: 'nna_test', desktopEngineHost: host, port: 0 });
+  const base = `http://127.0.0.1:${service.address.port}`; const path = '/v1/desktop/sessions/session_test/assist';
   const body = { prompt: 'summarize this' };
   try {
-    assert.equal((await request(base, path, principal(['nnd.read']), { method: 'POST', body })).status, 403);
-    assert.equal((await request(base, path, principal(['nnd.session.assist']))).status, 405);
+    assert.equal((await request(base, path, principal(['desktop.read']), { method: 'POST', body })).status, 403);
+    assert.equal((await request(base, path, principal(['desktop.session.assist']))).status, 405);
     assert.equal(calls.length, 0);
-    assert.equal((await request(base, path, principal(['nnd.session.assist']), { method: 'POST', body })).status, 200);
+    assert.equal((await request(base, path, principal(['desktop.session.assist']), { method: 'POST', body })).status, 200);
     assert.equal(calls[0].sessionId, 'session_test'); assert.equal(calls[0].actor.subjectId, 'u_test'); assert.deepEqual(calls[0].body, body);
-    host.generateAssist = async () => { throw new ContractError('nnd_assist_unavailable', 'missing route'); };
-    assert.equal((await request(base, path, principal(['nnd.session.assist']), { method: 'POST', body })).status, 503);
-    host.generateAssist = async () => { throw new ContractError('nnd_assist_busy', 'busy'); };
-    assert.equal((await request(base, path, principal(['nnd.session.assist']), { method: 'POST', body })).status, 409);
+    host.generateAssist = async () => { throw new ContractError('desktop_assist_unavailable', 'missing route'); };
+    assert.equal((await request(base, path, principal(['desktop.session.assist']), { method: 'POST', body })).status, 503);
+    host.generateAssist = async () => { throw new ContractError('desktop_assist_busy', 'busy'); };
+    assert.equal((await request(base, path, principal(['desktop.session.assist']), { method: 'POST', body })).status, 409);
   } finally { await service.close(); }
 });
 
@@ -879,18 +879,18 @@ test('capability renewal endpoint renews within grace and fails closed', async (
   let tick = 1_000_000;
   const authority = createCapabilityAuthority({
     generation: 'gen_supervised',
-    principal: { subject_id: 'nnd-service:nna_test', platform_role: 'service',
+    principal: { subject_id: 'desktop-service:nna_test', platform_role: 'service',
       permissions: ['harness.proxy'], workspace_ids: [], group_ids: [] },
     ttlMs: 600_000, graceMs: 60_000, skewMs: 30_000, now: () => tick,
   });
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test', port: 0,
     capabilityAuthority: authority,
-    nndRuntime: { getHost: () => null, snapshot: () => ({ service_state: 'setup_required', execution_state: 'unavailable' }) },
+    desktopRuntime: { getHost: () => null, snapshot: () => ({ service_state: 'setup_required', execution_state: 'unavailable' }) },
   });
   const base = `http://127.0.0.1:${service.address.port}`;
   const renew = async (capability, method = 'POST', header = capability) => {
-    const response = await fetch(`${base}/v1/nnd/capability/renew`, {
+    const response = await fetch(`${base}/v1/desktop/capability/renew`, {
       method, redirect: 'error', headers: { authorization: `Bearer ${TOKEN}`,
         'x-nna-principal': Buffer.from(JSON.stringify(principal(['harness.proxy']))).toString('base64url'),
         ...(header ? { 'x-nna-service-capability': header } : {}),
@@ -908,13 +908,13 @@ test('capability renewal endpoint renews within grace and fails closed', async (
     assert.equal(unauthenticated.value.error.code, 'capability_invalid');
     const renewed = await renew(fresh);
     assert.equal(renewed.status, 200);
-    assert.equal(authority.verify(renewed.value.capability).subject_id, 'nnd-service:nna_test');
+    assert.equal(authority.verify(renewed.value.capability).subject_id, 'desktop-service:nna_test');
     const blockedExecution = await fetch(`${base}/session`, { headers: {
       authorization: `Bearer ${TOKEN}`, 'x-nna-service-capability': fresh,
-      'x-nna-principal': Buffer.from(JSON.stringify(principal(['nnd.read']))).toString('base64url'),
+      'x-nna-principal': Buffer.from(JSON.stringify(principal(['desktop.read']))).toString('base64url'),
     } });
     assert.equal(blockedExecution.status, 503);
-    assert.equal((await blockedExecution.json()).error.code, 'nnd_setup_required');
+    assert.equal((await blockedExecution.json()).error.code, 'desktop_setup_required');
     // The endpoint never accepts caller-shaped authority: a tampered token fails closed.
     const [payload, signature] = fresh.split('.');
     const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(payload, 'base64url')), permissions: ['*'] }))
@@ -926,18 +926,18 @@ test('capability renewal endpoint renews within grace and fails closed', async (
     tick += 630_000;
     const graceExecution = await fetch(`${base}/session`, { headers: {
       authorization: `Bearer ${TOKEN}`, 'x-nna-service-capability': fresh,
-      'x-nna-principal': Buffer.from(JSON.stringify(principal(['nnd.read']))).toString('base64url'),
+      'x-nna-principal': Buffer.from(JSON.stringify(principal(['desktop.read']))).toString('base64url'),
     } });
     assert.equal(graceExecution.status, 401);
     assert.equal((await graceExecution.json()).error.code, 'capability_expired');
     assert.equal((await renew(fresh, 'GET')).status, 401);
     const inGraceRenewal = await renew(fresh);
     assert.equal(inGraceRenewal.status, 200);
-    assert.equal(authority.verify(inGraceRenewal.value.capability).subject_id, 'nnd-service:nna_test');
+    assert.equal(authority.verify(inGraceRenewal.value.capability).subject_id, 'desktop-service:nna_test');
     // Both presented capabilities are checked independently; grace does not
     // let a valid header launder a forged body or bypass the static bearer.
     assert.equal((await renew(`${forged}.${signature}`, 'POST', fresh)).status, 401);
-    const withoutBearer = await fetch(`${base}/v1/nnd/capability/renew`, {
+    const withoutBearer = await fetch(`${base}/v1/desktop/capability/renew`, {
       method: 'POST', headers: { 'content-type': 'application/json', 'x-nna-service-capability': fresh },
       body: JSON.stringify({ capability: fresh }),
     });
@@ -980,7 +980,7 @@ test('the secret delete route honors the derived-reference delete guard', async 
 });
 
 test('native fork seeds a new session from the parent journal prefix', async () => {
-  const root = createScratchSync('nna-nnd-fork-');
+  const root = createScratchSync('nna-desktop-fork-');
   const catalogPath = join(root, 'catalog.json');
   const ingests = [];
   const makeEngine = () => ({
@@ -996,16 +996,16 @@ test('native fork seeds a new session from the parent journal prefix', async () 
     ],
     async initialize() {}, async shutdown() {},
   });
-  const host = new NndEngineHost({ catalogPath, createEngine: async (options) => {
+  const host = new DesktopEngineHost({ catalogPath, createEngine: async (options) => {
     ingests.push(options.forkIngest ?? null);
     return makeEngine();
   } });
   const service = await startIntegrationServer({
-    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host,
-    nndWorkspaceRoot: root, port: 0,
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', desktopEngineHost: host,
+    desktopWorkspaceRoot: root, port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
-  const owner = principal(['nnd.read', 'nnd.session.create']);
+  const owner = principal(['desktop.read', 'desktop.session.create']);
   try {
     const sessionId = (await request(base, '/session', owner, { method: 'POST', body: {} })).value.id;
     const forked = await request(base, `/session/${sessionId}/fork`, owner,
@@ -1020,7 +1020,7 @@ test('native fork seeds a new session from the parent journal prefix', async () 
     // Boundary rules: unknown message and missing permission are refused.
     assert.equal((await request(base, `/session/${sessionId}/fork`, owner,
       { method: 'POST', body: { messageID: `${sessionId}:message:9` } })).status, 404);
-    assert.equal((await request(base, `/session/${sessionId}/fork`, principal(['nnd.read']),
+    assert.equal((await request(base, `/session/${sessionId}/fork`, principal(['desktop.read']),
       { method: 'POST', body: { messageID: `${sessionId}:message:1` } })).status, 403);
     const whole = await request(base, `/session/${sessionId}/fork`, owner, { method: 'POST', body: {} });
     assert.equal(whole.status, 201);
@@ -1032,7 +1032,7 @@ test('native fork seeds a new session from the parent journal prefix', async () 
 });
 
 test('per-session model routes ride session creation and fork (F9 step 1)', async () => {
-  const root = createScratchSync('nna-nnd-route-');
+  const root = createScratchSync('nna-desktop-route-');
   const catalogPath = join(root, 'catalog.json');
   const engineOptions = [];
   const makeEngine = () => ({
@@ -1046,16 +1046,16 @@ test('per-session model routes ride session creation and fork (F9 step 1)', asyn
     ],
     async initialize() {}, async shutdown() {},
   });
-  const host = new NndEngineHost({ catalogPath, createEngine: async (options) => {
+  const host = new DesktopEngineHost({ catalogPath, createEngine: async (options) => {
     engineOptions.push(options);
     return makeEngine();
   } });
   const service = await startIntegrationServer({
-    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host,
-    nndWorkspaceRoot: root, port: 0,
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', desktopEngineHost: host,
+    desktopWorkspaceRoot: root, port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
-  const owner = principal(['nnd.read', 'nnd.session.create']);
+  const owner = principal(['desktop.read', 'desktop.session.create']);
   try {
     const created = await request(base, '/session', owner, {
       method: 'POST', body: { providerID: 'one', model: 'two' } });
@@ -1074,7 +1074,7 @@ test('per-session model routes ride session creation and fork (F9 step 1)', asyn
 });
 
 test('native revert and unrevert ride the harness routes with journal-backed replay', async () => {
-  const root = createScratchSync('nna-nnd-revert-');
+  const root = createScratchSync('nna-desktop-revert-');
   const catalogPath = join(root, 'catalog.json');
   const engines = [];
   const makeEngine = () => {
@@ -1101,17 +1101,17 @@ test('native revert and unrevert ride the harness routes with journal-backed rep
     };
     return engine;
   };
-  const host = new NndEngineHost({ catalogPath, createEngine: async (options) => {
+  const host = new DesktopEngineHost({ catalogPath, createEngine: async (options) => {
     const engine = makeEngine();
     engines.push(engine);
     return engine;
   } });
   const service = await startIntegrationServer({
-    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host,
-    nndWorkspaceRoot: root, port: 0,
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', desktopEngineHost: host,
+    desktopWorkspaceRoot: root, port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
-  const owner = principal(['nnd.read', 'nnd.session.create', 'nnd.session.submit']);
+  const owner = principal(['desktop.read', 'desktop.session.create', 'desktop.session.submit']);
   try {
     const sessionId = (await request(base, '/session', owner, { method: 'POST', body: {} })).value.id;
     const reverted = await request(base, `/session/${sessionId}/revert`, owner,
@@ -1130,7 +1130,7 @@ test('native revert and unrevert ride the harness routes with journal-backed rep
     // Error surfaces: unrevert without a point and missing permission.
     const fresh = (await request(base, '/session', owner, { method: 'POST', body: {} })).value.id;
     assert.equal((await request(base, `/session/${fresh}/unrevert`, owner, { method: 'POST' })).status, 409);
-    assert.equal((await request(base, `/session/${fresh}/revert`, principal(['nnd.read']),
+    assert.equal((await request(base, `/session/${fresh}/revert`, principal(['desktop.read']),
       { method: 'POST', body: { messageID: `${fresh}:message:0` } })).status, 403);
     const freshEngine = engines.at(-1);
     const originalRead = freshEngine.store.readRecords;
@@ -1144,19 +1144,19 @@ test('native revert and unrevert ride the harness routes with journal-backed rep
     assert.deepEqual(host.submitAsync(fresh, { request_id: 'while-reverting', content: 'new' }, hostOwner),
       { accepted: false, reason: 'busy' });
     await assert.rejects(() => host.submit(fresh, { request_id: 'while-reverting', content: 'new' }, hostOwner),
-      (error) => error.code === 'nnd_revert_busy');
-    await assert.rejects(() => host.close(fresh, hostOwner), (error) => error.code === 'nnd_revert_busy');
-    await assert.rejects(() => host.unrevert(fresh, hostOwner), (error) => error.code === 'nnd_revert_busy');
+      (error) => error.code === 'desktop_revert_busy');
+    await assert.rejects(() => host.close(fresh, hostOwner), (error) => error.code === 'desktop_revert_busy');
+    await assert.rejects(() => host.unrevert(fresh, hostOwner), (error) => error.code === 'desktop_revert_busy');
     releaseRead();
     await pendingRevert;
     engines.at(-1).store = null;
     const unavailable = await request(base, `/session/${fresh}/revert`, owner,
       { method: 'POST', body: { messageID: `${fresh}:message:0` } });
     assert.equal(unavailable.status, 503);
-    assert.equal(unavailable.value.error.code, 'nnd_revert_unavailable');
+    assert.equal(unavailable.value.error.code, 'desktop_revert_unavailable');
     const unavailableUndo = await request(base, `/session/${fresh}/unrevert`, owner, { method: 'POST' });
     assert.equal(unavailableUndo.status, 503);
-    assert.equal(unavailableUndo.value.error.code, 'nnd_revert_unavailable');
+    assert.equal(unavailableUndo.value.error.code, 'desktop_revert_unavailable');
   } finally { await service.close(); await rm(root, { recursive: true, force: true }); }
 });
 
@@ -1167,7 +1167,7 @@ test('the renewal endpoint is absent without a configured authority', async () =
   });
   const base = `http://127.0.0.1:${service.address.port}`;
   try {
-    const response = await fetch(`${base}/v1/nnd/capability/renew`, {
+    const response = await fetch(`${base}/v1/desktop/capability/renew`, {
       method: 'POST', redirect: 'error', headers: { authorization: `Bearer ${TOKEN}`,
         'x-nna-principal': Buffer.from(JSON.stringify(principal(['harness.proxy']))).toString('base64url'),
         'content-type': 'application/json' }, body: JSON.stringify({ capability: 'x.y' }),

@@ -57,7 +57,7 @@ async function main() {
       console.log(`Running installed nna update: ${fixture.baselineVersion} -> ${fixture.version}; service ${name}`);
       const log = join(evidence, `${name}-update.log`);
       await logged(marker.node, ['--import', pathToFileURL(feed.preload).href, join(install, 'installed/src/cli.js'), 'update'], log, env);
-      const after = await desktop(), registration = JSON.parse(await cli('nnd', 'package', 'status'));
+      const after = await desktop(), registration = JSON.parse(await cli('desktop', 'package', 'status'));
       assert.equal(await cli('--version'), fixture.version); assert.equal(after.version, fixture.version);
       assert.equal(registration.version, fixture.version); assert.equal(registration.valid, true);
       assert.equal(after.root, baseline.root); assert.equal(after.running, running);
@@ -88,7 +88,7 @@ async function main() {
 
 async function preservedFiles(dataRoot) {
   const files = ['config/desktop-launch.json', 'config/provider-credentials.json', 'config/mcp-credentials.json',
-    'config/trusted-workspaces.json', 'config/nnd-service.json'];
+    'config/trusted-workspaces.json', 'config/desktop-service.json'];
   return Object.fromEntries(await Promise.all(files.map(async file => {
     try { return [file, createHash('sha256').update(await readFile(join(dataRoot, file))).digest('hex')]; }
     catch (error) { if (error.code === 'ENOENT') return [file, null]; throw error; }

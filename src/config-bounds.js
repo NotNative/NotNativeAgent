@@ -40,7 +40,7 @@ export function providerTimeouts(manifest) {
   // Compatibility: a raw manifest may still carry routes.primary.deadline_ms from
   // a legacy or external writer; while present it overrides provider_timeout_ms so
   // the operator's override survives. The canonical write (withRouteDeadline, and
-  // the normalized NND primary-deadline operation) stores the value under
+  // the normalized desktop primary-deadline operation) stores the value under
   // provider_timeout_ms and clears this alias, so the next canonical rebuild keeps
   // the saved value instead of reverting it.
   const primaryDeadline = input.routes?.primary?.deadline_ms;

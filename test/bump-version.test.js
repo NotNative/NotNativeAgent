@@ -20,7 +20,7 @@ async function fixture(sbom = {
   await writeFile(join(root, 'SBOM.spdx.json'), `${JSON.stringify(sbom)}\n`, 'utf8');
   // desktop mirrors the root stamp; the bump rewrites these as part of one synchronized publication
   await writeFile(join(root, 'desktop', 'VERSION'), '20260101-1\n', 'utf8');
-  await writeFile(join(root, 'desktop', 'package.json'), '{"version":"20260101.0.1","nnd_version":"20260101-1"}\n', 'utf8');
+  await writeFile(join(root, 'desktop', 'package.json'), '{"version":"20260101.0.1","desktop_version":"20260101-1"}\n', 'utf8');
   return root;
 }
 

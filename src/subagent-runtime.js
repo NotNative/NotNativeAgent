@@ -62,21 +62,21 @@ export async function runEngineSubagent(engine, input, signal, createEngine, lau
   await recordChildSession(engine, lineage, 'created');
   const parent = { turnId: engine.active?.turnId ?? null, stepId: engine.active?.stepId ?? null };
   const relay = createSubagentProgressRelay(engine, { ...parent, agentId: sessionId, agentType: input.type });
-  const observeNnd = (operation, action) => observeNndChild(engine, sessionId, parent, operation, action);
+  const observeDesktop = (operation, action) => observeDesktopChild(engine, sessionId, parent, operation, action);
   let child;
-  try { child = createSubagentEngine(engine, input, sessionId, lineage, parent, relay, observeNnd, createEngine); }
+  try { child = createSubagentEngine(engine, input, sessionId, lineage, parent, relay, observeDesktop, createEngine); }
   catch (error) { await recordChildSession(engine, lineage, 'failed'); throw error; }
-  return executeSubagent(engine, input, signal, child, sessionId, lineage, parent, relay, observeNnd);
+  return executeSubagent(engine, input, signal, child, sessionId, lineage, parent, relay, observeDesktop);
 }
 
-function createSubagentEngine(engine, input, sessionId, lineage, parent, relay, observeNnd, createEngine) {
+function createSubagentEngine(engine, input, sessionId, lineage, parent, relay, observeDesktop, createEngine) {
   return createEngine({
     ...engine.subagentOptions, config: subagentConfig(engine.config, input.type), sessionId,
     sessionLineage: lineage, conversationId: engine.telemetry?.conversationId ?? engine.sessionId,
-    surface: engine.surface === 'nnd' ? 'nnd_subagent' : 'subagent', reviewPosture: 'auto-review', dataPaths: engine.dataPaths,
+    surface: engine.surface === 'desktop' ? 'desktop_subagent' : 'subagent', reviewPosture: 'auto-review', dataPaths: engine.dataPaths,
     storeRoot: engine.storeRoot, scheduler: engine.scheduler, subagentDepth: engine.subagentDepth + 1,
     output: async (record) => {
-      observeNnd('output', () => engine.nndSessionRegistry?.observeOutput?.(sessionId, record));
+      observeDesktop('output', () => engine.desktopSessionRegistry?.observeOutput?.(sessionId, record));
       await relay.accept(record);
       // Child streaming deltas are already represented by the child engine's
       // telemetry. Mirroring every token into the parent produces thousands of
@@ -91,8 +91,8 @@ function createSubagentEngine(engine, input, sessionId, lineage, parent, relay, 
   });
 }
 
-async function executeSubagent(engine, input, signal, child, sessionId, lineage, parent, relay, observeNnd) {
-  const unregisterNnd = registerNndChild(engine, sessionId, parent, child, input.type);
+async function executeSubagent(engine, input, signal, child, sessionId, lineage, parent, relay, observeDesktop) {
+  const unregisterDesktop = registerDesktopChild(engine, sessionId, parent, child, input.type);
   let childOutcome = 'failed';
   let cancellation = null;
   const reportCleanupFailure = (operation, error) => reportSubagentCleanup(engine, sessionId, input.type, parent, operation, error);
@@ -107,7 +107,7 @@ async function executeSubagent(engine, input, signal, child, sessionId, lineage,
     await child.initialize();
     if (signal.aborted) throw new ContractError('tool_cancelled', 'sub-agent execution was cancelled');
     await recordChildSession(engine, lineage, 'running');
-    observeNnd('started', () => engine.nndSessionRegistry?.observeStarted?.(sessionId));
+    observeDesktop('started', () => engine.desktopSessionRegistry?.observeStarted?.(sessionId));
     const result = await child.submit({ request_id: newId('subagent'), content: input.task }, `derived-subagent:${input.type}`);
     childOutcome = result?.outcome ?? 'completed';
     await relay.returned(result);
@@ -117,7 +117,7 @@ async function executeSubagent(engine, input, signal, child, sessionId, lineage,
     await relay.failed(error);
     throw error;
   } finally {
-    observeNnd('completed', () => unregisterNnd?.(childOutcome));
+    observeDesktop('completed', () => unregisterDesktop?.(childOutcome));
     signal.removeEventListener('abort', cancel);
     if (cancellation) await cancellation.catch(() => undefined);
     try {
@@ -129,11 +129,11 @@ async function executeSubagent(engine, input, signal, child, sessionId, lineage,
   }
 }
 
-function observeNndChild(engine, sessionId, parent, operation, action) {
+function observeDesktopChild(engine, sessionId, parent, operation, action) {
   try { action(); }
   catch (error) {
-    try { engine.telemetry?.record('nnd.session_observation', 'failed', { agent_id: sessionId,
-      operation, error_code: typeof error?.code === 'string' ? error.code : 'nnd_session_observation_failed' },
+    try { engine.telemetry?.record('desktop.session_observation', 'failed', { agent_id: sessionId,
+      operation, error_code: typeof error?.code === 'string' ? error.code : 'desktop_session_observation_failed' },
     { turnId: parent.turnId, stepId: parent.stepId, outcome: 'failed' }); }
     catch { /* Optional display diagnostics cannot fail delegated work. */ }
   }
@@ -146,12 +146,12 @@ function reportSubagentCleanup(engine, sessionId, type, parent, operation, error
   }, { turnId: parent.turnId, stepId: parent.stepId, outcome: 'failed' });
 }
 
-function registerNndChild(engine, sessionId, parent, child, type) {
-  try { return engine.nndSessionRegistry?.register(sessionId, engine.sessionId, engine.active?.principal, child, { type }) ?? null; }
+function registerDesktopChild(engine, sessionId, parent, child, type) {
+  try { return engine.desktopSessionRegistry?.register(sessionId, engine.sessionId, engine.active?.principal, child, { type }) ?? null; }
   catch (error) {
-    // NND observation is optional; a saturated or unavailable GUI registry must not prevent core delegated work.
-    engine.telemetry?.record('nnd.session_registration', 'failed', { agent_id: sessionId,
-      error_code: typeof error?.code === 'string' ? error.code : 'nnd_session_registration_failed' },
+    // desktop observation is optional; a saturated or unavailable GUI registry must not prevent core delegated work.
+    engine.telemetry?.record('desktop.session_registration', 'failed', { agent_id: sessionId,
+      error_code: typeof error?.code === 'string' ? error.code : 'desktop_session_registration_failed' },
     { turnId: parent.turnId, stepId: parent.stepId, outcome: 'failed' });
     return null;
   }

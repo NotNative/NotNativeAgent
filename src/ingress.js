@@ -22,7 +22,7 @@ export class CanonicalIngress {
   }
 
   // Starts a canonical command without making a transport wait for the whole
-  // agent turn.  The NND compatibility API is deliberately asynchronous, but
+  // agent turn.  The desktop compatibility API is deliberately asynchronous, but
   // it must still share this ingress's validation and idempotency window.
   start(rawCommand, principal = 'stdio-host') {
     const command = validateCommand(rawCommand, { interactive: this.interactive, questions: this.questions,

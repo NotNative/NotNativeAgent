@@ -5,7 +5,7 @@ import { createCapabilityAuthority } from '../src/integration-capability.js';
 import { encodeCapabilityToken, verifyCapabilityToken } from '../src/capability-token.js';
 
 const PRINCIPAL = Object.freeze({
-  subject_id: 'nnd-service:nna_test', platform_role: 'service',
+  subject_id: 'desktop-service:nna_test', platform_role: 'service',
   permissions: ['harness.proxy', 'secret.scope.deployment'],
   workspace_ids: ['ws_1'], group_ids: [],
 });
@@ -154,7 +154,7 @@ test('unsigned key lifecycle claims do not reveal revocation or rotation state',
 });
 
 test('capability version cannot be overridden by an encoder caller', () => {
-  const encoded = encodeCapabilityToken({ v: 99, scope: 'nnd-service' }, 'k'.repeat(43));
+  const encoded = encodeCapabilityToken({ v: 99, scope: 'desktop-service' }, 'k'.repeat(43));
   assert.equal(JSON.parse(Buffer.from(encoded.split('.')[0], 'base64url').toString('utf8')).v, 1);
 });
 

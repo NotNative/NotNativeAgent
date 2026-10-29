@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { AttachmentManager } from '../src/attachments.js';
-import { NndAttachmentUploads } from '../src/nnd-attachment-uploads.js';
+import { DesktopAttachmentUploads } from '../src/desktop-attachment-uploads.js';
 import { validateCommand } from '../src/contracts.js';
 import { ContractError } from '../src/ids.js';
 import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
@@ -50,7 +50,7 @@ test('bounded plain-text attachment reaches the primary provider as untrusted co
 
 test('a file-only native upload reaches the provider through its managed copy', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-uploaded-text-'));
-  const uploads = new NndAttachmentUploads();
+  const uploads = new DesktopAttachmentUploads();
   uploads.upload('browser_session', 'operator', { upload_id: 'upload_one', filename: 'notes.txt',
     mime_type: 'text/plain', data_url: `data:text/plain;base64,${Buffer.from('UPLOADED_TEXT_MARKER').toString('base64')}` }, 1_000_000);
   const calls = [];

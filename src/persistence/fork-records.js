@@ -10,7 +10,7 @@
  *  provenance stay self-contained and an interrupted seed still restores as a
  *  valid prefix. */
 import { ContractError } from '../ids.js';
-import { reservedProjectedMessageId } from '../nnd-transcript-identity.js';
+import { reservedProjectedMessageId } from '../desktop-transcript-identity.js';
 
 const MAX_FORK_RECORDS = 100_000;
 
@@ -21,20 +21,20 @@ function turnIdOf(payload) {
 
 export function forkPrefixRecords(records, turnId) {
   if (!Array.isArray(records) || records.length > MAX_FORK_RECORDS || typeof turnId !== 'string' || turnId === '') {
-    throw new ContractError('nnd_fork_invalid', 'NND fork requires a bounded journal record set and a turn id');
+    throw new ContractError('desktop_fork_invalid', 'desktop fork requires a bounded journal record set and a turn id');
   }
   let cut = -1;
   for (let i = 0; i < records.length; i += 1) {
     if (records[i]?.type === 'turn_outcome' && turnIdOf(records[i].payload) === turnId) { cut = i; break; }
   }
   if (cut < 0) {
-    throw new ContractError('nnd_fork_boundary_unsettled', 'NND fork requires a boundary turn that has completed');
+    throw new ContractError('desktop_fork_boundary_unsettled', 'desktop fork requires a boundary turn that has completed');
   }
   const prefix = records.slice(0, cut + 1)
     .filter((record) => record.type !== 'session_created' && record.type !== 'session_lineage'
       && record.type !== 'revert_point' && record.type !== 'revert_cleared');
   if (prefix.length === 0) {
-    throw new ContractError('nnd_fork_boundary_unknown', 'NND fork boundary has no inheritable records');
+    throw new ContractError('desktop_fork_boundary_unknown', 'desktop fork boundary has no inheritable records');
   }
   return prefix;
 }
@@ -43,14 +43,14 @@ export function forkPrefixRecords(records, turnId) {
  *  positional id (`session:message:index`) or a submitted user request id. */
 export function resolveForkBoundary(transcript, sessionId, messageId) {
   if (typeof messageId !== 'string' || messageId.length === 0 || messageId.length > 256) {
-    throw new ContractError('nnd_fork_invalid', 'NND fork requires a boundary message id');
+    throw new ContractError('desktop_fork_invalid', 'desktop fork requires a boundary message id');
   }
   const index = reservedProjectedMessageId(sessionId, messageId)
     ? Number(messageId.slice(`${sessionId}:message:`.length))
     : transcript.findLastIndex((item) => item?.type === 'message' && item.role === 'user' && item.requestId === messageId);
   const item = index >= 0 && index < transcript.length ? transcript[index] : null;
   const turnId = item?.type === 'message' && ['user', 'assistant'].includes(item.role) ? (item.turnId ?? null) : null;
-  if (!turnId) throw new ContractError('nnd_fork_boundary_unknown', 'NND fork requires a boundary message that exists in the session');
+  if (!turnId) throw new ContractError('desktop_fork_boundary_unknown', 'desktop fork requires a boundary message that exists in the session');
   return { turnId, messageId };
 }
 
@@ -62,7 +62,7 @@ export function forkIngestContract(value) {
     || !Array.isArray(value.records) || value.records.length === 0 || value.records.length > MAX_FORK_RECORDS
     || typeof value.sourceSessionId !== 'string' || value.sourceSessionId.length === 0
     || typeof value.boundaryMessageId !== 'string' || value.boundaryMessageId.length === 0) {
-    throw new ContractError('nnd_fork_invalid', 'NND fork ingest requires a validated parent prefix');
+    throw new ContractError('desktop_fork_invalid', 'desktop fork ingest requires a validated parent prefix');
   }
   return Object.freeze({ records: Object.freeze([...value.records]),
     sourceSessionId: value.sourceSessionId, boundaryMessageId: value.boundaryMessageId });

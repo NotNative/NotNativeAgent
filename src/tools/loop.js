@@ -490,8 +490,8 @@ export function toolContinuationHint(items, fallback = null, tools = null) {
 }
 
 function browserRecoveryHint(tools) {
-  if (tools?.definition('nnd_browser')) {
-    return 'If the exact URL is supported by nnd_browser, use nnd_browser with action open on that URL, then snapshot the page. If that URL is unsupported or browser navigation fails, choose another exact URL returned by WebSearch or supplied by the user.';
+  if (tools?.definition('desktop_browser')) {
+    return 'If the exact URL is supported by desktop_browser, use desktop_browser with action open on that URL, then snapshot the page. If that URL is unsupported or browser navigation fails, choose another exact URL returned by WebSearch or supplied by the user.';
   }
   if (!tools || tools.definition('web_browse')) {
     return 'If WebBrowse is available, your next recovery call should use web_browse with action navigate on the same exact URL, then inspect the page if navigation succeeds. Only if browser navigation is unavailable or also fails should you use another exact URL returned by WebSearch or supplied by the user.';

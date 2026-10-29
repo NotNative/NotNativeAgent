@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: Apache-2.0
+import { join, resolve } from 'node:path';
+import { ContractError } from './ids.js';
+import { assertHeldDesktopServiceLease } from './desktop-service-lock.js';
+import { assertManifestLease } from './persistence/manifest-lock.js';
+import { operationValid } from './desktop-install-storage.js';
+import { consumeDesktopClearedAdmissionProof } from './desktop-activation-retirement-cleanup.js';
+
+const GATES = new WeakMap();
+const invalid = () => new ContractError('desktop_trial_admission_invalid',
+  'Unpublished desktop trial ownership changed; native requests are unavailable.');
+const mutationDenied = () => new ContractError('desktop_trial_mutation_denied',
+  'Unpublished desktop trial cannot perform native mutations.');
+const promotionPending = () => new ContractError('desktop_trial_admission_invalid',
+  'Promoted desktop trial accepts only private health until completion is durable.');
+const samePath = (left, right) => process.platform === 'win32'
+  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
+
+/** The native gate stays quarantined until exact retained-owner clearance is consumed. */
+export function createDesktopTrialAdmissionGate(identity, state, serviceLease, registryLease, binding) {
+  if (!identity || state?.identity !== identity || state.lease !== serviceLease
+    || !state.unpublishedTrial || state.published || state.stopping
+    || !operationValid(binding?.operationId) || !operationValid(binding?.stageOperationId)
+    || state.activationOperationId !== binding.operationId || state.stageOperationId !== binding.stageOperationId
+    || !operationValid(state.record?.instance_id)) throw invalid();
+  const gate = Object.freeze({});
+  const entry = { identity, installationId: identity.installation_id, dataId: identity.data_id,
+    dataRoot: identity.data_root, state, serviceLease, registryLease, operationId: binding.operationId,
+    stageOperationId: binding.stageOperationId, generation: state.record.instance_id, transferred: false };
+  assertDesktopTrialOwnerInternal(entry);
+  GATES.set(gate, entry);
+  return gate;
+}
+
+export function assertDesktopTrialOwnership(gate, identity) {
+  const entry = GATES.get(gate);
+  if (!entry || entry.identity !== identity) throw invalid();
+  assertDesktopTrialOwnerInternal(entry);
+}
+
+export function assertDesktopTrialRequestAdmission(gate, identity, request) {
+  const entry = GATES.get(gate);
+  if (!entry || entry.identity !== identity) throw invalid();
+  assertDesktopTrialOwnerInternal(entry);
+  if (entry.transferred) return;
+  if (request?.method !== 'GET' && request?.method !== 'HEAD') throw mutationDenied();
+  if (entry.state.nativePrincipalPromoted
+    && (request.method !== 'GET' || request.url !== '/v1/health')) throw promotionPending();
+}
+
+/** Transfer only the live native listener; controller publication is a separate transition. */
+export function transferDesktopTrialAdmissionGate(gate, identity, registryLease, proof) {
+  const entry = GATES.get(gate);
+  if (!entry || entry.identity !== identity || entry.registryLease !== registryLease || entry.transferred) throw invalid();
+  assertDesktopTrialOwnerInternal(entry);
+  if (!entry.state.retained || !entry.state.retainedLeaseArmed || !entry.state.nativePrincipalPromoted
+    || !entry.state.registrationSelected || !entry.state.native?.isListening?.()
+    || !entry.state.controller?.isListening?.()) throw invalid();
+  const witness = consumeDesktopClearedAdmissionProof(proof, identity, entry.state, entry.serviceLease, registryLease);
+  if (typeof witness !== 'string' || !/^[a-f0-9]{64}$/u.test(witness)) throw invalid();
+  // Invariant: no await separates proof consumption and the one-way in-memory switch.
+  entry.transferred = true;
+  return Object.freeze({ state: 'native_admission_transferred_controller_dark', witness_sha256: witness });
+}
+
+function assertDesktopTrialOwnerInternal(entry) {
+  const { identity, state, serviceLease, registryLease } = entry;
+  if (identity.installation_id !== entry.installationId || identity.data_id !== entry.dataId
+    || identity.data_root !== entry.dataRoot || state.identity !== identity || state.lease !== serviceLease || !state.unpublishedTrial
+    || state.published && !entry.transferred || state.stopping || state.record?.instance_id !== entry.generation
+    || state.activationOperationId !== entry.operationId || state.stageOperationId !== entry.stageOperationId
+    || state.child?.failed || state.ui && !state.child?.child
+    || state.child?.child?.exitCode !== undefined && state.child.child.exitCode !== null
+    || state.nativePrincipalPromoted && (state.native?.isListening?.() !== true
+      || state.controller?.isListening?.() !== true)) throw invalid();
+  try {
+    assertHeldDesktopServiceLease(serviceLease, identity.data_id);
+    if (!entry.transferred) {
+      const target = assertManifestLease(registryLease);
+      if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+    } else if (!state.retained || !state.retainedLeaseArmed || !state.nativePrincipalPromoted
+      || !state.registrationSelected || !state.native?.isListening?.()
+      || !state.controller?.isListening?.()) throw invalid();
+  } catch { throw invalid(); }
+}

@@ -7,15 +7,15 @@ import {
 import { assertIntegrationActivation } from './nno-integration-activation.js';
 import { discoverProviderModels } from './provider/bootstrap.js';
 import { dispatchSecretBrokerRequest, readJsonBody, send, sendFailure } from './secret-broker-server.js';
-import { dispatchNndOperatorRequest } from './nnd-operator-routes.js';
-import { dispatchNndHarnessRequest } from './nnd-harness-routes.js';
-import { dispatchNndSetupRequest, guardNndSetupRequest } from './nnd-setup-routes.js';
-import { dispatchNndBrowserRegistrationRequest } from './nnd-browser-registration.js';
-import { dispatchNndConfigurationRequest } from './nnd-configuration-routes.js';
-import { dispatchNndWorkspaceGrantRequest } from './nnd-workspace-grant-routes.js';
-import { dispatchNndWorkspaceAdmissionRequest } from './nnd-workspace-admission-routes.js';
-import { dispatchNndAttachmentUploadRequest } from './nnd-attachment-upload-routes.js';
-import { dispatchNndCapabilityRequest, isCapabilityRenewalRequest } from './nnd-capability-routes.js';
+import { dispatchDesktopOperatorRequest } from './desktop-operator-routes.js';
+import { dispatchDesktopHarnessRequest } from './desktop-harness-routes.js';
+import { dispatchDesktopSetupRequest, guardDesktopSetupRequest } from './desktop-setup-routes.js';
+import { dispatchDesktopBrowserRegistrationRequest } from './desktop-browser-registration.js';
+import { dispatchDesktopConfigurationRequest } from './desktop-configuration-routes.js';
+import { dispatchDesktopWorkspaceGrantRequest } from './desktop-workspace-grant-routes.js';
+import { dispatchDesktopWorkspaceAdmissionRequest } from './desktop-workspace-admission-routes.js';
+import { dispatchDesktopAttachmentUploadRequest } from './desktop-attachment-upload-routes.js';
+import { dispatchDesktopCapabilityRequest, isCapabilityRenewalRequest } from './desktop-capability-routes.js';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 const PROVIDER_ROUTE = /^\/v1\/provider-profiles(?:\/([^/]+))?(?:\/(discover|test))?$/u;
@@ -33,7 +33,7 @@ export async function startIntegrationServer(options) {
   const active = new Set();
   let accepting = true;
   const server = createServer((request, response) => {
-    if (!accepting) return send(response, 503, failure('nnd_setup_stopped', 'integration service is stopping'));
+    if (!accepting) return send(response, 503, failure('desktop_setup_stopped', 'integration service is stopping'));
     const work = dispatch(request, response, { ...options, token }).catch((error) => sendFailure(response, error));
     active.add(work);
     work.finally(() => active.delete(work)).catch(() => {});
@@ -56,7 +56,7 @@ async function drainRequests(active) {
   let timer;
   try {
     await Promise.race([Promise.allSettled([...active]), new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new ContractError('nnd_setup_shutdown_timeout', 'Native integration requests remain active')), 15000);
+      timer = setTimeout(() => reject(new ContractError('desktop_setup_shutdown_timeout', 'Native integration requests remain active')), 15000);
     })]);
   } finally { clearTimeout(timer); }
 }
@@ -84,47 +84,47 @@ async function dispatch(request, response, context) {
   // Security: supervised listeners derive authority natively, never from child headers.
   const principal = context.resolvePrincipal ? context.resolvePrincipal() : readIntegrationPrincipal(request);
   const url = new URL(request.url ?? '/', 'http://127.0.0.1');
-  if (context.nndRuntime) context = withNndEngineHost(context);
+  if (context.desktopRuntime) context = withDesktopEngineHost(context);
   if (request.method === 'GET' && url.pathname === '/v1/health') {
     requireIntegrationPermission(principal, 'integration.health');
-    return send(response, 200, { status: context.nndRuntime?.snapshot().service_state ?? 'ready',
-      protocol: context.activation.protocol, instance_id: context.instanceId, ...(context.nndRuntime ? context.nndRuntime.snapshot() : {}) });
+    return send(response, 200, { status: context.desktopRuntime?.snapshot().service_state ?? 'ready',
+      protocol: context.activation.protocol, instance_id: context.instanceId, ...(context.desktopRuntime ? context.desktopRuntime.snapshot() : {}) });
   }
-  if (await dispatchNndSetupRequest(request, response, { ...context, principal, url })) return;
-  if (await dispatchNndBrowserRegistrationRequest(request, response, { ...context, principal, url })) return;
+  if (await dispatchDesktopSetupRequest(request, response, { ...context, principal, url })) return;
+  if (await dispatchDesktopBrowserRegistrationRequest(request, response, { ...context, principal, url })) return;
   // Invariant: configuration repair remains reachable while native execution requires setup.
-  if ((context.nndConfigurationService || context.nndGatewayTimeoutService || context.nndWebFetchSettingsService
-    || context.nndWebSearchSettingsService || context.nndCompatibilitySettingsService
-    || context.nndCompatibilityLifecycleService || context.nndMcpCredentialsService
-    || context.nndSecretsSettingsService || context.nndHooksSettingsService
-    || context.nndUpdateActionsService || context.nndPackageActionsService
-    || context.nndEnvironmentSnapshotService || context.nndInstallationSnapshotService
-    || context.nndBrowserActionsService || context.nndSkillsService
-    || context.nndLegacyProviderCredentialsService || context.nndProviderObservationService
-    || context.nndGatewayStatusService || context.nndGatewayTestService
-    || context.nndSearxngStatusService || context.nndInvocationService
-    || context.nndMcpAdvancedConfigurationService
-    || context.nndUpdateStateStore || context.nndTrustService)
-    && await dispatchNndConfigurationRequest(request, response, { ...context, principal, url })) return;
-  if (context.nndWorkspaceAdmissionService
-    && await dispatchNndWorkspaceAdmissionRequest(request, response, { ...context, principal, url })) return;
-  if (context.nndWorkspaceGrantService
-    && await dispatchNndWorkspaceGrantRequest(request, response, { ...context, principal, url })) return;
+  if ((context.desktopConfigurationService || context.desktopGatewayTimeoutService || context.desktopWebFetchSettingsService
+    || context.desktopWebSearchSettingsService || context.desktopCompatibilitySettingsService
+    || context.desktopCompatibilityLifecycleService || context.desktopMcpCredentialsService
+    || context.desktopSecretsSettingsService || context.desktopHooksSettingsService
+    || context.desktopUpdateActionsService || context.desktopPackageActionsService
+    || context.desktopEnvironmentSnapshotService || context.desktopInstallationSnapshotService
+    || context.desktopBrowserActionsService || context.desktopSkillsService
+    || context.desktopLegacyProviderCredentialsService || context.desktopProviderObservationService
+    || context.desktopGatewayStatusService || context.desktopGatewayTestService
+    || context.desktopSearxngStatusService || context.desktopInvocationService
+    || context.desktopMcpAdvancedConfigurationService
+    || context.desktopUpdateStateStore || context.desktopTrustService)
+    && await dispatchDesktopConfigurationRequest(request, response, { ...context, principal, url })) return;
+  if (context.desktopWorkspaceAdmissionService
+    && await dispatchDesktopWorkspaceAdmissionRequest(request, response, { ...context, principal, url })) return;
+  if (context.desktopWorkspaceGrantService
+    && await dispatchDesktopWorkspaceGrantRequest(request, response, { ...context, principal, url })) return;
   // Invariant: supervised clients may renew their scoped capability while execution is setup-required.
-  if (await dispatchNndCapabilityRequest(request, response, { ...context, url })) return;
-  guardNndSetupRequest({ ...context, principal, url });
-  if (await dispatchNndAttachmentUploadRequest(request, response, { ...context, principal, url })) return;
+  if (await dispatchDesktopCapabilityRequest(request, response, { ...context, url })) return;
+  guardDesktopSetupRequest({ ...context, principal, url });
+  if (await dispatchDesktopAttachmentUploadRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchProviderRequest(request, response, { ...context, principal, url })) return;
-  if (await dispatchNndHarnessRequest(request, response, { ...context, principal, url })) return;
-  if (await dispatchNndOperatorRequest(request, response, { ...context, principal, url,
-    nndSessionResolver: context.nndSessionResolver ?? context.nndEngineHost?.resolveChildSession?.bind(context.nndEngineHost) })) return;
+  if (await dispatchDesktopHarnessRequest(request, response, { ...context, principal, url })) return;
+  if (await dispatchDesktopOperatorRequest(request, response, { ...context, principal, url,
+    desktopSessionResolver: context.desktopSessionResolver ?? context.desktopEngineHost?.resolveChildSession?.bind(context.desktopEngineHost) })) return;
   if (await dispatchSecretBrokerRequest(request, response, { ...context, principal, url })) return;
   return send(response, 404, failure('not_found', 'integration endpoint not found'));
 }
 
-function withNndEngineHost(context) {
-  const host = context.nndRuntime.getHost();
-  return { ...context, nndEngineHost: host, nndWorkspaceRoot: host?.workspaceRoot };
+function withDesktopEngineHost(context) {
+  const host = context.desktopRuntime.getHost();
+  return { ...context, desktopEngineHost: host, desktopWorkspaceRoot: host?.workspaceRoot };
 }
 
 export async function dispatchProviderRequest(request, response, context) {
@@ -140,7 +140,7 @@ export async function dispatchProviderRequest(request, response, context) {
       throw new ContractError('provider_request_invalid', 'route request contains invalid fields');
     }
     const configured = await context.providerStore.setPrimaryRoute(body.provider_id, body.model);
-    return send(response, 200, { configured_primary_route: configured, runtime_route: context.nndEngineHost?.nndModel ?? null });
+    return send(response, 200, { configured_primary_route: configured, runtime_route: context.desktopEngineHost?.desktopModel ?? null });
   }
   const match = PROVIDER_ROUTE.exec(context.url.pathname);
   if (!match) return false;
@@ -150,8 +150,8 @@ export async function dispatchProviderRequest(request, response, context) {
   assertProviderStore(providerStore);
   if (request.method === 'GET' && !id) {
     requireIntegrationPermission(principal, 'provider.read');
-    return send(response, 200, { ...await providerStore.inventory(context.nndEngineHost?.providerRoutingPending),
-      runtime_route: context.nndEngineHost?.nndModel ?? null });
+    return send(response, 200, { ...await providerStore.inventory(context.desktopEngineHost?.providerRoutingPending),
+      runtime_route: context.desktopEngineHost?.desktopModel ?? null });
   }
   if (request.method === 'GET' && id && !action) {
     requireIntegrationPermission(principal, 'provider.read');
@@ -196,7 +196,7 @@ async function dispatchSubagentRoute(request, response, context) {
     throw new ContractError('provider_store_unavailable', 'provider route management is unavailable');
   }
   if (request.method === 'GET') return send(response, 200, {
-    configured_route: await providerStore.subagentRoute(), runtime_route: context.nndEngineHost?.nndAgentInventory?.route ?? null,
+    configured_route: await providerStore.subagentRoute(), runtime_route: context.desktopEngineHost?.desktopAgentInventory?.route ?? null,
   });
   const body = await readJsonBody(request);
   if (!body || typeof body !== 'object' || Array.isArray(body)
@@ -204,7 +204,7 @@ async function dispatchSubagentRoute(request, response, context) {
     throw new ContractError('provider_request_invalid', 'route request contains invalid fields');
   }
   const configured = await providerStore.setSubagentRoute(body.provider_id, body.model);
-  return send(response, 200, { configured_route: configured, runtime_route: context.nndEngineHost?.nndAgentInventory?.route ?? null });
+  return send(response, 200, { configured_route: configured, runtime_route: context.desktopEngineHost?.desktopAgentInventory?.route ?? null });
 }
 
 function requireProviderProfileWrite(principal) {
@@ -215,10 +215,10 @@ function requireProviderProfileWrite(principal) {
 async function dispatchProviderActivation(request, response, context) {
   if (request.method !== 'POST') return send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
   requireIntegrationPermission(context.principal, 'provider.route.activate');
-  if (typeof context.nndEngineHost?.activateProviderRoute !== 'function') {
-    throw new ContractError('nnd_engine_unavailable', 'NND provider activation is unavailable');
+  if (typeof context.desktopEngineHost?.activateProviderRoute !== 'function') {
+    throw new ContractError('desktop_engine_unavailable', 'desktop provider activation is unavailable');
   }
-  const route = await context.nndEngineHost.activateProviderRoute();
+  const route = await context.desktopEngineHost.activateProviderRoute();
   return send(response, 200, { runtime_route: route, existing_sessions_unchanged: true });
 }
 

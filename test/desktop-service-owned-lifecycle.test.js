@@ -1,0 +1,341 @@
+// SPDX-License-Identifier: Apache-2.0
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { EventEmitter } from 'node:events';
+import { isDeepStrictEqual } from 'node:util';
+import { join } from 'node:path';
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { ContractError } from '../src/ids.js';
+import { verifyTrialGuiProof, boundedHealthBody } from '../src/desktop-service-health.js';
+const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
+const identity={installation_id:'native',data_id:'data',install_root:'C:/native',data_root:'C:/data'};
+const paths={config:'C:/data/config'};
+const packageInfo={root:'C:/package',manifestPath:'C:/package/integration.json',version:'20261002-1',protocol:'1.0',entrypoint:'entry.mjs'};
+async function fixture(options={}) {
+ const trace=[],lost=deferred(),childReady=deferred(),exited=deferred(),fatal=deferred();let controller,bootstrap,nativeOptions,closeCalls=0,pointer=null,trialRecord=null,removeCalls=0;
+ const lease={held:true,lost:lost.promise,close:async()=>{trace.push('lease:close');}};
+ const native={endpoint:'http://127.0.0.1:1000',token:'private-engine-token',isListening:()=>!options.closedNative,
+  runtime:{snapshot:()=>({service_state:'setup_required'})},close:async()=>{trace.push('native:close');}};
+ const child={ready:childReady.promise,exited:exited.promise,fatal:fatal.promise,close:async()=>{trace.push('child:close');},command:async type=>{trace.push(type);return {ticket:'private-ticket'};}};
+ const assertLease=(value,dataId)=>{if(value!==lease||!lease.held||dataId!==identity.data_id)throw new ContractError('desktop_lock_lost','Genuine lease required');};
+ const capability=Object.freeze({}),registry={held:true};
+ const dependencies={createHmac,randomBytes,randomUUID,timingSafeEqual,isDeepStrictEqual,join,resolve: path=>path,ContractError,assertHeldDesktopServiceLease:assertLease,
+  assertManifestLease:value=>{if(value!==registry||!registry.held)throw new ContractError('manifest_lock_invalid','Registry ownership lost');
+   return {path:join(identity.data_root,'config','desktop-package.json')};},
+  runManifestLeaseWork:(_lease,operation)=>operation(),
+  userDataPaths:()=>({root:identity.data_root,config:paths.config}),
+  consumeDesktopTrialCapability:(value,_identity,held,guard)=>{
+   if(value!==capability||held!==lease||guard!==registry)throw new ContractError('desktop_activation_candidate_invalid','Trial capability invalid');
+   return {package:packageInfo,activationOperationId:'operation',stageOperationId:'stage'};
+  },
+  createDesktopTrialAdmissionGate:(_identity,_state,held,guard,binding)=>{
+   assert.equal(held,lease);assert.equal(guard,registry);assert.equal(binding.operationId,'operation');
+   return Object.freeze({});
+  },
+  transferRetainedNativeAdmission:async()=>{throw new ContractError('desktop_trial_admission_invalid','Trial transfer unavailable');},
+  publishRetainedDesktopController:async()=>{throw new ContractError('desktop_activation_public_controller_invalid','Public controller unavailable');},
+  acquireDesktopServiceLock:async()=>{trace.push('lease:acquire');return lease;},
+  open:async path=>{const bytes=Buffer.from(JSON.stringify(path.endsWith('desktop-package.json')?{root:packageInfo.root,version:packageInfo.version,protocol:'1.0'}:{service_activation:{entrypoint:'entry.mjs'}}));return {
+   stat:async()=>({isFile:()=>true,size:bytes.length}),read:async buffer=>({bytesRead:bytes.copy(buffer)}),close:async()=>{}};},
+  mkdir:async()=>{},realpath:async path=>path,validateDesktopPackage:async()=>{trace.push('package:admit');return packageInfo;},
+  assertNoDesktopInstallMarker:async()=>{trace.push('guard:check');},admitFreshDesktopServiceData:async()=>{trace.push('data:admit');},
+  readDesktopServiceDiscovery:async()=>{trace.push('discovery:read');return pointer;},startDesktopNativeService:async (_paths,_identity,options)=>{nativeOptions=options;trace.push('native:start');return native;},
+  startDesktopController:async controllerOptions=>{trace.push('controller:start');await options.controllerGate?.promise;
+   controller=controllerOptions;return {endpoint:'http://127.0.0.1:2000',close:async()=>{trace.push('controller:close');
+    if(options.controllerCloseFailsOnce && closeCalls++===0)throw new Error('controller close failed');}};},
+  createDesktopDiscoveryGeneration:async()=>{trace.push('discovery:create');return {instance_id:randomUUID()};},
+  createDesktopTrialDiscoveryGeneration:async (_identity,_lease,{endpoint,instanceId})=>{
+   trace.push('trial-discovery:create');trialRecord={instance_id:options.generationOverride??instanceId,endpoint,control_token:'private'};return trialRecord;},
+  selectDesktopTrialRegistrationUnderOwnership:async (_identity,_state,_lease,_registry,selection)=>{
+   trace.push('registration:select');return {state:'registration_selected_unresolved',operation_id:selection.operationId};},
+  discardDesktopTrialDiscoveryGeneration:async (_identity,_lease,instanceId)=>{
+   assert.equal(instanceId,bootstrap.generation);if(pointer?.instance_id===instanceId)throw new Error('pointer still published');
+   trace.push('trial-discovery:discard');return {discarded:true};},
+  publishDesktopDiscoveryGeneration:async()=>{trace.push('discovery:publish');},removeDesktopDiscoveryPointer:async()=>{
+   trace.push('discovery:remove');removeCalls++;
+   if(options.removeKeepsPointer)return {removed:true};
+   pointer=options.foreignAfterRemove?{instance_id:randomUUID()}:null;
+   if(options.removeResponseLost&&removeCalls===1)throw new Error('response lost');
+   return {removed:true};},
+  launchDesktopServiceChild:(_identity,_entrypoint,value)=>{trace.push('child:start');bootstrap=value;return child;},
+  // 20261011-11 made the supervisor own a renewable capability authority;
+  // the fixture injects silent stand-ins (bind only, no timers).
+  createDesktopServiceCapabilityAuthority:()=>({bind:()=>{}}),
+  bootstrapCapability:()=>({}),
+  armCapabilityRenewal:()=>{},
+  clearCapabilityRenewal:()=>{},
+  verifyTrialGuiProof, boundedHealthBody,
+  createServer:()=>{const server=new EventEmitter();server.listen=(_port,_host,ready)=>queueMicrotask(ready);server.address=()=>({port:3000});server.close=callback=>callback();return server;}};
+ // Security: only this test harness exposes the private constructor; production exports remain unchanged.
+ const source=await readFile(new URL('../src/desktop-service-supervisor.js',import.meta.url),'utf8');
+ const executable=source.replace(/^import\s[\s\S]*?;\r?\n/gm,'').replaceAll('export async function','async function');
+ const api=Function(...Object.keys(dependencies),executable+'\nreturn {startDesktopSupervisor,startUnpublishedTrial,startDesktopOwnedTrial};')(...Object.values(dependencies));
+ return {api,trace,lease,registry,capability,native,child,childReady,lost,exited,fatal,source,
+  publishTrialPointer(){pointer=trialRecord;},setForeignPointer(){pointer={instance_id:randomUUID()};},
+  get pointer(){return pointer;},get controller(){return controller;},get bootstrap(){return bootstrap;},get nativeOptions(){return nativeOptions;}};
+}
+async function waitFor(predicate) {for(let n=0;n<100;n++){if(predicate())return;await new Promise(resolve=>setImmediate(resolve));}throw new Error('Expected mocked lifecycle phase');}
+test('public supervision still admits registered package and withholds controller grants before publication',async()=>{
+ const f=await fixture(),started=f.api.startDesktopSupervisor(identity,paths,{skipAdmission:true,packageRoot:'C:/untrusted'});
+ await waitFor(()=>f.trace.includes('child:start'));
+ assert.equal(f.nativeOptions.activationTimeoutMs,120_000);
+ assert.equal(f.controller.getRecord(),null);await assert.rejects(f.controller.ticket(),{code:'desktop_service_not_running'});
+ assert.ok(f.trace.indexOf('package:admit')<f.trace.indexOf('native:start'));assert.ok(f.trace.includes('data:admit'));
+ f.childReady.resolve();const owner=await started;
+ assert.ok(f.controller.getRecord());assert.deepEqual(await f.controller.ticket(),{ticket:'private-ticket'});
+ await owner.stop();await owner.stopped;
+ assert.ok(f.trace.indexOf('child:close')<f.trace.indexOf('lease:close'));assert.ok(f.trace.includes('discovery:remove'));
+});
+test('unpublished owned trial cannot publish discovery or grant tickets and retains caller lease after drain',async()=>{
+ const f=await fixture();assert.equal(/export\s+(?:async\s+)?function\s+startUnpublishedTrial/u.test(f.source),false);
+ f.childReady.resolve();const owner=await f.api.startUnpublishedTrial(identity,paths,f.lease,packageInfo);
+ assert.equal(f.nativeOptions.unpublishedTrial,true);
+ assert.equal(f.controller,undefined);assert.equal(f.trace.some(event=>event.startsWith('discovery:')),false);
+ assert.deepEqual(Object.keys(owner).sort(),['cleanupRetirement','clearRetirementBarriers','commitRetirement',
+  'planRetirement','publishController','recordCompletion','recordRetirementDecision','status','stop','stopped',
+  'transferNativeAdmission','verify']);
+ assert.equal(JSON.stringify(owner.status()).includes('private-engine-token'),false);
+ await assert.rejects(owner.recordCompletion(f.registry,{operationId:'operation'}),{code:'desktop_activation_transition_proof_invalid'});
+ await assert.rejects(owner.planRetirement(f.registry,{operationId:'operation'}),{code:'desktop_activation_retirement_invalid'});
+ await assert.rejects(owner.transferNativeAdmission(f.registry,{operationId:'operation'}),
+  {code:'desktop_trial_admission_invalid'});
+ const gate=deferred();f.native.close=async()=>{f.trace.push('native:draining');await gate.promise;f.trace.push('native:drained');};
+ let stopped=false;const closing=owner.stop().then(()=>{stopped=true;});await waitFor(()=>f.trace.includes('native:draining'));
+ assert.equal(stopped,false);gate.resolve();await closing;assert.equal(f.trace.includes('lease:close'),false);
+});
+test('owned trial creates only a dark discovery record for its live child generation',async()=>{
+ const f=await fixture();f.childReady.resolve();
+ const owner=await f.api.startDesktopOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ const record=await owner.prepareDiscovery();
+ assert.equal(record.instance_id,f.bootstrap.generation);
+ assert.equal(record.endpoint,'http://127.0.0.1:2000');
+ assert.equal(f.controller.getRecord(),null);
+ await assert.rejects(f.controller.ticket(),{code:'desktop_service_not_running'});
+ assert.equal(f.trace.includes('discovery:publish'),false);
+ await assert.rejects(owner.prepareDiscovery(),{code:'desktop_discovery_invalid'});
+ await owner.stop();
+ assert.ok(f.trace.includes('controller:close'));
+ assert.ok(f.trace.includes('trial-discovery:discard'));
+});
+async function publishedTrial(options={}) {
+ const f=await fixture(options);f.childReady.resolve();
+ const owner=await f.api.startDesktopOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ await owner.prepareDiscovery();f.publishTrialPointer();
+ return {f,owner};
+}
+test('stopped trial removes its exact published pointer only after confirmed resource shutdown',async()=>{
+ const {f,owner}=await publishedTrial();
+ assert.equal(f.controller.getRecord(),null,'controller remains dark despite publication');
+ await owner.stop();
+ assert.equal(f.pointer,null);
+ for(const event of ['native:close','child:close','controller:close'])
+  assert.ok(f.trace.indexOf(event)<f.trace.indexOf('discovery:remove'));
+ assert.ok(f.trace.indexOf('discovery:remove')<f.trace.indexOf('trial-discovery:discard'));
+ assert.equal(f.trace.includes('lease:close'),false,'borrowed singleton remains with caller');
+});
+test('lost pointer-removal response reconciles exact absent readback before generation discard',async()=>{
+ const {f,owner}=await publishedTrial({removeResponseLost:true});
+ await owner.stop();
+ assert.equal(f.pointer,null);
+ assert.equal(f.trace.filter(event=>event==='discovery:remove').length,1);
+ assert.equal(f.trace.filter(event=>event==='trial-discovery:discard').length,1);
+});
+test('unchanged own pointer gets one bounded retry then retains singleton on failure',async()=>{
+ const {f,owner}=await publishedTrial({removeKeepsPointer:true});
+ await assert.rejects(owner.stop(),{code:'desktop_discovery_invalid'});
+ assert.equal(f.trace.filter(event=>event==='discovery:remove').length,2);
+ assert.equal(f.trace.includes('trial-discovery:discard'),false);
+ assert.equal(f.trace.includes('lease:close'),false);
+ assert.equal(f.pointer.instance_id,f.bootstrap.generation);
+});
+test('foreign published pointer remains untouched and prevents singleton release',async()=>{
+ const {f,owner}=await publishedTrial();f.setForeignPointer();
+ await assert.rejects(owner.stop(),{code:'desktop_discovery_conflict'});
+ assert.equal(f.trace.includes('discovery:remove'),false);
+ assert.equal(f.trace.includes('trial-discovery:discard'),false);
+ assert.equal(f.trace.includes('lease:close'),false);
+});
+test('failed child shutdown cannot remove a published trial pointer',async()=>{
+ const {f,owner}=await publishedTrial();
+ f.child.close=async()=>{f.trace.push('child:close');throw new Error('child writer unconfirmed');};
+ await assert.rejects(owner.stop(),/shutdown incomplete/u);
+ assert.ok(f.pointer);
+ assert.equal(f.trace.includes('discovery:remove'),false);
+ assert.equal(f.trace.includes('trial-discovery:discard'),false);
+ assert.equal(f.trace.includes('lease:close'),false);
+});
+test('trial discovery preparation refuses an expired registry lock without starting a controller',async()=>{
+ const f=await fixture();f.childReady.resolve();
+ const owner=await f.api.startDesktopOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ f.registry.held=false;
+ await assert.rejects(owner.prepareDiscovery(),{code:'manifest_lock_invalid'});
+ assert.equal(f.controller,undefined);
+ await owner.stop();
+});
+test('concurrent trial preparation cannot start two controllers for one child generation',async()=>{
+ const gate=deferred(),f=await fixture({controllerGate:gate});f.childReady.resolve();
+ const owner=await f.api.startDesktopOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ const first=owner.prepareDiscovery();await waitFor(()=>f.trace.includes('controller:start'));
+ await assert.rejects(owner.prepareDiscovery(),{code:'desktop_discovery_invalid'});
+ gate.resolve();await first;
+ assert.equal(f.trace.filter(event=>event==='controller:start').length,1);
+ assert.equal(f.trace.filter(event=>event==='trial-discovery:create').length,1);
+ await owner.stop();
+});
+test('stop drains a controller still starting and prevents late dark record creation',async()=>{
+ const gate=deferred(),f=await fixture({controllerGate:gate});f.childReady.resolve();
+ const owner=await f.api.startDesktopOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ const preparing=owner.prepareDiscovery();await waitFor(()=>f.trace.includes('controller:start'));
+ let stopped=false;const stopping=owner.stop().then(()=>{stopped=true;});
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(stopped,false);
+ gate.resolve();await assert.rejects(preparing,{code:'desktop_discovery_invalid'});await stopping;
+ assert.equal(f.trace.filter(event=>event==='controller:close').length,1);
+ assert.equal(f.trace.includes('trial-discovery:create'),false);
+ assert.equal(f.trace.includes('trial-discovery:discard'),false);
+});
+test('mismatched fixed generation closes the dark controller and never publishes',async()=>{
+ const f=await fixture({generationOverride:randomUUID()});f.childReady.resolve();
+ const owner=await f.api.startDesktopOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ await assert.rejects(owner.prepareDiscovery(),{code:'desktop_discovery_invalid'});
+ assert.ok(f.trace.includes('controller:close'));
+ assert.equal(f.trace.includes('discovery:publish'),false);
+ await owner.stop();
+ assert.ok(f.trace.includes('trial-discovery:discard'));
+});
+test('registration selection is single-use and requires private discovery preparation',async()=>{
+ const f=await fixture();f.childReady.resolve();
+ const owner=await f.api.startDesktopOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ await assert.rejects(owner.selectRegistration({operationId:randomUUID()}),{code:'desktop_activation_registration_invalid'});
+ await owner.prepareDiscovery();
+ const selected=await owner.selectRegistration({operationId:randomUUID()});
+ assert.equal(selected.state,'registration_selected_unresolved');
+ await assert.rejects(owner.selectRegistration({operationId:randomUUID()}),{code:'desktop_activation_registration_invalid'});
+ assert.equal(f.trace.filter(event=>event==='registration:select').length,1);
+ assert.equal(f.controller.getRecord(),null);assert.equal(f.trace.includes('discovery:publish'),false);
+ await owner.stop();
+});
+test('failed trial controller close is retried on stop and dark credential is discarded',async()=>{
+ const f=await fixture({generationOverride:randomUUID(),controllerCloseFailsOnce:true});f.childReady.resolve();
+ const owner=await f.api.startDesktopOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ await assert.rejects(owner.prepareDiscovery(),AggregateError);
+ await owner.stop();
+ assert.equal(f.trace.filter(event=>event==='controller:close').length,2);
+ assert.ok(f.trace.includes('trial-discovery:discard'));
+});
+test('unpublished trial proves exact native identity and loopback GUI before exposing a health result',async()=>{
+ const f=await fixture();f.childReady.resolve();const owner=await f.api.startDesktopOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ const observed=[];
+ const proof=await owner.verify({fetchImpl:async (url,options)=>{
+  observed.push({url,redirect:options.redirect});
+  if(url.endsWith('/v1/health'))assert.equal(options.headers.authorization,'Bearer private-engine-token');
+  const value=url.endsWith('/v1/health')
+   ? {service_state:'setup_required',instance_id:identity.installation_id}
+   : url.endsWith('/__nna/health-proof')
+    ? {protocol:'1.0',mac:createHmac('sha256',Buffer.from(f.bootstrap.health_key,'base64url'))
+      .update(JSON.stringify(['DESKTOP_SUPERVISED_HEALTH_V1',JSON.parse(options.body).nonce,identity.installation_id,
+       identity.data_id,f.bootstrap.generation,f.bootstrap.ui_origin])).digest('hex')}
+    : {ok:true,runtime:'service'};
+  return {status:200,redirected:false,url,body:new Response(JSON.stringify(value)).body};
+ }});
+ assert.equal(proof.installation_id,identity.installation_id);assert.equal(proof.data_id,identity.data_id);
+ assert.equal(proof.version,packageInfo.version);assert.equal(proof.native_state,'setup_required');
+ assert.equal(proof.gui_http_status,200);assert.equal(observed[1].url,`${owner.status().endpoint}/health`);
+ assert.equal(observed[0].url,`${f.native.endpoint}/v1/health`);
+ assert.equal(observed[0].redirect,'manual');
+ assert.equal(observed[2].url,`${owner.status().endpoint}/__nna/health-proof`);
+ await owner.stop();
+});
+test('unpublished trial refuses a replacement listener that copies public health',async()=>{
+ const f=await fixture();f.childReady.resolve();const owner=await f.api.startDesktopOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ await assert.rejects(owner.verify({fetchImpl:async url=>({status:url.endsWith('/__nna/health-proof')?404:200,
+  redirected:false,url,body:new Response(JSON.stringify(url.endsWith('/v1/health')
+   ? {service_state:'setup_required',instance_id:identity.installation_id}:{ok:true,runtime:'service'})).body})}),
+  {code:'desktop_health_unavailable'});
+ await owner.stop();
+});
+test('unpublished trial refuses a native-port replacement after its real listener closes',async()=>{
+ const f=await fixture({closedNative:true});f.childReady.resolve();
+ const owner=await f.api.startUnpublishedTrial(identity,paths,f.lease,packageInfo);
+ let probes=0;
+ await assert.rejects(owner.verify({fetchImpl:async url=>{probes++;return {status:200,redirected:false,url,
+  body:new Response(JSON.stringify({service_state:'setup_required',instance_id:identity.installation_id})).body};}}),
+ {code:'desktop_health_unavailable'});
+ assert.equal(probes,0);
+ await owner.stop();
+});
+test('unpublished trial rejects dead child and a redirected or timed-out GUI probe',async()=>{
+ const f=await fixture();f.childReady.resolve();const owner=await f.api.startUnpublishedTrial(identity,paths,f.lease,packageInfo);
+ await assert.rejects(owner.verify({fetchImpl:async url=>({status:302,redirected:false,url})}),{code:'desktop_health_unavailable'});
+ await assert.rejects(owner.verify({fetchImpl:async url=>({status:401,redirected:false,url})}),{code:'desktop_health_unavailable'});
+ await assert.rejects(owner.verify({fetchImpl:async url=>({status:200,redirected:false,url,
+  body:new Response('x'.repeat(5000)).body})}),{code:'desktop_health_unavailable'});
+ await assert.rejects(owner.verify({fetchImpl:async()=>{throw new Error('connection refused');}}),{code:'desktop_health_unavailable'});
+ f.child.failed=true;
+ await assert.rejects(owner.verify({fetchImpl:async url=>({status:200,redirected:false,url,body:new Response(JSON.stringify({ok:true,runtime:'service'})).body})}),{code:'desktop_health_unavailable'});
+ await owner.stop();
+});
+test('trial constructor refuses forged lease before starting resources',async()=>{
+ const f=await fixture();await assert.rejects(f.api.startUnpublishedTrial(identity,paths,{},packageInfo),{code:'desktop_lock_lost'});
+ assert.deepEqual(f.trace,[]);
+});
+test('owned trial requires matching native data paths before consuming its private capability',async()=>{
+ const f=await fixture();
+ await assert.rejects(f.api.startDesktopOwnedTrial(identity,{root:'C:/foreign',config:paths.config},f.lease,f.registry,f.capability),
+  {code:'desktop_activation_candidate_invalid'});
+ assert.deepEqual(f.trace,[]);
+ f.childReady.resolve();const owner=await f.api.startDesktopOwnedTrial(identity,{...paths,root:identity.data_root},f.lease,f.registry,f.capability);
+ assert.equal(f.trace.includes('native:start'),true);assert.equal(f.trace.some(event=>event.startsWith('discovery:')),false);
+ await owner.stop();
+});
+test('failed trial drains started resources without releasing caller lease',async()=>{
+ const f=await fixture(),starting=f.api.startUnpublishedTrial(identity,paths,f.lease,packageInfo);
+ await waitFor(()=>f.trace.includes('child:start'));f.childReady.reject(new Error('Child startup rejected'));
+ await assert.rejects(starting,/Child startup rejected/u);
+ assert.ok(f.trace.includes('native:close'));assert.ok(f.trace.includes('child:close'));assert.equal(f.trace.includes('lease:close'),false);
+});
+test('uncertain resource shutdown never releases the public singleton',async()=>{
+ const f=await fixture();f.childReady.resolve();const owner=await f.api.startDesktopSupervisor(identity,paths);
+ f.child.close=async()=>{throw new Error('Writer still alive');};
+ await assert.rejects(owner.stop(),/shutdown incomplete/u);assert.equal(f.trace.includes('lease:close'),false);
+ assert.equal(f.trace.includes('discovery:remove'),false);assert.ok((await owner.stopped).error);
+});
+
+test('public identity mismatch releases only its newly acquired lease before admission',async()=>{
+ const f=await fixture();await assert.rejects(f.api.startDesktopSupervisor({...identity,data_id:'foreign'},paths),{code:'desktop_lock_lost'});
+ assert.deepEqual(f.trace,['lease:acquire','lease:close']);
+});
+
+test('public startup losing ownership before child readiness drains resources without publishing',async()=>{
+ const f=await fixture(),starting=f.api.startDesktopSupervisor(identity,paths);
+ await waitFor(()=>f.trace.includes('child:start'));f.lease.held=false;f.childReady.resolve();
+ await assert.rejects(starting,{code:'desktop_lock_lost'});
+ assert.equal(f.trace.includes('discovery:publish'),false);assert.equal(f.controller.getRecord(),null);
+ for(const resource of ['native:close','child:close','controller:close','lease:close'])assert.ok(f.trace.includes(resource));
+});
+
+test('public child startup failure closes unpublished controller and releases owned singleton',async()=>{
+ const f=await fixture(),starting=f.api.startDesktopSupervisor(identity,paths);
+ await waitFor(()=>f.trace.includes('child:start'));f.childReady.reject(new Error('Startup failed'));
+ await assert.rejects(starting,/Startup failed/u);
+ assert.equal(f.trace.includes('discovery:publish'),false);assert.equal(f.trace.includes('discovery:remove'),false);
+ assert.ok(f.trace.indexOf('controller:close')<f.trace.indexOf('lease:close'));
+});
+
+test('trial child failure drains once and reports uncertain shutdown while retaining borrowed ownership',async()=>{
+ const f=await fixture();f.childReady.resolve();const owner=await f.api.startUnpublishedTrial(identity,paths,f.lease,packageInfo);
+ f.native.close=async()=>{f.trace.push('native:close');throw new Error('Pending native writer');};
+ f.fatal.resolve(new Error('Child protocol failure'));const result=await owner.stopped;
+ assert.ok(result.error instanceof AggregateError);await assert.rejects(owner.stop(),/shutdown incomplete/u);
+ assert.equal(f.trace.filter(event=>event==='native:close').length,1);
+ assert.equal(f.trace.filter(event=>event==='child:close').length,1);assert.equal(f.trace.includes('lease:close'),false);
+ assert.equal(f.trace.some(event=>event.startsWith('discovery:')),false);
+});
+
+test('concurrent stop requests share resource drain and release ownership exactly once',async()=>{
+ const f=await fixture();f.childReady.resolve();const owner=await f.api.startDesktopSupervisor(identity,paths);
+ const gate=deferred();f.child.close=async()=>{f.trace.push('child:close');await gate.promise;};
+ const first=owner.stop(),second=owner.stop();assert.equal(first,second);assert.equal(f.trace.includes('lease:close'),false);
+ gate.resolve();await Promise.all([first,second,owner.stopped]);
+ for(const resource of ['native:close','child:close','controller:close','lease:close'])assert.equal(f.trace.filter(event=>event===resource).length,1);
+});

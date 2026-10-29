@@ -8,17 +8,17 @@ export const FOUNDATIONAL_TOOL_NAMES = Object.freeze([
   'turn_finish',
   'question',
   'git_inspect',
-  // NND browser surface only installs this definition; foundational here means
+  // desktop browser surface only installs this definition; foundational here means
   // the model sees it without a discovery lease when the desktop surface owns it.
-  'nnd_browser',
+  'desktop_browser',
 ]);
 
 export const TOOL_SURFACE_ELIGIBLE_NAMES = Object.freeze([
   ...FOUNDATIONAL_TOOL_NAMES,
   'fs_directory', 'fs_write_text', 'fs_edit_text', 'fs_edit_lines',
   'agent_run', 'image_inspect', 'notification_telegram',
-  // NND browser surface: a core governed action surface, not lease-gated discovery.
-  'nnd_browser',
+  // desktop browser surface: a core governed action surface, not lease-gated discovery.
+  'desktop_browser',
 ]);
 
 export const LEGACY_PROVIDER_TOOL_NAMES = Object.freeze([

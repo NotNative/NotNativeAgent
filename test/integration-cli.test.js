@@ -7,40 +7,40 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 import { createServer } from 'node:http';
-import { createIntegrationNndEngineHost, integrationSecretRealm, runIntegrationCommand, runNndIntegrationCommand } from '../src/integration-cli.js';
-import { assertNnoIntegrationActivation, createNndLocalIntegrationActivation, validateNnoIntegrationActivation } from '../src/nno-integration-activation.js';
+import { createIntegrationDesktopEngineHost, integrationSecretRealm, runIntegrationCommand, runDesktopIntegrationCommand } from '../src/integration-cli.js';
+import { assertNnoIntegrationActivation, createDesktopLocalIntegrationActivation, validateNnoIntegrationActivation } from '../src/nno-integration-activation.js';
 import { SecretBroker } from '../src/secret-broker.js';
 import { LOCAL_SECRET_REALM } from '../src/secret-contracts.js';
 import { trustWorkspace } from '../src/experience/trust.js';
 import { ProviderProfileStore } from '../src/provider/profile-store.js';
 import { ToolRegistry } from '../src/tool-registry.js';
-import { nativeNndPrincipal } from '../src/nnd-service-native.js';
-import { primaryNndWorkspaceBinding } from '../src/nnd-workspace-binding.js';
+import { nativeDesktopPrincipal } from '../src/desktop-service-native.js';
+import { primaryDesktopWorkspaceBinding } from '../src/desktop-workspace-binding.js';
 
-test('NND and standalone browser catalogs stay separate even with NND installed', async () => {
+test('desktop and standalone browser catalogs stay separate even with desktop installed', async () => {
   const root = createScratchSync('nna-browser-surfaces-');
   const callback = { url: 'http://127.0.0.1:4172/api/browser-control/request', token: 's'.repeat(43) };
-  const standalone = new ToolRegistry(root, { nndBrowserCallback: callback });
-  const desktop = new ToolRegistry(root, { browserSurface: 'nnd', nndBrowserCallback: callback });
-  const desktopWithoutController = new ToolRegistry(root, { browserSurface: 'nnd' });
+  const standalone = new ToolRegistry(root, { desktopBrowserCallback: callback });
+  const desktop = new ToolRegistry(root, { browserSurface: 'desktop', desktopBrowserCallback: callback });
+  const desktopWithoutController = new ToolRegistry(root, { browserSurface: 'desktop' });
   await Promise.all([standalone.initialize(), desktop.initialize(), desktopWithoutController.initialize()]);
   try {
     assert.ok(standalone.definition('web_browse'));
-    assert.equal(standalone.definition('nnd_browser'), undefined);
-    assert.ok(desktop.definition('nnd_browser'));
+    assert.equal(standalone.definition('desktop_browser'), undefined);
+    assert.ok(desktop.definition('desktop_browser'));
     assert.equal(desktop.definition('web_browse'), undefined);
-    assert.equal(desktopWithoutController.definition('nnd_browser'), undefined);
+    assert.equal(desktopWithoutController.definition('desktop_browser'), undefined);
     assert.equal(desktopWithoutController.definition('web_browse'), undefined);
   } finally {
     await Promise.all([standalone.close(), desktop.close(), desktopWithoutController.close()]);
   }
 });
 
-test('NND local service starts without NNO activation and keeps its authenticated wire contract', async () => {
-  assert.throws(() => assertNnoIntegrationActivation(createNndLocalIntegrationActivation()), {
+test('desktop local service starts without NNO activation and keeps its authenticated wire contract', async () => {
+  assert.throws(() => assertNnoIntegrationActivation(createDesktopLocalIntegrationActivation()), {
     code: 'nno_integration_activation_required',
   });
-  const root = createScratchSync('nna-nnd-cli-');
+  const root = createScratchSync('nna-desktop-cli-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify({
@@ -50,23 +50,23 @@ test('NND local service starts without NNO activation and keeps its authenticate
   }));
   const controller = new AbortController();
   const writes = [];
-  await runNndIntegrationCommand(['serve'], {
+  await runDesktopIntegrationCommand(['serve'], {
     root, config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'),
     secretVault: join(root, 'secrets', 'vault.json'), secretKey: join(root, 'secrets', 'key.json'), secretAudit: join(root, 'secrets', 'audit.ndjson'),
   }, { environment: {}, output: { write(value) { writes.push(value); queueMicrotask(() => controller.abort()); return true; } }, signal: controller.signal });
   assert.equal(writes.length, 1);
   const frame = JSON.parse(writes[0]);
   assert.equal(frame.type, 'ready');
-  assert.equal(frame.protocol, createNndLocalIntegrationActivation().protocol);
+  assert.equal(frame.protocol, createDesktopLocalIntegrationActivation().protocol);
   assert.match(frame.endpoint, /^http:\/\/127\.0\.0\.1:\d+$/u);
   assert.match(frame.token, /^[A-Za-z0-9_-]{32,512}$/u);
-  await assert.rejects(runNndIntegrationCommand(['extra'], {}, {}), { code: 'nnd_command_invalid' });
+  await assert.rejects(runDesktopIntegrationCommand(['extra'], {}, {}), { code: 'desktop_command_invalid' });
 });
 
-test('NND sessions resolve the existing local provider secret, including delegated engines', async () => {
-  assert.equal(integrationSecretRealm('nnd', 'local'), LOCAL_SECRET_REALM);
+test('desktop sessions resolve the existing local provider secret, including delegated engines', async () => {
+  assert.equal(integrationSecretRealm('desktop', 'local'), LOCAL_SECRET_REALM);
   assert.equal(integrationSecretRealm('nno', 'deployment-a'), 'nno:deployment-a');
-  const root = createScratchSync('nna-nnd-secret-route-');
+  const root = createScratchSync('nna-desktop-secret-route-');
   const paths = {
     root, config: join(root, 'config'), sessions: join(root, 'sessions'),
     reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'),
@@ -82,8 +82,8 @@ test('NND sessions resolve the existing local provider secret, including delegat
       credential: { source: 'secret', secret_id: secret.id, field: 'api_key' } }],
     routes: { primary: { provider_id: 'primary', model: 'test' } },
   }));
-  const host = await createIntegrationNndEngineHost(paths, { secretBroker: broker });
-  const principal = { subjectId: 'operator', workspaceIds: nativeNndPrincipal(root).workspaceIds };
+  const host = await createIntegrationDesktopEngineHost(paths, { secretBroker: broker });
+  const principal = { subjectId: 'operator', workspaceIds: nativeDesktopPrincipal(root).workspaceIds };
   try {
     const context = await host.create('session_secret', principal);
     const profile = context.engine.config.providerProfiles.primary;
@@ -95,8 +95,8 @@ test('NND sessions resolve the existing local provider secret, including delegat
   } finally { await host.shutdown(); }
 });
 
-test('NND service uses the local secret realm for configured provider checks', async () => {
-  const root = createScratchSync('nna-nnd-secret-service-');
+test('desktop service uses the local secret realm for configured provider checks', async () => {
+  const root = createScratchSync('nna-desktop-secret-service-');
   const paths = {
     root, config: join(root, 'config'), sessions: join(root, 'sessions'),
     reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'),
@@ -124,11 +124,11 @@ test('NND service uses the local secret realm for configured provider checks', a
     }));
     let resolveReady;
     const ready = new Promise((resolve) => { resolveReady = resolve; });
-    running = runNndIntegrationCommand(['serve'], paths, {
+    running = runDesktopIntegrationCommand(['serve'], paths, {
       environment: {}, signal: controller.signal,
       output: { write(value) { resolveReady(JSON.parse(value)); return true; } },
     });
-    const frame = await Promise.race([ready, running.then(() => { throw new Error('NND service exited before readiness'); })]);
+    const frame = await Promise.race([ready, running.then(() => { throw new Error('desktop service exited before readiness'); })]);
     const principal = {
       subject_id: 'operator', platform_role: 'operator', permissions: ['provider.test'],
       workspace_ids: [], group_ids: [], trace_id: 'provider-check',
@@ -217,8 +217,8 @@ test('legacy broker-only activation cannot start the unified authority', async (
   });
 });
 
-test('integration NND host builds governed engines from the trusted manifest', async () => {
-  const root = createScratchSync('nna-integration-nnd-host-');
+test('integration desktop host builds governed engines from the trusted manifest', async () => {
+  const root = createScratchSync('nna-integration-desktop-host-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify({
@@ -229,44 +229,44 @@ test('integration NND host builds governed engines from the trusted manifest', a
   const skillRoot = join(root, 'skills');
   await mkdir(join(skillRoot, 'review'), { recursive: true });
   await writeFile(join(skillRoot, 'review', 'SKILL.md'), [
-    '---', 'id: nnd-review', 'version: 1', 'description: Review a change',
+    '---', 'id: desktop-review', 'version: 1', 'description: Review a change',
     'invocation: both', '---', 'Review the requested change.',
   ].join('\n'));
-  const host = await createIntegrationNndEngineHost({ root, config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'), skills: skillRoot }, {
-    nndBrowserCallback: { url: 'http://127.0.0.1:4172/api/browser-control/request', token: 's'.repeat(43) },
-    nndAgentToolCallback: { url: 'http://127.0.0.1:4173/api/agent-tool/callback', token: 'a'.repeat(43) },
+  const host = await createIntegrationDesktopEngineHost({ root, config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'), skills: skillRoot }, {
+    desktopBrowserCallback: { url: 'http://127.0.0.1:4172/api/browser-control/request', token: 's'.repeat(43) },
+    desktopAgentToolCallback: { url: 'http://127.0.0.1:4173/api/agent-tool/callback', token: 'a'.repeat(43) },
   });
   assert.equal(host.workspaceRoot, root);
-  assert.deepEqual(host.nndModel, { providerID: 'primary', modelID: 'test' });
-  const initialSkills = await host.readNndSkillsInventory();
-  assert.ok(initialSkills.skills.some((skill) => skill.id === 'nnd-review'));
+  assert.deepEqual(host.desktopModel, { providerID: 'primary', modelID: 'test' });
+  const initialSkills = await host.readDesktopSkillsInventory();
+  assert.ok(initialSkills.skills.some((skill) => skill.id === 'desktop-review'));
   assert.equal(JSON.stringify(initialSkills).includes('SKILL.md'), false);
   assert.equal(JSON.stringify(initialSkills).includes('Review the requested change.'), false);
-  const principal = { subjectId: 'operator', workspaceIds: nativeNndPrincipal(root).workspaceIds };
+  const principal = { subjectId: 'operator', workspaceIds: nativeDesktopPrincipal(root).workspaceIds };
   const context = await host.create('session_a', principal);
   assert.equal(context.engine.sessionId, 'session_a');
   assert.equal(context.engine.emitContextStatus, true);
-  assert.equal(context.engine.surface, 'nnd');
-  assert.equal(context.engine.tools.definition('nnd_browser')?.scope, 'browser');
+  assert.equal(context.engine.surface, 'desktop');
+  assert.equal(context.engine.tools.definition('desktop_browser')?.scope, 'browser');
   assert.equal(context.engine.tools.definition('openchamber_memory')?.scope, 'memory');
   assert.equal(context.engine.tools.definition('web_browse'), undefined);
-  assert.ok(context.engine.skills.catalog().some((skill) => skill.id === 'nnd-review'));
+  assert.ok(context.engine.skills.catalog().some((skill) => skill.id === 'desktop-review'));
   await writeFile(join(skillRoot, 'review', 'SKILL.md'), [
-    '---', 'id: nnd-review', 'version: 2', 'description: Review a newer change',
+    '---', 'id: desktop-review', 'version: 2', 'description: Review a newer change',
     'invocation: both', '---', 'Review the newer requested change.',
   ].join('\n'));
-  const refreshedSkills = await host.readNndSkillsInventory();
-  assert.equal(refreshedSkills.skills.find((skill) => skill.id === 'nnd-review').version, '2');
-  assert.equal(context.engine.skills.catalog().find((skill) => skill.id === 'nnd-review').version, '1');
+  const refreshedSkills = await host.readDesktopSkillsInventory();
+  assert.equal(refreshedSkills.skills.find((skill) => skill.id === 'desktop-review').version, '2');
+  assert.equal(context.engine.skills.catalog().find((skill) => skill.id === 'desktop-review').version, '1');
   const failedSkillRoot = join(root, 'bad-bundled');
   await mkdir(join(failedSkillRoot, 'invalid'), { recursive: true });
   await writeFile(join(failedSkillRoot, 'invalid', 'SKILL.md'), 'invalid skill file');
-  const failedHost = await createIntegrationNndEngineHost({
+  const failedHost = await createIntegrationDesktopEngineHost({
     root, config: configRoot, sessions: join(root, 'failed-sessions'), reviewerLedger: join(root, 'failed-reviewer'),
     hooks: join(root, 'hooks'), skills: skillRoot,
   }, { skillRoots: [{ scope: 'bundled', path: failedSkillRoot }] });
-  await assert.rejects(failedHost.readNndSkillsInventory(), (error) => {
-    assert.equal(error.code, 'nnd_skills_unavailable');
+  await assert.rejects(failedHost.readDesktopSkillsInventory(), (error) => {
+    assert.equal(error.code, 'desktop_skills_unavailable');
     assert.equal(error.message.includes('SKILL.md'), false);
     assert.equal(error.message.includes(root), false);
     return true;
@@ -285,7 +285,7 @@ test('integration NND host builds governed engines from the trusted manifest', a
 });
 
 test('an admitted alternate workspace stays untrusted when the trust store path is absent', async () => {
-  const root = createScratchSync('nna-nnd-alternate-trust-');
+  const root = createScratchSync('nna-desktop-alternate-trust-');
   const alternate = join(root, 'alternate');
   const configRoot = join(root, 'config');
   await Promise.all([mkdir(configRoot, { recursive: true }), mkdir(alternate)]);
@@ -301,9 +301,9 @@ test('an admitted alternate workspace stays untrusted when the trust store path 
     routes: { primary: { provider_id: 'primary', model: 'test' } },
   }));
   const [primaryBinding, alternateBinding] = await Promise.all([
-    primaryNndWorkspaceBinding(root), primaryNndWorkspaceBinding(alternate),
+    primaryDesktopWorkspaceBinding(root), primaryDesktopWorkspaceBinding(alternate),
   ]);
-  const host = await createIntegrationNndEngineHost({ root, config: configRoot,
+  const host = await createIntegrationDesktopEngineHost({ root, config: configRoot,
     sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') }, {
     workspaceAdmissionService: { inventory: async () => ({ attached: primaryBinding, admitted: [alternateBinding] }) },
   });
@@ -316,7 +316,7 @@ test('an admitted alternate workspace stays untrusted when the trust store path 
   } finally { await host.shutdown(); }
 });
 
-test('provider route activation changes future NND sessions without mutating existing engines', async () => {
+test('provider route activation changes future desktop sessions without mutating existing engines', async () => {
   const root = createScratchSync('nna-route-activation-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
@@ -327,10 +327,10 @@ test('provider route activation changes future NND sessions without mutating exi
     ], routes: { primary: { provider_id: 'old', model: 'old-model' } } };
   const manifestPath = join(configRoot, 'manifest.json');
   await writeFile(manifestPath, JSON.stringify(document));
-  const host = await createIntegrationNndEngineHost({ root, config: configRoot, sessions: join(root, 'sessions'),
+  const host = await createIntegrationDesktopEngineHost({ root, config: configRoot, sessions: join(root, 'sessions'),
     reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') });
   const profiles = new ProviderProfileStore({ configRoot });
-  const principal = { subjectId: 'operator', workspaceIds: nativeNndPrincipal(root).workspaceIds };
+  const principal = { subjectId: 'operator', workspaceIds: nativeDesktopPrincipal(root).workspaceIds };
   try {
     assert.equal((await profiles.inventory(host.providerRoutingPending)).provider_routing_pending, false);
     const before = await host.create('session_before', principal);
@@ -347,7 +347,7 @@ test('provider route activation changes future NND sessions without mutating exi
     assert.equal(after.engine.config.routes.subagent.providerId, 'new');
     assert.equal(after.engine.config.providerProfiles.old, undefined);
     assert.ok(before.engine.config.providerProfiles.old);
-    assert.deepEqual(host.nndAgentInventory.route, { providerID: 'new', modelID: 'new-model' });
+    assert.deepEqual(host.desktopAgentInventory.route, { providerID: 'new', modelID: 'new-model' });
     document.providers.push({ id: 'third', endpoint: 'http://127.0.0.1:3234/v1', model: 'third-model', trust_zone: 'loopback' });
     document.routes.subagent = { provider_id: 'third', model: 'third-model' };
     await writeFile(manifestPath, JSON.stringify(document));
@@ -355,55 +355,55 @@ test('provider route activation changes future NND sessions without mutating exi
     assert.deepEqual((await profiles.inventory(host.providerRoutingPending)).configured_primary_route,
       { providerID: 'new', modelID: 'new-model' });
     await host.activateProviderRoute();
-    assert.deepEqual(host.nndAgentInventory.route, { providerID: 'third', modelID: 'third-model' });
+    assert.deepEqual(host.desktopAgentInventory.route, { providerID: 'third', modelID: 'third-model' });
     assert.equal((await profiles.inventory(host.providerRoutingPending)).provider_routing_pending, false);
-    assert.deepEqual(host.get('session_before', principal).metadata.nnd.configuredModel,
+    assert.deepEqual(host.get('session_before', principal).metadata.desktop.configuredModel,
       { providerID: 'old', modelID: 'old-model' });
-    assert.deepEqual(host.get('session_after', principal).metadata.nnd.configuredModel,
+    assert.deepEqual(host.get('session_after', principal).metadata.desktop.configuredModel,
       { providerID: 'new', modelID: 'new-model' });
     document.workspace_root = join(root, 'other');
     await writeFile(manifestPath, JSON.stringify(document));
-    await assert.rejects(host.activateProviderRoute(), { code: 'nnd_manifest_invalid' });
-    assert.deepEqual(host.nndModel, { providerID: 'new', modelID: 'new-model' });
+    await assert.rejects(host.activateProviderRoute(), { code: 'desktop_manifest_invalid' });
+    assert.deepEqual(host.desktopModel, { providerID: 'new', modelID: 'new-model' });
   } finally { await host.shutdown(); }
 });
 
-test('NND integration bounds manifest bytes on startup and route refresh', async () => {
-  const root = createScratchSync('nna-nnd-manifest-bound-');
+test('desktop integration bounds manifest bytes on startup and route refresh', async () => {
+  const root = createScratchSync('nna-desktop-manifest-bound-');
   const configRoot = join(root, 'config');
   const manifestPath = join(configRoot, 'manifest.json');
   const paths = { root, config: configRoot, sessions: join(root, 'sessions'),
     reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') };
   await mkdir(configRoot, { recursive: true });
   await writeFile(manifestPath, ' '.repeat(1_048_577));
-  await assert.rejects(createIntegrationNndEngineHost(paths), { code: 'manifest_too_large' });
+  await assert.rejects(createIntegrationDesktopEngineHost(paths), { code: 'manifest_too_large' });
   await writeFile(manifestPath, JSON.stringify({ format_version: 1, persistence: 'ephemeral', workspace_root: root,
     providers: [{ id: 'local', endpoint: 'http://127.0.0.1:1234/v1', model: 'fixture', trust_zone: 'loopback' }],
     routes: { primary: { provider_id: 'local', model: 'fixture' } } }));
-  const host = await createIntegrationNndEngineHost(paths);
+  const host = await createIntegrationDesktopEngineHost(paths);
   try {
     await writeFile(manifestPath, ' '.repeat(1_048_577));
     await assert.rejects(host.activateProviderRoute(), { code: 'manifest_too_large' });
     await writeFile(manifestPath, Buffer.from([0xff]));
-    await assert.rejects(host.activateProviderRoute(), { code: 'nnd_manifest_invalid' });
+    await assert.rejects(host.activateProviderRoute(), { code: 'desktop_manifest_invalid' });
     await rm(manifestPath);
     await mkdir(manifestPath);
-    await assert.rejects(host.activateProviderRoute(), { code: 'nnd_manifest_invalid' });
+    await assert.rejects(host.activateProviderRoute(), { code: 'desktop_manifest_invalid' });
   } finally { await host.shutdown(); }
 });
 
-test('NND integration rejects a named-pipe manifest without blocking startup', { skip: process.platform === 'win32' }, async () => {
-  const root = createScratchSync('nna-nnd-manifest-pipe-');
+test('desktop integration rejects a named-pipe manifest without blocking startup', { skip: process.platform === 'win32' }, async () => {
+  const root = createScratchSync('nna-desktop-manifest-pipe-');
   const configRoot = join(root, 'config');
   await mkdir(configRoot, { recursive: true });
   execFileSync('mkfifo', [join(configRoot, 'manifest.json')]);
   const paths = { root, config: configRoot, sessions: join(root, 'sessions'),
     reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') };
-  await assert.rejects(createIntegrationNndEngineHost(paths), { code: 'nnd_manifest_invalid' });
+  await assert.rejects(createIntegrationDesktopEngineHost(paths), { code: 'desktop_manifest_invalid' });
 });
 
-test('NND skills include project roots only after workspace trust', async () => {
-  const root = createScratchSync('nna-nnd-project-skills-');
+test('desktop skills include project roots only after workspace trust', async () => {
+  const root = createScratchSync('nna-desktop-project-skills-');
   const configRoot = join(root, 'config');
   const projectSkills = join(root, '.nna', 'skills', 'project-review');
   const trustPath = join(root, 'trust.json');
@@ -420,12 +420,12 @@ test('NND skills include project roots only after workspace trust', async () => 
   ].join('\n'));
   const paths = { root, config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'),
     hooks: join(root, 'hooks'), trustedWorkspaces: trustPath };
-  const before = await createIntegrationNndEngineHost(paths);
-  assert.equal((await before.readNndSkillsInventory()).skills.some((skill) => skill.id === 'project-review'), false);
+  const before = await createIntegrationDesktopEngineHost(paths);
+  assert.equal((await before.readDesktopSkillsInventory()).skills.some((skill) => skill.id === 'project-review'), false);
   await before.shutdown();
   await trustWorkspace(trustPath, root);
-  const after = await createIntegrationNndEngineHost(paths);
-  assert.equal((await after.readNndSkillsInventory()).skills.some((skill) => skill.id === 'project-review'), true);
+  const after = await createIntegrationDesktopEngineHost(paths);
+  assert.equal((await after.readDesktopSkillsInventory()).skills.some((skill) => skill.id === 'project-review'), true);
   await after.shutdown();
 });
 

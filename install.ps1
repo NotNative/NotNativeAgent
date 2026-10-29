@@ -97,7 +97,7 @@ function Stop-OpencodeServiceBeforePayloadReplacement([string]$SelectedNode, [st
 }
 
 function Stop-DesktopBeforePayloadReplacement([string]$SelectedNode, [string]$SelectedInstallRoot, [string]$SelectedDataRoot) {
-    if (-not (Test-Path -LiteralPath (Join-Path $SelectedDataRoot 'config\nnd-package.json'))) { return $false }
+    if (-not (Test-Path -LiteralPath (Join-Path $SelectedDataRoot 'config\desktop-package.json'))) { return $false }
     $SelectedCli = Join-Path $SelectedInstallRoot 'installed\src\cli.js'
     $WaitHelper = Join-Path $SourceRoot 'desktop\scripts\installer-wait-stopped.mjs'
     if (-not (Test-Path -LiteralPath $WaitHelper -PathType Leaf)) { throw 'Desktop stop verification helper is missing; existing runtime files were preserved.' }
@@ -115,7 +115,7 @@ function Stop-DesktopBeforePayloadReplacement([string]$SelectedNode, [string]$Se
             return $false
         }
         Write-InstallerStep 'Desktop service running - stopping service before replacing NNA runtime files' | Out-Host
-        & $SelectedNode --disable-warning=ExperimentalWarning $SelectedCli nnd service stop $SelectedInstallRoot | Out-Null
+        & $SelectedNode --disable-warning=ExperimentalWarning $SelectedCli desktop service stop $SelectedInstallRoot | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'Desktop service stop failed; existing runtime files were preserved.' }
         & $SelectedNode --disable-warning=ExperimentalWarning $WaitHelper $SelectedInstallRoot $SelectedDataRoot | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'Desktop service shutdown was not verified; existing runtime files were preserved.' }
@@ -128,7 +128,7 @@ function Restore-DesktopAfterPayloadReplacement([string]$SelectedNode, [string]$
     $env:NNA_HOME = $SelectedDataRoot
     try {
         Write-InstallerStep 'Starting previously running desktop service on the updated NNA and desktop packages' | Out-Host
-        $ResultText = & $SelectedNode --disable-warning=ExperimentalWarning (Join-Path $SelectedInstallRoot 'installed\src\cli.js') nnd service start $SelectedInstallRoot
+        $ResultText = & $SelectedNode --disable-warning=ExperimentalWarning (Join-Path $SelectedInstallRoot 'installed\src\cli.js') desktop service start $SelectedInstallRoot
         if ($LASTEXITCODE -ne 0) { throw 'Updated desktop service failed to start.' }
         $Deadline = [DateTime]::UtcNow.AddSeconds(120)
         do {
@@ -139,7 +139,7 @@ function Restore-DesktopAfterPayloadReplacement([string]$SelectedNode, [string]$
             }
             if ($Result.service_state -notin @('starting', 'ready', 'setup_required')) { break }
             Start-Sleep -Milliseconds 500
-            $ResultText = & $SelectedNode --disable-warning=ExperimentalWarning (Join-Path $SelectedInstallRoot 'installed\src\cli.js') nnd service status $SelectedInstallRoot
+            $ResultText = & $SelectedNode --disable-warning=ExperimentalWarning (Join-Path $SelectedInstallRoot 'installed\src\cli.js') desktop service status $SelectedInstallRoot
             if ($LASTEXITCODE -ne 0) { throw 'Updated desktop service status could not be verified.' }
         } while ([DateTime]::UtcNow -lt $Deadline)
         throw "Updated desktop service did not confirm the expected package (state=$($Result.service_state), version=$($Result.package_version), expected=$ExpectedVersion)."
@@ -533,7 +533,7 @@ for ($Attempt = 0; $Attempt -lt 2; $Attempt++) {
     catch { $ManifestFinding = $null }
     $ManifestCode = if ($ManifestFinding.code -match '^[a-z][a-z0-9_]{0,63}$') { [string]$ManifestFinding.code } else { 'manifest_check_unavailable' }
     $ManifestDetail = ''
-    if ($ManifestFinding.helper -match '^nnd_private_[a-z_]{1,50}$') { $ManifestDetail += " helper=$($ManifestFinding.helper)" }
+    if ($ManifestFinding.helper -match '^desktop_private_[a-z_]{1,50}$') { $ManifestDetail += " helper=$($ManifestFinding.helper)" }
     if ($ManifestFinding.stage -in @('request', 'ancestors', 'manifest_file', 'storage_directory', 'storage_entry')) { $ManifestDetail += " stage=$($ManifestFinding.stage)" }
     # Invariant: retry helper availability only; a rejected target never gets another admission attempt.
     if ($ManifestCode -ne 'manifest_target_unavailable') { break }
@@ -913,8 +913,8 @@ Write-InstallerOk $InstalledVersion
 
 # Desktop component (one product): ONE dedicated section performs every
 # desktop-related operation. A registered desktop package is upgraded with
-# this NNA install (a stale NND package under a new NNA runtime is exactly
-# the nnd_service_crashed failure observed live); an unregistered one is
+# this NNA install (a stale desktop package under a new NNA runtime is exactly
+# the desktop_service_crashed failure observed live); an unregistered one is
 # offered as an optional install (default No, [y/N] convention;
 # -InstallDesktop answers Yes for unattended runs). The section runs after
 # Verification so the desktop installer's NNA selection pins the verified
@@ -925,8 +925,8 @@ Write-InstallerOk $InstalledVersion
 # Stop a piped stderr record becomes a terminating error (the desktop
 # installer's own header documents this proven failure mode; reproduced
 # here 2026-10-14).
-$NndRegistrationPath = Join-Path $DataRoot 'config\nnd-package.json'
-$DesktopRegistered = Test-Path -LiteralPath $NndRegistrationPath
+$DesktopRegistrationPath = Join-Path $DataRoot 'config\desktop-package.json'
+$DesktopRegistered = Test-Path -LiteralPath $DesktopRegistrationPath
 function New-DesktopInstallLogPath([string]$Root) {
     # Invariant: the restarted service may retain the previous installer log
     # handle. Each attempt must use a new file for status, build, and handoff.
@@ -947,15 +947,15 @@ function Invoke-DesktopInstaller {
     $ErrorActionPreference = 'Continue'
     try {
         # The root installer can download Node without changing this process's
-        # PATH. NND's source build needs that selected runtime and pnpm.
+        # PATH. The desktop source build needs that selected runtime and pnpm.
         $env:PATH = "$(Split-Path -Parent $NodePath);$env:PATH"
         $desktopArguments = @('-NnaInstallRoot', $InstallRoot, '-NnaDataRoot', $DataRoot)
         if ($DesktopRegistered) {
-            # Invariant: a registered custom NND root is upgraded in place.
+            # Invariant: a registered custom desktop root is upgraded in place.
             $priorNnaHome = $env:NNA_HOME
             $env:NNA_HOME = $DataRoot
             try {
-                $statusText = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') nnd package status 2>$DesktopInstallLog
+                $statusText = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') desktop package status 2>$DesktopInstallLog
                 if ($LASTEXITCODE -ne 0) { throw 'The registered desktop package could not be inspected.' }
                 $status = $statusText | ConvertFrom-Json
                 if ($status.registered -ne $true -or $status.root -isnot [string] -or
@@ -1003,11 +1003,11 @@ function Invoke-DesktopInstaller {
             @{ Pattern = 'Installing dependencies|Dependencies already installed'; Message = 'Checking desktop dependencies' },
             @{ Pattern = 'Building shell artifacts'; Message = 'Building desktop app' },
             @{ Pattern = 'build green|verified build reused'; Message = 'Desktop build ready' },
-            @{ Pattern = 'Registering NND package with NNA'; Message = 'Registering desktop package' },
+            @{ Pattern = 'Registering desktop package with NNA'; Message = 'Registering desktop package' },
             @{ Pattern = 'Creating shortcuts'; Message = 'Creating desktop shortcuts' },
-            @{ Pattern = 'Starting previously running NND service'; Message = 'Starting service' },
-            @{ Pattern = 'Previously running NND service restarted'; Message = 'Service ready on updated package' },
-            @{ Pattern = 'NotNativeDesktop installed'; Message = 'Desktop script finished; verifying installed package' }
+            @{ Pattern = 'Starting previously running desktop service'; Message = 'Starting service' },
+            @{ Pattern = 'Previously running desktop service restarted'; Message = 'Service ready on updated package' },
+            @{ Pattern = 'Desktop installed'; Message = 'Desktop script finished; verifying installed package' }
         )
         $reported = @{}
         $startedAt = Get-Date
@@ -1037,7 +1037,7 @@ function Invoke-DesktopInstaller {
         try {
             # The restarted service may still hold the installer log open.
             # Verification must not append to either inherited file handle.
-            $statusText = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') nnd package status 2>$null
+            $statusText = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') desktop package status 2>$null
             if ($LASTEXITCODE -ne 0) { throw 'The installed desktop package could not be inspected.' }
             $status = $statusText | ConvertFrom-Json
             if ($status.registered -ne $true -or $status.valid -ne $true -or $status.version -cne $Version -or
@@ -1081,7 +1081,7 @@ $DesktopScript = Join-Path $SourceRoot 'desktop\install.cmd'
 $DesktopInstallFailed = $false
 if (-not (Test-Path -LiteralPath $DesktopScript)) {
     if ($DesktopRegistered) {
-        Write-InstallerWarning "An NND desktop package is registered but $DesktopScript is missing from this source tree; the desktop package was NOT upgraded."
+        Write-InstallerWarning "A desktop package is registered but $DesktopScript is missing from this source tree; the desktop package was NOT upgraded."
         Write-InstallerWarning "Run it manually after this install: desktop\install.cmd"
         $DesktopInstallFailed = $true
     } elseif ($InstallDesktop) {
@@ -1091,7 +1091,7 @@ if (-not (Test-Path -LiteralPath $DesktopScript)) {
         Write-InstallerSkip 'Desktop component not present in this source tree; skipped.'
     }
 } elseif ($DesktopRegistered) {
-    Write-InstallerStep 'An NND desktop package is registered; upgrading it with this NNA install'
+    Write-InstallerStep 'A desktop package is registered; upgrading it with this NNA install'
     $DesktopExit = Invoke-DesktopInstaller
     if ($DesktopExit -eq 0) {
         if ($DesktopStoppedForUpgrade) { Restore-DesktopAfterPayloadReplacement $NodePath $InstallRoot $DataRoot $Version }

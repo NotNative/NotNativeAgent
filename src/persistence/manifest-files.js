@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { lstat, realpath, statfs, open, mkdir, opendir, rename, link, unlink } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from '../ids.js';
-import { PRIVATE_ACL_PROGRAM, runPrivateWindowsProgram } from '../nnd-service-private-windows.js';
+import { PRIVATE_ACL_PROGRAM, runPrivateWindowsProgram } from '../desktop-service-private-windows.js';
 
 export const MANIFEST_LIMIT = 1024 * 1024;
 export const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -25,7 +25,7 @@ try {
   $request = [Console]::In.ReadToEnd() | ConvertFrom-Json
   $parent = [IO.Path]::GetFullPath([string]$request.parent)
   $drive = [IO.DriveInfo]::new([IO.Path]::GetPathRoot($parent))
-  if ($drive.DriveType -ne [IO.DriveType]::Fixed) { throw 'nnd_private_path_invalid' }
+  if ($drive.DriveType -ne [IO.DriveType]::Fixed) { throw 'desktop_private_path_invalid' }
   $checkStage = 'ancestors'
   Assert-Ancestors $parent
   $checkStage = 'manifest_file'
@@ -35,7 +35,7 @@ try {
     foreach ($rule in $targetAcl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])) {
       if ($rule.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
         $trusted -notcontains $rule.IdentityReference.Value -and ([int]$rule.FileSystemRights -band 0x40000116)) {
-        throw 'nnd_private_acl_unsafe'
+        throw 'desktop_private_acl_unsafe'
       }
     }
   }
@@ -47,31 +47,31 @@ try {
   $count = 0
   foreach ($entry in [IO.Directory]::EnumerateFileSystemEntries([string]$request.storage)) {
     $count++
-    if ($count -gt 260) { throw 'nnd_private_path_invalid' }
+    if ($count -gt 260) { throw 'desktop_private_path_invalid' }
     $info = [IO.FileInfo]::new($entry)
     if (-not $info.Exists) { continue }
-    if (($info.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'nnd_private_path_invalid' }
+    if (($info.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'desktop_private_path_invalid' }
     try { $acl = $info.GetAccessControl() }
     catch [IO.FileNotFoundException] { continue }
     catch [IO.DirectoryNotFoundException] { continue }
     Assert-Acl $acl $false
     # Security: an elevated process may create an entry owned by Administrators; trusted ownership and an explicit operator grant preserve control.
-    if ($trusted -notcontains $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value) { throw 'nnd_private_acl_unsafe' }
+    if ($trusted -notcontains $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value) { throw 'desktop_private_acl_unsafe' }
     $rules = $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])
     $operatorFull = $false
     foreach ($rule in $rules) {
-      if ($rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or $trusted -notcontains $rule.IdentityReference.Value) { throw 'nnd_private_acl_unsafe' }
+      if ($rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or $trusted -notcontains $rule.IdentityReference.Value) { throw 'desktop_private_acl_unsafe' }
       if ($rule.IdentityReference.Value -eq $operatorSid -and
         -not ($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) -and
         (([int]$rule.FileSystemRights -band 0x1F01FF) -eq 0x1F01FF)) { $operatorFull = $true }
     }
-    if (-not $operatorFull) { throw 'nnd_private_acl_unsafe' }
+    if (-not $operatorFull) { throw 'desktop_private_acl_unsafe' }
   }
   [Console]::Out.WriteLine('{"ok":true}')
 } catch {
   $code = [string]$_.Exception.Message
-  if ($code -notin @('nnd_private_path_invalid', 'nnd_private_namespace_unsafe', 'nnd_private_acl_unsafe')) {
-    $code = 'nnd_private_storage_unavailable'
+  if ($code -notin @('desktop_private_path_invalid', 'desktop_private_namespace_unsafe', 'desktop_private_acl_unsafe')) {
+    $code = 'desktop_private_storage_unavailable'
   }
   [Console]::Out.WriteLine((@{error_code=$code; check_stage=$checkStage} | ConvertTo-Json -Compress))
   exit 1
@@ -95,7 +95,7 @@ export async function manifestTarget(path, { signal, prepareStorage = true } = {
     try { await runPrivateWindowsProgram(WINDOWS_DIRECTORY, { parent, storage, target: canonical, prepareStorage }, signal); }
     catch (error) {
       // Invariant: helper unavailability cannot prove the path is unsafe or admit it.
-      const unsafe = ['nnd_private_path_invalid', 'nnd_private_namespace_unsafe', 'nnd_private_acl_unsafe'];
+      const unsafe = ['desktop_private_path_invalid', 'desktop_private_namespace_unsafe', 'desktop_private_acl_unsafe'];
       const failure = manifestFailure(unsafe.includes(error?.code) ? 'manifest_target_unsafe' : 'manifest_target_unavailable');
       failure.manifestHelperCode = error?.code;
       failure.manifestCheckStage = error?.checkStage;

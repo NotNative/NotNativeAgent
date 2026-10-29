@@ -64,7 +64,7 @@ export function parseCli(argv) {
 const MODES = new Set([
   'tui', 'text', 'headless', 'host', 'session', 'sessions', 'websearch', 'skills', 'gateway',
   'webfetch', 'webbrowse', 'provider', 'secrets', 'uninstall', 'help', 'version', '--help', '-h', '--version', '-v',
-  'update', 'integration', 'nnd', 'desktop', 'opencode',
+  'update', 'integration', 'desktop', 'desktop', 'opencode',
 ]);
 
 // Why: `run` is the managed runtime entry point used by the wiring service's
@@ -130,7 +130,7 @@ export const INVOCATION_VOCABULARY = Object.freeze({
       effect: 'requests the update check for the update subcommand' }),
     Object.freeze({ flag: '--delete-user-data', aliases: Object.freeze([]), argument: 'none',
       modes: Object.freeze(['uninstall']), headless: false, option: 'prompt',
-      effect: 'uninstall choice that explicitly deletes NND user data (destructive)' }),
+      effect: 'uninstall choice that explicitly deletes desktop user data (destructive)' }),
     Object.freeze({ flag: '--help', aliases: Object.freeze(['-h']), argument: 'none',
       modes: '*', headless: true, option: null,
       effect: 'informational usage output; no configuration effect (a mode selector)' }),

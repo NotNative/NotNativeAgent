@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-/** NNA-issued renewable scoped capability for the supervised NND service
+/** NNA-issued renewable scoped capability for the supervised desktop service
  *  (execution guide 02 L3). A static five-minute principal envelope must not
  *  serve as a permanent service credential: the supervisor issues HMAC-bound
  *  capabilities, renews them without authority expansion, and revokes or
@@ -99,7 +99,7 @@ function validatedOptions({ generation, key, keyId, ttlMs, graceMs, skewMs, now 
 function authorityFields(source, state) {
   if (!state.boundGeneration) throw new ContractError('capability_invalid', 'generation is not bound');
   return {
-    key_id: state.activeKeyId, generation: state.boundGeneration, scope: 'nnd-service',
+    key_id: state.activeKeyId, generation: state.boundGeneration, scope: 'desktop-service',
     subject_id: source.subject_id, platform_role: source.platform_role,
     permissions: source.permissions, workspace_ids: source.workspace_ids,
     group_ids: source.group_ids,

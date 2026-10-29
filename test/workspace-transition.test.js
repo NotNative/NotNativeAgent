@@ -234,12 +234,12 @@ test('workspace_change is unavailable under an authenticated host capability cei
   await registry.close();
 });
 
-test('NND parent and child surfaces reject workspace transition and durable restart retains the primary root', async t => {
-  const parent = await mkdtemp(join(tmpdir(), 'nna-nnd-workspace-binding-'));
+test('desktop parent and child surfaces reject workspace transition and durable restart retains the primary root', async t => {
+  const parent = await mkdtemp(join(tmpdir(), 'nna-desktop-workspace-binding-'));
   t.after(() => rm(parent, { recursive: true, force: true }));
   const initial = join(parent, 'initial'), target = join(parent, 'target');
   await mkdir(initial); await mkdir(target);
-  const options = { config: config(initial, 'durable'), sessionId: 'nnd-primary-session', surface: 'nnd',
+  const options = { config: config(initial, 'durable'), sessionId: 'desktop-primary-session', surface: 'desktop',
     storeRoot: join(parent, 'sessions'), reviewerRoot: join(parent, 'reviewers'),
     governanceRoot: join(parent, 'governance'), telemetryRoot: join(parent, 'telemetry') };
   const engine = new SessionEngine({ ...options, providerFactory: () => new WorkspaceProvider(target),
@@ -248,23 +248,23 @@ test('NND parent and child surfaces reject workspace transition and durable rest
   assert.equal(engine.tools.definition('workspace_change'), undefined);
   await assert.rejects(engine.changeWorkspace(target), { code: 'workspace_change_forbidden' });
   await assert.rejects(restoreEngineWorkspace(engine, target), { code: 'workspace_change_forbidden' });
-  await engine.submit({ request_id: 'nnd-transition-attempt', content: `Move this conversation into ${target}.` },
-    'authenticated-nnd-operator');
+  await engine.submit({ request_id: 'desktop-transition-attempt', content: `Move this conversation into ${target}.` },
+    'authenticated-desktop-operator');
   assert.equal(engine.config.workspaceRoot, initial);
   assert.equal(engine.tools.paths.root, initial);
-  await engine.shutdown({ type: 'shutdown', request_id: 'nnd-first-shutdown' });
+  await engine.shutdown({ type: 'shutdown', request_id: 'desktop-first-shutdown' });
   const restored = new SessionEngine({ ...options, providerFactory: () => ({
     async *stream() { yield { type: 'terminal', finishReason: 'stop' }; },
   }) });
   await restored.initialize();
   assert.equal(restored.config.workspaceRoot, initial);
-  await restored.shutdown({ type: 'shutdown', request_id: 'nnd-restored-shutdown' });
-  const child = new SessionEngine({ config: config(initial), surface: 'nnd_subagent',
+  await restored.shutdown({ type: 'shutdown', request_id: 'desktop-restored-shutdown' });
+  const child = new SessionEngine({ config: config(initial), surface: 'desktop_subagent',
     providerFactory: () => ({ async *stream() { yield { type: 'terminal', finishReason: 'stop' }; } }) });
   await child.initialize();
   assert.equal(child.tools.definition('workspace_change'), undefined);
   await assert.rejects(child.changeWorkspace(target), { code: 'workspace_change_forbidden' });
-  await child.shutdown({ type: 'shutdown', request_id: 'nnd-child-shutdown' });
+  await child.shutdown({ type: 'shutdown', request_id: 'desktop-child-shutdown' });
 });
 
 test('durable session recovery restores the last reviewed working directory', async () => {

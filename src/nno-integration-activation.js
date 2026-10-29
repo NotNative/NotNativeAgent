@@ -15,8 +15,8 @@ const validated = new WeakSet();
 const localValidated = new WeakSet();
 
 // Security: this local activation is constructed only inside NNA, never from caller data.
-export function createNndLocalIntegrationActivation() {
-  const activation = Object.freeze({ installRoot: null, manifestPath: null, protocol: INTEGRATION_PROTOCOL, deploymentId: 'nnd-local' });
+export function createDesktopLocalIntegrationActivation() {
+  const activation = Object.freeze({ installRoot: null, manifestPath: null, protocol: INTEGRATION_PROTOCOL, deploymentId: 'desktop-local' });
   localValidated.add(activation);
   return activation;
 }

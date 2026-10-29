@@ -157,7 +157,7 @@ test('bus can scope a shared workspace to its authenticated principal', () => {
   bus.close();
 });
 
-test('bus requires the complete workspace grant for a multi-workspace NND event', () => {
+test('bus requires the complete workspace grant for a multi-workspace desktop event', () => {
   const bus = createWireEventBus();
   const full = [];
   const partial = [];
@@ -198,7 +198,7 @@ test('session checkpoint replays only later events to its owner and fails across
     subjectId: 'operator', workspaceIds: ['primary'] };
   const cursor = bus.checkpointSession(scope);
   assert.match(cursor, /^evt_/u);
-  bus.publishSession({ ...scope, type: 'nnd.activity', properties: { sessionID: 's', id: 'later' } });
+  bus.publishSession({ ...scope, type: 'desktop.activity', properties: { sessionID: 's', id: 'later' } });
   const owned = [];
   bus.subscribe(fakeRes(owned), { lastEventId: cursor, subjectId: 'operator', workspaceIds: ['primary'] });
   assert.equal(payload(owned, 0).payload.properties.replayStatus, 'complete');

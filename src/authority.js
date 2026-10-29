@@ -187,7 +187,7 @@ export class AuthorityRecord {
 function validRestoredOrigin(value) {
   if (typeof value === 'string') return true;
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  // Security: NNO principals carry the complete envelope; NND session hosts can
+  // Security: NNO principals carry the complete envelope; desktop session hosts can
   // supply a smaller authenticated principal. Recovery accepts only owned fields.
   const keys = ['subjectId', 'platformRole', 'permissions', 'workspaceIds', 'groupIds', 'traceId', 'issuedAt', 'requestId'];
   const bounded = (text) => typeof text === 'string' && text.trim().length > 0 && text.length <= 256

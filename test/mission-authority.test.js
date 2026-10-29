@@ -129,15 +129,15 @@ test('authenticated origin is owned before admission and cannot be rewritten thr
   assert.deepEqual(restored.snapshot(resolveManifest({ provider })).intent[0].origin, admitted.origin);
 });
 
-test('bounded NND principals keep their sparse authenticated shape through recovery', () => {
+test('bounded desktop principals keep their sparse authenticated shape through recovery', () => {
   const authority = new AuthorityRecord();
-  const principal = { subjectId: 'owner', workspaceIds: ['workspace_a'], permissions: ['nnd.session.submit'] };
+  const principal = { subjectId: 'owner', workspaceIds: ['workspace_a'], permissions: ['desktop.session.submit'] };
   const admitted = authority.addAuthenticatedIntent('Ask me a question', principal);
   principal.workspaceIds[0] = 'different';
   const restored = new AuthorityRecord();
   restored.restore([admitted]);
   assert.deepEqual(restored.snapshot(resolveManifest({ provider })).intent[0].origin,
-    { subjectId: 'owner', workspaceIds: ['workspace_a'], permissions: ['nnd.session.submit'] });
+    { subjectId: 'owner', workspaceIds: ['workspace_a'], permissions: ['desktop.session.submit'] });
 });
 
 test('sparse origin ownership excludes absent fields and rejects hidden authority metadata', () => {

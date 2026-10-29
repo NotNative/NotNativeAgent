@@ -5,7 +5,7 @@ import { McpManager } from '../mcp-manager.js';
 import { ModelRouter } from '../provider/router.js';
 import { InteractivePermissionBroker } from '../permission-broker.js';
 import { QuestionBroker } from '../question-broker.js';
-import { nndQuestionBroker } from '../nnd-questions.js';
+import { desktopQuestionBroker } from '../desktop-questions.js';
 import { ProviderRunner } from '../provider/runner.js';
 import { RoutedSemanticReviewer } from '../provider/model-reviewer.js';
 import { ReviewerLedger } from '../persistence/reviewer-ledger.js';
@@ -13,7 +13,7 @@ import { MandatoryReviewer } from '../reviewer.js';
 import { mandatoryReviewEventTimeout, ToolGovernor } from '../tools/governor.js';
 import { ToolLoop } from '../tools/loop.js';
 import { ToolRegistry } from '../tool-registry.js';
-import { nndToolWorkspaceIdentityCheck } from '../nnd-workspace-binding.js';
+import { desktopToolWorkspaceIdentityCheck } from '../desktop-workspace-binding.js';
 import { FairScheduler } from '../provider/fair-scheduler.js';
 import { userDataPaths } from '../product.js';
 import { HookRuntime } from '../hook-runtime.js';
@@ -117,7 +117,7 @@ function installExtensions(engine, options) {
 
 function boundedToolSurface(engine, options) {
   // Security: selected desktop sessions must not inherit the Console's host-wide file paths.
-  return engine.config.executionManifest !== null || options.surface === 'nnd' || options.surface === 'nnd_subagent';
+  return engine.config.executionManifest !== null || options.surface === 'desktop' || options.surface === 'desktop_subagent';
 }
 
 function installCapabilities(engine, options, storeRoot, hooks) {
@@ -130,8 +130,8 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     allowedTools: engine.config.executionManifest?.allowedTools,
   });
   engine.tools = new ToolRegistry(engine.config.workspaceRoot, {
-    workspaceIdentityCheck: nndToolWorkspaceIdentityCheck(engine, options.workspaceBinding, options.workspaceBindingResolver),
-    browserSurface: options.surface === 'nnd' || options.surface === 'nnd_subagent' ? 'nnd' : 'playwright',
+    workspaceIdentityCheck: desktopToolWorkspaceIdentityCheck(engine, options.workspaceBinding, options.workspaceBindingResolver),
+    browserSurface: options.surface === 'desktop' || options.surface === 'desktop_subagent' ? 'desktop' : 'playwright',
     hosted: engine.config.executionManifest !== null, boundedToWorkspace: boundedToolSurface(engine, options),
     administrator: administratorAdapter(engine, options),
     enabled: toolsAllowed(engine.config.executionManifest),
@@ -139,7 +139,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     webSearchConfigPath: options.webSearchConfigPath ?? engine.dataPaths.webSearchConfig ?? userDataPaths().webSearchConfig,
     webSearchClient: options.webSearchClient,
     webFetchConfigPath: options.webFetchConfigPath ?? engine.dataPaths.webFetchConfig ?? userDataPaths().webFetchConfig,
-    ...browserToolOptions(engine, options, imageObserver), nndBrowserCallback: options.surface === 'nnd' && engine.subagentDepth === 0 ? options.nndBrowserCallback : null, nndAgentToolCallback: options.surface === 'nnd' && engine.subagentDepth === 0 ? options.nndAgentToolCallback : null,
+    ...browserToolOptions(engine, options, imageObserver), desktopBrowserCallback: options.surface === 'desktop' && engine.subagentDepth === 0 ? options.desktopBrowserCallback : null, desktopAgentToolCallback: options.surface === 'desktop' && engine.subagentDepth === 0 ? options.desktopAgentToolCallback : null,
     lspConfigPath: options.lspConfigPath,
     lspSpawnProcess: options.lspSpawnProcess,
     skillRegistry: engine.skills,
@@ -189,8 +189,8 @@ function installConversationWork(engine, options, hooks) {
 }
 
 function workspaceControl(engine) {
-  // NND's native principal is bound to one configured workspace.
-  if (engine.config.executionManifest !== null || ['nnd', 'nnd_subagent'].includes(engine.surface)) return null;
+  // desktop's native principal is bound to one configured workspace.
+  if (engine.config.executionManifest !== null || ['desktop', 'desktop_subagent'].includes(engine.surface)) return null;
   return { change: (path) => engine.changeWorkspace(path) };
 }
 
@@ -351,7 +351,7 @@ function permissionBroker(engine, options) {
 function questionBroker(engine, options) {
   if (options.questionBroker === false) return null;
   if (options.questionBroker) return options.questionBroker;
-  if (engine.surface === 'nnd') return nndQuestionBroker(engine);
+  if (engine.surface === 'desktop') return desktopQuestionBroker(engine);
   if (engine.surface !== 'interactive_tui') return null;
   return new QuestionBroker({ output: engine.output });
 }

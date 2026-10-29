@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
-import { nndProviderProfileFingerprint } from '../nnd-provider-affinity.js';
+import { desktopProviderProfileFingerprint } from '../desktop-provider-affinity.js';
 import { FairScheduler } from './fair-scheduler.js';
 import { cancellableDelay } from './cancellable-delay.js';
 import {
@@ -93,10 +93,10 @@ export class ProviderRunner {
     }
   }
 
-  /** Classifies a failed attempt into the retry plan and publishes the NND
-   *  retry signal on the live turn. Why: NND's session-status map needs a real
+  /** Classifies a failed attempt into the retry plan and publishes the desktop
+   *  retry signal on the live turn. Why: desktop's session-status map needs a real
    *  retry signal during the recovery window; `active` is the engine's live
-   *  turn object (read by nnd-session-registry statuses()) and stays
+   *  turn object (read by desktop-session-registry statuses()) and stays
    *  unfinalized here. attempt is the 1-based attempt counter about to run;
    *  message is the genuine provider failure code; next is the epoch-ms of the
    *  pending retry. Invariant: busy and retry never coexist - the registry
@@ -179,7 +179,7 @@ export class ProviderRunner {
       active.logicalRequestId = route.logicalRequestId;
       active.modelName = route.model;
       active.providerResource = route.profile.id;
-      active.providerProfileFingerprint = nndProviderProfileFingerprint(route.profile);
+      active.providerProfileFingerprint = desktopProviderProfileFingerprint(route.profile);
       if (this.runtimeResolver) active.runtimeModel = await this.runtimeResolver(route, active.controller.signal);
       try {
         const request = requestFactory(route);
@@ -376,7 +376,7 @@ function initializeAttempt(active, outputLimitTokens = null) {
   active.attemptReasoningOverflow = false;
   active.providerDispatched = false;
   active.providerTerminal = false;
-  // Why: a new attempt leaves the previous retry window, so the NND retry
+  // Why: a new attempt leaves the previous retry window, so the desktop retry
   // signal must not outlive it.
   active.providerRetry = null;
   active.finishReason = null;

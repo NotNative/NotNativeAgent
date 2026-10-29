@@ -7,30 +7,30 @@ import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { startIntegrationServer } from './integration-server.js';
 import { withPrimaryRoute } from './provider/route-configuration.js';
-import { createNndLocalIntegrationActivation, validateNnoIntegrationActivation } from './nno-integration-activation.js';
+import { createDesktopLocalIntegrationActivation, validateNnoIntegrationActivation } from './nno-integration-activation.js';
 import { ProviderProfileStore } from './provider/profile-store.js';
 import { SecretBroker } from './secret-broker.js';
 import { LOCAL_SECRET_REALM } from './secret-contracts.js';
 import { resolveManifest } from './config.js';
 import { SessionEngine } from './engine.js';
-import { NndEngineHost } from './nnd-engine-host.js';
-import { createNndWorkspaceBindingResolver } from './nnd-workspace-selection.js';
-import { nndMcpInventory } from './nnd-mcp-inventory.js';
-import { nndSkillsInventory } from './nnd-skills-inventory.js';
-import { nndAgentInventory } from './nnd-agent-inventory.js';
+import { DesktopEngineHost } from './desktop-engine-host.js';
+import { createDesktopWorkspaceBindingResolver } from './desktop-workspace-selection.js';
+import { desktopMcpInventory } from './desktop-mcp-inventory.js';
+import { desktopSkillsInventory } from './desktop-skills-inventory.js';
+import { desktopAgentInventory } from './desktop-agent-inventory.js';
 import { SkillRegistry } from './skill-registry.js';
 import { runtimeSkillRoots } from './startup-configuration.js';
 import { workspaceIsTrusted } from './experience/trust.js';
-import { consumeNndBrowserCallbackFromEnvironment } from './nnd-browser-tool.js';
-import { createNndBrowserCallbackRegistry } from './nnd-browser-registration.js';
-import { consumeNndAgentToolCallbackFromEnvironment } from './nnd-memory-tool.js';
-import { assertRegisteredNndPackage, runNndPackageCommand } from './nnd-package.js';
-import { createNndSetupRuntime } from './nnd-setup-runtime.js';
-import { readNndSetupConfiguration, NND_CONFIGURATION_OPTIONS } from './nnd-setup-config.js';
-import { acquireNndServiceLock } from './nnd-service-lock.js';
-import { assertNoNndMigration } from './nnd-migration-storage.js';
-import { assertNoNndInstallTransaction } from './nnd-install-storage.js';
-import { assertNoNndInstallMarker } from './nnd-install-marker.js';
+import { consumeDesktopBrowserCallbackFromEnvironment } from './desktop-browser-tool.js';
+import { createDesktopBrowserCallbackRegistry } from './desktop-browser-registration.js';
+import { consumeDesktopAgentToolCallbackFromEnvironment } from './desktop-memory-tool.js';
+import { assertRegisteredDesktopPackage, runDesktopPackageCommand } from './desktop-package.js';
+import { createDesktopSetupRuntime } from './desktop-setup-runtime.js';
+import { readDesktopSetupConfiguration, DESKTOP_CONFIGURATION_OPTIONS } from './desktop-setup-config.js';
+import { acquireDesktopServiceLock } from './desktop-service-lock.js';
+import { assertNoDesktopMigration } from './desktop-migration-storage.js';
+import { assertNoDesktopInstallTransaction } from './desktop-install-storage.js';
+import { assertNoDesktopInstallMarker } from './desktop-install-marker.js';
 
 const INTEGRATION_MANIFEST_LIMIT = 1_048_576;
 
@@ -43,41 +43,41 @@ export async function runIntegrationCommand(args, paths, options = {}) {
   return runActivatedIntegrationCommand(paths, options, activation, 'nno');
 }
 
-export async function runNndIntegrationCommand(args, paths, options = {}) {
+export async function runDesktopIntegrationCommand(args, paths, options = {}) {
   if (['start', 'stop', 'enable', 'disable', 'status'].includes(args[0])) {
-    const { runNndLifecycleCommand } = await import('./nnd-lifecycle.js');
-    return runNndLifecycleCommand(args, paths, options);
+    const { runDesktopLifecycleCommand } = await import('./desktop-lifecycle.js');
+    return runDesktopLifecycleCommand(args, paths, options);
   }
   if (args[0] === 'service') {
-    const { runNndServiceCommand } = await import('./nnd-service-cli.js');
-    return runNndServiceCommand(args.slice(1), options);
+    const { runDesktopServiceCommand } = await import('./desktop-service-cli.js');
+    return runDesktopServiceCommand(args.slice(1), options);
   }
-  if (args[0] === 'package') return runNndPackageCommand(args.slice(1), paths);
+  if (args[0] === 'package') return runDesktopPackageCommand(args.slice(1), paths);
   if ((args[0] ?? '') !== 'serve' || args.length !== 1) {
-    throw new ContractError('nnd_command_invalid', 'nnd command supports serve and package');
+    throw new ContractError('desktop_command_invalid', 'desktop command supports serve and package');
   }
   // Security: installed GUI launches identify their package root. A stale or
   // replaced package cannot silently start NNA's desktop integration.
   const environment = options.environment ?? process.env;
-  if (environment.NNA_NND_INSTALL_ROOT !== undefined) {
-    await assertRegisteredNndPackage(environment.NNA_NND_INSTALL_ROOT, paths);
+  if (environment.NNA_DESKTOP_INSTALL_ROOT !== undefined) {
+    await assertRegisteredDesktopPackage(environment.NNA_DESKTOP_INSTALL_ROOT, paths);
   }
-  const lease = process.platform === 'win32' ? await acquireNndServiceLock({ dataRoot: paths.root }) : null;
+  const lease = process.platform === 'win32' ? await acquireDesktopServiceLock({ dataRoot: paths.root }) : null;
   try {
-    await assertNoNndInstallMarker({ data_root: paths.root });
-    await assertNoNndInstallTransaction({ data_root: paths.root });
-    await assertNoNndMigration({ data_root: paths.root });
-    const result = await runActivatedIntegrationCommand(paths, options, createNndLocalIntegrationActivation(), 'nnd');
+    await assertNoDesktopInstallMarker({ data_root: paths.root });
+    await assertNoDesktopInstallTransaction({ data_root: paths.root });
+    await assertNoDesktopMigration({ data_root: paths.root });
+    const result = await runActivatedIntegrationCommand(paths, options, createDesktopLocalIntegrationActivation(), 'desktop');
     await lease?.close();
     return result;
   } catch (error) {
     // Invariant: a failed shutdown cannot release ownership while native writers may remain.
     if (!lease) throw error;
-    if (!(error instanceof AggregateError) && !['nnd_setup_shutdown_timeout', 'nnd_setup_cleanup_failed', 'nnd_setup_host_failed'].includes(error.code)) {
+    if (!(error instanceof AggregateError) && !['desktop_setup_shutdown_timeout', 'desktop_setup_cleanup_failed', 'desktop_setup_host_failed'].includes(error.code)) {
       try { await lease.close(); }
       catch (cleanupError) {
         if (Object.isExtensible(error)) error.secondaryFailures = [...(error.secondaryFailures ?? []), cleanupError];
-        else throw new AggregateError([error, cleanupError], 'NND startup and lease cleanup failed.');
+        else throw new AggregateError([error, cleanupError], 'desktop startup and lease cleanup failed.');
       }
     }
     throw error;
@@ -95,23 +95,23 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
     vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
   });
   const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker,
-    ...(owner === 'nnd' ? { readEffectiveConfiguration: () => readNndSetupConfiguration(paths) } : {}) });
+    ...(owner === 'desktop' ? { readEffectiveConfiguration: () => readDesktopSetupConfiguration(paths) } : {}) });
   const lifecycle = await createIntegrationLifecycle(paths, options, owner, broker, environment);
-  const nndEngineHost = lifecycle.getHost();
+  const desktopEngineHost = lifecycle.getHost();
   let service;
   try {
     service = await startIntegrationServer({
-      activation, token, instanceId, broker, providerStore, nndEngineHost, nndRuntime: lifecycle.runtime, nndWorkspaceRoot: nndEngineHost?.workspaceRoot,
+      activation, token, instanceId, broker, providerStore, desktopEngineHost, desktopRuntime: lifecycle.runtime, desktopWorkspaceRoot: desktopEngineHost?.workspaceRoot,
       // Why: /path advertises the serving instance's NNA data inventory; the
       // server module must not silently re-derive it from a different NNA_HOME
       // than the one that created this process's lease and stores.
       dataPaths: paths,
-      nndBrowserCallbackRegistry: lifecycle.nndBrowserCallbackRegistry, host: '127.0.0.1', port: 0,
+      desktopBrowserCallbackRegistry: lifecycle.desktopBrowserCallbackRegistry, host: '127.0.0.1', port: 0,
     });
   } catch (error) {
     try { await lifecycle.close(); }
     catch (shutdownError) {
-      if (owner === 'nnd') throw new AggregateError([error, shutdownError], 'NND listener startup and runtime cleanup failed.');
+      if (owner === 'desktop') throw new AggregateError([error, shutdownError], 'desktop listener startup and runtime cleanup failed.');
       if (Object.isExtensible(error)) error.secondaryFailures = [...(error.secondaryFailures ?? []), shutdownError];
     }
     throw error;
@@ -126,7 +126,7 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
     await waitForShutdown(options.signal, service.server);
   } catch (error) { failure = error; }
   try { await closeIntegrationLifecycle(service, lifecycle); } catch (error) {
-    if (owner === 'nnd') failure = new AggregateError(failure ? [failure, error] : [error], 'NND integration shutdown failed.');
+    if (owner === 'desktop') failure = new AggregateError(failure ? [failure, error] : [error], 'desktop integration shutdown failed.');
     else if (!failure) failure = error;
     else if (Object.isExtensible(failure)) failure.secondaryFailures = [...(failure.secondaryFailures ?? []), error];
   }
@@ -139,9 +139,9 @@ async function closeIntegrationLifecycle(service, lifecycle) {
     // Invariant: an admitted request retains its host until dispatch settles.
     // Close long-lived SSE connections before draining ordinary requests.
     service.stopAdmission();
-    const results = await Promise.allSettled([closeNndListener(service), service.drain()]);
+    const results = await Promise.allSettled([closeDesktopListener(service), service.drain()]);
     const failures = results.filter((result) => result.status === 'rejected').map((result) => result.reason);
-    if (failures.length) throw new AggregateError(failures, 'NND integration shutdown failed.');
+    if (failures.length) throw new AggregateError(failures, 'desktop integration shutdown failed.');
     await lifecycle.close();
     return;
   }
@@ -154,7 +154,7 @@ async function closeIntegrationLifecycle(service, lifecycle) {
   if (failure) throw failure;
 }
 
-function closeNndListener(service) {
+function closeDesktopListener(service) {
   return new Promise((resolve, reject) => {
     let deadline;
     const force = setTimeout(() => {
@@ -163,7 +163,7 @@ function closeNndListener(service) {
     }, 1000);
     deadline = setTimeout(() => {
       clearTimeout(force);
-      reject(new ContractError('nnd_setup_shutdown_timeout', 'NND listener shutdown exceeded its time bound.'));
+      reject(new ContractError('desktop_setup_shutdown_timeout', 'desktop listener shutdown exceeded its time bound.'));
     }, 16000);
     service.close().then(() => { clearTimeout(force); clearTimeout(deadline); resolve(); },
       (error) => { clearTimeout(force); clearTimeout(deadline); reject(error); });
@@ -174,37 +174,37 @@ export async function createIntegrationLifecycle(paths, options, owner, broker, 
   // Attach mode: the browser callback may also arrive after startup via the
   // registration route, so the env callback seeds a replaceable registry and
   // engines read its current value when they are created.
-  const nndBrowserCallbackRegistry = owner === 'nnd'
-    ? createNndBrowserCallbackRegistry(consumeNndBrowserCallbackFromEnvironment(environment)) : null;
+  const desktopBrowserCallbackRegistry = owner === 'desktop'
+    ? createDesktopBrowserCallbackRegistry(consumeDesktopBrowserCallbackFromEnvironment(environment)) : null;
   const hostOptions = {
     ...options,
     // Security: only the local operator shares the TUI secret realm. NNO remains principal scoped.
-    secretBroker: owner === 'nnd' ? broker : undefined,
+    secretBroker: owner === 'desktop' ? broker : undefined,
     // Compat: direct callers may still pass a static callback; engines prefer
     // the registry's current value when one is present.
-    nndBrowserCallback: options.nndBrowserCallback ?? null,
-    nndAgentToolCallback: owner === 'nnd' ? consumeNndAgentToolCallbackFromEnvironment(environment) : null,
-    nndBrowserCallbackRegistry,
+    desktopBrowserCallback: options.desktopBrowserCallback ?? null,
+    desktopAgentToolCallback: owner === 'desktop' ? consumeDesktopAgentToolCallbackFromEnvironment(environment) : null,
+    desktopBrowserCallbackRegistry,
   };
-  if (owner !== 'nnd') {
-    const host = await createIntegrationNndEngineHost(paths, hostOptions);
-    return { getHost: () => host, close: () => host.shutdown(), runtime: undefined, nndBrowserCallbackRegistry };
+  if (owner !== 'desktop') {
+    const host = await createIntegrationDesktopEngineHost(paths, hostOptions);
+    return { getHost: () => host, close: () => host.shutdown(), runtime: undefined, desktopBrowserCallbackRegistry };
   }
-  const runtime = createNndSetupRuntime({
+  const runtime = createDesktopSetupRuntime({
     ...(options.activationTimeoutMs === undefined ? {} : { activationTimeoutMs: options.activationTimeoutMs }),
-    loadConfiguration: (signal) => readNndSetupConfiguration(paths, signal),
-    createHost: (preparedConfig, { signal }) => createIntegrationNndEngineHost(paths, { ...hostOptions, preparedConfig, setupSignal: signal }),
+    loadConfiguration: (signal) => readDesktopSetupConfiguration(paths, signal),
+    createHost: (preparedConfig, { signal }) => createIntegrationDesktopEngineHost(paths, { ...hostOptions, preparedConfig, setupSignal: signal }),
   });
-  return { getHost: () => runtime.getHost(), close: () => runtime.close(), runtime, nndBrowserCallbackRegistry };
+  return { getHost: () => runtime.getHost(), close: () => runtime.close(), runtime, desktopBrowserCallbackRegistry };
 }
 
 export function integrationSecretRealm(owner, deploymentId) {
-  return owner === 'nnd' ? LOCAL_SECRET_REALM : `${owner}:${deploymentId}`;
+  return owner === 'desktop' ? LOCAL_SECRET_REALM : `${owner}:${deploymentId}`;
 }
 
-export async function createIntegrationNndEngineHost(paths, options = {}) {
+export async function createIntegrationDesktopEngineHost(paths, options = {}) {
   options.setupSignal?.throwIfAborted();
-  const configOptions = NND_CONFIGURATION_OPTIONS;
+  const configOptions = DESKTOP_CONFIGURATION_OPTIONS;
   const config = options.preparedConfig ?? resolveManifest(await readIntegrationManifest(join(paths.config, 'manifest.json')), configOptions);
   let activeConfig = config;
   const trusted = typeof paths.trustedWorkspaces === 'string'
@@ -212,43 +212,43 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
   const skillRoots = options.skillRoots ?? runtimeSkillRoots(paths, {
     trusted, skillRoot: join(config.workspaceRoot, '.nna', 'skills'),
   });
-  const host = new NndEngineHost({
-    primaryWorkspaceBinding: createNndWorkspaceBindingResolver(config.workspaceRoot, options.workspaceAdmissionService),
-    catalogPath: config.persistence === 'durable' ? join(paths.sessions, 'nnd-contexts.json') : null,
-    createEngine: (input) => createSelectedNndEngine(paths, options, config, () => activeConfig, trusted, input),
+  const host = new DesktopEngineHost({
+    primaryWorkspaceBinding: createDesktopWorkspaceBindingResolver(config.workspaceRoot, options.workspaceAdmissionService),
+    catalogPath: config.persistence === 'durable' ? join(paths.sessions, 'desktop-contexts.json') : null,
+    createEngine: (input) => createSelectedDesktopEngine(paths, options, config, () => activeConfig, trusted, input),
   });
   host.workspaceRoot = config.workspaceRoot;
-  // Security: expose only the configured route identity to the NND browser, never provider credentials or endpoints.
-  host.nndModel = Object.freeze({ providerID: config.routes.primary.providerId, modelID: config.routes.primary.model });
-  host.nndMcpInventory = nndMcpInventory(config);
-  host.nndAgentInventory = nndAgentInventory(config);
+  // Security: expose only the configured route identity to the desktop browser, never provider credentials or endpoints.
+  host.desktopModel = Object.freeze({ providerID: config.routes.primary.providerId, modelID: config.routes.primary.model });
+  host.desktopMcpInventory = desktopMcpInventory(config);
+  host.desktopAgentInventory = desktopAgentInventory(config);
   host.providerRoutingPending = (latest) => !isDeepStrictEqual(activeConfig.providerProfiles, latest.providerProfiles)
     || !isDeepStrictEqual(activeConfig.routes, latest.routes);
   host.activateProviderRoute = async () => {
     // Compatibility: legacy NNO/direct hosts retain their original user-only configuration scope.
-    const latest = options.preparedConfig ? await readNndSetupConfiguration(paths)
+    const latest = options.preparedConfig ? await readDesktopSetupConfiguration(paths)
       : resolveManifest(await readIntegrationManifest(join(paths.config, 'manifest.json')), configOptions);
     if (latest.workspaceRoot !== config.workspaceRoot || latest.persistence !== config.persistence) {
-      throw new ContractError('nnd_manifest_invalid', 'NND provider activation cannot change workspace or persistence scope');
+      throw new ContractError('desktop_manifest_invalid', 'desktop provider activation cannot change workspace or persistence scope');
     }
     activeConfig = Object.freeze({ ...activeConfig, providerProfiles: latest.providerProfiles, routes: latest.routes });
     const route = activeConfig.routes.primary;
-    host.nndModel = Object.freeze({ providerID: route.providerId, modelID: route.model });
-    host.nndAgentInventory = nndAgentInventory(activeConfig);
-    return host.nndModel;
+    host.desktopModel = Object.freeze({ providerID: route.providerId, modelID: route.model });
+    host.desktopAgentInventory = desktopAgentInventory(activeConfig);
+    return host.desktopModel;
   };
   // A newly created session discovers these same roots at initialization.
   // Read again per request so the UI does not freeze a startup-only catalog.
-  host.readNndSkillsInventory = async () => {
+  host.readDesktopSkillsInventory = async () => {
     const skills = new SkillRegistry({ roots: skillRoots });
     try { await skills.initialize(); }
-    catch { throw new ContractError('nnd_skills_unavailable', 'NNA skill discovery is unavailable'); }
-    return nndSkillsInventory(skills.catalog());
+    catch { throw new ContractError('desktop_skills_unavailable', 'NNA skill discovery is unavailable'); }
+    return desktopSkillsInventory(skills.catalog());
   };
   return initializeIntegrationHost(host, options.setupSignal);
 }
 
-async function createSelectedNndEngine(paths, options, startupConfig, activeConfig, startupTrusted, input) {
+async function createSelectedDesktopEngine(paths, options, startupConfig, activeConfig, startupTrusted, input) {
   const selectedRoot = input.workspaceBinding?.configured_root ?? activeConfig().workspaceRoot;
   const selectedTrusted = selectedRoot === startupConfig.workspaceRoot ? startupTrusted
     : typeof paths.trustedWorkspaces === 'string'
@@ -260,17 +260,17 @@ async function createSelectedNndEngine(paths, options, startupConfig, activeConf
     ? withPrimaryRoute(activeConfig(), input.modelRoute.providerId, input.modelRoute.model).config : activeConfig();
   return new SessionEngine({
     config: Object.freeze({ ...routed, workspaceRoot: selectedRoot }),
-    sessionId: input.sessionId, surface: 'nnd', nndSessionRegistry: input.nndSessionRegistry,
+    sessionId: input.sessionId, surface: 'desktop', desktopSessionRegistry: input.desktopSessionRegistry,
     workspaceBinding: input.workspaceBinding, workspaceBindingResolver: input.workspaceBindingResolver,
     attachmentUploadRead: input.attachmentUploadRead,
     storeRoot: paths.sessions, reviewerRoot: paths.reviewerLedger,
     providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
     secretBroker: options.secretBroker,
     mcpTransportFactory: options.mcpTransportFactory, memoryAdapter: options.memoryAdapter,
-    nndAgentToolCallback: options.nndAgentToolCallback,
+    desktopAgentToolCallback: options.desktopAgentToolCallback,
     hookRoot: options.hookRoot ?? paths.hooks, hookRoots: options.hookRoots ?? [],
     skillRoots: selectedSkillRoots, emitContextStatus: true, output: input.output,
-    nndBrowserCallback: options.nndBrowserCallbackRegistry?.current?.() ?? options.nndBrowserCallback ?? null,
+    desktopBrowserCallback: options.desktopBrowserCallbackRegistry?.current?.() ?? options.desktopBrowserCallback ?? null,
     forkIngest: input.forkIngest ?? null, modelRoute: input.modelRoute ?? null,
   });
 }
@@ -280,8 +280,8 @@ async function initializeIntegrationHost(host, signal) {
   catch (error) {
     try { await host.shutdown(); }
     catch (cleanup) {
-      const cause = new AggregateError([error, cleanup], 'NND host initialization and cleanup failed.');
-      throw new ContractError('nnd_setup_cleanup_failed', 'NND host cleanup failed. Restart the native process before retrying.', { cause });
+      const cause = new AggregateError([error, cleanup], 'desktop host initialization and cleanup failed.');
+      throw new ContractError('desktop_setup_cleanup_failed', 'desktop host cleanup failed. Restart the native process before retrying.', { cause });
     }
     throw error;
   }
@@ -291,11 +291,11 @@ async function readIntegrationManifest(path) {
   let bytes;
   try {
     // Invariant: reject a named pipe before open; nonblocking open also closes the replacement race on POSIX.
-    if (!(await stat(path)).isFile()) throw new ContractError('nnd_manifest_invalid', 'NND integration manifest must be a regular file');
+    if (!(await stat(path)).isFile()) throw new ContractError('desktop_manifest_invalid', 'desktop integration manifest must be a regular file');
     const file = await open(path, fileConstants.O_RDONLY | (fileConstants.O_NONBLOCK ?? 0));
     try {
       const info = await file.stat();
-      if (!info.isFile()) throw new ContractError('nnd_manifest_invalid', 'NND integration manifest must be a regular file');
+      if (!info.isFile()) throw new ContractError('desktop_manifest_invalid', 'desktop integration manifest must be a regular file');
       if (info.size > INTEGRATION_MANIFEST_LIMIT) throw oversizedIntegrationManifest();
       // Invariant: a manifest that grows after stat cannot cause unbounded allocation.
       const buffer = Buffer.alloc(INTEGRATION_MANIFEST_LIMIT + 1);
@@ -310,14 +310,14 @@ async function readIntegrationManifest(path) {
     } finally { await file.close(); }
   } catch (error) {
     if (error instanceof ContractError) throw error;
-    throw new ContractError('nnd_manifest_unavailable', 'NND integration requires the NNA manifest', { cause: error });
+    throw new ContractError('desktop_manifest_unavailable', 'desktop integration requires the NNA manifest', { cause: error });
   }
   try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
-  catch (error) { throw new ContractError('nnd_manifest_invalid', 'NND integration manifest is invalid', { cause: error }); }
+  catch (error) { throw new ContractError('desktop_manifest_invalid', 'desktop integration manifest is invalid', { cause: error }); }
 }
 
 function oversizedIntegrationManifest() {
-  return new ContractError('manifest_too_large', 'NND integration manifest exceeds the size limit');
+  return new ContractError('manifest_too_large', 'desktop integration manifest exceeds the size limit');
 }
 
 function waitForShutdown(signal, server) {

@@ -22,7 +22,7 @@ import { runUninstallCommand } from './uninstall-cli.js';
 import { runSecretBrokerCommand } from './secret-broker-cli.js';
 import { runWebBrowseCommand } from './web-browse-cli.js';
 import { runUpdateCommand } from './update-cli.js';
-import { runIntegrationCommand, runNndIntegrationCommand } from './integration-cli.js';
+import { runIntegrationCommand, runDesktopIntegrationCommand } from './integration-cli.js';
 import { runOpencodeCommand } from './opencode/cli-operation.js';
 import { installProcessFatalBoundary } from './process-fatal-boundary.js';
 import { cliErrorCode } from './cli-error-code.js';
@@ -84,13 +84,13 @@ try {
       output: process.stdout, diagnostics: process.stderr,
     });
   }
-  else if (options.mode === 'nnd' || options.mode === 'desktop') {
-    // `nna desktop` is the brand-facing operator surface; `nna nnd` keeps the
-    // pre-rename service/package/serve surfaces only.
-    const lifecycle = options.mode === 'desktop'
-      && ['start', 'stop', 'enable', 'disable', 'status'].includes(options.prompt?.[0]);
+  else if (options.mode === 'desktop') {
+    // Why: one command namespace carries both the operator lifecycle and the
+    // service, package, and serve surfaces that the retired `desktop` namespace held.
+    // ADR 0073 retires the second name; it does not keep an alias.
+    const lifecycle = ['start', 'stop', 'enable', 'disable', 'status'].includes(options.prompt?.[0]);
     const paths = options.prompt?.[0] === 'service' ? null : await runtimePaths();
-    const result = await runNndIntegrationCommand(options.prompt, paths, { output: process.stdout, diagnostics: process.stderr });
+    const result = await runDesktopIntegrationCommand(options.prompt, paths, { output: process.stdout, diagnostics: process.stderr });
     if (options.prompt?.[0] === 'package'
       || options.prompt?.[0] === 'service' && !['run', 'install-guard', 'activate-slot'].includes(options.prompt?.[1])
       || lifecycle && result !== null) {
@@ -187,18 +187,18 @@ function help() {
     '  nna webbrowse status|verify               Inspect optional Playwright Chromium runtime',
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
     '  nna integration serve                    Start the ephemeral NNO integration service',
-    '  nna nnd serve                            Start the local NND integration service',
+    '  nna desktop serve                            Start the local desktop integration service',
     '  nna desktop start|stop|enable|disable|status',
     '                                           Operator lifecycle for the registered desktop plugin',
     '                                           (start/enable fail gracefully when it is not installed)',
-    '  nna nnd service start|run|status|stop|ui-ticket|attach|capabilities|install-guard|migrate|migration-recover INSTALL_ROOT',
-    '  nna nnd service stage-payload INSTALL_ROOT PAYLOAD_ROOT OPERATION_UUID',
-    '  nna nnd service stage-recover INSTALL_ROOT [OPERATION_UUID]',
-    '  nna nnd service activation-preflight INSTALL_ROOT STAGE_UUID ACTIVATION_UUID',
-    '  nna nnd service activate-slot INSTALL_ROOT STAGE_UUID ACTIVATION_UUID',
-    '  nna nnd service activation-preparation-recover INSTALL_ROOT ACTIVATION_UUID',
-    '  nna nnd package activate ROOT|deactivate ROOT|status',
-    '                                           Register or inspect an installed NND GUI package',
+    '  nna desktop service start|run|status|stop|ui-ticket|attach|capabilities|install-guard|migrate|migration-recover INSTALL_ROOT',
+    '  nna desktop service stage-payload INSTALL_ROOT PAYLOAD_ROOT OPERATION_UUID',
+    '  nna desktop service stage-recover INSTALL_ROOT [OPERATION_UUID]',
+    '  nna desktop service activation-preflight INSTALL_ROOT STAGE_UUID ACTIVATION_UUID',
+    '  nna desktop service activate-slot INSTALL_ROOT STAGE_UUID ACTIVATION_UUID',
+    '  nna desktop service activation-preparation-recover INSTALL_ROOT ACTIVATION_UUID',
+    '  nna desktop package activate ROOT|deactivate ROOT|status',
+    '                                           Register or inspect an installed desktop GUI package',
     '  nna opencode start|stop|status',
     '                                           Run or inspect the OpenCode-compatible OpenChamber surface',
     '  nna opencode enable [--port P] [--hostname H] | disable',

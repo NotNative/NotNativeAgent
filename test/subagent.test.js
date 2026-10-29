@@ -115,7 +115,7 @@ test('sub-agent capacity above the scheduler ceiling remains usable', async () =
   assert.equal(telemetry[0][2].reported_capacity, 32);
 });
 
-test('sub-agent runtime forwards child lifecycle and output to the NND registry', async () => {
+test('sub-agent runtime forwards child lifecycle and output to the desktop registry', async () => {
   const observed = [];
   let childOptions;
   const parent = {
@@ -123,7 +123,7 @@ test('sub-agent runtime forwards child lifecycle and output to the NND registry'
     subagentDepth: 0, sessionId: 'parent', active: { turnId: 'turn_parent', stepId: 'step_parent',
       principal: { subjectId: 'operator', workspaceIds: ['workspace'] } },
     output: async () => undefined,
-    nndSessionRegistry: {
+    desktopSessionRegistry: {
       register(id, parentId, principal, child) {
         observed.push(['registered', id, parentId, principal.subjectId]);
         assert.equal(child.config.routes.primary.providerId, 'worker');
@@ -158,7 +158,7 @@ test('sub-agent runtime forwards child lifecycle and output to the NND registry'
   ]);
 });
 
-test('optional NND observation failures cannot fail or skip cleanup of delegated work', async () => {
+test('optional desktop observation failures cannot fail or skip cleanup of delegated work', async () => {
   const diagnostics = [];
   let shutdown = false;
   const parent = {
@@ -167,7 +167,7 @@ test('optional NND observation failures cannot fail or skip cleanup of delegated
       principal: { subjectId: 'operator', workspaceIds: ['workspace'] } },
     output: async () => undefined,
     telemetry: { record: (kind, status, detail) => diagnostics.push([kind, status, detail.operation]) },
-    nndSessionRegistry: {
+    desktopSessionRegistry: {
       register() { return () => { throw new Error('display registry unregister failed'); }; },
       observeStarted() { throw new Error('display registry start failed'); },
       observeOutput() { throw new Error('display registry output failed'); },
@@ -185,7 +185,7 @@ test('optional NND observation failures cannot fail or skip cleanup of delegated
     }));
   assert.equal(result.outcome, 'completed');
   assert.equal(shutdown, true);
-  assert.deepEqual(diagnostics.filter(([kind]) => kind === 'nnd.session_observation').map(([, , operation]) => operation),
+  assert.deepEqual(diagnostics.filter(([kind]) => kind === 'desktop.session_observation').map(([, , operation]) => operation),
     ['started', 'output', 'completed']);
 });
 

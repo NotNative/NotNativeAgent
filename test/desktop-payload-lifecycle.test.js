@@ -28,7 +28,7 @@ function NodeFixture {
   if ($call -match '\|stop\|') { if ('${mode}' -eq 'stop-failed') { $global:LASTEXITCODE=1 }; return '{}' }
   if ($call -match 'installer-wait-stopped') { if ('${mode}' -in @('wait-failed', 'stopped-lock-held')) { $global:LASTEXITCODE=1 }; return '{}' }
   if ($call -match '\|start\|') { return (@{service_state=$(if ('${mode}' -eq 'starting') {'starting'} elseif ('${mode}' -eq 'setup-required') {'setup_required'} else {'ready'});package_version=$(if ('${mode}' -eq 'start-wrong-version') {'old'} else {'20260101-2'})} | ConvertTo-Json -Compress) }
-  if ($call -match 'nnd\|service\|status\|') { if ('${mode}' -eq 'start-wrong-version') { return '{"service_state":"failed","package_version":"old"}' }; return '{"service_state":"ready","package_version":"20260101-2"}' }
+  if ($call -match 'desktop\|service\|status\|') { if ('${mode}' -eq 'start-wrong-version') { return '{"service_state":"failed","package_version":"old"}' }; return '{"service_state":"ready","package_version":"20260101-2"}' }
   throw 'Unexpected lifecycle command'
 }
 $failed = $false

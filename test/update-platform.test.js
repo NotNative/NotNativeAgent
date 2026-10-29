@@ -50,9 +50,9 @@ test('registered desktop requires matching downloaded desktop bytes before insta
   await mkdir(join(root, 'desktop'));
   await writeFile(join(root, 'desktop', 'VERSION'), '20260101-2');
   await writeFile(join(root, 'desktop', 'install.cmd'), '@echo off');
-  await writeFile(join(root, 'desktop', 'package.json'), JSON.stringify({ nnd_version: '20260101-1' }));
+  await writeFile(join(root, 'desktop', 'package.json'), JSON.stringify({ desktop_version: '20260101-1' }));
   await assert.rejects(verifyDesktopUpdateSource(root, '20260101-2', status(false)), { code: 'update_desktop_source_invalid' });
-  await writeFile(join(root, 'desktop', 'package.json'), JSON.stringify({ nnd_version: '20260101-2' }));
+  await writeFile(join(root, 'desktop', 'package.json'), JSON.stringify({ desktop_version: '20260101-2' }));
   await verifyDesktopUpdateSource(root, '20260101-2', status(false));
   assert.equal(await readFile(join(root, 'desktop', 'VERSION'), 'utf8'), '20260101-2');
 });
