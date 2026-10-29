@@ -19,6 +19,7 @@ function updateFailure(ledger, item) {
   if (CORRECTABLE.has(status) && item.result.effect_certainty === 'none') return;
   const scope = failureScope(item);
   if (status === 'succeeded') {
+    // Deliberate: an unknown-effect failure (`unknown:${scope}`) survives a later successful retry; see recovery.test.js 'possible-effect failures'.
     ledger.delete(scope);
     return;
   }
