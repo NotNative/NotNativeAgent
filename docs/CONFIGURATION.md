@@ -483,8 +483,8 @@ than tab-local. Specialist roles with no assigned provider profile inherit Prima
 gateway turns. Full setup and lifecycle behavior are documented in
 [TELEGRAM_GATEWAY.md](TELEGRAM_GATEWAY.md).
 
-The native NND integration exposes the whole gateway settings family through the
-authenticated configuration routes at `/v1/nnd/configuration/gateway` (read, catalog,
+The native desktop integration exposes the whole gateway settings family through the
+authenticated configuration routes at `/v1/desktop/configuration/gateway` (read, catalog,
 preview, save, and operation replay). One CAS-protected transaction covers enablement,
 the token environment name, the workspace root, polling bounds, the Telegram token, and
 the authorized user-id allowlist. Normal reads project the token as presence only and
@@ -494,8 +494,8 @@ apply at the next gateway restart, and receipts record the before/persisted revi
 with a bounded replay window. The first-party flat request of the earlier polling-timeout
 contract remains a compatibility alias of one polling operation.
 
-The native NND integration also exposes the WebFetch trust family through the
-authenticated configuration routes at `/v1/nnd/configuration/web-fetch` (read,
+The native desktop integration also exposes the WebFetch trust family through the
+authenticated configuration routes at `/v1/desktop/configuration/web-fetch` (read,
 catalog, preview, save, and operation replay). Trust is an authority grant, not a
 presentation preference: the family covers the exact credential-free HTTP(S) origins
 whose private destinations the operator chose to trust. Values canonicalize the same

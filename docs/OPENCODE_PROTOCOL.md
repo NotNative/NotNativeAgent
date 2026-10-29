@@ -36,7 +36,7 @@ the pinned client; changes require conformance checks before changing the target
 | Questions | Question tokens and answer matrices | Session-owned forms with typed fields and answer objects |
 | Errors | Bare statuses or `UnknownError` | Tagged JSON errors for supported v2 operations |
 
-Legacy routes remain available. The separate NND native integration is not
+Legacy routes remain available. The separate desktop native integration is not
 relabelled as OpenCode v2.
 
 ## Supported operations

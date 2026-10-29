@@ -1,8 +1,8 @@
-# Local NND integration
+# Local desktop integration
 
 ## Desktop operator surface
 
-The brand-facing operator surface for the registered desktop plugin is
+The brand-facing operator surface for the registered desktop package is
 `nna desktop start|stop|enable|disable|status`. `start` is idempotent: it
 resolves the registered package, starts the supervised service when it is not
 running, and returns the live status when it is. The supervised service child
@@ -10,11 +10,10 @@ launches the attached desktop app after readiness, so the tray is present
 whenever the service runs, regardless of whether it was started by the CLI,
 the desktop shortcut, or the logon auto-start. `enable` persists the enabled
 flag and installs a login auto-start script (reverted if wiring fails);
-`disable` removes the wiring and the flag. When the plugin is not installed,
-`start` and `enable` fail gracefully with `nnd_plugin_not_installed`, while
-`stop`, `disable`, and `status` are silent no-ops. The `nna nnd` namespace
-keeps the pre-rename `service`, `package`, and `serve` surfaces only; the
-lifecycle lives under `nna desktop`.
+`disable` removes the wiring and the flag. When the package is not installed,
+`start` and `enable` fail gracefully with `desktop_plugin_not_installed`, while
+`stop`, `disable`, and `status` are silent no-ops. The same `nna desktop`
+namespace also carries the `service`, `package`, and `serve` surfaces.
 
 The supervised service child additionally receives an NNA-issued renewable
 scoped capability (`src/integration-capability.js`): an HMAC-bound token
@@ -30,8 +29,8 @@ service session rather than leaving privileged work on stale authority.
 ## Selected native service
 
 The installed Windows path uses NNA supervision. Invoke the selected installation's
-recorded Node and CLI with `nnd service start|status|stop|attach INSTALL_ROOT`;
-`INSTALL_ROOT` identifies NNA. NNA verifies the registered NND package, retains
+recorded Node and CLI with `desktop service start|status|stop|attach INSTALL_ROOT`;
+`INSTALL_ROOT` identifies NNA. NNA verifies the registered desktop package, retains
 data-root ownership and starts the GUI child through private pipes. Browser and
 Electron use the same GUI service. Closing Electron leaves native work running.
 Attachment returns a short-lived UI ticket; native credentials remain private.
@@ -44,7 +43,7 @@ Native permissions and mandatory reviewer governance remain authoritative.
 
 ## Workspace admission foundation
 
-The native listener serves `GET /v1/nnd/workspaces/admissions` and the matching
+The native listener serves `GET /v1/desktop/workspaces/admissions` and the matching
 admit, revoke, and operation-receipt endpoints. An authenticated local operator
 can record a canonical directory after filesystem identity checks. Reads recheck
 the stored identity and the existing primary and secondary grant document;
@@ -65,13 +64,15 @@ quarantined session after the root and admission return. A broken admitted
 directory does not disable attached-root session creation. Real-provider turns
 and installed browser/desktop acceptance remain unverified.
 
-## Existing NND catalog migration
+## Catalog migration
 
-Stop legacy NND processes and disable unsupported old autostarts before invoking
-the selected native CLI's `nnd service migrate INSTALL_ROOT`. Migration requires a
-valid saved manifest with an explicit absolute workspace and verifiably stopped
-catalog sessions. It accepts only recognized legacy local operator grants and
-matching workspace/journal provenance. Foreign or uncertain data is refused.
+Migration exists for catalogs written by earlier NNA versions. ADR 0073 retires
+the old surface identity and its migration commands; this section records the
+behavior until the migration modules are removed in their own slice. Until then,
+`desktop service migrate INSTALL_ROOT` requires a valid saved manifest with an
+explicit absolute workspace and verifiably stopped catalog sessions. It accepts
+only recognized local operator grants and matching workspace/journal provenance.
+Foreign or uncertain data is refused.
 
 Original catalog bytes and transaction hashes remain in the protected runtime
 migration directory. Only workspace grants in parent/child catalog records change;
@@ -79,7 +80,7 @@ journals, activity, review modes and TUI data remain intact. The operation is bo
 to 64 parent contexts, 256 child snapshots and 64 MiB combined evidence/staging.
 Migration is explicit and never runs during ordinary service startup.
 
-After interruption, `nnd service migration-recover INSTALL_ROOT` restores incomplete
+After interruption, `desktop service migration-recover INSTALL_ROOT` restores incomplete
 changes or verifies a committed transaction before removing the pending marker.
 Unexpected modifications preserve evidence and block startup. Do not delete a marker
 to force admission. Interrupted installer guards use a separate marker; their verified
@@ -87,70 +88,70 @@ recovery and transactional installer rollback remain planned work.
 
 ## Legacy source launch
 
-The following child-owned `nnd serve` contract remains for explicit development and
+The following child-owned `desktop serve` contract remains for explicit development and
 compatibility. It does not describe the installed supervised service above.
 
 ## Browser ownership
 
-NND-owned sessions use `nnd_browser` through the desktop's Electron Chromium
+Desktop-owned sessions use `desktop_browser` through the desktop's Electron Chromium
 guest. They do not register NNA's Playwright-backed `web_browse`, so browser
 actions cannot silently run in a separate, invisible browser. The tool is
-registered when the NND service supplies a browser callback at startup. If no
+registered when the desktop service supplies a browser callback at startup. If no
 Electron browser controller is connected, its calls report that no capable
-desktop browser is connected. A service started without a callback and NND
+desktop browser is connected. A service started without a callback and desktop
 subagents advertise neither interactive browser tool.
 Standalone TUI/headless NNA retains `web_browse` and its separately managed
-Playwright runtime, even when an NND package is installed. Package registration
+Playwright runtime, even when an NNA installation includes the desktop package. Package registration
 does not change the active surface or select a browser backend.
 
 ## Managed memory
 
-When NND enables agent memory for a managed child launch, it supplies an exact
+When desktop enables agent memory for a managed child launch, it supplies an exact
 loopback memory callback and bearer token. NNA registers `openchamber_memory`
-only for root NND-owned sessions, consumes and removes the launch variables, and
+only for root desktop-owned sessions, consumes and removes the launch variables, and
 never propagates the credential to standalone TUI/headless surfaces or delegated
 engines. A callback request carries the current workspace, the selected action,
 and bounded parameters. The desktop server continues to own memory identity,
 authorization, storage, and updates; NNA only presents its bounded action result
 to the model.
 
-`nna nnd package activate ROOT` records an installed NND GUI package in
-`config/nnd-package.json` after verifying its `nna-integration/nnd-local/integration.json`
+`nna desktop package activate ROOT` records an installed desktop GUI package in
+`config/desktop-package.json` after verifying its `nna-integration/desktop-local/integration.json`
 identity, protocol `1.0`, version agreement with `package.json`, and built web and
-server entrypoints. `nna nnd package status` revalidates the record; it reports
-`valid:false` when the installed package has moved or drifted. `nna nnd package
-deactivate ROOT` removes only a matching registered root. NND's installers
+server entrypoints. `nna desktop package status` revalidates the record; it reports
+`valid:false` when the installed package has moved or drifted. `nna desktop package
+deactivate ROOT` removes only a matching registered root. The desktop installers
 require an installed NNA before copying the GUI package, activate it after
 building, and deactivate it before uninstalling when NNA remains available.
 During source development, they can first offer to run this repository's own
-NNA installer (since the 20261012-2 fold NND lives at `desktop/`, so the NNA
-root is the enclosing repository — no sibling checkout exists); unattended
+NNA installer (the desktop GUI builds from `desktop/` in this repository, so
+the NNA root is the enclosing repository); unattended
 bootstrap requires explicit opt-in.
-An NND service process may run separately for NNA supervision, but NND is not
+A desktop service process may run separately for NNA supervision, but the desktop is not
 an independently installed agent runtime.
 
 Registration establishes package identity; service activation is a separate
 operation. Explicit legacy source launches may still let the desktop own its web
-service and local NNA child. `nna nnd serve` remains available for that compatibility
+service and local NNA child. `nna desktop serve` remains available for that compatibility
 path. Installed Electron instead attaches to the selected supervised native service.
-Scripted installed desktop launches set `NNA_NND_INSTALL_ROOT`; when present,
-`nna nnd serve` refuses to start unless that exact root is the active,
+Scripted installed desktop launches set `NNA_DESKTOP_INSTALL_ROOT`; when present,
+`nna desktop serve` refuses to start unless that exact root is the active,
 version-valid package. Source/development launches omit the variable and keep
 their existing local child path. The root is a local install identity, not a
 browser-provided authorization claim.
 
-`nna nnd serve` starts NNA's authenticated loopback service for a local
-NotNativeDesktop process. NND owns the child process and reads one JSON
+`nna desktop serve` starts NNA's authenticated loopback service for a local
+desktop process. The desktop owns the child process and reads one JSON
 readiness line from stdout. The line contains protocol `1.0`, the loopback
 endpoint, an instance ID, and an ephemeral bearer token. Diagnostics use
-stderr. NND must keep the token in its server process.
+stderr. desktop must keep the token in its server process.
 
 NNA loads its configured manifest and constructs the governed session engine
 before it emits readiness. Missing or invalid configuration fails startup.
 Requests need both the bearer token and a fresh `X-NNA-Principal` envelope;
 the route layer checks the permissions and workspace grants.
 
-Local NND sessions resolve configured provider credentials through NNA's
+Local desktop sessions resolve configured provider credentials through NNA's
 existing `nna.local` Secret Broker realm, including delegated child engines.
 The credential stays in the NNA child process and is never returned to the
 browser. This lets the desktop use the same provider binding as the TUI.
@@ -161,7 +162,7 @@ workspace or user grants.
 The local session API supports creating/listing sessions, reading transcript
 messages, submitting a turn, renaming a title, archiving/restoring, cancelling
 an active turn, and removing a session from the desktop catalog. Each mutation has its own
-`nnd.session.*` permission. Catalog removal closes the governed engine but
+`desktop.session.*` permission. Catalog removal closes the governed engine but
 retains its NNA journal for recoverable operator inspection; it is not a
 secure erase. Browser-supplied directory fields cannot select the engine's
 workspace.
@@ -175,21 +176,21 @@ cursor was supplied, `complete` when the cursor remains in the ring and is
 visible to the current principal and full workspace grant, or `gap` when the
 cursor cannot certify a complete suffix. The opener has no SSE `id` field and
 never replaces the client's last resumable cursor. A missing, expired, or
-foreign-scope cursor produces `gap` and no partial replay. NND must reconcile
+foreign-scope cursor produces `gap` and no partial replay. desktop must reconcile
 from authoritative session, status, and transcript reads after `gap`; it also
 reconciles on every SSE reconnect until its replay consumer uses this signal.
 The replay window is not durable
 across an NNA process restart. While subscribers are connected, NNA sends an
 SSE comment heartbeat every 10 seconds; comments carry no event ID and never
-enter the replay suffix. This keeps NND's 30-second idle-stream watchdog from
+enter the replay suffix. This keeps the desktop's 30-second idle-stream watchdog from
 discarding a healthy but quiet connection.
 
 Session listing accepts `roots=true` for parent sessions or `roots=false` for
 child sessions; omitting it returns both. `limit` bounds the returned list in
-parent-then-child order, with each group sorted by session ID. NND has no list
+parent-then-child order, with each group sorted by session ID. desktop has no list
 cursor yet, so a limit smaller than the available list cannot discover the
 remaining sessions. `GET /session/:id/children` lists an owned parent's
-accessible child sessions in session-ID order. These read paths require `nnd.read`
+accessible child sessions in session-ID order. These read paths require `desktop.read`
 and the full original workspace grant. They do not grant child steering.
 
 `GET /session/:id/message?limit=N` returns the newest `N` projected messages
@@ -203,18 +204,18 @@ returning a partial history. An unbounded message read retains its legacy
 page; a cursor cannot select another principal's session.
 
 With durable persistence, NNA keeps a bounded session catalog beside its
-session journals. A new NND child reopens those sessions under their original
+session journals. A new desktop child reopens those sessions under their original
 subject and workspace grants before it emits readiness. An invalid primary or
 legacy catalog record stops startup while preserving the file for inspection;
 missing admitted roots are quarantined as described above. Ephemeral NNA
 configurations keep sessions in memory only.
 
 `nna integration serve` remains the NNO-owned entry point. It still requires
-an installed NNO activation. The NND command has a separate NNA-owned local
+an installed NNO activation. The desktop command has a separate NNA-owned local
 activation and does not change NNO's installation contract.
 
 The session description projects canonical NNA conversation work in
-`metadata.nnd.work`: revision, goal identity/objective/status, and bounded task
+`metadata.desktop.work`: revision, goal identity/objective/status, and bounded task
 identity/title/status. The projection comes from `SessionEngine.workStatus()`;
 it is not the OpenCode-compatible todo cache. Completion evidence, blocked
 reasons, staged completion, and journal details remain inside NNA. A committed
@@ -222,22 +223,22 @@ reasons, staged completion, and journal details remain inside NNA. A committed
 session reads reconstruct the same summary after restart. If work state cannot
 be validated, the field is absent rather than fabricated.
 
-NND-created engines use a distinct `nnd` output surface. NNA emits semantic
-`state_status` records for that surface; its NND host also folds NNA-authored
+Desktop-created engines use a distinct `desktop` output surface. NNA emits semantic
+`state_status` records for that surface; its desktop host also folds NNA-authored
 text/tool lifecycle records into streaming/tool phases. The owned session
-description projects the latest validated phase as `metadata.nnd.turnState`.
+description projects the latest validated phase as `metadata.desktop.turnState`.
 The projection includes only the phase name; it carries no reasoning text,
 provider payload, tool arguments, or decision details. NNA's completion path
-settles it to idle. NND's generic busy/idle status remains transport and
+settles it to idle. The desktop's generic busy/idle status remains transport and
 reconciliation bookkeeping, not the source of a semantic phase.
-For NND-owned delegations, the child engine uses an `nnd_subagent` output
+For desktop-owned delegations, the child engine uses an `desktop_subagent` output
 surface and the child registry projects the same validated phase on the
 child session. Live phase changes update that child description without
 borrowing the parent's turn state. A completed child settles to idle; its
 restored display-only snapshot retains that idle fact without a live-work claim.
 
-Session descriptions also include `metadata.nnd.projection`. The identical
-frame is emitted as the owner/workspace-scoped `nnd.projection` event after
+Session descriptions also include `metadata.desktop.projection`. The identical
+frame is emitted as the owner/workspace-scoped `desktop.projection` event after
 `session.created` and `session.updated`, with properties `{sessionID, frame}`.
 Version `1.0` contains sessionID, an opaque engine-context epoch, a positive
 revision, updatedAt, and three allowlisted display fields: turnState,
@@ -258,9 +259,9 @@ correction keeps its own stable evidence ID, while the earlier start remains
 an historical log entry rather than being overwritten by completion. These
 owner-scoped, bounded snapshots contain classified summaries and tool
 evidence only; prompt text, tool arguments, and tool output never enter the
-Activity record. NND can therefore replay a readable sequence after restart
+Activity record. desktop can therefore replay a readable sequence after restart
 without treating a past start row as the current session status.
-Parent tool evidence also carries the host-authored prompt request ID. NND
+Parent tool evidence also carries the host-authored prompt request ID. desktop
 can match completed file mutations to the latest turn without inferring
 ownership from timestamps; older records without this correlation remain
 session-level evidence. This is provenance for the tool event, not a claim
@@ -274,9 +275,9 @@ is rejected rather than projected. Context text, prompts, and provider payloads
 are never part of this saved measurement, and a session that has not reported
 an estimate continues to show the limit as unknown.
 
-The opt-in `POST /v1/nnd/sessions/:id/walkthrough` route is a separate,
-model-only inference seam for NND's diff walkthrough. It requires
-`nnd.walkthrough.generate` and ownership of the NND session. The caller sends
+The opt-in `POST /v1/desktop/sessions/:id/walkthrough` route is a separate,
+model-only inference seam for the desktop's diff walkthrough. It requires
+`desktop.walkthrough.generate` and ownership of the desktop session. The caller sends
 a 64-hex revision and a bounded array of aliased staged/working hunks; NNA
 validates the shape and 64 KiB digest bound before resolving the configured
 primary model route. The call runs through the provider scheduler with no
@@ -284,12 +285,12 @@ tools, a 45-second deadline and an output cap no greater than the configured
 route/provider cap. Diff text is explicitly
 untrusted; the route returns model text plus provider/model attribution and
 echoes the revision. NNA does not assert that a model's anchors or prose are
-correct: NND must resolve aliases against its own snapshot, reject unknown
+correct: desktop must resolve aliases against its own snapshot, reject unknown
 anchors, and verify the revision before showing a generated walkthrough.
 This route does not mutate a session transcript or invoke an agent turn.
 
-`POST /v1/nnd/sessions/:id/notification-text` is a separate model-only call
-requiring `nnd.notification.generate` and the session's original owner/workspace
+`POST /v1/desktop/sessions/:id/notification-text` is a separate model-only call
+requiring `desktop.notification.generate` and the session's original owner/workspace
 grant. Input contains kind (completion, error, question, or subtask), title
 (120 characters), body (1000 characters), and assistantText (6000 characters).
 Ordinary multiline body/context is accepted. An optional `model` selector uses
@@ -300,6 +301,6 @@ provider scheduler, caps output at 256 tokens or the lower configured cap, and
 has a five-second deadline. Two calls may be in flight globally and one per
 session. Invalid output and tool attempts fail; provider failures return generic
 unavailability. Valid output contains only title/body (120/500 characters) plus
-provider/model attribution. NND must retain deterministic fallback text when
+provider/model attribution. desktop must retain deterministic fallback text when
 generation is unavailable and recheck event eligibility before display. This
 route neither grants permission nor mutates a transcript or live agent turn.

@@ -72,7 +72,7 @@ Historical NNA state at the initial reference review (superseded by the delivery
    The problem includes organization and presentation; much of this backend should be reused.
 3. Several general pages still name OpenCode settings or use the older desktop settings store.
    Exposing every existing page would introduce controls that do not govern NNA. Each binding needs audit.
-4. The Windows tray previously had NND labels, a generic state-ring icon, and Open/Quit only.
+4. The Windows tray previously had desktop labels, a generic state-ring icon, and Open/Quit only.
    There was no tray browser action or persistent UI-browser chooser.
 5. Windows default-browser selection is sufficient for the first browser action. A dedicated browser
    choice is a separate preference, not a dependency for opening the web UI.
@@ -81,8 +81,8 @@ Primary NNA implementation references:
 
 - `desktop/packages/ui/src/components/settings/window.tsx`, `search.ts`, and `primitives.tsx`.
 - `desktop/packages/ui/src/components/settings/pages/native-configuration.tsx` and its typed controls.
-- `src/configuration-catalog.js`, `configuration-keys.js`, `nnd-configuration-service.js`,
-  `nnd-configuration-intents.js`, and `nnd-configuration-routes.js`.
+- `src/configuration-catalog.js`, `configuration-keys.js`, `desktop-configuration-service.js`,
+  `desktop-configuration-intents.js`, and `desktop-configuration-routes.js`.
 - `src/provider/profile-store.js`, `src/provider/route-configuration.js`, and the provider settings pages.
 - Native MCP, workspace, secret, web-search, web-fetch, notification, and lifecycle route families in `src/`.
 - `desktop/packages/ui/src/chat/sidebar-service-preferences.ts` and conversation draft persistence.

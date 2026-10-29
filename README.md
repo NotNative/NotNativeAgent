@@ -15,19 +15,21 @@ one-shot mode, optional durable goal/task progress, and recoverable session-data
 native-platform, and live-server release validation remains pending; see
 [release readiness](docs/RELEASE_READINESS.md).
 
-## Bundled desktop (NND)
+## Desktop surface
 
-Since version `20261012-2` this repository also hosts **NotNativeDesktop (NND)**,
-the optional GUI integration package, as the [`desktop/`](desktop/README.md)
-subtree: one repository, one version stamp, one gate run, one commit. NND keeps
-its own pnpm/vite toolchain inside `desktop/` (its quality gates, release
-manifest, and build stamp live there and are run from that directory), while
-this repository's `src/`, tests, and release gates are unchanged — `desktop/`
-is deliberately outside their include prefixes. NNA owns the payload contract
-that stages `desktop/` output for installation. All NND development plans,
-execution guides, and progress ledgers live under `desktop/docs/planning/`
-(local-only, untracked, never deployed); development must not happen in the
-archived standalone NND checkout.
+The desktop GUI is one of NNA's own surfaces. It lives in the
+[`desktop/`](desktop/README.md) subtree: one repository, one version stamp, one
+gate run, one commit. It has no separate product name and no separate release
+identity. See
+[ADR 0073](docs/architecture/0073-desktop-surface-identity.md).
+
+The desktop surface keeps its own pnpm/vite toolchain inside `desktop/` (its
+quality gates, release manifest, and build stamp live there and are run from
+that directory), while this repository's `src/`, tests, and release gates are
+unchanged — `desktop/` is deliberately outside their include prefixes. NNA owns
+the payload contract that stages `desktop/` output for installation. Development
+plans, execution guides, and progress ledgers live under
+`desktop/docs/planning/` (local-only, untracked, never deployed).
 
 **Starting a development session here?** Begin with
 [`desktop/docs/planning/INDEX.md`](desktop/docs/planning/INDEX.md) — it orders
