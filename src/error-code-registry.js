@@ -1,17 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-
-const FAILURE_DOMAINS = Object.freeze({
-  authorization: Object.freeze({ category: 'authorization', boundary: 'permission' }),
-  contract: Object.freeze({ category: 'contract', boundary: null }),
-  extension: Object.freeze({ category: 'extension', boundary: 'hook' }),
-  internal: Object.freeze({ category: 'internal', boundary: null }),
-  mcp: Object.freeze({ category: 'mcp', boundary: 'mcp' }),
-  memory: Object.freeze({ category: 'memory', boundary: 'memory' }),
-  persistence: Object.freeze({ category: 'persistence', boundary: 'persistence' }),
-  provider: Object.freeze({ category: 'provider', boundary: 'provider' }),
-  shutdown: Object.freeze({ category: 'internal', boundary: 'shutdown' }),
-  tool: Object.freeze({ category: 'tool', boundary: 'tool' }),
-});
+import { FAILURE_DOMAINS } from './failure-domains.js';
 
 // Invariant: each current reason code has one explicit owner; spelling never determines ownership at runtime.
 // Why: an added code must make its failure boundary visible in review instead of inheriting one by prefix.
