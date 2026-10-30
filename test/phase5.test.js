@@ -222,6 +222,39 @@ test('fragmented Kitty keyboard sequences are retained until their final byte ar
   assert.deepEqual(decoder.push(Buffer.from('2u')), [{ action: 'newline', text: '\n' }]);
 });
 
+test('application-mode keypad sequences map to editor actions instead of leaking SS3 bodies', () => {
+  const decoder = new TerminalInputDecoder();
+  assert.deepEqual(decoder.push(Buffer.from('\u001bOD\u001bOH\u001bOF\u001bOM')), [
+    { action: 'left' }, { action: 'home' }, { action: 'end' }, { action: 'submit' },
+  ]);
+  assert.deepEqual(decoder.push(Buffer.from('\u001bOp\u001bOs\u001bOy')), [
+    { action: 'insert', text: '0' }, { action: 'insert', text: '3' }, { action: 'insert', text: '9' },
+  ]);
+});
+
+test('unknown escape sequences are consumed whole and never type their bytes into the draft', () => {
+  const decoder = new TerminalInputDecoder();
+  assert.deepEqual(decoder.push(Buffer.from('\u001b[15~')), []);
+  assert.deepEqual(decoder.push(Buffer.from('\u001b[2~')), []);
+  assert.deepEqual(decoder.push(Buffer.from('\u001bOP')), []);
+  assert.deepEqual(decoder.push(Buffer.from('a')), [{ action: 'insert', text: 'a' }]);
+  assert.deepEqual(decoder.push(Buffer.from('\u001b[1;')), []);
+  assert.deepEqual(decoder.push(Buffer.from('9H')), []);
+});
+
+test('numeric keypad mode is requested so leaked DECKPAM state cannot steal numpad digits', () => {
+  const input = new PassThrough(); const output = new PassThrough();
+  input.isTTY = true; output.isTTY = true; input.setRawMode = () => undefined;
+  let terminalBytes = '';
+  output.on('data', (chunk) => { terminalBytes += chunk; });
+  const terminal = new TerminalMode(input, output, {
+    tty: true, mouse: false, alternateScreen: false, height: 24, keyboardProtocol: 'none',
+  });
+  terminal.enter();
+  assert.match(terminalBytes, /^\u001b>/u);
+  terminal.restore();
+});
+
 test('terminal mode negotiates and restores enhanced keyboard reporting', () => {
   const input = new PassThrough(); const output = new PassThrough();
   input.isTTY = true; output.isTTY = true; input.setRawMode = () => undefined;

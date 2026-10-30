@@ -8,6 +8,10 @@ const ESC = '\u001b';
 const MAX_INPUT_BYTES = 262_144;
 const PASTE_START = `${ESC}[200~`;
 const PASTE_END = `${ESC}[201~`;
+// VT keypad-application-mode (DECKPAM) digit tails: `ESC O p`..`ESC O y` are 0..9.
+const SS3_KEYPAD_DIGITS = new Map(Object.entries({
+  p: '0', q: '1', r: '2', s: '3', t: '4', u: '5', v: '6', w: '7', x: '8', y: '9',
+}));
 export function terminalCapabilities(input, output, options = {}) {
   const tty = input.isTTY === true && output.isTTY === true;
   const environment = runtimeEnvironment(options.environment ?? process.env);
@@ -52,7 +56,10 @@ export class TerminalMode {
     this.input.resume();
     if (this.capabilities.alternateScreen) this.output.write(`${ESC}[?1049h`);
     const mouse = this.capabilities.mouse ? `${ESC}[?1000h${ESC}[?1002h${ESC}[?1006h` : '';
-    this.output.write(`${keyboardProtocolEnter(this.capabilities.keyboardProtocol)}${ESC}[?25l${ESC}[?2004h${mouse}${ESC}[2J${ESC}[H`);
+    // `ESC >` forces numeric keypad mode. A previous program in the same terminal
+    // (PSReadLine, pagers, editors) can leave DECKPAM enabled, which silently turns
+    // every numpad digit into an SS3 escape sequence for the next program.
+    this.output.write(`${ESC}>${keyboardProtocolEnter(this.capabilities.keyboardProtocol)}${ESC}[?25l${ESC}[?2004h${mouse}${ESC}[2J${ESC}[H`);
   }
 
   restore() {
@@ -147,7 +154,11 @@ export class TerminalInputDecoder {
     const sequence = keySequence(this.#buffer, this.bindings);
     if (sequence) {
       this.#buffer = this.#buffer.slice(sequence.bytes);
-      actions.push(sequence.action === 'newline' ? { action: 'newline', text: '\n' } : { action: sequence.action });
+      if (sequence.text !== undefined) {
+        actions.push({ action: 'insert', text: sequence.text });
+      } else {
+        actions.push(sequence.action === 'newline' ? { action: 'newline', text: '\n' } : { action: sequence.action });
+      }
       return true;
     }
     // In interactive terminals Enter is a carriage return. Submission must use
@@ -165,7 +176,9 @@ export class TerminalInputDecoder {
     }
     if (this.#buffer[0] === ESC && this.#buffer.length < 3) return false;
     if (this.#buffer[0] === ESC) {
-      this.#buffer = this.#buffer.slice(1); return true;
+      const drained = unboundEscapeBytes(this.#buffer);
+      if (drained < 0) return false;
+      this.#buffer = this.#buffer.slice(drained || 1); return true;
     }
     const point = [...this.#buffer][0];
     this.#buffer = this.#buffer.slice(point.length);
@@ -180,6 +193,19 @@ export class TerminalInputDecoder {
     this.#buffer = this.#buffer.slice(end + PASTE_END.length); this.#paste = false;
     return true;
   }
+}
+
+// Complete but unbound escape sequences must be consumed whole: stripping only the ESC
+// byte leaks the sequence body ("OP", "[15~") into the editor as literal text. Returns
+// the consumed length, -1 when the sequence is incomplete and needs more bytes, or 0 for
+// bare-ESC and legacy Alt+byte forms.
+function unboundEscapeBytes(value) {
+  if (value[1] === 'O' || value[1] === 'N') return value.length >= 3 ? 3 : -1;
+  if (value.startsWith(`${ESC}[`)) {
+    const complete = /^\u001b\[[\u0020-\u003f]*[\u0040-\u007e]/u.exec(value);
+    return complete ? complete[0].length : -1;
+  }
+  return 0;
 }
 
 function enhancedKeyboardSequence(value, bindings) {
@@ -270,6 +296,14 @@ function keySequence(value, bindings) {
     [bindingBytes(bindings.scroll_bottom)]: 'scroll_bottom',
     '\u007f': 'backspace', [`${ESC}[3~`]: 'delete',
     [`${ESC}[D`]: 'left', [`${ESC}[C`]: 'right',
+    // SS3 application-mode keypad forms. Terminals that were left in DECKPAM by an
+    // earlier program, or that always emit SS3 for keypad keys, send `ESC O <final>`
+    // where the CSI table above expects `ESC [ <final>`.
+    [`${ESC}OA`]: 'history_up', [`${ESC}OB`]: 'history_down',
+    [`${ESC}OC`]: 'right', [`${ESC}OD`]: 'left',
+    [`${ESC}OH`]: 'home', [`${ESC}OF`]: 'end',
+    [`${ESC}OI`]: 'scroll_page_up', [`${ESC}OG`]: 'scroll_page_down',
+    [`${ESC}OM`]: 'submit',
     [`${ESC}[1;2D`]: 'select_left', [`${ESC}[1;2C`]: 'select_right',
     [`${ESC}[1;5D`]: 'word_left', [`${ESC}[1;5C`]: 'word_right',
     [`${ESC}[1;6D`]: 'select_word_left', [`${ESC}[1;6C`]: 'select_word_right',
@@ -290,5 +324,7 @@ function keySequence(value, bindings) {
   for (const [bytes, action] of Object.entries(controls)) {
     if (value.startsWith(bytes)) return { bytes: bytes.length, action };
   }
+  const keypadDigit = value.startsWith(`${ESC}O`) ? SS3_KEYPAD_DIGITS.get(value[2]) : undefined;
+  if (keypadDigit !== undefined && value.length >= 3) return { bytes: 3, text: keypadDigit };
   return null;
 }
