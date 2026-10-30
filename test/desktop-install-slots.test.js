@@ -19,8 +19,12 @@ const hash=value=>createHash('sha256').update(value).digest('hex');
 const host={platform:'win32',architecture:'x64',node_major:24,capabilities:['service_supervision','setup_control_plane'],data_schemas:{desktop_catalog:1,desktop_state:1}};
 async function put(root,path,value) {await mkdir(dirname(join(root,path)),{recursive:true});await writeFile(join(root,path),value);}
 async function fixture(t) {
- const root=createScratchSync('ns');
- const data=join(root,'data'),install=join(root,'native'),source=join(root,'payload');
+ // Why: staging enforces the Windows runtime path limit on the final absolute
+ // payload path (ADR 0023), and nesting the data root inside the shared fixture
+ // directory exceeded it. The data root gets its own short scratch directory;
+ // install and payload fixtures stay in a sibling so neither contains the other.
+ const root=createScratchSync('ns'),fixtureRoot=createScratchSync('nsf');
+ const data=root,install=join(fixtureRoot,'native'),source=join(fixtureRoot,'payload');
  await mkdir(join(data,'config'),{recursive:true});await mkdir(install);await mkdir(source);
  const identity={install_root:await realpath(install),data_root:await realpath(data),node:process.execPath,
   platform:'win32',architecture:'x64',node_major:24};
@@ -38,7 +42,7 @@ async function fixture(t) {
  await put(source,'nna-integration/desktop-local/integration.json',JSON.stringify(manifest));
  await seal(source,version);
  const registration=Buffer.from('{"root":"prior immutable registration"}\n');await put(data,'config/desktop-package.json',registration);
- return {root,identity,source,registration,version};
+ return {root:fixtureRoot,dataScratch:root,identity,source,registration,version};
 }
 async function seal(source,version) {
  await rm(join(source,'DESKTOP_PAYLOAD.json'),{force:true});const files=[];
