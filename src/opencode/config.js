@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-// Persisted configuration for the OpenCode wiring service surface. Records the
-// fixed wire identity (hostname, port, Basic auth credentials) and login
-// auto-start preference. The runtime alone owns the OpenChamber environment.
+// Persisted configuration for the OpenCode wiring surface. Records the fixed
+// wire identity (hostname, port, Basic auth credentials) and login auto-start
+// preference. No command stores the OpenChamber binding in the user profile;
+// `start` hands it to the launch process instead.
 // absent-safe, size-bounded, atomic 0600 writes, redacted public status.
 import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';

@@ -157,34 +157,72 @@ function projectStatus(value) {
     stale_binding: value.stale_binding };
 }
 
-/** startOpencodeService returns {started:true,pid,port,url,environment} (a fresh
- * detached runtime), {started:false,reason,runtime} after a lock loss, or
- * {started:false,reason:'already_running',runtime,environment}; the receipt
- * normalizes reason/pid/port/url and carries runtime only when the domain
- * observed one. */
+/** startOpencodeService returns {started:true,pid,port,url,environment,
+ * openchamber} (a fresh detached runtime), {started:false,reason,runtime}
+ * after a lock loss, or {started:false,reason:'already_running',runtime,
+ * environment,openchamber}; the receipt normalizes reason/pid/port/url and
+ * carries runtime only when the domain observed one. `environment` names the
+ * binding handed to the launch (no `written`/`removed`, because nothing is
+ * written to the user profile), and `openchamber` reports the launch outcome. */
 function projectStart(value) {
   const keys = new Set(Object.keys(value));
   if (value.started !== true && value.started !== false) throw projection();
   if (value.started === true) {
-    if (keys.size !== 5 || !['environment', 'pid', 'port', 'started', 'url'].every(key => keys.has(key))) {
+    if (keys.size !== 6 || !['environment', 'openchamber', 'pid', 'port', 'started', 'url'].every(key => keys.has(key))) {
       throw projection();
     }
     if (!Number.isSafeInteger(value.pid) || value.pid <= 0 || !Number.isSafeInteger(value.port)
       || value.port < 1 || value.port > 65_535 || typeof value.url !== 'string'
       || value.url.length < 1 || value.url.length > 320 || CONTROL.test(value.url)) throw projection();
     return { started: true, reason: null, pid: value.pid, port: value.port, url: value.url,
-      runtime: null, environment: projectEnvironment(value.environment) };
+      runtime: null, environment: projectLaunchEnvironment(value.environment),
+      openchamber: projectLaunch(value.openchamber) };
   }
-  if ((keys.size !== 4 && keys.size !== 3) || !['reason', 'runtime', 'started'].every(key => keys.has(key))
-    || (keys.size === 4 && !keys.has('environment'))) throw throwProjectionHelp(keys);
+  if ((keys.size !== 5 && keys.size !== 3) || !['reason', 'runtime', 'started'].every(key => keys.has(key))
+    || (keys.size === 5 && (!keys.has('environment') || !keys.has('openchamber')))) throw throwProjectionHelp(keys);
   if (value.reason !== 'already_starting' && value.reason !== 'already_running') throw throwProjectionHelp(keys);
   return { started: false, reason: value.reason, pid: null, port: null, url: null,
     runtime: projectRuntime(value.runtime), environment:
-      keys.has('environment') ? projectEnvironment(value.environment) : null };
+      keys.has('environment') ? projectLaunchEnvironment(value.environment) : null,
+    openchamber: keys.has('openchamber') ? projectLaunch(value.openchamber) : null };
 }
 
 function throwProjectionHelp(keys) {
   throw new ContractError('desktop_service_projection_invalid', `compatibility-service projection drifted over ${[...keys].sort().join(',')} (${keys.size} keys).`);
+}
+
+/** The binding handed to the OpenChamber launch: the four names that carry it
+ *  and an empty set on platforms without the launch path. Nothing is stored, so
+ *  the list is a description of one child's environment, not a durable write. */
+function projectLaunchEnvironment(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw projection();
+  const keys = [...new Set(Object.keys(value))];
+  if (value.supported === false && keys.length === 1) return { supported: false };
+  if (keys.length > 4 || !keys.every(key => typeof value[key] === 'string'
+    && value[key].length >= 1 && value[key].length <= 2000 && !CONTROL.test(value[key]))) throw projection();
+  return { supported: true, names: keys.sort() };
+}
+
+/** The launch outcome: {launched,pid,host,environment} on success or
+ *  {launched:false,reason} with an optional bounded failure code. */
+function projectLaunch(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw projection();
+  const keys = [...new Set(Object.keys(value))];
+  if (value.launched !== true && value.launched !== false) throw projection();
+  if (value.launched === true) {
+    if (!['environment', 'host', 'launched', 'pid'].every(key => keys.includes(key))
+      || keys.length > 4) throw projection();
+    if (!Array.isArray(value.environment) || value.environment.length > 4
+      || value.environment.some(name => typeof name !== 'string' || name.length < 1 || name.length > 64)) throw projection();
+    if (value.pid !== null && (!Number.isSafeInteger(value.pid) || value.pid <= 0)) throw projection();
+    if (typeof value.host !== 'string' || value.host.length < 1 || value.host.length > 320 || CONTROL.test(value.host)) throw projection();
+    return { launched: true, pid: value.pid, host: value.host, environment: value.environment.slice().sort() };
+  }
+  if (!['launched', 'reason'].every(key => keys.includes(key))
+    || keys.some(key => key !== 'launched' && key !== 'reason' && key !== 'error')) throw projection();
+  if (typeof value.reason !== 'string' || value.reason.length < 1 || value.reason.length > 64 || CONTROL.test(value.reason)) throw projection();
+  if (value.error !== undefined && (typeof value.error !== 'string' || value.error.length < 1 || value.error.length > 64)) throw projection();
+  return { launched: false, reason: value.reason, ...(value.error !== undefined ? { error: value.error } : {}) };
 }
 
 /** stopOpencodeService returns {stopped:true,pid} or {stopped:false,

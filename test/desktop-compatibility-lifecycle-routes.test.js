@@ -168,16 +168,14 @@ test('enable installs the login script verbatim; start applies the OpenChamber e
     const start = await winService.start();
     assert.equal(start.value.started, true);
     assert.equal(start.value.pid, 777);
-    // The default username leaves no value behind, so only three names are
-    // written; the identity stays in the receipt's unchanged list.
-    assert.deepEqual(written.map(([name]) => name), ['OPENCODE_SKIP_START', 'OPENCODE_HOST',
-      'OPENCODE_SERVER_PASSWORD']);
     const startReceipt = projectAction(start, 'start', 'start_service', true);
     assert.equal(startReceipt.runtime, null);
-    assert.deepEqual(startReceipt.environment, { supported: true, written: [
-      'OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD'],
-      removed: [], unchanged: ['OPENCODE_SERVER_USERNAME'] });
-    assert.ok(!JSON.stringify(startReceipt).includes(written[2][1]));
+    // Invariant: start describes the binding it handed to the launch child and
+    // reports no user-scope write, because none happened.
+    assert.deepEqual(startReceipt.environment, { supported: true, names: [
+      'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SKIP_START'] });
+    assert.deepEqual(startReceipt.openchamber, { launched: false, reason: 'launcher_not_found' });
+    assert.ok(!JSON.stringify(startReceipt).includes(start.value.environment.OPENCODE_SERVER_PASSWORD));
     assert.ok(!JSON.stringify(receipt).includes('disabled-value-never-present-x'));
     const disabled = await winService.disable();
     assert.equal(disabled.value.config.autostart_enabled, false);

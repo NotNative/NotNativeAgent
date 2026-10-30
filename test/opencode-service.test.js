@@ -43,41 +43,50 @@ test('configuration is durable, redacted, and reports auto-start independently',
 test('start provisions a runtime identity without login auto-start', async () => {
   const paths = await servicePaths();
   const result = await startOpencodeService({}, paths, { platform: 'linux', processIdentity: identity(), spawnProcess: spawn(child()) });
-  assert.deepEqual(result, { started: true, pid: 3210, port: 4095, url: 'http://127.0.0.1:4095', environment: { supported: false } });
+  assert.deepEqual(result, { started: true, pid: 3210, port: 4095, url: 'http://127.0.0.1:4095',
+    environment: { OPENCODE_SKIP_START: 'true', OPENCODE_HOST: 'http://127.0.0.1:4095',
+      OPENCODE_SERVER_PASSWORD: (await loadOpenCodeConfig(paths.opencodeConfig)).password },
+    openchamber: { launched: false, reason: 'unsupported_platform' } });
   const config = await loadOpenCodeConfig(paths.opencodeConfig);
   assert.equal(config.enabled, false);
   assert.match(config.password, /^[A-Za-z0-9_-]{43}$/u);
   assert.equal((await opencodeRuntimeStatus(paths, { processIdentity: identity() })).running, true);
 });
 
-test('start owns environment setup and refreshes an already-running surface', async () => {
+test('start hands the binding to the launch and writes no user environment', async () => {
   const paths = await servicePaths(); const env = environment();
-  const scope = { platform: 'win32', processIdentity: identity(), spawnProcess: spawn(child()), userEnvironmentRead: env.read, userEnvironmentWrite: env.write };
+  const scope = { platform: 'win32', processIdentity: identity(), spawnProcess: spawn(child()),
+    userEnvironmentRead: env.read, userEnvironmentWrite: env.write, environment: {} };
   const started = await startOpencodeService({}, paths, scope);
-  assert.deepEqual(started.environment.written, ['OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD']);
-  assert.equal(env.state.OPENCODE_HOST, 'http://127.0.0.1:4095');
+  // Invariant: the binding lives in the launch environment only, so no write
+  // reaches the user profile and nothing can outlive the server it names.
+  assert.deepEqual(env.writes, []);
+  assert.equal(started.environment.OPENCODE_HOST, 'http://127.0.0.1:4095');
   const again = await startOpencodeService({}, paths, scope);
   assert.equal(again.reason, 'already_running');
-  assert.deepEqual(again.environment.written, []);
+  assert.deepEqual(env.writes, []);
+  assert.equal(again.environment.OPENCODE_HOST, 'http://127.0.0.1:4095');
 });
 
-test('failed environment setup stops the process that start just launched', async () => {
+test('a skipped OpenChamber launch leaves the started server running', async () => {
   const paths = await servicePaths(); const killed = [];
-  await assert.rejects(startOpencodeService({}, paths, {
+  const started = await startOpencodeService({}, paths, {
     platform: 'win32', processIdentity: identity(), spawnProcess: spawn(child(3222)),
-    userEnvironmentRead: async () => null, userEnvironmentWrite: async () => { throw new Error('registry denied'); },
-    kill: (...args) => killed.push(args),
-  }), { code: 'opencode_user_environment_failed' });
-  assert.deepEqual(killed, [[3222, 'SIGTERM']]);
-  await assert.rejects(readFile(join(paths.opencode, 'opencode.pid')), { code: 'ENOENT' });
+    pathValue: 'C:\\nowhere', appData: 'C:\\also-nowhere', environment: {}, kill: (...args) => killed.push(args),
+  });
+  assert.equal(started.started, true);
+  assert.deepEqual(started.openchamber, { launched: false, reason: 'launcher_not_found' });
+  assert.deepEqual(killed, []);
 });
 
-test('stop clears environment while preserving auto-start configuration', async () => {
+test('stop still clears a binding left by an older build while preserving auto-start', async () => {
   const paths = await servicePaths(); const password = generateOpencodePassword(); const env = environment({ OPENCODE_SKIP_START: 'true', OPENCODE_HOST: 'http://127.0.0.1:4095', OPENCODE_SERVER_PASSWORD: password });
   await saveOpenCodeConfig(paths.opencodeConfig, { enabled: true, password });
   await writeFile(join(paths.opencode, 'opencode.pid'), JSON.stringify({ version: 2, pid: 44, process_identity: { version: 1, pid: 44, platform: 'fixture', start_id: 'fixture' } }));
   const result = await stopOpencodeService({}, paths, { platform: 'win32', processIdentity: identity(), kill: () => undefined, userEnvironmentRead: env.read, userEnvironmentWrite: env.write });
   assert.equal(result.stopped, true);
+  // Compatibility: a user profile written by an earlier build still clears on
+  // stop, so an upgraded installation cannot keep a stale latch.
   assert.deepEqual(Object.keys(env.writes[0]).sort(), ['OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SERVER_USERNAME', 'OPENCODE_SKIP_START']);
   assert.equal((await loadOpenCodeConfig(paths.opencodeConfig)).enabled, true);
 });

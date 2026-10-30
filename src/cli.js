@@ -200,7 +200,7 @@ function help() {
     '  nna desktop package activate ROOT|deactivate ROOT|status',
     '                                           Register or inspect an installed desktop GUI package',
     '  nna opencode start|stop|status',
-    '                                           Run or inspect the OpenCode-compatible OpenChamber surface',
+    '                                           Start or inspect the surface; start also launches OpenChamber',
     '  nna opencode enable [--port P] [--hostname H] | disable',
     '                                           Install or remove login auto-start only',
     '  nna uninstall [--delete-user-data|--keep-user-data]',

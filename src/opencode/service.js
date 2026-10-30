@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // OpenCode lifecycle service: verified detached runtime plus optional
-// Windows login auto-start. Runtime start and stop own OpenChamber variables.
+// Windows login auto-start. `start` launches OpenChamber with the binding in
+// that child's environment; no command writes OPENCODE_* to the user profile.
 // Why: this module deliberately parallels gateway-cli.js with version-2 pid
 // records only; the gateway's legacy adoption path predates process identity
 // and has no equivalent here.
@@ -13,7 +14,8 @@ import { SessionLock } from '../persistence/session-lock.js';
 import { persistAtomicJson } from '../persistence/atomic-json.js';
 import { ProcessIdentity, validIdentity } from '../reliability/process-identity.js';
 import { loadOpenCodeConfig, openCodeConfigExists, opencodePublicStatus, saveOpenCodeConfig, bindUrl, generateOpencodePassword } from './config.js';
-import { applyUserEnvironment, clearUserEnvironment, observeUserEnvironment, runPowershell } from './user-environment.js';
+import { clearUserEnvironment, observeUserEnvironment, runPowershell } from './user-environment.js';
+import { launchOpenchamber, openchamberEnvironment } from './openchamber.js';
 
 const STARTUP_SCRIPT_NAME = 'NotNativeAgent-OpenCode.vbs';
 const DEFAULT_BASIC_USERNAME = 'opencode';
@@ -105,16 +107,15 @@ export async function startOpencodeService(options, paths, scope = {}) {
     const status = await opencodeRuntimeStatus(paths, scope);
     if (status.running) return {
       started: false, reason: 'already_running', runtime: status,
-      ...(await applyRuntimeEnvironment(config, scope)),
+      ...(await launchBoundOpenchamber(config, { ...scope, environment: scope.environment ?? process.env })),
     };
     if (status.stale) await preserveStaleRuntimePid(paths);
+    // Why: the launch child inherits the CLI's real environment (the platform,
+    // the shell's PATH, and the operator's own settings), so an absent
+    // `scope.environment` must not be treated as an empty environment.
     const started = await spawnDetachedOpencodeServe(config, paths, scope);
-    try {
-      return { ...started, ...(await applyRuntimeEnvironment(config, scope)) };
-    } catch (error) {
-      await stopManagedRuntime(paths, scope).catch(() => undefined);
-      throw error;
-    }
+    return { ...started,
+      ...(await launchBoundOpenchamber(config, { ...scope, environment: scope.environment ?? process.env })) };
   } finally {
     await startLock.release();
   }
@@ -132,7 +133,10 @@ export async function stopOpencodeService(options, paths, scope = {}) {
   }
   try {
     const stopped = await stopManagedRuntime(paths, scope);
-    return { ...stopped, ...(options.preserveEnvironment ? {} : await clearRuntimeEnvironment(paths, scope)) };
+    // Why: the uninstaller stops the runtime first and clears the user profile
+    // later, after the payload is gone, so it must not inherit this cleanup;
+    // `--preserve-environment` reports the stop outcome alone.
+    return options.preserveEnvironment ? stopped : { ...stopped, ...(await clearRuntimeEnvironment(paths, scope)) };
   } finally {
     await stopLock.release();
   }
@@ -327,11 +331,20 @@ function quoteForVbs(value) {
   return String(value).replace(/"/gu, '""').trim();
 }
 
-async function applyRuntimeEnvironment(config, scope = {}) {
-  if ((scope.platform ?? process.platform) !== 'win32') return { environment: { supported: false } };
-  return { environment: await applyUserEnvironment(config, scope, bindUrl, DEFAULT_BASIC_USERNAME) };
+/** Launch OpenChamber with the binding inside the child's environment. The
+ *  result is descriptive only: the server is already running, so a skipped or
+ *  failed OpenChamber launch never fails `start`. */
+async function launchBoundOpenchamber(config, scope = {}) {
+  if ((scope.platform ?? process.platform) !== 'win32') {
+    return { environment: openchamberEnvironment(config, bindUrl(config)), openchamber: { launched: false, reason: 'unsupported_platform' } };
+  }
+  const launched = await launchOpenchamber(config, bindUrl(config), scope);
+  return { environment: openchamberEnvironment(config, bindUrl(config)), openchamber: launched };
 }
 
+/** Remove any user-scope binding an earlier NNA build left behind. New
+ *  installations never write one, so this reports a clear rather than doing
+ *  work, and the ownership rule keeps a foreign or hand-edited binding. */
 async function clearRuntimeEnvironment(paths, scope = {}) {
   if ((scope.platform ?? process.platform) !== 'win32') return { environment: { supported: false } };
   let config;
