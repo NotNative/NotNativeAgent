@@ -27,16 +27,30 @@ export function decorateLiveActivity(line, animationFrame) {
 
 function liveActivityLabel(session) {
   const { state } = session;
+  // Why: the step count is derived from committed step identities only; when
+  // the model ran tools without committed text no count is claimed.
+  const steps = completedStepCount(session);
+  const stepSuffix = steps > 0 ? ` · step ${steps + 1}` : '';
   if (state === 'preparing') return 'Preparing…';
-  if (state === 'waiting_provider') return 'Waiting for model…';
-  if (state === 'reasoning') return 'Model is reasoning…';
-  if (state === 'streaming') return 'Responding…';
+  if (state === 'waiting_provider') return `Waiting for model${stepSuffix}…`;
+  if (state === 'reasoning') return `Model is reasoning${stepSuffix}…`;
+  if (state === 'streaming') return `Responding${stepSuffix}…`;
   if (state === 'awaiting_approval') return 'Reviewing tool use…';
   if (state === 'running_tool') return runningToolLabel(session);
   if (state === 'recovering') return 'Recovering…';
   if (state === 'attention_required') return 'Attention required — enter guidance or cancel…';
   if (state === 'cancelling') return 'Cancelling…';
   return 'Working…';
+}
+
+function completedStepCount(session) {
+  const steps = new Set();
+  for (const record of session.records ?? []) {
+    if (record.type !== 'message' || record.role !== 'assistant' || record.turn_id !== session.activeTurnId) continue;
+    const stepId = record.step_id ?? record.stepId;
+    if (stepId) steps.add(stepId);
+  }
+  return steps.size;
 }
 
 function runningToolLabel(session) {
