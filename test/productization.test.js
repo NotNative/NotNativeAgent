@@ -18,6 +18,11 @@ import { runSoakTurns } from '../scripts/performance-lab-soak.js';
 
 const projectRoot = resolve(dirname(new URL(import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/u, (value) => value.slice(1))), '..');
 
+// Windows PowerShell renders terminating errors through the host, which wraps long
+// exception lines at the console width and may break mid-token with an indent. The
+// installer message is authoritative; tests assert against it host-wrap-free.
+const unwrapHostOutput = (value) => String(value).replaceAll(/[ ]*\r\n[ ]*/gu, '');
+
 test('canonical product version uses date and iteration with a SemVer package mapping', async () => {
   const canonical = (await readFile(join(projectRoot, 'VERSION'), 'utf8')).trim();
   const packageJson = JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8'));
@@ -639,7 +644,7 @@ test('Windows installer rejects an unsafe existing startup manifest before repla
       cwd: root, encoding: 'utf8', timeout: 10_000, env: { ...process.env, NNA_HOME: data },
     }) : null;
     assert.notEqual(result.status, 0, `installer reported success; launch status=${launch?.status}, stderr=${launch?.stderr}`);
-    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data manifest target \(manifest_target_unsafe helper=desktop_private_namespace_unsafe stage=manifest_file\)[\s\S]*manifest\.json/u);
+    assert.match(unwrapHostOutput(`${result.stdout}\n${result.stderr}`), /Unsafe NNA user data manifest target \(manifest_target_unsafe helper=desktop_private_namespace_unsafe stage=manifest_file\)[\s\S]*manifest\.json/u);
     assert.equal(existsSync(app), false, 'unsafe manifest must stop installation before payload mutation');
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -674,7 +679,7 @@ test('Windows installer rejects unsafe existing startup manifest storage before 
       '-SkipPlaywrightSetup', '-SkipGatewaySetup',
     ], { cwd: root, encoding: 'utf8', timeout: 20_000 });
     assert.notEqual(result.status, 0, result.stdout);
-    assert.match(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data manifest target \(manifest_target_unsafe helper=desktop_private_acl_unsafe stage=storage_directory\)[\s\S]*manifest\.json/u);
+    assert.match(unwrapHostOutput(`${result.stdout}\n${result.stderr}`), /Unsafe NNA user data manifest target \(manifest_target_unsafe helper=desktop_private_acl_unsafe stage=storage_directory\)[\s\S]*manifest\.json/u);
     assert.equal(existsSync(app), false, 'unsafe manifest storage must stop installation before payload mutation');
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -706,7 +711,7 @@ test('Windows installer retries an unavailable manifest check once before payloa
     ], { cwd: root, encoding: 'utf8', timeout: 20_000 });
     assert.equal(await readFile(counter, 'utf8'), '2', result.stderr);
     assert.match(result.stdout, /Application payload/u);
-    assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /Unsafe NNA user data manifest|manifest check unavailable/u);
+    assert.doesNotMatch(unwrapHostOutput(`${result.stdout}\n${result.stderr}`), /Unsafe NNA user data manifest|manifest check unavailable/u);
     assert.notEqual(result.status, 0, 'the minimal test source intentionally has no installable payload');
   } finally { await rm(root, { recursive: true, force: true }); }
 });

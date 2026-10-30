@@ -1,6 +1,6 @@
 {
   "name": "notnative-desktop",
-  "version": "20261030.0.7",
+  "version": "20261030.0.8",
   "private": true,
   "type": "module",
   "description": "NotNativeDesktop — a cleanroom workspace for running and reviewing agent work.",
@@ -36,5 +36,5 @@
     "esbuild": "^0.28.2",
     "typescript": "^5.9.3"
   },
-  "desktop_version": "20261030-7"
+  "desktop_version": "20261030-8"
 }
