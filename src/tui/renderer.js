@@ -13,8 +13,8 @@ import { applyConversationSpacing } from './conversation-spacing.js';
 import { permissionControlLine, permissionLines } from './permission-renderer.js';
 import { questionControlLine, questionLines } from './question-view.js';
 import { decorateContent, decorateFooter, decorateHeader } from './decoration.js';
+import { activityByTurn, isActivity, receiptOutcomeKind, summarizeActivity, turnReceipt } from './receipt-view.js';
 import { workSummaryRows } from './work-summary.js';
-import { detailedTokenText, receiptTokenText } from '../experience/token-accounting.js';
 import { latestToolStatusIndexes, toolStatusIdentity } from '../experience/tool-lifecycle.js';
 import { overlayControlLabel } from './surface-engine.js';
 import { questionViewportStart, tabState, visibleContentStart } from './viewport-state.js';
@@ -32,7 +32,7 @@ export class TuiRenderer {
     const room = Math.max(1, height - header.length - footer.length);
     const targets = new Map();
     const lineKinds = new Map();
-    const available = contentLines(projection, session, width, targets, lineKinds, height);
+    const available = contentLines(projection, session, width, targets, lineKinds, height, capabilities);
     restoreHistoryAnchor(session, available.length);
     if (!session.pendingPermission && !session.pendingQuestion && !projection.help && !projection.overlay) session.viewportLineCount = available.length;
     const permissionStart = session.pendingQuestion
@@ -97,7 +97,7 @@ function headerLines(projection, session, width) {
   ];
 }
 
-function contentLines(projection, session, width, targets = new Map(), lineKinds = new Map(), height = 24) {
+function contentLines(projection, session, width, targets = new Map(), lineKinds = new Map(), height = 24, capabilities = {}) {
   if (session.pendingPermission) return permissionLines(session.pendingPermission, width, projection.bindings);
   if (session.pendingQuestion) return questionLines(session.pendingQuestion, width, targets);
   if (projection.overlay) return overlayLines(projection.overlay, width, targets, lineKinds);
@@ -124,12 +124,14 @@ function contentLines(projection, session, width, targets = new Map(), lineKinds
       else if (mode === 'summary') lines.push(...summaryActivityRows(activityRecords).flatMap((line) => wrapIndentedTerminalLine(line, width)));
       else lines.push(...collapsedFailureRows(activityRecords).flatMap((line) => wrapIndentedTerminalLine(line, width)));
       const receiptStart = lines.length;
-      const receipt = turnReceipt(record, summary, mode, width);
+      const receipt = turnReceipt(record, summary, mode, width, capabilities);
+      const outcomeKind = receiptOutcomeKind(record.outcome);
       lines.push(...receipt, '');
-      if (mode !== 'details') {
-        for (let index = receiptStart; index < receiptStart + receipt.length; index += 1) {
-          targets.set(index, { type: 'activity', turnId: record.turn_id });
-        }
+      for (let index = receiptStart; index < receiptStart + receipt.length; index += 1) {
+        if (mode !== 'details') targets.set(index, { type: 'activity', turnId: record.turn_id });
+        // Identity, not text: wrapped continuation rows carry the same kind so
+        // decoration treats a receipt as one object instead of regex-guessing.
+        lineKinds.set(index, `turn_receipt:${outcomeKind}:${index === receiptStart ? 'first' : 'body'}`);
       }
       lastVisibleKind = 'turn_result';
       continue;
@@ -400,85 +402,11 @@ function tabLabel(session, activeId) {
   return `[${selected} ${sanitizeTerminal(session.name ?? 'Conversation').slice(0, 18)}${state}${authority}]`;
 }
 
-function isActivity(record) {
-  return ['tool_status', 'review_status', 'state_status', 'queue_status', 'subagent_progress'].includes(record.type);
-}
-
-function activityByTurn(records, completed) {
-  const result = new Map();
-  for (const record of records) {
-    if (!isActivity(record) || !completed.has(record.turn_id)) continue;
-    const values = result.get(record.turn_id) ?? [];
-    values.push(record);
-    result.set(record.turn_id, values);
-  }
-  return result;
-}
-
-function summarizeActivity(records) {
-  const tools = new Map();
-  const reviews = new Set();
-  let engine = false;
-  for (const record of records) {
-    const id = record.tool_request_id ?? record.provider_call_id;
-    if (record.type === 'tool_status') tools.set(id ?? record.tool ?? `tool:${tools.size}`, record.tool);
-    if (record.type === 'review_status') reviews.add(id ?? record.decision_id ?? `review:${reviews.size}`);
-    if (record.type === 'state_status' || record.type === 'queue_status') engine = true;
-  }
-  return { tools, reviews, engine };
-}
-
 function keyLabel(value) {
   if (!value) return 'unbound';
   return value.split('+').map((part) => part.length === 1 ? part.toUpperCase() : `${part[0].toUpperCase()}${part.slice(1)}`).join('+');
 }
 
-function turnReceipt(record, summary, mode, width) {
-  const toolCount = summary.tools.size;
-  const reviewCount = summary.reviews.size;
-  const successful = record.outcome === 'completed';
-  const marker = successful ? '*' : record.outcome === 'cancelled' ? '-'
-    : ['blocked', 'needs_input'].includes(record.outcome) ? '?' : '!';
-  const label = successful ? 'Turn finished' : record.outcome === 'cancelled'
-    ? 'Turn cancelled' : record.outcome === 'needs_input' ? 'Turn needs input'
-      : record.outcome === 'blocked' ? 'Turn blocked'
-      : record.outcome === 'incomplete' ? 'Turn ended without completion'
-      : `Turn ${record.outcome.replaceAll('_', ' ')}`;
-  if (successful || ['blocked', 'needs_input'].includes(record.outcome)) {
-    const basic = [
-      Number.isFinite(record.elapsed_ms) ? formatDuration(record.elapsed_ms) : null,
-      receiptTokenText(record),
-      toolCount ? `${toolCount} tool${toolCount === 1 ? '' : 's'}` : null,
-      reviewCount ? `${reviewCount} review${reviewCount === 1 ? '' : 's'}` : null,
-      toolCount || reviewCount ? `Ctrl+O ${mode === 'details' ? 'collapse' : 'details'}` : null,
-    ].filter(Boolean);
-    return wrap(`  ${marker}${basic.length ? ` ${basic.join(' | ')}` : ''}`, width);
-  }
-  const details = [
-    Number.isFinite(record.elapsed_ms) ? formatDuration(record.elapsed_ms) : null,
-    detailedTokenText(record),
-    toolCount || reviewCount ? `${toolCount} tool${toolCount === 1 ? '' : 's'}` : 'direct response',
-    reviewCount ? `${reviewCount} review${reviewCount === 1 ? '' : 's'}` : null,
-    record.failure?.code ? `code ${record.failure.code}` : null,
-    recoveryAction(record),
-    toolCount || reviewCount ? `Ctrl+O ${mode === 'details' ? 'collapse' : 'details'}` : null,
-  ].filter(Boolean);
-  return wrap(`  ${marker} ${label}${details.length ? ` | ${details.join(' | ')}` : ''}`, width);
-}
-function recoveryAction(record) {
-  if (record.outcome === 'needs_input') return null;
-  if (record.outcome === 'blocked') return 'review the blocker above';
-  if (record.outcome === 'incomplete') return 'review the explanation above';
-  if (record.retryable) return 'retry: Up then Enter';
-  if (!['completed', 'cancelled'].includes(record.outcome)) return 'inspect: /health';
-  return null;
-}
-
-function formatDuration(milliseconds) {
-  if (milliseconds < 1000) return `${Math.round(milliseconds)}ms`;
-  const seconds = milliseconds / 1000;
-  return seconds < 60 ? `${seconds.toFixed(seconds < 10 ? 1 : 0)}s` : `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
-}
 function padCells(value, width) {
   return `${value}${' '.repeat(Math.max(0, width - displayWidth(value)))}`;
 }

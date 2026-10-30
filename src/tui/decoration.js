@@ -45,6 +45,7 @@ export function decorateContent(line, width, color, index, overlayKind, lineKind
   // without adding renderer-only markers to copied transcript text.
   if (lineKind?.startsWith('user_input:')) return paint(TUI_THEME.inputTranscript, padCells(line, width));
   if (lineKind === 'context_compaction_status') return paint(TUI_THEME.contextStatus, line);
+  if (lineKind?.startsWith('turn_receipt:')) return decorateReceiptLine(line, lineKind);
   const toolActivity = decorateToolActivityLine(line, lineKind, paint);
   if (toolActivity) return toolActivity;
   if (lineKind?.startsWith('stream_delta:')) return decorateAssistantLine(line, lineKind);
@@ -57,8 +58,45 @@ export function decorateContent(line, width, color, index, overlayKind, lineKind
   return line;
 }
 
-function decorateAssistantLine(line, lineKind) {
-  const semantic = lineKind.slice('stream_delta:'.length);
+// Outcome carries the visual weight of a receipt; the body fields stay calm so
+// a completed turn reads as settled history. Fields are our own grammar built
+// by turnReceipt, so splitting them back is deterministic round-tripping, not
+// prose inference.
+const RECEIPT_STYLE = Object.freeze({
+  completed: Object.freeze({ marker: TUI_THEME.success, body: TUI_THEME.mutedDark }),
+  cancelled: Object.freeze({ marker: TUI_THEME.mutedDark, body: TUI_THEME.mutedDark, label: TUI_THEME.secondary }),
+  needs_input: Object.freeze({ marker: TUI_THEME.warning, body: TUI_THEME.warning }),
+  blocked: Object.freeze({ marker: TUI_THEME.warning, body: TUI_THEME.warning }),
+  failed: Object.freeze({ marker: TUI_THEME.dangerStrong, body: TUI_THEME.mutedDark, label: TUI_THEME.dangerStrong }),
+  incomplete: Object.freeze({ marker: TUI_THEME.danger, body: TUI_THEME.mutedDark, label: TUI_THEME.danger }),
+  other: Object.freeze({ marker: TUI_THEME.danger, body: TUI_THEME.mutedDark, label: TUI_THEME.danger }),
+});
+const RECEIPT_FLAGGED_FIELD = /^\d+ flagged$/u;
+const RECEIPT_CONTROL_FIELD = /^Ctrl\+O (?:details|collapse)$/u;
+
+function decorateReceiptLine(line, lineKind) {
+  const [, outcome, part] = lineKind.split(':');
+  const style = RECEIPT_STYLE[outcome] ?? RECEIPT_STYLE.other;
+  if (part !== 'first') return paint(style.body, line);
+  const marker = line.match(/^ {2}(\S+)(?: (.*))?$/u);
+  if (!marker) return paint(style.body, line);
+  // The compact outcomes carry no label: their first field is data, not a caption.
+  const labeled = !(outcome === 'completed' || outcome === 'blocked' || outcome === 'needs_input');
+  const body = marker[2] === undefined ? '' : ` ${paintReceiptBody(marker[2], style, labeled)}`;
+  return `  ${paint(style.marker, marker[1])}${body}`;
+}
+
+function paintReceiptBody(rest, style, labeled = false) {
+  const separator = paint(style.body, ' | ');
+  return rest.split(' | ').map((field, index) => {
+    if (labeled && index === 0) return paint(style.label, field);
+    if (RECEIPT_FLAGGED_FIELD.test(field)) return paint(TUI_THEME.warning, field);
+    if (RECEIPT_CONTROL_FIELD.test(field) && style.body === TUI_THEME.mutedDark) return paint(TUI_THEME.mutedStrong, field);
+    return paint(style.body, field);
+  }).join(separator);
+}
+
+function decorateAssistantLine(line, lineKind) {  const semantic = lineKind.slice('stream_delta:'.length);
   const style = {
     heading: TUI_THEME.accentSoft, list: TUI_THEME.mutedDark,
     quote: TUI_THEME.muted, code: TUI_THEME.accentSoft,

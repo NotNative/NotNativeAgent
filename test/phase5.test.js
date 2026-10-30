@@ -762,7 +762,7 @@ test('conversation rhythm separates user requests and model responses', () => {
   projection.apply('s1', { type: 'stream_delta', turn_id: 'turn-2', text: 'Second response.' });
   const frame = new TuiRenderer().frame(projection, { width: 100, height: 32, color: false });
   assert.match(frame, /> First request\.\n\n\* First response\./u);
-  assert.match(frame, /\*\n\n\n> Second request\.\n\n\* Second response\./u);
+  assert.match(frame, /●\n\n\n> Second request\.\n\n\* Second response\./u);
 });
 
 test('assistant transcript presentation uses copy-safe ASCII markers', () => {
@@ -920,7 +920,7 @@ test('AC-TUI-01 completed activity remains visible without color, compacts, expa
   projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1' });
   frame = renderer.frame(projection, { width: 100, height: 24, color: false });
   assert.equal(frame.includes('\u001b'), false);
-  assert.match(frame, /^  \* \d+ms \| 1 tool \| 1 review \| Ctrl\+O details$/mu);
+  assert.match(frame, /^  ● \d+ms \| 1 tool \| 1 review \| Ctrl\+O details$/mu);
   assert.doesNotMatch(frame, /3 events/u);
   assert.doesNotMatch(frame, /fs_read_text/u);
   assert.doesNotMatch(frame, /Arguments:/u);
@@ -1026,9 +1026,56 @@ test('completed turn receipt is limited to timing and token usage', () => {
   projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1', elapsed_ms: 1_400,
     usage: { prompt_tokens: 20, completion_tokens: 7, total_tokens: 27 } });
   const frame = new TuiRenderer().frame(projection, { width: 100, height: 24, color: false });
-  assert.match(frame, /^  \* 1\.4s \| 27 tokens$/mu);
+  assert.match(frame, /^  ● 1\.4s \| 27 tokens$/mu);
   assert.doesNotMatch(frame, /Turn finished|direct response|reply requested/u);
   assert.doesNotMatch(frame, /Ready for input/u);
+});
+
+test('receipt markers fall back to ASCII glyphs when unicode is disabled', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });
+  projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1', elapsed_ms: 1_400,
+    usage: { prompt_tokens: 20, completion_tokens: 7, total_tokens: 27 } });
+  const frame = new TuiRenderer().frame(projection, { width: 100, height: 24, color: false, unicode: false });
+  assert.match(frame, /^  \* 1\.4s \| 27 tokens$/mu);
+});
+
+test('wrapped receipt rows keep one color identity', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });
+  projection.apply('s1', { type: 'turn_result', outcome: 'cancelled', turn_id: 'turn-1', elapsed_ms: 1_400,
+    usage: { prompt_tokens: 1_200_000, completion_tokens: 34_567, total_tokens: 1_234_567 },
+    token_accounting: { measured_total_tokens: 1_238_000 } });
+  const frame = new TuiRenderer().frame(projection, { width: 30, height: 24, color: true });
+  const strip = (row) => row.replace(/\u001b\[\d+(?:;\d+)*m/g, '');
+  const receiptRows = frame.split('\n').filter((row) => /◌|1238000|measured/u.test(strip(row)));
+  assert.ok(receiptRows.length >= 2, 'receipt should wrap into a continuation row at narrow width');
+  assert.match(receiptRows[0], /  \u001b\[38;5;103m◌/u);
+  for (const row of receiptRows) assert.match(row, /\u001b\[38;5;103m/u);
+});
+
+test('flagged tool outcomes are counted into the completed receipt', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });
+  projection.apply('s1', { type: 'tool_status', turn_id: 'turn-1', tool_request_id: 't1', tool: 'fs_read_text', status: 'succeeded' });
+  projection.apply('s1', { type: 'tool_status', turn_id: 'turn-1', tool_request_id: 't2', tool: 'shell_run', status: 'failed', reason_code: 'denied' });
+  projection.apply('s1', { type: 'tool_status', turn_id: 'turn-1', tool_request_id: 't3', tool: 'fs_write_text', status: 'succeeded' });
+  projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1', elapsed_ms: 2_000 });
+  const frame = new TuiRenderer().frame(projection, { width: 120, height: 24, color: false });
+  assert.match(frame, /^  ● 2\.0s \| 3 tools \| 1 flagged \| Ctrl\+O details$/mu);
+  const colored = new TuiRenderer().frame(projection, { width: 120, height: 24, color: true });
+  assert.match(colored, /\u001b\[38;5;214m1 flagged\u001b\[0m/u);
+});
+
+test('failed receipt marker and label carry the failure color', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });
+  projection.apply('s1', {
+    type: 'turn_result', outcome: 'failed', turn_id: 'turn-1', retryable: true,
+    failure: { code: 'provider_unavailable', retryable: true },
+  });
+  const frame = new TuiRenderer().frame(projection, { width: 100, height: 24, color: true });
+  assert.match(frame, /  \u001b\[1;38;5;203m✗\u001b\[0m \u001b\[1;38;5;203mTurn failed\u001b\[0m/u);
 });
 
 test('input-needed outcome uses the same compact receipt shape while the quiet footer remains idle', () => {
