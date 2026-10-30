@@ -1210,9 +1210,32 @@ test('session bar exposes primary, activity, unread state, responsive status, an
   projection.apply('other', { type: 'context_status', turn_id: 'turn-2', bytes: 25, limit_bytes: 100 });
   frame = new TuiRenderer().frame(projection, { width: 120, height: 24 });
   assert.match(frame, /50 tokens/u);
-  assert.match(frame, /context 25%/u);
+  assert.match(frame, /context ▇▂▂▂▂ 25%/u);
   projection.activateIndex(0);
   assert.equal(projection.activeId, 'main');
+});
+
+test('status gauge exposes the conservative fallback window', () => {
+  const projection = new TuiProjection();
+  projection.addSession('main', 'Main', { model: 'spark', provider: 'AGDuo' });
+  projection.apply('main', {
+    type: 'context_status', turn_id: 'turn-1', bytes: 100_000, limit_bytes: 400_000,
+    estimated_tokens: 33_140, raw_estimated_tokens: 33_140, limit_tokens: 65_536,
+    measurement: 'estimated', source: 'conservative_unknown',
+  });
+  const frame = new TuiRenderer().frame(projection, { width: 160, height: 24, color: false });
+  assert.match(frame, /context ▇▇▇▂▂ ~51% \(65k-fallback\)/u);
+  const colored = new TuiRenderer().frame(projection, { width: 160, height: 24, color: true });
+  assert.match(colored, /\u001b\[38;5;77m▇▇▇\u001b\[0m\u001b\[38;5;103m▂▂/u);
+  assert.match(colored, /\u001b\[38;5;214m\(65k-fallback\)\u001b\[0m/u);
+  projection.apply('main', {
+    type: 'context_status', turn_id: 'turn-1', bytes: 100_000, limit_bytes: 400_000,
+    estimated_tokens: 33_140, raw_estimated_tokens: 33_140, limit_tokens: 1_048_576,
+    measurement: 'estimated', source: 'provider',
+  });
+  const fixed = new TuiRenderer().frame(projection, { width: 160, height: 24, color: false });
+  assert.match(fixed, /context ▂▂▂▂▂ ~3%/u);
+  assert.doesNotMatch(fixed, /fallback/u);
 });
 
 test('header clicks switch conversations and the add target creates a new one', async () => {

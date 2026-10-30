@@ -70,18 +70,31 @@ function workProgress(work) {
 
 function contextUsage(session) {
   const compacting = session.contextCompaction ? ' | compacting' : '';
+  // Why: a discovered-but-unrecognized window silently plans against 65k; the
+  // meter must say so, because the percent alone is otherwise indistinguishable
+  // from a healthy big-window session (observed in the field as a full session
+  // running at 6% of its model's real capacity).
+  const fallback = session.contextSource === 'conservative_unknown' ? ' (65k-fallback)' : '';
   if (Number.isFinite(session.contextLimitTokens) && session.contextLimitTokens > 0) {
     const tokens = Number.isFinite(session.rawContextTokens) ? session.rawContextTokens : session.contextTokens;
-    if (!Number.isFinite(tokens)) return `context --${compacting}`;
+    if (!Number.isFinite(tokens)) return `context --${fallback}${compacting}`;
     const ratio = tokens / session.contextLimitTokens;
     const marker = session.contextMeasurement === 'estimated' ? '~' : '';
-    return `context ${marker}${formatPercent(ratio)}${compacting}`;
+    return `context ${contextBar(ratio)} ${marker}${formatPercent(ratio)}${fallback}${compacting}`;
   }
-  if (!Number.isFinite(session.contextLimitBytes) || session.contextLimitBytes <= 0) return `context --${compacting}`;
-  if (!Number.isFinite(session.contextBytes)) return `context --${compacting}`;
+  if (!Number.isFinite(session.contextLimitBytes) || session.contextLimitBytes <= 0) return `context --${fallback}${compacting}`;
+  if (!Number.isFinite(session.contextBytes)) return `context --${fallback}${compacting}`;
   const ratio = Math.min(1, session.contextBytes / session.contextLimitBytes);
-  if (ratio > 0 && ratio < 0.01) return `context <1%${compacting}`;
-  return `context ${Math.round(ratio * 100)}%${compacting}`;
+  if (ratio > 0 && ratio < 0.01) return `context ${contextBar(ratio)} <1%${fallback}${compacting}`;
+  return `context ${contextBar(ratio)} ${Math.round(ratio * 100)}%${fallback}${compacting}`;
+}
+
+const CONTEXT_BAR_CELLS = 5;
+
+function contextBar(ratio) {
+  const filled = Number.isFinite(ratio)
+    ? Math.min(CONTEXT_BAR_CELLS, Math.max(0, Math.round(ratio * CONTEXT_BAR_CELLS))) : 0;
+  return `${'▇'.repeat(filled)}${'▂'.repeat(CONTEXT_BAR_CELLS - filled)}`;
 }
 
 function formatPercent(ratio) {

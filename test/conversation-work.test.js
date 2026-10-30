@@ -602,7 +602,7 @@ test('footer compact composition prioritizes state, model, context, and viewport
     contextLimitTokens: 100, contextLimitBytes: null, work: null,
   };
   const compact = sessionStatusLine(session, 60);
-  assert.match(compact, /^IDLE \| small-model \| context 25% \| 6 unseen$/u);
+  assert.match(compact, /^IDLE \| small-model \| context ▇▂▂▂▂ 25% \| 6 unseen$/u);
   assert.doesNotMatch(compact, /auto-review|workspace|provider|tokens/u);
 });
 
@@ -614,8 +614,22 @@ test('footer reports one current context percentage and active compaction', () =
     contextLimitTokens: 61_440, contextMeasurement: 'estimated', contextLimitBytes: null,
     contextCompaction: { beforeTokens: 222_000, targetTokens: 61_440 }, work: null,
   };
-  assert.match(sessionStatusLine(session, 180), /context ~361% \| compacting/u);
+  assert.match(sessionStatusLine(session, 180), /context ▇▇▇▇▇ ~361% \| compacting/u);
   assert.doesNotMatch(sessionStatusLine(session, 180), /prompt|raw/u);
+});
+
+test('footer names the fallback window when planning capacity is unknown', () => {
+  const session = {
+    metadata: { model: 'spark', workspace: 'D:\\work' }, usage: null,
+    viewportEnd: null, viewportLineCount: 0, pendingAttachments: [], state: 'idle',
+    reviewPosture: 'auto-review', contextTokens: 33_140, rawContextTokens: 33_140,
+    contextLimitTokens: 65_536, contextLimitBytes: null,
+    contextMeasurement: 'estimated', contextSource: 'conservative_unknown', work: null,
+  };
+  assert.match(sessionStatusLine(session, 180), /context ▇▇▇▂▂ ~51% \(65k-fallback\)/u);
+  const discovered = { ...session, contextLimitTokens: 1_048_576, contextSource: 'provider' };
+  assert.match(sessionStatusLine(discovered, 180), /context ▂▂▂▂▂ ~3%/u);
+  assert.doesNotMatch(sessionStatusLine(discovered, 180), /fallback/u);
 });
 
 test('context projection tracks raw pressure and only marks active compaction', () => {

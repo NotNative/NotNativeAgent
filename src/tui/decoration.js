@@ -114,8 +114,8 @@ export function decorateFooter(line, index, length, color, animationFrame = 0, l
   if (lineKind === 'rule' || /^─+$/u.test(line)) return paint(TUI_THEME.border, line);
   if (lineKind === 'status' || index === length - 1) {
     const posture = line.match(FOOTER_POSTURE)?.[0];
-    if (!posture) return paint(TUI_THEME.mutedDark, line);
-    return `${paint(TUI_THEME.accent, posture)}${paint(TUI_THEME.mutedDark, line.slice(posture.length))}`;
+    if (!posture) return decorateStatusSegments(line);
+    return `${paint(TUI_THEME.accent, posture)}${decorateStatusSegments(line.slice(posture.length))}`;
   }
   if (lineKind === 'controls' || index === length - 2) return paint(TUI_THEME.mutedStrong, line);
   const footerStyle = FOOTER_STYLE_BY_KIND[lineKind];
@@ -127,6 +127,32 @@ export function decorateFooter(line, index, length, color, animationFrame = 0, l
   }
   if (line.startsWith('/')) return paint(TUI_THEME.accentSoft, line);
   return line;
+}
+
+// Invariant: the status line is built by status-line.js from a fixed segment
+// grammar, so re-splitting on the separator round-trips our own output; it can
+// never interpret user or model prose.
+const STATUS_CONTEXT_BAR = /^[▇▂]{5}$/u;
+const STATUS_FALLBACK_BADGE = '(65k-fallback)';
+
+function decorateStatusSegments(line) {
+  return line.split(' | ').map(decorateStatusSegment).join(paint(TUI_THEME.mutedDark, ' | '));
+}
+
+function decorateStatusSegment(segment) {
+  if (!segment.startsWith('context ')) return paint(TUI_THEME.mutedDark, segment);
+  const parts = segment.split(' ').map((part) => {
+    if (STATUS_CONTEXT_BAR.test(part)) return paintContextBar(part);
+    if (part === STATUS_FALLBACK_BADGE) return paint(TUI_THEME.warning, part);
+    return paint(TUI_THEME.mutedDark, part);
+  });
+  return parts.join(' ');
+}
+
+function paintContextBar(bar) {
+  const filled = (bar.match(/▇/gu) ?? []).length;
+  const color = filled >= 5 ? TUI_THEME.dangerStrong : filled >= 4 ? TUI_THEME.warning : TUI_THEME.success;
+  return `${paint(color, bar.slice(0, filled))}${paint(TUI_THEME.mutedDark, bar.slice(filled))}`;
 }
 
 function decorateBanner(line, contentIndex) {
