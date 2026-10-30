@@ -24,16 +24,16 @@ export async function checkVersionPairing(rootDir) {
     throw new Error(`desktop VERSION ${current} disagrees with root VERSION ${rootCurrent}; ${checkOnlyMessage}`);
   }
   const packageJson = parseJson(packageSource, 'package.json');
-  if (typeof packageJson.version !== 'string' || typeof packageJson.nnd_version !== 'string') {
-    throw new Error(`package.json must contain string version and nnd_version fields; ${checkOnlyMessage}`);
+  if (typeof packageJson.version !== 'string' || typeof packageJson.desktop_version !== 'string') {
+    throw new Error(`package.json must contain string version and desktop_version fields; ${checkOnlyMessage}`);
   }
   const [, date, iteration] = /^(\d{8})-([1-9]\d*)$/u.exec(current);
   const expectedPackageVersion = `${date}.0.${iteration}`;
   if (packageJson.version !== expectedPackageVersion) {
     throw new Error(`package version ${packageJson.version} disagrees with VERSION ${current}`);
   }
-  if (packageJson.nnd_version !== current) {
-    throw new Error(`package nnd_version ${packageJson.nnd_version} disagrees with VERSION ${current}`);
+  if (packageJson.desktop_version !== current) {
+    throw new Error(`package desktop_version ${packageJson.desktop_version} disagrees with VERSION ${current}`);
   }
   return current;
 }

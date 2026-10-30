@@ -73,7 +73,7 @@ async function coherentPackage(version) {
     errors.push('root package.json is unreadable');
     return;
   }
-  if (pkg.nnd_version !== version) errors.push('package nnd_version disagrees with VERSION');
+  if (pkg.desktop_version !== version) errors.push('package desktop_version disagrees with VERSION');
   if (pkg.version !== `${date}.0.${iteration}`) errors.push('package semver mapping disagrees with VERSION');
 }
 
