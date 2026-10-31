@@ -104,7 +104,7 @@ export const CONFIGURATION_METADATA = {
     cwd: field('string', literal(null), { acceptance: 'nonempty_string_else_unset_for_stdio', activeWhen: 'transport_stdio', sensitivity: 'private' }),
     endpoint: field('string', absent, { acceptance: 'credential_free_http_or_https_url_required_for_http', activeWhen: 'transport_streamable_http', sensitivity: 'private' }),
   }),
-  attachments: family('validateAttachments', live, { enabled: boolean(true, 'except_exact_false'), max_bytes: numeric('validateAttachments'), retain: boolean(false, 'exact_true') }),
+  attachments: family('validateAttachments', live, { enabled: boolean(true, 'except_exact_false'), max_bytes: numeric('validateAttachments'), retain: boolean(true, 'except_exact_false') }),
   memory: family('validateMemory', live, { enabled: boolean(true, 'except_exact_false'), required: boolean(false, 'exact_true'), timeout_ms: numeric('validateMemory'), max_items: numeric('validateMemory'), max_bytes: numeric('validateMemory') }),
   dream: family('validateDream', construction, {
     enabled: field('boolean', computed('disabled_for_hosted_execution_else_except_exact_false'), { acceptance: 'except_exact_false_subject_to_host_authority' }),

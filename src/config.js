@@ -281,7 +281,7 @@ function validateAttachments(value) {
   return {
     enabled: input.enabled !== false,
     maxBytes: scalar('attachments.max_bytes', input.max_bytes),
-    retain: input.retain === true,
+    retain: input.retain !== false,
   };
 }
 function validateMemory(value) {

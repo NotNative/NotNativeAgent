@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, readFile, realpath, stat, unlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, realpath, rmdir, stat, unlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { ContractError, newId } from './ids.js';
 import { routeReasoningFields } from './provider/reasoning.js';
@@ -90,8 +90,11 @@ export class AttachmentManager {
 
   async close() {
     if (!this.cleanupOnClose) return;
+    // Invariant: retention follows the journal. An ephemeral session keeps no durable
+    // transcript, so no managed copy may outlive it whatever `attachments.retain` says;
+    // a copy with no record describing it is unrecoverable data, not evidence.
     await Promise.allSettled([...this.#items.values()]
-      .filter((item) => ['staged', 'pending_failed'].includes(item.state))
+      .filter((item) => item.state !== 'removed')
       .map((item) => this.#removeManaged(item)));
   }
 
@@ -194,6 +197,11 @@ export class AttachmentManager {
     if (!await this.#managedPathAvailable(item)) return;
     try { await this.removeFile(item.managedPath); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
+    // Why: only the verified-owned directory is removed, and only when it is empty, so a
+    // rejected or opted-out attachment cannot leave a directory behind in the session store.
+    await rmdir(dirname(item.managedPath)).catch((error) => {
+      if (!['ENOENT', 'ENOTEMPTY', 'ENOTDIR'].includes(error.code)) throw error;
+    });
   }
 
   async #managedPathAvailable(item) {

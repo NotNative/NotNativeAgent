@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -291,8 +291,36 @@ test('an admitted image states its own boundary so a closer look is not inferred
     /Untrusted attachment observation \(attachment_[^)]+, image\/png, via primary\)\./u);
   assert.match(message.content, /You did not receive pixels/u);
   assert.match(message.content, /ask the operator to attach the image again or to name a readable path, then call image_inspect/u);
-  // The admitted managed copy is removed, so no tool path could serve a second pass.
+  // Retention is now the default: the admitted copy is still there while the session lives.
+  assert.deepEqual(await readFile(result.attachment_admission.admitted[0].managedPath), await readFile(image));
+  // Invariant: retention follows the journal. This session is ephemeral, so its
+  // attachment leaves with it rather than becoming undeleted data with no record.
+  await engine.shutdown({ request_id: 'attachment-boundary-shutdown' });
   await assert.rejects(readFile(result.attachment_admission.admitted[0].managedPath), { code: 'ENOENT' });
+});
+
+test('attachment retention is on unless the operator opts out, and removal leaves no directory', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-attachment-retention-'));
+  assert.equal(base(root).attachments.retain, true, 'the default must retain the managed copy');
+  assert.equal(base(root, { attachments: { retain: false } }).attachments.retain, false);
+  const image = join(root, 'sample.png');
+  await writeFile(image, Buffer.from('89504e470d0a1a0a00000000', 'hex'));
+  const observe = async () => ({
+    text: 'a carved pumpkin bucket', route: 'primary', logicalRequestId: null, attempts: [],
+  });
+  const retained = await new AttachmentManager({
+    config: { enabled: true, maxBytes: 1024, retain: true }, root: join(root, '.kept'),
+    router: { observe }, persist: async () => undefined,
+  }).prepare([{ path: image, mime_type: 'image/png' }], 'What is this?', new AbortController().signal);
+  assert.equal(retained.admitted[0].state, 'admitted');
+  assert.equal((await readFile(retained.admitted[0].managedPath)).length, 12, 'a durable session keeps the bytes');
+  const optedOut = await new AttachmentManager({
+    config: { enabled: true, maxBytes: 1024, retain: false }, root: join(root, '.removed'),
+    router: { observe }, persist: async () => undefined,
+  }).prepare([{ path: image, mime_type: 'image/png' }], 'What is this?', new AbortController().signal);
+  await assert.rejects(readFile(optedOut.admitted[0].managedPath), { code: 'ENOENT' }, 'opting out must still remove the bytes');
+  assert.deepEqual(await readdir(join(root, '.kept')), [retained.admitted[0].id]);
+  assert.deepEqual(await readdir(join(root, '.removed')), [], 'removal must not leave an empty owned directory');
 });
 
 test('a configured dedicated vision route remains preferred for later image requests', async () => {
@@ -438,7 +466,9 @@ test('analyzed attachment cleanup failure preserves its observation and authorit
   await writeFile(image, Buffer.from('89504e470d0a1a0a00', 'hex'));
   const statuses = [], requests = [];
   const engine = new SessionEngine({
-    config: base(root), attachmentRoot: join(root, '.managed'),
+    // Retention is on by default, so this pins the opt-out path that still removes
+    // an analyzed copy and reports a failed cleanup as cleanup_failed.
+    config: base(root, { attachments: { retain: false } }), attachmentRoot: join(root, '.managed'),
     providerFactory: () => ({ async *stream(request) {
       requests.push(request);
       yield { type: 'text', text: Array.isArray(request.messages[0]?.content) ? 'observed image' : 'used observation' };

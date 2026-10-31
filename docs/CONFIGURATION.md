@@ -323,6 +323,17 @@ expresses the same operation as “No dedicated profile” or `/provider ROLE cl
 admission remains Primary-first and uses an assigned Vision profile only when Primary cannot
 process the image.
 
+The `attachments` block accepts `enabled`, `max_bytes`, and `retain`. Retention is on: a verified
+copy of each admitted attachment stays as session data under
+`sessions/attachments/<session-id>/<attachment-id>/`, and it survives later turns, so the model can
+be told what was already observed. It is deleted with the rest of the session data by
+`nna sessions delete`, which moves the transcript, reviewer ledger, and attachments together into
+recoverable trash. Set `retain: false` to discard an admitted copy once its observation has been
+produced. Removal is unconditional in three cases regardless of this setting: a rejected
+attachment, an attachment the operator removes, and any attachment of an ephemeral session, which
+has no durable journal left to describe it. A retained copy stays inside NNA's private store; the
+model is never given its path, so `image_inspect` still needs a path the operator names.
+
 The global `context_limit_bytes` remains an independent safety ceiling. Before provider
 work, NNA queries a short-lived provider-neutral runtime snapshot from the model list at
 `/v1/models`. Discovery never identifies the engine: one request path answers for every

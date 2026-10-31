@@ -246,23 +246,23 @@ test('the dream family serves user values, the documented defaults, and the host
 
 test('the attachments family serves the documented defaults, user values, and byte bounds', () => {
   // src/configuration-rules.js bounds max_bytes 1_024..104_857_600 with
-  // default 10_485_760; src/config.js:validateAttachments treats enabled as
-  // opt-out (only exact false disables) and retain as opt-in (only exact
-  // true retains).
+  // default 10_485_760; src/config.js:validateAttachments treats enabled and
+  // retain alike as opt-out: only an exact false disables, so an admitted
+  // managed copy is session data by default.
   const view = projectDesktopConfigurationView(snapshot());
   assert.deepEqual(row(view, 'attachments.enabled').effective, { present: true, value: true, source: 'compiled_default' });
   assert.deepEqual(row(view, 'attachments.max_bytes').effective,
     { present: true, value: 10_485_760, source: 'compiled_default' });
-  assert.deepEqual(row(view, 'attachments.retain').effective, { present: true, value: false, source: 'compiled_default' });
-  const mine = projectDesktopConfigurationView(snapshot({ attachments: { enabled: false, max_bytes: 2_097_152, retain: true } }));
+  assert.deepEqual(row(view, 'attachments.retain').effective, { present: true, value: true, source: 'compiled_default' });
+  const mine = projectDesktopConfigurationView(snapshot({ attachments: { enabled: false, max_bytes: 2_097_152, retain: false } }));
   assert.deepEqual(row(mine, 'attachments.enabled').effective, { present: true, value: false, source: 'user' });
   assert.deepEqual(row(mine, 'attachments.max_bytes').explicit, { present: true, value: 2_097_152 });
-  assert.deepEqual(row(mine, 'attachments.retain').effective, { present: true, value: true, source: 'user' });
-  // Anything but an exact false is treated as enabled; anything but an exact
-  // true is treated as not retaining.
-  const coerced = projectDesktopConfigurationView(snapshot({ attachments: { enabled: 'yes', retain: 'always' } }));
+  assert.deepEqual(row(mine, 'attachments.retain').effective, { present: true, value: false, source: 'user' });
+  // Anything but an exact false is treated as enabled, and anything but an
+  // exact false retains.
+  const coerced = projectDesktopConfigurationView(snapshot({ attachments: { enabled: 'yes', retain: 'never' } }));
   assert.deepEqual(row(coerced, 'attachments.enabled').effective.value, true);
-  assert.deepEqual(row(coerced, 'attachments.retain').effective.value, false);
+  assert.deepEqual(row(coerced, 'attachments.retain').effective.value, true);
   for (const bad of [{ max_bytes: 512 }, { max_bytes: 200_000_000 }]) {
     assert.throws(() => snapshot({ attachments: bad }), (error) => error.code === 'invalid_limit', JSON.stringify(bad));
   }

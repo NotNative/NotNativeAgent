@@ -70,6 +70,13 @@ Documentation and implementation changes belong to the same date-iteration versi
 Support bundles and structured logs carry that version so maintainers can compare an
 answer or failure with the behavior and guidance that produced it.
 
+An attached image or text file reaches the model as one attributed observation, never as pixels
+or raw bytes. NNA verifies the copy, keeps it in the session's own `attachments` folder rather
+than the workspace, and does not disclose that path, so `image_inspect` needs a path the operator
+names. The same observation is included in later turns of the conversation. A closer look therefore
+means asking the operator to re-attach the file or name a readable path; searching the project,
+the NNA data root, or the reference store cannot recover what was already observed.
+
 Optional long-horizon progress is maintained through `/plan` (with `/tasks` as an alias),
 `/goal`, and `/task`. The agent uses `work_plan` to atomically keep the same durable goal and
 ordered task state accurate. A current work snapshot is

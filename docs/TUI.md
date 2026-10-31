@@ -260,6 +260,9 @@ The transcript reports each persisted `staged`, `admitted`, `pending_failed`, `r
 and `removed` transition. When no image-capable route exists, it explicitly says the
 managed image was removed and not analyzed, preserves the text draft, and directs the
 operator to configure a capable primary or vision route before reattaching the image.
+An admitted image keeps its verified copy in that managed directory as session data; it is
+deleted with the rest of the session by `nna sessions delete`, and `attachments.retain: false`
+in the manifest discards it as soon as its observation is admitted.
 If filesystem cleanup cannot be verified, NNA records and displays `cleanup_failed`
 instead of falsely claiming rejection/removal; the managed identity remains available
 for an explicit removal retry after the filesystem condition is resolved.
