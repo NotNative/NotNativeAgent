@@ -37,7 +37,16 @@ export class ReferenceStore {
 
   resolve(id, kind = null) {
     const entry = this.#touch(id);
-    if (!entry) throw new ContractError('reference_missing', 'reference is unavailable or expired; observe or store the value again');
+    if (!entry) {
+      // Why: this store issues only `nna_ref_` identifiers, so any other value was
+      // never a reference here. Reporting it as expired invites a retry that cannot
+      // succeed, so a foreign identifier fails with its own repair guidance.
+      if (typeof id !== 'string' || !id.startsWith('nna_ref_')) {
+        throw new ContractError('reference_kind_invalid',
+          'identifier is not an ephemeral reference; attachment and session identifiers do not resolve here');
+      }
+      throw new ContractError('reference_missing', 'reference is unavailable or expired; observe or store the value again');
+    }
     if (kind && entry.kind !== kind) {
       throw new ContractError('reference_kind_mismatch', `reference must identify ${kind}; received ${entry.kind}`);
     }

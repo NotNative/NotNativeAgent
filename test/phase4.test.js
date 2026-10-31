@@ -264,6 +264,37 @@ test('AC-ATT-01/AC-ROUTE-04 a dedicated vision route receives image work without
   assert.equal(await readFile(image, 'hex'), '89504e470d0a1a0a00000000');
 });
 
+test('an admitted image states its own boundary so a closer look is not inferred as available', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-attachment-boundary-'));
+  const image = join(root, 'sample.png');
+  await writeFile(image, Buffer.from('89504e470d0a1a0a00000000', 'hex'));
+  let taskRequest;
+  const engine = new SessionEngine({
+    config: base(root), attachmentRoot: join(root, '.managed'),
+    providerFactory: () => ({ async *stream(request) {
+      if (Array.isArray(request.tools) && request.tools.length === 0) {
+        yield { type: 'text', text: 'a carved pumpkin bucket' }; yield { type: 'terminal' };
+        return;
+      }
+      taskRequest = request;
+      yield { type: 'text', text: 'done' }; yield { type: 'terminal' };
+    } }),
+  });
+  await engine.initialize();
+  const result = await engine.submit({
+    request_id: 'attachment-boundary', content: 'What is in this image?',
+    attachments: [{ path: image, mime_type: 'image/png' }],
+  }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  const message = taskRequest.messages.find((item) => item.content?.includes?.('a carved pumpkin bucket'));
+  assert.match(message.content,
+    /Untrusted attachment observation \(attachment_[^)]+, image\/png, via primary\)\./u);
+  assert.match(message.content, /You did not receive pixels/u);
+  assert.match(message.content, /ask the operator to attach the image again or to name a readable path, then call image_inspect/u);
+  // The admitted managed copy is removed, so no tool path could serve a second pass.
+  await assert.rejects(readFile(result.attachment_admission.admitted[0].managedPath), { code: 'ENOENT' });
+});
+
 test('a configured dedicated vision route remains preferred for later image requests', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-primary-image-retry-'));
   const firstImage = join(root, 'first.png');

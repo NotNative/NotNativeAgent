@@ -73,6 +73,19 @@ test('reference tools receive reference identifiers without resolving their own 
   assert.equal(sealed.resolved.referenceBindings, undefined);
 });
 
+test('a foreign identifier is not reported as an expired reference', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-reference-foreign-'));
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const inspect = registry.definition('ref_inspect');
+  await assert.rejects(inspect.validate({
+    reference: 'attachment_6010ef7d-613a-40c1-8124-86e7ea24a36f',
+  }), {
+    code: 'reference_kind_invalid',
+    message: /attachment and session identifiers do not resolve here/u,
+  });
+});
+
 test('typed bindings fail clearly when a reference kind is used in the wrong field', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-reference-kind-'));
   const registry = new ToolRegistry(root);

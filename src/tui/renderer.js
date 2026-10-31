@@ -325,7 +325,12 @@ function recordRows(record, width) {
 }
 
 function recordLines(record, width) {
-  if (record.type === 'attachment_status') return wrap(`  ATTACHMENT | ${record.attachment_id ?? ''} | ${record.state} | ${record.guidance ?? ''}`, width);
+  // Why: admission records carry no guidance; an empty trailing field would leave a
+  // dangling separator in the operator row.
+  if (record.type === 'attachment_status') {
+    const fields = [record.attachment_id ?? '', record.state, record.guidance ?? ''].filter((field) => field !== '');
+    return wrap(`  ATTACHMENT | ${fields.join(' | ')}`, width);
+  }
   if (record.type === 'tool_status') {
     if (record.tool === 'agent_run' && ['running', 'succeeded'].includes(record.status)) return [];
     const outcome = toolOutcome(record);

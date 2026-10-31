@@ -348,10 +348,17 @@ function activeSkillMessage(item) {
   };
 }
 
+// Why: the model receives a managed observation, never the attachment bytes, and
+// the managed copy is normally removed at admission. Stating that boundary in the
+// same message that carries the observation stops a request for a closer look from
+// turning into filesystem and reference-store searches that cannot succeed.
 function attachmentMessage(item) {
+  const boundary = item.mimeType === 'text/plain'
+    ? 'This is the whole admitted text; the managed copy is not exposed to you. To re-read the file, ask the operator for a readable path.'
+    : 'You did not receive pixels: this observation is the only evidence you have for the image, and the managed copy is not exposed to you. For a closer look, ask the operator to attach the image again or to name a readable path, then call image_inspect.';
   return {
     role: 'system',
-    content: `Untrusted attachment observation (${item.id}, ${item.mimeType}, via ${item.route}):\n${item.observation}`,
+    content: `Untrusted attachment observation (${item.id}, ${item.mimeType}, via ${item.route}). ${boundary}\n${item.observation}`,
     provenance: `attachment:${item.id}`, trust: 'untrusted_attachment',
   };
 }

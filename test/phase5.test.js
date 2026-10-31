@@ -1123,6 +1123,22 @@ test('receipt field identity rides the wrap: warning counts and control hints ke
   assert.match(rows[1], /\u001b\[38;5;244mCtrl\+O details\u001b\[0m/u);
 });
 
+test('an attachment status row omits an empty guidance field', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });
+  projection.apply('s1', { type: 'attachment_status', attachment_id: 'attachment_a1', state: 'admitted', reason: null, guidance: null });
+  projection.apply('s1', {
+    type: 'attachment_status', attachment_id: 'attachment_a2', state: 'pending_failed',
+    reason: 'attachment_route_timeout', guidance: 'The image was not analyzed. Retry this attachment or remove it.',
+  });
+  const frame = new TuiRenderer().frame(projection, { width: 200, height: 24, color: false, unicode: true });
+  const rows = frame.split('\n').filter((row) => row.includes('ATTACHMENT |')).map((row) => row.trimEnd());
+  assert.deepEqual(rows, [
+    '  ATTACHMENT | attachment_a1 | admitted',
+    '  ATTACHMENT | attachment_a2 | pending_failed | The image was not analyzed. Retry this attachment or remove it.',
+  ]);
+});
+
 test('flagged tool outcomes are counted into the completed receipt', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });
