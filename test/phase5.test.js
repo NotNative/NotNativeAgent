@@ -1087,6 +1087,42 @@ test('wrapped receipt rows keep one color identity', () => {
   for (const row of receiptRows) assert.match(row, /\u001b\[38;5;103m/u);
 });
 
+test('wrapped receipts break at field boundaries and hang continuations under the first field', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });
+  for (let i = 0; i < 33; i += 1) {
+    projection.apply('s1', { type: 'tool_status', turn_id: 'turn-1', tool_request_id: `t${i}`, tool: 'fs_read', status: 'succeeded' });
+  }
+  projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1', elapsed_ms: 167_000,
+    token_accounting: { measured_total_tokens: 991_856, estimated_unreported_tokens: 232_578 } });
+  const frame = new TuiRenderer().frame(projection, { width: 60, height: 24, color: false, unicode: true });
+  const rows = frame.split('\n').filter((row) => /^ {2}\u25cf|^ {4}\S/u.test(row));
+  assert.deepEqual(rows, [
+    '  \u25cf 2m 47s | 991856+~232578 tokens | 33 tools',
+    '    Ctrl+O details',
+  ]);
+});
+
+test('receipt field identity rides the wrap: warning counts and control hints keep their colors', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });
+  for (let i = 0; i < 33; i += 1) {
+    projection.apply('s1', { type: 'tool_status', turn_id: 'turn-1', tool_request_id: `t${i}`, tool: 'fs_read', status: i < 12 ? 'failed' : 'succeeded' });
+  }
+  projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1', elapsed_ms: 167_000,
+    token_accounting: { measured_total_tokens: 991_856, estimated_unreported_tokens: 232_578 } });
+  const frame = new TuiRenderer().frame(projection, { width: 46, height: 24, color: true, unicode: true });
+  const strip = (row) => row.replace(/\u001b\[\d+(?:;\d+)*m/g, '');
+  const lines = frame.split('\n');
+  const start = lines.findIndex((row) => /^ {2}\u25cf/u.test(strip(row)));
+  const rows = [lines[start]];
+  for (let index = start + 1; index < lines.length && /^ {4}\S/u.test(strip(lines[index])); index += 1) rows.push(lines[index]);
+  assert.equal(rows.length, 2);
+  assert.doesNotMatch(strip(rows[0]), /\|\s*$/u, 'a wrapped receipt must not strand a separator');
+  assert.match(rows[1], /\u001b\[38;5;214m12 flagged\u001b\[0m/u);
+  assert.match(rows[1], /\u001b\[38;5;244mCtrl\+O details\u001b\[0m/u);
+});
+
 test('flagged tool outcomes are counted into the completed receipt', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });

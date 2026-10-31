@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { detailedTokenText, receiptTokenText } from '../experience/token-accounting.js';
 import { isTerminalToolStatus } from '../experience/tool-lifecycle.js';
-import { wrapIndentedTerminalLine } from './terminal-markdown.js';
+import { displayWidth, wrapTerminalLine } from './terminal-markdown.js';
 
 const ACTIVITY_TYPES = Object.freeze(['tool_status', 'review_status', 'state_status', 'queue_status', 'subagent_progress']);
 
@@ -83,7 +83,7 @@ export function turnReceipt(record, summary, mode, width, capabilities = {}) {
       reviewsField,
       toolCount || reviewCount ? `Ctrl+O ${mode === 'details' ? 'collapse' : 'details'}` : null,
     ].filter(Boolean);
-    return wrap(basic.length ? `  ${marker} ${basic.join(' | ')}` : `  ${marker}`, width);
+    return layoutReceipt(marker, basic, width);
   }
   const details = [
     Number.isFinite(record.elapsed_ms) ? formatDuration(record.elapsed_ms) : null,
@@ -95,7 +95,7 @@ export function turnReceipt(record, summary, mode, width, capabilities = {}) {
     recoveryAction(record),
     toolCount || reviewCount ? `Ctrl+O ${mode === 'details' ? 'collapse' : 'details'}` : null,
   ].filter(Boolean);
-  return wrap(`  ${marker} ${label}${details.length ? ` | ${details.join(' | ')}` : ''}`, width);
+  return layoutReceipt(marker, [label, ...details], width);
 }
 
 function recoveryAction(record) {
@@ -113,6 +113,31 @@ function formatDuration(milliseconds) {
   return seconds < 60 ? `${seconds.toFixed(seconds < 10 ? 1 : 0)}s` : `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
 }
 
-function wrap(value, width) {
-  return String(value).split(/\r?\n/u).flatMap((line) => wrapIndentedTerminalLine(line, width)).slice(0, 64);
+// Why: a receipt is a field list in our own grammar, not prose. Wrapping at
+// field boundaries keeps each field whole, never leaves its ` | ` separator
+// dangling at a row end, and hangs continuation rows under the first field so
+// decoration can re-apply the same per-field identity the first row carries.
+function layoutReceipt(marker, fields, width) {
+  const lead = `  ${marker} `;
+  const nextLead = `  ${' '.repeat(displayWidth(marker) + 1)}`;
+  const rows = [];
+  let prefix = lead;
+  let row = '';
+  for (const field of fields) {
+    const piece = row ? ` | ${field}` : field;
+    if (displayWidth(`${prefix}${row}${piece}`) <= width) { row += piece; continue; }
+    if (row) {
+      rows.push(`${prefix}${row}`);
+      prefix = nextLead;
+      row = field;
+      continue;
+    }
+    // A field wider than a whole row is exceptional; wrap its text rather
+    // than truncate a fact out of the receipt.
+    rows.push(...wrapTerminalLine(field, width, prefix, nextLead));
+    prefix = nextLead;
+  }
+  if (row) rows.push(`${prefix}${row}`);
+  if (rows.length === 0) rows.push(lead.trimEnd());
+  return rows.slice(0, 64);
 }

@@ -77,7 +77,14 @@ const RECEIPT_CONTROL_FIELD = /^Ctrl\+O (?:details|collapse)$/u;
 function decorateReceiptLine(line, lineKind) {
   const [, outcome, part] = lineKind.split(':');
   const style = RECEIPT_STYLE[outcome] ?? RECEIPT_STYLE.other;
-  if (part !== 'first') return paint(style.body, line);
+  if (part !== 'first') {
+    // Continuation rows carry the same field grammar as the first row, so the
+    // same per-field identity (warning counts, dim control hints) rides across
+    // the wrap instead of flattening to body color.
+    const continuation = /^(\s+)(\S.*)$/u.exec(line);
+    if (!continuation) return paint(style.body, line);
+    return `${continuation[1]}${paintReceiptBody(continuation[2], style)}`;
+  }
   const marker = line.match(/^ {2}(\S+)(?: (.*))?$/u);
   if (!marker) return paint(style.body, line);
   // The compact outcomes carry no label: their first field is data, not a caption.
