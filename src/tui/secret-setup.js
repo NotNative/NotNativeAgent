@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { SECRET_KINDS } from '../secret-contracts.js';
 import { openSecretsManager } from './secret-command.js';
-import { createFormOverlay, formField, handleFormEditing } from './form-engine.js';
+import { createFormOverlay, formField, handleFormEditing, parentFrom } from './form-engine.js';
 import { createConfirmationOverlay, createDetailOverlay, createMenuOverlay } from './surface-engine.js';
 
 const KINDS = new Set(['secret-kind', 'secret-detail', 'secret-form', 'secret-delete-confirm']);
@@ -11,12 +11,12 @@ export function isSecretSetupOverlay(overlay) { return KINDS.has(overlay?.kind);
 export async function beginSecretManagementSelection(selected, workspace, overlay) {
   if (overlay?.kind !== 'secrets' || !selected) return false;
   if (selected.id === 'action:add') {
-    workspace.projection.openOverlay(kindOverlay(parentFrom(overlay)));
+    workspace.projection.openOverlay(kindOverlay(parentFrom(overlay, {})));
     return true;
   }
   const secret = (await workspace.listSecrets()).find((item) => item.id === selected.id);
   if (!secret) return false;
-  workspace.projection.openOverlay(detailOverlay(secret, parentFrom(overlay)));
+  workspace.projection.openOverlay(detailOverlay(secret, parentFrom(overlay, {})));
   return true;
 }
 
@@ -185,4 +185,4 @@ function menu(kind, title, lines, items, extra = {}) {
   return createMenuOverlay(kind, title, lines, items, extra);
 }
 
-function parentFrom(overlay) { return overlay.parent ? { parent: overlay.parent, configSection: overlay.configSection } : {}; }
+

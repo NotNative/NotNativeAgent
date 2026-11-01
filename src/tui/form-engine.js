@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { EditorBuffer } from '../experience/projection.js';
+import { ContractError } from '../ids.js';
 import { handleEditorAction } from './editor-actions.js';
 
 const DEFAULT_FIELD_LIMIT = 4_096;
@@ -64,4 +65,64 @@ function renderEditor(editor, secret) {
 function singleLineAction(action) {
   if (!['insert', 'paste'].includes(action.action) || typeof action.text !== 'string') return action;
   return { ...action, text: action.text.split(/\r?\n/u, 1)[0] };
+}
+
+/** Overlay return context. `empty` preserves a caller that historically used
+ *  an empty object rather than null for "no parent". */
+export function parentFrom(overlay, empty = null) {
+  return overlay?.parent ? { parent: overlay.parent, configSection: overlay.configSection } : empty;
+}
+
+/** Choose a unique secret label by appending a numeric suffix. */
+export async function availableSecretLabel(workspace, base) {
+  const labels = new Set((await workspace.listSecrets()).map((secret) => secret.label.toLocaleLowerCase('en-US')));
+  if (!labels.has(base.toLocaleLowerCase('en-US'))) return base;
+  for (let index = 2; index <= 9_999; index += 1) {
+    const candidate = `${base} ${index}`;
+    if (!labels.has(candidate.toLocaleLowerCase('en-US'))) return candidate;
+  }
+  throw new ContractError('secret_label_exhausted', 'Unable to choose a unique credential label.');
+}
+
+/** Derive a bounded, URL-safe identifier from a display label. */
+export function availableIdentifier(label, existingIds = [], options = {}) {
+  const fallback = options.fallback ?? 'item';
+  const maxLength = options.maxLength ?? 64;
+  const stem = String(label ?? '').normalize('NFKD').replaceAll(/\p{Mark}/gu, '').toLowerCase()
+    .replaceAll(/[^a-z0-9]+/gu, '-').replaceAll(/^-+|-+$/gu, '').slice(0, 56) || fallback;
+  const existing = new Set(existingIds);
+  if (!existing.has(stem)) return stem;
+  for (let index = 2; index <= 9_999; index += 1) {
+    const suffix = `-${index}`;
+    const candidate = `${stem.slice(0, maxLength - suffix.length)}${suffix}`;
+    if (!existing.has(candidate)) return candidate;
+  }
+  throw new ContractError(options.code ?? 'identifier_exhausted',
+    options.message ?? 'Unable to generate a unique identifier.');
+}
+
+/** Shared setup-form action loop: back, cancel/help, submit, and editor input.
+ *  Domain callers supply the step/back navigators, the submit handler, and the
+ *  form overlay builder. */
+export async function handleSetupFormAction(action, workspace, overlay, options) {
+  if (action.action === 'back') {
+    if (overlay.form.stepIndex > 0) options.openStep(workspace, overlay.form, overlay.form.stepIndex - 1);
+    else options.goBack(workspace, overlay);
+    return true;
+  }
+  if (['cancel', 'help'].includes(action.action)) {
+    workspace.projection.closeOverlay();
+    return true;
+  }
+  if (action.action === 'submit') {
+    try { await options.submit(workspace, overlay); }
+    catch (error) {
+      workspace.projection.openOverlay(options.formOverlay({ ...overlay.form, formError: error.message }, overlay.editor));
+    }
+    return true;
+  }
+  if (handleFormEditing(action, overlay.editor)) { /* editor mutated */ }
+  else return true;
+  workspace.projection.openOverlay(options.formOverlay(overlay.form, overlay.editor));
+  return true;
 }

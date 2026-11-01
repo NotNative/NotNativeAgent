@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createFormOverlay, formEditor, formField, handleFormEditing } from './form-engine.js';
+import { createFormOverlay, formEditor, formField, handleFormEditing, parentFrom } from './form-engine.js';
 import { webFetchOverlay } from './overlays.js';
 
 const FORM_KIND = 'webfetch-form';
@@ -88,6 +88,4 @@ async function openWebFetchManager(workspace, returnParent, message = null, sele
   workspace.projection.openOverlay(returnParent ? { ...view, ...returnParent } : view);
 }
 
-function parentFrom(overlay) {
-  return overlay.parent ? { parent: overlay.parent, configSection: overlay.configSection } : null;
-}
+

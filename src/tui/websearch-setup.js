@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createFormOverlay, formEditor, formField, handleFormEditing } from './form-engine.js';
+import { createFormOverlay, formEditor, formField, handleFormEditing, parentFrom } from './form-engine.js';
 import { webSearchOverlay } from './websearch-overlay.js';
 import { createConfirmationOverlay } from './surface-engine.js';
 
@@ -144,6 +144,4 @@ async function openWebSearchManager(workspace, returnParent, message = null, sel
   workspace.projection.openOverlay(returnParent ? { ...view, ...returnParent } : view);
 }
 
-function parentFrom(overlay) {
-  return overlay.parent ? { parent: overlay.parent, configSection: overlay.configSection } : null;
-}
+

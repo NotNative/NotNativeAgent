@@ -4,7 +4,8 @@ import { ContractError } from '../ids.js';
 import { parseCommand } from '../hook-runner.js';
 import { mcpOverlay } from './overlays.js';
 import { isManagedMcpCredentialReference } from '../mcp-credentials.js';
-import { createFormOverlay, formField, handleFormEditing } from './form-engine.js';
+import { createFormOverlay, formField } from './form-engine.js';
+import { availableIdentifier, availableSecretLabel, handleSetupFormAction, parentFrom } from './form-engine.js';
 import { createConfirmationOverlay, createMenuOverlay } from './surface-engine.js';
 
 const SETUP_KINDS = new Set([
@@ -135,23 +136,12 @@ async function handleServerAction(action, workspace, overlay) {
 }
 
 async function handleFormAction(action, workspace, overlay) {
-  if (action.action === 'back') {
-    if (overlay.form.stepIndex > 0) openFormStep(workspace, overlay.form, overlay.form.stepIndex - 1);
-    else openFormBack(workspace, overlay.form);
-    return true;
-  }
-  if (['cancel', 'help'].includes(action.action)) {
-    workspace.projection.closeOverlay();
-    return true;
-  }
-  if (action.action === 'submit') {
-    try { await submitFormStep(workspace, overlay); }
-    catch (error) { workspace.projection.openOverlay(formOverlay({ ...overlay.form, formError: error.message }, overlay.editor)); }
-    return true;
-  } else if (handleFormEditing(action, overlay.editor)) { /* editor mutated */ }
-  else return true;
-  workspace.projection.openOverlay(formOverlay(overlay.form, overlay.editor));
-  return true;
+  return handleSetupFormAction(action, workspace, overlay, {
+    openStep: openFormStep,
+    goBack: (currentWorkspace, current) => openFormBack(currentWorkspace, current.form),
+    submit: submitFormStep,
+    formOverlay,
+  });
 }
 
 async function submitFormStep(workspace, overlay) {
@@ -439,27 +429,11 @@ function validateField(key, value) {
   }
 }
 
-async function availableSecretLabel(workspace, base) {
-  const labels = new Set((await workspace.listSecrets()).map((secret) => secret.label.toLocaleLowerCase('en-US')));
-  if (!labels.has(base.toLocaleLowerCase('en-US'))) return base;
-  for (let index = 2; index <= 9_999; index += 1) {
-    const candidate = `${base} ${index}`;
-    if (!labels.has(candidate.toLocaleLowerCase('en-US'))) return candidate;
-  }
-  throw new ContractError('secret_label_exhausted', 'Unable to choose a unique credential label.');
-}
-
 export function availableMcpId(label, existingIds = []) {
-  const stem = String(label).normalize('NFKD').replaceAll(/\p{Mark}/gu, '').toLowerCase()
-    .replaceAll(/[^a-z0-9]+/gu, '-').replaceAll(/^-+|-+$/gu, '').slice(0, 56) || 'mcp-server';
-  const existing = new Set(existingIds);
-  if (!existing.has(stem)) return stem;
-  for (let index = 2; index <= 9999; index += 1) {
-    const suffix = `-${index}`;
-    const candidate = `${stem.slice(0, 64 - suffix.length)}${suffix}`;
-    if (!existing.has(candidate)) return candidate;
-  }
-  throw new ContractError('mcp_id_exhausted', 'Unable to generate a unique MCP server identifier.');
+  return availableIdentifier(label, existingIds, {
+    fallback: 'mcp-server', maxLength: 64,
+    code: 'mcp_id_exhausted', message: 'Unable to generate a unique MCP server identifier.',
+  });
 }
 
 function commandLine(server) {
@@ -472,7 +446,6 @@ function quoteArgument(value) {
 }
 
 function canManage(workspace) { return workspace.projection.active().role === 'primary'; }
-function parentFrom(overlay) { return overlay.parent ? { parent: overlay.parent, configSection: overlay.configSection } : null; }
 function field(key, label, description, secret = false) { return formField(key, label, description, { secret }); }
 function menu(kind, title, lines, items, extra = {}) {
   return createMenuOverlay(kind, title, lines, items, extra);

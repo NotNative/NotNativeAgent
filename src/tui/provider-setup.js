@@ -2,7 +2,8 @@
 import { ContractError } from '../ids.js';
 import { providerOverlay, valueOverlay } from './overlays.js';
 import { DEFAULT_MODEL_OUTPUT_TOKENS } from '../reliability/output-headroom.js';
-import { createFormOverlay, formEditor, formField, handleFormEditing } from './form-engine.js';
+import { createFormOverlay, formEditor, formField } from './form-engine.js';
+import { availableIdentifier, availableSecretLabel, handleSetupFormAction, parentFrom } from './form-engine.js';
 import { createConfirmationOverlay, createMenuOverlay } from './surface-engine.js';
 import { applyProviderDeletion, applyProviderToolCallMode, profileSelectionOverlay, toolCallModeOverlay } from './provider-management-overlays.js';
 
@@ -160,25 +161,12 @@ async function selectProfileAction(profileId, overlay, workspace) {
 }
 
 async function handleFormAction(action, workspace, overlay) {
-  if (action.action === 'back') {
-    if (overlay.form.stepIndex > 0) openFormStep(workspace, overlay.form, overlay.form.stepIndex - 1);
-    else openSetupBack(workspace, overlay);
-    return true;
-  }
-  if (['cancel', 'help'].includes(action.action)) {
-    workspace.projection.closeOverlay();
-    return true;
-  }
-  if (action.action === 'submit') {
-    try { await submitFormStep(workspace, overlay); }
-    catch (error) {
-      workspace.projection.openOverlay(formOverlay({ ...overlay.form, formError: error.message }, overlay.editor));
-    }
-    return true;
-  } else if (handleFormEditing(action, overlay.editor)) { /* editor mutated */ }
-  else return true;
-  workspace.projection.openOverlay(formOverlay(overlay.form, overlay.editor));
-  return true;
+  return handleSetupFormAction(action, workspace, overlay, {
+    openStep: openFormStep,
+    goBack: openSetupBack,
+    submit: submitFormStep,
+    formOverlay,
+  });
 }
 
 async function submitFormStep(workspace, overlay) {
@@ -350,14 +338,11 @@ async function savedSecretOverlay(formState, workspace) {
   })), { formState, actionLabel: 'Up/Down choose · Enter use secret' });
 }
 
-async function availableSecretLabel(workspace, base) {
-  const labels = new Set((await workspace.listSecrets()).map((secret) => secret.label.toLocaleLowerCase('en-US')));
-  if (!labels.has(base.toLocaleLowerCase('en-US'))) return base;
-  for (let index = 2; index <= 9_999; index += 1) {
-    const candidate = `${base} ${index}`;
-    if (!labels.has(candidate.toLocaleLowerCase('en-US'))) return candidate;
-  }
-  throw new ContractError('secret_label_exhausted', 'Unable to choose a unique credential label.');
+export function availableProfileId(label, existingIds = []) {
+  return availableIdentifier(label, existingIds, {
+    fallback: 'provider', maxLength: 64,
+    code: 'provider_id_exhausted', message: 'Unable to generate a unique provider profile identifier.',
+  });
 }
 
 function limitsFormOverlay(state) {
@@ -471,23 +456,6 @@ function openProviderManager(workspace, returnParent, selectedId) {
     isMain: projected.role === 'primary', selectedId,
   });
   workspace.projection.openOverlay(returnParent ? { ...view, ...returnParent } : view);
-}
-
-function parentFrom(overlay) {
-  return overlay.parent ? { parent: overlay.parent, configSection: overlay.configSection } : null;
-}
-
-export function availableProfileId(label, existingIds = []) {
-  const stem = label.normalize('NFKD').replaceAll(/\p{Mark}/gu, '').toLowerCase()
-    .replaceAll(/[^a-z0-9]+/gu, '-').replaceAll(/^-+|-+$/gu, '').slice(0, 56) || 'provider';
-  const existing = new Set(existingIds);
-  if (!existing.has(stem)) return stem;
-  for (let index = 2; index <= 9999; index += 1) {
-    const suffix = `-${index}`;
-    const candidate = `${stem.slice(0, 64 - suffix.length)}${suffix}`;
-    if (!existing.has(candidate)) return candidate;
-  }
-  throw new ContractError('provider_id_exhausted', 'Unable to generate a unique provider profile identifier.');
 }
 
 function field(key, label, description) { return formField(key, label, description); }
