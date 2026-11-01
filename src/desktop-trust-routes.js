@@ -15,9 +15,10 @@ import { ContractError } from './ids.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { listTrust, trustWorkspace, untrustWorkspace } from './experience/trust.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/trust';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 // Transport bound only: mirrors the native realpath input space (32,767 UTF-16 units
 // plus one), not a semantic path cap; the native canonicalization and realpath decide
 // whether a root exists. The request envelope takes the same cap four-fold because a

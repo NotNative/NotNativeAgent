@@ -27,10 +27,11 @@ import { loadGatewayConfig, gatewayPublicStatus, gatewayToken } from './gateway/
 import { runtimeStatus } from './gateway-cli.js';
 import { TelegramApi } from './gateway/telegram-api.js';
 import { SearxngDeployment } from './searxng-deployment.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const GATEWAY_BASE = '/v1/desktop/configuration/gateway';
 const WEB_SEARCH_BASE = '/v1/desktop/configuration/web-search';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const invalid = () => new ContractError('desktop_action_triage_request_invalid', 'Native action-triage request is invalid.');
 const projection = () => new ContractError('desktop_action_triage_projection_invalid', 'Native action-triage projection refused a drifted receipt.');
 
@@ -94,7 +95,6 @@ export function gatewayActionRefusal(action) {
         ? 'nna gateway start detaches a child process; run it in the terminal'
         : 'nna gateway stop signals a detached process; run it in the terminal');
 }
-
 
 export function searxngActionRefusal(action) {
   if (!['deploy', 'install-local', 'refresh-managed', 'remove', 'remove-deployment'].includes(action)) throw invalid();

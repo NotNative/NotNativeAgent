@@ -3,8 +3,10 @@
 import { createHash } from 'node:crypto';
 import { ContractError } from './ids.js';
 import { validateAttachmentBytes } from './attachments.js';
+import { isRecord } from './values.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const MIME = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'text/plain']);
 const MAX_FILE_BYTES = 1_000_000;
 const MAX_TOTAL_BYTES = 16_000_000;
@@ -19,7 +21,7 @@ export class DesktopAttachmentUploads {
 
   upload(sessionId, subjectId, input, configuredMaxBytes) {
     this.#prune();
-    if (!record(input) || !exact(input, ['upload_id', 'filename', 'mime_type', 'data_url'])
+    if (!isRecord(input) || !exact(input, ['upload_id', 'filename', 'mime_type', 'data_url'])
       || !ID.test(input.upload_id ?? '') || !validName(input.filename)
       || !MIME.has(input.mime_type) || typeof input.data_url !== 'string'
       || input.data_url.length > 1_400_000) throw invalid();
@@ -54,7 +56,7 @@ export class DesktopAttachmentUploads {
     if (!Array.isArray(refs) || refs.length > 16) throw invalid();
     const ids = new Set();
     for (const ref of refs) {
-      if (!record(ref) || !exact(ref, ['upload_id']) || !ID.test(ref.upload_id ?? '')
+      if (!isRecord(ref) || !exact(ref, ['upload_id']) || !ID.test(ref.upload_id ?? '')
         || ids.has(ref.upload_id)) throw invalid();
       ids.add(ref.upload_id);
       const item = this.#items.get(`${sessionId}\0${ref.upload_id}`);
@@ -101,7 +103,6 @@ export class DesktopAttachmentUploads {
   #drop(key, item) { this.#items.delete(key); this.#bytes -= item.bytes.length; }
 }
 
-function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function exact(value, keys) { return Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key)); }
 function validName(value) {
   return typeof value === 'string' && value.length > 0 && value.length <= 255

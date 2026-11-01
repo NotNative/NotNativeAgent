@@ -17,10 +17,13 @@ import { ContractError } from './ids.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { DEFAULT_WEB_FETCH_CONFIG, MAX_WEB_FETCH_CONFIG_BYTES, normalizeTrustedOrigin, normalizeWebFetchConfig } from './web-fetch-config.js';
 import { readManifestSnapshot, readManifestOperation, transactManifest } from './persistence/manifest-transaction.js';
+import { DESKTOP_REVISION } from './desktop-request-grammar.js';
+import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
-const idPattern = /^[A-Za-z0-9_-]{1,128}$/u;
-const operationPattern = /^[A-Za-z0-9_-]{1,64}$/u;
-const revisionPattern = /^(?:absent|[a-f0-9]{64})$/u;
+const idPattern = DESKTOP_ID;
+const operationPattern = DESKTOP_OPERATION_ID;
+const revisionPattern = DESKTOP_REVISION;
 const invalid = () => new ContractError('desktop_web_fetch_request_invalid', 'Native WebFetch settings request is invalid.');
 
 function authorize(principal, permission) {

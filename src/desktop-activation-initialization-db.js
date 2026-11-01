@@ -5,6 +5,7 @@ import { lstat, opendir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { noLinks } from './desktop-payload-contract-files.js';
+import { SHA256_HEX } from './digests.js';
 
 const SCHEMA = 'CREATE TABLE activation_preparation (id INTEGER PRIMARY KEY CHECK(id=1), intent TEXT NOT NULL)';
 const LIMIT = 64 * 1024;
@@ -50,7 +51,7 @@ export async function hasActivationInitialization(dataRoot) {
   try { return row(db) !== null; } finally { db.close(); }
 }
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
-const SHA = /^[a-f0-9]{64}$/u;
+const SHA = SHA256_HEX;
 async function readPairBytes(path) {
   const bytes = await readFile(path);
   if (bytes.length > 4096) throw invalid();

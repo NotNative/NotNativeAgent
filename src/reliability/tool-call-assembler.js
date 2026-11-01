@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 import { reachedOutputCeiling } from './output-headroom.js';
 import { toolCallIdentity } from './tool-call-identity.js';
+import { isRecord } from '../values.js';
+import { deepFreeze } from '../values.js';
 
 const MAX_TOOL_CALLS = 64;
 const MAX_ARGUMENT_BYTES = 262_144;
@@ -51,7 +53,7 @@ export class ToolCallAssembler {
           truncated ? 'tool arguments were cut off by the provider output limit; retry one smaller bounded call, using the smallest anchored region for edits'
             : 'tool arguments are not valid JSON');
       }
-      if (!validArgumentsObject(args)) {
+      if (!isRecord(args)) {
         return invalidCall(call, providerCallId, name, 'tool_arguments_malformed', 'tool arguments must be a JSON object');
       }
       return Object.freeze({ ...call, providerCallId, name, args: deepFreeze(args) });
@@ -74,7 +76,7 @@ export class ToolCallAssembler {
       // Why: only executable calls participate in duplicate-stop detection. A malformed sibling
       // must not cause streaming to stop before the provider can finish one valid repair call.
       try { args = parseArguments(call.arguments); } catch { continue; }
-      if (!validArgumentsObject(args)) continue;
+      if (!isRecord(args)) continue;
       const identity = toolCallIdentity({ name: call.name, args });
       if (identity === null) continue;
       if (seen.has(identity)) { this.#equivalentCache = true; return true; }
@@ -147,7 +149,7 @@ function equivalentCompleteArguments(current, incoming, name) {
   try {
     const prior = JSON.parse(current);
     const next = typeof incoming === 'string' ? JSON.parse(incoming) : incoming;
-    if (!validArgumentsObject(prior) || !validArgumentsObject(next)) return false;
+    if (!isRecord(prior) || !isRecord(next)) return false;
     const priorIdentity = toolCallIdentity({ name, args: prior });
     return priorIdentity !== null && priorIdentity === toolCallIdentity({ name, args: next });
   } catch {
@@ -192,16 +194,3 @@ function appendName(current, fragment) {
 }
 
 function parseArguments(value) { return value.trim().length === 0 ? {} : JSON.parse(value); }
-function validArgumentsObject(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
-
-function deepFreeze(value) {
-  // Why: JSON input is byte-bounded, but may be deeply nested before schema validation.
-  const stack = [value];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (!current || typeof current !== 'object' || Object.isFrozen(current)) continue;
-    Object.freeze(current);
-    for (const child of Object.values(current)) stack.push(child);
-  }
-  return value;
-}

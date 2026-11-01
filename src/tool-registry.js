@@ -47,6 +47,9 @@ import { questionDefinition } from './tools/question.js';
 import { logicalLines, replaceLineRange } from './tools/text-edit-helpers.js';
 import { planProviderToolNames } from './tools/provider-surface-planner.js';
 import { consumeWorkflowLease, grantWorkflowLeases } from './tools/workflow-leases.js';
+import { objectSchema } from './tools/schema.js';
+import { deepFreeze } from './values.js';
+import { sha256Hex } from './digests.js';
 const MAX_TEXT_BYTES = 1_048_576;
 const MAX_MODEL_AUTHORED_TEXT_BYTES = 32_768;
 export class ToolRegistry {
@@ -349,7 +352,7 @@ async function executeFullWrite(paths, receipts, request, signal, changes) {
   const prepared = await advanceFromAuthoredState(request, receipts);
   const result = await withPreparedWriteTarget(paths, prepared.request, signal,
     () => atomicWrite(prepared.request, signal, {}, changes));
-  receipts.recordAuthored(prepared.request.resolved.path, sha256(prepared.request.args.content), prepared.request.args.content);
+  receipts.recordAuthored(prepared.request.resolved.path, sha256Hex(prepared.request.args.content), prepared.request.args.content);
   return withAuthoredAdvanceMetadata(result, prepared.advanced);
 }
 function editLinesDefinition(paths, changes, receipts) {
@@ -379,7 +382,7 @@ function editLinesDefinition(paths, changes, receipts) {
       const resolved = await paths.withRecovery(await paths.resolveRead(args.path));
       const receipt = receipts.latest(resolved.path, { start: args.start_line, end: args.end_line });
       const content = await readFile(resolved.path, 'utf8');
-      const actual = sha256(content);
+      const actual = sha256Hex(content);
       const boundArgs = { ...args, expected_sha256: receipt.digest };
       const prepared = prepareLineEdit(receipts, resolved.path, boundArgs, content, actual);
       if (prepared.endLine > logicalLines(content).length) {
@@ -456,7 +459,7 @@ async function atomicWrite(request, signal, detail = {}, changes = null) {
     content: detail.message ?? 'write completed',
     metadata: {
       bytes: Buffer.byteLength(request.args.content), path: request.args.path,
-      sha256: sha256(request.args.content),
+      sha256: sha256Hex(request.args.content),
       ...(detail.replacements === undefined ? {} : { replacements: detail.replacements }),
     },
   };
@@ -477,9 +480,6 @@ async function verifyExpectedState(request) {
     throw new ContractError('tool_revalidation_drift', 'target changed after review');
   }
 }
-function sha256(content) {
-  return createHash('sha256').update(content).digest('hex');
-}
 function requireShape(value, required, optional = []) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new ContractError('tool_schema_invalid', 'tool arguments must be an object');
@@ -492,9 +492,4 @@ function requireShape(value, required, optional = []) {
   if (typeof value.path !== 'string' || (Object.hasOwn(value, 'content') && typeof value.content !== 'string')) {
     throw new ContractError('tool_schema_invalid', 'tool argument types are invalid');
   }
-}
-function objectSchema(properties, required) { return { type: 'object', properties, required, additionalProperties: false }; }
-function deepFreeze(value) {
-  if (value && typeof value === 'object') { Object.freeze(value); for (const child of Object.values(value)) deepFreeze(child); }
-  return value;
 }

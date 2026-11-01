@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
+import { deepFreeze } from './values.js';
 
 export const EXTENSION_HOST_CONTRACT = '1.0';
 const MAX_DIAGNOSTICS = 256;
@@ -205,11 +206,6 @@ function cloneJson(value, label) {
     if (Buffer.byteLength(encoded) > MAX_JSON_BYTES) throw new Error(`${label} is too large`);
     return deepFreeze(JSON.parse(encoded));
   } catch (error) { throw new ContractError('invalid_extension_manifest', `${label} must be bounded JSON: ${safeFailure(error)}`); }
-}
-
-function deepFreeze(value) {
-  if (value && typeof value === 'object') for (const key of Reflect.ownKeys(value)) deepFreeze(value[key]);
-  return value && typeof value === 'object' ? Object.freeze(value) : value;
 }
 
 function safeDetails(value) {

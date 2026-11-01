@@ -7,9 +7,12 @@ import { requireIntegrationPermission } from './integration-principal.js';
 import { readDesktopConfigurationSources } from './desktop-configuration-sources.js';
 import { readManifestOperation, readManifestSnapshot, transactManifest } from './persistence/manifest-transaction.js';
 import { pathIdentity } from './path-identity.js';
+import { isRecord } from './values.js';
+import { DESKTOP_REVISION } from './desktop-request-grammar.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
-const REVISION = /^(?:absent|[a-f0-9]{64})$/u;
+const ID = DESKTOP_ID;
+const REVISION = DESKTOP_REVISION;
 const ROOT_BYTES = 4096;
 const DOCUMENT_KEYS = ['protocol', 'installation_id', 'data_id', 'primary', 'secondary'];
 const GRANT_KEYS = ['root', 'id', 'device', 'inode'];
@@ -55,7 +58,7 @@ async function canonicalGrant(path) {
 }
 
 function validGrant(value) {
-  return record(value) && exact(value, GRANT_KEYS) && typeof value.root === 'string'
+  return isRecord(value) && exact(value, GRANT_KEYS) && typeof value.root === 'string'
     && /^ws_[a-f0-9]{24}$/u.test(value.id) && typeof value.device === 'string'
     && /^\d+$/u.test(value.device) && typeof value.inode === 'string' && /^\d+$/u.test(value.inode);
 }
@@ -67,7 +70,6 @@ async function verifyGrant(value, expectedId) {
   return expectedId === undefined ? actual : Object.freeze({ ...actual, id: expectedId });
 }
 function exact(value, keys) { return Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key)); }
-function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function authorize(principal, permission) {
   if (typeof principal?.subjectId !== 'string' || !principal.subjectId.trim() || principal.subjectId.length > 256
     || !Array.isArray(principal.permissions)) throw fail();
@@ -96,7 +98,7 @@ export function createDesktopWorkspaceGrantService({ paths, installationId, data
   const read = principal => readGrants({ path, identity, currentPrimary }, principal);
   async function save(principal, input) {
     authorize(principal, 'desktop.workspace.manage');
-    if (!record(input) || !exact(input, ['installation_id', 'data_id', 'expected_revision', 'operation_id', 'secondary_root'])
+    if (!isRecord(input) || !exact(input, ['installation_id', 'data_id', 'expected_revision', 'operation_id', 'secondary_root'])
       || input.installation_id !== installationId || input.data_id !== dataId
       || !REVISION.test(input.expected_revision ?? '') || !ID.test(input.operation_id ?? '')
       || !(input.secondary_root === null || typeof input.secondary_root === 'string')) throw fail();
@@ -159,7 +161,7 @@ async function validateDocument(value, identity, primary) {
 }
 
 export async function validatePrimary(value, identity, primary) {
-  if (!record(value) || !exact(value, DOCUMENT_KEYS) || value.protocol !== '1.0'
+  if (!isRecord(value) || !exact(value, DOCUMENT_KEYS) || value.protocol !== '1.0'
     || value.installation_id !== identity.installation_id || value.data_id !== identity.data_id) throw fail();
   const stored = await verifyGrant(value.primary, primary.id);
   if (Object.keys(primary).some(key => primary[key] !== stored[key])) throw fail('desktop_workspace_grant_identity_mismatch');

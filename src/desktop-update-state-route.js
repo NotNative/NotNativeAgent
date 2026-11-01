@@ -17,9 +17,10 @@ import { ContractError } from './ids.js';
 import { send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { readUpdateState } from './update-service.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/update-state';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 // Store-grammar parity (update-service.js readUpdateState): the store accepts an
 // optional v prefix, a long sequence number, any finite parsed timestamp, and any
 // string of at most 256 characters for ref/tag/error_code. Drift beyond that

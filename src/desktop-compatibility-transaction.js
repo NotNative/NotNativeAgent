@@ -18,10 +18,13 @@ import { requireIntegrationPermission } from './integration-principal.js';
 import { DEFAULT_OPENCODE_CONFIG, normalizeOpenCodeConfig, opencodePublicStatus }
   from './opencode/config.js';
 import { readManifestSnapshot, readManifestOperation, transactManifest } from './persistence/manifest-transaction.js';
+import { DESKTOP_REVISION } from './desktop-request-grammar.js';
+import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
-const idPattern = /^[A-Za-z0-9_-]{1,128}$/u;
-const operationPattern = /^[A-Za-z0-9_-]{1,64}$/u;
-const revisionPattern = /^(?:absent|[a-f0-9]{64})$/u;
+const idPattern = DESKTOP_ID;
+const operationPattern = DESKTOP_OPERATION_ID;
+const revisionPattern = DESKTOP_REVISION;
 const invalid = () => new ContractError('desktop_compatibility_request_invalid', 'Native compatibility settings request is invalid.');
 const sourceInvalid = () => new ContractError('desktop_compatibility_source_invalid', 'Compatibility settings require explicit repair.');
 const CANDIDATE = ['enabled', 'hostname', 'port', 'username'];

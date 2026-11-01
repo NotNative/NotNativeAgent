@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
+import { canonicalJson } from '../canonical-json.js';
 
 export const GOVERNANCE_DOMAINS = Object.freeze([
   'action_authorization', 'evidence_admission', 'memory_eligibility',
@@ -101,7 +102,16 @@ export function assertEvidenceTransition(current, next) {
 }
 
 export function governanceFingerprint(value) {
-  return createHash('sha256').update(stableJson(value, 0, new WeakSet())).digest('hex');
+  return createHash('sha256').update(canonicalJson(value, {
+    maxDepth: MAX_STABLE_JSON_DEPTH,
+    onInvalid: (reason) => {
+      const message = reason === 'cycle' ? 'governance fingerprint input contains a cycle'
+        : reason === 'too_deep' ? 'governance fingerprint input is too deeply nested'
+          : reason === 'non_finite' ? 'governance fingerprints require finite numbers'
+            : 'governance fingerprint input contains an unsupported value';
+      throw new ContractError('governance_fingerprint_invalid', message);
+    },
+  })).digest('hex');
 }
 
 const TRANSITIONS = Object.freeze({
@@ -208,27 +218,5 @@ function exactKeys(value, allowed, label) {
   const unknown = Object.keys(value).filter((key) => !allowed.has(key));
   if (unknown.length > 0) {
     throw new ContractError('governance_fields_invalid', `${label} contains unsupported fields: ${unknown.join(', ')}`);
-  }
-}
-
-function stableJson(value, depth, seen) {
-  if (typeof value === 'number' && !Number.isFinite(value)) {
-    throw new ContractError('governance_fingerprint_invalid', 'governance fingerprints require finite numbers');
-  }
-  if (depth > MAX_STABLE_JSON_DEPTH) throw new ContractError('governance_fingerprint_invalid', 'governance fingerprint input is too deeply nested');
-  if (value && typeof value === 'object') {
-    if (seen.has(value)) throw new ContractError('governance_fingerprint_invalid', 'governance fingerprint input contains a cycle');
-    seen.add(value);
-  }
-  try {
-    if (Array.isArray(value)) return `[${value.map((item) => stableJson(item, depth + 1, seen)).join(',')}]`;
-    if (value && typeof value === 'object') {
-      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key], depth + 1, seen)}`).join(',')}}`;
-    }
-    const encoded = JSON.stringify(value);
-    if (encoded === undefined) throw new ContractError('governance_fingerprint_invalid', 'governance fingerprint input contains an unsupported value');
-    return encoded;
-  } finally {
-    if (value && typeof value === 'object') seen.delete(value);
   }
 }

@@ -4,6 +4,7 @@ import { ContractError } from '../ids.js';
 import { providerReasoningControls } from '../provider/reasoning.js';
 import { providerRequestMetadata } from '../provider/request-metadata.js';
 import { estimateTokenValue } from './context-token-measurement.js';
+import { positiveInteger } from '../values.js';
 
 const TOKEN_BYTE_RATIO = 3;
 const MAX_SECTIONS = 64;
@@ -342,7 +343,6 @@ function serializedValue(value) {
   catch { throw new ContractError('provider_envelope_invalid', 'provider envelope contains a non-JSON value'); }
 }
 function estimateBytes(bytes) { return Math.ceil(Math.max(0, bytes) / TOKEN_BYTE_RATIO); }
-function positiveInteger(value) { return Number.isSafeInteger(value) && value > 0 ? value : null; }
 function finiteNonnegative(value) { return Number.isFinite(value) && value >= 0 ? value : null; }
 function firstInteger(value, keys) {
   return keys.map((key) => value[key]).find((item) => Number.isSafeInteger(item) && item >= 0) ?? null;

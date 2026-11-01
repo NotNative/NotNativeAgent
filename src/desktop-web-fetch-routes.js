@@ -12,13 +12,16 @@ import { ContractError } from './ids.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { normalizeTrustedOrigin } from './web-fetch-config.js';
+import { SHA256_HEX } from './digests.js';
+import { DESKTOP_REVISION } from './desktop-request-grammar.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/web-fetch';
 const OPERATION = /^\/v1\/desktop\/configuration\/web-fetch\/operations\/([A-Za-z0-9_-]{1,64})$/u;
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 // An absent file legitimately reads and previews under the absent revision base.
-const REVISION = /^(?:absent|[a-f0-9]{64})$/u;
-const PERSISTED_REVISION = /^[a-f0-9]{64}$/u;
+const REVISION = DESKTOP_REVISION;
+const PERSISTED_REVISION = SHA256_HEX;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const invalid = () => new ContractError('desktop_web_fetch_request_invalid', 'Native WebFetch settings request is invalid.');
 

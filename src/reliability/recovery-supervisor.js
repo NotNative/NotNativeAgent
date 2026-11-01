@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { randomInt } from 'node:crypto';
 import { boundedProviderRetryDelay } from './retry-after.js';
+import { positiveInteger } from '../values.js';
 
 const MAX_ACTION_HISTORY = 256;
 const MAX_PROGRESS_RECORDS = 4_096;
@@ -371,10 +372,6 @@ function boundedDelay(attempt) {
 function emptyCompletionDelay(count) {
   const exponent = Math.min(16, Math.max(0, count - 1));
   return Math.min(EMPTY_COMPLETION_MAX_DELAY_MS, EMPTY_COMPLETION_BASE_DELAY_MS * (2 ** exponent));
-}
-
-function positiveInteger(value) {
-  return Number.isSafeInteger(value) && value > 0 ? value : null;
 }
 
 function digest(value) {

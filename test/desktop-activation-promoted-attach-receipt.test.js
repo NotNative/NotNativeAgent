@@ -7,6 +7,8 @@ import { join, resolve } from 'node:path';
 import { ContractError } from '../src/ids.js';
 import { promotedAttachEvidenceSha } from '../src/desktop-activation-ticket-evidence.js';
 import { pathIdentity } from '../src/path-identity.js';
+import { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION } from '../src/desktop-request-grammar.js';
+import { SHA256_HEX } from '../src/digests.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 async function fixture() {
@@ -21,7 +23,7 @@ async function fixture() {
   const ticket = { state: 'private_ticket_recorded_unresolved', receipt_sha256: journal[6].receipt_sha256,
     registration_revision: hash('registration') };
   let probeCalls = 0, appendCalls = 0, changed = false, failAfterAppend = false, abortAfterAppend = false;
-  const dependencies = { pathIdentity, join, resolve, ContractError, promotedAttachEvidenceSha, hash,
+  const dependencies = { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION, SHA256_HEX, pathIdentity, join, resolve, ContractError, promotedAttachEvidenceSha, hash,
     operationValid: value => Object.values(options).includes(value),
     assertHeldDesktopServiceLease: lease => assert.equal(lease, serviceLease),
     withDesktopServiceLease: (_lease, _id, work) => work(new AbortController().signal),

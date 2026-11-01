@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
+import { positiveInteger } from '../values.js';
 
 const CACHE_TTL_MS = 300_000;
 const MAX_CACHE_ENTRIES = 128;
@@ -87,10 +88,10 @@ function normalizeSnapshot(route, value = {}) {
   return Object.freeze({
     providerId: route.profile.id,
     model: route.model,
-    contextWindowTokens: positive(value.contextWindowTokens),
-    contextLimitBytes: positive(value.contextLimitBytes) ?? positive(route.contextLimitBytes),
-    outputLimitTokens: positive(value.outputLimitTokens) ?? positive(route.maxOutputTokens),
-    parallelCapacity: positive(value.parallelCapacity),
+    contextWindowTokens: positiveInteger(value.contextWindowTokens),
+    contextLimitBytes: positiveInteger(value.contextLimitBytes) ?? positiveInteger(route.contextLimitBytes),
+    outputLimitTokens: positiveInteger(value.outputLimitTokens) ?? positiveInteger(route.maxOutputTokens),
+    parallelCapacity: positiveInteger(value.parallelCapacity),
     source: typeof value.source === 'string' ? value.source : 'provider',
     // Why: model-card limits are provider-owned runtime facts. Their spelling is
     // non-standard, but a recognized positive value is not an NNA estimate.
@@ -102,14 +103,10 @@ function declaredSnapshot(route, source) {
   return Object.freeze({
     providerId: route.profile.id, model: route.model,
     contextWindowTokens: null,
-    contextLimitBytes: positive(route.contextLimitBytes),
-    outputLimitTokens: positive(route.maxOutputTokens),
+    contextLimitBytes: positiveInteger(route.contextLimitBytes),
+    outputLimitTokens: positiveInteger(route.maxOutputTokens),
     parallelCapacity: null, source, authoritative: false,
   });
-}
-
-function positive(value) {
-  return Number.isSafeInteger(value) && value > 0 ? value : null;
 }
 
 function assertRoute(route) {

@@ -6,9 +6,10 @@ import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
 import { pathIdentity } from './path-identity.js';
+import { SHA256_HEX } from './digests.js';
 
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
-const SHA = /^[a-f0-9]{64}$/u;
+const SHA = SHA256_HEX;
 const NAME = /^activation-(\d{2})\.json$/u;
 const KEYS = ['protocol', 'operation_id', 'installation_id', 'data_id', 'sequence', 'phase', 'previous_sha256', 'evidence_sha256'];
 const NEXT = Object.freeze({

@@ -43,9 +43,12 @@ import { readManifestOperation, readManifestSnapshot, transactManifest } from '.
 import { readCanonicalGrant, primaryWorkspaceId, validatePrimary, workspaceId } from './desktop-workspace-grants.js';
 import { readDesktopConfigurationSources } from './desktop-configuration-sources.js';
 import { pathIdentity } from './path-identity.js';
+import { isRecord } from './values.js';
+import { DESKTOP_REVISION } from './desktop-request-grammar.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
-const REVISION = /^(?:absent|[a-f0-9]{64})$/u;
+const ID = DESKTOP_ID;
+const REVISION = DESKTOP_REVISION;
 const ROOT_BYTES = 4096;
 const ROOT_MAX = 32_768;
 const GRANT_KEYS = ['root', 'id', 'device', 'inode'];
@@ -65,7 +68,6 @@ const SECONDARY_CLEAR = () => fail('desktop_workspace_admission_secondary_clear'
   'The workspace root is anchored by the workspace grant surface; clear the granted secondary there.');
 
 function exact(value, keys) { return Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key)); }
-function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function authorize(principal, permission) {
   if (typeof principal?.subjectId !== 'string' || !principal.subjectId.trim() || principal.subjectId.length > 256
     || !Array.isArray(principal.permissions)) throw fail();
@@ -91,7 +93,7 @@ function boundedRoot(value) {
 /** The persisted row shape a mutation rebuilds from, asserted on every read
  * and on the fresh revoke target. */
 function assertAdmittedRowShape(value) {
-  if (!record(value) || !exact(value, ADMISSION_KEYS) || typeof value.root !== 'string' || typeof value.id !== 'string'
+  if (!isRecord(value) || !exact(value, ADMISSION_KEYS) || typeof value.root !== 'string' || typeof value.id !== 'string'
     || !WORKSPACE_ID.test(value.id) || typeof value.device !== 'string' || !/^\d+$/u.test(value.device)
     || typeof value.inode !== 'string' || !/^\d+$/u.test(value.inode)
     || typeof value.admitted_at !== 'string' || !Number.isFinite(Date.parse(value.admitted_at))
@@ -141,7 +143,7 @@ async function readSecondaryGrant(ctx, attached, prefetchedSnapshot) {
   await validatePrimary(document, ctx.identity, attached);
   const secondary = document.secondary;
   if (secondary === null) return null;
-  if (!record(secondary) || !exact(secondary, GRANT_KEYS) || !WORKSPACE_ID.test(secondary.id ?? '')) throw grantDocumentError();
+  if (!isRecord(secondary) || !exact(secondary, GRANT_KEYS) || !WORKSPACE_ID.test(secondary.id ?? '')) throw grantDocumentError();
   const actual = await readCanonicalGrant(secondary.root);
   if (secondary.id !== actual.id || pathIdentity(secondary.root, attached.root) || actual.id === attached.id
     || ['root', 'device', 'inode'].some(key => secondary[key] !== actual[key])) throw grantDocumentError();
@@ -164,7 +166,7 @@ async function verifyAdmissionRow(value, attached, admitted) {
 }
 
 async function verifyStoreDocument(document, ctx) {
-  if (!record(document) || !exact(document, DOCUMENT_KEYS) || document.protocol !== '1.0'
+  if (!isRecord(document) || !exact(document, DOCUMENT_KEYS) || document.protocol !== '1.0'
     || document.installation_id !== ctx.identity.installation_id || document.data_id !== ctx.identity.data_id
     || !Array.isArray(document.admitted)) throw storeError();
   const attached = await attachedRoot(ctx.paths);
@@ -202,7 +204,7 @@ async function grantedSecondary(ctx) {
  * channel identity, a revision value, an operation id, and a transport-bounded
  * root. Returns the bounded root. */
 function admissionInput(input, identity) {
-  if (!record(input) || !exact(input, ['installation_id', 'data_id', 'expected_revision', 'operation_id', 'root'])
+  if (!isRecord(input) || !exact(input, ['installation_id', 'data_id', 'expected_revision', 'operation_id', 'root'])
     || input.installation_id !== identity.installation_id || input.data_id !== identity.data_id
     || !REVISION.test(input.expected_revision ?? '') || !ID.test(input.operation_id ?? '')) throw fail();
   return boundedRoot(input.root);
@@ -231,7 +233,7 @@ async function readInventoryState(ctx) {
     return { snapshot, attached, secondary: await readSecondaryGrant(ctx, attached, grantSnapshot), admitted: [], unavailable: [] };
   }
   const document = snapshot.rawManifest;
-  if (!record(document) || !exact(document, DOCUMENT_KEYS) || document.protocol !== '1.0'
+  if (!isRecord(document) || !exact(document, DOCUMENT_KEYS) || document.protocol !== '1.0'
     || document.installation_id !== ctx.identity.installation_id || document.data_id !== ctx.identity.data_id
     || !Array.isArray(document.admitted)) throw storeError();
   const secondary = await readSecondaryGrant(ctx, attached, grantSnapshot);
@@ -257,7 +259,7 @@ async function readLeanState(ctx) {
   const snapshot = await readManifestSnapshot(ctx.path);
   if (snapshot.state === 'missing') throw missingTarget();
   const document = snapshot.rawManifest;
-  if (!record(document) || !exact(document, DOCUMENT_KEYS) || document.protocol !== '1.0'
+  if (!isRecord(document) || !exact(document, DOCUMENT_KEYS) || document.protocol !== '1.0'
     || document.installation_id !== ctx.identity.installation_id || document.data_id !== ctx.identity.data_id
     || !Array.isArray(document.admitted)) throw storeError();
   document.admitted.forEach(assertAdmittedRowShape);
@@ -270,7 +272,7 @@ async function readLeanState(ctx) {
 async function verifyRevocationDocument(next, ctx) {
   await readInventoryState(ctx);
   const previous = await readLeanState(ctx);
-  if (!record(next) || !exact(next, DOCUMENT_KEYS) || next.protocol !== '1.0'
+  if (!isRecord(next) || !exact(next, DOCUMENT_KEYS) || next.protocol !== '1.0'
     || next.installation_id !== ctx.identity.installation_id || next.data_id !== ctx.identity.data_id
     || !Array.isArray(next.admitted) || next.admitted.length !== previous.admitted.length - 1) throw storeError();
   for (const row of next.admitted) {

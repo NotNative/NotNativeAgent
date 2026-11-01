@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from 'node:crypto';
 import { CONFIGURATION_CATALOG } from './configuration-catalog.js';
 import { manifestFromConfig } from './provider/route-configuration.js';
 import { ContractError } from './ids.js';
 import { validateKeyBindings } from './experience/key-bindings.js';
+import { sha256Hex } from './digests.js';
 
 const MAX_ROWS = 4096;
 const LAYERS = new Set(CONFIGURATION_CATALOG.source_layers);
 const own = (value, key) => value !== null && typeof value === 'object' && Object.hasOwn(value, key);
 const absent = () => ({ present: false });
-const digest = value => createHash('sha256').update(value).digest('hex');
 function invalid() { return new ContractError('desktop_configuration_view_invalid', 'Configuration view exceeds its safe projection contract.'); }
 
 export function projectDesktopConfigurationView(snapshot) {
@@ -122,7 +121,7 @@ function bindings(path, raw, effective) {
   }
   add(explicit, 'rawIndex'); add(resolved, 'effectiveIndex');
   return [...items.values()].map(item => {
-    const id = /^[A-Za-z0-9_-]{1,64}$/u.test(item.id) ? item.id : `id_${digest(item.id)}`;
+    const id = /^[A-Za-z0-9_-]{1,64}$/u.test(item.id) ? item.id : `id_${sha256Hex(item.id)}`;
     const suffix = tail.split('.');
     return { path: `${collection}[${id}].${tail}`, entity: { kind: collection, id },
       rawPath: item.rawIndex === undefined ? null : [collection, String(item.rawIndex), ...suffix],

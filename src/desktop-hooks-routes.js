@@ -27,9 +27,10 @@ import { discoverHookBundles } from './hook-manifest.js';
 import { ContractError } from './ids.js';
 import { send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/hooks';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/u;
 const PATH_OR_NAME = /^[\x20-\x7e]{1,255}$/u;
 const LINE = /^[\x20-\x7e]{1,64}$/u;

@@ -16,6 +16,7 @@ import { readInstallBytes, writeInstallNew, hash, json, operationValid } from '.
 import { retirementCleanupPaths, inspectRetirementArtifacts,
   removeRetirementArtifact, assertRetirementBarrierAcl } from './desktop-activation-retirement-cleanup-files.js';
 import { pathIdentity } from './path-identity.js';
+import { SHA256_HEX } from './digests.js';
 
 const invalid = () => new ContractError('desktop_activation_retirement_cleanup_invalid',
   'desktop retirement cleanup is unresolved; preserve the pending barrier and remaining evidence.');
@@ -147,7 +148,7 @@ export async function recordDesktopTerminalRetirementCommitUnderOwnership(identi
 const TERMINAL_KEYS = ['protocol', 'state', 'operation_id', 'stage_operation_id', 'installation_id',
   'data_id', 'generation', 'plan_sha256', 'decision_sha256', 'completion_sha256',
   'marker_sha256', 'registration_revision', 'discovery_sha256', 'child_process_identity'];
-const SHA = /^[a-f0-9]{64}$/u;
+const SHA = SHA256_HEX;
 function canonicalRecord(bytes, keys) {
   let value;
   try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }

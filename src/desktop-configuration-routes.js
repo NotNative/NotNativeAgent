@@ -28,12 +28,14 @@ import { dispatchDesktopSecretsRequest } from './desktop-secrets-routes.js';
 import { dispatchDesktopHooksRequest } from './desktop-hooks-routes.js';
 import { dispatchDesktopUpdateActionsRequest } from './desktop-update-actions-routes.js';
 import { dispatchDesktopPackageRequest } from './desktop-package-routes.js';
+import { DESKTOP_REVISION } from './desktop-request-grammar.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration';
 const REQUEST_BYTES = 65536;
 const RESPONSE_BYTES = 2 * 1024 * 1024;
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
-const REVISION = /^(?:absent|[a-f0-9]{64})$/u;
+const ID = DESKTOP_ID;
+const REVISION = DESKTOP_REVISION;
 const FIELDS = ['installation_id', 'data_id', 'scope', 'expected_revision', 'expected_resolution_revision'];
 const NATIVE_EDITABLE = new Set(DESKTOP_CONFIGURATION_EDITABLE_FIELDS);
 const ROUTE_BINDING = new Set(DESKTOP_ROUTE_BINDING_FIELDS);

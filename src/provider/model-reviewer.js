@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from '../ids.js';
 import { routeReasoningFields } from './reasoning.js';
+import { elapsedMs } from '../timing.js';
 
 const MAX_REVIEWER_OUTPUT_BYTES = 32_768;
 const MAX_REASON_CODE_CHARACTERS = 128;
@@ -194,10 +195,6 @@ async function collectReviewerOutput(provider, request, signal, accounting) {
   if (signal?.aborted) throw new ContractError('reviewer_cancelled', 'reviewer request was cancelled');
   if (!terminal) throw new ContractError('reviewer_missing_terminal', 'reviewer stream did not terminate');
   return { text, usage };
-}
-
-function elapsedMs(started) {
-  return Number(process.hrtime.bigint() - started) / 1_000_000;
 }
 
 function reviewerResponseFormat(requireEffectAssessment = false) {

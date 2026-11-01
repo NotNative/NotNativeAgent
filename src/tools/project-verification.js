@@ -4,6 +4,7 @@ import { lstat, open, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from '../ids.js';
 import { runProcess } from './process.js';
+import { sha256Hex } from '../digests.js';
 
 const MAX_MANIFEST_BYTES = 131_072;
 const CHECK_ORDER = Object.freeze(['quality', 'test', 'lint', 'typecheck', 'build']);
@@ -55,7 +56,7 @@ export async function discoverVerificationPlan(root, input = {}) {
   return Object.freeze({
     adapter: manager, runtime: Object.freeze(runtime), scope, requested_checks: selected, commands: Object.freeze(commands),
     unavailable: Object.freeze(unavailable), manifest: Object.freeze({
-      path: manifestPath, sha256: sha256(manifest.content), bytes: manifest.bytes,
+      path: manifestPath, sha256: sha256Hex(manifest.content), bytes: manifest.bytes,
     }),
     fallback: scope === 'affected' ? 'affected currently uses the full project script unless focused test paths are supplied' : null,
   });
@@ -92,7 +93,7 @@ async function validateVerification(paths, input = {}) {
 
 async function executeVerification(request, signal) {
   const current = await regularBoundedFile(request.resolved.manifest.path, 'verification_manifest_unavailable');
-  if (sha256(current.content) !== request.resolved.manifest.sha256) {
+  if (sha256Hex(current.content) !== request.resolved.manifest.sha256) {
     throw new ContractError('verification_plan_drift', 'package.json changed after the verification plan was reviewed');
   }
   const results = [];
@@ -281,7 +282,6 @@ function receiptId(request, results) {
   })).digest('hex')}`;
 }
 
-function sha256(value) { return createHash('sha256').update(value).digest('hex'); }
 function boundedOutput(value) {
   if (typeof value !== 'string') return '';
   return value.length > 16_384 ? `${value.slice(0, 16_384)}\n[output truncated in verification receipt]` : value;

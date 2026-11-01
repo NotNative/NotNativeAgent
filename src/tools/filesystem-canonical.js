@@ -5,6 +5,7 @@ import { join, matchesGlob } from 'node:path';
 import { ContractError } from '../ids.js';
 import { normalizeArgumentAliases } from './argument-normalization.js';
 import { pathIdentity } from '../path-identity.js';
+import { objectSchema } from './schema.js';
 
 const MAX_LIST_RESULTS = 1_000;
 const MAX_LIST_DEPTH = 64;
@@ -352,4 +353,3 @@ function integer(value, fallback, minimum, maximum) {
 }
 function abort(signal) { if (signal?.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled'); }
 function invalid(message) { return new ContractError('tool_schema_invalid', message); }
-function objectSchema(properties, required) { return { type: 'object', properties, required, additionalProperties: false }; }

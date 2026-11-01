@@ -2,10 +2,12 @@
 import { ContractError } from './ids.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { readJsonBody, send } from './secret-broker-server.js';
+import { DESKTOP_REVISION } from './desktop-request-grammar.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/workspaces';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
-const REVISION = /^(?:absent|[a-f0-9]{64})$/u;
+const ID = DESKTOP_ID;
+const REVISION = DESKTOP_REVISION;
 const invalid = () => new ContractError('desktop_workspace_grant_request_invalid', 'Native workspace grant request is invalid.');
 
 export async function dispatchDesktopWorkspaceGrantRequest(request, response, context) {

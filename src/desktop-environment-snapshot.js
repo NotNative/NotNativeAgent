@@ -15,13 +15,14 @@
 import { createHash } from 'node:crypto';
 import { ContractError } from './ids.js';
 import { requireIntegrationPermission } from './integration-principal.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 export const OBSERVED_NAMES = ['NNA_HOME', 'NNA_PROVIDER_ENDPOINT', 'NNA_MODEL',
   'NNA_REDUCED_MOTION', 'NO_COLOR', 'NNA_TELEGRAM_BOT_TOKEN', 'OPENCODE_SERVER_PASSWORD'];
 export const SECRET_NAMES = new Set(['NNA_TELEGRAM_BOT_TOKEN', 'OPENCODE_SERVER_PASSWORD']);
 // Long legal values still stay projectable: refusal (not truncation) keeps reads honest.
 const MAX_VALUE_BYTES = 16384;
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 
 const invalid = () => new ContractError('desktop_environment_request_invalid', 'Native environment request is invalid.');
 const tooLarge = () => new ContractError('desktop_environment_value_too_large',

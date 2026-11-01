@@ -6,6 +6,7 @@ import { EMPTY_CONVERSATION_TEXT_LANE } from './conversation-text-lane.js';
 import { externalBrowserGuidance } from './reliability/external-browser.js';
 import { workspaceTransitionClassification } from './reliability/workspace-scope.js';
 import { recordAndSettleAuthorization } from './reviewer-delivery.js';
+import { elapsedMs } from './timing.js';
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
 const REVIEWER_SERVICE_FAILURES = new Set([
   'mandatory_review_failed', 'turn_cancelled', 'provider_reasoning_control_rejected', 'semantic_review_unavailable', 'semantic_review_timeout',
@@ -127,7 +128,6 @@ function recordReviewDecision(reviewer, decision, classification, repetition, co
     timeout_ms: decision.reasonCode === 'semantic_review_timeout' ? reviewer.semanticTimeoutMs : undefined,
   }, { ...correlation, durationMs: elapsedMs(started), outcome: decision.outcome, reasonCode: decision.reasonCode });
 }
-function elapsedMs(started) { return Number(process.hrtime.bigint() - started) / 1_000_000; }
 export class UnavailableSemanticReviewer {
   async review() {
     throw new ContractError('semantic_reviewer_unavailable', 'semantic reviewer is unavailable');

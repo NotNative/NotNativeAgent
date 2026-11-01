@@ -7,13 +7,15 @@ import { requireIntegrationPermission } from './integration-principal.js';
 import { readDesktopConfigurationSources, DESKTOP_CONFIGURATION_OPTIONS } from './desktop-configuration-sources.js';
 import { resolveConfiguration } from './configuration-sources.js';
 import { readManifestOperation, transactManifest } from './persistence/manifest-transaction.js';
+import { isRecord } from './values.js';
+import { SHA256_HEX } from './digests.js';
+import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
 
-const ID = /^[A-Za-z0-9_-]{1,64}$/u;
-const OPERATION = /^[A-Za-z0-9_-]{1,64}$/u;
-const REVISION = /^[a-f0-9]{64}$/u;
+const ID = DESKTOP_OPERATION_ID;
+const OPERATION = DESKTOP_OPERATION_ID;
+const REVISION = SHA256_HEX;
 const DEADLINES = ['timeout_ms', 'connect_timeout_ms', 'list_timeout_ms', 'call_timeout_ms', 'shutdown_timeout_ms'];
 const MAX_REQUEST = 65536;
-const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const invalid = () => new ContractError('desktop_mcp_request_invalid', 'Native MCP request is invalid or unsupported.');
 
 export function createDesktopMcpConfigurationService({ paths, identity }) {
@@ -72,7 +74,7 @@ export function createDesktopMcpConfigurationService({ paths, identity }) {
 function normalize(input, identity, save) {
   const allowed = ['installation_id', 'data_id', 'scope', 'expected_revision', 'expected_resolution_revision', 'change',
     ...(save ? ['operation_id'] : [])];
-  if (!record(input) || Object.keys(input).some(key => !allowed.includes(key))
+  if (!isRecord(input) || Object.keys(input).some(key => !allowed.includes(key))
     || Object.entries(identity).some(([key, value]) => input[key] !== value)
     || !REVISION.test(input.expected_revision ?? '') || !REVISION.test(input.expected_resolution_revision ?? '')
     || save && !OPERATION.test(input.operation_id ?? '')) throw invalid();
@@ -85,12 +87,12 @@ function normalize(input, identity, save) {
 }
 
 function normalizeChange(value) {
-  if (!record(value) || !ID.test(value.id ?? '') || !['create', 'patch', 'delete'].includes(value.op)) throw invalid();
+  if (!isRecord(value) || !ID.test(value.id ?? '') || !['create', 'patch', 'delete'].includes(value.op)) throw invalid();
   if (value.op === 'delete') {
     if (Object.keys(value).some(key => !['op', 'id'].includes(key))) throw invalid();
     return { op: 'delete', id: value.id };
   }
-  if (!record(value.fields) || Object.keys(value).some(key => !['op', 'id', 'fields'].includes(key))) throw invalid();
+  if (!isRecord(value.fields) || Object.keys(value).some(key => !['op', 'id', 'fields'].includes(key))) throw invalid();
   if (value.op === 'patch') {
     const fields = value.fields;
     if (!Object.keys(fields).length || Object.keys(fields).some(key => key !== 'enabled' && !DEADLINES.includes(key))

@@ -3,6 +3,7 @@ import { lstat, open, readdir, realpath } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 import { parseCommand } from './hook-runner.js';
+import { isRecord } from './values.js';
 
 const SUBSCRIPTIONS = new Set([
   'session.start:post', 'session.end:pre', 'turn:pre', 'turn:post',
@@ -83,7 +84,7 @@ async function readBounded(path) {
 }
 
 function validateBundle(value, directory, directoryName) {
-  if (!record(value) || !safeName(value.name) || typeof value.version !== 'string') {
+  if (!isRecord(value) || !safeName(value.name) || typeof value.version !== 'string') {
     throw new ContractError('invalid_hook_manifest', 'hook manifest identity is invalid');
   }
   if (!Array.isArray(value.subscriptions) || value.subscriptions.length > MAX_SUBSCRIPTIONS) {
@@ -97,7 +98,7 @@ function validateBundle(value, directory, directoryName) {
 }
 
 function validateSubscription(value, index) {
-  if (!record(value) || !SUBSCRIPTIONS.has(`${value.event}:${value.phase}`)) {
+  if (!isRecord(value) || !SUBSCRIPTIONS.has(`${value.event}:${value.phase}`)) {
     throw new ContractError('invalid_hook_subscription', `hook subscription ${index} has an unsupported event or phase`);
   }
   if (typeof value.command !== 'string' || value.command.length === 0 || value.command.length > 1024) {
@@ -125,4 +126,3 @@ function safeName(value) {
   return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/u.test(value);
 }
 
-function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }

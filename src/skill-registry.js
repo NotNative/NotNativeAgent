@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { lstat, readFile, readdir } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
 import { ContractError } from './ids.js';
+import { objectSchema } from './tools/schema.js';
 
 const MAX_SKILLS = 128;
 const MAX_BODY_BYTES = 65_536;
@@ -310,7 +311,6 @@ function exactStringArgument(args, key, minimum, maximum, code) {
   return { args: { [key]: args[key].trim() }, resolved: { source: 'skill_catalog' } };
 }
 
-function objectSchema(properties, required) { return { type: 'object', properties, required, additionalProperties: false }; }
 function scalar(value) { return value.trim().replace(/^(?:"([\s\S]*)"|'([\s\S]*)')$/u, '$1$2'); }
 function list(value) {
   if (!value) return [];

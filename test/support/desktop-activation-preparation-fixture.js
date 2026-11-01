@@ -13,6 +13,8 @@ import { withActivationInitialization } from '../../src/desktop-activation-initi
 import { readDesktopActivationJournal, desktopPreparedPhaseBytes } from '../../src/desktop-activation-journal.js';
 import { exactRecord } from '../../src/desktop-service-contract.js';
 import { pathIdentity } from '../../src/path-identity.js';
+import { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION } from '../../src/desktop-request-grammar.js';
+import { SHA256_HEX } from '../../src/digests.js';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
 const registry = identity => join(identity.data_root, 'config', 'desktop-package.json');
@@ -28,7 +30,7 @@ async function mockedCandidate(identity, stageOperationId) {
   return { evidence, evidence_sha256: hash(json(evidence)), package: { version: '20261002-8' } };
 }
 export async function preparationHarness(identity) {
-  const dependencies = { pathIdentity, lstat, opendir, rmdir, unlink, join, resolve, ContractError,
+  const dependencies = { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION, SHA256_HEX, pathIdentity, lstat, opendir, rmdir, unlink, join, resolve, ContractError,
     acquireDesktopServiceLock, assertHeldDesktopServiceLease, withDesktopServiceLease, assertManifestLease, runManifestLeaseWork,
     withManifestLock, readLockedManifestSnapshot,
     runPrivateWindowsProgram, PRIVATE_ACL_PROGRAM, assertNoDesktopInstallMarker,

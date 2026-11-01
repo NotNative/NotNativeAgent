@@ -2,11 +2,13 @@
 import { ContractError } from './ids.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { readJsonBody, send } from './secret-broker-server.js';
+import { SHA256_HEX } from './digests.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/gateway';
 const OPERATION = /^\/v1\/desktop\/configuration\/gateway\/operations\/([A-Za-z0-9_-]{1,64})$/u;
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
-const REVISION = /^[a-f0-9]{64}$/u;
+const ID = DESKTOP_ID;
+const REVISION = SHA256_HEX;
 const invalid = () => new ContractError('desktop_gateway_timeout_request_invalid', 'Native gateway settings request is invalid.');
 
 const EDITABLE = 'desktop.configuration.manage';

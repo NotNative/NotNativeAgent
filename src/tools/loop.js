@@ -18,6 +18,7 @@ import { toolLifecycleStatus, toolReviewOutcome, toolTelemetryOutcome } from './
 import { toolRequestFingerprint } from '../reliability/tool-progress.js';
 import { boundedParallel, boundedParallelLimit } from './parallel-execution.js';
 import { cancelledToolResult, pairUnsettledApprovals } from './synthetic-results.js';
+import { elapsedMs } from '../timing.js';
 
 export class ToolLoop {
   constructor(options) {
@@ -406,10 +407,6 @@ function restoredPendingSettlements(records) {
 function recordSettlementTelemetry(telemetry, status, detail, correlation) {
   try { telemetry?.record('tool.settlement', status, detail, correlation); }
   catch { /* Observability cannot change a durable settlement outcome. */ }
-}
-
-function elapsedMs(started) {
-  return Number(process.hrtime.bigint() - started) / 1_000_000;
 }
 
 function missionToolDisposition(active, items) {

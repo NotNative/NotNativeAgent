@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from 'node:crypto';
 import { lstat, open } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
+import { sha256Hex } from './digests.js';
 
 export const MANAGED_START = '<!-- nna:managed:start -->';
 export const MANAGED_END = '<!-- nna:managed:end -->';
@@ -46,7 +46,7 @@ export class ProjectMemoryReconciler {
     }
     return Object.freeze({
       path: this.path, exists: snapshot.exists, expected_hash: snapshot.hash,
-      proposed_hash: digest(content), old_region: snapshot.region, new_region: managed,
+      proposed_hash: sha256Hex(content), old_region: snapshot.region, new_region: managed,
       content, evidence_refs: boundedRefs(input.evidenceRefs),
     });
   }
@@ -66,7 +66,7 @@ export class ProjectMemoryReconciler {
         const bytes = await handle.readFile();
         if (bytes.length > this.maximumBytes) throw new ContractError('project_memory_too_large', 'existing NNA.md exceeds the managed project-memory limit');
         const content = bytes.toString('utf8');
-        return { exists: true, content, hash: digest(content), region: extractManaged(content) };
+        return { exists: true, content, hash: sha256Hex(content), region: extractManaged(content) };
       } finally { await handle.close(); }
     } catch (error) {
       if (error?.code !== 'ENOENT') throw error;
@@ -228,5 +228,4 @@ const PROJECT_STATE = /\b(?:is|are|uses?|contains?|lives?|located|configured|ins
 function semanticIdentity(value) {
   return value.toLocaleLowerCase('en-US').replace(/\s+/gu, ' ').trim();
 }
-function digest(value) { return createHash('sha256').update(value).digest('hex'); }
 function sameFile(left, right) { return left.dev === right.dev && left.ino === right.ino; }

@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { basename, dirname, join, matchesGlob, relative } from 'node:path';
 import { ContractError } from '../ids.js';
 import { normalizeArgumentAliases } from './argument-normalization.js';
+import { objectSchema } from './schema.js';
 
 const DEFAULT_SKIPS = new Set(['.git', 'node_modules']);
 const MAX_FILES = 10_000;
@@ -393,4 +394,3 @@ function abort(signal) {
 }
 
 function invalid(message) { throw new ContractError('tool_schema_invalid', message); }
-function objectSchema(properties, required) { return { type: 'object', properties, required, additionalProperties: false }; }

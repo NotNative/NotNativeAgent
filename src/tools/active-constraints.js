@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { redactText } from '../redaction.js';
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
@@ -8,6 +7,7 @@ import { stableRecoveryJson, recoveryToolIdentity } from '../reliability/recover
 import { processTerminationEvidence } from '../reliability/process-termination.js';
 import { pathIdentityKey } from '../path-identity.js';
 import { toolLifecycleStatus, toolReviewOutcome } from './tool-result-contract.js';
+import { sha256Hex } from '../digests.js';
 
 const MAX_CONSTRAINTS = 64;
 const CONSTRAINT_KIND = Object.freeze({
@@ -82,7 +82,7 @@ function constraintFor(item) {
     ? requestIdentity.args?.action : null;
   const tool = prerequisite?.tool ?? requestIdentity.toolName;
   const reasonCode = safeDiagnostic(result.reason_code ?? result.status, 128);
-  const requestFingerprint = digest(stableRecoveryJson(requestIdentity.args));
+  const requestFingerprint = sha256Hex(stableRecoveryJson(requestIdentity.args));
   const termination = processTerminationEvidence(result);
   const detail = prerequisite ? `missing ancestor directory: ${prerequisite.path}` : constraintDetail(kind, result);
   const identity = prerequisite
@@ -91,7 +91,7 @@ function constraintFor(item) {
       ? `${kind}\0${tool}\0${reasonCode}`
       : `${kind}\0${tool}\0${reasonCode}\0${requestFingerprint}\0${detail}`;
   return Object.freeze({
-    id: digest(identity).slice(0, 32),
+    id: sha256Hex(identity).slice(0, 32),
     kind, tool, status, reason_code: reasonCode,
     ...(targetPath ? { target_path: targetPath } : {}),
     ...(targetAction ? { target_action: targetAction } : {}),
@@ -218,8 +218,6 @@ function provesParentObservation(item, workspaceRoot, parent) {
 function comparablePath(value, workspaceRoot) {
   return pathIdentityKey(resolve(workspaceRoot ?? process.cwd(), value));
 }
-
-function digest(value) { return createHash('sha256').update(value).digest('hex'); }
 
 function safeDiagnostic(value, maximum) {
   return redactText(String(value ?? '')).replace(/\s+/gu, ' ').trim().slice(0, maximum);

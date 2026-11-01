@@ -3,6 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { pathIdentity } from '../src/path-identity.js';
+import { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION } from '../src/desktop-request-grammar.js';
+import { SHA256_HEX } from '../src/digests.js';
 
 const stageOperationId = '11111111-1111-4111-8111-111111111111';
 const operationId = '22222222-2222-4222-8222-222222222222';
@@ -51,6 +53,7 @@ async function harness(overrides = {}) {
   const trialResult = overrides.trialResult ?? { state: 'quarantined_owner_held_unresolved', generation,
     owner: retainedOwner({ trace, states: overrides.states }) };
   const dependencies = {
+  DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION, SHA256_HEX,
   pathIdentity,
     join: (...parts) => parts.join('/'),
     ContractError: class ContractError extends Error { constructor(code, message) { super(message); this.code = code; } },

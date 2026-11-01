@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { ContractError } from '../ids.js';
 import { prepareTextEdit } from '../stale-edit-recovery.js';
@@ -7,6 +6,8 @@ import { normalizeArgumentAliases } from './argument-normalization.js';
 import { advanceFromAuthoredState, mutationEvidence, transactionalReceipt,
   withAuthoredAdvanceMetadata } from './filesystem-mutation-state.js';
 import { countOccurrences, replaceText } from './text-edit-helpers.js';
+import { objectSchema } from './schema.js';
+import { sha256Hex } from '../digests.js';
 
 const MAX_TEXT_BYTES = 1_048_576;
 const MAX_EDIT_FIND_BYTES = 16_384;
@@ -75,7 +76,7 @@ async function editSnapshot(paths, args, receipts, coverage) {
   const resolved = await paths.withRecovery(await paths.resolveRead(args.path));
   if (resolved.size > MAX_TEXT_BYTES) throw new ContractError('tool_target_too_large', 'file exceeds edit bound');
   const content = await readFile(resolved.path, 'utf8');
-  const actual = sha256(content);
+  const actual = sha256Hex(content);
   const receipt = receipts.peek(resolved.path, coverage);
   const transaction = !receipt && resolved.insideWorkspace ? transactionalReceipt(resolved.path, content, actual) : null;
   if (!receipt && !transaction) receipts.latest(resolved.path, coverage);
@@ -104,7 +105,7 @@ async function executeEdit(request, signal, changes, receipts, atomicWrite, veri
   const result = await atomicWrite({ ...prepared.request, args: { ...prepared.request.args, content: updated } }, signal, {
     message: 'edit completed', replacements,
   }, changes);
-  receipts.recordAuthored(prepared.request.resolved.path, sha256(updated), updated);
+  receipts.recordAuthored(prepared.request.resolved.path, sha256Hex(updated), updated);
   return withAuthoredAdvanceMetadata(result, prepared.advanced);
 }
 
@@ -135,7 +136,5 @@ function requireShape(value, required, optional) {
   if (typeof value.path !== 'string' || typeof value.content !== 'string') throw invalid('tool argument types are invalid');
 }
 
-function objectSchema(properties, required) { return { type: 'object', properties, required, additionalProperties: false }; }
 function invalid(message) { return new ContractError('tool_schema_invalid', message); }
 function drift(message) { return new ContractError('tool_revalidation_drift', message); }
-function sha256(content) { return createHash('sha256').update(content).digest('hex'); }

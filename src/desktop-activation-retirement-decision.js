@@ -16,8 +16,9 @@ import { openInstallStore, readInstallBytes, writeInstallNew, hash, json, operat
 import { exactRecord } from './desktop-service-contract.js';
 import { validIdentity } from './reliability/process-identity.js';
 import { pathIdentity } from './path-identity.js';
+import { SHA256_HEX } from './digests.js';
 
-const SHA = /^[a-f0-9]{64}$/u;
+const SHA = SHA256_HEX;
 const PLAN_LIMIT = 4096;
 const DECISION_LIMIT = 4096;
 const CHILD_LIMIT = 2048;

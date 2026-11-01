@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
+import { deepFreeze } from './values.js';
 
 const EVENT_SCHEMA_VERSION = '1.0';
 const SENSITIVE_CONTENT_CLASSIFICATION = 'sensitive_content';
@@ -35,9 +36,3 @@ export class EventFactory {
   }
 }
 
-function deepFreeze(value, seen = new WeakSet()) {
-  if (!value || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const child of Object.values(value)) deepFreeze(child, seen);
-  return Object.freeze(value);
-}

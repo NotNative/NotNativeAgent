@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from 'node:crypto';
+import { sha256Hex } from './digests.js';
 
 export function safeReviewRequest(request, outsideWorkspace) {
   const process = ['shell_run', 'process_run'].includes(request.toolName);
@@ -40,26 +40,24 @@ function safeArguments(toolName, args) {
     return Object.freeze({
       path: args.path, expected_sha256: args.expected_sha256,
       start_line: args.start_line, end_line: args.end_line,
-      replacement_bytes: Buffer.byteLength(args.replacement, 'utf8'), replacement_sha256: digest(args.replacement),
+      replacement_bytes: Buffer.byteLength(args.replacement, 'utf8'), replacement_sha256: sha256Hex(args.replacement),
     });
   }
   if (toolName === 'fs_edit_text' && typeof args.old_text === 'string' && typeof args.new_text === 'string') {
     return Object.freeze({
       path: args.path, expected_sha256: args.expected_sha256, replace_all: args.replace_all === true,
-      old_text_bytes: Buffer.byteLength(args.old_text, 'utf8'), old_text_sha256: digest(args.old_text),
-      new_text_bytes: Buffer.byteLength(args.new_text, 'utf8'), new_text_sha256: digest(args.new_text),
+      old_text_bytes: Buffer.byteLength(args.old_text, 'utf8'), old_text_sha256: sha256Hex(args.old_text),
+      new_text_bytes: Buffer.byteLength(args.new_text, 'utf8'), new_text_sha256: sha256Hex(args.new_text),
     });
   }
   const safe = redactReviewValue(args);
   if (typeof args.content === 'string') {
     delete safe.content;
     safe.content_bytes = Buffer.byteLength(args.content, 'utf8');
-    safe.content_sha256 = digest(args.content);
+    safe.content_sha256 = sha256Hex(args.content);
   }
   return Object.freeze(safe);
 }
-
-function digest(value) { return createHash('sha256').update(value).digest('hex'); }
 
 function redactReviewValue(value, key = '') {
   if (/token|secret|password|credential|api.?key|authorization/iu.test(key)) return '[redacted]';

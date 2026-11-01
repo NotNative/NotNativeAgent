@@ -8,9 +8,10 @@ import { exactRecord } from './desktop-service-contract.js';
 import { requireExternalId } from './ids.js';
 import { boundedMigrationRead as read, digest, migrationError, parseMigrationJson, writeMigrationNew,
   replaceMigrationBytes, removeMigrationOwned } from './desktop-migration-files.js';
+import { SHA256_HEX } from './digests.js';
 
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
-const HASH = /^[a-f0-9]{64}$/u;
+const HASH = SHA256_HEX;
 const TARGET = /^(?:sessions\/desktop-contexts\.json(?:\.children\/(?:[a-f0-9]{2})+\.json)?|runtime\/desktop\/admission\.json)$/u;
 const json = (value) => Buffer.from(`${JSON.stringify(value)}\n`);
 export async function assertNoDesktopMigration(identity) {

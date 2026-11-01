@@ -13,6 +13,7 @@ import { readDesktopServiceDiscovery } from './desktop-service-discovery.js';
 import { validIdentity } from './reliability/process-identity.js';
 import { exactRecord } from './desktop-service-contract.js';
 import { pathIdentity } from './path-identity.js';
+import { SHA256_HEX } from './digests.js';
 
 const invalid = () => new ContractError('desktop_activation_reconciliation_invalid',
   'desktop activation outcome is unresolved; preserve the pending barrier and evidence.');
@@ -22,7 +23,7 @@ const CANDIDATE_KEYS = ['protocol', 'stage_operation_id', 'installation_id', 'da
   'slot_dev', 'registry_before_revision', 'desired_registration_sha256'];
 const CHILD_KEYS = ['protocol', 'operation_id', 'installation_id', 'data_id', 'generation', 'version', 'process_identity'];
 const IDENTITY_KEYS = ['version', 'pid', 'platform', 'start_id'];
-const SHA = /^[a-f0-9]{64}$/u;
+const SHA = SHA256_HEX;
 function locations(identity, operationId) {
   const root = join(identity.data_root, 'runtime', 'desktop', 'install-slots');
   const activation = join(root, 'activations');

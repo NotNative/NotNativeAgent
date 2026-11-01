@@ -16,10 +16,11 @@ import { dispatchDesktopWorkspaceGrantRequest } from './desktop-workspace-grant-
 import { dispatchDesktopWorkspaceAdmissionRequest } from './desktop-workspace-admission-routes.js';
 import { dispatchDesktopAttachmentUploadRequest } from './desktop-attachment-upload-routes.js';
 import { dispatchDesktopCapabilityRequest, isCapabilityRenewalRequest } from './desktop-capability-routes.js';
+import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 const PROVIDER_ROUTE = /^\/v1\/provider-profiles(?:\/([^/]+))?(?:\/(discover|test))?$/u;
-const PROVIDER_ID = /^[A-Za-z0-9_-]{1,64}$/u;
+const PROVIDER_ID = DESKTOP_OPERATION_ID;
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 const DEFAULT_HEADERS_TIMEOUT_MS = 10_000;
 const DEFAULT_KEEP_ALIVE_TIMEOUT_MS = 5_000;

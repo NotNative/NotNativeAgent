@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError, newId } from '../ids.js';
+import { objectSchema } from './schema.js';
+import { sha256Hex } from '../digests.js';
 
 const MAX_TEXT_BYTES = 1_048_576;
 const MAX_READ_RECEIPTS = 2_048;
@@ -112,7 +113,7 @@ function readDefinition(paths, receipts, references) {
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
       const content = await readTextFile(request.resolved.path);
-      const digest = sha256(content);
+      const digest = sha256Hex(content);
       const receipt = receipts.record(request.resolved.path, digest, { full: true }, content);
       const refs = observedFileReferences(references, request.resolved.path, receipt, { full: true });
       return {
@@ -152,7 +153,7 @@ function readLinesDefinition(paths, receipts, references) {
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
       const content = await readTextFile(request.resolved.path);
-      const digest = sha256(content);
+      const digest = sha256Hex(content);
       const lines = logicalLines(content);
       if (request.args.start_line > Math.max(1, lines.length)) {
         throw new ContractError('read_line_out_of_range', 'start_line is beyond the end of the file');
@@ -264,10 +265,6 @@ function requireResolvedFile(resolved) {
   }
 }
 
-function sha256(content) {
-  return createHash('sha256').update(content).digest('hex');
-}
-
 function logicalLines(content) {
   const lines = content.split(/\r?\n/u);
   if (lines.length > 1 && lines.at(-1) === '') lines.pop();
@@ -295,6 +292,3 @@ function requireListShape(value) {
   }
 }
 
-function objectSchema(properties, required) {
-  return { type: 'object', properties, required, additionalProperties: false };
-}

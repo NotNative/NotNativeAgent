@@ -11,6 +11,8 @@ import { exactRecord, isDesktopLoopbackEndpoint } from '../src/desktop-service-c
 import { validIdentity } from '../src/reliability/process-identity.js';
 import { privateTicketEvidenceSha, promotedAttachEvidenceSha } from '../src/desktop-activation-ticket-evidence.js';
 import { pathIdentity } from '../src/path-identity.js';
+import { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION } from '../src/desktop-request-grammar.js';
+import { SHA256_HEX } from '../src/digests.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -106,7 +108,7 @@ async function fixture(options = {}) {
     }
     throw Error('unexpected health target');
   };
-  const dependencies = { pathIdentity, isDeepStrictEqual, join, resolve, createHmac, randomBytes, timingSafeEqual,
+  const dependencies = { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION, SHA256_HEX, pathIdentity, isDeepStrictEqual, join, resolve, createHmac, randomBytes, timingSafeEqual,
     ContractError, serializeManifestBytes,
     exactRecord, isDesktopLoopbackEndpoint, validIdentity, privateTicketEvidenceSha, promotedAttachEvidenceSha, hash, json,
     operationValid: value => [operationId, stageOperationId, generation].includes(value),

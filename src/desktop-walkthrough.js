@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Bounded model-only narrative seam for desktop's server-owned diff snapshot. */
 import { ContractError } from './ids.js';
+import { SHA256_HEX } from './digests.js';
 
-const REVISION = /^[a-f0-9]{64}$/u;
+const REVISION = SHA256_HEX;
 const ALIAS = /^h[1-9][0-9]{0,3}$/u;
 const MAX_HUNKS = 200;
 const MAX_DIGEST_BYTES = 64_000;

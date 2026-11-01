@@ -10,8 +10,9 @@ import { readDesktopActivationJournal } from './desktop-activation-journal.js';
 import { openInstallStore, readInstallBytes, writeInstallNew, hash, json, operationValid } from './desktop-install-storage.js';
 import { exactRecord } from './desktop-service-contract.js';
 import { pathIdentity } from './path-identity.js';
+import { SHA256_HEX } from './digests.js';
 
-const SHA = /^[a-f0-9]{64}$/u;
+const SHA = SHA256_HEX;
 const JOURNAL = /^activation-0[0-8]\.json$/u;
 const FILES = ['candidate.json', 'registration.before', 'child.json'];
 const FILE_COUNT = FILES.length + 9;

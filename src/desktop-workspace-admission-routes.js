@@ -19,11 +19,14 @@ import { ContractError } from './ids.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { readCanonicalGrant } from './desktop-workspace-grants.js';
 import { readJsonBody, send } from './secret-broker-server.js';
+import { isRecord } from './values.js';
+import { DESKTOP_REVISION } from './desktop-request-grammar.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/workspaces';
 const ADMIT = `${BASE}/admissions`;
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
-const REVISION = /^(?:absent|[a-f0-9]{64})$/u;
+const ID = DESKTOP_ID;
+const REVISION = DESKTOP_REVISION;
 const OPERATION = /^\/v1\/desktop\/workspaces\/admissions\/operations\/([A-Za-z0-9_-]{1,128})$/u;
 const ADMISSION_BODY_KEYS = ['installation_id', 'data_id', 'expected_revision', 'operation_id', 'root'];
 const invalid = () => new ContractError('desktop_workspace_admission_request_invalid', 'Native workspace admission request is invalid.');
@@ -53,7 +56,7 @@ export async function dispatchDesktopWorkspaceAdmissionRequest(request, response
   }
   if (!mutating) return send(response, 200, await service.inventory(context.principal));
   const input = await readJsonBody(request, 8192);
-  if (!record(input) || Object.keys(input).length !== ADMISSION_BODY_KEYS.length
+  if (!isRecord(input) || Object.keys(input).length !== ADMISSION_BODY_KEYS.length
     || ADMISSION_BODY_KEYS.some(key => !Object.hasOwn(input, key))
     || !ID.test(input.installation_id) || !ID.test(input.data_id) || !ID.test(input.operation_id)
     || !REVISION.test(input.expected_revision) || typeof input.root !== 'string') throw invalid();
@@ -69,4 +72,3 @@ export async function dispatchDesktopWorkspaceAdmissionRequest(request, response
     () => service.revoke(context.principal, input)));
 }
 
-function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }

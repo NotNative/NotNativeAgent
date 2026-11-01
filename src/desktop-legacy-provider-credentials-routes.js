@@ -20,9 +20,10 @@ import { ContractError } from './ids.js';
 import { send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { loadManagedProviderCredentials } from './provider/bootstrap.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/legacy-provider-credentials';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const RESPONSE_BOUND = 8_192;
 const invalid = () => new ContractError('desktop_legacy_provider_credentials_request_invalid',
   'Native legacy provider credential request is invalid.');

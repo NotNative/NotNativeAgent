@@ -13,6 +13,7 @@
 import { readDesktopServiceIdentity } from './desktop-service-identity.js';
 import { ContractError } from './ids.js';
 import { requireIntegrationPermission } from './integration-principal.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 // Projected field names in census family order; the identity admission has
 // verified every projected value.
@@ -44,4 +45,4 @@ export function createDesktopInstallationSnapshot({ installRoot, installationId,
     },
   });
 }
-const ID_DEFINED = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID_DEFINED = DESKTOP_ID;

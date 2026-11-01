@@ -17,9 +17,10 @@ import { ContractError } from './ids.js';
 import { send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { INVOCATION_VOCABULARY } from './cli-options.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/invocation';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const invalid = () => new ContractError('desktop_invocation_request_invalid', 'Native invocation request is invalid.');
 const projection = () => new ContractError('desktop_invocation_projection_invalid', 'Native invocation projection refused a drifted vocabulary.');
 

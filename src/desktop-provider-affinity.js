@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
+import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
 
-const PROFILE_ID = /^[A-Za-z0-9_-]{1,64}$/u;
+const PROFILE_ID = DESKTOP_OPERATION_ID;
 
 /** Durable, non-secret identity of the provider destination used for an desktop turn. */
 export function desktopProviderProfileFingerprint(profile) {

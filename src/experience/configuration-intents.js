@@ -2,6 +2,7 @@
 import { ContractError } from '../ids.js';
 import { resolveManifest } from '../config.js';
 import { manifestFromConfig } from '../provider/route-configuration.js';
+import { isRecord } from '../values.js';
 
 const LIMIT_FIELDS = { providerMs: 'provider_timeout_ms', connectMs: 'provider_connect_timeout_ms',
   semanticReviewMs: 'semantic_review_timeout_ms', approvalMs: 'approval_timeout_ms',
@@ -40,8 +41,8 @@ export function intentChanges(config, next, intent) {
   for (const root of intent.diffRoots ?? []) {
     if (root === 'providers' || root === 'mcp_servers') {
       const old = before[root] ?? [], current = canonical[root] ?? [];
-      for (const id of new Set([...old, ...current].map((record) => record.id))) {
-        const first = old.find((record) => record.id === id), last = current.find((record) => record.id === id);
+      for (const id of new Set([...old, ...current].map((isRecord) => isRecord.id))) {
+        const first = old.find((isRecord) => isRecord.id === id), last = current.find((isRecord) => isRecord.id === id);
         if (JSON.stringify(first) !== JSON.stringify(last)) changes.push({ path: root, id, before: first, value: last });
       }
     } else differences(before[root], canonical[root], root, changes);
@@ -51,7 +52,7 @@ export function intentChanges(config, next, intent) {
 
 function differences(before, after, path, changes) {
   if (JSON.stringify(before) === JSON.stringify(after)) return;
-  if (record(before) && record(after)) {
+  if (isRecord(before) && isRecord(after)) {
     for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) differences(before[key], after[key], `${path}.${key}`, changes);
   } else changes.push({ path, value: after });
 }
@@ -81,8 +82,7 @@ export function at(object, path) { return path.split('.').reduce((value, key) =>
 function set(object, path, value) {
   const keys = path.split('.');
   let cursor = object;
-  for (const key of keys.slice(0, -1)) { if (!record(cursor[key])) cursor[key] = {}; cursor = cursor[key]; }
+  for (const key of keys.slice(0, -1)) { if (!isRecord(cursor[key])) cursor[key] = {}; cursor = cursor[key]; }
   const key = keys.at(-1);
   if (value === undefined) delete cursor[key]; else cursor[key] = structuredClone(value);
 }
-function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }

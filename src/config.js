@@ -18,6 +18,8 @@ import { validateDream } from './dream-config.js';
 import { validateEnableThinking, validateReasoningEffort } from './provider/reasoning.js';
 import { providerToolCallMode } from './provider/tool-call-mode.js';
 import { credentialReference, credentialTarget, normalizeCredentialBinding, validateCredentialHeaders } from './credential-bindings.js';
+import { isRecord } from './values.js';
+import { deepFreeze } from './values.js';
 const TRUST_ZONES = new Set(['loopback', 'private_network', 'public_network']), ROUTE_CAPABILITIES = new Set(['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation']);
 const PRINCIPAL_IDS = Object.freeze({ host: 'authenticated-stdio-host', localOperator: 'authenticated-local-operator' }), MAX_MISSION_OUTCOME_BYTES = 131_072;
 const MISSION_EFFECTS = new Set(['read_only', 'reversible', 'irreversible', 'unknown']), MISSION_CONDITIONS = new Set([
@@ -482,16 +484,4 @@ function endpointZone(url) {
 function optionalString(value) { return typeof value === 'string' && value.length > 0 ? value : null; }
 function stringOrEmpty(value) {
   return typeof value === 'string' ? value : '';
-}
-function isRecord(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-function deepFreeze(value, seen = new WeakSet()) {
-  if (seen.has(value)) return value;
-  seen.add(value);
-  Object.freeze(value);
-  for (const child of Object.values(value)) {
-    if (child && typeof child === 'object' && !Object.isFrozen(child)) deepFreeze(child, seen);
-  }
-  return value;
 }

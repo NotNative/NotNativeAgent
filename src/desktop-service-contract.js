@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
+
+import { DESKTOP_ID } from './desktop-request-grammar.js';// SPDX-License-Identifier: Apache-2.0
 // Compatibility: this schema describes future service activation, not runtime capability availability.
 export const DESKTOP_SERVICE_PROTOCOL = '1.0';
 export const DESKTOP_SERVICE_STATES = Object.freeze([
@@ -18,7 +19,7 @@ export const DESKTOP_SERVICE_STATUS_KEYS = Object.freeze([
   'package_version', 'protocol', 'runtime_state', 'package_state', 'provider_state', 'setup_guidance',
 ]);
 const VERSION = /^\d{8}-[1-9]\d{0,5}$/u;
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 export function isKnownDesktopServiceState(state) { return DESKTOP_SERVICE_STATES.includes(state); }
 // Security: unknown lifecycle values cannot open execution admission.
 export function isExecutionGuarded(state) { return state !== 'ready'; }

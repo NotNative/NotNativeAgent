@@ -23,10 +23,12 @@ import {
 } from './mcp-credentials.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { lstat } from 'node:fs/promises';
+import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const invalid = () => new ContractError('desktop_mcp_credentials_request_invalid', 'Native MCP credential request is invalid.');
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
-const OPERATION = /^[A-Za-z0-9_-]{1,64}$/u;
+const ID = DESKTOP_ID;
+const OPERATION = DESKTOP_OPERATION_ID;
 const SERVER = /^[\u0021-\u007e]{1,128}$/u;
 
 /** Defense in depth: the HTTP route checks the same rights; the service repeats them

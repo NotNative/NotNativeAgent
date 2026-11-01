@@ -3,6 +3,7 @@
 import {
   DEFAULT_MODEL_OUTPUT_TOKENS, LEGACY_MODEL_OUTPUT_TOKENS, OUTPUT_HEADROOM_VERSION,
 } from '../reliability/output-headroom.js';
+import { isRecord } from '../values.js';
 
 const SPECIALIST_ROLES = Object.freeze(['reviewer', 'subagent', 'vision']);
 
@@ -29,17 +30,17 @@ export function migrateRoutingInheritance(manifest) {
 }
 
 function migrateLegacyOutputHeadroom(provider) {
-  if (!record(provider) || provider.trust_zone === 'public_network'
+  if (!isRecord(provider) || provider.trust_zone === 'public_network'
     || provider.output_limit_tokens !== LEGACY_MODEL_OUTPUT_TOKENS) return provider;
   return { ...provider, output_limit_tokens: DEFAULT_MODEL_OUTPUT_TOKENS };
 }
 
 function legacyAutoDiscoveredRoutes(providers, routes) {
-  if (providers.length !== 1 || providers[0]?.id !== 'auto-discovered-local' || !record(routes)) return false;
+  if (providers.length !== 1 || providers[0]?.id !== 'auto-discovered-local' || !isRecord(routes)) return false;
   const profile = providers[0];
   return SPECIALIST_ROLES.some((role) => {
     const route = routes[role];
-    return record(route) && route.provider_id === profile.id && route.model === profile.model;
+    return isRecord(route) && route.provider_id === profile.id && route.model === profile.model;
   });
 }
 
@@ -47,13 +48,10 @@ function migrateLegacySpecialistRoutes(routes, profile) {
   const result = { ...routes };
   for (const role of SPECIALIST_ROLES) {
     const route = routes[role];
-    if (!record(route) || route.provider_id !== profile.id || route.model !== profile.model) continue;
+    if (!isRecord(route) || route.provider_id !== profile.id || route.model !== profile.model) continue;
     const { provider_id: _providerId, model: _model, ...inherited } = route;
     result[role] = inherited;
   }
   return result;
 }
 
-function record(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}

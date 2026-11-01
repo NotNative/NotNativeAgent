@@ -28,6 +28,11 @@ const MAX_STRUCTURE_DEPTH = 24;
 const MAX_STRUCTURE_NODES = 10_000;
 const MAX_PATTERN_LENGTH = 512;
 
+/** Build the closed object shape used by bundled tool input schemas. */
+export function objectSchema(properties, required) {
+  return { type: 'object', properties, required, additionalProperties: false };
+}
+
 export function providerSchema(value, options = {}) {
   const mode = options.mode ?? 'compact';
   if (!['compact', 'documented'].includes(mode)) {

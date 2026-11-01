@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
+
+import { positiveInteger } from '../values.js';// SPDX-License-Identifier: Apache-2.0
 
 // A reasoning-capable model may consume most of a completion before emitting its
 // first visible token or tool call. Keep the completion ceiling separate from
@@ -8,8 +9,8 @@ export const LEGACY_MODEL_OUTPUT_TOKENS = 16_384;
 export const OUTPUT_HEADROOM_VERSION = 1;
 
 export function effectiveModelOutputTokens(configured, providerLimit) {
-  const requested = positive(configured) ?? DEFAULT_MODEL_OUTPUT_TOKENS;
-  const supported = positive(providerLimit);
+  const requested = positiveInteger(configured) ?? DEFAULT_MODEL_OUTPUT_TOKENS;
+  const supported = positiveInteger(providerLimit);
   return supported ? Math.min(requested, supported) : requested;
 }
 
@@ -28,6 +29,3 @@ export function reachedOutputCeiling(evidence = {}) {
   return Number.isSafeInteger(output) && output >= limit;
 }
 
-function positive(value) {
-  return Number.isSafeInteger(value) && value > 0 ? value : null;
-}

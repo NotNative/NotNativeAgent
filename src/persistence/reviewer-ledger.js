@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
+import { canonicalJson } from '../canonical-json.js';
 import { JournalStore, recoverJournal } from '../store.js';
 import { retentionCompactionTarget, validateRetentionLimit } from './retention.js';
 import { validReviewOutcome } from '../tools/tool-result-contract.js';
@@ -370,7 +371,7 @@ export function requestDigest(request) {
     resolved: request.resolved, authorityId: request.authorityId,
     policyVersion: request.policyVersion, definitionVersion: request.definitionVersion,
   };
-  return createHash('sha256').update(stableJson(value)).digest('hex');
+  return createHash('sha256').update(ledgerJson(value)).digest('hex');
 }
 
 export function operationSignature(request) {
@@ -382,11 +383,11 @@ export function operationSignature(request) {
     policyVersion: request.policyVersion,
     definitionVersion: request.definitionVersion,
   };
-  return createHash('sha256').update(stableJson(value)).digest('hex');
+  return createHash('sha256').update(ledgerJson(value)).digest('hex');
 }
 
 function completionOperationFingerprint(request) {
-  return fingerprint(stableJson({ toolName: request.toolName, args: request.args, target: targetIdentity(request) }));
+  return fingerprint(ledgerJson({ toolName: request.toolName, args: request.args, target: targetIdentity(request) }));
 }
 
 function legacyCompletionFingerprint(entry) {
@@ -469,21 +470,19 @@ function assertReviewerDecision(decision, code, operator = false) {
   }
 }
 
-function stableJson(value, ancestors = new WeakSet()) {
-  if (!value || typeof value !== 'object') return JSON.stringify(value);
-  if (ancestors.has(value)) {
-    throw new ContractError('reviewer_request_circular', 'reviewer request contains a circular reference');
-  }
-  ancestors.add(value);
-  let serialized;
-  if (Array.isArray(value)) {
-    serialized = `[${value.map((item) => stableJson(item, ancestors)).join(',')}]`;
-  } else {
-    serialized = `{${Object.keys(value).sort()
-      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key], ancestors)}`).join(',')}}`;
-  }
-  ancestors.delete(value);
-  return serialized;
+function ledgerJson(value) {
+  // Compatibility: the ledger's historical serializer accepted any primitive and
+  // let JSON.stringify decide the text; keep that policy while sharing the
+  // sorted-key walk. A cycle remains the only rejected shape.
+  return canonicalJson(value, {
+    maxDepth: Number.POSITIVE_INFINITY,
+    onInvalid: (reason, current) => {
+      if (reason === 'cycle') {
+        throw new ContractError('reviewer_request_circular', 'reviewer request contains a circular reference');
+      }
+      return JSON.stringify(current);
+    },
+  });
 }
 
 function fingerprint(value) {
@@ -492,5 +491,5 @@ function fingerprint(value) {
 
 function targetIdentity(request) {
   if (typeof request.resolved?.path === 'string') return request.resolved.path;
-  return stableJson(request.resolved ?? request.args ?? { tool: request.toolName });
+  return ledgerJson(request.resolved ?? request.args ?? { tool: request.toolName });
 }

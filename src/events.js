@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
+import { elapsedMs } from './timing.js';
 
 export const MAX_SUBSCRIPTION_TIMEOUT_MS = 86_405_000;
 
@@ -282,10 +283,6 @@ async function invokeBounded(item, event, parentSignal, observer) {
 
 function observe(observer, method, ...args) {
   try { observer?.[method]?.(...args); } catch { /* diagnostics never affect runtime behavior */ }
-}
-
-function elapsedMs(started) {
-  return Number(process.hrtime.bigint() - started) / 1_000_000;
 }
 
 function boundedInteger(value, fallback, minimum, maximum) {

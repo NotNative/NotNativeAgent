@@ -16,6 +16,8 @@ import { parseDesktopTerminalRetirementPlanBytes } from '../src/desktop-activati
 import { runPrivateWindowsProgram, PRIVATE_ACL_PROGRAM } from '../src/desktop-service-private-windows.js';
 import { hasActivationEvidence } from '../src/desktop-activation-initialization-db.js';
 import { pathIdentity } from '../src/path-identity.js';
+import { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION } from '../src/desktop-request-grammar.js';
+import { SHA256_HEX } from '../src/digests.js';
 
 async function load(name, dependencies, exports) {
   const source = await readFile(new URL(`../src/${name}.js`, import.meta.url), 'utf8');
@@ -75,7 +77,7 @@ async function fixture({ nativeAcl = false } = {}) {
     stopping: false, published: false, child: { failed: false, child: { pid: 4242, exitCode: null } },
     native: { isListening: () => true }, controller: { isListening: () => true }, record: pointer,
     activationOperationId: options.operationId, stageOperationId: options.stageOperationId };
-  const dependencies = { pathIdentity, join, resolve, isDeepStrictEqual, ContractError, lstat, opendir, readInstallBytes, hash, json,
+  const dependencies = { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION, SHA256_HEX, pathIdentity, join, resolve, isDeepStrictEqual, ContractError, lstat, opendir, readInstallBytes, hash, json,
     operationValid, exactRecord, validIdentity, parseDesktopTerminalRetirementPlanBytes,
     assertHeldDesktopServiceLease: lease => assert.equal(lease, serviceLease),
     assertManifestLease: lease => { assert.equal(lease, registryLease); return { path: join(root, 'config', 'desktop-package.json') }; },

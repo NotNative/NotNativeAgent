@@ -20,9 +20,10 @@ import { requireIntegrationPermission } from './integration-principal.js';
 import { send } from './secret-broker-server.js';
 import { credentialReference, environmentCredential } from './credential-bindings.js';
 import { readDesktopConfigurationSources } from './desktop-configuration-sources.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/mcp/advanced';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const invalid = () => new ContractError('desktop_mcp_advanced_request_invalid', 'Native MCP advanced request is invalid.');
 const projection = () => new ContractError('desktop_mcp_advanced_projection_invalid', 'Native MCP advanced projection refused a drifted grammar.');
 

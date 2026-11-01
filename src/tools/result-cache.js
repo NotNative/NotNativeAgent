@@ -2,6 +2,8 @@
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 import { toolLifecycleStatus, toolReviewOutcome } from './tool-result-contract.js';
+import { canonicalJson } from '../canonical-json.js';
+import { deepFreeze } from '../values.js';
 
 const DEFAULT_CACHE_LIMIT = 1_024;
 
@@ -60,7 +62,14 @@ export class ToolResultCache {
 }
 
 function fingerprint(call) {
-  return createHash('sha256').update(call.name).update('\0').update(stableJson(call.args)).digest('hex');
+  return createHash('sha256').update(call.name).update('\0')
+    .update(canonicalJson(call.args, {
+      maxDepth: 256,
+      onInvalid: (reason) => {
+        throw new ContractError('tool_call_invalid', reason === 'cycle'
+          ? 'tool arguments must not be cyclic' : 'tool arguments must be JSON-compatible');
+      },
+    })).digest('hex');
 }
 
 function validateCall(call) {
@@ -72,22 +81,3 @@ function validateCall(call) {
   }
 }
 
-function stableJson(value, ancestors = new Set()) {
-  if (value === null || typeof value === 'boolean' || typeof value === 'string') return JSON.stringify(value);
-  if (typeof value === 'number' && Number.isFinite(value)) return JSON.stringify(value);
-  if (typeof value !== 'object') throw new ContractError('tool_call_invalid', 'tool arguments must be JSON-compatible');
-  if (ancestors.has(value)) throw new ContractError('tool_call_invalid', 'tool arguments must not be cyclic');
-  ancestors.add(value);
-  let serialized;
-  if (Array.isArray(value)) serialized = `[${value.map((item) => stableJson(item, ancestors)).join(',')}]`;
-  else serialized = `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key], ancestors)}`).join(',')}}`;
-  ancestors.delete(value);
-  return serialized;
-}
-
-function deepFreeze(value, seen = new WeakSet()) {
-  if (!value || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const child of Object.values(value)) deepFreeze(child, seen);
-  return Object.freeze(value);
-}

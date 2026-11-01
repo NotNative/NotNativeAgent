@@ -4,10 +4,12 @@ import assert from 'node:assert/strict';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { pathIdentity } from '../src/path-identity.js';
+import { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION } from '../src/desktop-request-grammar.js';
+import { SHA256_HEX } from '../src/digests.js';
 
 test('same native listener resolves operator principal only after private promotion', async () => {
   let promoted = false, serverOptions;
-  const dependencies = { pathIdentity, createHash, randomBytes, randomUUID,
+  const dependencies = { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION, SHA256_HEX, pathIdentity, createHash, randomBytes, randomUUID,
     SecretBroker: class {}, ProviderProfileStore: class {}, LOCAL_SECRET_REALM: 'local',
     readDesktopSetupConfiguration: () => ({}), createDesktopConfigurationService: () => ({}),
     createDesktopGatewaySettingsTransaction: () => ({}),

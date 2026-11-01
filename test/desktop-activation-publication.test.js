@@ -8,6 +8,8 @@ import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from '../src/ids.js';
 import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
 import { pathIdentity } from '../src/path-identity.js';
+import { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION } from '../src/desktop-request-grammar.js';
+import { SHA256_HEX } from '../src/digests.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -44,7 +46,7 @@ async function fixture(t, options = {}) {
       generation, version })) }, {}, { phase: 'registration_cas', evidence_sha256: hash(json({
       operation_id: operationId, before_revision: 'absent', after_revision: hash(desired), child_sha256: hash(json(child)) })) }];
   let pointer = null, publications = 0, journalWrites = 0;
-  const dependencies = { pathIdentity, isDeepStrictEqual, join, resolve, ContractError, serializeManifestBytes, json, hash,
+  const dependencies = { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION, SHA256_HEX, pathIdentity, isDeepStrictEqual, join, resolve, ContractError, serializeManifestBytes, json, hash,
     exactRecord: (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key)),
     operationValid: value => [operationId, stageOperationId, generation].includes(value),

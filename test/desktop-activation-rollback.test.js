@@ -6,6 +6,8 @@ import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { ContractError } from '../src/ids.js';
 import { pathIdentity } from '../src/path-identity.js';
+import { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION } from '../src/desktop-request-grammar.js';
+import { SHA256_HEX } from '../src/digests.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -40,7 +42,7 @@ async function fixture(options = {}) {
   let current = desired, casCalls = 0, consumed = 0, pointer = null;
   const forward = { persistence: 'saved', beforeRevision, persistedRevision: desiredRevision };
   let rollbackReceipt = null;
-  const dependencies = { pathIdentity, join, resolve, ContractError, hash, json,
+  const dependencies = { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION, SHA256_HEX, pathIdentity, join, resolve, ContractError, hash, json,
     operationValid: value => [operationId, stageOperationId, generation].includes(value),
     assertHeldDesktopServiceLease: lease => { if (lease !== serviceLease) throw Error('wrong lease'); },
     withDesktopServiceLease: (_lease,_id,fn) => fn(new AbortController().signal),

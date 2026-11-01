@@ -27,9 +27,10 @@ import { ContractError } from './ids.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { playwrightStatus } from './playwright-runtime.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/browser';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const REQUEST_BYTES = 65_536;
 const RESPONSE_BOUND = 65_536;
 const REASONS = ['not_installed', 'version_mismatch', 'validation_failed'];

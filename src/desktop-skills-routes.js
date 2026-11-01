@@ -24,9 +24,10 @@ import { requireIntegrationPermission } from './integration-principal.js';
 import { SkillRegistry } from './skill-registry.js';
 import { workspaceIsTrusted } from './experience/trust.js';
 import { runtimeSkillRoots } from './startup-configuration.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/skills';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const RESPONSE_BOUND = 2_097_152;
 const PROJECT_DIRECTORY = '.nna';
 const SKILLS_DIRECTORY = 'skills';

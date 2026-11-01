@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { mkdir } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { ContractError, newId } from './ids.js';
 import { ProcessIdentity, validIdentity } from './reliability/process-identity.js';
 import { migrateDreamRunOwner, recoverInterruptedDreamRuns, unverifiedActiveDreamRunCount } from './dream-run-ownership.js';
+import { sha256Hex } from './digests.js';
 
 const TERMINAL = new Set(['cancelled', 'completed', 'failed', 'skipped']);
 const CANDIDATE_STATES = new Set([
@@ -185,7 +185,7 @@ export class DreamStore {
        payload, payload_fingerprint, created_at, updated_at)
       VALUES (?, ?, 1, 'pending', ?, ?, ?, ?, ?, ?, ?)`)
       .run(id, runtimeKey, input.evidenceStart ?? null, input.evidenceEnd ?? null,
-        evidenceId, JSON.stringify(payload), digest(JSON.stringify(payload)), now, now);
+        evidenceId, JSON.stringify(payload), sha256Hex(JSON.stringify(payload)), now, now);
     return this.packet(id);
   }
   pendingPacket(runtimeKey) {
@@ -398,7 +398,7 @@ function normalizeCandidate(input) {
     riskClass: boundedId(input.riskClass ?? 'low', 'risk class'),
     expiresAt: input.expiresAt === undefined || input.expiresAt === null ? null : validDate(input.expiresAt),
     payload,
-    payloadFingerprint: digest(JSON.stringify(payload)),
+    payloadFingerprint: sha256Hex(JSON.stringify(payload)),
   };
 }
 
@@ -406,7 +406,7 @@ function parseCandidate(row) {
   const evidenceRefs = storedArray(row.evidence_refs, 64);
   const successCriteria = storedArray(row.success_criteria, 16);
   const payload = storedObject(row.payload, 16_384);
-  if (!evidenceRefs || !successCriteria || !payload || digest(JSON.stringify(payload)) !== row.payload_fingerprint) return null;
+  if (!evidenceRefs || !successCriteria || !payload || sha256Hex(JSON.stringify(payload)) !== row.payload_fingerprint) return null;
   return Object.freeze({
     ...row, confidence: Number(row.confidence), recurrence_count: Number(row.recurrence_count),
     evidence_refs: Object.freeze(evidenceRefs), success_criteria: Object.freeze(successCriteria),
@@ -416,7 +416,7 @@ function parseCandidate(row) {
 
 function parsePacket(row) {
   const payload = storedObject(row.payload, 32_768);
-  if (!payload || digest(JSON.stringify(payload)) !== row.payload_fingerprint) return null;
+  if (!payload || sha256Hex(JSON.stringify(payload)) !== row.payload_fingerprint) return null;
   return Object.freeze({ ...row, stage: Number(row.stage), payload: Object.freeze(payload) });
 }
 
@@ -494,4 +494,3 @@ function validDate(value) {
   if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) throw new ContractError('dream_candidate_invalid', 'candidate expiry is invalid');
   return new Date(value).toISOString();
 }
-function digest(value) { return createHash('sha256').update(value).digest('hex'); }

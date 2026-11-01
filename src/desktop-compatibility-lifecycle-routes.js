@@ -35,13 +35,14 @@ import {
   disableOpencodeService, enableOpencodeService, opencodeServiceStatus,
   startOpencodeService, stopOpencodeService,
 } from './opencode/service.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/compatibility-service';
 const READ = 'desktop.configuration.read';
 const LIFECYCLE = 'desktop.service.manage';
 const REQUEST_BYTES = 4096;
 const RESPONSE_BYTES = 65_536;
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const OPERATION_ID = /^[0-9a-f-]{36}$/u;
 const CONTROL = /[\x00-\x1f\x7f]/u;
 const invalid = () => new ContractError('desktop_service_action_invalid', 'Native compatibility-service action is invalid.');

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
+import { objectSchema } from '../tools/schema.js';
 
 const GUIDANCE_TOOL_TIMEOUT_MS = 5_000;
 const MAX_QUERY_LENGTH = 512;
@@ -63,6 +64,3 @@ function requireExactStrings(value, required) {
   }
 }
 
-function objectSchema(properties, required) {
-  return { type: 'object', properties, required, additionalProperties: false };
-}

@@ -13,10 +13,14 @@ import { normalizeDesktopConfigurationOperations, applyDesktopConfigurationOpera
   DESKTOP_CONFIGURATION_EDITABLE_FIELDS } from './desktop-configuration-intents.js';
 import { createDesktopMcpConfigurationService } from './desktop-mcp-configuration.js';
 import { createDesktopMcpAdvancedConfigurationService } from './desktop-mcp-advanced-routes.js';
+import { isRecord } from './values.js';
+import { DESKTOP_REVISION } from './desktop-request-grammar.js';
+import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
-const identityPattern = /^[A-Za-z0-9_-]{1,128}$/u;
-const operationPattern = /^[A-Za-z0-9_-]{1,64}$/u;
-const revisionPattern = /^(?:absent|[a-f0-9]{64})$/u;
+const identityPattern = DESKTOP_ID;
+const operationPattern = DESKTOP_OPERATION_ID;
+const revisionPattern = DESKTOP_REVISION;
 const readPermission = 'desktop.configuration.read';
 
 export function createDesktopConfigurationService({ paths, installationId, dataId }) {
@@ -116,7 +120,7 @@ function normalizeRequest(input, identity, save) {
 }
 
 function assertRequest(input, identity, keys) {
-  if (!record(input) || Object.keys(input).some((key) => !keys.includes(key))
+  if (!isRecord(input) || Object.keys(input).some((key) => !keys.includes(key))
     || Object.entries(identity).some(([key, value]) => input[key] !== value)
     || !revisionPattern.test(input.expected_revision ?? '')) throw invalid();
   let bytes;
@@ -149,14 +153,14 @@ function candidate(context, operations, replacement) {
 
 function userOwnsProvider(manifest, id) {
   if (Array.isArray(manifest.providers)) return manifest.providers.some((provider) =>
-    record(provider) && provider.id === id);
-  return record(manifest.provider) && (manifest.provider.id ?? 'manifest-primary') === id;
+    isRecord(provider) && provider.id === id);
+  return isRecord(manifest.provider) && (manifest.provider.id ?? 'manifest-primary') === id;
 }
 
 function owns(manifest, path) {
   let cursor = manifest;
   for (const key of path.split('.')) {
-    if (!record(cursor)) return true;
+    if (!isRecord(cursor)) return true;
     if (!Object.hasOwn(cursor, key)) return false;
     cursor = cursor[key];
   }
@@ -165,7 +169,7 @@ function owns(manifest, path) {
 
 function normalizeRepair(input, identity) {
   assertRequest(input, identity, ['installation_id', 'data_id', 'scope', 'expected_revision', 'operation_id', 'document']);
-  if (!operationPattern.test(input.operation_id ?? '') || !record(input.document)) throw invalid();
+  if (!operationPattern.test(input.operation_id ?? '') || !isRecord(input.document)) throw invalid();
   const document = structuredClone(input.document);
   // Providers and route tables are structured operator-owned collections; the
   // flat-field overlay below cannot express them. They stay in the document and
@@ -173,7 +177,7 @@ function normalizeRepair(input, identity) {
   const { provider, workspace_root: workspace, providers, routes, ...rest } = document;
   void providers; void routes;
   if (typeof workspace !== 'string' || !isAbsolute(workspace) || workspace.length > 4096 || /[\u0000-\u001f\u007f]/u.test(workspace)
-    || (provider !== undefined && (!record(provider) || Object.keys(provider).some((key) => !['id', 'display_name', 'endpoint', 'model', 'trust_zone'].includes(key))))
+    || (provider !== undefined && (!isRecord(provider) || Object.keys(provider).some((key) => !['id', 'display_name', 'endpoint', 'model', 'trust_zone'].includes(key))))
     // A structured provider collection may replace the singular legacy field;
     // resolveManifest below validates whichever shape the document carries.
     || (provider === undefined && !Array.isArray(providers))) throw invalid();
@@ -182,7 +186,7 @@ function normalizeRepair(input, identity) {
     if (pending.length + operations.length > 128) throw invalid();
     const item = pending.pop();
     if (DESKTOP_CONFIGURATION_EDITABLE_FIELDS.includes(item.field)) operations.push({ op: 'set', ...item });
-    else if (record(item.value) && DESKTOP_CONFIGURATION_EDITABLE_FIELDS.some((field) => field.startsWith(`${item.field}.`))) {
+    else if (isRecord(item.value) && DESKTOP_CONFIGURATION_EDITABLE_FIELDS.some((field) => field.startsWith(`${item.field}.`))) {
       for (const [key, value] of Object.entries(item.value)) pending.push({ field: `${item.field}.${key}`, value });
     } else throw invalid();
   }
@@ -193,7 +197,7 @@ function normalizeRepair(input, identity) {
 
 function validNativeUser(manifest) {
   try {
-    if (!record(manifest)) return false;
+    if (!isRecord(manifest)) return false;
     resolveDesktopWorkspaceRoot(manifest.workspace_root);
     resolveManifest(manifest, DESKTOP_CONFIGURATION_OPTIONS); return true;
   } catch { return false; }
@@ -247,7 +251,6 @@ function authorize(principal, permission) {
     || !Array.isArray(principal.permissions)) throw invalid();
   requireIntegrationPermission(principal, permission);
 }
-function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function safeCode(code) { return typeof code === 'string' && /^[a-z][a-z0-9_]{0,63}$/u.test(code) ? code : 'desktop_setup_configuration_invalid'; }
 function sanitized(error) { return new ContractError(safeCode(error.code), 'Native configuration validation failed.'); }
 function invalid() { return new ContractError('desktop_configuration_request_invalid', 'Native configuration request is invalid or unsupported.'); }

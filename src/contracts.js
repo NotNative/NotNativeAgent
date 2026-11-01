@@ -3,6 +3,7 @@ import { ContractError, requireExternalId } from './ids.js';
 import { failureEnvelope } from './failure-envelope.js';
 import { physicalWireAllowance } from './reliability/context-budget.js';
 import { declaredAttachmentKeys, validAttachmentFilename, validLocalAttachmentPath } from './attachment-descriptor.js';
+import { isRecord } from './values.js';
 
 export const PROTOCOL_VERSION = Object.freeze({ major: 1, minor: 1 });
 /** Terminal turn outcomes exposed to protocol consumers and configuration validation. */
@@ -232,6 +233,3 @@ function pushChildren(stack, values, depth) {
   for (const value of values) stack.push({ value, depth: depth + 1 });
 }
 
-function isRecord(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}

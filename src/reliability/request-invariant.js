@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
+import { deepFreeze } from '../values.js';
 
 const MANIFEST_VERSION = '1.0';
 const MAX_CONTEXT_SOURCES = 512;
@@ -80,12 +81,6 @@ function sourceRecords(context) {
 function immutableSnapshot(value) {
   if (value === null || value === undefined) return null;
   return deepFreeze(JSON.parse(canonicalJson(value)));
-}
-
-function deepFreeze(value) {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) deepFreeze(child);
-  return Object.freeze(value);
 }
 
 function digest(value) {

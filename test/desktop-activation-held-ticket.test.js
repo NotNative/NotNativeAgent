@@ -5,6 +5,8 @@ import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { ContractError } from '../src/ids.js';
 import { pathIdentity } from '../src/path-identity.js';
+import { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION } from '../src/desktop-request-grammar.js';
+import { SHA256_HEX } from '../src/digests.js';
 
 async function harness() {
   const identity = {}, state = { native: {} }, serviceLease = {}, registryLease = {};
@@ -16,7 +18,7 @@ async function harness() {
     generation: options.generation, registration_revision: receipt.registration_revision,
     journal_sha256: receipt.publication_sha256, native_state: 'ready' };
   let readCount = 0, consumeCount = 0, changed = false, failed = false, foreignProof = false;
-  const dependencies = { pathIdentity, ContractError,
+  const dependencies = { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION, SHA256_HEX, pathIdentity, ContractError,
     readDesktopPrivateTicketReceiptUnderOwnership: async () => {
       readCount++;
       return changed && readCount === 2 ? { ...receipt, receipt_sha256: 'd'.repeat(64) } : receipt;

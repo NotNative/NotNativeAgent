@@ -2,6 +2,7 @@
 import { ContractError } from './ids.js';
 import { CONFIGURATION_CATALOG } from './configuration-catalog.js';
 import { applyIntentChanges } from './experience/configuration-intents.js';
+import { isRecord } from './values.js';
 
 const TYPES = new Set(['integer', 'number', 'string', 'boolean', 'enum', 'array']);
 export const DESKTOP_ROUTE_BINDING_ROLES = Object.freeze(['reviewer', 'vision']);
@@ -22,7 +23,7 @@ export function normalizeDesktopConfigurationOperations(input) {
   if (!Array.isArray(input) || input.length < 1 || input.length > 32) throw invalid();
   const seen = new Set();
   return input.map((operation) => {
-    if (record(operation) && operation.op === 'bind_route') {
+    if (isRecord(operation) && operation.op === 'bind_route') {
       if (Object.keys(operation).sort().join(',') !== 'model,op,provider_id,role'
         || !DESKTOP_ROUTE_BINDING_ROLES.includes(operation.role)
         || typeof operation.provider_id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/u.test(operation.provider_id)
@@ -34,7 +35,7 @@ export function normalizeDesktopConfigurationOperations(input) {
       return Object.freeze({ op: 'bind_route', role: operation.role,
         provider_id: operation.provider_id, model: operation.model });
     }
-    if (!record(operation) || !['set', 'reset'].includes(operation.op)
+    if (!isRecord(operation) || !['set', 'reset'].includes(operation.op)
       || Object.keys(operation).some((key) => !['op', 'field', 'value'].includes(key))) throw invalid();
     // Why: routes.primary.deadline_ms is a compatibility alias for the global
     // provider_timeout_ms, never a separate persisted key. Normalizing the field
@@ -76,7 +77,7 @@ export function applyDesktopConfigurationOperations(manifest, operations) {
       // Clear the alias only when its parent object exists; the set() helper would
       // otherwise create an empty routes.primary container that the canonical write
       // never produces.
-      if (record(manifest.routes) && record(manifest.routes.primary)) {
+      if (isRecord(manifest.routes) && isRecord(manifest.routes.primary)) {
         changes.push({ path: PRIMARY_DEADLINE_PATHS[1], value: undefined });
       }
       return changes;
@@ -113,5 +114,4 @@ function typedValue(field, value) {
     && value.every((item) => typeof item === 'string' && item.length <= 256);
   return false;
 }
-function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function invalid() { return new ContractError('desktop_configuration_request_invalid', 'Configuration requires bounded typed operations on supported fields.'); }

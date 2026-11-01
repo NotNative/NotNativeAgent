@@ -9,6 +9,7 @@ import {
 import {
   createProviderEventShape, isValidUnrecognizedDeltaEvent, observeProviderEventShape,
 } from './event-shape.js';
+import { elapsedMs } from '../timing.js';
 
 const ITERATOR_CLOSE_TIMEOUT_MS = 25;
 const LOCAL_HEALTH_PROBE_INTERVAL_MS = 60_000;
@@ -390,10 +391,6 @@ function providerCorrelation(active, spanId) {
     stepId: active.stepId, attemptId: active.attemptId,
     providerRequestId: active.logicalRequestId,
   };
-}
-
-function elapsedMs(started) {
-  return Number(process.hrtime.bigint() - started) / 1_000_000;
 }
 
 function validatedUsage(usage) {

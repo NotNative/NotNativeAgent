@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: Apache-2.0
+
+import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';// SPDX-License-Identifier: Apache-2.0
 
 const MAX_TURNS = 200;
-const PROVIDER_PROFILE_ID = /^[A-Za-z0-9_-]{1,64}$/u;
+const PROVIDER_PROFILE_ID = DESKTOP_OPERATION_ID;
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f-\u009f]/u;
 // Match requireExternalId: a valid submitted prompt must never disappear from
 // accounting merely because it contains a dot or colon.

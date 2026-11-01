@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ContractError } from '../src/ids.js';
 import { pathIdentity } from '../src/path-identity.js';
+import { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION } from '../src/desktop-request-grammar.js';
+import { SHA256_HEX } from '../src/digests.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -51,7 +53,7 @@ async function fixture() {
   const source = await readFile(new URL('../src/desktop-activation-retirement-plan.js', import.meta.url), 'utf8');
   const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '')
     .replaceAll('export async function', 'async function').replaceAll('export function', 'function');
-  const dependencies = { pathIdentity, lstat, opendir, join, resolve, ContractError,
+  const dependencies = { DESKTOP_ID, DESKTOP_OPERATION_ID, DESKTOP_REVISION, SHA256_HEX, pathIdentity, lstat, opendir, join, resolve, ContractError,
     assertHeldDesktopServiceLease: lease => assert.equal(lease, serviceLease),
     withDesktopServiceLease: (_lease, _id, work) => work(new AbortController().signal),
     assertManifestLease: lease => { assert.equal(lease, registryLease);

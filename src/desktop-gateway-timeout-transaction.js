@@ -14,10 +14,13 @@ import { ContractError } from './ids.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { MAX_GATEWAY_CONFIG_BYTES, DEFAULT_GATEWAY_CONFIG, normalizeGatewayConfig, normalizeUserId } from './gateway/config.js';
 import { readManifestSnapshot, readManifestOperation, transactManifest } from './persistence/manifest-transaction.js';
+import { DESKTOP_REVISION } from './desktop-request-grammar.js';
+import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
-const idPattern = /^[A-Za-z0-9_-]{1,128}$/u;
-const operationPattern = /^[A-Za-z0-9_-]{1,64}$/u;
-const revisionPattern = /^(?:absent|[a-f0-9]{64})$/u;
+const idPattern = DESKTOP_ID;
+const operationPattern = DESKTOP_OPERATION_ID;
+const revisionPattern = DESKTOP_REVISION;
 const invalid = () => new ContractError('desktop_gateway_timeout_request_invalid', 'Native gateway settings request is invalid.');
 
 const SET_FIELDS = Object.freeze({

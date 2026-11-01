@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { ContractError, newId } from '../ids.js';
+import { sha256Hex } from '../digests.js';
 
 export async function transactionalSnapshot(resolved) {
   const content = await readFile(resolved.path, 'utf8');
-  return transactionalReceipt(resolved.path, content, sha256(content));
+  return transactionalReceipt(resolved.path, content, sha256Hex(content));
 }
 
 export function transactionalReceipt(path, content, digest) {
@@ -16,7 +16,7 @@ export function transactionalReceipt(path, content, digest) {
 }
 
 export function mutationEvidence(operation, beforeSha256, afterContent, beforeBytes) {
-  return Object.freeze({ operation, before_sha256: beforeSha256, after_sha256: sha256(afterContent),
+  return Object.freeze({ operation, before_sha256: beforeSha256, after_sha256: sha256Hex(afterContent),
     before_bytes: beforeBytes, after_bytes: Buffer.byteLength(afterContent, 'utf8') });
 }
 
@@ -27,7 +27,7 @@ export async function advanceFromAuthoredState(request, receipts) {
     if (error.code === 'ENOENT' && request.resolved.exists === false) return { request, advanced: false };
     throw error;
   }
-  const digest = sha256(content);
+  const digest = sha256Hex(content);
   if (request.resolved.exists !== false && digest === request.args.expected_sha256) return { request, advanced: false };
   const receipt = receipts.peek(request.resolved.path, { full: true });
   if (receipt?.origin !== 'authored_write' || receipt.digest !== digest) {
@@ -51,4 +51,3 @@ export function withAuthoredAdvanceMetadata(result, advanced) {
   return { ...result, metadata: { ...result.metadata, advanced_from_authored_state: true } };
 }
 
-function sha256(content) { return createHash('sha256').update(content).digest('hex'); }

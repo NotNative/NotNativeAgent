@@ -21,9 +21,10 @@ import { ContractError } from './ids.js';
 import { send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { LOCAL_SECRET_REALM, SECRET_KINDS, SECRET_SCOPE_KINDS } from './secret-contracts.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/secrets';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const SECRET_ID = /^sec_[0-9a-f-]{36}$/u;
 const ISO_STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u;
 const FIELD_NAME = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u;

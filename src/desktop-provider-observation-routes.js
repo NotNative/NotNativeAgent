@@ -22,9 +22,10 @@
 import { ContractError } from './ids.js';
 import { send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/provider-observations';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const REVISION = /^(absent|[a-f0-9]{64})$/u;
 const NAME = /^[A-Za-z0-9_]{1,256}$/u;
 const TEXT = /^[^\u0000-\u001f]{1,256}$/u;

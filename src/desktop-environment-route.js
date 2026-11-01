@@ -11,11 +11,13 @@ import { ContractError } from './ids.js';
 import { send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { OBSERVED_NAMES, SECRET_NAMES } from './desktop-environment-snapshot.js';
+import { SHA256_HEX } from './digests.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/environment';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const NAME = /^[A-Z0-9_]{1,128}$/u;
-const DIGEST = /^[a-f0-9]{64}$/u;
+const DIGEST = SHA256_HEX;
 const invalid = () => new ContractError('desktop_environment_request_invalid', 'Native environment request is invalid.');
 
 // Read-only family: every field is observable state, nothing is editable here — the

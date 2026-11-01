@@ -20,9 +20,10 @@ import { ContractError } from './ids.js';
 import { send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { OBSERVED_DESCRIPTOR } from './desktop-installation-snapshot.js';
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 
 const BASE = '/v1/desktop/configuration/installation';
-const ID = /^[A-Za-z0-9_-]{1,128}$/u;
+const ID = DESKTOP_ID;
 const PRODUCT = 'NotNativeAgent';
 const VERSION = /^\d{8}-[1-9]\d{0,5}$/u;
 const PATH = /^[^\u0000-\u001f]{1,4096}$/u;

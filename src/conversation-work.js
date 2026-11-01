@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
+import { deepFreeze } from './values.js';
 
 const TASK_STATES = new Set(['pending', 'in_progress', 'completed', 'blocked']);
 const GOAL_STATES = new Set(['active', 'completed', 'blocked']);
@@ -424,10 +425,4 @@ function normalizePlan(value, state) {
     throw new ContractError('goal_tasks_actionable', 'a blocked goal can contain only completed or blocked tasks');
   }
   return Object.freeze({ objective, goalStatus, goalEvidence, goalBlockedReason, tasks: Object.freeze(tasks) });
-}
-function deepFreeze(value) {
-  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-    Object.freeze(value); for (const item of Object.values(value)) deepFreeze(item);
-  }
-  return value;
 }

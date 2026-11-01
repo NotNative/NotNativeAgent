@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
+import { objectSchema } from './tools/schema.js';
 
 const STATUS_TIMEOUT_MS = 5_000;
 const TEST_TIMEOUT_MS = 65_000;
@@ -125,6 +126,3 @@ function requireExactObject(value, keys) {
   }
 }
 
-function objectSchema(properties, required) {
-  return { type: 'object', properties, required, additionalProperties: false };
-}

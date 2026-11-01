@@ -7,6 +7,7 @@ import { resolveConfiguration } from './configuration-sources.js';
 import { loadStartupManifestSnapshot } from './onboarding.js';
 import { workspaceIsTrusted } from './experience/trust.js';
 import { ContractError } from './ids.js';
+import { deepFreeze } from './values.js';
 
 const BUNDLED_SKILL_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'resources', 'skills');
 const PROJECT_CONFIG_DIRECTORY = '.nna';
@@ -89,9 +90,3 @@ async function readBoundedManifest(path) {
   } finally { await handle.close(); }
 }
 
-function deepFreeze(value, seen = new WeakSet()) {
-  if (!value || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const child of Object.values(value)) deepFreeze(child, seen);
-  return Object.freeze(value);
-}
