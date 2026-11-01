@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
@@ -12,12 +12,11 @@ import { captureDiscoveryProcessIdentity } from './desktop-service-discovery-win
 import { readDesktopServiceDiscovery } from './desktop-service-discovery.js';
 import { validIdentity } from './reliability/process-identity.js';
 import { exactRecord } from './desktop-service-contract.js';
+import { pathIdentity } from './path-identity.js';
 
 const invalid = () => new ContractError('desktop_activation_reconciliation_invalid',
   'desktop activation outcome is unresolved; preserve the pending barrier and evidence.');
 const unknown = operationId => Object.freeze({ state: 'unknown', operation_id: operationId });
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 const CANDIDATE_KEYS = ['protocol', 'stage_operation_id', 'installation_id', 'data_id', 'version',
   'payload_sha256', 'stage_prepared_sha256', 'stage_ready_sha256', 'provenance_sha256', 'slot_ino',
   'slot_dev', 'registry_before_revision', 'desired_registration_sha256'];
@@ -35,7 +34,7 @@ function owner(identity, serviceLease, registryLease, operationId) {
   if (!operationValid(operationId)) throw invalid();
   assertHeldDesktopServiceLease(serviceLease, identity?.data_id);
   const target = assertManifestLease(registryLease);
-  if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+  if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
 }
 function parseExact(bytes, keys) {
   if (!bytes) throw invalid();

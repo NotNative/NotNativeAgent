@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ContractError } from '../src/ids.js';
+import { pathIdentity } from '../src/path-identity.js';
 import { assertDesktopAttach } from '../src/desktop-service-attach.js';
 
 async function privateProbe(dependencies) {
@@ -57,7 +58,7 @@ async function fixture(t, { replayAccepted = false, changeHealth = false, redire
     } } };
   const health = () => ({ ...evidence, state: 'published_healthy_unresolved',
     journal_sha256: changeHealth && ++healthChecks === 2 ? 'e'.repeat(64) : evidence.journal_sha256 });
-  const api = await privateProbe({ join, resolve, ContractError,
+  const api = await privateProbe({ join, resolve, pathIdentity, ContractError,
     assertHeldDesktopServiceLease: lease => { if (lease !== serviceLease) throw Error('service lease lost'); },
     withDesktopServiceLease: (_lease, _id, work) => work(new AbortController().signal),
     assertManifestLease: lease => { if (lease !== registryLease) throw Error('registry lease lost');

@@ -3,15 +3,15 @@ import { createHash } from 'node:crypto';
 import { lstat, realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, parse, resolve } from 'node:path';
 import { ContractError } from './ids.js';
+import { pathIdentity } from './path-identity.js';
 
 const KEYS = ['root', 'configured_root', 'id', 'device', 'inode'];
 const mismatch = () => new ContractError('desktop_workspace_binding_invalid', 'desktop session workspace binding does not match the native primary workspace.');
-const same = (a, b) => process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 
 export async function primaryDesktopWorkspaceBinding(configuredRoot) {
   if (typeof configuredRoot !== 'string' || !isAbsolute(configuredRoot) || configuredRoot.length > 4096
     || /[\u0000-\u001f\u007f]/u.test(configuredRoot) || configuredRoot.startsWith('\\\\')
-    || !same(resolve(configuredRoot), configuredRoot)) throw mismatch();
+    || !pathIdentity(resolve(configuredRoot), configuredRoot)) throw mismatch();
   try {
     for (let cursor = configuredRoot; ; cursor = dirname(cursor)) {
       const info = await lstat(cursor, { bigint: true });
@@ -20,7 +20,7 @@ export async function primaryDesktopWorkspaceBinding(configuredRoot) {
     }
     const root = await realpath(configuredRoot);
     const info = await lstat(root, { bigint: true });
-    if (!same(root, configuredRoot) || !info.isDirectory() || info.isSymbolicLink() || info.ino === 0n) throw mismatch();
+    if (!pathIdentity(root, configuredRoot) || !info.isDirectory() || info.isSymbolicLink() || info.ino === 0n) throw mismatch();
     const id = `ws_${createHash('sha256').update(configuredRoot).digest('hex').slice(0, 24)}`;
     return Object.freeze({ root, configured_root: configuredRoot, id, device: String(info.dev), inode: String(info.ino) });
   } catch { throw mismatch(); }

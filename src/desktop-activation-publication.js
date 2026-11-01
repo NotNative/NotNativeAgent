@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { isDeepStrictEqual } from 'node:util';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
@@ -13,13 +13,12 @@ import { readDesktopPrivateDiscoveryGeneration, readDesktopServiceDiscovery, pub
 import { captureDiscoveryProcessIdentity } from './desktop-service-discovery-windows.js';
 import { validIdentity } from './reliability/process-identity.js';
 import { exactRecord } from './desktop-service-contract.js';
+import { pathIdentity } from './path-identity.js';
 
 const invalid = () => new ContractError('desktop_activation_publication_invalid',
   'desktop discovery publication is unresolved; preserve the admission barrier and both owners.');
 const CHILD_KEYS = ['protocol', 'operation_id', 'installation_id', 'data_id', 'generation', 'version', 'process_identity'];
 const IDENTITY_KEYS = ['version', 'pid', 'platform', 'start_id'];
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 function location(identity, operationId) {
   const root = join(identity.data_root, 'runtime', 'desktop', 'install-slots', 'activations');
   return { directory: join(root, operationId), candidate: join(root, `${operationId}.candidate.json`),
@@ -30,7 +29,7 @@ function assertOwner(identity, serviceLease, registryLease, options) {
     || !operationValid(options?.generation)) throw invalid();
   assertHeldDesktopServiceLease(serviceLease, identity?.data_id);
   const target = assertManifestLease(registryLease);
-  if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+  if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
 }
 function liveState(state, options) {
   if (!state?.registrationSelected || state.published || state.stopping || state.child?.failed

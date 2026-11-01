@@ -11,6 +11,7 @@ import { ContractError } from '../src/ids.js';
 import { assertManifestLease, runManifestLeaseWork } from '../src/persistence/manifest-lock.js';
 import { withManifestLock, readLockedManifestOperation, readLockedManifestSnapshot } from '../src/persistence/manifest-transaction.js';
 import { validIdentity } from '../src/reliability/process-identity.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -73,7 +74,7 @@ async function fixture(options = {}) {
   const forward = { operationId: `desktop-activate-${operationId}`, persistence: 'saved',
     beforeRevision, persistedRevision: selectedRevision };
   let pointer = null, writes = 0, inspectedPid = 0;
-  const dependencies = { join, resolve, ContractError, hash, json, validIdentity,
+  const dependencies = { pathIdentity, join, resolve, ContractError, hash, json, validIdentity,
     operationValid: value => [operationId, stageOperationId, generation].includes(value),
     assertHeldDesktopServiceLease: lease => { if (lease !== serviceLease) throw Error('wrong singleton'); },
     withDesktopServiceLease: (_lease,_dataId,fn) => fn(new AbortController().signal),

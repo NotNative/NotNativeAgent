@@ -4,6 +4,7 @@ import { mkdir, opendir, readdir, rm, rmdir, stat } from 'node:fs/promises';
 import { join, matchesGlob } from 'node:path';
 import { ContractError } from '../ids.js';
 import { normalizeArgumentAliases } from './argument-normalization.js';
+import { pathIdentity } from '../path-identity.js';
 
 const MAX_LIST_RESULTS = 1_000;
 const MAX_LIST_DEPTH = 64;
@@ -195,14 +196,14 @@ async function executeDirectory(request, signal, paths, list) {
     // Security: a reviewed parent can become a junction before execution. Check the
     // requested path again before mkdir, which otherwise creates outside the workspace.
     const before = await paths.resolveDirectoryWrite(request.args.path);
-    if (!samePath(before.path, request.resolved.path)) {
+    if (!pathIdentity(before.path, request.resolved.path)) {
       throw new ContractError('tool_revalidation_drift', 'directory target changed after review');
     }
     abort(signal);
     if (!before.exists) await mkdir(request.resolved.path, { recursive: request.args.recursive });
     abort(signal);
     const current = await paths.resolveDirectory(request.resolved.path);
-    if (!samePath(current.path, request.resolved.path)) throw new ContractError('tool_revalidation_drift', 'directory target changed after review');
+    if (!pathIdentity(current.path, request.resolved.path)) throw new ContractError('tool_revalidation_drift', 'directory target changed after review');
     return {
       content: before.exists ? 'directory already exists' : 'directory created',
       metadata: { action: 'create', path: request.args.path, created: !before.exists, recursive: request.args.recursive },
@@ -349,7 +350,6 @@ function integer(value, fallback, minimum, maximum) {
   if (!Number.isSafeInteger(value) || value < minimum || value > maximum) throw invalid('integer argument is outside its bound');
   return value;
 }
-function samePath(left, right) { return process.platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right; }
 function abort(signal) { if (signal?.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled'); }
 function invalid(message) { return new ContractError('tool_schema_invalid', message); }
 function objectSchema(properties, required) { return { type: 'object', properties, required, additionalProperties: false }; }

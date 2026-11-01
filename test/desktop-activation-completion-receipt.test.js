@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { ContractError } from '../src/ids.js';
 import { completionEvidenceSha } from '../src/desktop-activation-ticket-evidence.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 async function fixture() {
@@ -28,7 +29,7 @@ async function fixture() {
     stageOperationId: options.stageOperationId, promotedAttachReceipt: promoted };
   let appendCalls = 0, healthCalls = 0, damaged = false, abortAfterAppend = false,
     healthFails = false, exitAfterHealth = false;
-  const dependencies = { join, resolve, ContractError, completionEvidenceSha, hash,
+  const dependencies = { pathIdentity, join, resolve, ContractError, completionEvidenceSha, hash,
     operationValid: value => [options.operationId, options.stageOperationId, options.generation].includes(value),
     assertHeldDesktopServiceLease: lease => assert.equal(lease, serviceLease),
     withDesktopServiceLease: (_lease, _id, work) => work(new AbortController().signal),

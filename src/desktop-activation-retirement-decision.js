@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Historical external retirement proof. It never removes evidence or opens admission. */
 import { lstat, opendir } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
@@ -15,6 +15,7 @@ import { captureDiscoveryProcessIdentity } from './desktop-service-discovery-win
 import { openInstallStore, readInstallBytes, writeInstallNew, hash, json, operationValid } from './desktop-install-storage.js';
 import { exactRecord } from './desktop-service-contract.js';
 import { validIdentity } from './reliability/process-identity.js';
+import { pathIdentity } from './path-identity.js';
 
 const SHA = /^[a-f0-9]{64}$/u;
 const PLAN_LIMIT = 4096;
@@ -28,8 +29,6 @@ const DECISION_KEYS = ['protocol', 'state', 'operation_id', 'stage_operation_id'
   'registration_revision', 'registration_operation_id', 'discovery_sha256', 'child_process_identity'];
 const invalid = () => new ContractError('desktop_activation_retirement_decision_invalid',
   'desktop external retirement decision is unresolved; preserve the pending barrier and activation evidence.');
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 const location = (identity, operationId) => {
   const root = join(identity.data_root, 'runtime', 'desktop', 'install-slots');
   const activations = join(root, 'activations');
@@ -43,7 +42,7 @@ function assertOwner(identity, serviceLease, registryLease, options) {
     || Object.keys(options).some(key => !['operationId', 'stageOperationId', 'generation', 'signal'].includes(key))) throw invalid();
   assertHeldDesktopServiceLease(serviceLease, identity.data_id);
   const target = assertManifestLease(registryLease);
-  if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+  if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
 }
 function assertLive(state, identity, serviceLease, options) {
   if (state?.identity !== identity || state.lease !== serviceLease || !state.retained || !state.retainedLeaseArmed

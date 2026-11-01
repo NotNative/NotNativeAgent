@@ -3,10 +3,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { pathIdentity } from '../src/path-identity.js';
 
 test('same native listener resolves operator principal only after private promotion', async () => {
   let promoted = false, serverOptions;
-  const dependencies = { createHash, randomBytes, randomUUID,
+  const dependencies = { pathIdentity, createHash, randomBytes, randomUUID,
     SecretBroker: class {}, ProviderProfileStore: class {}, LOCAL_SECRET_REALM: 'local',
     readDesktopSetupConfiguration: () => ({}), createDesktopConfigurationService: () => ({}),
     createDesktopGatewaySettingsTransaction: () => ({}),

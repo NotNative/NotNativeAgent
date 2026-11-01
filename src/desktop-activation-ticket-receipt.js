@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Durable, unresolved record of the held owner's private UI ticket proof. */
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
@@ -16,6 +16,7 @@ import { readLockedManifestOperation, readLockedManifestSnapshot } from './persi
 import { readDesktopPrivateDiscoveryGeneration, readDesktopServiceDiscovery } from './desktop-service-discovery.js';
 import { exactRecord } from './desktop-service-contract.js';
 import { validIdentity } from './reliability/process-identity.js';
+import { pathIdentity } from './path-identity.js';
 
 const invalid = () => new ContractError('desktop_activation_health_invalid',
   'Private desktop ticket receipt is unresolved; preserve the pending barrier and both owners.');
@@ -33,8 +34,6 @@ const recordedReceipt = (options, journal, registrationRevision) => Object.freez
   publication_sha256: journal[5].receipt_sha256, registration_revision: registrationRevision });
 const CHILD_KEYS = ['protocol', 'operation_id', 'installation_id', 'data_id', 'generation', 'version', 'process_identity'];
 const IDENTITY_KEYS = ['version', 'pid', 'platform', 'start_id'];
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 function location(identity, operationId) {
   const root = join(identity.data_root, 'runtime', 'desktop', 'install-slots', 'activations');
   return { directory: join(root, operationId), candidate: join(root, `${operationId}.candidate.json`),
@@ -44,7 +43,7 @@ function location(identity, operationId) {
 function assertLocks(identity, serviceLease, registryLease) {
   assertHeldDesktopServiceLease(serviceLease, identity.data_id);
   const target = assertManifestLease(registryLease);
-  if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+  if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
 }
 function assertOwner(identity, state, serviceLease, registryLease, options) {
   if (!identity || !state || !options || !operationValid(options.operationId)

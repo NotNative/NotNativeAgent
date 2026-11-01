@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from './ids.js';
 import { verifyTrialGuiProof, boundedHealthBody } from './desktop-service-health.js';
+import { pathIdentity } from './path-identity.js';
 import { createDesktopServiceCapabilityAuthority, bootstrapCapability, armCapabilityRenewal, clearCapabilityRenewal } from './desktop-service-capability.js';
 import { validateDesktopPackage } from './desktop-package.js';
 import { acquireDesktopServiceLock, assertHeldDesktopServiceLease } from './desktop-service-lock.js';
@@ -151,9 +152,7 @@ async function recordRetainedRetirementDecision(state, registryLease, options) {
 // Security: the only exported trial entry consumes a one-use, receipt-bound native capability.
 export async function startDesktopOwnedTrial(identity, paths, lease, registryLease, capability, options = {}) {
   const expected = userDataPaths({ environment: { NNA_HOME: identity.data_root } });
-  const same = (left, right) => process.platform === 'win32'
-    ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
-  if (!paths || Object.entries(expected).some(([key, value]) => typeof paths[key] !== 'string' || !same(paths[key], value))) {
+  if (!paths || Object.entries(expected).some(([key, value]) => typeof paths[key] !== 'string' || !pathIdentity(paths[key], value))) {
     throw new ContractError('desktop_activation_candidate_invalid', 'desktop trial paths do not match the selected native data root');
   }
   const admitted = consumeDesktopTrialCapability(capability, identity, lease, registryLease);
@@ -273,10 +272,7 @@ async function prepareTrialDiscovery(session, registryLease) {
   assertHeldDesktopServiceLease(state.lease, state.identity.data_id);
   const target = assertManifestLease(registryLease);
   const expected = join(state.identity.data_root, 'config', 'desktop-package.json');
-  const same = process.platform === 'win32'
-    ? resolve(target.path).toLowerCase() === resolve(expected).toLowerCase()
-    : resolve(target.path) === resolve(expected);
-  if (!same) throw new ContractError('desktop_discovery_invalid', 'Unpublished desktop trial registry ownership is invalid');
+  if (!pathIdentity(target.path, expected)) throw new ContractError('desktop_discovery_invalid', 'Unpublished desktop trial registry ownership is invalid');
   if (state.discoveryPreparing || state.controller) {
     throw new ContractError('desktop_discovery_invalid', 'Unpublished desktop trial discovery is already prepared');
   }

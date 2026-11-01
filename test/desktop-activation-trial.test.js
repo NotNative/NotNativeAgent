@@ -6,6 +6,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { ContractError } from '../src/ids.js';
 import { nativeDesktopTrialPrincipal, nativeDesktopPrincipal } from '../src/desktop-service-native.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
 const identity = { installation_id: `nna_${'a'.repeat(64)}`, data_id: `data_${'b'.repeat(64)}`,
@@ -52,7 +53,7 @@ async function harness(overrides = {}) {
     installation_id: identity.installation_id, data_id: identity.data_id,
     generation: proof.generation, version: proof.version,
     process_identity: { version: 1, pid: 4321, platform: 'win32', start_id: '123456789' } };
-  const dependencies = { join, resolve, ContractError,
+  const dependencies = { pathIdentity, join, resolve, ContractError,
     assertHeldDesktopServiceLease: actual => { assert.equal(actual, lease); trace.push('lease:assert'); },
     withDesktopServiceLease: (_lease,_dataId,operation,_options={}) => {
       leaseBudgets.push(_options.timeoutMs ?? 120000);

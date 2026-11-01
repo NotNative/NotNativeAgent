@@ -10,6 +10,7 @@ import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
 import { exactRecord, isDesktopLoopbackEndpoint } from '../src/desktop-service-contract.js';
 import { validIdentity } from '../src/reliability/process-identity.js';
 import { privateTicketEvidenceSha, promotedAttachEvidenceSha } from '../src/desktop-activation-ticket-evidence.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -105,7 +106,7 @@ async function fixture(options = {}) {
     }
     throw Error('unexpected health target');
   };
-  const dependencies = { isDeepStrictEqual, join, resolve, createHmac, randomBytes, timingSafeEqual,
+  const dependencies = { pathIdentity, isDeepStrictEqual, join, resolve, createHmac, randomBytes, timingSafeEqual,
     ContractError, serializeManifestBytes,
     exactRecord, isDesktopLoopbackEndpoint, validIdentity, privateTicketEvidenceSha, promotedAttachEvidenceSha, hash, json,
     operationValid: value => [operationId, stageOperationId, generation].includes(value),

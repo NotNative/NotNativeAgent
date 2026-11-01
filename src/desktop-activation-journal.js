@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { lstat, open, readdir, realpath } from 'node:fs/promises';
-import { isAbsolute, join, resolve } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
+import { pathIdentity } from './path-identity.js';
 
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
 const SHA = /^[a-f0-9]{64}$/u;
@@ -33,19 +34,17 @@ export function desktopPreparedPhaseBytes(identity, evidenceSha256) {
     installation_id: identity.installation_id, data_id: identity.data_id, sequence: 0,
     phase: 'prepared', previous_sha256: null, evidence_sha256: evidenceSha256 }) + '\n');
 }
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 
 async function validateBinding(identity, directory, allowMissing = false) {
   if (!identity || !UUID.test(identity.operation_id) || !/^nna_[a-f0-9]{64}$/u.test(identity.installation_id)
     || !/^data_[a-f0-9]{64}$/u.test(identity.data_id) || typeof identity.data_root !== 'string'
-    || !isAbsolute(identity.data_root) || !samePath(directory, join(identity.data_root, 'runtime', 'desktop', 'install-slots', 'activations', identity.operation_id))) throw invalid();
+    || !isAbsolute(identity.data_root) || !pathIdentity(directory, join(identity.data_root, 'runtime', 'desktop', 'install-slots', 'activations', identity.operation_id))) throw invalid();
   let root;
   try { root = await realpath(identity.data_root); } catch { throw invalid(); }
-  if (identity.data_id !== `data_${hash(root.toLowerCase())}` || !samePath(root, identity.data_root)) throw invalid();
+  if (identity.data_id !== `data_${hash(root.toLowerCase())}` || !pathIdentity(root, identity.data_root)) throw invalid();
   try {
     const actual = await realpath(directory);
-    if (!samePath(actual, directory) || !(await lstat(actual)).isDirectory()) throw invalid();
+    if (!pathIdentity(actual, directory) || !(await lstat(actual)).isDirectory()) throw invalid();
   } catch (error) {
     if (allowMissing && error.code === 'ENOENT') return;
     throw invalid();
@@ -107,7 +106,7 @@ export async function appendDesktopActivationPhase(identity, directory, serviceL
   await validateBinding(identity, directory);
   assertHeldDesktopServiceLease(serviceLease, identity.data_id);
   const target = assertManifestLease(registryLease);
-  if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json')) || !SHA.test(evidenceSha256)) throw invalid();
+  if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json')) || !SHA.test(evidenceSha256)) throw invalid();
   return withDesktopServiceLease(serviceLease, identity.data_id, signal => runManifestLeaseWork(registryLease, async () => {
     signal.throwIfAborted();
     const records = await readDesktopActivationJournal(identity, directory);

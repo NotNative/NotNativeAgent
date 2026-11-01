@@ -6,13 +6,13 @@ import { ContractError } from './ids.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { readDesktopConfigurationSources } from './desktop-configuration-sources.js';
 import { readManifestOperation, readManifestSnapshot, transactManifest } from './persistence/manifest-transaction.js';
+import { pathIdentity } from './path-identity.js';
 
 const ID = /^[A-Za-z0-9_-]{1,128}$/u;
 const REVISION = /^(?:absent|[a-f0-9]{64})$/u;
 const ROOT_BYTES = 4096;
 const DOCUMENT_KEYS = ['protocol', 'installation_id', 'data_id', 'primary', 'secondary'];
 const GRANT_KEYS = ['root', 'id', 'device', 'inode'];
-const same = (a, b) => process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 const fail = (code = 'desktop_workspace_grant_invalid') => new ContractError(code, 'Native workspace grant could not be verified.');
 /** Shared identity space: the ws_ workspace id of a configured root, hashed
  * exactly like nativeDesktopPrincipal does for persisted session pedigrees.
@@ -39,7 +39,7 @@ async function canonicalGrant(path) {
   if (typeof path !== 'string' || path.length < 1 || Buffer.byteLength(path) > ROOT_BYTES || !isAbsolute(path)
     || /[\u0000-\u001f\u007f]/u.test(path) || path.startsWith('\\\\') || path.startsWith('\\?\\')) throw fail();
   const selected = resolve(path);
-  if (!same(path, selected)) throw fail();
+  if (!pathIdentity(path, selected)) throw fail();
   try {
     for (let cursor = selected; ; cursor = dirname(cursor)) {
       const info = await lstat(cursor, { bigint: true });
@@ -47,7 +47,7 @@ async function canonicalGrant(path) {
       if (cursor === parse(cursor).root) break;
     }
     const root = await realpath(selected);
-    if (!same(selected, root)) throw fail();
+    if (!pathIdentity(selected, root)) throw fail();
     const info = await lstat(root, { bigint: true });
     if (!info.isDirectory() || info.isSymbolicLink()) throw fail();
     return Object.freeze({ root, id: workspaceId(root), ...grantFileIdentity(info) });
@@ -102,7 +102,7 @@ export function createDesktopWorkspaceGrantService({ paths, installationId, data
       || !(input.secondary_root === null || typeof input.secondary_root === 'string')) throw fail();
     const primary = await currentPrimary();
     const secondary = input.secondary_root === null ? null : await canonicalGrant(input.secondary_root);
-    if (secondary && (same(secondary.root, primary.root) || secondary.id === primary.id)) throw fail();
+    if (secondary && (pathIdentity(secondary.root, primary.root) || secondary.id === primary.id)) throw fail();
     const document = { protocol: '1.0', ...identity, primary, secondary };
     let failure;
     const checked = async (value, expected) => {
@@ -144,7 +144,7 @@ async function readGrants({ path, identity, currentPrimary }, principal) {
     const document = snapshot.rawManifest;
     await validatePrimary(document, identity, primary);
     secondary = document.secondary === null ? null : await verifyGrant(document.secondary);
-    if (secondary && (same(secondary.root, primary.root) || secondary.id === primary.id)) throw fail();
+    if (secondary && (pathIdentity(secondary.root, primary.root) || secondary.id === primary.id)) throw fail();
   }
   return Object.freeze({ ...identity, revision: snapshot.revision, primary, secondary,
     application: 'not_applied', selection_enabled: false });
@@ -154,7 +154,7 @@ async function validateDocument(value, identity, primary) {
   await validatePrimary(value, identity, primary);
   if (value.secondary !== null) {
     const secondary = await verifyGrant(value.secondary);
-    if (same(primary.root, secondary.root) || primary.id === secondary.id) throw fail();
+    if (pathIdentity(primary.root, secondary.root) || primary.id === secondary.id) throw fail();
   }
 }
 

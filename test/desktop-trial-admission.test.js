@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { ContractError } from '../src/ids.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 async function fixture() {
   const identity = { data_root: 'C:\\nna-gate', data_id: 'data_id', installation_id: 'nna_id' };
@@ -15,9 +16,9 @@ async function fixture() {
   const binding = { operationId: 'operation', stageOperationId: 'stage' };
   const source = await readFile(new URL('../src/desktop-trial-admission.js', import.meta.url), 'utf8');
   const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '').replaceAll('export function', 'function');
-  const api = Function('join', 'resolve', 'ContractError', 'assertHeldDesktopServiceLease', 'assertManifestLease',
+  const api = Function('join', 'resolve', 'pathIdentity', 'ContractError', 'assertHeldDesktopServiceLease', 'assertManifestLease',
     'operationValid', 'consumeDesktopClearedAdmissionProof', executable + '\nreturn { createDesktopTrialAdmissionGate, assertDesktopTrialRequestAdmission, assertDesktopTrialOwnership, transferDesktopTrialAdmissionGate };')(
-    join, resolve, ContractError,
+    join, resolve, pathIdentity, ContractError,
     (lease, dataId) => { if (!serviceHeld || lease !== serviceLease || dataId !== identity.data_id) throw Error('lease lost'); },
     lease => { if (!registryHeld || lease !== registryLease) throw Error('registry lost');
       return { path: join(identity.data_root, 'config', 'desktop-package.json') }; },

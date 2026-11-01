@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from '../src/ids.js';
 import { hasActivationEvidence } from '../src/desktop-activation-initialization-db.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -58,7 +59,7 @@ async function fixture() {
   const source = await readFile(new URL('../src/desktop-activation-retirement-decision.js', import.meta.url), 'utf8');
   const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '')
     .replaceAll('export async function', 'async function');
-  const dependencies = { lstat, opendir, join, resolve, isDeepStrictEqual, ContractError,
+  const dependencies = { pathIdentity, lstat, opendir, join, resolve, isDeepStrictEqual, ContractError,
     assertHeldDesktopServiceLease: lease => assert.equal(lease, serviceLease),
     withDesktopServiceLease: (_lease, _id, work) => work(new AbortController().signal),
     assertManifestLease: lease => { assert.equal(lease, registryLease);

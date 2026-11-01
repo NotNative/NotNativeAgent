@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { ContractError } from '../src/ids.js';
 import { verifyTrialGuiProof, boundedHealthBody } from '../src/desktop-service-health.js';
+import { pathIdentity } from '../src/path-identity.js';
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 const identity={installation_id:'native',data_id:'data',install_root:'C:/native',data_root:'C:/data'};
 const paths={config:'C:/data/config'};
@@ -20,7 +21,7 @@ async function fixture(options={}) {
  const child={ready:childReady.promise,exited:exited.promise,fatal:fatal.promise,close:async()=>{trace.push('child:close');},command:async type=>{trace.push(type);return {ticket:'private-ticket'};}};
  const assertLease=(value,dataId)=>{if(value!==lease||!lease.held||dataId!==identity.data_id)throw new ContractError('desktop_lock_lost','Genuine lease required');};
  const capability=Object.freeze({}),registry={held:true};
- const dependencies={createHmac,randomBytes,randomUUID,timingSafeEqual,isDeepStrictEqual,join,resolve: path=>path,ContractError,assertHeldDesktopServiceLease:assertLease,
+ const dependencies={ pathIdentity,createHmac,randomBytes,randomUUID,timingSafeEqual,isDeepStrictEqual,join,resolve: path=>path,ContractError,assertHeldDesktopServiceLease:assertLease,
   assertManifestLease:value=>{if(value!==registry||!registry.held)throw new ContractError('manifest_lock_invalid','Registry ownership lost');
    return {path:join(identity.data_root,'config','desktop-package.json')};},
   runManifestLeaseWork:(_lease,operation)=>operation(),

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { lstat, opendir, rmdir, unlink } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
+import { pathIdentity } from './path-identity.js';
 import { acquireDesktopServiceLock, assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
 import { withManifestLock, readLockedManifestSnapshot } from './persistence/manifest-transaction.js';
@@ -210,8 +211,7 @@ export async function prepareDesktopActivationUnderOwnership(identity, serviceLe
   assertHeldDesktopServiceLease(serviceLease, identity?.data_id);
   const target = assertManifestLease(registryLease);
   const expected = join(identity.data_root, 'config', 'desktop-package.json');
-  if ((process.platform === 'win32' ? resolve(target.path).toLowerCase() !== resolve(expected).toLowerCase()
-    : resolve(target.path) !== resolve(expected))) throw invalid();
+  if (!pathIdentity(target.path, expected)) throw invalid();
   return withDesktopServiceLease(serviceLease, identity.data_id, signal => runManifestLeaseWork(registryLease, async () => {
     await assertNoDesktopInstallMarker(identity); await assertNoDesktopMigration(identity);
     await scanDesktopLegacyOwners(identity, signal);

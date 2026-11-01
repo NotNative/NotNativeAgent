@@ -15,6 +15,7 @@ import { ContractError } from '../src/ids.js';
 import { hash, readInstallBytes } from '../src/desktop-install-storage.js';
 import { consumedRetirementPair } from '../src/desktop-activation-initialization-db.js';
 import { hasActivationEvidence } from '../src/desktop-activation-initialization-db.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 const INSTALL = 'nna_' + 'b'.repeat(64);
 const DATA = 'data_' + 'a'.repeat(64);
@@ -56,6 +57,7 @@ async function apiFor(manifest, lease, signal = AbortSignal.timeout(30000)) {
   const executable = source.replace(/^import[\s\S]*?;\r?\n/gmu, '')
     .replaceAll('export async function', 'async function');
   const dependencies = {
+  pathIdentity,
     lstat, opendir, rename, join, resolve, ContractError,
     assertHeldDesktopServiceLease: (held, dataId) => {
       if (held !== lease || dataId !== DATA) throw new Error('service lease');

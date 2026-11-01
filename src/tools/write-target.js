@@ -2,6 +2,7 @@
 import { mkdir, rmdir } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { ContractError } from '../ids.js';
+import { pathIdentity } from '../path-identity.js';
 
 export async function withPreparedWriteTarget(paths, request, signal, operation) {
   const parent = dirname(request.resolved.path);
@@ -11,7 +12,7 @@ export async function withPreparedWriteTarget(paths, request, signal, operation)
     if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
     createdRoot = await mkdir(parent, { recursive: true });
     const current = await paths.resolveWrite(request.args.path);
-    if (!samePath(current.path, request.resolved.path)) {
+    if (!pathIdentity(current.path, request.resolved.path)) {
       throw new ContractError('tool_revalidation_drift', 'write target changed after review');
     }
     const result = await operation();
@@ -42,16 +43,9 @@ async function rollbackCreatedParents(createdRoot, leafParent) {
       return ['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(error.code)
         ? null : error.code ?? 'tool_parent_rollback_failed';
     }
-    if (samePath(current, boundary)) break;
+    if (pathIdentity(current, boundary)) break;
     current = dirname(current);
   }
   return null;
 }
 
-function samePath(left, right) {
-  const normalizedLeft = resolve(left);
-  const normalizedRight = resolve(right);
-  return process.platform === 'win32'
-    ? normalizedLeft.toLowerCase() === normalizedRight.toLowerCase()
-    : normalizedLeft === normalizedRight;
-}

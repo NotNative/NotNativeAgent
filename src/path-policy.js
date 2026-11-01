@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { basename, dirname, isAbsolute, join, parse, relative, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 import { missingParentMessage, missingTargetMessage } from './reliability/filesystem-recovery.js';
+import { pathIdentity } from './path-identity.js';
 
 export class PathPolicy {
   constructor(workspaceRoot, options = {}) {
@@ -192,8 +193,8 @@ export class PathPolicy {
   assertMutationTarget(candidate) {
     const canonical = resolve(candidate);
     const root = parse(canonical).root;
-    if (samePath(canonical, root) || samePath(canonical, this.root)
-      || this.protectedRoots.some((item) => samePath(canonical, item))
+    if (pathIdentity(canonical, root) || pathIdentity(canonical, this.root)
+      || this.protectedRoots.some((item) => pathIdentity(canonical, item))
       || isAncestor(canonical, this.root)) {
       throw new ContractError('tool_protected_path', 'filesystem mutation target is a protected root, home, workspace root, or workspace ancestor');
     }
@@ -240,11 +241,6 @@ async function requiredRealpath(candidate, supplied) {
     // truncated the path. Report only the supplied value and do not guess its intended target.
     throw new ContractError('tool_target_not_found', missingTargetMessage(supplied));
   }
-}
-
-function samePath(left, right) {
-  const normalize = (value) => process.platform === 'win32' ? resolve(value).toLowerCase() : resolve(value);
-  return normalize(left) === normalize(right);
 }
 
 function isAncestor(candidate, descendant) {

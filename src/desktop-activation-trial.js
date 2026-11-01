@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
+import { pathIdentity } from './path-identity.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
 import { prepareDesktopActivationUnderOwnership } from './desktop-activation-preparation.js';
@@ -28,10 +29,7 @@ function assertTrialOwner(identity, serviceLease, registryLease, options) {
   assertHeldDesktopServiceLease(serviceLease, identity.data_id);
   const target = assertManifestLease(registryLease);
   const registryPath = join(identity.data_root, 'config', 'desktop-package.json');
-  const same = process.platform === 'win32'
-    ? resolve(target.path).toLowerCase() === resolve(registryPath).toLowerCase()
-    : resolve(target.path) === resolve(registryPath);
-  if (!same) throw new ContractError('desktop_activation_candidate_invalid', 'desktop trial registry ownership is invalid');
+  if (!pathIdentity(target.path, registryPath)) throw new ContractError('desktop_activation_candidate_invalid', 'desktop trial registry ownership is invalid');
 }
 
 async function stoppedChildEvidence(identity, operationId, generation, version, pid) {
@@ -71,10 +69,7 @@ export function consumeDesktopStoppedTrialProof(proof, identity, serviceLease, r
   assertHeldDesktopServiceLease(serviceLease, identity.data_id);
   const target = assertManifestLease(registryLease);
   const expected = join(identity.data_root, 'config', 'desktop-package.json');
-  const same = process.platform === 'win32'
-    ? resolve(target.path).toLowerCase() === resolve(expected).toLowerCase()
-    : resolve(target.path) === resolve(expected);
-  if (!same) {
+  if (!pathIdentity(target.path, expected)) {
     throw new ContractError('desktop_activation_shutdown_invalid', 'desktop shutdown registry ownership changed');
   }
   state.used = true;
@@ -86,10 +81,7 @@ async function afterConfirmedStop(identity, serviceLease, registryLease, options
   assertHeldDesktopServiceLease(serviceLease, identity.data_id);
   const target = assertManifestLease(registryLease);
   const expected = join(identity.data_root, 'config', 'desktop-package.json');
-  const same = process.platform === 'win32'
-    ? resolve(target.path).toLowerCase() === resolve(expected).toLowerCase()
-    : resolve(target.path) === resolve(expected);
-  if (!same) throw new ContractError('desktop_activation_shutdown_invalid', 'desktop shutdown registry ownership changed');
+  if (!pathIdentity(target.path, expected)) throw new ContractError('desktop_activation_shutdown_invalid', 'desktop shutdown registry ownership changed');
   const childIdentity = await stoppedChildEvidence(identity, options.operationId,
     running.instance_id, running.package_version, childPid);
   const token = Object.freeze({});

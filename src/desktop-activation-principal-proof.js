@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease } from './persistence/manifest-lock.js';
+import { pathIdentity } from './path-identity.js';
 
 const PROOFS = new WeakMap();
 const invalid = () => new ContractError('desktop_activation_transition_proof_invalid',
   'desktop same-process transition proof is unavailable; preserve the activation barrier.');
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 
 function owner(entry) {
   try {
     assertHeldDesktopServiceLease(entry.serviceLease, entry.identity.data_id);
     const target = assertManifestLease(entry.registryLease);
-    if (!samePath(target.path, join(entry.identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+    if (!pathIdentity(target.path, join(entry.identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
   } catch { throw invalid(); }
 }
 

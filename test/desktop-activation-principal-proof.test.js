@@ -4,14 +4,15 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { ContractError } from '../src/ids.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 async function proofFunctions() {
   const source = await readFile(new URL('../src/desktop-activation-principal-proof.js', import.meta.url), 'utf8');
   const executable = source.replace(/^import\s[\s\S]*?;\r?\n/gm, '').replaceAll('export function', 'function');
   let held = true, registryHeld = true;
-  const functions = Function('join', 'resolve', 'ContractError', 'assertHeldDesktopServiceLease', 'assertManifestLease',
+  const functions = Function('join', 'resolve', 'pathIdentity', 'ContractError', 'assertHeldDesktopServiceLease', 'assertManifestLease',
     executable + '\nreturn { issueDesktopPrincipalTransitionProof, consumeDesktopPrincipalTransitionProof };')(
-    join, resolve, ContractError,
+    join, resolve, pathIdentity, ContractError,
     () => { if (!held) throw Error('lease lost'); },
     () => { if (!registryHeld) throw Error('registry lost'); return { path: join('C:\\root', 'config', 'desktop-package.json') }; });
   return { ...functions, loseLease: () => { held = false; }, loseRegistry: () => { registryHeld = false; } };

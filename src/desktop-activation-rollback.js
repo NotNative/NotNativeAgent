@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
@@ -10,13 +10,12 @@ import { consumeDesktopStoppedTrialProof } from './desktop-activation-trial.js';
 import { readDesktopServiceDiscovery } from './desktop-service-discovery.js';
 import { readInstallBytes, hash, json, operationValid } from './desktop-install-storage.js';
 import { exactRecord } from './desktop-service-contract.js';
+import { pathIdentity } from './path-identity.js';
 
 const invalid = () => new ContractError('desktop_activation_rollback_invalid',
   'desktop registration rollback is unresolved; preserve the pending barrier and evidence.');
 const CHILD_KEYS = ['protocol', 'operation_id', 'installation_id', 'data_id', 'generation', 'version', 'process_identity'];
 const IDENTITY_KEYS = ['version', 'pid', 'platform', 'start_id'];
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 function paths(identity, operationId) {
   const root = join(identity.data_root, 'runtime', 'desktop');
   const activation = join(root, 'install-slots', 'activations');
@@ -29,7 +28,7 @@ function assertOwner(identity, serviceLease, registryLease, options) {
     || !operationValid(options?.generation)) throw invalid();
   assertHeldDesktopServiceLease(serviceLease, identity?.data_id);
   const target = assertManifestLease(registryLease);
-  if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+  if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
 }
 function parseChild(bytes) {
   if (!bytes) throw invalid();

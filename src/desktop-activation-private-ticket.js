@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Dormant held-owner proof of one private desktop UI ticket and its redemption. */
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
 import { assertDesktopAttach } from './desktop-service-attach.js';
 import { verifyDesktopPublishedTrialHealthUnderOwnership } from './desktop-activation-post-publication-health.js';
+import { pathIdentity } from './path-identity.js';
 
 const USED = new WeakSet();
 const invalid = () => new ContractError('desktop_activation_health_invalid',
   'Private desktop attach proof is unresolved; retain the admission barrier and both owners.');
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 const exact = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).sort().join(',') === [...keys].sort().join(',');
 
@@ -24,7 +23,7 @@ function assertSelected(identity, state, serviceLease, registryLease, options) {
     || state.native?.isListening?.() !== true || !state.ui) throw invalid();
   assertHeldDesktopServiceLease(serviceLease, identity.data_id);
   const target = assertManifestLease(registryLease);
-  if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+  if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
   const evidence = state.native.selectedPrincipalEvidence?.(state);
   if (!evidence || evidence.operation_id !== options.operationId
     || evidence.stage_operation_id !== options.stageOperationId

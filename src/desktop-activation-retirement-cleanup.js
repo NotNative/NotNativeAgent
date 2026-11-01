@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Resumable exact evidence cleanup. Admission and the selected controller stay barred. */
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { opendir, unlink } from 'node:fs/promises';
 import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from './ids.js';
@@ -15,19 +15,18 @@ import { noLinks } from './desktop-payload-contract-files.js';
 import { readInstallBytes, writeInstallNew, hash, json, operationValid } from './desktop-install-storage.js';
 import { retirementCleanupPaths, inspectRetirementArtifacts,
   removeRetirementArtifact, assertRetirementBarrierAcl } from './desktop-activation-retirement-cleanup-files.js';
+import { pathIdentity } from './path-identity.js';
 
 const invalid = () => new ContractError('desktop_activation_retirement_cleanup_invalid',
   'desktop retirement cleanup is unresolved; preserve the pending barrier and remaining evidence.');
 const ACTIVE = new WeakSet();
 const CLEARED_ADMISSION_PROOFS = new WeakMap();
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 function assertOwner(identity, serviceLease, registryLease, options) {
   if (!identity || !options || !operationValid(options.operationId)
     || !operationValid(options.stageOperationId) || !operationValid(options.generation)
     || Object.keys(options).some(key => !['operationId', 'stageOperationId', 'generation', 'signal'].includes(key))) throw invalid();
   assertHeldDesktopServiceLease(serviceLease, identity.data_id);
-  if (!samePath(assertManifestLease(registryLease).path,
+  if (!pathIdentity(assertManifestLease(registryLease).path,
     join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
 }
 function assertLive(state, identity, serviceLease, options) {
@@ -303,7 +302,7 @@ export function consumeDesktopClearedAdmissionProof(proof, identity, state, serv
     || entry.registryLease !== registryLease || entry.generation !== state.record?.instance_id
     || !ACTIVE.has(serviceLease)) throw invalid();
   assertHeldDesktopServiceLease(serviceLease, identity.data_id);
-  if (!samePath(assertManifestLease(registryLease).path,
+  if (!pathIdentity(assertManifestLease(registryLease).path,
     join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
   assertLive(state, identity, serviceLease, { operationId: state.activationOperationId,
     stageOperationId: state.stageOperationId, generation: entry.generation });

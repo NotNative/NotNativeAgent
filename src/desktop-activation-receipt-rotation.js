@@ -12,7 +12,7 @@
  * crash state can strand evidence between the two locations.
  */
 import { lstat, opendir, rename } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
@@ -21,11 +21,10 @@ import { consumedRetirementPair } from './desktop-activation-initialization-db.j
 import { noLinks } from './desktop-payload-contract-files.js';
 import { runPrivateWindowsProgram, PRIVATE_ACL_PROGRAM } from './desktop-service-private-windows.js';
 import { readInstallBytes, hash } from './desktop-install-storage.js';
+import { pathIdentity } from './path-identity.js';
 
 const invalid = () => new ContractError('desktop_activation_receipt_rotation_invalid',
   'desktop consumed retirement receipt could not be archived; the admission bar is preserved.');
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 const MEMBER = { commit: 'activation-retirement-commit.json', cleared: 'activation-retirement-cleared.json' };
 const ACL = PRIVATE_ACL_PROGRAM + String.raw`
 try {
@@ -43,7 +42,7 @@ function assertOwner(identity, serviceLease, registryLease) {
   if (!identity || typeof identity.data_root !== 'string' || typeof identity.data_id !== 'string') throw invalid();
   assertHeldDesktopServiceLease(serviceLease, identity.data_id);
   const target = assertManifestLease(registryLease);
-  if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+  if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
 }
 async function isFile(path) {
   try { return (await lstat(path)).isFile(); }

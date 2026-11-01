@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { readFile, access } from 'node:fs/promises';
 import { ContractError } from './ids.js';
+import { pathIdentity } from './path-identity.js';
 
 async function observe(marker, runProcess, args) {
   const result = await runProcess(marker.node, ['--disable-warning=ExperimentalWarning',
@@ -42,7 +43,7 @@ export async function verifyUpdatePlatform(marker, expectedVersion, before, runP
   const after = await observeUpdatePlatform(marker, runProcess, platform);
   if (!before && !after) return null;
   const registration = await observe(marker, runProcess, ['desktop', 'package', 'status']);
-  const sameRoot = (left, right) => resolve(left).toLowerCase() === resolve(right).toLowerCase();
+  const sameRoot = (left, right) => pathIdentity(left, right, 'win32');
   if (!after || registration?.registered !== true || registration.valid !== true
     || registration.version !== expectedVersion || after.version !== expectedVersion
     || typeof registration.root !== 'string' || !sameRoot(registration.root, after.root)

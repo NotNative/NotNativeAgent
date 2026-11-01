@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { ContractError } from '../src/ids.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 async function fixture({ verifyFails = false, attachFails = false, attachChanges = false } = {}) {
   const trace = [];
@@ -11,7 +12,7 @@ async function fixture({ verifyFails = false, attachFails = false, attachChanges
     controller: { isListening: () => true }, native: { isListening: () => true },
     record: { instance_id: 'generation' }, activationOperationId: 'operation', identity: {}, lease: {} };
   const registryLease = {};
-  const dependencies = { ContractError,
+  const dependencies = { pathIdentity, ContractError,
     verifyDesktopClearedAdmissionUnderOwnership: async (_identity, subject, _serviceLease, registry, options, publish) => {
       assert.equal(subject, state); assert.equal(registry, registryLease);
       assert.equal(options.operationId, 'operation');

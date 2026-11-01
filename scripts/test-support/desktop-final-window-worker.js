@@ -6,6 +6,7 @@ import { ContractError } from '../../src/ids.js';
 import { acquireDesktopServiceLock, assertHeldDesktopServiceLease, withDesktopServiceLease } from '../../src/desktop-service-lock.js';
 import { withManifestLock } from '../../src/persistence/manifest-transaction.js';
 import { assertManifestLease, runManifestLeaseWork } from '../../src/persistence/manifest-lock.js';
+import { pathIdentity } from '../../src/path-identity.js';
 import { appendDesktopActivationPhase } from '../../src/desktop-activation-journal.js';
 import { hash, json, writeInstallNew } from '../../src/desktop-install-storage.js';
 
@@ -21,7 +22,7 @@ const lease = await acquireDesktopServiceLock({ dataRoot: root });
 await withManifestLock(join(root, 'config', 'desktop-package.json'), {}, async registryLease => {
   const proof = { installation_id: identity.installation_id, data_id: identity.data_id,
     generation: randomUUID(), version: '20261003-23', native_state: 'ready', gui_http_status: 200 };
-  const dependencies = { join, resolve, ContractError, assertHeldDesktopServiceLease, withDesktopServiceLease,
+  const dependencies = { join, resolve, pathIdentity, ContractError, assertHeldDesktopServiceLease, withDesktopServiceLease,
     assertManifestLease, runManifestLeaseWork,
     prepareDesktopActivationUnderOwnership: async () => {
       const prepared = await appendDesktopActivationPhase({ ...identity, operation_id: operationId }, directory,

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Private terminal decision under the retained owner; admission remains barred. */
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
@@ -10,18 +10,17 @@ import { readDesktopPrivateTicketReceiptUnderOwnership } from './desktop-activat
 import { verifyDesktopPublishedTrialHealthUnderOwnership } from './desktop-activation-post-publication-health.js';
 import { completionEvidenceSha } from './desktop-activation-ticket-evidence.js';
 import { readInstallBytes, hash, operationValid } from './desktop-install-storage.js';
+import { pathIdentity } from './path-identity.js';
 
 const invalid = () => new ContractError('desktop_activation_transition_proof_invalid',
   'desktop completion is unresolved; preserve the pending barrier and original owner.');
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 function assertOwner(identity, serviceLease, registryLease, options) {
   if (!identity || !options || !operationValid(options.operationId)
     || !operationValid(options.stageOperationId) || !operationValid(options.generation)
     || Object.keys(options).some(key => !['operationId', 'stageOperationId', 'generation', 'signal'].includes(key))) throw invalid();
   assertHeldDesktopServiceLease(serviceLease, identity.data_id);
   const target = assertManifestLease(registryLease);
-  if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+  if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
 }
 async function observed(identity, serviceLease, registryLease, options) {
   const directory = join(identity.data_root, 'runtime', 'desktop', 'install-slots', 'activations', options.operationId);

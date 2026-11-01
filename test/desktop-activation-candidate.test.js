@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from '../src/ids.js';
 import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -29,7 +30,7 @@ async function fixture() {
   const entryPath = 'packages/electron/dist-server/server.mjs';
   const verified = { sha256: payloadSha, bytes: Buffer.alloc(12), manifest: { version: '20261002-8',
     files: [{ path: entryPath, bytes: 100, sha256: sha('entry') }] } };
-  const dependencies = { createHash, join, realpath: async path => path, ContractError,
+  const dependencies = { pathIdentity, createHash, join, realpath: async path => path, ContractError,
     assertHeldDesktopServiceLease: (value, dataId) => { if (value !== lease || !lease.held || dataId !== identity.data_id) throw new ContractError('desktop_lock_lost', 'lost'); },
     withDesktopServiceLease: async (_lease, _dataId, operation) => operation(new AbortController().signal),
     assertManifestLease: value => { if (value !== registry || !registry.held) throw new ContractError('manifest_lock_invalid', 'lost');

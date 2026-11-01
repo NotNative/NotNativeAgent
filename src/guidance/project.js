@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { lstat, open, realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { pathIdentity } from '../path-identity.js';
 
 const MAX_DIRECTORIES = 32;
 const MAX_DOCUMENTS = 64;
@@ -106,9 +107,9 @@ function addAncestors(result, root, target, limit) {
   let current = target;
   while (inside(root, current) && result.size < limit) {
     result.add(current);
-    if (samePath(current, root)) break;
+    if (pathIdentity(current, root)) break;
     const parent = dirname(current);
-    if (samePath(parent, current)) break;
+    if (pathIdentity(parent, current)) break;
     current = parent;
   }
 }
@@ -118,5 +119,4 @@ function inside(root, target) {
   return path === '' || (!path.startsWith('..') && !isAbsolute(path));
 }
 
-function samePath(left, right) { return left === right; }
 function pathDepth(root, path) { const value = relative(root, path); return value ? value.split(/[\\/]/u).length : 0; }

@@ -14,18 +14,17 @@ import { verifyDesktopPayload, readPayloadBytes } from './desktop-payload-contra
 import { validateDesktopPackage } from './desktop-package.js';
 import { readDesktopActivationJournal } from './desktop-activation-journal.js';
 import { hasActivationInitialization } from './desktop-activation-initialization-db.js';
+import { pathIdentity } from './path-identity.js';
 
 const CAPS = new WeakMap();
 const ISSUED = new WeakMap();
 const invalid = () => new ContractError('desktop_activation_candidate_invalid',
   'The staged desktop package or activation preparation could not be verified; keep the admission barrier.');
-const samePath = (left, right) => process.platform === 'win32'
-  ? left.toLowerCase() === right.toLowerCase() : left === right;
 
 function assertOwner(identity, serviceLease, registryLease) {
   assertHeldDesktopServiceLease(serviceLease, identity?.data_id);
   const target = assertManifestLease(registryLease);
-  if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+  if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
 }
 function requireReady(ready, transaction) {
   const expected = json({ protocol: '2.0', operation_id: transaction.record.operation_id,
@@ -48,11 +47,11 @@ async function verifiedCandidate(identity, store, stageOperationId, registryLeas
   if (verified.sha256 !== transaction.record.payload_sha256 || verified.manifest.version !== proof.value.version
     || proof.value.bytes !== verified.bytes.length + verified.manifest.files.reduce((sum, file) => sum + file.bytes, 0)) throw invalid();
   const info = await validateDesktopPackage(transaction.slot, { serviceHost: installHost(identity) });
-  if (!samePath(info.root, transaction.slot) || info.version !== verified.manifest.version) throw invalid();
+  if (!pathIdentity(info.root, transaction.slot) || info.version !== verified.manifest.version) throw invalid();
   const manifest = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await readPayloadBytes(info.manifestPath, 16384)));
   const entrypoint = await realpath(join(info.root, manifest.service_activation.entrypoint));
   const expectedEntry = verified.manifest.files.find(file => file.path === manifest.service_activation.entrypoint);
-  if (!expectedEntry || !samePath(entrypoint, join(info.root, expectedEntry.path))) throw invalid();
+  if (!expectedEntry || !pathIdentity(entrypoint, join(info.root, expectedEntry.path))) throw invalid();
   const snapshot = expectedRevision === undefined ? await readLockedManifestSnapshot(registryLease) : null;
   const desired = serializeManifestBytes({ root: info.root, version: info.version, protocol: info.protocol });
   const evidence = Object.freeze({ protocol: '2.0', stage_operation_id: stageOperationId,

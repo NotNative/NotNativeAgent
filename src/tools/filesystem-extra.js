@@ -5,6 +5,7 @@ import { constants } from 'node:fs';
 import { copyFile, mkdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { ContractError } from '../ids.js';
 import { normalizeArgumentAliases } from './argument-normalization.js';
+import { pathIdentity } from '../path-identity.js';
 
 export function filesystemExtraDefinitions(paths, changes, receipts) {
   return [metadataDefinition(paths), directoryDefinition(paths), copyDefinition(paths, changes, receipts), moveDefinition(paths, changes, receipts)];
@@ -29,14 +30,14 @@ function directoryDefinition(paths) {
   }, ['path'], async (args) => ({ args: shape(args, ['path']), resolved: await paths.resolveDirectoryWrite(args.path) }),
   async (request, signal) => {
     const before = await paths.resolveDirectoryWrite(request.args.path);
-    if (!samePath(before.path, request.resolved.path)) {
+    if (!pathIdentity(before.path, request.resolved.path)) {
       throw new ContractError('tool_revalidation_drift', 'directory target changed after review');
     }
     abort(signal);
     if (!before.exists) await mkdir(request.resolved.path, { recursive: true });
     abort(signal);
     const current = await paths.resolveDirectory(request.resolved.path);
-    if (!samePath(current.path, request.resolved.path)) {
+    if (!pathIdentity(current.path, request.resolved.path)) {
       throw new ContractError('tool_revalidation_drift', 'directory target changed after review');
     }
     return {
@@ -146,10 +147,6 @@ async function assertAbsent(path) {
 }
 
 function abort(signal) { if (signal?.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled'); }
-function samePath(left, right) {
-  const normalize = (value) => process.platform === 'win32' ? value.toLowerCase() : value;
-  return normalize(left) === normalize(right);
-}
 function invalid(message = 'filesystem operation arguments do not match the schema') {
   return new ContractError('tool_schema_invalid', message);
 }

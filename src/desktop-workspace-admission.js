@@ -42,6 +42,7 @@ import { requireIntegrationPermission } from './integration-principal.js';
 import { readManifestOperation, readManifestSnapshot, transactManifest } from './persistence/manifest-transaction.js';
 import { readCanonicalGrant, primaryWorkspaceId, validatePrimary, workspaceId } from './desktop-workspace-grants.js';
 import { readDesktopConfigurationSources } from './desktop-configuration-sources.js';
+import { pathIdentity } from './path-identity.js';
 
 const ID = /^[A-Za-z0-9_-]{1,128}$/u;
 const REVISION = /^(?:absent|[a-f0-9]{64})$/u;
@@ -51,7 +52,6 @@ const GRANT_KEYS = ['root', 'id', 'device', 'inode'];
 const DOCUMENT_KEYS = ['protocol', 'installation_id', 'data_id', 'admitted'];
 const ADMISSION_KEYS = ['root', 'id', 'device', 'inode', 'admitted_at', 'operation_id'];
 const WORKSPACE_ID = /^ws_[a-f0-9]{24}$/u;
-const same = (a, b) => process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 const fail = (code = 'desktop_workspace_admission_invalid', message = 'Native workspace admission could not be verified.') =>
   new ContractError(code, message);
 const conflict = message => fail('desktop_workspace_admission_root_conflict', message);
@@ -143,17 +143,17 @@ async function readSecondaryGrant(ctx, attached, prefetchedSnapshot) {
   if (secondary === null) return null;
   if (!record(secondary) || !exact(secondary, GRANT_KEYS) || !WORKSPACE_ID.test(secondary.id ?? '')) throw grantDocumentError();
   const actual = await readCanonicalGrant(secondary.root);
-  if (secondary.id !== actual.id || same(secondary.root, attached.root) || actual.id === attached.id
+  if (secondary.id !== actual.id || pathIdentity(secondary.root, attached.root) || actual.id === attached.id
     || ['root', 'device', 'inode'].some(key => secondary[key] !== actual[key])) throw grantDocumentError();
   return Object.freeze({ root: actual.root, id: actual.id });
 }
 
 async function verifyAdmissionRow(value, attached, admitted) {
   assertAdmittedRowShape(value);
-  if (same(value.root, attached.root) || value.id === workspaceId(attached.root)) {
+  if (pathIdentity(value.root, attached.root) || value.id === workspaceId(attached.root)) {
     throw fail('desktop_workspace_admission_invalid', 'A stored admission copies the attached workspace root.');
   }
-  if (admitted.some(row => row.id === value.id || same(row.root, value.root))) {
+  if (admitted.some(row => row.id === value.id || pathIdentity(row.root, value.root))) {
     throw fail('desktop_workspace_admission_invalid', 'Two stored admissions claim the same workspace root.');
   }
   let actual;
@@ -178,7 +178,7 @@ async function verifyStoreDocument(document, ctx) {
  * OPERATOR'S input maps an equivalent spelling onto the row by canonical
  * ws_ id. Stored rows are never probed in this phase. */
 function resolveTarget(admitted, root, canonical) {
-  const byPath = admitted.find(row => same(row.root, root));
+  const byPath = admitted.find(row => pathIdentity(row.root, root));
   if (byPath) return byPath;
   if (!canonical) return null;
   return admitted.find(row => row.id === canonical.id) ?? null;
@@ -187,7 +187,7 @@ function resolveTarget(admitted, root, canonical) {
 /** Shared secondary-clear refusal: revoking a row the grant surface also
  * anchors (by id or raw path) redirects the operator to the grant surface. */
 function assertSecondaryClear(row, secondary) {
-  if (secondary && (row.id === secondary.id || same(row.root, secondary.root))) throw SECONDARY_CLEAR();
+  if (secondary && (row.id === secondary.id || pathIdentity(row.root, secondary.root))) throw SECONDARY_CLEAR();
 }
 
 /** Lenient grant projection for the revoke refusal check: a poisoned or
@@ -238,7 +238,7 @@ async function readInventoryState(ctx) {
   const seen = [], admitted = [], unavailable = [];
   for (const value of document.admitted) {
     assertAdmittedRowShape(value);
-    if (seen.some(row => row.id === value.id || same(row.root, value.root))) throw storeError();
+    if (seen.some(row => row.id === value.id || pathIdentity(row.root, value.root))) throw storeError();
     seen.push(value);
     try { admitted.push(await verifyAdmissionRow(value, attached, admitted)); }
     catch (error) {
@@ -305,13 +305,13 @@ async function admit(ctx, principal, input) {
           const current = await readChannelState(ctx);
           const planned = await readCanonicalGrant(root);
           const id = workspaceId(planned.root);
-          if (same(planned.root, current.attached.root) || id === workspaceId(current.attached.root)) {
+          if (pathIdentity(planned.root, current.attached.root) || id === workspaceId(current.attached.root)) {
             throw conflict('The attached workspace root is already anchored by the native configuration.');
           }
-          if (current.secondary && (same(planned.root, current.secondary.root) || id === current.secondary.id)) {
+          if (current.secondary && (pathIdentity(planned.root, current.secondary.root) || id === current.secondary.id)) {
             throw conflict('The granted secondary root is already anchored by the workspace grant surface.');
           }
-          if (current.admitted.some(row => row.id === id || same(row.root, planned.root))) {
+          if (current.admitted.some(row => row.id === id || pathIdentity(row.root, planned.root))) {
             throw conflict('The workspace root is already admitted.');
           }
           return { protocol: '1.0', ...ctx.identity,
@@ -343,7 +343,7 @@ async function revoke(ctx, principal, input) {
           assertAdmittedRowShape(live);
           assertSecondaryClear(live, await grantedSecondary(ctx));
           return { protocol: '1.0', ...ctx.identity,
-            admitted: fresh.admitted.filter(row => !same(row.root, live.root)).map(persistedRow) };
+            admitted: fresh.admitted.filter(row => !pathIdentity(row.root, live.root)).map(persistedRow) };
         } catch (error) { guard.capture(error); }
       },
       validate: async next => { try { await verifyRevocationDocument(next, ctx); } catch (error) { guard.capture(error); } } });

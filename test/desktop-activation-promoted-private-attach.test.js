@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { ContractError } from '../src/ids.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 async function harness() {
   const identity = { installation_id: 'nna_selected', data_id: 'data_selected' };
@@ -25,7 +26,7 @@ async function harness() {
     child: { failed: false, child: { exitCode: null }, command: async () => { commands++; return frame; } },
     controller: { isListening: () => true },
     native: { isListening: () => true, promotedPrincipalEvidence: () => promoted ? evidence : null } };
-  const dependencies = { ContractError,
+  const dependencies = { pathIdentity, ContractError,
     withDesktopServiceLease: (_lease, _data, work) => work(new AbortController().signal),
     runManifestLeaseWork: (_lease, work) => work(), assertDesktopAttach: () => {},
     readDesktopPrivateTicketReceiptUnderOwnership: async () => {

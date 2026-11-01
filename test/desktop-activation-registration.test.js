@@ -8,6 +8,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from '../src/ids.js';
 import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
 import { assertNoDesktopInstallTransaction, writeInstallNew as realWriteInstallNew } from '../src/desktop-install-storage.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -39,7 +40,7 @@ async function fixture(t, options = {}) {
     child: { failed: false, child: { pid: 4321, exitCode: null } } };
   let captures = 0, writes = 0, casCalls = 0;
   const processIdentity = { version: 1, pid: 4321, platform: 'win32', start_id: '123456789' };
-  const dependencies = { join, resolve, isAbsolute, ContractError, serializeManifestBytes, json, hash: sha,
+  const dependencies = { pathIdentity, join, resolve, isAbsolute, ContractError, serializeManifestBytes, json, hash: sha,
     operationValid: value => value === operationId || value === stageOperationId,
     assertHeldDesktopServiceLease: actual => { if (actual !== lease) throw new ContractError('desktop_lock_lost','lost'); },
     withDesktopServiceLease: (_lease,_dataId,operation) => operation(new AbortController().signal),

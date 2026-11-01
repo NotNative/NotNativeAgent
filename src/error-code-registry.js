@@ -300,7 +300,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'update_check_timeout', 'update_check_unavailable',
     'update_installation_invalid', 'update_installation_missing', 'update_network_unavailable',
     'update_path_unsafe', 'update_response_invalid', 'update_verification_failed',
-    'update_version_invalid', 'work_command_invalid', 'work_editor_unavailable',
+    'update_version_invalid', 'path_identity_invalid', 'work_command_invalid', 'work_editor_unavailable',
     'work_plan_invalid', 'work_revision_conflict', 'work_snapshot_invalid',
     'work_state_invalid', 'work_text_invalid', 'workspace_change_forbidden',
     'workspace_change_unavailable', 'workspace_configuration_invalid', 'workspace_path_invalid',

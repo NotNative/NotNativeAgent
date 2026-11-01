@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { isAbsolute, join, resolve } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
@@ -10,11 +10,10 @@ import { readDesktopActivationJournal, appendDesktopActivationPhase } from './de
 import { readInstallBytes, writeInstallNew, json, hash, operationValid } from './desktop-install-storage.js';
 import { captureDiscoveryProcessIdentity } from './desktop-service-discovery-windows.js';
 import { validIdentity } from './reliability/process-identity.js';
+import { pathIdentity } from './path-identity.js';
 
 const invalid = () => new ContractError('desktop_activation_registration_invalid',
   'desktop registration selection is unresolved; preserve the pending barrier and exact prior bytes.');
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 function locations(identity, operationId) {
   const root = join(identity.data_root, 'runtime', 'desktop', 'install-slots', 'activations');
   return { directory: join(root, operationId), candidate: join(root, `${operationId}.candidate.json`),
@@ -25,7 +24,7 @@ function assertOwner(identity, serviceLease, registryLease, operationId, stageOp
   if (!operationValid(operationId) || !operationValid(stageOperationId)) throw invalid();
   assertHeldDesktopServiceLease(serviceLease, identity?.data_id);
   const target = assertManifestLease(registryLease);
-  if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+  if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
 }
 async function preparedEvidence(identity, serviceLease, registryLease, operationId, stageOperationId) {
   const location = locations(identity, operationId);

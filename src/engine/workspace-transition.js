@@ -2,12 +2,13 @@
 import { ProjectGuidance } from '../guidance/project.js';
 import { ContractError } from '../ids.js';
 import { ProjectIntake } from '../project-intake.js';
+import { pathIdentity } from '../path-identity.js';
 
 export async function changeEngineWorkspace(engine, target, operations = {}) {
   assertWorkspaceTransition(engine);
   const previousWorkspace = engine.tools.paths.root;
   const prepared = await engine.tools.prepareWorkspaceRoot(target);
-  if (samePath(previousWorkspace, prepared.root)) {
+  if (pathIdentity(previousWorkspace, prepared.root)) {
     return Object.freeze({ previousWorkspace, workspaceRoot: prepared.root, changed: false });
   }
   const nextConfig = workspaceConfig(engine.config, prepared.root);
@@ -27,7 +28,7 @@ export async function changeEngineWorkspace(engine, target, operations = {}) {
 }
 
 export async function restoreEngineWorkspace(engine, target) {
-  if (!target || samePath(engine.tools.paths.root, target)) return false;
+  if (!target || pathIdentity(engine.tools.paths.root, target)) return false;
   if (engine.config.executionManifest !== null || desktopBoundSurface(engine)) {
     throw new ContractError('workspace_change_forbidden', 'authenticated host workspace scope is immutable');
   }
@@ -95,8 +96,3 @@ function desktopBoundSurface(engine) {
   return engine.surface === 'desktop' || engine.surface === 'desktop_subagent';
 }
 
-function samePath(left, right) {
-  return process.platform === 'win32'
-    ? String(left).toLowerCase() === String(right).toLowerCase()
-    : left === right;
-}

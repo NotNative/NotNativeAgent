@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-import { measureContext } from '../context.js';
 import { DEFAULT_MODEL_OUTPUT_TOKENS } from './output-headroom.js';
 
 // Conservative empirical approximation used only for ASCII when a provider tokenizer is unavailable.

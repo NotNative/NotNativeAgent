@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { dirname, normalize, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { redactText } from '../redaction.js';
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
 import { missingFilesystemPrerequisite, satisfiesFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
 import { stableRecoveryJson, recoveryToolIdentity } from '../reliability/recovery-tool-identity.js';
 import { processTerminationEvidence } from '../reliability/process-termination.js';
+import { pathIdentityKey } from '../path-identity.js';
 import { toolLifecycleStatus, toolReviewOutcome } from './tool-result-contract.js';
 
 const MAX_CONSTRAINTS = 64;
@@ -215,8 +216,7 @@ function provesParentObservation(item, workspaceRoot, parent) {
 }
 
 function comparablePath(value, workspaceRoot) {
-  const absolute = normalize(resolve(workspaceRoot ?? process.cwd(), value));
-  return process.platform === 'win32' ? absolute.toLowerCase() : absolute;
+  return pathIdentityKey(resolve(workspaceRoot ?? process.cwd(), value));
 }
 
 function digest(value) { return createHash('sha256').update(value).digest('hex'); }

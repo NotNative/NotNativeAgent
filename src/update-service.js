@@ -5,6 +5,7 @@ import { access, cp, mkdir, open, readFile, readdir, realpath, rename, rm, stat,
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { ContractError } from './ids.js';
+import { pathIdentity } from './path-identity.js';
 import { PRODUCT_NAME, VERSION } from './product.js';
 import { observeUpdatePlatform, verifyUpdatePlatform, verifyDesktopUpdateSource } from './update-platform.js';
 
@@ -307,7 +308,7 @@ async function verifyInstalledVersion(marker, expectedVersion, runProcess) {
 }
 
 function sameInstallPath(left, right) {
-  return process.platform === 'win32' ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
+  return pathIdentity(left, right);
 }
 
 async function runChecked(command, args, runProcess, code, options = {}) {

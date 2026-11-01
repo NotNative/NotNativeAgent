@@ -9,6 +9,7 @@ import { desktopQuestionBroker } from '../desktop-questions.js';
 import { ProviderRunner } from '../provider/runner.js';
 import { RoutedSemanticReviewer } from '../provider/model-reviewer.js';
 import { ReviewerLedger } from '../persistence/reviewer-ledger.js';
+import { pathIdentity } from '../path-identity.js';
 import { MandatoryReviewer } from '../reviewer.js';
 import { mandatoryReviewEventTimeout, ToolGovernor } from '../tools/governor.js';
 import { ToolLoop } from '../tools/loop.js';
@@ -26,7 +27,7 @@ import { SkillRegistry } from '../skill-registry.js';
 import { GovernanceEngine } from '../governance-engine.js';
 import { GroundingPolicy } from '../governance/grounding-policy.js';
 import { ContractError } from '../ids.js';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ConversationWork } from '../conversation-work.js';
 import { TelegramNotificationQueue } from '../notifications/telegram.js';
 import { CredentialResolver } from '../credential-bindings.js';
@@ -248,10 +249,7 @@ function installNotifications(engine, options) {
 }
 
 function sameRecoveryRoot(left, right) {
-  const normalizedLeft = resolve(left);
-  const normalizedRight = resolve(right);
-  return process.platform === 'win32'
-    ? normalizedLeft.toLowerCase() === normalizedRight.toLowerCase() : normalizedLeft === normalizedRight;
+  return pathIdentity(left, right);
 }
 
 function browserToolOptions(engine, options, imageObserver) {

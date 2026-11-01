@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Durable evidence of a past promoted private attach, never a completed service. */
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease, runManifestLeaseWork } from './persistence/manifest-lock.js';
@@ -9,11 +9,10 @@ import { readDesktopPrivateTicketReceiptUnderOwnership } from './desktop-activat
 import { probeDesktopPromotedPrivateAttachUnderOwnership } from './desktop-activation-promoted-private-attach.js';
 import { promotedAttachEvidenceSha } from './desktop-activation-ticket-evidence.js';
 import { readInstallBytes, hash, operationValid } from './desktop-install-storage.js';
+import { pathIdentity } from './path-identity.js';
 
 const invalid = () => new ContractError('desktop_activation_transition_proof_invalid',
   'Promoted desktop attach receipt is unresolved; preserve the barrier and both owners.');
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 const place = (identity, operationId) => ({ directory: join(identity.data_root, 'runtime', 'desktop',
   'install-slots', 'activations', operationId), child: join(identity.data_root, 'runtime', 'desktop',
   'install-slots', 'activations', `${operationId}.child.json`) });
@@ -23,7 +22,7 @@ function assertOwner(identity, serviceLease, registryLease, options) {
     || Object.keys(options).some(key => !['operationId', 'stageOperationId', 'generation', 'signal'].includes(key))) throw invalid();
   assertHeldDesktopServiceLease(serviceLease, identity.data_id);
   const target = assertManifestLease(registryLease);
-  if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+  if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
 }
 async function observed(identity, serviceLease, registryLease, options) {
   const path = place(identity, options.operationId);

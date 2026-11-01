@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease } from './desktop-service-lock.js';
 import { assertManifestLease } from './persistence/manifest-lock.js';
 import { operationValid } from './desktop-install-storage.js';
 import { consumeDesktopClearedAdmissionProof } from './desktop-activation-retirement-cleanup.js';
+import { pathIdentity } from './path-identity.js';
 
 const GATES = new WeakMap();
 const invalid = () => new ContractError('desktop_trial_admission_invalid',
@@ -13,8 +14,6 @@ const mutationDenied = () => new ContractError('desktop_trial_mutation_denied',
   'Unpublished desktop trial cannot perform native mutations.');
 const promotionPending = () => new ContractError('desktop_trial_admission_invalid',
   'Promoted desktop trial accepts only private health until completion is durable.');
-const samePath = (left, right) => process.platform === 'win32'
-  ? resolve(left).toLowerCase() === resolve(right).toLowerCase() : resolve(left) === resolve(right);
 
 /** The native gate stays quarantined until exact retained-owner clearance is consumed. */
 export function createDesktopTrialAdmissionGate(identity, state, serviceLease, registryLease, binding) {
@@ -77,7 +76,7 @@ function assertDesktopTrialOwnerInternal(entry) {
     assertHeldDesktopServiceLease(serviceLease, identity.data_id);
     if (!entry.transferred) {
       const target = assertManifestLease(registryLease);
-      if (!samePath(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
+      if (!pathIdentity(target.path, join(identity.data_root, 'config', 'desktop-package.json'))) throw invalid();
     } else if (!state.retained || !state.retainedLeaseArmed || !state.nativePrincipalPromoted
       || !state.registrationSelected || !state.native?.isListening?.()
       || !state.controller?.isListening?.()) throw invalid();

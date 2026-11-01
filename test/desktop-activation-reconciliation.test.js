@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path';
 import { ContractError } from '../src/ids.js';
 import { serializeManifestBytes } from '../src/persistence/manifest-files.js';
 import { assertNoDesktopInstallTransaction } from '../src/desktop-install-storage.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -55,7 +56,7 @@ async function fixture(t, options = {}) {
   const files = new Map([[markerPath, marker], [join(activation, `${operationId}.candidate.json`), json(candidate)]]);
   if (before) files.set(join(activation, `${operationId}.registration.before`), before);
   if (options.child !== false) files.set(join(activation, `${operationId}.child.json`), json(child));
-  const dependencies = { join, resolve, ContractError, serializeManifestBytes, json, hash,
+  const dependencies = { pathIdentity, join, resolve, ContractError, serializeManifestBytes, json, hash,
     operationValid: value => value === operationId || value === stageOperationId || value === generation,
     assertHeldDesktopServiceLease: lease => { if (lease !== serviceLease) throw new Error('forged lease'); },
     withDesktopServiceLease: (_lease, _id, work) => work(new AbortController().signal),

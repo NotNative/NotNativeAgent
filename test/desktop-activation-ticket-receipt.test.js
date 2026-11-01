@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { ContractError } from '../src/ids.js';
 import { privateTicketEvidenceSha, promotedAttachEvidenceSha } from '../src/desktop-activation-ticket-evidence.js';
+import { pathIdentity } from '../src/path-identity.js';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value) + '\n');
@@ -48,7 +49,7 @@ async function fixture() {
   const files = new Map([[join(identity.data_root, 'runtime', 'desktop', 'installation-pending.json'), marker],
     [join(activation, `${operationId}.candidate.json`), json(candidate.evidence)],
     [join(activation, `${operationId}.child.json`), childBytes]]);
-  const dependencies = { join, resolve, isDeepStrictEqual, ContractError, privateTicketEvidenceSha,
+  const dependencies = { pathIdentity, join, resolve, isDeepStrictEqual, ContractError, privateTicketEvidenceSha,
     promotedAttachEvidenceSha, hash, json,
     serializeManifestBytes: value => json(value),
     readDesktopSelectedActivationCandidate: async () => candidate,
