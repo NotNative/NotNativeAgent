@@ -8,17 +8,13 @@
  * Compatibility: the first-party flat request (polling_timeout_seconds) keeps working and is
  * recorded by the settings census as a compatibility alias of the operation grammar.
  */
-import { createHash } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import { ContractError } from './ids.js';
-import { requireIntegrationPermission } from './integration-principal.js';
 import { MAX_GATEWAY_CONFIG_BYTES, DEFAULT_GATEWAY_CONFIG, normalizeGatewayConfig, normalizeUserId } from './gateway/config.js';
-import { readManifestSnapshot, readManifestOperation, transactManifest } from './persistence/manifest-transaction.js';
+import { createDesktopSettingsTransaction } from './desktop-settings-transaction.js';
 import { DESKTOP_REVISION } from './desktop-request-grammar.js';
 import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
-import { DESKTOP_ID } from './desktop-request-grammar.js';
 
-const idPattern = DESKTOP_ID;
 const operationPattern = DESKTOP_OPERATION_ID;
 const revisionPattern = DESKTOP_REVISION;
 const invalid = () => new ContractError('desktop_gateway_timeout_request_invalid', 'Native gateway settings request is invalid.');
@@ -32,12 +28,6 @@ const SET_FIELDS = Object.freeze({
 });
 const RESET_DEFAULTS = Object.freeze(Object.fromEntries(['enabled', 'token_env', 'workspace_root', 'polling_timeout_seconds']
   .map((field) => [field, DEFAULT_GATEWAY_CONFIG[field]])));
-
-function authorize(principal, permission) {
-  if (typeof principal?.subjectId !== 'string' || !principal.subjectId.trim() || principal.subjectId.length > 256
-    || /[\u0000-\u001f\u007f]/u.test(principal.subjectId) || !Array.isArray(principal.permissions)) throw invalid();
-  requireIntegrationPermission(principal, permission);
-}
 
 function normalizeOperations(operations) {
   if (!Array.isArray(operations) || operations.length < 1 || operations.length > 16) throw invalid();
@@ -149,71 +139,23 @@ function view(snapshot, identity) {
     updated_at: config.updated_at ?? null, application: 'not_applied' };
 }
 
-function requireRevision(snapshot, request) {
-  if (snapshot.revision !== request.expected_revision) throw new ContractError('manifest_revision_conflict', 'Reload gateway settings.');
-  source(snapshot);
-}
-
-function key(principal, identity, operationId) {
-  const subject = createHash('sha256').update(JSON.stringify({ ...identity, actor: principal.subjectId })).digest('hex').slice(0, 24);
-  return `nndgtw_${subject}_${operationId}`;
-}
-
-function receipt(result, identity, operationId) {
-  return { ...identity, operation_id: operationId, persistence: result.persistence, before_revision: result.beforeRevision,
-    persisted_revision: result.persistedRevision, application: 'not_applied', replayed: result.replayed,
-    replay_window: result.replayWindow, next_action: result.persistence === 'saved' ? 'restart_gateway' : 'inspect_native_operation' };
-}
-
 export function createDesktopGatewaySettingsTransaction({ path, installationId, dataId }) {
-  if (typeof path !== 'string' || !isAbsolute(path) || !idPattern.test(installationId ?? '') || !idPattern.test(dataId ?? '')) throw invalid();
-  const identity = { installation_id: installationId, data_id: dataId, scope: 'user' };
-  return Object.freeze({
-    async read(principal) {
-      authorize(principal, 'desktop.configuration.read');
-      return view(await readManifestSnapshot(path), identity);
-    },
-    async preview(principal, input) {
-      authorize(principal, 'desktop.configuration.manage');
-      const request = normalize(input, identity, false), snapshot = await readManifestSnapshot(path);
-      requireRevision(snapshot, request);
-      const proposed = documentWithOperations(snapshot.rawManifest, request.operations);
-      validateDocument(proposed);
-      return { valid: true, ...view({ ...snapshot, rawManifest: proposed }, identity) };
-    },
-    async save(principal, input) {
-      authorize(principal, 'desktop.configuration.manage');
-      const request = normalize(input, identity, true);
-      // A repeated operation keeps its recorded receipt even when the revision
-      // has moved on; the replay check must precede the fast-fail.
-      const operationKey = key(principal, identity, request.operation_id);
-      const replayed = await readManifestOperation(path, operationKey);
-      if (replayed) return receipt(replayed, identity, request.operation_id);
-      // Fast-fail with the honest source code before publishing; the transform
-      // rechecks the revision under the lock for atomicity.
-      const snapshot = await readManifestSnapshot(path);
-      requireRevision(snapshot, request);
-      const result = await transactManifest({ path, expectedRevision: request.expected_revision,
-        operationId: operationKey,
-        payload: { contract: 'desktop-gateway-settings-v1', identity, actor: principal.subjectId,
-          operations: request.operations.map((operation) =>
-            operation.op === 'set' ? { op: 'set', field: operation.field }
-              : operation.op === 'authorize' || operation.op === 'revoke'
-                ? { op: operation.op, user_id: operation.user_id } : { op: operation.op }) },
-        transform: (raw, meta) => {
-          requireRevision({ rawManifest: raw, revision: meta.revision, state: meta.state }, request);
-          return documentWithOperations(raw, request.operations);
-        },
-        validate: validateDocument,
-      });
-      return receipt(result, identity, request.operation_id);
-    },
-    async operation(principal, operationId) {
-      authorize(principal, 'desktop.configuration.read');
-      if (!operationPattern.test(operationId ?? '')) throw invalid();
-      const result = await readManifestOperation(path, key(principal, identity, operationId));
-      return result ? receipt(result, identity, operationId) : null;
-    },
+  return createDesktopSettingsTransaction({
+    path, installationId, dataId, invalid,
+    keyPrefix: 'nndgtw_', application: 'not_applied', conflictLabel: 'gateway',
+    nextAction: (persistence) => persistence === 'saved' ? 'restart_gateway' : 'inspect_native_operation',
+    normalize,
+    document: (raw, request) => documentWithOperations(raw, request.operations),
+    validate: validateDocument,
+    verifySource: source,
+    readView: (snapshot, identity) => view(snapshot, identity),
+    previewView: (snapshot, identity) => view(snapshot, identity),
+    payload: (request, identity, principal) => ({ contract: 'desktop-gateway-settings-v1', identity,
+      actor: principal.subjectId,
+      operations: request.operations.map((operation) =>
+        operation.op === 'set' ? { op: 'set', field: operation.field }
+          : operation.op === 'authorize' || operation.op === 'revoke'
+            ? { op: operation.op, user_id: operation.user_id } : { op: operation.op }) }),
   });
 }
 

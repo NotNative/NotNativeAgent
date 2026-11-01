@@ -11,30 +11,19 @@
  * merged over the stored secret, validated by the same normalizeOpenCodeConfig the
  * cli and service use. Mechanics mirror the WebFetch settings transaction.
  */
-import { createHash } from 'node:crypto';
-import { isAbsolute } from 'node:path';
 import { ContractError } from './ids.js';
-import { requireIntegrationPermission } from './integration-principal.js';
 import { DEFAULT_OPENCODE_CONFIG, normalizeOpenCodeConfig, opencodePublicStatus }
   from './opencode/config.js';
-import { readManifestSnapshot, readManifestOperation, transactManifest } from './persistence/manifest-transaction.js';
+import { createDesktopSettingsTransaction } from './desktop-settings-transaction.js';
 import { DESKTOP_REVISION } from './desktop-request-grammar.js';
 import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
-import { DESKTOP_ID } from './desktop-request-grammar.js';
 
-const idPattern = DESKTOP_ID;
 const operationPattern = DESKTOP_OPERATION_ID;
 const revisionPattern = DESKTOP_REVISION;
 const invalid = () => new ContractError('desktop_compatibility_request_invalid', 'Native compatibility settings request is invalid.');
 const sourceInvalid = () => new ContractError('desktop_compatibility_source_invalid', 'Compatibility settings require explicit repair.');
 const CANDIDATE = ['enabled', 'hostname', 'port', 'username'];
 const PASSWORD_ACTIONS = ['keep', 'replace', 'clear'];
-
-function authorize(principal, permission) {
-  if (typeof principal?.subjectId !== 'string' || !principal.subjectId.trim() || principal.subjectId.length > 256
-    || /[\u0000-\u001f\u007f]/u.test(principal.subjectId) || !Array.isArray(principal.permissions)) throw invalid();
-  requireIntegrationPermission(principal, permission);
-}
 
 /** An absent file bootstraps the domain's sticky defaults exactly like the CLI does;
  * a present-but-invalid file keeps failing closed (repair, never a guessed shape). */
@@ -105,78 +94,22 @@ function view(snapshot, identity, override, environment) {
     application: 'next_service_start' };
 }
 
-function requireRevision(snapshot, request) {
-  if (snapshot.revision !== request.expected_revision) {
-    throw new ContractError('manifest_revision_conflict', 'Reload compatibility settings.');
-  }
-  source(snapshot);
-}
-
 function validateDocument(document) {
   source({ rawManifest: document, state: 'present' });
 }
 
-function key(principal, identity, operationId) {
-  const subject = createHash('sha256').update(JSON.stringify({ ...identity, actor: principal.subjectId })).digest('hex').slice(0, 24);
-  return `nndpat_${subject}_${operationId}`;
-}
-
-function receipt(result, identity, operationId) {
-  return { ...identity, operation_id: operationId, persistence: result.persistence, before_revision: result.beforeRevision,
-    persisted_revision: result.persistedRevision, application: 'next_service_start', replayed: result.replayed,
-    replay_window: result.replayWindow,
-    next_action: result.persistence === 'saved' ? 'next_service_start' : 'inspect_native_operation' };
-}
-
 export function createDesktopCompatibilitySettingsTransaction({ path, installationId, dataId, environment }) {
-  if (typeof path !== 'string' || !isAbsolute(path) || !idPattern.test(installationId ?? '')
-    || !idPattern.test(dataId ?? '')) throw invalid();
-  const identity = { installation_id: installationId, data_id: dataId, scope: 'user' };
-  return Object.freeze({
-    async read(principal) {
-      authorize(principal, 'desktop.configuration.read');
-      return view(await readManifestSnapshot(path), identity, undefined, environment);
-    },
-    async preview(principal, input) {
-      authorize(principal, 'desktop.configuration.manage');
-      const request = normalize(input, identity, false);
-      const snapshot = await readManifestSnapshot(path);
-      // Revision first, then the candidate: an unreadable or foreign-version store
-      // fails closed with desktop_compatibility_source_invalid (the same precedence save
-      // uses), and a stale revision wins over candidate grammar — the domain cannot
-      // run a candidate against a base it does not serve.
-      requireRevision(snapshot, request);
-      const proposed = documentWithCandidate(snapshot.rawManifest, request);
-      return { valid: true, ...view({ ...snapshot, rawManifest: proposed }, identity,
-        // normalizeOpenCodeConfig is idempotent; the second run is the preview's
-        // projection basis, naturally consistent with the document just written.
-        normalizeOpenCodeConfig(proposed), environment) };
-    },
-    async save(principal, input) {
-      authorize(principal, 'desktop.configuration.manage');
-      const request = normalize(input, identity, true);
-      const operationKey = key(principal, identity, request.operation_id);
-      const replayed = await readManifestOperation(path, operationKey);
-      if (replayed) return receipt(replayed, identity, request.operation_id);
-      const snapshot = await readManifestSnapshot(path);
-      requireRevision(snapshot, request);
-      const result = await transactManifest({ path, expectedRevision: request.expected_revision,
-        operationId: operationKey,
-        payload: { contract: 'desktop-compatibility-settings-v1', identity, actor: principal.subjectId,
-          password_action: request.password.action },
-        transform: (raw, meta) => {
-          requireRevision({ rawManifest: raw, revision: meta.revision, state: meta.state }, request);
-          return documentWithCandidate(raw, request);
-        },
-        validate: validateDocument,
-      });
-      return receipt(result, identity, request.operation_id);
-    },
-    async operation(principal, operationId) {
-      authorize(principal, 'desktop.configuration.read');
-      if (!operationPattern.test(operationId ?? '')) throw invalid();
-      const result = await readManifestOperation(path, key(principal, identity, operationId));
-      return result ? receipt(result, identity, operationId) : null;
-    },
+  return createDesktopSettingsTransaction({
+    path, installationId, dataId, invalid,
+    keyPrefix: 'nndpat_', application: 'next_service_start', conflictLabel: 'compatibility',
+    normalize,
+    document: (raw, request) => documentWithCandidate(raw, request),
+    validate: validateDocument,
+    verifySource: source,
+    readView: (snapshot, identity) => view(snapshot, identity, undefined, environment),
+    previewView: (snapshot, identity, request, proposed) =>
+      view(snapshot, identity, normalizeOpenCodeConfig(proposed), environment),
+    payload: (request, identity, principal) => ({ contract: 'desktop-compatibility-settings-v1', identity,
+      actor: principal.subjectId, password_action: request.password.action }),
   });
 }

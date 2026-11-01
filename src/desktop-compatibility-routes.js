@@ -9,8 +9,7 @@
  * next start. Compatibility: no legacy request shape exists for this family.
  */
 import { ContractError } from './ids.js';
-import { readJsonBody, send } from './secret-broker-server.js';
-import { requireIntegrationPermission } from './integration-principal.js';
+import { createDesktopSettingsDispatcher } from './desktop-settings-routes.js';
 import { OPENCODE_PASSWORD_SOURCES } from './opencode/config.js';
 import { SHA256_HEX } from './digests.js';
 import { DESKTOP_REVISION } from './desktop-request-grammar.js';
@@ -50,36 +49,14 @@ const CATALOG = Object.freeze({ schema_version: '1.0', source: 'compatibility_se
       editability: { available: false, scope: 'user', reason: 'generated_state' } }),
   ]) });
 
-export async function dispatchDesktopCompatibilityRequest(request, response, context) {
-  const path = context.url.pathname;
-  if (path !== BASE && !path.startsWith(`${BASE}/`)) return false;
-  const operation = OPERATION.exec(path);
-  const action = path === BASE ? 'read' : path === `${BASE}/catalog` ? 'catalog'
-    : path === `${BASE}/preview` ? 'preview' : path === `${BASE}/save` ? 'save'
-      : operation ? 'operation' : null;
-  if (!action) return send(response, 404, { error: 'not_found' });
-  const permission = action === 'preview' || action === 'save' ? 'manage' : 'read';
-  requireIntegrationPermission(context.principal, `desktop.configuration.${permission}`);
-  if (request.method !== (permission === 'read' ? 'GET' : 'POST')) return send(response, 405, { error: 'method_not_allowed' });
-  if (context.url.search) throw invalid();
-  const service = context.desktopCompatibilitySettingsService;
-  if (!service || typeof service.read !== 'function' || typeof service.preview !== 'function'
-    || typeof service.save !== 'function' || typeof service.operation !== 'function') {
-    throw new ContractError('desktop_configuration_unavailable', 'Native compatibility settings are unavailable.');
-  }
-  if (action === 'catalog') return send(response, 200, CATALOG);
-  const value = action === 'read' ? await service.read(context.principal)
-    : action === 'operation' ? await service.operation(context.principal, operation[1])
-      : await service[action](context.principal, await readJsonBody(request, 4096));
-  if (value === null) return send(response, 404, { error: 'operation_not_found' });
-  const projected = action === 'read' || action === 'preview' ? projectView(value, action)
-    : projectReceipt(value);
-  // The 24,576-byte response bound cannot be reached by legal state: the view carries a
-  // bounded hostname (253), username (64), port, a fixed-key credential presence object,
-  // and never a secret value. An exceeded bound here still means projector drift.
-  if (Buffer.byteLength(JSON.stringify(projected)) > 24576) throw projection();
-  return send(response, 200, projected);
-}
+export const dispatchDesktopCompatibilityRequest = createDesktopSettingsDispatcher({
+  base: BASE, operationPattern: OPERATION, serviceKey: 'desktopCompatibilitySettingsService',
+  catalog: CATALOG, invalid, projectView, projectReceipt,
+  // The 24,576-byte response bound cannot be reached by legal state; an exceeded
+  // bound still means projector drift, so it gets the projection error.
+  requestLimit: 4096, responseLimit: 24576, overflow: projection,
+  unavailableMessage: 'Native compatibility settings are unavailable.',
+});
 
 function identity(value) {
   if (!value || typeof value !== 'object' || !ID.test(value.installation_id ?? '')

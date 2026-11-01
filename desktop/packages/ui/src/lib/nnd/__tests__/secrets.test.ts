@@ -19,7 +19,7 @@ const catalog = () => ({ schema_version: '1.0', source: 'secrets', scope: 'user'
 
 describe('native secrets list parser', () => {
   it('accepts the actual native projector envelope instead of a separately invented response shape', async () => {
-    const native = await import(new URL('../../../../../../../src/nnd-secrets-routes.js', import.meta.url).href);
+    const native = await import(new URL('../../../../../../../src/desktop-secrets-routes.js', import.meta.url).href);
     const projected = native.projectSecretsList({ installationId: 'install_secrets', dataId: 'data_secrets', sourceState: 'present', count: 0, records: [] });
     expect(parseNativeSecretsList(projected)).toMatchObject({ schema_version: '1.0', source_state: 'present', count: 0 });
   });

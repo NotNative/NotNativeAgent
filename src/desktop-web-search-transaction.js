@@ -15,29 +15,18 @@
  * normalize into the version-2 profile list on load; the native surface only projects
  * the version-2 shape. Mechanics mirror the 20261005-14 gateway settings transaction.
  */
-import { createHash } from 'node:crypto';
-import { isAbsolute } from 'node:path';
 import { ContractError } from './ids.js';
-import { requireIntegrationPermission } from './integration-principal.js';
 import { DEFAULT_WEB_SEARCH_CONFIG, MAX_WEB_SEARCH_CONFIG_BYTES,
   normalizeSearxngEndpoint, normalizeWebSearchConfig, normalizeWebSearchDisplayName,
   normalizeWebSearchProfileId, appendWebSearchProfile, promoteWebSearchProfile,
   removeWebSearchProfile } from './web-search-config.js';
-import { readManifestSnapshot, readManifestOperation, transactManifest } from './persistence/manifest-transaction.js';
+import { createDesktopSettingsTransaction } from './desktop-settings-transaction.js';
 import { DESKTOP_REVISION } from './desktop-request-grammar.js';
 import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
-import { DESKTOP_ID } from './desktop-request-grammar.js';
 
-const idPattern = DESKTOP_ID;
 const operationPattern = DESKTOP_OPERATION_ID;
 const revisionPattern = DESKTOP_REVISION;
 const invalid = () => new ContractError('desktop_web_search_request_invalid', 'Native WebSearch settings request is invalid.');
-
-function authorize(principal, permission) {
-  if (typeof principal?.subjectId !== 'string' || !principal.subjectId.trim() || principal.subjectId.length > 256
-    || /[\u0000-\u001f\u007f]/u.test(principal.subjectId) || !Array.isArray(principal.permissions)) throw invalid();
-  requireIntegrationPermission(principal, permission);
-}
 
 /** Canonicalize each operation exactly like the CLI helpers do, so a preview candidate
  * can never differ from the saved value in normalization. Domain semantic failures
@@ -136,73 +125,23 @@ function view(snapshot, identity, override) {
     profiles: config.profiles.map((profile) => ({ ...profile })), application: 'next_search' };
 }
 
-function requireRevision(snapshot, request) {
-  if (snapshot.revision !== request.expected_revision) {
-    throw new ContractError('manifest_revision_conflict', 'Reload WebSearch settings.');
-  }
-  source(snapshot);
-}
-
-function key(principal, identity, operationId) {
-  const subject = createHash('sha256').update(JSON.stringify({ ...identity, actor: principal.subjectId })).digest('hex').slice(0, 24);
-  return `nndws_${subject}_${operationId}`;
-}
-
-function receipt(result, identity, operationId) {
-  return { ...identity, operation_id: operationId, persistence: result.persistence, before_revision: result.beforeRevision,
-    persisted_revision: result.persistedRevision, application: 'next_search', replayed: result.replayed,
-    replay_window: result.replayWindow,
-    next_action: result.persistence === 'saved' ? 'next_search' : 'inspect_native_operation' };
-}
-
 export function createDesktopWebSearchSettingsTransaction({ path, installationId, dataId }) {
-  if (typeof path !== 'string' || !isAbsolute(path) || !idPattern.test(installationId ?? '') || !idPattern.test(dataId ?? '')) throw invalid();
-  const identity = { installation_id: installationId, data_id: dataId, scope: 'user' };
-  return Object.freeze({
-    async read(principal) {
-      authorize(principal, 'desktop.configuration.read');
-      return view(await readManifestSnapshot(path), identity);
-    },
-    async preview(principal, input) {
-      authorize(principal, 'desktop.configuration.manage');
-      const request = normalize(input, identity, false), snapshot = await readManifestSnapshot(path);
-      requireRevision(snapshot, request);
+  return createDesktopSettingsTransaction({
+    path, installationId, dataId, invalid,
+    keyPrefix: 'nndws_', application: 'next_search', conflictLabel: 'WebSearch',
+    normalize,
+    document: (raw, request) => documentWithOperations(raw, request.operations),
+    validate: validateDocument,
+    verifySource: source,
+    readView: (snapshot, identity) => view(snapshot, identity),
+    previewView: (snapshot, identity, request, proposed) => view(snapshot, identity, normalizeWebSearchConfig(proposed)),
+    // Fast-fail the domain's semantic refusal before publishing; the transform
+    // rechecks the revision under the lock for atomicity.
+    preflight: (request, snapshot) => {
       const proposed = documentWithOperations(snapshot.rawManifest, request.operations);
       validateDocument(proposed);
-      return { valid: true, ...view({ ...snapshot, rawManifest: proposed }, identity, normalizeWebSearchConfig(proposed)) };
     },
-    async save(principal, input) {
-      authorize(principal, 'desktop.configuration.manage');
-      const request = normalize(input, identity, true);
-      // A repeated operation keeps its recorded receipt even when the revision
-      // has moved on; the replay check must precede the fast-fail.
-      const operationKey = key(principal, identity, request.operation_id);
-      const replayed = await readManifestOperation(path, operationKey);
-      if (replayed) return receipt(replayed, identity, request.operation_id);
-      // Fast-fail with the honest source code (including the domain's semantic
-      // refusal for a mid-state operation, e.g. a missing profile) before
-      // publishing; the transform rechecks the revision under the lock for atomicity.
-      const snapshot = await readManifestSnapshot(path);
-      requireRevision(snapshot, request);
-      const proposed = documentWithOperations(snapshot.rawManifest, request.operations);
-      validateDocument(proposed);
-      const result = await transactManifest({ path, expectedRevision: request.expected_revision,
-        operationId: operationKey,
-        payload: { contract: 'desktop-web-search-settings-v1', identity, actor: principal.subjectId,
-          operations: request.operations.map((operation) => ({ ...operation })) },
-        transform: (raw, meta) => {
-          requireRevision({ rawManifest: raw, revision: meta.revision, state: meta.state }, request);
-          return documentWithOperations(raw, request.operations);
-        },
-        validate: validateDocument,
-      });
-      return receipt(result, identity, request.operation_id);
-    },
-    async operation(principal, operationId) {
-      authorize(principal, 'desktop.configuration.read');
-      if (!operationPattern.test(operationId ?? '')) throw invalid();
-      const result = await readManifestOperation(path, key(principal, identity, operationId));
-      return result ? receipt(result, identity, operationId) : null;
-    },
+    payload: (request, identity, principal) => ({ contract: 'desktop-web-search-settings-v1', identity,
+      actor: principal.subjectId, operations: request.operations.map((operation) => ({ ...operation })) }),
   });
 }

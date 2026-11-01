@@ -10,8 +10,7 @@
  * into the version-2 profiles on load and are not projected by this surface.
  */
 import { ContractError } from './ids.js';
-import { readJsonBody, send } from './secret-broker-server.js';
-import { requireIntegrationPermission } from './integration-principal.js';
+import { createDesktopSettingsDispatcher } from './desktop-settings-routes.js';
 import { MAX_WEB_SEARCH_PROFILES, normalizeSearxngEndpoint, normalizeWebSearchProfileId } from './web-search-config.js';
 import { SHA256_HEX } from './digests.js';
 import { DESKTOP_REVISION } from './desktop-request-grammar.js';
@@ -39,43 +38,16 @@ const CATALOG = Object.freeze({ schema_version: '1.0', source: 'web_search', sco
       editability: { available: false, scope: 'user', reason: 'generated_state' } }),
   ]) });
 
-export async function dispatchDesktopWebSearchRequest(request, response, context) {
-  const path = context.url.pathname;
-  if (path !== BASE && !path.startsWith(`${BASE}/`)) return false;
-  const operation = OPERATION.exec(path);
-  const action = path === BASE ? 'read' : path === `${BASE}/catalog` ? 'catalog'
-    : path === `${BASE}/preview` ? 'preview' : path === `${BASE}/save` ? 'save'
-      : operation ? 'operation' : null;
-  if (!action) return send(response, 404, { error: 'not_found' });
-  const permission = action === 'preview' || action === 'save' ? 'manage' : 'read';
-  requireIntegrationPermission(context.principal, `desktop.configuration.${permission}`);
-  if (request.method !== (permission === 'read' ? 'GET' : 'POST')) return send(response, 405, { error: 'method_not_allowed' });
-  if (context.url.search) throw invalid();
-  const service = context.desktopWebSearchSettingsService;
-  if (!service || typeof service.read !== 'function' || typeof service.preview !== 'function'
-    || typeof service.save !== 'function' || typeof service.operation !== 'function') {
-    throw new ContractError('desktop_configuration_unavailable', 'Native WebSearch configuration is unavailable.');
-  }
-  if (action === 'catalog') return send(response, 200, CATALOG);
+export const dispatchDesktopWebSearchRequest = createDesktopSettingsDispatcher({
+  base: BASE, operationPattern: OPERATION, serviceKey: 'desktopWebSearchSettingsService',
+  catalog: CATALOG, invalid, projectView, projectReceipt,
   // Why 131,072 bytes both ways: the domain caps the stored file at 65,536, and a
   // legal add_profile may carry an endpoint near that bound before the transform's
   // file-size validation refuses the result; the native envelope doubles it so any
-  // legal domain state round-trips. An exceeded response bound here still means
-  // projector drift, and an oversized request stops before validation.
-  if (action === 'read' || action === 'operation') {
-    const value = action === 'read' ? await service.read(context.principal)
-      : await service.operation(context.principal, operation[1]);
-    if (value === null) return send(response, 404, { error: 'operation_not_found' });
-    const projected = action === 'read' ? projectView(value, action) : projectReceipt(value);
-    if (Buffer.byteLength(JSON.stringify(projected)) > 131072) throw invalid();
-    return send(response, 200, projected);
-  }
-  const body = await readJsonBody(request, 131072);
-  const value = await service[action](context.principal, body);
-  const projected = action === 'save' ? projectReceipt(value) : projectView(value, action);
-  if (Buffer.byteLength(JSON.stringify(projected)) > 131072) throw invalid();
-  return send(response, 200, projected);
-}
+  // legal domain state round-trips.
+  requestLimit: 131072, responseLimit: 131072,
+  unavailableMessage: 'Native WebSearch configuration is unavailable.',
+});
 
 function identity(value) {
   if (!value || typeof value !== 'object' || !ID.test(value.installation_id ?? '')

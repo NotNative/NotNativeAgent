@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
-import { requireIntegrationPermission } from './integration-principal.js';
-import { readJsonBody, send } from './secret-broker-server.js';
+import { createDesktopSettingsDispatcher } from './desktop-settings-routes.js';
 import { SHA256_HEX } from './digests.js';
 import { DESKTOP_ID } from './desktop-request-grammar.js';
 
@@ -36,32 +35,12 @@ const CATALOG = Object.freeze({ schema_version: '1.0', source: 'gateway', scope:
       editability: { available: false, scope: 'user', reason: 'generated_state' } }),
   ]) });
 
-export async function dispatchDesktopGatewayTimeoutRequest(request, response, context) {
-  const path = context.url.pathname;
-  if (path !== BASE && !path.startsWith(`${BASE}/`)) return false;
-  const operation = OPERATION.exec(path);
-  const action = path === BASE ? 'read' : path === `${BASE}/catalog` ? 'catalog'
-    : path === `${BASE}/preview` ? 'preview' : path === `${BASE}/save` ? 'save'
-      : operation ? 'operation' : null;
-  if (!action) return send(response, 404, { error: 'not_found' });
-  const permission = action === 'preview' || action === 'save' ? 'manage' : 'read';
-  requireIntegrationPermission(context.principal, `desktop.configuration.${permission}`);
-  if (request.method !== (permission === 'read' ? 'GET' : 'POST')) return send(response, 405, { error: 'method_not_allowed' });
-  if (context.url.search) throw invalid();
-  const service = context.desktopGatewayTimeoutService;
-  if (!service || typeof service.read !== 'function' || typeof service.preview !== 'function'
-    || typeof service.save !== 'function' || typeof service.operation !== 'function') {
-    throw new ContractError('desktop_configuration_unavailable', 'Native gateway configuration is unavailable.');
-  }
-  if (action === 'catalog') return send(response, 200, CATALOG);
-  const value = action === 'read' ? await service.read(context.principal)
-    : action === 'operation' ? await service.operation(context.principal, operation[1])
-      : await service[action](context.principal, await readJsonBody(request, 4096));
-  if (value === null) return send(response, 404, { error: 'operation_not_found' });
-  const projected = action === 'read' || action === 'preview' ? projectView(value, action) : projectReceipt(value);
-  if (Buffer.byteLength(JSON.stringify(projected)) > 8192) throw invalid();
-  return send(response, 200, projected);
-}
+export const dispatchDesktopGatewayTimeoutRequest = createDesktopSettingsDispatcher({
+  base: BASE, operationPattern: OPERATION, serviceKey: 'desktopGatewayTimeoutService',
+  catalog: CATALOG, invalid, projectView, projectReceipt,
+  requestLimit: 4096, responseLimit: 8192,
+  unavailableMessage: 'Native gateway configuration is unavailable.',
+});
 
 function identity(value) {
   if (!value || typeof value !== 'object' || !ID.test(value.installation_id ?? '')
