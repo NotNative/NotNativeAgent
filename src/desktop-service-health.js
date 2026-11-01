@@ -34,7 +34,7 @@ export async function verifyTrialGuiProof(state, requestSignal, fetchImpl) {
   }
 }
 
-export async function boundedHealthBody(response) {
+export async function boundedHealthBody(response, subject = 'desktop GUI') {
   let body;
   try {
     const reader = response.body.getReader();
@@ -48,6 +48,6 @@ export async function boundedHealthBody(response) {
     }
     body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)));
   }
-  catch { throw new ContractError('desktop_health_unavailable', 'Unpublished desktop GUI health body is invalid'); }
+  catch { throw new ContractError('desktop_health_unavailable', `Unpublished ${subject} health body is invalid`); }
   return body;
 }

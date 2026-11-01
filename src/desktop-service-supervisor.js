@@ -338,7 +338,7 @@ async function verifyUnpublishedTrial(state, { timeoutMs = 5000, signal, fetchIm
     || nativeResponse.url !== `${state.native.endpoint}/v1/health`) {
     throw new ContractError('desktop_health_unavailable', 'Unpublished NNA runtime response is invalid');
   }
-  const nativeBody = await boundedHealthBody(nativeResponse);
+  const nativeBody = await boundedHealthBody(nativeResponse, 'NNA runtime');
   if (nativeBody.service_state !== before.service_state || nativeBody.instance_id !== state.identity.installation_id) {
     throw new ContractError('desktop_health_unavailable', 'Unpublished NNA runtime identity or state changed');
   }

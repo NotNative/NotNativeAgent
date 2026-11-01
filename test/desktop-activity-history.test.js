@@ -12,12 +12,14 @@ const engine = () => ({ config: { executionManifest: null }, async initialize() 
 
 test('turn outcomes survive durable history without treating cancelled activity as success', async t => {
   const f = await fixture(t), records = [];
-  for (const outcome of ['completed', 'cancelled', 'needs_input', 'failed', 'unknown']) {
+  const outcomes = ['completed', 'blocked', 'incomplete', 'needs_input', 'denied',
+    'cancelled', 'failed', 'limit_reached', 'unknown'];
+  for (const outcome of outcomes) {
     appendActivity(records, { id: outcome, sessionID: 'session_a', kind: 'turn', status: 'completed', summary: 'Display text is not outcome evidence', turnOutcome: outcome });
   }
   await f.save(records);
   const reloaded = f.createHost(); await reloaded.initialize();
-  assert.deepEqual(reloaded.activity('session_a', owner).map(row => row.turnOutcome), ['completed', 'cancelled', 'needs_input', 'failed', 'unknown']);
+  assert.deepEqual(reloaded.activity('session_a', owner).map(row => row.turnOutcome), outcomes);
   await reloaded.shutdown(); await f.host.shutdown();
 });
 

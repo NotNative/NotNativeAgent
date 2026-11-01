@@ -2,6 +2,7 @@
 import { open, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
+import { TURN_OUTCOMES as PROTOCOL_TURN_OUTCOMES } from './contracts.js';
 import { persistAtomicJson } from './persistence/atomic-json.js';
 import { redactText } from './redaction.js';
 
@@ -17,7 +18,9 @@ const ACTIVITY_ID_LIMIT = 264; // 128-char session + ':turn:' + 128-char request
 const FILE_LIMIT_BYTES = 2_097_152;
 const KINDS = new Set(['turn', 'tool', 'notice', 'state', 'subagent']);
 const STATUSES = new Set(['started', 'completed', 'attention', 'failed', 'redacted']);
-const TURN_OUTCOMES = new Set(['completed', 'cancelled', 'needs_input', 'failed', 'unknown']);
+// Invariant: activity accepts every protocol turn outcome plus 'unknown', the
+// recovery projection for a turn whose terminal outcome was never recorded.
+const TURN_OUTCOMES = new Set([...PROTOCOL_TURN_OUTCOMES, 'unknown']);
 
 export function activityPath(catalogPath, sessionId) {
   return join(`${catalogPath}.activity`, `${Buffer.from(sessionId, 'utf8').toString('hex')}.json`);
