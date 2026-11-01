@@ -257,6 +257,51 @@ test('path constraints retain distinct targets and clear only after a same-targe
   assert.deepEqual(repaired.map((constraint) => constraint.target_path), ['b']);
 });
 
+test('a missing-target path constraint clears when the parent directory is observed', () => {
+  const workspaceRoot = resolve('alternate-workspace');
+  const failed = mergeToolConstraints([], [item('fs_read', 'invalid_request', {
+    reason: 'tool_target_not_found', args: { path: join('src', 'provider', 'retry.js') },
+    content: 'target is missing',
+  })], { workspaceRoot });
+  assert.equal(failed[0].kind, 'path_repair');
+  assert.match(failed[0].instruction, /List its parent to locate it/u);
+  // The instruction honored: a successful parent observation locates the target.
+  assert.deepEqual(mergeToolConstraints(failed, [item('fs_list', 'succeeded', {
+    args: { path: join('src', 'provider') },
+    request: { resolved: { kind: 'directory', path: resolve(workspaceRoot, 'src', 'provider') } },
+    metadata: { target_exists: true },
+  })], { workspaceRoot }), []);
+  // Listing the wrong directory proves nothing about this target.
+  assert.equal(mergeToolConstraints(failed, [item('fs_list', 'succeeded', {
+    args: { path: 'src' }, request: { resolved: { kind: 'directory', path: resolve(workspaceRoot, 'src') } },
+    metadata: { target_exists: true },
+  })], { workspaceRoot }).length, 1);
+  // A parent that is missing, not a directory, or only mutated proves nothing.
+  assert.equal(mergeToolConstraints(failed, [item('fs_list', 'succeeded', {
+    args: { path: join('src', 'provider') },
+    request: { resolved: { kind: 'missing', path: resolve(workspaceRoot, 'src', 'provider') } },
+    metadata: { target_exists: false },
+  })], { workspaceRoot }).length, 1);
+  assert.equal(mergeToolConstraints(failed, [item('fs_directory', 'succeeded', {
+    args: { action: 'remove', path: join('src', 'provider') },
+    request: { resolved: { kind: 'directory', path: resolve(workspaceRoot, 'src', 'provider') } },
+    metadata: { target_exists: true },
+  })], { workspaceRoot }).length, 1);
+});
+
+test('a missing-target constraint is never created when the same step already listed the parent', () => {
+  const workspaceRoot = resolve('alternate-workspace');
+  const failed = item('fs_read', 'invalid_request', {
+    reason: 'tool_target_not_found', args: { path: 'docs/ghost.md' }, content: 'target is missing',
+  });
+  const parentListed = item('fs_list', 'succeeded', {
+    args: { path: 'docs' },
+    request: { resolved: { kind: 'directory', path: resolve(workspaceRoot, 'docs') } },
+    metadata: { target_exists: true },
+  });
+  assert.deepEqual(mergeToolConstraints([], [failed, parentListed], { workspaceRoot }), []);
+});
+
 test('a successful missing-target observation does not clear a path constraint', () => {
   const failed = mergeToolConstraints([], [item('fs_list', 'invalid_request', {
     reason: 'tool_path_reparse_unresolved', args: { path: 'broken-link' },

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { normalize, resolve } from 'node:path';
+import { dirname, normalize, resolve } from 'node:path';
 import { redactText } from '../redaction.js';
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
 import { missingFilesystemPrerequisite, satisfiesFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
@@ -23,9 +23,19 @@ const PATH_SHAPE_REASON_CODES = new Set([
   'tool_parent_invalid', 'tool_path_ambiguous', 'tool_path_invalid',
   'tool_path_reparse_unresolved', 'tool_path_reserved',
 ]);
+// These instructions tell the model to locate a missing target from its
+// parent. The target itself can never succeed while it is absent, so the
+// instruction is honored by a successful observation of the parent instead.
+const MISSING_TARGET_REASON_CODES = new Set([
+  'tool_directory_not_found', 'tool_target_not_found',
+]);
+const PARENT_OBSERVATION_TOOLS = new Set(['fs_list', 'fs_list_directory', 'fs_directory']);
 
 export function mergeToolConstraints(current = [], items = [], options = {}) {
-  const succeeded = new Set(items.filter((item) => item.result?.status === 'succeeded')
+  // Same status vocabulary as constraintFor: a result carrying only the
+  // camel-case lifecycle field must not read as a failure to one check and
+  // a success to the other.
+  const succeeded = new Set(items.filter((item) => toolLifecycleStatus(item.result) === 'succeeded')
     .map((item) => item.result.tool_name ?? item.call?.name).filter(Boolean));
   const retained = current.filter((constraint) => !constraintSatisfied(constraint, items, options.workspaceRoot)
     && !(constraint.kind === CONSTRAINT_KIND.path && pathConstraintSatisfied(constraint, items, options.workspaceRoot))
@@ -156,28 +166,52 @@ function constraintSatisfied(constraint, items, workspaceRoot) {
 }
 
 function pathConstraintSatisfied(constraint, items, workspaceRoot, startIndex = 0) {
-  return items.some((item, index) => {
-    if (index < startIndex) return false;
-    const identity = recoveryToolIdentity(item);
-    if (item?.result?.status !== 'succeeded' || identity.toolName !== constraint.tool) return false;
-    if (constraint.target_action && identity.args?.action !== constraint.target_action) return false;
-    // Why: an invalid or absent target path has no stable identity to compare.
-    // A later same-tool success repairs that shape; reparse paths also need an existing target.
-    if (!constraint.target_path) {
-      return constraint.reason_code !== 'tool_path_reparse_unresolved'
-        || item.result.metadata?.target_exists !== false;
-    }
-    if (constraint.tool === 'fs_directory' && constraint.target_action === 'list'
-      && item.result.metadata?.target_exists !== true) return false;
-    if (['fs_list', 'fs_metadata'].includes(constraint.tool)
-      && item.result.metadata?.target_exists !== true) return false;
-    const candidate = requestPath(identity.args);
-    return candidate && comparablePath(candidate, workspaceRoot) === comparablePath(constraint.target_path, workspaceRoot);
-  });
+  // A missing target can never produce a same-target success while it is
+  // absent, so the repair is also honored by a successful observation of
+  // its parent - the exact action the stored instruction demands.
+  const missingTarget = MISSING_TARGET_REASON_CODES.has(constraint.reason_code);
+  const parent = missingTarget && constraint.target_path
+    ? comparablePath(dirname(resolve(workspaceRoot ?? process.cwd(), constraint.target_path)))
+    : null;
+  return items.some((item, index) => index >= startIndex
+    && (sameTargetSatisfied(constraint, item, workspaceRoot)
+      || (parent !== null && provesParentObservation(item, workspaceRoot, parent))));
+}
+
+function sameTargetSatisfied(constraint, item, workspaceRoot) {
+  const identity = recoveryToolIdentity(item);
+  if (item?.result?.status !== 'succeeded' || identity.toolName !== constraint.tool) return false;
+  if (constraint.target_action && identity.args?.action !== constraint.target_action) return false;
+  // Why: an invalid or absent target path has no stable identity to compare.
+  // A later same-tool success repairs that shape; reparse paths also need an existing target.
+  if (!constraint.target_path) {
+    return constraint.reason_code !== 'tool_path_reparse_unresolved'
+      || item.result.metadata?.target_exists !== false;
+  }
+  if (constraint.tool === 'fs_directory' && constraint.target_action === 'list'
+    && item.result.metadata?.target_exists !== true) return false;
+  if (['fs_list', 'fs_metadata'].includes(constraint.tool)
+    && item.result.metadata?.target_exists !== true) return false;
+  const candidate = requestPath(identity.args);
+  return Boolean(candidate)
+    && comparablePath(candidate, workspaceRoot) === comparablePath(constraint.target_path, workspaceRoot);
 }
 
 function requestPath(args) {
   return typeof args?.path === 'string' && args.path.length > 0 && args.path.length <= 4096 ? args.path : null;
+}
+
+function provesParentObservation(item, workspaceRoot, parent) {
+  if (toolLifecycleStatus(item?.result) !== 'succeeded') return false;
+  const identity = recoveryToolIdentity(item);
+  if (!PARENT_OBSERVATION_TOOLS.has(identity.toolName)) return false;
+  if (identity.toolName === 'fs_directory' && identity.args?.action !== 'list') return false;
+  const candidate = requestPath(identity.args);
+  if (!candidate || comparablePath(candidate, workspaceRoot) !== parent) return false;
+  const resolved = item.request?.resolved;
+  if (resolved?.kind === 'file' || item.result.metadata?.target_exists === false) return false;
+  return resolved?.kind === 'directory' || resolved?.exists === true
+    || item.result.metadata?.target_exists === true;
 }
 
 function comparablePath(value, workspaceRoot) {

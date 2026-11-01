@@ -343,9 +343,13 @@ test('parallel executor failure retains completed sibling evidence', async () =>
   const result = await engine.submit({ request_id: 'parallel-failure', content: 'Delegate both reviews.' }, 'operator');
   assert.equal(result.outcome, 'failed');
   const recorded = engine.transcript.filter((item) => item.type === 'tool_result');
-  assert.equal(recorded.length, 1);
-  assert.equal(recorded[0].providerCallId, 'finish-b');
-  assert.equal(recorded[0].toolLifecycleStatus, 'succeeded');
+  // Invariant: every dispatched approval gets a durable result. The throwing
+  // sibling pairs as unknown-effect; the completed sibling keeps its evidence.
+  assert.deepEqual(recorded.map((item) => [item.providerCallId, item.toolLifecycleStatus]), [
+    ['fail-a', 'unknown_effect'], ['finish-b', 'succeeded'],
+  ]);
+  assert.equal(recorded[0].reasonCode, 'tool_execution_unsettled');
+  assert.equal(recorded[0].effectCertainty, 'unknown');
   assert.equal(engine.lifecycles.snapshot().some((item) => item.outcome === null), false);
   await engine.shutdown({ request_id: 'shutdown-failed-parallel', type: 'shutdown' });
 });

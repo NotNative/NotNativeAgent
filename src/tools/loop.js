@@ -17,6 +17,7 @@ import { missingFilesystemPrerequisite } from '../reliability/filesystem-recover
 import { toolLifecycleStatus, toolReviewOutcome, toolTelemetryOutcome } from './tool-result-contract.js';
 import { toolRequestFingerprint } from '../reliability/tool-progress.js';
 import { boundedParallel, boundedParallelLimit } from './parallel-execution.js';
+import { cancelledToolResult, pairUnsettledApprovals } from './synthetic-results.js';
 
 export class ToolLoop {
   constructor(options) {
@@ -97,7 +98,10 @@ export class ToolLoop {
       return items;
     } catch (error) {
       if (!active.cancelled && !active.controller.signal.aborted) {
-        if (!committing) await this.#commitAvailableResults(items, active);
+        if (!committing) {
+          pairUnsettledApprovals(items);
+          await this.#commitAvailableResults(items, active);
+        }
         this.#settleFailedChildren(items);
         throw error;
       }
@@ -162,8 +166,10 @@ export class ToolLoop {
   #settleFailedChildren(items) {
     for (const item of items) {
       if (item.finished) continue;
-      // An executor that started without a terminal result may have changed state.
-      // Keep its reviewer-ledger evidence unresolved; do not invent a tool result.
+      // Reached only when no durable result was possible for this item (the
+      // pairUnsettledApprovals pass already paired approved dispatches).
+      // An executor that started without a terminal result may have changed
+      // state, so its reviewer-ledger evidence stays unresolved.
       const outcome = item.child.state === 'running' ? 'unknown_effect' : 'failed';
       this.lifecycles.finish(item.lifecycle.id, outcome);
       item.finished = true;
@@ -404,17 +410,6 @@ function recordSettlementTelemetry(telemetry, status, detail, correlation) {
 
 function elapsedMs(started) {
   return Number(process.hrtime.bigint() - started) / 1_000_000;
-}
-
-function cancelledToolResult(item) {
-  return Object.freeze({
-    request_id: item.request?.id ?? null,
-    provider_call_id: item.request?.providerCallId ?? item.call.providerCallId ?? null,
-    tool_name: item.request?.toolName ?? item.call.name ?? null,
-    status: 'cancelled', content: 'tool execution was cancelled',
-    truncated: false, elapsed_ms: 0, effect_certainty: 'none',
-    untrusted: true, reason_code: 'tool_cancelled', ledger_started: false,
-  });
 }
 
 function missionToolDisposition(active, items) {
