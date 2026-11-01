@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Compatibility: this schema describes future service activation, not runtime capability availability.
 export const DESKTOP_SERVICE_PROTOCOL = '1.0';
-export const DESKTOP_SERVICE_READY_MESSAGE_TYPE = 'ready';
 export const DESKTOP_SERVICE_STATES = Object.freeze([
   'absent', 'incompatible', 'starting', 'ready', 'degraded', 'stopping', 'stopped', 'failed', 'setup_required',
 ]);
-export const DESKTOP_SETUP_REQUIRED_STATE = 'setup_required';
-export const DESKTOP_EXECUTION_GUARDED_STATES = Object.freeze(DESKTOP_SERVICE_STATES.filter((state) => state !== 'ready'));
-export const DESKTOP_SERVICE_COMMANDS = Object.freeze(['start', 'stop', 'status', 'restart']);
 export const STABLE_NND_FAILURE_CODES = Object.freeze({
   MANIFEST_INVALID: 'desktop_package_manifest_invalid', PACKAGE_INCOMPATIBLE: 'desktop_package_incompatible',
   PACKAGE_NOT_REGISTERED: 'desktop_package_not_active', CONFIG_INVALID: 'desktop_config_invalid',

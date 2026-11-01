@@ -10,7 +10,7 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 // would accept strings like `aaa:bbb` that pass normalization but can never
 // become a listenable address or a valid OPENCODE_HOST origin.
 import { isIPv6 as isIPv6Address } from 'node:net';
-import { dirname, resolve } from 'node:path';
+import { dirname } from 'node:path';
 import { ContractError } from '../ids.js';
 
 const MAX_CONFIG_BYTES = 65_536;

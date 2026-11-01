@@ -5,7 +5,6 @@ import { HttpMcpTransport, MCP_CURRENT_VERSION, StdioMcpTransport } from './mcp-
 import { VERSION } from './product.js';
 import { credentialReference } from './credential-bindings.js';
 
-const STATES = new Set(['disabled', 'connecting', 'authenticating', 'ready', 'degraded', 'failed', 'reconnecting', 'closed']);
 const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_BASE_DELAY_MS = 50;
 const MAX_MCP_PAGES = 64;
@@ -376,9 +375,4 @@ function isConnectionFailure(error) {
 function createTransport(config, options) {
   if (config.transport === 'stdio') return new StdioMcpTransport(config, undefined, undefined, options);
   return new HttpMcpTransport(config, options);
-}
-
-export function assertMcpState(state) {
-  if (!STATES.has(state)) throw new ContractError('invalid_mcp_state', 'invalid MCP connection state');
-  return state;
 }

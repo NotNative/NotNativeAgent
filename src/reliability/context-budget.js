@@ -100,10 +100,6 @@ export function estimateUtf8Tokens(value) {
   return Math.ceil(asciiBytes / TOKEN_BYTE_RATIO) + nonAsciiUtf16Units;
 }
 
-export function contextMeasurements(messages) {
-  return Object.freeze({ bytes: measureContext(messages), estimatedTokens: estimateContextTokens(messages) });
-}
-
 function positive(value) {
   return Number.isSafeInteger(value) && value > 0;
 }

@@ -56,15 +56,6 @@ function completedTask(value) {
   return String(value ?? '').replace(/^(reviewing|updating|testing|planning|working on)\b/u, (verb) => COMPLETED_TASK_VERBS[verb]);
 }
 
-export function compactActivityRows(records) {
-  return toolCalls(records).map((item) => {
-    const timing = formatElapsed(item.result?.elapsed_ms);
-    const target = toolTargetSuffix(item);
-    const failure = toolFailureSuffix(item.result);
-    return `    ${toolSymbol(item.result?.status, item.result?.observation_outcome, toolHasDiagnostics(item.result))} ${item.tool}${target}${timing}${toolObservationSuffix(item.result)}${toolDiagnosticSuffix(item.result)}${failure}`;
-  });
-}
-
 export function collapsedFailureRows(records) {
   const failed = toolCalls(records).filter((item) => !successfulToolStatus(item.result?.status));
   const rows = failed.slice(0, 2).map((item) => {
@@ -183,17 +174,6 @@ export function toolSymbol(status, observationOutcome = null, diagnostics = fals
   if (status === TOOL_STATUS.SUCCEEDED) return observationOutcome ? '–' : diagnostics ? '!' : '\u2713';
   if ([TOOL_STATUS.COMPLETED_NONZERO, TOOL_STATUS.INVALID_REQUEST].includes(status)) return '!';
   return 'X';
-}
-
-function toolObservationSuffix(record) {
-  return record?.observation_outcome ? ` | ${observationLabel(record.observation_outcome)}` : '';
-}
-
-function toolDiagnosticSuffix(record) {
-  if (!toolHasDiagnostics(record)) return '';
-  const values = [record.diagnostic_outcome === 'stderr_present' ? 'stderr present' : null,
-    record.diagnostic_visibility === 'reduced_by_script' ? 'visibility reduced' : null].filter(Boolean);
-  return ` | succeeded · ${values.join(' · ')}`;
 }
 
 function toolHasDiagnostics(record) {

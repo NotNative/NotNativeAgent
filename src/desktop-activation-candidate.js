@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { realpath } from 'node:fs/promises';
 import { ContractError } from './ids.js';

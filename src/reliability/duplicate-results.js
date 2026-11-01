@@ -41,8 +41,6 @@ export function projectDuplicateToolResults(records, protectedIndexes = new Set(
   return Object.freeze({ records: Object.freeze(projected), duplicateRecords, bytesSaved });
 }
 
-export function duplicateResultContentDigest(content) { return contentDigest(content); }
-
 function duplicateReceipt(record, duplicateOf, digest) {
   const ledgerRef = ledgerReference(record);
   const duplicateOfRef = ledgerReference(duplicateOf);

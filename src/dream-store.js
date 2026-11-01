@@ -8,7 +8,6 @@ import { ProcessIdentity, validIdentity } from './reliability/process-identity.j
 import { migrateDreamRunOwner, recoverInterruptedDreamRuns, unverifiedActiveDreamRunCount } from './dream-run-ownership.js';
 
 const TERMINAL = new Set(['cancelled', 'completed', 'failed', 'skipped']);
-const STATES = new Set(['queued', 'running', ...TERMINAL]);
 const CANDIDATE_STATES = new Set([
   'observed', 'gathering', 'ready', 'validating', 'proposed', 'active',
   'rejected', 'expired', 'regressed', 'rolled_back',
@@ -381,8 +380,6 @@ CREATE TABLE IF NOT EXISTS improvement_candidates (
 CREATE INDEX IF NOT EXISTS idx_improvement_candidates_runtime ON improvement_candidates(runtime_key, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_improvement_candidates_state ON improvement_candidates(state, updated_at DESC);
 `;
-
-export function validDreamState(value) { return STATES.has(value); }
 
 function normalizeCandidate(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new ContractError('dream_candidate_invalid', 'candidate must be an object');

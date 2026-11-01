@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import { open, mkdir, realpath } from 'node:fs/promises';
 import { join, resolve } from 'node:path';

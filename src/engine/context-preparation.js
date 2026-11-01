@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { buildReportedContext } from './context-status.js';
-import { buildContext, measureContext } from '../context.js';
+import { buildContext } from '../context.js';
 import { providerRequest } from './runtime-helpers.js';
 import { addHookContexts, hookPayload } from './hooks.js';
 import { ContractError } from '../ids.js';

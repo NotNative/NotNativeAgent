@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
-import { CONFIGURATION_RULES, boundedInteger, boundedNumber, resolveConfigurationScalar as scalar } from './configuration-rules.js';
+import { CONFIGURATION_RULES, resolveConfigurationScalar as scalar } from './configuration-rules.js';
 export { boundedInteger, boundedNumber } from './configuration-rules.js';
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = CONFIGURATION_RULES.provider_timeout_ms.default.value;
@@ -9,16 +9,6 @@ const DEFAULT_IDLE_TIMEOUT_MS = CONFIGURATION_RULES.idle_timeout_ms.default.valu
 const LEGACY_FIRST_TOKEN_TIMEOUT_MS = 30_000;
 const LEGACY_IDLE_TIMEOUT_MS = 45_000;
 const LEGACY_SEMANTIC_REVIEW_TIMEOUT_MS = 15_000;
-
-export function optionalZeroUnsetInteger(value, minimum, maximum) {
-  if (value === undefined || value === null || value === 0) return null;
-  return boundedInteger(value, null, minimum, maximum);
-}
-
-export function optionalZeroUnsetNumber(value, minimum, maximum) {
-  if (value === undefined || value === null || value === 0) return null;
-  return boundedNumber(value, null, minimum, maximum);
-}
 
 export function migrateLegacyProviderTimeoutDefaults(manifest) {
   const migrated = { ...manifest };

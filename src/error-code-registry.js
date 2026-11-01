@@ -152,8 +152,8 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'context_compaction_stalled', 'context_compaction_no_reduction', 'context_compaction_irreducible', 'context_compaction_input_too_small', 'context_compression_invalid', 'context_configuration_invalid', 'context_recovery_invalid', 'qualification_unavailable',
     'context_threshold_invalid', 'context_thresholds_invalid', 'context_too_large',
     'copy_index_invalid', 'copy_response_missing', 'copy_transcript_unavailable',
-    'deletion_confirmation_required', 'diagnostics_session_not_found', 'diagnostics_turn_not_found',
-    'diagnostics_turn_unavailable', 'diagnostics_unavailable', 'diff_target_missing',
+    'deletion_confirmation_required', 'diagnostics_session_not_found',
+    'diagnostics_unavailable', 'diff_target_missing',
     'disconnect_policy_unsupported', 'discovery_response_too_large', 'docker_linux_required',
     'docker_unavailable', 'managed_root_unexpected', 'managed_root_unsafe',
     'dream_action_invalid', 'dream_candidate_drift',
@@ -205,7 +205,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'gateway_token_env_invalid', 'gateway_workspace_invalid', 'goal_already_blocked',
     'gateway_tui_command_invalid', 'goal_already_completed', 'goal_evidence_required', 'goal_missing',
     'goal_not_terminal', 'goal_reason_required', 'goal_tasks_actionable',
-    'goal_tasks_unfinished', 'guidance_catalog_too_large', 'guidance_document_missing',
+    'goal_tasks_unfinished', 'guidance_document_missing',
     'guidance_missing', 'guidance_query_invalid', 'handoff_busy',
     'home_directory_unavailable', 'host_clock_invalid', 'host_identity_invalid',
     'host_origin_invalid', 'host_override_requires_manifest', 'hosted_skills_forbidden',
@@ -237,7 +237,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'notification_journal_invalid', 'notification_journal_path_changed',
     'notification_journal_path_unsafe', 'notification_journal_record_too_large',
     'notification_journal_scan_invalid', 'notification_path_unsafe',
-    'notification_recovery_unavailable', 'notification_turn_missing',
+    'notification_recovery_unavailable',
     'onboarding_env_incomplete', 'opencode_messages_unsupported',
     'opencode_prompt_parts_invalid', 'opencode_prompt_parts_unsupported', 'opencode_prompt_queue_overflow',
     // Keep the OpenCode wire and lifecycle command codes in one reviewable cluster.
@@ -373,7 +373,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'model_runtime_route_invalid', 'no_eligible_vision_route', 'provider_bootstrap_command_invalid',
     'provider_bootstrap_file_invalid', 'provider_bootstrap_file_too_large', 'provider_cancelled',
     'provider_capabilities_invalid', 'provider_capabilities_timeout', 'provider_command_invalid',
-    'provider_config_unavailable', 'provider_configuration_conflict', 'provider_configuration_invalid',
+    'provider_config_unavailable', 'provider_configuration_invalid',
     'provider_configuration_missing', 'provider_configuration_too_large', 'provider_configuration_unavailable',
     'provider_conflicting_terminal', 'provider_context_limit', 'provider_context_limit_invalid',
     'provider_credential_invalid', 'provider_credentials_invalid', 'provider_discovery_failed',
@@ -485,5 +485,3 @@ export function registeredFailureDomain(code) {
 export function isRegisteredFailureCode(code) {
   return typeof code === 'string' && FAILURE_CODE_DOMAINS.has(code);
 }
-
-export const REGISTERED_FAILURE_CODE_COUNT = FAILURE_CODE_DOMAINS.size;

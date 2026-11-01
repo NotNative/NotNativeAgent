@@ -51,8 +51,4 @@ export function projectIdentifier(directory) {
   return createHash('sha256').update(directory ?? '').digest('hex').slice(0, 40);
 }
 
-export function describeSession(record, wiredVersion) {
-  return new OpenCodeSessionRegistry().describe(record, wiredVersion);
-}
-
 export { slugifyTitle };

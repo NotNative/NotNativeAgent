@@ -32,7 +32,6 @@ const PROJECT_DIRECTORY = '.nna';
 const SKILLS_DIRECTORY = 'skills';
 const ENTRY_KEYS = 'bodySha256,description,id,invocation,requiresTools,source,version';
 const DIAGNOSTIC_KEYS = 'code,message,path,scope,status';
-const INVALID_INVOCATIONS = 'user,agent,both';
 const invalid = () => new ContractError('desktop_skills_request_invalid', 'Native skills request is invalid.');
 const projection = () => new ContractError('desktop_skills_projection_invalid', 'Native skills projection refused a drifted catalog.');
 
@@ -136,7 +135,3 @@ export async function dispatchDesktopSkillsRequest(request, response, context) {
   if (path === BASE) return send(response, 405, { error: 'method_not_allowed' });
   return send(response, 404, { error: 'not_found' });
 }
-
-export const DESKTOP_SKILLS_ENTRY_KEYS = ENTRY_KEYS;
-export const DESKTOP_SKILLS_DIAGNOSTIC_KEYS = DIAGNOSTIC_KEYS;
-export const DESKTOP_SKILLS_INVOCATIONS = INVALID_INVOCATIONS;

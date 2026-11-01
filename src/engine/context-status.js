@@ -121,13 +121,6 @@ function recordColdEvidence(engine, active, catalog) {
   }, { turnId: active.turnId, stepId: active.stepId });
 }
 
-export function selectedContextLimit(config, routes) {
-  const known = routes.slice(0, routes[0]?.budget ?? routes.length)
-    .map((route) => route.contextLimitBytes)
-    .filter((value) => Number.isInteger(value) && value > 0);
-  return Math.min(config.limits.maxContextBytes, ...(known.length > 0 ? known : [config.limits.maxContextBytes]));
-}
-
 function completeInputTokens(engine, context, active, budget, outputReserveTokens = undefined) {
   const routes = engine.router?.candidates('primary', { requiredCapabilities: ['tools'] }) ?? [];
   const route = routes.find((candidate) => candidate.targetRole === active.contextBudgetRoute?.targetRole

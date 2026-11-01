@@ -4,7 +4,6 @@ import { ContractError } from '../ids.js';
 import { providerReasoningControls } from '../provider/reasoning.js';
 import { providerRequestMetadata } from '../provider/request-metadata.js';
 import { estimateTokenValue } from './context-token-measurement.js';
-import { estimateUtf8Tokens } from './context-budget.js';
 
 const TOKEN_BYTE_RATIO = 3;
 const MAX_SECTIONS = 64;

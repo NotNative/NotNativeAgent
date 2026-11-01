@@ -13,7 +13,7 @@
 // scope. The only persistent launch state is the login startup script that
 // `enable` owns, and it runs `opencode start`, which re-derives the binding.
 import { existsSync } from 'node:fs';
-import { posix, resolve, win32 } from 'node:path';
+import { posix, win32 } from 'node:path';
 import { ContractError } from '../ids.js';
 
 const LAUNCHER_NAMES = Object.freeze(['openchamber.cmd', 'openchamber.exe', 'openchamber']);
@@ -90,10 +90,4 @@ export async function launchOpenchamber(config, bindUrl, scope = {}) {
     // running and the operator can relaunch OpenChamber by hand.
     return { launched: false, reason: 'launch_failed', error: error.code ?? 'opencode_openchamber_launch_failed' };
   }
-}
-
-/** Absolute launcher paths are echoed back only as their resolved form so a
- *  receipt never carries a relative path that depends on the caller's cwd. */
-export function resolvedLauncher(launcher) {
-  return typeof launcher === 'string' && launcher.length > 0 ? resolve(launcher) : null;
 }

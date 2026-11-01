@@ -6,7 +6,7 @@ import { validateKeyBindings } from './experience/key-bindings.js';
 import { RetainedTerminalScreen } from './tui/terminal-screen.js';
 import { createRenderLoop } from './tui/render-loop.js';
 import { commandDefinition } from './tui/commands.js';
-import { auditOverlay, configOverlay, gatewayOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, workspaceTrustOverlay } from './tui/overlays.js';
+import { auditOverlay, configOverlay, gatewayOverlay, overlayCommandDraft, valueOverlay, skillsOverlay, webFetchOverlay, workspaceTrustOverlay } from './tui/overlays.js';
 import { webSearchOverlay } from './tui/websearch-overlay.js';
 import { runContextCommand } from './tui/context.js';
 import { handleCommandPickerAction, resetCommandPicker } from './tui/command-picker.js';

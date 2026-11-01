@@ -11,30 +11,6 @@ const USER_ENVIRONMENT_NAMES = [
   'OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SERVER_USERNAME',
 ];
 
-export async function applyUserEnvironment(config, scope, bindUrl, defaultUsername) {
-  const pairs = [
-    ['OPENCODE_SKIP_START', 'true'], ['OPENCODE_HOST', bindUrl(config)],
-    ['OPENCODE_SERVER_PASSWORD', config.password],
-    ...(config.username === defaultUsername ? [['OPENCODE_SERVER_USERNAME', null]] : [['OPENCODE_SERVER_USERNAME', config.username]]),
-  ];
-  const observed = await observedUserScopeValues(scope);
-  const pending = pairs.filter((pair) => pendingUserScopeWrite(observed, pair));
-  try {
-    if (pending.length > 0) {
-      const write = scope.userEnvironmentWrite ?? writeUserEnvironment;
-      await write(Object.fromEntries(pending), scope);
-    }
-    return {
-      supported: true,
-      written: pending.filter((pair) => pair[1] !== null).map(([name]) => name),
-      removed: pending.filter((pair) => pair[1] === null).map(([name]) => name),
-      unchanged: pairs.filter((pair) => !pending.includes(pair)).map(([name]) => name),
-    };
-  } catch (error) {
-    throw wiringFailure(error, 'opencode_user_environment_failed', 'the OpenChamber user environment could not be updated');
-  }
-}
-
 export async function clearUserEnvironment(config, scope, bindUrl, defaultUsername) {
   try {
     const expected = {
@@ -83,12 +59,6 @@ function preserved() {
 async function observedUserScopeValues(scope) {
   const read = scope.userEnvironmentRead ?? readUserEnvironment;
   try { return await read(USER_ENVIRONMENT_NAMES, scope); } catch { return null; }
-}
-
-function pendingUserScopeWrite(observed, [name, value]) {
-  if (observed === null) return true;
-  const current = typeof observed[name] === 'string' ? observed[name] : '';
-  return value === null ? current.length > 0 : current !== value;
 }
 
 async function writeUserEnvironment(removals, scope) {

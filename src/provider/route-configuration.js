@@ -393,15 +393,6 @@ export async function persistManifest(path, manifest, options = {}) {
   });
 }
 
-export async function persistInitialManifest(path, manifest) {
-  if (!path) return;
-  try { return await persistManifest(path, manifest, { expectedRevision: 'absent', validate: resolveManifest }); }
-  catch (error) {
-    if (error.code === 'manifest_revision_conflict') throw Object.assign(error, { code: 'EEXIST' });
-    throw error;
-  }
-}
-
 function providerManifest(profile) {
   const capabilities = providerCapabilitiesManifest(profile.capabilities);
   return compact({

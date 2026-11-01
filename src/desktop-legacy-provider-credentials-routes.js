@@ -16,7 +16,6 @@
  * desktop_legacy_provider_credentials_projection_invalid; transport grammar is
  * desktop_legacy_provider_credentials_request_invalid (400).
  */
-import { resolve } from 'node:path';
 import { ContractError } from './ids.js';
 import { send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
