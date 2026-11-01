@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
+// Dormant primitive: ADR 0035 defines this read-only observation for a later
+// recovery continuation that has no production caller yet. The activation test
+// harness evaluates this source directly; do not delete without replacing that
+// continuation.
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { assertHeldDesktopServiceLease, withDesktopServiceLease } from './desktop-service-lock.js';
