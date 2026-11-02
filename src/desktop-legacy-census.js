@@ -72,7 +72,10 @@ foreach($p in Get-CimInstance -ClassName Win32_Process) {
  if($tail[0] -ne 'desktop') { if($tail -contains 'desktop') { $unknown++; $unknownPids += [int64]$p.ProcessId }; continue }
  $operands=@($tail | Select-Object -Skip 1 | Where-Object { $_ -notin @('--no-color','--reduced-motion') })
  if($operands.Count -gt 0 -and $operands[0] -eq 'serve') { $legacy++; $legacyPids += [int64]$p.ProcessId }
- elseif($operands.Count -eq 0 -or $operands[0] -notin @('service','package')) { $unknown++; $unknownPids += [int64]$p.ProcessId }
+ # Why: lifecycle and service/package commands are callers, not owners. The lifecycle
+ # start blocks until the supervisor publishes its controller, so counting it here would
+ # make the drain wait for the very process that is waiting for the drain.
+ elseif($operands.Count -eq 0 -or $operands[0] -notin @('service','package','start','stop','enable','disable','status')) { $unknown++; $unknownPids += [int64]$p.ProcessId }
 }
 $legacyString=($legacyPids|ForEach-Object{[int64]$_}) -join ','
 $unknownString=($unknownPids|ForEach-Object{[int64]$_}) -join ','

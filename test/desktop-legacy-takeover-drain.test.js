@@ -17,6 +17,45 @@ async function fakeLegacyOwner(root) {
   return { child, exit };
 }
 
+async function fakeInvocation(root, tail) {
+  await writeFile(join(root, 'cli.js'), 'setInterval(()=>{},1000);');
+  const child = spawn(process.execPath, [join(root, 'cli.js'), ...tail],
+    { windowsHide: true, stdio: 'ignore' });
+  const exit = once(child, 'exit');
+  return { child, exit };
+}
+
+test('lifecycle and service commands are callers, not legacy owners',
+  { skip: process.platform !== 'win32', timeout: 120000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), "desktop-census-"));
+  const children = [];
+  try {
+    for (const tail of [['desktop', 'start'], ['desktop', 'stop'], ['desktop', 'status'],
+      ['desktop', 'enable'], ['desktop', 'disable'], ['desktop', 'service', 'run', root],
+      ['desktop', 'package', 'status']]) {
+      children.push(await fakeInvocation(root, tail));
+    }
+    const unknown = await fakeInvocation(root, ['desktop', 'frobnicate']);
+    children.push(unknown);
+    // WMI snapshots lag a freshly spawned process; the positive assertion below
+    // also proves the snapshot included this batch.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    const probe = await probeDesktopLegacyOwners({ node: process.execPath });
+    for (const { child } of children.slice(0, -1)) {
+      assert.equal(probe.legacy_pids.includes(child.pid), false, `legacy ${child.pid}`);
+      assert.equal(probe.unknown_pids.includes(child.pid), false, `unknown ${child.pid}`);
+    }
+    // The boundary still holds: an unrecognized desktop invocation stays unverifiable.
+    assert.ok(probe.unknown_pids.includes(unknown.child.pid));
+  } finally {
+    for (const { child, exit } of children) {
+      if (child.exitCode === null && child.signalCode === null) child.kill();
+      await exit.catch(() => {});
+    }
+    await rm(root, { recursive: true, force: true, maxRetries: 12, retryDelay: 250 });
+  }
+});
+
 test('takeover drain names the live legacy owner, refuses after the window, and never terminates it',
   { skip: process.platform !== 'win32', timeout: 120000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), "desktop-drain-"));
