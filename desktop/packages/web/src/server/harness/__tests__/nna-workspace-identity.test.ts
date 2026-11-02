@@ -36,7 +36,7 @@ describe('NNA primary workspace identity', () => {
 
   it('falls back to NNA-authored /path identity only when the catalog route is absent', async () => {
     await expect(reader(response({ error: { code: 'not_found' } }, 404)).read()).resolves.toBe(id);
-    await expect(reader(response({ error: { code: 'nnd_workspace_grant_unavailable' } }, 500)).read()).resolves.toBe(id);
+    await expect(reader(response({ error: { code: 'desktop_workspace_grant_unavailable' } }, 500)).read()).resolves.toBe(id);
     await expect(reader(response({}, 403)).read()).resolves.toBeNull();
     await expect(reader(response({ error: { code: 'internal_failure' } }, 500)).read()).resolves.toBeNull();
     await expect(reader(response({ primary: { root: path.directory, id: other }, selection_enabled: false })).read()).resolves.toBeNull();

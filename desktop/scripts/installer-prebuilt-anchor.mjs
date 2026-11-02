@@ -98,7 +98,7 @@ export async function installPrebuiltAnchor({
     await mkdir(join(temporary, 'packages', 'electron'), { recursive: true });
     await writeNnaSelection(temporary, nnaRoot, installationId, dataId);
     await writeFile(join(temporary, 'nnd-anchor.json'), `${JSON.stringify({
-      schema_version: '1.0', nna_install_root: nnaRoot, nnd_package_root: packageRoot,
+      schema_version: '1.0', nna_install_root: nnaRoot, desktop_package_root: packageRoot,
       version, data_schema: dataSchema, payload_sha256: payloadSha256, stage_operation_id: stageOperationId,
       activation_operation_id: activationOperationId, candidate_sha256: candidateSha256,
       installation_id: installationId, data_id: dataId,
@@ -118,7 +118,7 @@ export async function installPrebuiltAnchor({
     if (displaced) await remove(displaced);
     const installed = await readdir(anchor, { recursive: true });
     if (installed.filter(entry => /\.staging$/u.test(entry)).length) fail('prebuilt_anchor_staging_invalid');
-    return { anchor, nnd_package_root: packageRoot, version };
+    return { anchor, desktop_package_root: packageRoot, version };
   } catch (error) {
     await remove(temporary);
     throw error;

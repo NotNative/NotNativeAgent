@@ -24,7 +24,7 @@ async function firstFrame(child) {
   }), 30_000, 'Supervisor startup exceeded its bound');
 }
 async function cli(fixture, action) {
-  const child = spawn(process.execPath, [fixture.cli, 'nnd', 'service', action, fixture.install],
+  const child = spawn(process.execPath, [fixture.cli, 'desktop', 'service', action, fixture.install],
     { windowsHide: true, env: { ...process.env, NNA_HOME: fixture.data }, stdio: ['ignore', 'pipe', 'pipe'] });
   const exited = once(child, 'exit');
   let output = '';
@@ -59,7 +59,7 @@ async function main(nna) {
   const fixture = await createSupervisedFixture(nna, nnd);
   let child, exited, stopped = false;
   try {
-    child = spawn(process.execPath, [fixture.cli, 'nnd', 'service', 'run', fixture.install],
+    child = spawn(process.execPath, [fixture.cli, 'desktop', 'service', 'run', fixture.install],
       { windowsHide: true, env: { ...process.env, NNA_HOME: fixture.data }, stdio: ['ignore', 'pipe', 'pipe'] });
     exited = once(child, 'exit'); child.stderr.on('data', () => {});
     const status = await firstFrame(child);

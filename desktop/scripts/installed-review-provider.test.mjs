@@ -31,7 +31,7 @@ test('installed provider searches before requesting a reviewed write', () => {
   const first = reviewProviderDelta({ messages: [prompt] }, reviews);
   assert.equal(first.delta.tool_calls[0].function.name, 'tool_search');
   const second = reviewProviderDelta({ messages: [prompt,
-    { role: 'tool', tool_call_id: 'nnd_alpha_review_search_allow', content: '{}' }] }, reviews);
+    { role: 'tool', tool_call_id: 'desktop_alpha_review_search_allow', content: '{}' }] }, reviews);
   assert.equal(second.delta.tool_calls[0].function.name, 'fs_write_text');
   assert.equal(JSON.parse(second.delta.tool_calls[0].function.arguments).path, REVIEW_ALLOWED_FILE);
 });

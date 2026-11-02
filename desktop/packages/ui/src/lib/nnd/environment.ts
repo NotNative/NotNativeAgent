@@ -36,7 +36,7 @@ export class NativeEnvironmentFailure extends Error {
 }
 
 function strictObject(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new NativeEnvironmentFailure('desktop_environment_request_invalid');
   return value as Record<string, unknown>;
 }
 
@@ -53,7 +53,7 @@ function strictObject(value: unknown): Record<string, unknown> {
     || !/^[a-f0-9]{64}$/u.test(String(outcome.observation_digest))
     || outcome.environment_scope !== 'service_process' || !Array.isArray(view.observed)
     || (view.observed as unknown[]).length !== NAMES.length) {
-    throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
+    throw new NativeEnvironmentFailure('desktop_environment_request_invalid');
   }
   const seen = new Set<string>();
   outcome.observed = (view.observed as unknown[]).map((item) => {
@@ -62,21 +62,21 @@ function strictObject(value: unknown): Record<string, unknown> {
     const present = entry.present;
     const secret = entry.secret;
     if (typeof name !== 'string' || !NAMES.includes(name) || (present !== true && present !== false)
-      || (secret !== true && secret !== false)) throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
-    if (present === false && entry.value !== null) throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
+      || (secret !== true && secret !== false)) throw new NativeEnvironmentFailure('desktop_environment_request_invalid');
+    if (present === false && entry.value !== null) throw new NativeEnvironmentFailure('desktop_environment_request_invalid');
     if (SECRETS.has(name)) {
       if (secret !== true || entry.value !== null) {
-        throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
+        throw new NativeEnvironmentFailure('desktop_environment_request_invalid');
       }
     } else if (present === true && typeof entry.value !== 'string') {
-      throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
+      throw new NativeEnvironmentFailure('desktop_environment_request_invalid');
     }
     seen.add(name);
     const value = SECRETS.has(name) || present === false ? null : entry.value as string;
     return { name, secret: secret as boolean, present: present as boolean, value };
   });
   if (seen.size !== NAMES.length || outcome.observed.some((entry, at) => entry.name !== NAMES[at])) {
-    throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
+    throw new NativeEnvironmentFailure('desktop_environment_request_invalid');
   }
   return outcome;
 }
@@ -87,7 +87,7 @@ export function parseNativeEnvironmentCatalog(raw: unknown): NativeEnvironmentCa
   const fields = catalog.fields;
   if (catalog.schema_version !== '1.0' || catalog.source !== 'environment' || catalog.scope !== 'user'
     || !Array.isArray(fields) || fields.length !== NAMES.length) {
-    throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
+    throw new NativeEnvironmentFailure('desktop_environment_request_invalid');
   }
   const seen = new Set<string>();
   const rebuilt = (fields as unknown[]).map((item) => {
@@ -97,19 +97,19 @@ export function parseNativeEnvironmentCatalog(raw: unknown): NativeEnvironmentCa
     if (typeof path !== 'string' || !NAMES.includes(path)
       || classification !== (SECRETS.has(path) ? 'operator_credential' : 'operator_setting')
       || field.application !== 'restart_service') {
-      throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
+      throw new NativeEnvironmentFailure('desktop_environment_request_invalid');
     }
     const editability = strictObject(field.editability);
     if (editability.available !== false || editability.scope !== 'user'
       || editability.reason !== 'process_environment') {
-      throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
+      throw new NativeEnvironmentFailure('desktop_environment_request_invalid');
     }
     seen.add(path);
     return { path, classification: classification as string, application: 'restart_service' as const,
       editability: { available: false, scope: 'user', reason: 'process_environment' } };
   });
   if (seen.size !== NAMES.length || rebuilt.some((field, at) => field.path !== NAMES[at])) {
-    throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
+    throw new NativeEnvironmentFailure('desktop_environment_request_invalid');
   }
   return { schema_version: '1.0', source: 'environment', scope: 'user', fields: rebuilt };
 }
@@ -125,7 +125,7 @@ export async function readNativeEnvironmentCatalog(signal: AbortSignal): Promise
 }
 
 async function call(path: string, signal: AbortSignal): Promise<unknown> {
-  if (authorityState() !== 'ready') throw new NativeEnvironmentFailure('nnd_environment_unavailable');
+  if (authorityState() !== 'ready') throw new NativeEnvironmentFailure('desktop_environment_unavailable');
   const response = await runtimeFetch(API_BASE + path, { method: 'GET',
     signal: AbortSignal.any([signal, AbortSignal.timeout(25000)]) });
   const payload = await boundedJson(response, BOUNDS);
@@ -136,7 +136,7 @@ async function call(path: string, signal: AbortSignal): Promise<unknown> {
       && typeof (error as Record<string, unknown>).code === 'string'
       && CODE.test(String((error as Record<string, unknown>).code))
       ? String((error as Record<string, unknown>).code)
-      : response.status === 404 ? 'nnd_environment_unsupported' : 'nnd_environment_unavailable';
+      : response.status === 404 ? 'desktop_environment_unsupported' : 'desktop_environment_unavailable';
     throw new NativeEnvironmentFailure(code);
   }
   return payload;
@@ -144,31 +144,31 @@ async function call(path: string, signal: AbortSignal): Promise<unknown> {
 
 async function boundedJson(response: Response, bounds: number): Promise<unknown> {
   const reader = response.body?.getReader();
-  if (!reader) throw new NativeEnvironmentFailure('nnd_environment_unavailable');
+  if (!reader) throw new NativeEnvironmentFailure('desktop_environment_unavailable');
   const chunks: Uint8Array[] = [];
   let total = 0;
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
     total += value.byteLength;
-    if (total > bounds) { void reader.cancel().catch(() => undefined); throw new NativeEnvironmentFailure('nnd_environment_request_invalid'); }
+    if (total > bounds) { void reader.cancel().catch(() => undefined); throw new NativeEnvironmentFailure('desktop_environment_request_invalid'); }
     chunks.push(value);
   }
   const bytes = new Uint8Array(total);
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
   try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch {
-    throw new NativeEnvironmentFailure('nnd_environment_request_invalid');
+    throw new NativeEnvironmentFailure('desktop_environment_request_invalid');
   }
 }
 
 /** Every code the native environment surface can return that needs a specific sentence. */
 export const environmentMessages: Record<string, string> = {
-  nnd_environment_unavailable: 'The environment observation is unreachable right now.',
-  nnd_environment_unsupported: 'This native service does not serve the environment observation.',
-  nnd_environment_request_invalid: 'The environment observation could not be read in the expected shape.',
-  nnd_environment_value_too_large: 'An observed environment value exceeded the projection bound.',
-  nnd_configuration_unavailable: 'The environment observation is unavailable on this native service.',
+  desktop_environment_unavailable: 'The environment observation is unreachable right now.',
+  desktop_environment_unsupported: 'This native service does not serve the environment observation.',
+  desktop_environment_request_invalid: 'The environment observation could not be read in the expected shape.',
+  desktop_environment_value_too_large: 'An observed environment value exceeded the projection bound.',
+  desktop_configuration_unavailable: 'The environment observation is unavailable on this native service.',
 };
 
 /** Which of the observed census names are credential rows (values are always withheld). */

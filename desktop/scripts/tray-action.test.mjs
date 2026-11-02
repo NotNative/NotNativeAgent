@@ -16,15 +16,15 @@ test('restart waits for the old controller to disappear before starting a new ge
   const events = []; let polls = 0;
   const result = await runTrayAction('C:/Desktop', 'restart', { ...base(),
     probe: async () => ({ generation: 'before' }), stop: async () => { events.push('stop'); },
-    status: async () => { events.push('status'); if (++polls === 2) throw new Error('nnd_service_not_running'); return { instance_id: 'before' }; },
+    status: async () => { events.push('status'); if (++polls === 2) throw new Error('desktop_service_not_running'); return { instance_id: 'before' }; },
     attach: async () => { events.push('start'); return { generation: 'after' }; } });
   assert.deepEqual(events, ['stop', 'status', 'status', 'start']); assert.deepEqual(result, { restarted: true, generation: 'after' });
 });
 test('an unverified or replaced controller refuses restart without starting another service', async () => {
-  for (const failure of ['nnd_owner_unverified', 'nnd_restart_generation_changed']) {
+  for (const failure of ['desktop_owner_unverified', 'desktop_restart_generation_changed']) {
     let starts = 0;
     await assert.rejects(runTrayAction('C:/Desktop', 'restart', { ...base(), probe: async () => ({ generation: 'before' }), stop: async () => undefined,
-      status: async () => { if (failure === 'nnd_owner_unverified') throw new Error(failure); return { instance_id: 'other' }; },
+      status: async () => { if (failure === 'desktop_owner_unverified') throw new Error(failure); return { instance_id: 'other' }; },
       attach: async () => { starts += 1; } }), { message: failure });
     assert.equal(starts, 0);
   }
@@ -32,7 +32,7 @@ test('an unverified or replaced controller refuses restart without starting anot
 test('a stuck controller reaches the bounded stop failure', async () => {
   let polls = 0;
   await assert.rejects(runTrayAction('C:/Desktop', 'restart', { ...base(), probe: async () => ({ generation: 'before' }), stop: async () => undefined,
-    status: async () => { polls += 1; return { instance_id: 'before' }; } }), { message: 'nnd_stop_timeout' });
+    status: async () => { polls += 1; return { instance_id: 'before' }; } }), { message: 'desktop_stop_timeout' });
   assert.equal(polls, 150);
 });
 test('standalone desktop branding stays identical to the canonical NNA asset', async () => {

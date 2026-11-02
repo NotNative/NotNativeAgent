@@ -15,7 +15,7 @@ async function fixture(t) {
   for (const path of ['scripts', 'packages/electron/dist-server', 'packages/web/dist']) {
     await mkdir(join(root, path), { recursive: true });
   }
-  await writeFile(join(root, 'package.json'), JSON.stringify({ version: '20261002.0.2', nnd_version: '20261002-2' }));
+  await writeFile(join(root, 'package.json'), JSON.stringify({ version: '20261002.0.2', desktop_version: '20261002-2' }));
   await writeFile(join(root, 'VERSION'), '20261002-2\n');
   await writeFile(join(root, 'scripts/serve-installed.mjs'), 'export const fixture = true;');
   await writeFile(join(root, 'packages/electron/dist-server/server.mjs'), 'export const fixture = true;');
@@ -44,7 +44,7 @@ test('artifact admission rejects mismatched versions and bounded metadata overfl
 test('service metadata rejects altered platform and runtime requirements', windows, async (t) => {
   const root = await fixture(t);
   await writeInstalledServiceManifest(root);
-  const path = join(root, 'nna-integration/nnd-local/integration.json');
+  const path = join(root, 'nna-integration/desktop-local/integration.json');
   const original = JSON.parse(await readFile(path, 'utf8'));
   for (const patch of [{ architecture: process.arch === 'x64' ? 'arm64' : 'x64' },
     { runtime: { name: 'node', minimum_major: 100 } }, { entrypoint: 'scripts/other.mjs' }]) {
@@ -57,5 +57,5 @@ test('metadata junction escaping the installed root is refused', windows, async 
   const outside = await fixture(t);
   await symlink(outside, join(root, 'nna-integration'), 'junction');
   await assert.rejects(writeInstalledServiceManifest(root), /escapes/u);
-  await assert.rejects(access(join(outside, 'nnd-local')), { code: 'ENOENT' });
+  await assert.rejects(access(join(outside, 'desktop-local')), { code: 'ENOENT' });
 });

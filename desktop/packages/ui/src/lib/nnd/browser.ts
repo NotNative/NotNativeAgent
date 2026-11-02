@@ -37,7 +37,7 @@ export class NativeBrowserFailure extends Error {
   constructor(code: string) { super(code); this.name = 'NativeBrowserFailure'; this.code = code; }
 }
 
-const viewInvalid = () => new NativeBrowserFailure('nnd_browser_projection_invalid');
+const viewInvalid = () => new NativeBrowserFailure('desktop_browser_projection_invalid');
 
 /** Local mirror of NNA's normalizer, exactly the router's grammar. */
 export function parseNativeBrowserReceipt(raw: unknown, action: 'status' | 'verify'): NativeBrowserReceipt {
@@ -90,10 +90,10 @@ async function call(path: string, method: 'GET' | 'POST', body: unknown,
 async function receipt(action: 'status' | 'verify', signal: AbortSignal) {
   const response = await call(action === 'status' ? '' : '/actions/verify',
     action === 'status' ? 'GET' : 'POST', {}, signal);
-  if (response.status === 404) throw new NativeBrowserFailure('nnd_browser_action_not_found');
+  if (response.status === 404) throw new NativeBrowserFailure('desktop_browser_action_not_found');
   if (response.status !== 200) {
     const raw = await response.arrayBuffer();
-    let code = 'nnd_browser_action_unavailable';
+    let code = 'desktop_browser_action_unavailable';
     try {
       const parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw)) as
         { error?: { code?: unknown } };
@@ -116,9 +116,9 @@ export async function verifyNativeBrowser(signal: AbortSignal): Promise<NativeBr
 
 /** Honest sentence map; unmatched codes fall back to the code. */
 export const browserMessages: Record<string, string> = {
-  nnd_browser_action_unavailable: 'The managed browser observation is unavailable on this runtime.',
-  nnd_browser_action_not_found: 'This runtime does not serve the managed browser observation.',
-  nnd_browser_projection_invalid: 'The managed browser view drifted from its verified grammar.',
+  desktop_browser_action_unavailable: 'The managed browser observation is unavailable on this runtime.',
+  desktop_browser_action_not_found: 'This runtime does not serve the managed browser observation.',
+  desktop_browser_projection_invalid: 'The managed browser view drifted from its verified grammar.',
   integration_permission_denied: 'This account lacks the read right for the managed browser observation.',
   not_installed: 'The managed Playwright Chromium is not installed; rerun the NNA installer to add it.',
   version_mismatch: 'The managed Playwright version does not match this NNA release; rerun the NNA installer.',

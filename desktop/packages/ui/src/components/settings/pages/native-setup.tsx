@@ -43,9 +43,9 @@ export function NativeSetupPanel({ onOpenConfiguration, onActivated, guided = fa
     return () => { unsubscribe(); pending.current?.abort(); pending.current = null; };
   }, [load]);
   const blocked = busy !== null || auth !== 'ok';
-  const restart = status && ['nnd_setup_activation_timeout','nnd_setup_cleanup_failed'].includes(status.failure_code ?? '');
+  const restart = status && ['desktop_setup_activation_timeout','desktop_setup_cleanup_failed'].includes(status.failure_code ?? '');
   const canActivate = status && !['starting','stopping','stopped','ready'].includes(status.service_state)
-    && !['nnd_setup_activation_timeout','nnd_setup_cleanup_failed'].includes(status.failure_code ?? '');
+    && !['desktop_setup_activation_timeout','desktop_setup_cleanup_failed'].includes(status.failure_code ?? '');
   return <section className="mb-4 space-y-2 rounded border border-border/60 p-3" aria-label={t('settings.nativeSetup.title')}>
     <SettingsGroupTitle>{t('settings.nativeSetup.title')}</SettingsGroupTitle>
     {guided ? <SetupWizard /> : null}

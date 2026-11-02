@@ -22,7 +22,7 @@ export interface HarnessAdapter {
 /**
  * Harness wire responses are BARE payloads (doc 02 / D12) — no {data} wrapper.
  * Why: NNA's error contract is `{ error: { code, message } }` (e.g. NNA
- * src/nnd-harness-routes.js and src/secret-broker-server.js error sends), so
+ * src/desktop-harness-routes.js and src/secret-broker-server.js error sends), so
  * every emitted envelope carries a stable snake_case code; callers may pass a
  * specific one and unclassified sites default to `harness_error`.
  */

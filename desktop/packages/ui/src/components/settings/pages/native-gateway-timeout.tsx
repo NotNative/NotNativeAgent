@@ -16,9 +16,9 @@ import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 const INPUT = 'w-24 rounded border border-border bg-background px-2 py-1 text-xs';
 const WIDE_INPUT = 'w-64 rounded border border-border bg-background px-2 py-1 text-xs';
 const BUTTON = 'rounded border border-border px-2 py-1 text-xs disabled:opacity-50';
-const safeError = (error: unknown) => error instanceof NativeGatewayFailure ? error.code : 'nnd_gateway_timeout_unavailable';
-const safePrecommit = new Set(['nnd_gateway_timeout_request_invalid', 'manifest_revision_conflict',
-  'integration_permission_denied', 'nnd_gateway_timeout_source_missing', 'nnd_gateway_timeout_source_invalid']);
+const safeError = (error: unknown) => error instanceof NativeGatewayFailure ? error.code : 'desktop_gateway_timeout_unavailable';
+const safePrecommit = new Set(['desktop_gateway_timeout_request_invalid', 'manifest_revision_conflict',
+  'integration_permission_denied', 'desktop_gateway_timeout_source_missing', 'desktop_gateway_timeout_source_invalid']);
 const validTimeoutDraft = (value: string) => /^(?:[5-9]|[1-4][0-9]|50)$/u.test(value);
 const validUserDraft = (value: string) => /^[1-9][0-9]{0,19}$/u.test(value);
 const MAX_OPERATIONS = 16;
@@ -100,7 +100,7 @@ export function NativeGatewayTimeout(): ReactNode {
     try {
       const operations = nativeGatewayOperations(composeOperations(view, draft));
       if (operations.length < 1) { setError('nothing_to_save'); return; }
-      if (operations.length > MAX_OPERATIONS) { setError('nnd_gateway_timeout_request_invalid'); return; }
+      if (operations.length > MAX_OPERATIONS) { setError('desktop_gateway_timeout_request_invalid'); return; }
       request = nativeGatewayRequest(view, operations);
     } catch (failure) { setError(safeError(failure)); return; }
     run(async (signal, current) => {
@@ -111,7 +111,7 @@ export function NativeGatewayTimeout(): ReactNode {
     let operationId: string;
     try { operationId = newNativeOperationId(); } catch (failure) { setError(safeError(failure)); return; }
     const entry = reserveNativeGatewayOperation(view, operationId, preview.request.expected_revision);
-    if (!entry) { setError('nnd_gateway_timeout_unavailable'); return; }
+    if (!entry) { setError('desktop_gateway_timeout_unavailable'); return; }
     pendingRef.current = entry; setPending(entry);
     run(async (signal, current) => { try {
       const result = await saveNativeGateway(preview.request, operationId, signal);
@@ -131,7 +131,7 @@ export function NativeGatewayTimeout(): ReactNode {
     run(async (signal, current) => {
       const result = await inspectNativeGatewayOperation(entry, entry.operation_id, signal);
       if (!current()) return;
-      if (result && result.before_revision !== entry.expected_revision) throw new NativeGatewayFailure('nnd_gateway_timeout_view_invalid');
+      if (result && result.before_revision !== entry.expected_revision) throw new NativeGatewayFailure('desktop_gateway_timeout_view_invalid');
       if (result?.persistence === 'saved' || result?.persistence === 'unpublished') {
         clearNativeGatewayOperation(entry); pendingRef.current = null; setPending(null); setView(null); setDraft(null);
       }
@@ -218,10 +218,10 @@ function errorText(code: string): string {
   if (code === 'integration_permission_denied') return 'Native permission denied.';
   if (code === 'operation_not_found') return 'No retained receipt was found. Clear the expired local handle, refresh native settings, and preview before another save.';
   if (code === 'nothing_to_save') return 'No settings differ from the saved values.';
-  if (code === 'nnd_gateway_timeout_request_invalid') return 'A composed change is outside the bounded settings grammar. Reduce the batch to at most 16 valid operations.';
-  if (code === 'nnd_gateway_timeout_source_missing' || code === 'nnd_gateway_timeout_source_invalid') {
+  if (code === 'desktop_gateway_timeout_request_invalid') return 'A composed change is outside the bounded settings grammar. Reduce the batch to at most 16 valid operations.';
+  if (code === 'desktop_gateway_timeout_source_missing' || code === 'desktop_gateway_timeout_source_invalid') {
     return 'Gateway settings need native setup or repair before the gateway can be configured here.';
   }
-  if (code === 'nnd_gateway_timeout_unsupported') return 'This NNA does not expose native gateway settings.';
+  if (code === 'desktop_gateway_timeout_unsupported') return 'This NNA does not expose native gateway settings.';
   return 'Gateway settings could not be read or changed.';
 }

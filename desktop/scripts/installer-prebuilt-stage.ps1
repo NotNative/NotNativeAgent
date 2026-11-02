@@ -10,7 +10,7 @@ function Assert-NndPrebuiltPayload([string]$PayloadRoot, [string]$ManifestSha256
         $target.StartsWith("$payload\", [StringComparison]::OrdinalIgnoreCase)) {
         throw 'Prebuilt payload and NND installation target must be separate.'
     }
-    $manifest = Join-Path $payload 'NND_PAYLOAD.json'
+    $manifest = Join-Path $payload 'DESKTOP_PAYLOAD.json'
     $item = Get-Item -LiteralPath $manifest -Force -ErrorAction Stop
     if ($item.PSIsContainer -or $item.Length -gt 33554432 -or
         ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
@@ -43,7 +43,7 @@ function Invoke-NndPrebuiltStage($SelectedNna, $CheckedPayload) {
     $operation = [Guid]::NewGuid().ToString()
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $SelectedNna.Node
-    $startInfo.Arguments = (ConvertTo-NndNativeArgument $SelectedNna.Cli) + ' nnd service stage-payload ' +
+    $startInfo.Arguments = (ConvertTo-NndNativeArgument $SelectedNna.Cli) + ' desktop service stage-payload ' +
         (ConvertTo-NndNativeArgument $SelectedNna.InstallRoot) + ' ' +
         (ConvertTo-NndNativeArgument $payload) + ' ' + $operation
     $startInfo.WorkingDirectory = $SelectedNna.InstallRoot
@@ -98,7 +98,7 @@ function Invoke-NndPrebuiltStage($SelectedNna, $CheckedPayload) {
 function Invoke-NndPrebuiltActivationPreflight($SelectedNna, $CheckedPayload, $SelectedCapability, $StageOperation, [string]$ActivationOperation) {
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $SelectedNna.Node
-    $startInfo.Arguments = (ConvertTo-NndNativeArgument $SelectedNna.Cli) + ' nnd service activation-preflight ' +
+    $startInfo.Arguments = (ConvertTo-NndNativeArgument $SelectedNna.Cli) + ' desktop service activation-preflight ' +
         (ConvertTo-NndNativeArgument $SelectedNna.InstallRoot) + ' ' +
         (ConvertTo-NndNativeArgument $StageOperation) + ' ' + (ConvertTo-NndNativeArgument $ActivationOperation)
     $startInfo.WorkingDirectory = $SelectedNna.InstallRoot
@@ -232,7 +232,7 @@ function Invoke-NndPrebuiltActivation($SelectedNna, $CheckedPayload, $Capabiliti
 function Invoke-NndPrebuiltStageRecover($SelectedNna, [string]$Operation) {
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $SelectedNna.Node
-    $startInfo.Arguments = (ConvertTo-NndNativeArgument $SelectedNna.Cli) + ' nnd service stage-recover ' +
+    $startInfo.Arguments = (ConvertTo-NndNativeArgument $SelectedNna.Cli) + ' desktop service stage-recover ' +
         (ConvertTo-NndNativeArgument $SelectedNna.InstallRoot) + ' ' + $Operation
     $startInfo.WorkingDirectory = $SelectedNna.InstallRoot
     $startInfo.UseShellExecute = $false

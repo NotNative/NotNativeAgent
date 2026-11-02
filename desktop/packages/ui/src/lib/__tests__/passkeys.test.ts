@@ -196,7 +196,7 @@ describe('passkey login ceremony (§2.4/§2.5)', () => {
   it('carries the desktop mint fields when asked', async () => {
     const fake = fakeRuntime();
     serve(fake, PASSKEY_ENDPOINTS.authenticateVerify, () =>
-      jsonResponse(200, { authenticated: true, clientToken: 'nnd_client_abc' }));
+      jsonResponse(200, { authenticated: true, clientToken: 'desktop_client_abc' }));
     const result = await authenticateWithPasskey(fake.runtime, false, {
       issueClientToken: true,
       clientKind: 'desktop',
@@ -204,7 +204,7 @@ describe('passkey login ceremony (§2.4/§2.5)', () => {
       devicePlatform: '   ',
       appVersion: '20260919-1',
     });
-    expect(result.clientToken).toBe('nnd_client_abc');
+    expect(result.clientToken).toBe('desktop_client_abc');
     const body = fake.calls[1]?.body;
     expect(body).toMatchObject({
       issueClientToken: true, clientKind: 'desktop', deviceName: 'Studio', appVersion: '20260919-1',

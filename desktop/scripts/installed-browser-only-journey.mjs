@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
- * F7 browser-only journey: a governed nnd_browser tool chain (open, snapshot,
+ * F7 browser-only journey: a governed desktop_browser tool chain (open, snapshot,
  * inspect, click, type, capture) runs against a fixture dev-server page with
  * the desktop surface never launched — the plain browser tab is the executor
  * through the same-origin preview proxy and postMessage bridge. Capture is
@@ -51,10 +51,10 @@ function sse(response, delta, toolCall) {
 
 function toolCall(id, args) {
   return { role: 'assistant', tool_calls: [{ index: 0, id, type: 'function',
-    function: { name: 'nnd_browser', arguments: JSON.stringify(args) } }] };
+    function: { name: 'desktop_browser', arguments: JSON.stringify(args) } }] };
 }
 
-/** Drives the whole nnd_browser chain from the model side; the setup turn
+/** Drives the whole desktop_browser chain from the model side; the setup turn
  * gets a plain reply, the F7 prompt walks open/snapshot/inspect/click/type/
  * capture and then summarizes what actually reached the model. */
 function startBrowserToolProvider(fixtureUrl) {
@@ -190,7 +190,7 @@ export function f7Probe(providerPort, fixturePort) {
     + 'if(made.status!==201)throw Error(\'create \'+made.status+\': \'+await made.text());'
     + 'const id=(await made.json()).id;'
     + "const sent=await post('/api/session/'+id+'/prompt_async',{messageID:'f7p1',agent:'nna',"
-    + "parts:[{type:'text',text:'Use the nnd_browser tool against the local fixture dev server: open the page, snapshot it, inspect it, click, type, and attempt a capture.'}]});"
+    + "parts:[{type:'text',text:'Use the desktop_browser tool against the local fixture dev server: open the page, snapshot it, inspect it, click, type, and attempt a capture.'}]});"
     + 'if(sent.status!==204)throw Error(\'submit \'+sent.status+\': \'+await sent.text());'
     + 'let final=null;const deadline=Date.now()+300000;'
     + 'while(Date.now()<deadline&&final===null){const list=await getMessages(id);'
@@ -419,7 +419,7 @@ async function main(nnaSource, opts) {
     accepted = true;
     process.stdout.write(opts.stage === 'setup'
       ? 'F7 setup stage passed: ' + summary + '.\n'
-      : 'F7 browser-only journey passed: nnd_browser open/snapshot/inspect/click/type ran with '
+      : 'F7 browser-only journey passed: desktop_browser open/snapshot/inspect/click/type ran with '
       + 'the browser tab as executor and the desktop surface never launched; the model saw the proxied page '
       + '(' + PAGE_MARKER + ') and capture was refused honestly.\n');
   } catch (error) {

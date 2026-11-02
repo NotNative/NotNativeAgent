@@ -73,7 +73,7 @@ describe('honest failure sentences', () => {
   it('maps vault damage to a repair sentence and keeps unknown codes generic', () => {
     expect(secretsErrorText('secret_vault_corrupt')).toContain('needs native repair');
     expect(secretsErrorText('secret_key_invalid')).toContain('needs native repair');
-    expect(secretsErrorText('nnd_secrets_unsupported')).toContain('does not expose');
+    expect(secretsErrorText('desktop_secrets_unsupported')).toContain('does not expose');
     expect(secretsErrorText('everything_else')).toBe('Secrets metadata could not be read.');
   });
 });

@@ -1,5 +1,5 @@
-
-import { positiveInteger } from '../values.js';// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
+import { positiveInteger } from '../values.js';
 
 export function providerModelLimits(entry) {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {

@@ -9,7 +9,7 @@ function Request-NndServiceStopForUninstall($SelectedNna, [string]$WaitHelper) {
     $env:NNA_HOME = $SelectedNna.DataRoot
     $ErrorActionPreference = 'Continue'
     try {
-        & $SelectedNna.Node $SelectedNna.Cli nnd service stop $SelectedNna.InstallRoot | Out-Null
+        & $SelectedNna.Node $SelectedNna.Cli desktop service stop $SelectedNna.InstallRoot | Out-Null
         if ($LASTEXITCODE -ne 0) {
             # A service that was already stopped also has no controller. The
             # installation guard below is the authority for quiescence.
@@ -25,7 +25,7 @@ function Request-NndServiceStopForUninstall($SelectedNna, [string]$WaitHelper) {
 function Start-NndInstallationGuard($SelectedNna) {
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $SelectedNna.Node
-    $startInfo.Arguments = (ConvertTo-NndNativeArgument $SelectedNna.Cli) + ' nnd service install-guard ' + (ConvertTo-NndNativeArgument $SelectedNna.InstallRoot)
+    $startInfo.Arguments = (ConvertTo-NndNativeArgument $SelectedNna.Cli) + ' desktop service install-guard ' + (ConvertTo-NndNativeArgument $SelectedNna.InstallRoot)
     $startInfo.WorkingDirectory = $SelectedNna.InstallRoot
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true

@@ -84,12 +84,12 @@ if [[ $UNINSTALL -eq 1 ]]; then
     NNA_ROOT="$(nna_install_root "$NNA_LAUNCHER")" || NNA_ROOT=""
     # Best-effort stop first: a running old-version service would keep serving
     # from the deleted inode (parity with the Windows uninstall's stop).
-    if [[ -n "$NNA_ROOT" ]]; then "$NNA_LAUNCHER" nnd service stop "$NNA_ROOT" >/dev/null 2>&1 || true; fi
-    if ! "$NNA_LAUNCHER" nnd package status >/dev/null; then
+    if [[ -n "$NNA_ROOT" ]]; then "$NNA_LAUNCHER" desktop service stop "$NNA_ROOT" >/dev/null 2>&1 || true; fi
+    if ! "$NNA_LAUNCHER" desktop package status >/dev/null; then
       echo "NNA is installed but package status failed; refusing to erase an NND package that NNA may still reference" >&2
       exit 1
     fi
-    "$NNA_LAUNCHER" nnd package deactivate "$INSTALL_DIR"
+    "$NNA_LAUNCHER" desktop package deactivate "$INSTALL_DIR"
   else
     nna_result=$?
     if [[ $nna_result -eq 2 ]]; then
@@ -155,7 +155,7 @@ else
   fi
   NNA_LAUNCHER="$(find_nna_launcher)" || { echo "NNA installer did not leave a valid installed runtime; NND was not installed" >&2; exit 1; }
 fi
-if ! "$NNA_LAUNCHER" nnd package status >/dev/null 2>&1; then
+if ! "$NNA_LAUNCHER" desktop package status >/dev/null 2>&1; then
   echo "Installed NNA cannot inspect NND packages. Update or repair NNA, then rerun this installer." >&2
   exit 1
 fi
@@ -164,7 +164,7 @@ echo "   NNA: $NNA_LAUNCHER"
 # Upgrade parity with install.ps1's plan resolver: stop a running service
 # before replacing its files. Best-effort - a stopped service is already fine.
 NNA_ROOT="$(nna_install_root "$NNA_LAUNCHER")" || NNA_ROOT=""
-if [[ -n "$NNA_ROOT" ]]; then "$NNA_LAUNCHER" nnd service stop "$NNA_ROOT" >/dev/null 2>&1 || true; fi
+if [[ -n "$NNA_ROOT" ]]; then "$NNA_LAUNCHER" desktop service stop "$NNA_ROOT" >/dev/null 2>&1 || true; fi
 
 # Transaction record parity with install.ps1: the previous registration stays
 # active through copy/build (activation replaces it), and a stage record is
@@ -172,7 +172,7 @@ if [[ -n "$NNA_ROOT" ]]; then "$NNA_LAUNCHER" nnd service stop "$NNA_ROOT" >/dev
 TXN_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/NotNativeDesktop"
 TXN="$TXN_DIR/install-transaction.json"
 txn_stage() { mkdir -p "$TXN_DIR" && printf '{"stage":"%s"}' "$1" > "$TXN"; }
-if "$NNA_LAUNCHER" nnd package status >/dev/null 2>&1; then
+if "$NNA_LAUNCHER" desktop package status >/dev/null 2>&1; then
   txn_stage prepared
   trap 'echo "  Upgrade transaction interrupted at stage $(cat "$TXN" 2>/dev/null | sed "s/.*stage\":\"//;s/\".*//"); rerun the installer to retry; evidence: $TXN" >&2' ERR
 fi
@@ -211,14 +211,14 @@ echo "== building shell artifacts =="
 ( cd "$INSTALL_DIR" && node scripts/electron-package.mjs --no-nsis )
 
 node -e 'const fs=require("fs"), path=require("path");
-  const root=process.argv[1], version=JSON.parse(fs.readFileSync(path.join(root,"package.json"),"utf8")).nnd_version;
+  const root=process.argv[1], version=JSON.parse(fs.readFileSync(path.join(root,"package.json"),"utf8")).desktop_version;
   if (typeof version!=="string" || !/^\d{8}-[1-9]\d{0,5}$/.test(version)) throw new Error("Installed NND version is invalid");
-  const dir=path.join(root,"nna-integration","nnd-local"); fs.mkdirSync(dir,{recursive:true});
-  fs.writeFileSync(path.join(dir,"integration.json"),JSON.stringify({id:"nnd-local",ownership:"nnd",scope:"local-gui",nna_integration_protocol:"1.0",version}));' "$INSTALL_DIR"
+  const dir=path.join(root,"nna-integration","desktop-local"); fs.mkdirSync(dir,{recursive:true});
+  fs.writeFileSync(path.join(dir,"integration.json"),JSON.stringify({id:"desktop-local",ownership:"desktop",scope:"local-gui",nna_integration_protocol:"1.0",version}));' "$INSTALL_DIR"
 
 echo "== registering NND package with NNA =="
 [[ -f "$TXN" ]] && txn_stage deactivated
-"$NNA_LAUNCHER" nnd package activate "$INSTALL_DIR"
+"$NNA_LAUNCHER" desktop package activate "$INSTALL_DIR"
 [[ -f "$TXN" ]] && rm -f "$TXN"
 
 echo "== desktop entry =="
@@ -241,7 +241,7 @@ ENTRY
 if command -v update-desktop-database >/dev/null; then update-desktop-database "$APP_ENTRIES_DIR" || true; fi
 
 echo "== done =="
-echo "   version : $(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).nnd_version)' "$INSTALL_DIR/package.json")"
+echo "   version : $(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).desktop_version)' "$INSTALL_DIR/package.json")"
 echo "   start   : your desktop launcher (tray icon appears immediately), or: nna desktop start"
 echo "   stop    : nna desktop stop;  auto-start at logon: nna desktop enable / disable"
 echo "   status  : nna desktop status"

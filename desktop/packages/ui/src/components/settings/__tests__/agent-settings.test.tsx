@@ -93,7 +93,7 @@ it.each([['Optional memory retrieval', false], ['Require memory', true]])('previ
   expect(node.querySelector('[role="status"]')?.textContent).toContain(`Optional memory retrieval${expected}Require memory${expected}`);
 });
 
-it.each(['manifest_revision_conflict', 'nnd_configuration_resolution_conflict', 'configuration_source_shadowed'])(
+it.each(['manifest_revision_conflict', 'desktop_configuration_resolution_conflict', 'configuration_source_shadowed'])(
   'preserves input on %s, invalidates preview, and releases only the rejected operation', async code => {
   await mount(); await click('Edit Maximum model steps'); await input('Maximum model steps', '200'); await click('Preview change');
   vi.mocked(runtimeFetch).mockResolvedValueOnce(json({ error: { code } }, 409));

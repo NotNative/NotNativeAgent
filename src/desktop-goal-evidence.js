@@ -1,5 +1,5 @@
-
-import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
+import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
 
 const MAX_TURNS = 200;
 const PROVIDER_PROFILE_ID = DESKTOP_OPERATION_ID;

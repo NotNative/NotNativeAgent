@@ -12,7 +12,7 @@ const messageFor = (code: string) => browserMessages[code] ?? code;
 const isNativeFailure = (value: unknown): value is { code: string } =>
   value instanceof Object && 'code' in value && typeof (value as { code?: unknown }).code === 'string';
 const toSentence = (value: unknown) => messageFor(isNativeFailure(value) ? value.code
-  : 'nnd_browser_action_unavailable');
+  : 'desktop_browser_action_unavailable');
 
 function useBrowserReceipt() {
   const [receipt, setReceipt] = useState<NativeBrowserReceipt | null>(null);

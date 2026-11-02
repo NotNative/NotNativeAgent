@@ -21,7 +21,7 @@ const FIELD_NAME = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u;
 export const SECRETS_RESPONSE_BOUNDS = 2_097_152 + 65_536;
 
 export class NativeSecretsFailure extends Error { constructor(readonly code: string) { super(code); } }
-const viewInvalid = () => new NativeSecretsFailure('nnd_secrets_view_invalid');
+const viewInvalid = () => new NativeSecretsFailure('desktop_secrets_view_invalid');
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -161,7 +161,7 @@ async function call(path: string, signal: AbortSignal): Promise<unknown> {
   if (!response.ok) {
     const error = record(payload) && record(payload.error) ? payload.error : null;
     const code = typeof error?.code === 'string' ? error.code
-      : response.status === 404 ? 'nnd_secrets_unsupported' : 'nnd_secrets_unavailable';
+      : response.status === 404 ? 'desktop_secrets_unsupported' : 'desktop_secrets_unavailable';
     throw new NativeSecretsFailure(code);
   }
   return payload;
@@ -179,7 +179,7 @@ async function boundedJson(response: Response, bounds: number): Promise<unknown>
 }
 
 export function secretsErrorText(code: string): string {
-  if (code === 'nnd_secrets_unsupported') return 'This NNA does not expose native secrets metadata.';
+  if (code === 'desktop_secrets_unsupported') return 'This NNA does not expose native secrets metadata.';
   if (code === 'secret_vault_corrupt' || code === 'secret_key_invalid'
     || code === 'secret_vault_integrity_failed') return 'The secret vault needs native repair before its metadata can be read.';
   return 'Secrets metadata could not be read.';

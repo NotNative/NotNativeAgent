@@ -20,7 +20,7 @@ export class NativeConfigurationFailure extends Error {
 }
 export function newNativeOperationId(): string {
   // getRandomValues also works for a browser on an authenticated LAN HTTP origin.
-  if (!globalThis.crypto?.getRandomValues) throw new NativeConfigurationFailure('nnd_configuration_unavailable');
+  if (!globalThis.crypto?.getRandomValues) throw new NativeConfigurationFailure('desktop_configuration_unavailable');
   const bytes = new Uint8Array(16); globalThis.crypto.getRandomValues(bytes);
   bytes[6] = (bytes[6]! & 0x0f) | 0x40; bytes[8] = (bytes[8]! & 0x3f) | 0x80;
   const hex = [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
@@ -48,24 +48,24 @@ export interface NativeReceipt { installation_id: string; data_id: string; scope
 
 async function boundedJson(response: Response): Promise<unknown> {
   const reader = response.body?.getReader();
-  if (!reader) throw new NativeConfigurationFailure('nnd_configuration_unavailable');
+  if (!reader) throw new NativeConfigurationFailure('desktop_configuration_unavailable');
   const chunks: Uint8Array[] = []; let size = 0;
   try {
     for (;;) {
       const { done, value } = await reader.read(); if (done) break;
       size += value.byteLength;
-      if (size > MAX_RESPONSE) { await reader.cancel(); throw new NativeConfigurationFailure('nnd_configuration_view_invalid'); }
+      if (size > MAX_RESPONSE) { await reader.cancel(); throw new NativeConfigurationFailure('desktop_configuration_view_invalid'); }
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }
   const bytes = new Uint8Array(size); let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
   try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
-  catch { throw new NativeConfigurationFailure('nnd_configuration_view_invalid'); }
+  catch { throw new NativeConfigurationFailure('desktop_configuration_view_invalid'); }
 }
 async function call(path: string, method: 'GET' | 'POST', signal: AbortSignal, body?: unknown): Promise<unknown> {
   const encoded = body === undefined ? undefined : JSON.stringify(body);
-  if (encoded && new TextEncoder().encode(encoded).byteLength > 65536) throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
+  if (encoded && new TextEncoder().encode(encoded).byteLength > 65536) throw new NativeConfigurationFailure('desktop_configuration_request_invalid');
   const response = await runtimeFetch(BASE + path, { method, signal: AbortSignal.any([signal, AbortSignal.timeout(25000)]),
     ...(encoded === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: encoded }) });
   const payload = await boundedJson(response);
@@ -73,7 +73,7 @@ async function call(path: string, method: 'GET' | 'POST', signal: AbortSignal, b
     const error = record(payload) && record(payload.error) ? payload.error : null;
     const code = error && typeof error.code === 'string' && /^[a-z][a-z0-9_]{0,63}$/u.test(error.code)
       ? error.code : record(payload) && payload.error === 'operation_not_found' ? 'operation_not_found'
-        : response.status === 404 ? 'nnd_configuration_unsupported' : 'nnd_configuration_unavailable';
+        : response.status === 404 ? 'desktop_configuration_unsupported' : 'desktop_configuration_unavailable';
     throw new NativeConfigurationFailure(code);
   }
   return payload;
@@ -81,7 +81,7 @@ async function call(path: string, method: 'GET' | 'POST', signal: AbortSignal, b
 export async function requestNativeConfigurationCatalog(signal: AbortSignal): Promise<NativeConfigurationCatalog> {
   const response = await call('/catalog', 'GET', signal);
   if (!record(response) || response.schema_version !== '1.0' || response.authority !== 'descriptive_only'
-    || !Array.isArray(response.fields) || response.fields.length > 512) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
+    || !Array.isArray(response.fields) || response.fields.length > 512) throw new NativeConfigurationFailure('desktop_configuration_view_invalid');
   const fields: NativeEditableField[] = [];
   const bindingPaths = new Set<string>();
   for (const raw of response.fields) {
@@ -93,7 +93,7 @@ export async function requestNativeConfigurationCatalog(signal: AbortSignal): Pr
         || raw.editability.scope !== 'user' || raw.editability.required_permission !== 'nnd.configuration.manage'
         || !Array.isArray(raw.editability.paired_fields)
         || JSON.stringify(raw.editability.paired_fields) !== JSON.stringify(paired)
-        || bindingPaths.has(raw.path)) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
+        || bindingPaths.has(raw.path)) throw new NativeConfigurationFailure('desktop_configuration_view_invalid');
       bindingPaths.add(raw.path); continue;
     }
     if (typeof raw.path !== 'string' || raw.path.length > 512 || !ID.test(raw.path.replaceAll('.', '_'))
@@ -102,13 +102,13 @@ export async function requestNativeConfigurationCatalog(signal: AbortSignal): Pr
       || !['integer', 'number', 'string', 'boolean', 'enum', 'array'].includes(String(raw.type))
       || raw.classification !== 'operator_setting' || raw.editability.generic_editable !== true
       || raw.editability.scope !== 'user' || raw.editability.required_permission !== 'nnd.configuration.manage'
-      || raw.sensitivity === 'credential_reference') throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
-    if (raw.type === 'enum' && (!Array.isArray(raw.enum) || raw.enum.length > 64 || raw.enum.some(item => typeof item !== 'string'))) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
+      || raw.sensitivity === 'credential_reference') throw new NativeConfigurationFailure('desktop_configuration_view_invalid');
+    if (raw.type === 'enum' && (!Array.isArray(raw.enum) || raw.enum.length > 64 || raw.enum.some(item => typeof item !== 'string'))) throw new NativeConfigurationFailure('desktop_configuration_view_invalid');
     const field = raw as unknown as NativeEditableField;
     if (memoryField(field.path) && !advertisedMemoryPair(field)) continue;
     fields.push(field);
   }
-  if (new Set(fields.map(field => field.path)).size !== fields.length) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
+  if (new Set(fields.map(field => field.path)).size !== fields.length) throw new NativeConfigurationFailure('desktop_configuration_view_invalid');
   const paired = MEMORY_PAIR.every(path => fields.some(field => field.path === path));
   const editableFields = paired ? fields : fields.filter(field => !memoryField(field.path));
   const routeBindings = (['reviewer', 'vision'] as NativeRouteRole[]).filter(role =>
@@ -122,7 +122,7 @@ export function nativeRouteBindingChange(view: NativeConfigurationView, catalog:
     || !ID.test(view.data_id) || !catalog.routeBindings?.includes(role)
     || !/^[A-Za-z0-9_-]{1,64}$/u.test(providerId) || ['__proto__', 'constructor', 'prototype'].includes(providerId)
     || !model.trim() || model.length > 256 || /[\u0000-\u001f\u007f]/u.test(model)) {
-    throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
+    throw new NativeConfigurationFailure('desktop_configuration_request_invalid');
   }
   return { installation_id: view.installation_id, data_id: view.data_id, scope: 'user',
     expected_revision: view.source_revision!, expected_resolution_revision: view.resolution_revision!,
@@ -134,12 +134,12 @@ export function nativeChange(view: NativeConfigurationView, field: NativeEditabl
     || !/^[a-f0-9]{64}$/u.test(view.resolution_revision ?? '') || !ID.test(view.installation_id) || !ID.test(view.data_id)
     || !field.editability.available || field.editability.scope !== 'user'
     || field.editability.required_permission !== 'nnd.configuration.manage'
-    || (memoryField(field.path) && !advertisedMemoryPair(field))) throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
+    || (memoryField(field.path) && !advertisedMemoryPair(field))) throw new NativeConfigurationFailure('desktop_configuration_request_invalid');
   let operation: NativeOperation = { op: 'reset', field: field.path };
   if (mode === 'set') {
     let value: unknown;
-    try { value = JSON.parse(draft); } catch { throw new NativeConfigurationFailure('nnd_configuration_request_invalid'); }
-    if (!typedValue(field, value)) throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
+    try { value = JSON.parse(draft); } catch { throw new NativeConfigurationFailure('desktop_configuration_request_invalid'); }
+    if (!typedValue(field, value)) throw new NativeConfigurationFailure('desktop_configuration_request_invalid');
     operation = { op: 'set', field: field.path, value };
   }
   return { installation_id: view.installation_id, data_id: view.data_id, scope: 'user',
@@ -157,16 +157,16 @@ function typedValue(field: NativeEditableField, value: unknown): boolean {
 export async function previewNativeConfiguration(request: NativeChangeRequest, signal: AbortSignal): Promise<NativePreview> {
   const raw = await call('/preview', 'POST', signal, request);
   if (!record(raw) || raw.valid !== true || raw.application !== 'not_applied'
-    || raw.expected_revision !== request.expected_revision || raw.resolution_revision !== request.expected_resolution_revision) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
+    || raw.expected_revision !== request.expected_revision || raw.resolution_revision !== request.expected_resolution_revision) throw new NativeConfigurationFailure('desktop_configuration_view_invalid');
   const view = parseNativeConfigurationView(raw.view);
-  if (!view || view.installation_id !== request.installation_id || view.data_id !== request.data_id) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
+  if (!view || view.installation_id !== request.installation_id || view.data_id !== request.data_id) throw new NativeConfigurationFailure('desktop_configuration_view_invalid');
   const memory = request.operations[0];
   const pairedValue = memory?.op === 'set' ? (memory.field === 'memory.enabled' && memory.value === false
     ? false : memory.field === 'memory.required' && memory.value === true ? true : null) : null;
   if (pairedValue !== null && MEMORY_PAIR.some(path => {
     const row = view.fields.find(field => field.path === path);
     return !row?.effective.present || !('value' in row.effective) || row.effective.value !== pairedValue;
-  })) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
+  })) throw new NativeConfigurationFailure('desktop_configuration_view_invalid');
   return { valid: true, expected_revision: request.expected_revision, resolution_revision: request.expected_resolution_revision,
     application: 'not_applied', view };
 }
@@ -177,21 +177,21 @@ function receipt(raw: unknown, identity: { installation_id: string; data_id: str
     || !(raw.persisted_revision === null || revision(raw.persisted_revision)) || !revision(raw.before_revision)
     || (expectedRevision !== undefined && raw.before_revision !== expectedRevision)
     || (raw.persistence === 'saved' && (raw.persisted_revision === null || raw.persisted_revision === 'absent'))
-    || raw.application !== 'not_applied' || typeof raw.replayed !== 'boolean') throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
+    || raw.application !== 'not_applied' || typeof raw.replayed !== 'boolean') throw new NativeConfigurationFailure('desktop_configuration_view_invalid');
   return raw as unknown as NativeReceipt;
 }
 export async function saveNativeConfiguration(request: NativeChangeRequest, operationId: string, signal: AbortSignal): Promise<NativeReceipt> {
-  if (authorityState() !== 'ready') throw new NativeConfigurationFailure('nnd_configuration_unavailable');
+  if (authorityState() !== 'ready') throw new NativeConfigurationFailure('desktop_configuration_unavailable');
   return receipt(await call('/save', 'POST', signal, { ...request, operation_id: operationId }), request, operationId, request.expected_revision);
 }
 export async function lookupNativeConfigurationOperation(identity: { installation_id: string; data_id: string }, operationId: string,
   signal: AbortSignal): Promise<NativeReceipt | null> {
-  if (!ID.test(operationId)) throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
+  if (!ID.test(operationId)) throw new NativeConfigurationFailure('desktop_configuration_request_invalid');
   try { return receipt(await call(`/operations/${operationId}`, 'GET', signal), identity, operationId); }
   catch (error) { if (error instanceof NativeConfigurationFailure && error.code === 'operation_not_found') return null; throw error; }
 }
 export function nativeRepairDocument(input: unknown): Record<string, unknown> {
-  if (!record(input)) throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
+  if (!record(input)) throw new NativeConfigurationFailure('desktop_configuration_request_invalid');
   const provider = input.provider;
   // Structured provider collections and route tables travel with the document
   // and are validated by NNA against the full configuration contract; only
@@ -204,14 +204,14 @@ export function nativeRepairDocument(input: unknown): Record<string, unknown> {
     || typeof input.workspace_root !== 'string' || !input.workspace_root.trim() || input.workspace_root.length > 4096
     || (record(provider) && (Object.keys(provider).some(key => !['id', 'endpoint', 'model', 'trust_zone'].includes(key))
       || !['id', 'endpoint', 'model', 'trust_zone'].every(key => typeof provider[key] === 'string' && (provider[key] as string).length > 0)))) {
-    throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
+    throw new NativeConfigurationFailure('desktop_configuration_request_invalid');
   }
   return input;
 }
 export async function repairNativeConfiguration(view: NativeConfigurationView, document: Record<string, unknown>, operationId: string,
   signal: AbortSignal): Promise<NativeReceipt> {
-  if (authorityState() !== 'ready') throw new NativeConfigurationFailure('nnd_configuration_unavailable');
-  if (view.source_state === 'present' || !REVISION.test(view.source_revision ?? '') || !ID.test(operationId)) throw new NativeConfigurationFailure('nnd_configuration_request_invalid');
+  if (authorityState() !== 'ready') throw new NativeConfigurationFailure('desktop_configuration_unavailable');
+  if (view.source_state === 'present' || !REVISION.test(view.source_revision ?? '') || !ID.test(operationId)) throw new NativeConfigurationFailure('desktop_configuration_request_invalid');
   return receipt(await call('/repair', 'POST', signal, { installation_id: view.installation_id, data_id: view.data_id,
     scope: 'user', expected_revision: view.source_revision, operation_id: operationId,
     document: nativeRepairDocument(document) }), view, operationId, view.source_revision!);

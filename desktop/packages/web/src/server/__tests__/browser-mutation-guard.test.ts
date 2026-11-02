@@ -12,7 +12,7 @@ describe('unsafe browser request origin gate', () => {
   it('relaxes only the UI session cookie for the trusted packaged origin', () => {
     const session = 'oc_ui_session=token; Path=/; HttpOnly; SameSite=Strict; Max-Age=60';
     expect(desktopSessionCookieHeader(session)).toBe('oc_ui_session=token; Path=/; HttpOnly; SameSite=None; Max-Age=60; Secure');
-    const tunnel = 'nnd_tunnel_session=token; Path=/; SameSite=Lax';
+    const tunnel = 'desktop_tunnel_session=token; Path=/; SameSite=Lax';
     expect(desktopSessionCookieHeader(tunnel)).toBe(tunnel);
   });
 

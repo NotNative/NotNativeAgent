@@ -5,7 +5,7 @@
  * GET /api/v1/nnd/configuration/skills/catalog re-initializes the same
  * registry authority against the served workspace and freezes the catalog
  * plus its diagnostics; the failure codes surface honestly (the wrapped
- * authority failure keeps nnd_skills_catalog_unavailable at 503). Entry
+ * authority failure keeps desktop_skills_catalog_unavailable at 503). Entry
  * grammar mirrors the route's projection: {id, version, description,
  * invocation, source, requires_tools, body_sha256}; never a skill body.
  */
@@ -36,7 +36,7 @@ export class NativeSkillsFailure extends Error {
   constructor(code: string) { super(code); this.name = 'NativeSkillsFailure'; this.code = code; }
 }
 
-const viewInvalid = () => new NativeSkillsFailure('nnd_skills_projection_invalid');
+const viewInvalid = () => new NativeSkillsFailure('desktop_skills_projection_invalid');
 
 const ENTRY_KEYS = 'body_sha256,description,id,invocation,requires_tools,source,version';
 const DIAGNOSTIC_KEYS = 'code,message,path,scope,status';
@@ -95,10 +95,10 @@ export function parseNativeSkillsCatalog(raw: unknown): NativeSkillsCatalogRecei
 export async function readNativeSkillsCatalog(signal: AbortSignal): Promise<NativeSkillsCatalogReceipt> {
   const response = await runtimeFetch(`${BASE}/catalog`, {
     signal: AbortSignal.any([signal, AbortSignal.timeout(25_000)]) });
-  if (response.status === 404) throw new NativeSkillsFailure('nnd_skills_not_available');
+  if (response.status === 404) throw new NativeSkillsFailure('desktop_skills_not_available');
   if (response.status !== 200) {
     const raw = await response.arrayBuffer();
-    let code = 'nnd_skills_unavailable';
+    let code = 'desktop_skills_unavailable';
     try {
       const parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw)) as
         { error?: { code?: unknown } };
@@ -113,11 +113,11 @@ export async function readNativeSkillsCatalog(signal: AbortSignal): Promise<Nati
 
 /** Honest sentence map; unmatched codes fall back to the code. */
 export const skillsMessages: Record<string, string> = {
-  nnd_skills_unavailable: 'The skills catalog observation is unavailable on this runtime.',
-  nnd_skills_not_available: 'This runtime does not serve the skills catalog observation.',
-  nnd_skills_request_invalid: 'This runtime could not resolve the workspace for the skills catalog.',
-  nnd_skills_catalog_unavailable: 'The skills catalog could not be loaded; check the skill folders for unreadable files.',
-  nnd_skills_catalog_too_large: 'The skills catalog exceeds its response bound and was refused.',
-  nnd_skills_projection_invalid: 'The skills catalog view drifted from its verified grammar.',
+  desktop_skills_unavailable: 'The skills catalog observation is unavailable on this runtime.',
+  desktop_skills_not_available: 'This runtime does not serve the skills catalog observation.',
+  desktop_skills_request_invalid: 'This runtime could not resolve the workspace for the skills catalog.',
+  desktop_skills_catalog_unavailable: 'The skills catalog could not be loaded; check the skill folders for unreadable files.',
+  desktop_skills_catalog_too_large: 'The skills catalog exceeds its response bound and was refused.',
+  desktop_skills_projection_invalid: 'The skills catalog view drifted from its verified grammar.',
   integration_permission_denied: 'This account lacks the read right for the skills catalog observation.',
 };

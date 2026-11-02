@@ -34,8 +34,8 @@ export function reviewProviderDelta(body, reviews) {
   const mode = userText.includes('NND_ALPHA_REVIEW_ALLOW') ? 'allow'
     : userText.includes('NND_ALPHA_REVIEW_DENY') ? 'deny' : null;
   if (!mode) return { delta: { role: 'assistant', content: REPLY }, toolCall: false };
-  const searchId = `nnd_alpha_review_search_${mode}`;
-  const writeId = `nnd_alpha_review_write_${mode}`;
+  const searchId = `desktop_alpha_review_search_${mode}`;
+  const writeId = `desktop_alpha_review_write_${mode}`;
   const searched = body.messages?.some(message => message.role === 'tool' && message.tool_call_id === searchId);
   const result = body.messages?.find(message => message.role === 'tool' && message.tool_call_id === writeId);
   if (!searched) return { delta: { role: 'assistant', tool_calls: [{ index: 0, id: searchId, type: 'function',

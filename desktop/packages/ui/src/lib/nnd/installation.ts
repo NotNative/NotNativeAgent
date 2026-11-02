@@ -4,8 +4,8 @@
  * generated_state: installer-written, service-admitted, never operator
  * editable. The read re-verifies the descriptor through the admission
  * authority and fails closed when the disk no longer supports the admission
- * (nnd_install_* 503s surface verbatim; a projected value the router cannot
- * accept would be the 500 nnd_installation_projection_invalid). There is no
+ * (desktop_install_* 503s surface verbatim; a projected value the router cannot
+ * accept would be the 500 desktop_installation_projection_invalid). There is no
  * secret in this family, so reads return values.
  */
 import { runtimeFetch } from '../runtime-fetch.ts';
@@ -28,7 +28,7 @@ export class NativeInstallationFailure extends Error {
   constructor(code: string) { super(code); this.name = 'NativeInstallationFailure'; this.code = code; }
 }
 
-const viewInvalid = () => new NativeInstallationFailure('nnd_installation_projection_invalid');
+const viewInvalid = () => new NativeInstallationFailure('desktop_installation_projection_invalid');
 
 /** Local mirror of NNA's projector: the router's whitelist, applied before
  * the view reaches any component. */
@@ -61,7 +61,7 @@ export function parseNativeInstallationView(raw: unknown): NativeInstallationVie
 async function call(signal: AbortSignal): Promise<NativeInstallationView> {
   const response = await runtimeFetch(BASE, { method: 'GET',
     signal: AbortSignal.any([signal, AbortSignal.timeout(25_000)]) });
-  if (response.status === 404) throw new NativeInstallationFailure('nnd_installation_not_available');
+  if (response.status === 404) throw new NativeInstallationFailure('desktop_installation_not_available');
   if (response.status !== 200) {
     const raw = await response.arrayBuffer();
     let message = '';
@@ -71,8 +71,8 @@ async function call(signal: AbortSignal): Promise<NativeInstallationView> {
       if (parsed && typeof parsed === 'object' && parsed.error && typeof parsed.error === 'object'
         && typeof parsed.error.code === 'string') message = parsed.error.code;
       else throw new Error('shape');
-    } catch { message = 'nnd_installation_unavailable'; }
-    throw new NativeInstallationFailure(message || 'nnd_installation_unavailable');
+    } catch { message = 'desktop_installation_unavailable'; }
+    throw new NativeInstallationFailure(message || 'desktop_installation_unavailable');
   }
   const raw = await response.arrayBuffer();
   if (raw.byteLength > REQUEST_BYTES) throw viewInvalid();
@@ -85,10 +85,10 @@ export async function readNativeInstallation(signal: AbortSignal): Promise<Nativ
 
 /** Honest sentence map for the panel; unmatched codes fall back to the code. */
 export const installationMessages: Record<string, string> = {
-  nnd_installation_unavailable: 'The installation observation is unavailable on this runtime.',
-  nnd_installation_projection_invalid: 'The installation view drifted from its verified grammar.',
-  nnd_install_descriptor_unavailable: 'The installation descriptor could not be read; repair the installation.',
-  nnd_install_descriptor_invalid: 'The installation descriptor is invalid; repair the installation.',
-  nnd_install_runtime_unavailable: 'The recorded Node runtime could not be verified; repair the installation.',
+  desktop_installation_unavailable: 'The installation observation is unavailable on this runtime.',
+  desktop_installation_projection_invalid: 'The installation view drifted from its verified grammar.',
+  desktop_install_descriptor_unavailable: 'The installation descriptor could not be read; repair the installation.',
+  desktop_install_descriptor_invalid: 'The installation descriptor is invalid; repair the installation.',
+  desktop_install_runtime_unavailable: 'The recorded Node runtime could not be verified; repair the installation.',
   integration_permission_denied: 'This account lacks the read right for the installation descriptor.',
 };

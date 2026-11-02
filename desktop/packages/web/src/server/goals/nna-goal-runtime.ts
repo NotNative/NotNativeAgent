@@ -25,7 +25,7 @@ export function guardGoalAuditExchangePorts(ports: GoalDispatchPorts, isCurrent:
     writeGoal: (...args) => isCurrent() ? ports.writeGoal(...args)
       : Promise.reject(new GoalRuntimeInactiveError()),
     runAudit: (...args) => isCurrent() ? ports.runAudit(...args)
-      : Promise.resolve({ status: 409, body: { error: { code: 'nnd_goal_audit_conflict' } } }),
+      : Promise.resolve({ status: 409, body: { error: { code: 'desktop_goal_audit_conflict' } } }),
     sendPrompt: (...args) => isCurrent() ? ports.sendPrompt(...args)
       : Promise.reject(new GoalRuntimeInactiveError()),
     recoverSkippedSend: async (sessionId, directory, persisted, prior, expectedRevision) => {

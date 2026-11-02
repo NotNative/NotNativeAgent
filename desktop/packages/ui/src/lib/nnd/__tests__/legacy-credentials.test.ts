@@ -22,7 +22,7 @@ describe('native legacy provider-credentials parser', () => {
       receipt({ reason: 'mystery' }),
       receipt({ extra: true }),
       receipt({ loaded: false }),
-      receipt({ loaded: false, count: 0, reason: 'nnd_made_up' }),
+      receipt({ loaded: false, count: 0, reason: 'desktop_made_up' }),
       receipt({ scope: 'workspace' }),
     ]) {
       expect(() => parseNativeLegacyProviderCredentials(drift)).toThrow(NativeLegacyCredentialsFailure);

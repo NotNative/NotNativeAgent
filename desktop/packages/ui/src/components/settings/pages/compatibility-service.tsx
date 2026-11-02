@@ -19,9 +19,9 @@ import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 
 const INPUT = 'w-64 rounded border border-border bg-background px-2 py-1 text-xs';
 const BUTTON = 'rounded border border-border px-2 py-1 text-xs disabled:opacity-50';
-const safeError = (error: unknown) => error instanceof NativeCompatibilityFailure ? error.code : 'nnd_compatibility_unavailable';
-const safePrecommit = new Set(['nnd_compatibility_request_invalid', 'manifest_revision_conflict',
-  'integration_permission_denied', 'nnd_compatibility_source_invalid', 'opencode_hostname_invalid',
+const safeError = (error: unknown) => error instanceof NativeCompatibilityFailure ? error.code : 'desktop_compatibility_unavailable';
+const safePrecommit = new Set(['desktop_compatibility_request_invalid', 'manifest_revision_conflict',
+  'integration_permission_denied', 'desktop_compatibility_source_invalid', 'opencode_hostname_invalid',
   'opencode_bind_port_invalid', 'opencode_username_invalid', 'opencode_password_invalid',
   'opencode_bind_exposed_requires_password', 'opencode_config_version_unsupported',
   'opencode_config_invalid', 'opencode_config_too_large']);
@@ -98,7 +98,7 @@ export function CompatibilityServiceSettings(): ReactNode {
     let operationId: string;
     try { operationId = newNativeOperationId(); } catch (failure) { setError(safeError(failure)); return; }
     const entry = reserveNativeCompatibilityOperation(view, operationId, preview.request.expected_revision);
-    if (!entry) { setError('nnd_compatibility_unavailable'); return; }
+    if (!entry) { setError('desktop_compatibility_unavailable'); return; }
     pendingRef.current = entry; setPending(entry);
     run(async (signal, current) => { try {
       const result = await saveNativeCompatibility(preview.request, operationId, signal);
@@ -121,7 +121,7 @@ export function CompatibilityServiceSettings(): ReactNode {
     run(async (signal, current) => {
       const result = await inspectNativeCompatibilityOperation(entry, entry.operation_id, signal);
       if (!current()) return;
-      if (result && result.before_revision !== entry.expected_revision) throw new NativeCompatibilityFailure('nnd_compatibility_view_invalid');
+      if (result && result.before_revision !== entry.expected_revision) throw new NativeCompatibilityFailure('desktop_compatibility_view_invalid');
       if (result?.persistence === 'saved' || result?.persistence === 'unpublished') {
         clearNativeCompatibilityOperation(entry); pendingRef.current = null; setPending(null); setView(null); setDraft(null);
       }
@@ -210,10 +210,10 @@ function errorText(code: string): string {
   if (code === 'manifest_revision_conflict') return 'Compatibility settings changed. Refresh and preview again.';
   if (code === 'integration_permission_denied') return 'Native permission denied.';
   if (code === 'operation_not_found') return 'No retained receipt was found. Clear the expired local handle, refresh native settings, and preview before another save.';
-  if (code === 'nnd_compatibility_request_invalid') return 'A composed change is outside the bounded settings grammar. Hostnames stay within 253 characters, ports run 1–65535, usernames 1–64, and the replace value 20–512 characters.';
-  if (code === 'nnd_compatibility_source_invalid') return 'Compatibility settings need native repair before they can be changed here.';
-  if (code === 'nnd_compatibility_projection_invalid') return 'NNA served a compatibility shape this build refuses. Update NNA and this NND together before retrying.';
-  if (code === 'nnd_compatibility_unsupported') return 'This NNA does not expose native compatibility service settings.';
+  if (code === 'desktop_compatibility_request_invalid') return 'A composed change is outside the bounded settings grammar. Hostnames stay within 253 characters, ports run 1–65535, usernames 1–64, and the replace value 20–512 characters.';
+  if (code === 'desktop_compatibility_source_invalid') return 'Compatibility settings need native repair before they can be changed here.';
+  if (code === 'desktop_compatibility_projection_invalid') return 'NNA served a compatibility shape this build refuses. Update NNA and this NND together before retrying.';
+  if (code === 'desktop_compatibility_unsupported') return 'This NNA does not expose native compatibility service settings.';
   if (code === 'opencode_hostname_invalid') return 'Hostnames must be an IP address or DNS name without scheme, port, or brackets in the middle.';
   if (code === 'opencode_bind_port_invalid') return 'The bind port must be an integer from 1 through 65535.';
   if (code === 'opencode_username_invalid') return 'The Basic auth username is invalid (1–64 characters, no colons or control characters).';

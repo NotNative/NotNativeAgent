@@ -192,7 +192,7 @@ function createResolvedHarness(endpoint: string, token: string, requestFetch: ty
 }
 
 function spawnNnaChild(options: LocalNnaLaunchOptions): ChildProcessWithoutNullStreams {
-  return (options.spawnChild ?? spawn)(options.command, [...(options.commandArguments ?? []), 'nnd', 'serve'], {
+  return (options.spawnChild ?? spawn)(options.command, [...(options.commandArguments ?? []), 'desktop', 'serve'], {
     stdio: ['ignore', 'pipe', 'pipe'], shell: false, windowsHide: true,
     env: localChildEnvironment(options),
   }) as ChildProcessWithoutNullStreams;
@@ -224,17 +224,17 @@ function localChildEnvironment(options: LocalNnaLaunchOptions): NodeJS.ProcessEn
   // Browser authority must be supplied by this launch, never inherited from
   // an operator shell or an earlier NND process with a different bridge.
   const environment: NodeJS.ProcessEnv = { ...process.env, ...(options.dataRoot ? { NNA_HOME: options.dataRoot } : {}) };
-  delete environment.NNA_NND_BROWSER_URL;
-  delete environment.NNA_NND_BROWSER_TOKEN;
-  delete environment.NNA_NND_AGENT_TOOL_URL;
-  delete environment.NNA_NND_AGENT_TOOL_TOKEN;
+  delete environment.NNA_DESKTOP_BROWSER_URL;
+  delete environment.NNA_DESKTOP_BROWSER_TOKEN;
+  delete environment.NNA_DESKTOP_AGENT_TOOL_URL;
+  delete environment.NNA_DESKTOP_AGENT_TOOL_TOKEN;
   if (options.browserCallback) {
-    environment.NNA_NND_BROWSER_URL = options.browserCallback.url;
-    environment.NNA_NND_BROWSER_TOKEN = options.browserCallback.token;
+    environment.NNA_DESKTOP_BROWSER_URL = options.browserCallback.url;
+    environment.NNA_DESKTOP_BROWSER_TOKEN = options.browserCallback.token;
   }
   if (options.agentToolCallback) {
-    environment.NNA_NND_AGENT_TOOL_URL = options.agentToolCallback.url;
-    environment.NNA_NND_AGENT_TOOL_TOKEN = options.agentToolCallback.token;
+    environment.NNA_DESKTOP_AGENT_TOOL_URL = options.agentToolCallback.url;
+    environment.NNA_DESKTOP_AGENT_TOOL_TOKEN = options.agentToolCallback.token;
   }
   return environment;
 }
@@ -251,12 +251,12 @@ function validAgentToolCallback(callback: { url: string; token: string }): boole
 export function guardLocalNnaHarness(adapter: HarnessAdapter,
   harness: Pick<LocalNnaHarness, 'isRunning'> & Partial<Pick<ManagedLocalNnaHarness, 'workspaceId' | 'ensurePrimaryWorkspaceId'>>): HarnessAdapter {
   return { handle: async (request) => {
-    if (!harness.isRunning()) return harnessError('NNA local harness stopped', 502, 'nnd_harness_stopped');
+    if (!harness.isRunning()) return harnessError('NNA local harness stopped', 502, 'desktop_harness_stopped');
     const pathname = new URL(request.url).pathname;
     const creates = request.method === 'POST' && (pathname === '/api/session' || /^\/api\/session\/[^/]+\/fork$/u.test(pathname));
     if (!/^\/api\/session(?:\/|$)/u.test(pathname) || !harness.ensurePrimaryWorkspaceId) return adapter.handle(request);
     const id = creates || !harness.workspaceId?.() ? await harness.ensurePrimaryWorkspaceId() : harness.workspaceId();
-    if (!id) return harnessError('NNA primary workspace identity is unavailable. Complete NNA setup and refresh the connection.', 503, 'nnd_workspace_identity_unavailable');
+    if (!id) return harnessError('NNA primary workspace identity is unavailable. Complete NNA setup and refresh the connection.', 503, 'desktop_workspace_identity_unavailable');
     const selected = creates ? await request.clone().json().catch(() => null) as Record<string, unknown> | null : null;
     const expectedId = typeof selected?.workspace_id === 'string' && /^ws_[a-f0-9]{24}$/u.test(selected.workspace_id)
       ? selected.workspace_id : id;
@@ -265,7 +265,7 @@ export function guardLocalNnaHarness(adapter: HarnessAdapter,
     const record = await response.clone().json().catch(() => null) as Record<string, unknown> | null;
     if (!record || record.projectID !== expectedId) {
       const session = typeof record?.id === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(record.id) ? record.id : 'unknown';
-      return harnessError(`NNA created session ${session} with a changed workspace identity. It remains recoverable in NNA; refresh before sending.`, 409, 'nnd_workspace_identity_mismatch');
+      return harnessError(`NNA created session ${session} with a changed workspace identity. It remains recoverable in NNA; refresh before sending.`, 409, 'desktop_workspace_identity_mismatch');
     }
     return response;
   } };
@@ -286,7 +286,7 @@ function mintLocalPrincipal(workspaceId: string | null): string {
   const now = new Date().toISOString();
   return Buffer.from(JSON.stringify({
     subject_id: 'nnd-local-operator', platform_role: 'operator',
-    // Mirrors NNA src/nnd-service-native.js nativeNndPrincipal PERMISSIONS
+    // Mirrors NNA src/desktop-service-native.js nativeNndPrincipal PERMISSIONS
     // exactly (the installed native principal is the authority); drift here
     // starves the local harness of settings families the operator holds.
     permissions: ['integration.health', 'nnd.read', 'nnd.setup.read', 'nnd.setup.activate',

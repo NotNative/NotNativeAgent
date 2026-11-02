@@ -107,7 +107,7 @@ function AgentPreview({ model, view, fields }: { model: ControlsModel; view: Nat
 }
 
 function AgentEditOutcome({ model, view, onReload }: { model: ControlsModel; view: NativeConfigurationView; onReload: () => void }): ReactNode {
-  const conflict = ['manifest_revision_conflict', 'nnd_configuration_resolution_conflict', 'configuration_source_shadowed'].includes(model.error ?? '');
+  const conflict = ['manifest_revision_conflict', 'desktop_configuration_resolution_conflict', 'configuration_source_shadowed'].includes(model.error ?? '');
   return <div className="space-y-2 text-xs">
     {model.busy ? <p role="status">Waiting for NNA…</p> : null}
     {model.error ? <p role="alert">{conflict ? 'Configuration changed or a higher source owns this setting. Your edit is preserved. Reload values to compare before trying again.'

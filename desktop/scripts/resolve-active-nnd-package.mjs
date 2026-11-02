@@ -19,7 +19,7 @@ function cleanEnvironment(dataRoot) {
 }
 async function nativeStatus(runtime) {
   try {
-    const { stdout } = await execute(runtime.node, [runtime.cli, 'nnd', 'package', 'status'], {
+    const { stdout } = await execute(runtime.node, [runtime.cli, 'desktop', 'package', 'status'], {
       cwd: runtime.root, env: cleanEnvironment(runtime.dataRoot), windowsHide: true,
       shell: false, timeout: 10000, maxBuffer: 16384,
     });
@@ -73,7 +73,7 @@ export async function resolveActiveNndPackage(selectionFile, sourceRoot = null) 
     executable = await shellFile(root, 'packages/electron/node_modules/electron/dist/electron.exe');
     await shellFile(root, 'packages/electron/main.mjs');
   } else {
-    const versions = await noLinks(join(runtime.dataRoot, 'runtime', 'nnd', 'install-slots', 'versions'));
+    const versions = await noLinks(join(runtime.dataRoot, 'runtime', 'desktop', 'install-slots', 'versions'));
     root = await noLinks(before.root);
     if (key(dirname(root)) !== key(versions) || key(before.root) !== key(root)) throw new Error('native-package-slot-mismatch');
     const verified = await verifyPrebuiltPayload(root);

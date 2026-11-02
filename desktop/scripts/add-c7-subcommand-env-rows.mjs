@@ -62,7 +62,7 @@ function environmentRow(name, basis, observed) {  return {
     kind: 'operator_setting',
     family: 'environment',
     key: name,
-    source: { product: 'NNA', path: observed ? 'src/nnd-environment-snapshot.js' : basis.split(':').slice(0, -1).join(':'),
+    source: { product: 'NNA', path: observed ? 'src/desktop-environment-snapshot.js' : basis.split(':').slice(0, -1).join(':'),
       validator: observed ? 'OBSERVED_NAMES' : 'direct process.env read' },
     store: { owner: 'NNA', path_class: 'process_environment' },
     scope: ['process_invocation'],
@@ -114,11 +114,11 @@ for (const token of subcommands) {
 
 // Environment names: snapshot vocabulary plus direct reads.
 const envNames = new Map(); // name -> { file, observed }
-const snapshot = join(nnaSource, 'src', 'nnd-environment-snapshot.js');
+const snapshot = join(nnaSource, 'src', 'desktop-environment-snapshot.js');
 const snapshotText = await readFile(snapshot, 'utf8');
 const observedMatch = /OBSERVED_NAMES = \[([^\]]*)\]/u.exec(snapshotText);
-if (observedMatch === null) throw new Error('missing OBSERVED_NAMES in src/nnd-environment-snapshot.js');
-for (const entry of observedMatch[1].matchAll(/'([^']+)'/gu)) envNames.set(entry[1], { basis: 'src/nnd-environment-snapshot.js:OBSERVED_NAMES', observed: true });
+if (observedMatch === null) throw new Error('missing OBSERVED_NAMES in src/desktop-environment-snapshot.js');
+for (const entry of observedMatch[1].matchAll(/'([^']+)'/gu)) envNames.set(entry[1], { basis: 'src/desktop-environment-snapshot.js:OBSERVED_NAMES', observed: true });
 const stack = [join(nnaSource, 'src')];
 while (stack.length > 0) {
   const current = stack.pop();

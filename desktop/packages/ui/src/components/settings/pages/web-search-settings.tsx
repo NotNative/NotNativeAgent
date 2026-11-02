@@ -16,9 +16,9 @@ import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 
 const INPUT = 'w-64 rounded border border-border bg-background px-2 py-1 text-xs';
 const BUTTON = 'rounded border border-border px-2 py-1 text-xs disabled:opacity-50';
-const safeError = (error: unknown) => error instanceof NativeWebSearchFailure ? error.code : 'nnd_web_search_unavailable';
-const safePrecommit = new Set(['nnd_web_search_request_invalid', 'manifest_revision_conflict',
-  'integration_permission_denied', 'nnd_web_search_source_invalid', 'web_search_endpoint_required',
+const safeError = (error: unknown) => error instanceof NativeWebSearchFailure ? error.code : 'desktop_web_search_unavailable';
+const safePrecommit = new Set(['desktop_web_search_request_invalid', 'manifest_revision_conflict',
+  'integration_permission_denied', 'desktop_web_search_source_invalid', 'web_search_endpoint_required',
   'web_search_endpoint_duplicate', 'web_search_endpoint_invalid', 'web_search_profile_missing',
   'web_search_profiles_too_many', 'web_search_profile_id_exhausted', 'web_search_profile_name_invalid',
   'web_search_profile_id_invalid']);
@@ -106,7 +106,7 @@ export function WebSearchSettings(): ReactNode {
     try {
       const composed = composeOperations(view, draft);
       if (composed.length < 1) { setError('nothing_to_save'); return; }
-      if (composed.length > MAX_OPERATIONS) { setError('nnd_web_search_request_invalid'); return; }
+      if (composed.length > MAX_OPERATIONS) { setError('desktop_web_search_request_invalid'); return; }
       const operations = nativeWebSearchOperations(composed);
       request = nativeWebSearchRequest(view, operations);
     } catch (failure) { setError(safeError(failure)); return; }
@@ -118,7 +118,7 @@ export function WebSearchSettings(): ReactNode {
     let operationId: string;
     try { operationId = newNativeOperationId(); } catch (failure) { setError(safeError(failure)); return; }
     const entry = reserveNativeWebSearchOperation(view, operationId, preview.request.expected_revision);
-    if (!entry) { setError('nnd_web_search_unavailable'); return; }
+    if (!entry) { setError('desktop_web_search_unavailable'); return; }
     pendingRef.current = entry; setPending(entry);
     run(async (signal, current) => { try {
       const result = await saveNativeWebSearch(preview.request, operationId, signal);
@@ -138,7 +138,7 @@ export function WebSearchSettings(): ReactNode {
     run(async (signal, current) => {
       const result = await inspectNativeWebSearchOperation(entry, entry.operation_id, signal);
       if (!current()) return;
-      if (result && result.before_revision !== entry.expected_revision) throw new NativeWebSearchFailure('nnd_web_search_view_invalid');
+      if (result && result.before_revision !== entry.expected_revision) throw new NativeWebSearchFailure('desktop_web_search_view_invalid');
       if (result?.persistence === 'saved' || result?.persistence === 'unpublished') {
         clearNativeWebSearchOperation(entry); pendingRef.current = null; setPending(null); setView(null); setDraft(null);
       }
@@ -228,9 +228,9 @@ function errorText(code: string): string {
   if (code === 'integration_permission_denied') return 'Native permission denied.';
   if (code === 'operation_not_found') return 'No retained receipt was found. Clear the expired local handle, refresh native settings, and preview before another save.';
   if (code === 'nothing_to_save') return 'No enabled toggle, profile, or primary choice differs from the saved settings.';
-  if (code === 'nnd_web_search_request_invalid') return 'A composed change is outside the bounded settings grammar. Profile names stay within 128 characters, endpoints are credential-free HTTP(S) base URLs, and one batch stays at most 16 operations.';
-  if (code === 'nnd_web_search_source_invalid') return 'WebSearch settings need native repair before they can be changed here.';
-  if (code === 'nnd_web_search_unsupported') return 'This NNA does not expose native WebSearch settings.';
+  if (code === 'desktop_web_search_request_invalid') return 'A composed change is outside the bounded settings grammar. Profile names stay within 128 characters, endpoints are credential-free HTTP(S) base URLs, and one batch stays at most 16 operations.';
+  if (code === 'desktop_web_search_source_invalid') return 'WebSearch settings need native repair before they can be changed here.';
+  if (code === 'desktop_web_search_unsupported') return 'This NNA does not expose native WebSearch settings.';
   if (code === 'web_search_endpoint_required') return 'WebSearch cannot be enabled while no profile exists. Add a profile in the same batch first.';
   if (code === 'web_search_endpoint_duplicate') return 'That SearXNG endpoint already has a profile.';
   if (code === 'web_search_endpoint_invalid') return 'Endpoints must be credential-free HTTP(S) base URLs.';

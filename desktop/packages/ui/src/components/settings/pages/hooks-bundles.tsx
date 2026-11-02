@@ -8,7 +8,7 @@ import { authorityState, subscribeAuthority } from '../../../sync/authority-sync
 import { useAuthSessionStore } from '../../../lib/runtime-auth-expiry.ts';
 import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 
-const safeError = (error: unknown) => error instanceof NativeHooksFailure ? error.code : 'nnd_hooks_unavailable';
+const safeError = (error: unknown) => error instanceof NativeHooksFailure ? error.code : 'desktop_hooks_unavailable';
 const CAPTION = 'Installed hook bundles and their subscriptions are read from the native hooks directory. Hook execution stays with NNA. Edit bundle manifests through the native installation workflow; this page observes them. Malformed bundles are listed as skipped diagnostics.';
 
 export function HooksBundleSettings(): ReactNode {

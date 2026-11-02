@@ -46,10 +46,10 @@ function validateManifest(value) {
   return optionalSchema === false ? '1' : optionalSchema;
 }
 export async function verifyPrebuiltPayload(input) {
-  const root = await noLinks(input), bytes = await readBounded(join(root, 'NND_PAYLOAD.json'), 32 * 1024 * 1024);
+  const root = await noLinks(input), bytes = await readBounded(join(root, 'DESKTOP_PAYLOAD.json'), 32 * 1024 * 1024);
   const manifest = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
   const dataSchema = validateManifest(manifest);
-  const entries = validateEntries((await inventory(root)).filter((entry) => entry.path !== 'NND_PAYLOAD.json'));
+  const entries = validateEntries((await inventory(root)).filter((entry) => entry.path !== 'DESKTOP_PAYLOAD.json'));
   if (entries.length !== manifest.files.length) throw new Error('payload-inventory-mismatch');
   for (const [index, entry] of entries.entries()) {
     if (entry.path !== manifest.files[index].path) throw new Error('payload-inventory-mismatch');
@@ -59,7 +59,7 @@ export async function verifyPrebuiltPayload(input) {
   const versionEntry = manifest.files.find((entry) => entry.path === 'VERSION');
   if (!packageEntry || packageEntry.bytes > 65536 || !versionEntry || versionEntry.bytes > 128) throw new Error('payload-package-identity-invalid');
   const info = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await readBounded(join(root, 'package.json'), 65536)));
-  if (info.name !== 'notnative-desktop' || info.type !== 'module' || info.nnd_version !== manifest.version
+  if (info.name !== 'notnative-desktop' || info.type !== 'module' || info.desktop_version !== manifest.version
     || info.version !== manifest.version.replace('-', '.0.') || (await readBounded(join(root, 'VERSION'), 128)).toString('utf8').trim() !== manifest.version) throw new Error('payload-package-identity-invalid');
   return { root, bytes, manifest, dataSchema, sha256: createHash('sha256').update(bytes).digest('hex') };
 }
@@ -67,7 +67,7 @@ export async function copyPrebuiltPayload(source, destination) {
   const verified = await verifyPrebuiltPayload(source), target = await noLinks(destination);
   if (within(verified.root, target) || within(target, verified.root) || (await readdir(target)).length) throw new Error('payload-copy-target-invalid');
   for (const entry of verified.manifest.files) await transferFile(join(verified.root, entry.path), join(target, entry.path), entry);
-  await transferFile(join(verified.root, 'NND_PAYLOAD.json'), join(target, 'NND_PAYLOAD.json'), {
+  await transferFile(join(verified.root, 'DESKTOP_PAYLOAD.json'), join(target, 'DESKTOP_PAYLOAD.json'), {
     bytes: verified.bytes.length, sha256: verified.sha256,
   });
   const after = await verifyPrebuiltPayload(target), sourceAfter = await verifyPrebuiltPayload(source);

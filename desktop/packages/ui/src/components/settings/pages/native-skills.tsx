@@ -11,7 +11,7 @@ const messageFor = (code: string) => skillsMessages[code] ?? code;
 const isNativeFailure = (value: unknown): value is { code: string } =>
   value instanceof Object && 'code' in value && typeof (value as { code?: unknown }).code === 'string';
 const toSentence = (value: unknown) => (isNativeFailure(value) ? messageFor(value.code)
-  : messageFor('nnd_skills_unavailable'));
+  : messageFor('desktop_skills_unavailable'));
 
 /** Native skills_action observation: the served workspace's SkillRegistry
  * catalog read through GET /v1/nnd/configuration/skills/catalog. Distinct

@@ -13,7 +13,7 @@ const messageFor = (code: string) => mcpAdvancedMessages[code] ?? code;
 const isNativeFailure = (value: unknown): value is { code: string } =>
   value instanceof Object && 'code' in value && typeof (value as { code?: unknown }).code === 'string';
 const toSentence = (value: unknown) => (isNativeFailure(value)
-  ? messageFor(value.code) : messageFor('nnd_configuration_unavailable'));
+  ? messageFor(value.code) : messageFor('desktop_configuration_unavailable'));
 const countText = (value: number | null) => (value === null ? 'not set' : String(value));
 const surfaceText = (surface: McpInnerRow['surface']) => surface.command !== null
   ? `command ${surface.command}${surface.args?.length ? ` and ${surface.args.length} arg(s)` : ''}`

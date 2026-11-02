@@ -26,8 +26,8 @@ export const COMPATIBILITY_RESPONSE_BOUNDS = 49152;
 const RECORD = /^[a-z][a-z0-9_]{0,63}$/u;
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
-const invalid = () => new NativeCompatibilityFailure('nnd_compatibility_view_invalid');
-const requestInvalid = () => new NativeCompatibilityFailure('nnd_compatibility_request_invalid');
+const invalid = () => new NativeCompatibilityFailure('desktop_compatibility_view_invalid');
+const requestInvalid = () => new NativeCompatibilityFailure('desktop_compatibility_request_invalid');
 export class NativeCompatibilityFailure extends Error { constructor(readonly code: string) { super(code); } }
 
 /** Local mirrors of NNA's opencode/config.js grammar, so a draft refuses before it
@@ -242,7 +242,7 @@ async function call(path: string, method: 'GET' | 'POST', signal: AbortSignal, b
     const error = record(payload) && record(payload.error) ? payload.error : null;
     const code = error && typeof error.code === 'string' && RECORD.test(error.code) ? error.code
       : record(payload) && payload.error === 'operation_not_found' ? 'operation_not_found'
-        : response.status === 404 ? 'nnd_compatibility_unsupported' : 'nnd_compatibility_unavailable';
+        : response.status === 404 ? 'desktop_compatibility_unsupported' : 'desktop_compatibility_unavailable';
     throw new NativeCompatibilityFailure(code);
   }
   return payload;
@@ -302,13 +302,13 @@ export async function previewNativeCompatibility(request: NativeCompatibilityPre
 
 export async function saveNativeCompatibility(request: NativeCompatibilityPreviewRequest, operationId: string,
   signal: AbortSignal): Promise<NativeCompatibilityReceipt> {
-  if (authorityState() !== 'ready' || !OPERATION_ID.test(operationId)) throw new NativeCompatibilityFailure('nnd_compatibility_unavailable');
+  if (authorityState() !== 'ready' || !OPERATION_ID.test(operationId)) throw new NativeCompatibilityFailure('desktop_compatibility_unavailable');
   return parseReceipt(await call('/save', 'POST', signal, { ...request, operation_id: operationId }), request,
     operationId, request.expected_revision);
 }
 export async function inspectNativeCompatibilityOperation(identity: { installation_id: string; data_id: string },
   operationId: string, signal: AbortSignal): Promise<NativeCompatibilityReceipt | null> {
-  if (!OPERATION_ID.test(operationId)) throw new NativeCompatibilityFailure('nnd_compatibility_request_invalid');
+  if (!OPERATION_ID.test(operationId)) throw new NativeCompatibilityFailure('desktop_compatibility_request_invalid');
   try { return parseReceipt(await call(`/operations/${operationId}`, 'GET', signal), identity, operationId); }
   catch (error) { if (error instanceof NativeCompatibilityFailure && error.code === 'operation_not_found') return null; throw error; }
 }

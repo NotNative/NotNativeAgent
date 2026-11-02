@@ -42,14 +42,14 @@ export function createNnaHarnessAdapter(options: NnaHarnessOptions): HarnessAdap
     } catch {
       // A launcher can fail while minting fresh authority. Do not turn that
       // internal failure into an unhandled route error or forward credentials.
-      return harnessError('NNA harness principal is unavailable', 502, 'nnd_harness_principal_unavailable');
+      return harnessError('NNA harness principal is unavailable', 502, 'desktop_harness_principal_unavailable');
     }
     let capability: string | null = null;
     if (options.capabilitySupplier) {
       try { capability = options.capabilitySupplier(); }
-      catch { return harnessError('NNA harness capability is unavailable', 502, 'nnd_harness_capability_unavailable'); }
+      catch { return harnessError('NNA harness capability is unavailable', 502, 'desktop_harness_capability_unavailable'); }
       if (capability !== null && !/^[\w-]{8,16384}\.[\w-]{8,16384}$/u.test(capability)) {
-        return harnessError('NNA harness capability is malformed', 502, 'nnd_harness_capability_invalid');
+        return harnessError('NNA harness capability is malformed', 502, 'desktop_harness_capability_invalid');
       }
     }
     return forward(request, endpoint, token, currentPrincipal, requestFetch, options.signal, capability);
@@ -91,12 +91,12 @@ async function forward(request: Request, endpoint: URL, token: string, principal
     } as RequestInit);
     return safeResponse(response);
   } catch (error) {
-    if (request.signal.aborted) return harnessError('NND request was cancelled', 499, 'nnd_request_cancelled');
+    if (request.signal.aborted) return harnessError('NND request was cancelled', 499, 'desktop_request_cancelled');
     const timedOut = error instanceof DOMException && error.name === 'AbortError';
     return harnessError(
       timedOut ? 'NNA harness request timed out' : 'NNA harness is unavailable',
       timedOut ? 504 : 502,
-      timedOut ? 'nnd_harness_timeout' : 'nnd_harness_unavailable',
+      timedOut ? 'desktop_harness_timeout' : 'desktop_harness_unavailable',
     );
   } finally {
     clearTimeout(timeout);

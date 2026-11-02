@@ -37,12 +37,12 @@ function providerDelta(body) {
   const [, escapeRoot, escapePhase] = userText.match(/NND_TOOL_READ_ESCAPE:(PRIMARY|SECONDARY|WORKTREE):(BEFORE|AFTER):/u) ?? [];
   const toolProbe = phase ? 'write' : readRoot ? 'allow'
     : userText.includes('NND_TOOL_READ_ESCAPE') ? 'escape' : null;
-  const callId = phase ? `nnd_write_${root.toLowerCase()}_${phase.toLowerCase()}` : toolProbe === 'allow' ? `nnd_read_${readRoot.toLowerCase()}_${readPhase.toLowerCase()}_allow`
-    : toolProbe === 'escape' ? `nnd_read_${escapeRoot.toLowerCase()}_${escapePhase.toLowerCase()}_escape` : null;
+  const callId = phase ? `desktop_write_${root.toLowerCase()}_${phase.toLowerCase()}` : toolProbe === 'allow' ? `desktop_read_${readRoot.toLowerCase()}_${readPhase.toLowerCase()}_allow`
+    : toolProbe === 'escape' ? `desktop_read_${escapeRoot.toLowerCase()}_${escapePhase.toLowerCase()}_escape` : null;
   const toolReply = toolProbe ? body.messages?.find(message => message.role === 'tool' && message.tool_call_id === callId) : null;
-  const searched = phase && body.messages?.some(message => message.role === 'tool' && message.tool_call_id === `nnd_write_search_${root.toLowerCase()}_${phase.toLowerCase()}`);
+  const searched = phase && body.messages?.some(message => message.role === 'tool' && message.tool_call_id === `desktop_write_search_${root.toLowerCase()}_${phase.toLowerCase()}`);
   if (phase && !searched) return { delta: { role: 'assistant', tool_calls: [{ index: 0,
-    id: `nnd_write_search_${root.toLowerCase()}_${phase.toLowerCase()}`, type: 'function',
+    id: `desktop_write_search_${root.toLowerCase()}_${phase.toLowerCase()}`, type: 'function',
     function: { name: 'tool_search', arguments: JSON.stringify({ query: 'fs_write_text' }) } }] }, toolCall: true };
   if (toolProbe && !toolReply) return { delta: { role: 'assistant', tool_calls: [{ index: 0, id: callId,
     type: 'function', function: { name: phase ? 'fs_write_text' : 'fs_read', arguments: JSON.stringify(phase

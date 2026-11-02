@@ -16,7 +16,7 @@
  *  7. every positional subcommand in the NNA mode vocabulary (`MODES` and
  *     `OPENCODE_ACTIONS` in `src/cli-options.js`) has an invocation census row;
  *  8. every environment read NNA performs (the observed snapshot vocabulary in
- *     `src/nnd-environment-snapshot.js` plus every direct `process.env`
+ *     `src/desktop-environment-snapshot.js` plus every direct `process.env`
  *     literal under `src/`) has an environment census row.
  *
  * The option scan is mechanical literal extraction: humans own the census
@@ -335,7 +335,7 @@ async function subcommandVocabulary(nnaSource) {
 
 async function environmentNames(nnaSource) {
   const names = new Set();
-  const snapshot = join(nnaSource, 'src', 'nnd-environment-snapshot.js');
+  const snapshot = join(nnaSource, 'src', 'desktop-environment-snapshot.js');
   if (existsSync(snapshot)) {
     const text = await readFile(snapshot, 'utf8');
     const match = /OBSERVED_NAMES = \[([^\]]*)\]/u.exec(text);

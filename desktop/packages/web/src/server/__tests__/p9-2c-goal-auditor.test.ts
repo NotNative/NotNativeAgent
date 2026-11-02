@@ -66,8 +66,8 @@ function makePorts(state: AuditState) {
       if (state.throwAudit) throw new Error('audit route down');
       order.push('audit');
       auditBodies.push(body);
-      if (state.raceMode) return { status: 400, body: { error: { code: 'nnd_goal_audit_conflict' } } } as GoalAuditWire;
-      if (state.unavailableMode) return { status: 404, body: { error: { code: 'nnd_engine_unavailable' } } } as GoalAuditWire;
+      if (state.raceMode) return { status: 400, body: { error: { code: 'desktop_goal_audit_conflict' } } } as GoalAuditWire;
+      if (state.unavailableMode) return { status: 404, body: { error: { code: 'desktop_engine_unavailable' } } } as GoalAuditWire;
       const verdict = state.verdictText ?? '{"verdict": "continue", "note": "wiring works"}';
       return { status: 200, body: { text: `\`\`\`json\n${verdict}\n\`\`\``,
         providerID: 'primary', modelID: 'test' } } as GoalAuditWire;
@@ -170,14 +170,14 @@ describe('interpretGoalAuditCall', () => {
   });
   it('classifies target races and busy audits without failing the streak', () => {
     expect(interpretGoalAuditCall({ status: 400,
-      body: { error: { code: 'nnd_goal_audit_conflict', message: 'goal changed' } } }, 'o', 'a')).toEqual({ kind: 'race' });
+      body: { error: { code: 'desktop_goal_audit_conflict', message: 'goal changed' } } }, 'o', 'a')).toEqual({ kind: 'race' });
     expect(interpretGoalAuditCall({ status: 400,
-      body: { error: { code: 'nnd_goal_audit_busy', message: 'audit in flight' } } }, 'o', 'a')).toEqual({ kind: 'race' });
+      body: { error: { code: 'desktop_goal_audit_busy', message: 'audit in flight' } } }, 'o', 'a')).toEqual({ kind: 'race' });
   });
   it('treats unreachable routes, odd shapes, and unparseable text as unavailable', () => {
     const unavailable: unknown[] = [
-      { status: 404, body: { error: { code: 'nnd_engine_unavailable' } } },
-      { status: 400, body: { error: { code: 'nnd_goal_audit_invalid' } } },
+      { status: 404, body: { error: { code: 'desktop_engine_unavailable' } } },
+      { status: 400, body: { error: { code: 'desktop_goal_audit_invalid' } } },
       { status: 200, body: { text: 'no json here at all' } },
       { status: 200, body: { text: 42 } },
       { status: 200, body: null },

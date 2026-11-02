@@ -34,18 +34,18 @@ it('accepts the family view while dropping unknown private response fields', asy
   expect(JSON.stringify(result)).not.toContain('PRIVATE');
   expect(result.updated_at).toBe('2026-10-05T12:00:00Z');
   expect([...result.authorized_user_ids]).toEqual(['123']);
-  expect(() => parseNativeGatewayView({ ...view, polling_timeout_seconds: 51 })).toThrow('nnd_gateway_timeout_view_invalid');
-  expect(() => parseNativeGatewayView({ ...view, enabled: 'yes' })).toThrow('nnd_gateway_timeout_view_invalid');
-  expect(() => parseNativeGatewayView({ ...view, authorized_user_ids: ['0x4f'] })).toThrow('nnd_gateway_timeout_view_invalid');
-  expect(() => parseNativeGatewayView({ ...view, version: 2 })).toThrow('nnd_gateway_timeout_view_invalid');
+  expect(() => parseNativeGatewayView({ ...view, polling_timeout_seconds: 51 })).toThrow('desktop_gateway_timeout_view_invalid');
+  expect(() => parseNativeGatewayView({ ...view, enabled: 'yes' })).toThrow('desktop_gateway_timeout_view_invalid');
+  expect(() => parseNativeGatewayView({ ...view, authorized_user_ids: ['0x4f'] })).toThrow('desktop_gateway_timeout_view_invalid');
+  expect(() => parseNativeGatewayView({ ...view, version: 2 })).toThrow('desktop_gateway_timeout_view_invalid');
   // Workspace reads mirror the projector bound (any string up to 4096 or null), not the setter.
   expect(parseNativeGatewayView({ ...view, workspace_root: 'relative/path' }).workspace_root).toBe('relative/path');
   expect(parseNativeGatewayView({ ...view, workspace_root: '' }).workspace_root).toBe('');
-  expect(() => parseNativeGatewayView({ ...view, workspace_root: 'x'.repeat(4097) })).toThrow('nnd_gateway_timeout_view_invalid');
+  expect(() => parseNativeGatewayView({ ...view, workspace_root: 'x'.repeat(4097) })).toThrow('desktop_gateway_timeout_view_invalid');
   // The stamp parser mirrors the NNA projector's bound, not stricter ISO grammar.
   expect(parseNativeGatewayView({ ...view, updated_at: '2026-10-06T031527.999Z' }).updated_at)
     .toBe('2026-10-06T031527.999Z');
-  expect(() => parseNativeGatewayView({ ...view, updated_at: '2026-10-06T03:15:27Z!' })).toThrow('nnd_gateway_timeout_view_invalid');
+  expect(() => parseNativeGatewayView({ ...view, updated_at: '2026-10-06T03:15:27Z!' })).toThrow('desktop_gateway_timeout_view_invalid');
 });
 
 it('requires the exact eight-field family catalog and rejects the legacy single-field catalog', async () => {
@@ -54,7 +54,7 @@ it('requires the exact eight-field family catalog and rejects the legacy single-
   fetchMock.mockResolvedValueOnce(json({ schema_version: '1.0', source: 'gateway', scope: 'user',
     fields: [catalog.fields[7]] }));
   await expect(readNativeGatewayCatalog(new AbortController().signal))
-    .rejects.toThrow('nnd_gateway_timeout_view_invalid');
+    .rejects.toThrow('desktop_gateway_timeout_view_invalid');
 });
 
 it('composes bounded operation batches and never sends a legacy flat request', () => {
@@ -69,14 +69,14 @@ it('composes bounded operation batches and never sends a legacy flat request', (
     [{ op: 'authorize' }], [{ op: 'clear_token', extra: true }],
     [{ op: 'set', field: 'toString', value: 'hostile' }], [{ op: 'set', field: '__proto__', value: true }],
   ]) {
-    expect(() => nativeGatewayOperations(rejection as unknown[])).toThrow('nnd_gateway_timeout_request_invalid');
+    expect(() => nativeGatewayOperations(rejection as unknown[])).toThrow('desktop_gateway_timeout_request_invalid');
   }
-  expect(() => nativeGatewayOperations(Array.from({ length: 17 }, () => ({ op: 'clear_token' })))).toThrow('nnd_gateway_timeout_request_invalid');
+  expect(() => nativeGatewayOperations(Array.from({ length: 17 }, () => ({ op: 'clear_token' })))).toThrow('desktop_gateway_timeout_request_invalid');
   const request = nativeGatewayRequest(view, ops);
   expect(request.operations).toHaveLength(6);
   expect(Object.keys(request).sort()).toEqual(['data_id', 'expected_resolution_revision', 'expected_revision',
     'installation_id', 'operations', 'scope']);
-  expect(() => nativeGatewayRequest({ ...view, project_shadowed: true } as never, ops)).toThrow('nnd_gateway_timeout_request_invalid');
+  expect(() => nativeGatewayRequest({ ...view, project_shadowed: true } as never, ops)).toThrow('desktop_gateway_timeout_request_invalid');
 });
 
 it('accepts a preview only when the server candidate equals the local operation mirror', async () => {
@@ -97,7 +97,7 @@ it('accepts a preview only when the server candidate equals the local operation 
   fetchMock.mockResolvedValueOnce(json({ valid: true, expected_revision: revision, resolution_revision: revision,
     application: 'not_applied', view: { ...candidate, workspace_root: 'D:/elsewhere' } }));
   await expect(previewNativeGateway(request, view, new AbortController().signal))
-    .rejects.toThrow('nnd_gateway_timeout_view_invalid');
+    .rejects.toThrow('desktop_gateway_timeout_view_invalid');
 });
 
 it('keeps operation lookup tied to selected identity and projects no private fields', async () => {
@@ -109,7 +109,7 @@ it('keeps operation lookup tied to selected identity and projects no private fie
   expect(receipt?.persistence).toBe('saved'); expect(JSON.stringify(receipt)).not.toContain('PRIVATE');
   fetchMock.mockResolvedValueOnce(json({ ...receipt, data_id: 'foreign' }));
   await expect(inspectNativeGatewayOperation(view, 'op_1', new AbortController().signal))
-    .rejects.toThrow('nnd_gateway_timeout_view_invalid');
+    .rejects.toThrow('desktop_gateway_timeout_view_invalid');
 });
 
 it('raises the bounded body and response limits for the wider family payload', async () => {

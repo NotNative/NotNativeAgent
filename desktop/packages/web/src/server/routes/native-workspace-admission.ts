@@ -304,7 +304,7 @@ export async function handleNativeSessionCreation(request: Request,
     return response;
   } catch (error) {
     const failure = error instanceof WorkspaceAdmissionError ? error : new WorkspaceAdmissionError('NNA workspace identity is unavailable.', 503);
-    return harnessError(failure.message, failure.status, 'nnd_workspace_admission_unavailable');
+    return harnessError(failure.message, failure.status, 'desktop_workspace_admission_unavailable');
   }
 }
 

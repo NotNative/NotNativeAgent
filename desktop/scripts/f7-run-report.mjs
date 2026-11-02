@@ -35,7 +35,7 @@ export function readLogText(path) {
 export function classify(log) {
   if (/page marker\s*\[FOUND\]/u.test(log)) return 'PASS';
   if (/Acceptance child timed out/u.test(log)) return 'TIMEOUT';
-  if (/nnd_configuration_request_invalid/u.test(log)) return 'repair-rejected';
+  if (/desktop_configuration_request_invalid/u.test(log)) return 'repair-rejected';
   if (/native activation reload was not ready|activation did not|activation control unavailable/u.test(log)
     && /AssertionError|Error:/u.test(log)) return 'activation-fail';
   if (/fresh install must require setup|setup did not reach ready/u.test(log)) return 'setup-fail';

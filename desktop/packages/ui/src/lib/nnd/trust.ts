@@ -27,7 +27,7 @@ const CATALOG_BOUNDS = 65536;
 const RECEIPT_BOUNDS = 131_072;
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
-const invalid = () => new NativeTrustFailure('nnd_trust_request_invalid');
+const invalid = () => new NativeTrustFailure('desktop_trust_request_invalid');
 export class NativeTrustFailure extends Error { constructor(readonly code: string) { super(code); } }
 
 export interface NativeTrustWorkspace { root: string; trusted_at: string }
@@ -119,7 +119,7 @@ export function isValidTrustWorkspaceDraft(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 32_768;
 }
 
-class JsonError extends NativeTrustFailure { constructor() { super('nnd_trust_request_invalid'); } }
+class JsonError extends NativeTrustFailure { constructor() { super('desktop_trust_request_invalid'); } }
 export async function readNativeTrustList(signal: AbortSignal): Promise<NativeTrustListView> {
   return parseNativeTrustList(await call('', signal, LIST_BOUNDS));
 }
@@ -127,7 +127,7 @@ export async function readNativeTrustCatalog(signal: AbortSignal): Promise<Nativ
   return parseNativeTrustCatalog(await call('/catalog', signal, CATALOG_BOUNDS));
 }
 async function trustOperation(operation: 'grant' | 'revoke', root: string, signal: AbortSignal) {
-  if (!isValidTrustWorkspaceDraft(root)) throw new NativeTrustFailure('nnd_trust_request_invalid');
+  if (!isValidTrustWorkspaceDraft(root)) throw new NativeTrustFailure('desktop_trust_request_invalid');
   const receipt = await call(`/${operation}`, signal, RECEIPT_BOUNDS, { root: root.trim() });
   return parseNativeTrustReceipt(receipt, operation);
 }
@@ -138,7 +138,7 @@ export const revokeNativeWorkspaceTrust = (root: string, signal: AbortSignal) =>
 
 async function call(path: string, signal: AbortSignal, bounds: number, body?: { root: string }):
   Promise<unknown> {
-  if (authorityState() !== 'ready') throw new NativeTrustFailure('nnd_workspace_trust_unavailable');
+  if (authorityState() !== 'ready') throw new NativeTrustFailure('desktop_workspace_trust_unavailable');
   const response = await runtimeFetch(API_BASE + path, { method: body ? 'POST' : 'GET',
     signal: AbortSignal.any([signal, AbortSignal.timeout(25000)]),
     ...(body ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}) });
@@ -150,7 +150,7 @@ async function call(path: string, signal: AbortSignal, bounds: number, body?: { 
       && typeof (error as Record<string, unknown>).code === 'string'
       && CODE.test(String((error as Record<string, unknown>).code))
       ? String((error as Record<string, unknown>).code)
-      : response.status === 404 ? 'nnd_trust_unsupported' : 'nnd_workspace_trust_unavailable';
+      : response.status === 404 ? 'desktop_trust_unsupported' : 'desktop_workspace_trust_unavailable';
     throw new NativeTrustFailure(code);
   }
   return payload;
@@ -158,7 +158,7 @@ async function call(path: string, signal: AbortSignal, bounds: number, body?: { 
 
 async function boundedJson(response: Response, bounds: number): Promise<unknown> {
   const reader = response.body?.getReader();
-  if (!reader) throw new NativeTrustFailure('nnd_workspace_trust_unavailable');
+  if (!reader) throw new NativeTrustFailure('desktop_workspace_trust_unavailable');
   const chunks: Uint8Array[] = [];
   let total = 0;
   for (;;) {
@@ -177,10 +177,10 @@ async function boundedJson(response: Response, bounds: number): Promise<unknown>
 }
 
 export const trustMessages: Record<string, string> = {
-  nnd_trust_request_invalid: 'The trust request was not understood in the supported shape.',
-  nnd_trust_unsupported: 'The native trust surface does not carry the requested operation.',
-  nnd_workspace_trust_unavailable: 'Native workspace trust cannot be read right now.',
-  nnd_configuration_unavailable: 'The native trust surface is unavailable in this NNA build.',
+  desktop_trust_request_invalid: 'The trust request was not understood in the supported shape.',
+  desktop_trust_unsupported: 'The native trust surface does not carry the requested operation.',
+  desktop_workspace_trust_unavailable: 'Native workspace trust cannot be read right now.',
+  desktop_configuration_unavailable: 'The native trust surface is unavailable in this NNA build.',
   workspace_trust_invalid: 'The native trust store is unreadable (corrupt or oversized); it refuses to claim which roots are trusted.',
   workspace_trust_target_missing: 'That workspace path does not exist, so it cannot be granted.',
   workspace_trust_busy: 'The native trust store is busy with another grant or revoke; retry shortly.',

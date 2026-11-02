@@ -58,7 +58,7 @@ beforeEach(() => { fetchMock.mockReset(); requests.length = 0; sessionStorage.cl
       return Promise.resolve(new Response(JSON.stringify(checkReceipt()), { status: 200 }));
     }
     if (String(path).endsWith('/update/actions/install')) {
-      return Promise.resolve(new Response(JSON.stringify({ error: { code: 'nnd_update_install_unsupported',
+      return Promise.resolve(new Response(JSON.stringify({ error: { code: 'desktop_update_install_unsupported',
         message: 'the product installer runs through the local CLI' } }), { status: 400 }));
     }
     if (String(path).endsWith('/nnd-package/actions/activate')) {

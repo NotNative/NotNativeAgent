@@ -22,7 +22,7 @@ if (action === 'capabilities') {
     commands: ['start', 'status', 'stop', 'attach', 'install-guard'] }));
 } else if (action === 'stage-payload') {
   const payload = process.argv[6], operation = process.argv[7];
-  const bytes = readFileSync(join(payload, 'NND_PAYLOAD.json'));
+  const bytes = readFileSync(join(payload, 'DESKTOP_PAYLOAD.json'));
   const manifest = JSON.parse(bytes);
   for (const item of manifest.files) {
     const content = readFileSync(join(payload, item.path));
@@ -30,7 +30,7 @@ if (action === 'capabilities') {
   }
   writeFileSync(process.env.NND_TEST_STAGE_MARKER, operation);
   mkdirSync(join(root, 'private-slot'), { recursive: true });
-  writeFileSync(join(root, 'private-slot', 'NND_PAYLOAD.json'), bytes);
+  writeFileSync(join(root, 'private-slot', 'DESKTOP_PAYLOAD.json'), bytes);
   const result = { state: 'slot_ready', operation_id: operation, version: manifest.version,
     payload_sha256: sha256(bytes), slot: join(root, 'private-slot'), replay_window: 'last_16_terminal_operations' };
   if (process.env.NND_TEST_STAGE_MODE === 'wrong-response') result.payload_sha256 = '0'.repeat(64);
@@ -46,7 +46,7 @@ if (action === 'capabilities') {
   process.stdout.write(JSON.stringify(result));
 } else if (action === 'activation-preflight') {
   const stageOperation = process.argv[6], operation = process.argv[7];
-  const bytes = readFileSync(join(root, 'private-slot', 'NND_PAYLOAD.json'));
+  const bytes = readFileSync(join(root, 'private-slot', 'DESKTOP_PAYLOAD.json'));
   const result = { state: 'slot_ready', operation_id: operation, stage_operation_id: stageOperation,
     installation_id: 'nna_' + hash(root), data_id: 'data_' + hash(process.env.NNA_HOME),
     version: '20261003-12', payload_sha256: sha256(bytes), candidate_sha256: 'b'.repeat(64) };
@@ -70,7 +70,7 @@ async function fixture(t) {
   const payload = join(base, 'payload'), target = join(base, 'NND existing');
   await mkdir(payload); await mkdir(target); await writeFile(join(target, 'keep.txt'), 'unchanged');
   const files = { 'package.json': JSON.stringify({ name: 'notnative-desktop', type: 'module',
-    nnd_version: '20261003-12', version: '20261003.0.12' }), 'VERSION': '20261003-12\n',
+    desktop_version: '20261003-12', version: '20261003.0.12' }), 'VERSION': '20261003-12\n',
   'packages/web/dist/index.html': '<html>fixture</html>' };
   for (const [path, bytes] of Object.entries(files)) {
     await mkdir(join(payload, path, '..'), { recursive: true }); await writeFile(join(payload, path), bytes);
@@ -78,7 +78,7 @@ async function fixture(t) {
   const manifest = JSON.stringify({ schema_version: '1.0', version: '20261003-12', platform: 'win32',
     architecture: 'x64', files: Object.entries(files).sort(([a], [b]) => a.localeCompare(b))
       .map(([path, bytes]) => ({ path, bytes: Buffer.byteLength(bytes), sha256: sha(bytes) })) });
-  await writeFile(join(payload, 'NND_PAYLOAD.json'), manifest);
+  await writeFile(join(payload, 'DESKTOP_PAYLOAD.json'), manifest);
   const native = join(base, 'NNA selected'), data = join(base, 'NNA data');
   await mkdir(join(native, 'installed', 'src'), { recursive: true }); await mkdir(data);
   const cli = join(native, 'installed', 'src', 'cli.js'); await writeFile(cli, fakeCli);

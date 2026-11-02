@@ -365,7 +365,7 @@ it('discards a late route view from the old runtime after switching NNA', async 
 
 it('offers exactly the route rows NNA advertises and none it leaves unbound', async () => {
   // NNA's catalog decides the offer: the seven scalar members plus the two
-  // list members are tuned here for every role — src/nnd-configuration-intents.js
+  // list members are tuned here for every role — src/desktop-configuration-intents.js
   // admits generic writes for routes.{role} regardless of role (the one
   // caveat: a generic write for routes.primary.deadline_ms normalizes onto
   // the canonical provider_timeout_ms pair, the alias never persists) — while
@@ -425,7 +425,7 @@ it('refuses an out-of-range subagent budget before the wire and surfaces NNA’s
     operations: [{ op: mode === 'reset' ? 'reset' : 'set', field: field.path,
       ...(mode === 'set' ? { value: JSON.parse(draft) } : {}) }] }));
   // The native preview refuses when a higher-precedence source owns the field
-  // (src/nnd-configuration-service.js candidate() throws
+  // (src/desktop-configuration-service.js candidate() throws
   // configuration_source_shadowed); the desktop echoes NNA's own code.
   vi.mocked(previewNativeConfiguration).mockRejectedValue(Object.assign(new Error('shadowed'),
     { code: 'configuration_source_shadowed' }));

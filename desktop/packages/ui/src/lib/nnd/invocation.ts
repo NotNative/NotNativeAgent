@@ -31,7 +31,7 @@ export class NativeInvocationFailure extends Error {
   constructor(code: string) { super(code); this.name = 'NativeInvocationFailure'; this.code = code; }
 }
 
-const viewInvalid = () => new NativeInvocationFailure('nnd_invocation_projection_invalid');
+const viewInvalid = () => new NativeInvocationFailure('desktop_invocation_projection_invalid');
 const TOP_KEYS = 'application,data_id,family,flags,'
   + 'installation_id,modes,schema_version,scope';
 const FLAG_KEYS = 'aliases,argument,effect,flag,headless,modes,option';
@@ -78,9 +78,9 @@ function parseFlag(raw: unknown): InvocationFlag {
 
 /** Honest sentence map; unmatched codes fall back to the code. */
 export const invocationMessages: Record<string, string> = {
-  nnd_invocation_projection_invalid: 'The invocation vocabulary drifted from its verified grammar.',
-  nnd_invocation_unavailable: 'The invocation vocabulary is unreachable right now.',
-  nnd_configuration_unavailable: 'This runtime does not serve the invocation vocabulary.',
+  desktop_invocation_projection_invalid: 'The invocation vocabulary drifted from its verified grammar.',
+  desktop_invocation_unavailable: 'The invocation vocabulary is unreachable right now.',
+  desktop_configuration_unavailable: 'This runtime does not serve the invocation vocabulary.',
   integration_permission_denied: 'This account lacks the read right for the invocation vocabulary.',
 };
 
@@ -89,7 +89,7 @@ async function nativeRead(signal: AbortSignal): Promise<unknown> {
     method: 'GET', signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]) });
   if (response.status !== 200) {
     const raw = await response.arrayBuffer();
-    let code = 'nnd_invocation_unavailable';
+    let code = 'desktop_invocation_unavailable';
     try {
       const parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw)) as
         { error?: { code?: unknown } };

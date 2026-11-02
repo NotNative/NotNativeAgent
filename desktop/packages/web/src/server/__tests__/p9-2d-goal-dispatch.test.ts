@@ -73,7 +73,7 @@ function makePorts(state: DispatchState) {
     runAudit: async (_sessionId: string, _directory: string, body: GoalAuditBody) => {
       order.push('audit');
       if (state.auditUnavailable) {
-        return { status: 404, body: { error: { code: 'nnd_engine_unavailable' } } } as GoalAuditWire;
+        return { status: 404, body: { error: { code: 'desktop_engine_unavailable' } } } as GoalAuditWire;
       }
       const verdict = state.verdictText ?? '{"verdict": "continue", "note": "wiring"}';
       return { status: 200, body: { text: `\`\`\`json\n${verdict}\n\`\`\``,

@@ -64,7 +64,7 @@ export function ChildSessionControls({ sessionID, directory }: { sessionID: stri
         setNotice('Steering is no longer available for this subagent.');
         return;
       }
-      const result = await harnessClient.steerChildSession(sessionID, { request_id: ascendingId('nnd_steer'), content: text }, { directory });
+      const result = await harnessClient.steerChildSession(sessionID, { request_id: ascendingId('desktop_steer'), content: text }, { directory });
       if (result.error || result.data?.accepted !== true) {
         setNotice('Steering could not be confirmed. Check the transcript before trying again.');
         return;

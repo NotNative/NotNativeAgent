@@ -60,7 +60,7 @@ async function probeGovernedWrite(call, sessionId, secondary, primary, providerR
   await submitToolPrompt(call, sessionId, 'NND_TOOL_WRITE_ALLOW: Write F1_GOVERNED_WRITE.txt with governed-selected in this workspace.');
   await waitForReply(call, sessionId, repliesBefore + 1);
   const toolResult = providerRequests().flatMap(request => request.messages ?? [])
-    .find(message => message.role === 'tool' && message.tool_call_id === 'nnd_write_allow');
+    .find(message => message.role === 'tool' && message.tool_call_id === 'desktop_write_allow');
   assert.ok(toolResult, 'selected-root governed write did not reach NNA');
   assert.ok(String(toolResult.content).includes('"tool_lifecycle_status":"succeeded"'),
     `selected-root governed write failed: ${String(toolResult.content).slice(0, 500)}`);
@@ -84,8 +84,8 @@ async function submitToolPrompt(call, sessionId, text) {
 
 async function probeGovernedReads(call, sessionId, primaryMarker, providerRequests) {
   for (const [prompt, callId, expected, forbidden] of [
-    ['NND_TOOL_READ_ALLOW', 'nnd_read_allow', 'secondary-only', 'primary-only'],
-    [`NND_TOOL_READ_ESCAPE:${primaryMarker}`, 'nnd_read_escape', null, 'primary-only'],
+    ['NND_TOOL_READ_ALLOW', 'desktop_read_allow', 'secondary-only', 'primary-only'],
+    [`NND_TOOL_READ_ESCAPE:${primaryMarker}`, 'desktop_read_escape', null, 'primary-only'],
   ]) {
     const repliesBefore = await replyCount(call, sessionId);
     await submitToolPrompt(call, sessionId, prompt);

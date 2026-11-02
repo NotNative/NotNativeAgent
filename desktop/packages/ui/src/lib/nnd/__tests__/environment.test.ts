@@ -21,7 +21,7 @@ it.each(['NNA_TELEGRAM_BOT_TOKEN', 'OPENCODE_SERVER_PASSWORD'])('accepts absent 
   const observed = NAMES.map(member => entry(member, member !== name));
   expect(parseNativeEnvironmentView(view({ observed })).observed.find(row => row.name === name)).toEqual({ name, secret: true, present: false, value: null });
   for (const present of [false, true]) expect(() => parseNativeEnvironmentView(view({ observed: observed.map(row => row.name === name
-    ? { ...row, present, value: 'credential-must-not-cross' } : row) }))).toThrow('nnd_environment_request_invalid');
+    ? { ...row, present, value: 'credential-must-not-cross' } : row) }))).toThrow('desktop_environment_request_invalid');
 });
 
 it('environment parser rebuilds the observation and catalog without private fields', () => {

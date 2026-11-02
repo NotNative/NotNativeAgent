@@ -68,7 +68,7 @@ export function validateEntries(entries) {
   const seen = new Set(), directories = new Set();
   for (const entry of entries) {
     const key = payloadPath(entry.path).toLowerCase();
-    if (key === 'nnd_payload.json' || seen.has(key) || directories.has(key)) throw new Error('payload-duplicate-path');
+    if (key === 'desktop_payload.json' || seen.has(key) || directories.has(key)) throw new Error('payload-duplicate-path');
     const parts = key.split('/'); parts.pop();
     while (parts.length) {
       const parent = parts.join('/');

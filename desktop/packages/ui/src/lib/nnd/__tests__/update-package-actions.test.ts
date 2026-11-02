@@ -24,7 +24,7 @@ describe('update action receipt grammar (NND client)', () => {
       envelope({ ...ready(), checked_at: 'yesterday' }), envelope(ready(), 'not-a-uuid'),
       envelope({ ...ready(), current_version: 'nope' })];
     for (const refusal of refusals) expect(() => parseCheckReceipt(refusal)).toThrow();
-    expect(updateActionErrorText('nnd_update_install_unsupported')).toContain("refused");
+    expect(updateActionErrorText('desktop_update_install_unsupported')).toContain("refused");
     expect(updateActionErrorText('anything')).toBe('The update action could not be completed natively.');
   });
 });
@@ -53,7 +53,7 @@ describe('package action receipt grammar (NND client)', () => {
       packageEnvelope({ ...installed(), version: 'nope' })]) {
       expect(() => parsePackageReceipt(refusal)).toThrow();
     }
-    expect(packageActionErrorText('nnd_package_root_mismatch')).toContain('registered NND package root');
+    expect(packageActionErrorText('desktop_package_root_mismatch')).toContain('registered NND package root');
     expect(packageActionErrorText('anything')).toBe('The package action could not be completed natively.');
   });
 });

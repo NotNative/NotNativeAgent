@@ -27,14 +27,14 @@ export async function runTrayAction(anchor, action, ports = {}) {
   for (let count = 0; count < 150 && Date.now() < deadline; count += 1) {
     try {
       const status = await (ports.status ?? requestNativeServiceStatus)(selection);
-      if (status.instance_id !== before.generation) throw new Error('nnd_restart_generation_changed');
+      if (status.instance_id !== before.generation) throw new Error('desktop_restart_generation_changed');
     }
-    catch (error) { if (error.message === 'nnd_service_not_running') { stopped = true; break; } throw error; }
+    catch (error) { if (error.message === 'desktop_service_not_running') { stopped = true; break; } throw error; }
     await (ports.delay ?? delay)(200);
   }
-  if (!stopped) throw new Error('nnd_stop_timeout');
+  if (!stopped) throw new Error('desktop_stop_timeout');
   const after = await attach(selection);
-  if (after.generation === before.generation) throw new Error('nnd_restart_generation_unchanged');
+  if (after.generation === before.generation) throw new Error('desktop_restart_generation_unchanged');
   return { restarted: true, generation: after.generation };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

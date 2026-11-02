@@ -10,7 +10,7 @@ function Resolve-NndPrebuiltAnchorForUninstall($InstallDirectory, $SelectedNna, 
     }
     $binding = Get-Content -LiteralPath $bindingPath -Raw | ConvertFrom-Json
     $keys = @($binding.PSObject.Properties.Name)
-    $expectedKeys = @('schema_version', 'nna_install_root', 'nnd_package_root', 'version',
+    $expectedKeys = @('schema_version', 'nna_install_root', 'desktop_package_root', 'version',
         'data_schema', 'payload_sha256', 'candidate_sha256', 'stage_operation_id', 'activation_operation_id',
         'installation_id', 'data_id')
     $hasIncarnation = $keys -contains 'incarnation_id'
@@ -21,8 +21,8 @@ function Resolve-NndPrebuiltAnchorForUninstall($InstallDirectory, $SelectedNna, 
         $binding.schema_version -ne '1.0' -or
         $binding.data_schema -isnot [string] -or $binding.data_schema -cnotmatch '^[a-z0-9._-]{1,64}$' -or
         $binding.nna_install_root -isnot [string] -or $binding.nna_install_root.Length -gt 4096 -or
-        $binding.nnd_package_root -isnot [string] -or $binding.nnd_package_root.Length -gt 1024 -or
-        ![IO.Path]::IsPathRooted($binding.nnd_package_root) -or
+        $binding.desktop_package_root -isnot [string] -or $binding.desktop_package_root.Length -gt 1024 -or
+        ![IO.Path]::IsPathRooted($binding.desktop_package_root) -or
         $binding.version -isnot [string] -or $binding.version -cnotmatch '^\d{8}-[1-9]\d{0,5}$' -or
         $binding.payload_sha256 -isnot [string] -or $binding.payload_sha256 -cnotmatch '^[a-f0-9]{64}$' -or
         $binding.candidate_sha256 -isnot [string] -or $binding.candidate_sha256 -cnotmatch '^[a-f0-9]{64}$' -or
@@ -41,9 +41,9 @@ function Resolve-NndPrebuiltAnchorForUninstall($InstallDirectory, $SelectedNna, 
         $binding.data_id -cne $Capabilities.data_id) {
         throw 'Prebuilt uninstall binding no longer matches the selected NNA.'
     }
-    $packageRoot = [IO.Path]::GetFullPath($binding.nnd_package_root).TrimEnd('\', '/')
+    $packageRoot = [IO.Path]::GetFullPath($binding.desktop_package_root).TrimEnd('\', '/')
     $versionsRoot = [IO.Path]::GetFullPath(
-        (Join-Path $SelectedNna.DataRoot 'runtime\nnd\install-slots\versions')).TrimEnd('\', '/')
+        (Join-Path $SelectedNna.DataRoot 'runtime\desktop\install-slots\versions')).TrimEnd('\', '/')
     if (!$packageRoot.StartsWith("$versionsRoot\", [StringComparison]::OrdinalIgnoreCase) -or
         ([IO.Directory]::GetParent($packageRoot)).FullName.TrimEnd('\', '/') -ne $versionsRoot -or
         ([IO.Path]::GetFileName($packageRoot)) -cne "$($binding.version)-$($binding.payload_sha256)" -or

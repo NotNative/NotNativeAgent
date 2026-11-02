@@ -24,7 +24,7 @@ const PHASES = ['pre', 'post', 'idle'];
 export const HOOKS_RESPONSE_BYTES = 4_260_096;
 
 export class NativeHooksFailure extends Error { constructor(readonly code: string) { super(code); } }
-const viewInvalid = () => new NativeHooksFailure('nnd_hooks_view_invalid');
+const viewInvalid = () => new NativeHooksFailure('desktop_hooks_view_invalid');
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -51,7 +51,7 @@ export async function readHooks(signal: AbortSignal): Promise<HooksList> {
   if (!response.ok) {
     const error = record(body) && record(body.error) ? body.error : null;
     const code = typeof error?.code === 'string' ? error.code
-      : response.status === 404 ? 'nnd_hooks_unavailable' : 'nnd_hooks_unavailable';
+      : response.status === 404 ? 'desktop_hooks_unavailable' : 'desktop_hooks_unavailable';
     throw new NativeHooksFailure(code);
   }
   return parseHooksList(body);
@@ -140,8 +140,8 @@ async function boundedJson(response: Response, bounds: number): Promise<unknown>
 }
 
 export function hooksErrorText(code: string): string {
-  if (code === 'nnd_hooks_unavailable') return 'Hook bundle settings are unavailable.';
-  if (code === 'nnd_configuration_unavailable') return 'Native hooks settings are unavailable on this NNA.';
-  if (code === 'nnd_hooks_view_invalid') return 'The refused projection failed its sentence check instead.';
+  if (code === 'desktop_hooks_unavailable') return 'Hook bundle settings are unavailable.';
+  if (code === 'desktop_configuration_unavailable') return 'Native hooks settings are unavailable on this NNA.';
+  if (code === 'desktop_hooks_view_invalid') return 'The refused projection failed its sentence check instead.';
   return 'The hook bundle roster could not be read.';
 }

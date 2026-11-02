@@ -36,27 +36,27 @@ export async function createSupervisedFixture(nna, nnd, { payloadRoot = null, na
       install_root: install, data_root: data, node: process.execPath, node_major: Number(process.versions.node.split('.')[0]) }));
     const manifest = payloadRoot ? (await validateInstalledNndService(gui)).manifest : await writeInstalledServiceManifest(gui);
     if (payloadRoot) {
-      const { validateNndPackage } = await import(pathToFileURL(join(payload, 'src/nnd-package.js')).href);
-      const admitted = await validateNndPackage(gui);
+      const { validateDesktopPackage } = await import(pathToFileURL(join(payload, 'src/desktop-package.js')).href);
+      const admitted = await validateDesktopPackage(gui);
       assert.equal(admitted.version, manifest.version);
     }
     if (nativeSlot) {
-      const { readNndServiceIdentity } = await import(pathToFileURL(join(payload, 'src/nnd-service-identity.js')).href);
-      const { stageNndInstallSlot, recoverNndInstallSlot } = await import(pathToFileURL(join(payload, 'src/nnd-install-slots.js')).href);
-      const { runNndPackageCommand } = await import(pathToFileURL(join(payload, 'src/nnd-package.js')).href);
-      const identity = await readNndServiceIdentity(install), operationId = randomUUID();
-      const staged = await stageNndInstallSlot(identity, { source: gui, operationId });
+      const { readDesktopServiceIdentity } = await import(pathToFileURL(join(payload, 'src/desktop-service-identity.js')).href);
+      const { stageDesktopInstallSlot, recoverDesktopInstallSlot } = await import(pathToFileURL(join(payload, 'src/desktop-install-slots.js')).href);
+      const { runDesktopPackageCommand } = await import(pathToFileURL(join(payload, 'src/desktop-package.js')).href);
+      const identity = await readDesktopServiceIdentity(install), operationId = randomUUID();
+      const staged = await stageDesktopInstallSlot(identity, { source: gui, operationId });
       assert.equal(staged.state, 'slot_ready');
-      assert.deepEqual(await runNndPackageCommand(['status'], { root: data, config: join(data, 'config') }), { registered: false });
-      assert.deepEqual(await recoverNndInstallSlot(identity, { operationId }), staged);
-      const repeated = await stageNndInstallSlot(identity, { source: gui, operationId: randomUUID() });
+      assert.deepEqual(await runDesktopPackageCommand(['status'], { root: data, config: join(data, 'config') }), { registered: false });
+      assert.deepEqual(await recoverDesktopInstallSlot(identity, { operationId }), staged);
+      const repeated = await stageDesktopInstallSlot(identity, { source: gui, operationId: randomUUID() });
       assert.equal(repeated.slot, staged.slot);
       assert.equal(repeated.payload_sha256, staged.payload_sha256);
       gui = staged.slot;
       // Invariant: explicit fixture registration is separate from staging and proves no installer completion claim.
-      await runNndPackageCommand(['activate', gui], { root: data, config: join(data, 'config') });
+      await runDesktopPackageCommand(['activate', gui], { root: data, config: join(data, 'config') });
     } else {
-      await writeFile(join(data, 'config/nnd-package.json'), JSON.stringify({ root: gui, version: manifest.version, protocol: '1.0' }));
+      await writeFile(join(data, 'config/desktop-package.json'), JSON.stringify({ root: gui, version: manifest.version, protocol: '1.0' }));
     }
     return { root, install, data, gui, prebuilt: Boolean(payloadRoot), nativeSlot, cli: join(payload, 'src/cli.js') };
   } catch (error) {

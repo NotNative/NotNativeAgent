@@ -28,11 +28,11 @@ async function fixture(t) {
     const action=process.argv[4];
     if(action==='attach'&&fs.existsSync(d.data_root+'/slow-attach'))await new Promise(done=>setTimeout(done,6000));
     if(action==='attach'&&fs.existsSync(d.data_root+'/probe-inactive')){
-      console.error('nna: nnd_service_not_running');process.exit(2);
+      console.error('nna: desktop_service_not_running');process.exit(2);
     }
     if(action==='start')fs.writeFileSync(d.data_root+'/start-invoked','yes');
     if(action==='attach'&&fs.existsSync(d.data_root+'/fail-attach')){
-      console.error('(node) SQLite warning');console.error('nna: nnd_owner_unverified');process.exit(2);
+      console.error('(node) SQLite warning');console.error('nna: desktop_owner_unverified');process.exit(2);
     }
     console.log(JSON.stringify(action==='capabilities'?{...id,native_version:d.version,capabilities:['service_supervision','setup_control_plane','atomic_ui_attach','installer_guard'],commands:['start','status','stop','attach','install-guard']}:
       {...id,generation:'fixture',endpoint:'http://127.0.0.1:4555',ticket:'a'.repeat(43),expires_at:new Date(Date.now()+60000).toISOString()}));`);
@@ -61,7 +61,7 @@ test('desktop package recheck rejects a changed registration before attach', win
   const target = join(f.base, 'active-package'); await mkdir(target);
   const cli = join(f.root, 'installed', 'src', 'cli.js');
   await writeFile(cli, `import fs from 'node:fs';
-    if (process.argv.slice(2).join(' ') !== 'nnd package status' || process.env.NNA_HOME !== ${JSON.stringify(f.data)}) process.exit(9);
+    if (process.argv.slice(2).join(' ') !== 'desktop package status' || process.env.NNA_HOME !== ${JSON.stringify(f.data)}) process.exit(9);
     console.log(JSON.stringify({ registered: true, valid: true, root: ${JSON.stringify(target)}, version: '20261003-17' }));`);
   assert.equal((await assertSelectedNndPackage(selection, target)).version, '20261003-17');
   assert.equal((await assertSelectedNndPackage(selection, target, '20261003-17')).version, '20261003-17');
@@ -74,7 +74,7 @@ test('public attach probe refuses to start an inactive controller', windows, asy
   const selection = { installRoot: f.root, installation_id: runtime.installation_id,
     data_id: runtime.data_id };
   await writeFile(join(f.data, 'probe-inactive'), 'yes');
-  await assert.rejects(probeNativeAttach(selection), /nnd_service_not_running/u);
+  await assert.rejects(probeNativeAttach(selection), /desktop_service_not_running/u);
   assert.ok(!existsSync(join(f.data, 'start-invoked')));
   await rm(join(f.data, 'probe-inactive'));
   assert.equal((await attachNativeService(selection)).generation, 'fixture');
@@ -128,7 +128,7 @@ test('desktop attachment allows slow selected-native response and preserves a na
   assert.equal((await attachNativeService(f.root)).generation,'fixture');
   await rm(join(f.data,'slow-attach'));
   await writeFile(join(f.data,'fail-attach'),'yes');
-  await assert.rejects(attachNativeService(f.root),/nnd_owner_unverified/);
+  await assert.rejects(attachNativeService(f.root),/desktop_owner_unverified/);
 });
 test('runtime major mismatch is rejected before invoking capabilities',windows,async t=>{
   const f=await fixture(t);

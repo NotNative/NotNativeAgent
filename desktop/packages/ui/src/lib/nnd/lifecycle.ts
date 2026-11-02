@@ -14,7 +14,7 @@
  * into a fresh runtime (start_service); stop is immediate (stop_service);
  * enable/disable flip the persisted flag and the login wiring whose wiring
  * surface takes effect at the next service start (next_service_start). run is
- * refused natively (nnd_service_run_unsupported: it is the foreground managed
+ * refused natively (desktop_service_run_unsupported: it is the foreground managed
  * runtime the detached start and the login startup script drive), so this client
  * exposes no composer for it and every other action takes no inputs at all. */
 import { runtimeFetch } from '../runtime-fetch.ts';
@@ -29,7 +29,7 @@ export const SERVICE_LIFECYCLE_RESPONSE_BYTES = 65_536;
 const RUNTIME_KEYS = ['running', 'pid', 'port', 'url', 'stale', 'verified', 'legacy', 'reason'];
 
 export class NativeServiceLifecycleFailure extends Error { constructor(readonly code: string) { super(code); } }
-const viewInvalid = () => new NativeServiceLifecycleFailure('nnd_service_view_invalid');
+const viewInvalid = () => new NativeServiceLifecycleFailure('desktop_service_view_invalid');
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -280,7 +280,7 @@ async function call(action: string, method: 'GET' | 'POST', signal: AbortSignal)
   if (!response.ok) {
     const error = record(payload) && record(payload.error) ? payload.error : null;
     const code = typeof error?.code === 'string' ? error.code
-      : response.status === 404 ? 'nnd_service_action_unsupported' : 'nnd_service_unavailable';
+      : response.status === 404 ? 'desktop_service_action_unsupported' : 'desktop_service_unavailable';
     throw new NativeServiceLifecycleFailure(code);
   }
   return payload;
@@ -298,9 +298,9 @@ async function boundedJson(response: Response, bounds: number): Promise<unknown>
 }
 
 export function serviceLifecycleErrorText(code: string): string {
-  if (code === 'nnd_service_action_unsupported') return 'This NNA does not expose compatibility-service actions.';
-  if (code === 'nnd_service_unavailable') return 'Compatibility-service actions are unavailable.';
-  if (code === 'nnd_service_run_unsupported') return 'The managed runtime runs through start or the login startup script, not this surface.';
+  if (code === 'desktop_service_action_unsupported') return 'This NNA does not expose compatibility-service actions.';
+  if (code === 'desktop_service_unavailable') return 'Compatibility-service actions are unavailable.';
+  if (code === 'desktop_service_run_unsupported') return 'The managed runtime runs through start or the login startup script, not this surface.';
   if (code === 'opencode_login_wiring_unsupported') return 'Login wiring and the OpenChamber environment are Windows-only on this NNA.';
   if (code === 'opencode_service_unauthenticated') return 'Start the surface after wiring credentials natively; it never runs unauthenticated.';
   if (code === 'opencode_identity_unverifiable') return 'The surface refuses to stop a runtime whose identity cannot be verified; reconcile it natively first.';
@@ -317,7 +317,7 @@ export function serviceLifecycleErrorText(code: string): string {
     || code === 'opencode_username_invalid' || code === 'opencode_bind_exposed_requires_password') {
     return 'The persisted wiring configuration needs native repair before lifecycle actions can run.';
   }
-  if (code === 'nnd_service_action_invalid') return 'The action request was refused natively.';
-  if (code === 'nnd_service_view_invalid') return 'The refused projection failed its sentence check instead.';
+  if (code === 'desktop_service_action_invalid') return 'The action request was refused natively.';
+  if (code === 'desktop_service_view_invalid') return 'The refused projection failed its sentence check instead.';
   return 'The compatibility-service action could not be completed.';
 }

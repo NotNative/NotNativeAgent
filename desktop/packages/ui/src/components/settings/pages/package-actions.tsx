@@ -11,7 +11,7 @@ import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 const FIELD = 'rounded border border-border px-2 py-1 text-xs';
 const BUTTON = 'rounded border border-border px-2 py-1 text-xs disabled:opacity-50';
 const safeError = (failure: unknown) => failure instanceof NativePackageActionFailure
-  ? failure.code : 'nnd_package_action_unavailable';
+  ? failure.code : 'desktop_package_action_unavailable';
 const BOUND_NOTE = 'The runtime reuses the package CLI\'s registry authority (validation,'
   + ' the manifest transaction, and the root-mismatch lockstep); the registry carries'
   + ' root, version, and protocol only.';

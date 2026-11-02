@@ -97,16 +97,16 @@ describe('setup wizard (W-14)', () => {
       const url = String(input);
       if (init?.method === 'POST') {
         return failed
-          ? new Response(statusBody('failed', 'ready', 'unavailable', 'nnd_setup_activation_timeout'), { status: 503, headers: { 'Content-Type': 'application/json' } })
+          ? new Response(statusBody('failed', 'ready', 'unavailable', 'desktop_setup_activation_timeout'), { status: 503, headers: { 'Content-Type': 'application/json' } })
           : readyResponse();
       }
       return failed
-        ? new Response(statusBody('failed', 'ready', 'unavailable', 'nnd_setup_activation_timeout'), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        ? new Response(statusBody('failed', 'ready', 'unavailable', 'desktop_setup_activation_timeout'), { status: 200, headers: { 'Content-Type': 'application/json' } })
         : readyResponse();
     });
     const node = mount();
     await vi.waitFor(() => {
-      expect(node.querySelector('[data-testid="wizard-recovery"]')?.textContent).toContain('nnd_setup_activation_timeout');
+      expect(node.querySelector('[data-testid="wizard-recovery"]')?.textContent).toContain('desktop_setup_activation_timeout');
     });
     failed = false;
     await act(async () => { (node.querySelector('[data-testid="wizard-retry-activation"]') as HTMLButtonElement).click(); });

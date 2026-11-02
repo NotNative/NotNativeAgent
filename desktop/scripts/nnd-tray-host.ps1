@@ -28,7 +28,7 @@ $mutex = New-Object System.Threading.Mutex($false, $mutexName)
 # A retiring generation can own the mutex for one watchdog tick after the new service is ready.
 try { if (-not $mutex.WaitOne(10000)) { exit 0 } } catch [System.Threading.AbandonedMutexException] { }
 
-$runtimeDir = Join-Path $DataRoot 'runtime\nnd'
+$runtimeDir = Join-Path $DataRoot 'runtime\desktop'
 function Read-CurrentRecord {
   $currentPath = Join-Path $runtimeDir 'current.json'
   if (-not (Test-Path $currentPath)) { return $null }

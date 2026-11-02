@@ -1,6 +1,6 @@
-
-import { DESKTOP_ID } from './desktop-request-grammar.js';// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Compatibility: this schema describes future service activation, not runtime capability availability.
+import { DESKTOP_ID } from './desktop-request-grammar.js';
 export const DESKTOP_SERVICE_PROTOCOL = '1.0';
 export const DESKTOP_SERVICE_STATES = Object.freeze([
   'absent', 'incompatible', 'starting', 'ready', 'degraded', 'stopping', 'stopped', 'failed', 'setup_required',

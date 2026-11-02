@@ -33,7 +33,7 @@ export async function callSmallModelDirect(
 ): Promise<ProviderCallOutcome> {
   const wire = directCallWire(input.model.providerID);
   if (wire === null || input.baseURL === null || input.credential === '') {
-    return { ok: false, status: 422, code: 'nnd_provider_unsupported', message: '' };
+    return { ok: false, status: 422, code: 'desktop_provider_unsupported', message: '' };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), input.timeoutMs);
@@ -54,16 +54,16 @@ export async function callSmallModelDirect(
     if (!response.ok) return {
       ok: false,
       status: response.status >= 400 && response.status <= 499 ? response.status : 502,
-      code: response.status === 401 || response.status === 403 ? 'nnd_provider_refused' : 'nnd_provider_failed',
+      code: response.status === 401 || response.status === 403 ? 'desktop_provider_refused' : 'desktop_provider_failed',
       message: '',
     };
     return { ok: true, text };
   } catch (error) {
     if ((error instanceof DOMException || error instanceof Error) && error.name === 'AbortError') {
-      if (input.signal?.aborted) return { ok: false, status: 499, code: 'nnd_generation_cancelled', message: '' };
-      return { ok: false, status: 504, code: 'nnd_generation_timeout', message: '' };
+      if (input.signal?.aborted) return { ok: false, status: 499, code: 'desktop_generation_cancelled', message: '' };
+      return { ok: false, status: 504, code: 'desktop_generation_timeout', message: '' };
     }
-    return { ok: false, status: 502, code: 'nnd_provider_failed', message: '' };
+    return { ok: false, status: 502, code: 'desktop_provider_failed', message: '' };
   } finally {
     clearTimeout(timeout);
   }

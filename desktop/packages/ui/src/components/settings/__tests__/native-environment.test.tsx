@@ -86,7 +86,7 @@ it('reads the observation with withheld credential values and honest empty/absen
 it('maps errors to specific sentences and pauses for auth and authority', async () => {
   fetchMock.mockImplementation((path: string) => {
     if (path.endsWith('/environment')) return Promise.resolve(json(
-      { error: { code: 'nnd_environment_value_too_large' } }, 400));
+      { error: { code: 'desktop_environment_value_too_large' } }, 400));
     if (path.endsWith('/catalog')) return Promise.resolve(json(catalog));
     throw new Error('unexpected ' + path);
   });

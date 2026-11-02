@@ -24,7 +24,7 @@ function setup({ dialogResponses = [0], fetchImpl, hosts = [], now, redeemRelay 
       calls.push({ url, options });
       if (fetchImpl) return fetchImpl(url, options);
       if (url.endsWith('/health')) return Response.json({ ok: true });
-      return Response.json({ ok: true, clientToken: 'nnd_client_token', server: { label: 'Studio Server' } });
+      return Response.json({ ok: true, clientToken: 'desktop_client_token', server: { label: 'Studio Server' } });
     },
     getHosts: () => ({ hosts, defaultHostId: null, initialHostChoiceCompleted: false }),
     setHosts: (config) => { writes.push(config); return config; },
@@ -249,7 +249,7 @@ test('holds the host catalog lock through one-time redemption and persistence', 
     fetch: async (url) => {
       if (url.endsWith('/health')) return Response.json({ ok: true });
       setterAttempt = locked ? { ok: false, error: 'desktop-hosts-busy' } : { ok: true };
-      return Response.json({ ok: true, clientToken: 'nnd_client_token' });
+      return Response.json({ ok: true, clientToken: 'desktop_client_token' });
     },
     getHosts: () => ({ hosts: [], defaultHostId: null, initialHostChoiceCompleted: false }), setHosts: () => {},
     getInstallId: () => '0c21f7cb-f35f-4100-8da5-26e588998012',
@@ -267,7 +267,7 @@ test('probes in priority order, redeems once, and persists only after native con
         if (url.startsWith('http://192.168.1.20')) return new Response('unreachable', { status: 503 });
       return Response.json({ ok: true, serverId: 'stable-server-id' });
     }
-    return Response.json({ ok: true, clientToken: 'nnd_client_token', server: { label: 'Studio Server' } });
+    return Response.json({ ok: true, clientToken: 'desktop_client_token', server: { label: 'Studio Server' } });
   } });
   const result = await state.importer.importPairing(payload({ candidates: [
     ...payload().candidates,
@@ -288,10 +288,10 @@ test('probes in priority order, redeems once, and persists only after native con
   });
   assert.equal(state.writes.length, 1);
   assert.equal(state.writes[0].defaultHostId, 'host-new');
-  assert.equal(state.writes[0].hosts[0].clientToken, 'nnd_client_token');
+  assert.equal(state.writes[0].hosts[0].clientToken, 'desktop_client_token');
   assert.equal(state.writes[0].hosts[0].serverId, 'stable-server-id');
   assert.equal(state.dialogs.length, 2);
-  assert.doesNotMatch(JSON.stringify(state.dialogs), /nnd_client_token|short-lived-secret/u);
+  assert.doesNotMatch(JSON.stringify(state.dialogs), /desktop_client_token|short-lived-secret/u);
 });
 
 test('pairing identity must match before the one-time secret is sent to a direct address', async (t) => {
@@ -299,7 +299,7 @@ test('pairing identity must match before the one-time secret is sent to a direct
     await t.test(JSON.stringify(health), async () => {
       const state = setup({ fetchImpl: async (url) => url.endsWith('/health')
         ? Response.json(health)
-        : Response.json({ ok: true, clientToken: 'nnd_client_token' }) });
+        : Response.json({ ok: true, clientToken: 'desktop_client_token' }) });
       const result = await state.importer.importPairing(payload({
         candidates: [
           { type: 'lan', url: 'https://studio.example' },
@@ -331,7 +331,7 @@ test('expired links, probe failures, invalid tokens, and full catalogs never per
         clock += 60_000;
         return Response.json({ ok: true });
       }
-      return Response.json({ ok: true, clientToken: 'nnd_client_token' });
+      return Response.json({ ok: true, clientToken: 'desktop_client_token' });
     } });
     const expiresAt = new Date(clock + 30_000).toISOString();
     assert.deepEqual(await state.importer.importPairing(payload({ expiresAt })), { status: 'expired' });

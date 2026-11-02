@@ -55,7 +55,9 @@ test('installer.ps1 follows the dumb-copy shape: plan, copy, build, register, sh
   // The shortcut launcher starts the service AND launches the attached GUI.
   const launcher = await readFile(resolve('scripts/launch-selected-desktop.ps1'), 'utf8');
   assert.ok(launcher.includes('desktop start'));
-  assert.ok(!launcher.match(/& \$descriptor\.node \$cliPath nnd start/u));
+  // The launcher goes through NNA's lifecycle (`desktop start`), never the raw
+  // supervised service command, so NNA keeps service ownership.
+  assert.ok(!launcher.match(/desktop service start/u));
   assert.ok(launcher.includes('launch-selected-desktop.mjs'));
   const startAt = launcher.indexOf('desktop start');
   const guiAt = launcher.indexOf('launch-selected-desktop.mjs');
@@ -97,14 +99,14 @@ test('install.sh mirrors the dumb-copy shape with NNA branding and the lifecycle
   assert.ok(!source.includes('verify'));
   // An upgrade stops a running service before replacing files (parity with
   // the Windows plan resolver); the stop is best-effort.
-  const stop = source.indexOf('nnd service stop "$NNA_ROOT"');
+  const stop = source.indexOf('desktop service stop "$NNA_ROOT"');
   assert.ok(stop > 0 && stop < copy);
   // Transaction-record parity: stage evidence is written for a registered
   // upgrade and removed after activation.
   assert.ok(source.includes('install-transaction.json'));
   assert.ok(source.indexOf('txn_stage prepared') > 0 && source.indexOf('txn_stage prepared') < copy);
   assert.ok(source.indexOf('txn_stage deactivated') > copy
-    && source.indexOf('txn_stage deactivated') < source.indexOf('nnd package activate'));
+    && source.indexOf('txn_stage deactivated') < source.indexOf('desktop package activate'));
   // The desktop entry is NNA-branded and resolves the lifecycle at launch.
   assert.ok(source.includes('notnativeagent.desktop'));
   assert.ok(!source.includes('notnativedesktop.desktop'));

@@ -205,7 +205,7 @@ async function dispatchPrompt(
         providerID: input.model.providerID,
         modelID: input.model.modelID,
         // Why: no variant/delivery here — NNA rejects per-prompt overrides on
-        // prompt_async (nnd_variant_override_unsupported / nnd_delivery_override_unsupported).
+        // prompt_async (desktop_variant_override_unsupported / desktop_delivery_override_unsupported).
       },
       ...(input.agent ? { agent: input.agent } : {}),
       parts,

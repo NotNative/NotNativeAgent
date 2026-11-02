@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** NND operator client for the native NND package actions (20261006-12
- * surface). The runtime reuses the CLI registry authority (runNndPackageCommand)
+ * surface). The runtime reuses the CLI registry authority (runDesktopPackageCommand)
  * verbatim: status reads the installed-package registry, activate validates a
  * package root through the manifest transaction and registers it, deactivate
  * unregisters the matching root. The registry carries root/version/protocol
@@ -15,7 +15,7 @@ export class NativePackageActionFailure extends Error {
   code: string;
   constructor(code: string) { super(code); this.name = 'NativePackageActionFailure'; this.code = code; }
 }
-const viewInvalid = () => new NativePackageActionFailure('nnd_package_projection_invalid');
+const viewInvalid = () => new NativePackageActionFailure('desktop_package_projection_invalid');
 
 export interface PackageStatus {
   registered: boolean;
@@ -91,7 +91,7 @@ async function call(path: string, status: number, method: 'GET' | 'POST',
       ...(signal ? { signal } : {}) });
   } catch (error) {
     if (signal.aborted) throw error;
-    throw new NativePackageActionFailure('nnd_package_action_unavailable');
+    throw new NativePackageActionFailure('desktop_package_action_unavailable');
   }
   const raw = await response.arrayBuffer();
   if (raw.byteLength > RESPONSE_BYTES) throw viewInvalid();
@@ -101,9 +101,9 @@ async function call(path: string, status: number, method: 'GET' | 'POST',
   if (response.status === status) return parsed;
   const code = (parsed as { error?: { code?: string } } | null)?.error?.code;
   throw new NativePackageActionFailure(response.status === 404
-    ? 'nnd_package_action_not_found'
+    ? 'desktop_package_action_not_found'
     : typeof code === 'string' && /^[a-z][a-z0-9_]{0,63}$/u.test(code)
-      ? code : 'nnd_package_action_unavailable');
+      ? code : 'desktop_package_action_unavailable');
 }
 
 export function readPackageStatus(signal: AbortSignal): Promise<PackageActionReceipt> {
@@ -121,17 +121,17 @@ export function deactivatePackageRoot(root: string, signal: AbortSignal): Promis
 
 export function packageActionErrorText(code: string): string {
   const sentences: Record<string, string> = {
-    nnd_package_root_invalid: 'The package root must be an absolute path to an installed NND package.',
-    nnd_package_incomplete: 'That path is not a complete NND package: the manifest, server build, and web build are missing.',
-    nnd_package_manifest_invalid: 'That NND package manifest is incompatible with this runtime protocol.',
-    nnd_package_root_mismatch: 'The registered NND package root differs from the one given.',
-    nnd_package_projection_invalid: 'The native package surface surfaced a drifted receipt.',
-    nnd_configuration_unavailable: 'The native package actions are unavailable right now.',
+    desktop_package_root_invalid: 'The package root must be an absolute path to an installed NND package.',
+    desktop_package_incomplete: 'That path is not a complete NND package: the manifest, server build, and web build are missing.',
+    desktop_package_manifest_invalid: 'That NND package manifest is incompatible with this runtime protocol.',
+    desktop_package_root_mismatch: 'The registered NND package root differs from the one given.',
+    desktop_package_projection_invalid: 'The native package surface surfaced a drifted receipt.',
+    desktop_configuration_unavailable: 'The native package actions are unavailable right now.',
     integration_permission_denied: 'The operator principal lacks nnd.package.manage.',
   };
   return sentences[code]
-    ?? (code === 'nnd_package_action_not_found' ? 'The native package action surface is absent.'
-      : code === 'nnd_package_action_unavailable'
+    ?? (code === 'desktop_package_action_not_found' ? 'The native package action surface is absent.'
+      : code === 'desktop_package_action_unavailable'
         ? 'The native package action could not be completed.'
         : 'The package action could not be completed natively.');
 }

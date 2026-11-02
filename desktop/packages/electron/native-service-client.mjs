@@ -40,12 +40,12 @@ export function readSelectedNativeRuntime(selected) {
 }
 function environment() {
   return Object.fromEntries(Object.entries(process.env).filter(([name]) =>
-    !/^(NODE_OPTIONS$|NODE_PATH$|ELECTRON_RUN_AS_NODE$|NNA_HOME$|NNA_INTEGRATION_TOKEN$|NNA_PRINCIPAL$|NNA_HARNESS_URL$|NNA_NND_|NND_|NOTNATIVE_)/iu.test(name)));
+    !/^(NODE_OPTIONS$|NODE_PATH$|ELECTRON_RUN_AS_NODE$|NNA_HOME$|NNA_INTEGRATION_TOKEN$|NNA_PRINCIPAL$|NNA_HARNESS_URL$|NNA_DESKTOP_|NND_|NOTNATIVE_)/iu.test(name)));
 }
 async function command(runtime, action, timeout = 30000, family = 'service') {
   try {
-    const args = family === 'package' ? [runtime.cli, 'nnd', 'package', action]
-      : [runtime.cli, 'nnd', 'service', action, runtime.root];
+    const args = family === 'package' ? [runtime.cli, 'desktop', 'package', action]
+      : [runtime.cli, 'desktop', 'service', action, runtime.root];
     const { stdout } = await execute(runtime.node, args, {
       cwd: runtime.root, windowsHide: true, shell: false, timeout, maxBuffer: 65536,
       env: family === 'package' ? { ...environment(), NNA_HOME: runtime.dataRoot } : environment(),
@@ -111,7 +111,7 @@ export async function attachNativeService(selection) {
   let attached;
   try { attached = await awaitNativeAttach(runtime); }
   catch (error) {
-    if (error.message !== 'nnd_service_not_running') throw error;
+    if (error.message !== 'desktop_service_not_running') throw error;
     await command(runtime, 'start');
     attached = await awaitNativeAttach(runtime);
   }
@@ -162,7 +162,7 @@ async function awaitNativeAttach(runtime) {
   for (;;) {
     try { return await command(runtime, 'attach', 20000); }
     catch (error) {
-      if (error.message !== 'nnd_health_unavailable' || Date.now() >= deadline) throw error;
+      if (error.message !== 'desktop_health_unavailable' || Date.now() >= deadline) throw error;
       await delay(200);
     }
   }

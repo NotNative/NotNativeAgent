@@ -235,7 +235,7 @@ it('renders provider profile rows with derived values, redaction, and honest abs
 
 it('renders the legacy singular-provider alias as the unprintable block beside its resolved mirror', async () => {
   // NNA's view binds the legacy provider block in place of providers[0]
-  // (nnd-configuration-view.js: the provider.* paths read the raw document on
+  // (desktop-configuration-view.js: the provider.* paths read the raw document on
   // the explicit side and the resolved profile on the effective side), and its
   // own test pins the shapes: the root alias row is an unprintable structure
   // that resolves into providers[local], the mirrored identity members carry

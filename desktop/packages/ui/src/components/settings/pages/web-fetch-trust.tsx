@@ -16,9 +16,9 @@ import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 
 const INPUT = 'w-64 rounded border border-border bg-background px-2 py-1 text-xs';
 const BUTTON = 'rounded border border-border px-2 py-1 text-xs disabled:opacity-50';
-const safeError = (error: unknown) => error instanceof NativeWebFetchFailure ? error.code : 'nnd_web_fetch_unavailable';
-const safePrecommit = new Set(['nnd_web_fetch_request_invalid', 'manifest_revision_conflict',
-  'integration_permission_denied', 'nnd_web_fetch_source_invalid']);
+const safeError = (error: unknown) => error instanceof NativeWebFetchFailure ? error.code : 'desktop_web_fetch_unavailable';
+const safePrecommit = new Set(['desktop_web_fetch_request_invalid', 'manifest_revision_conflict',
+  'integration_permission_denied', 'desktop_web_fetch_source_invalid']);
 const MAX_OPERATIONS = 16;
 type PendingPreview = { request: ReturnType<typeof nativeWebFetchRequest>; view: NativeWebFetchView };
 type WebFetchDraft = { origin_add: string; origins: string[] };
@@ -82,7 +82,7 @@ export function WebFetchTrust(): ReactNode {
     try {
       const operations = nativeWebFetchOperations(composeOperations(view, draft));
       if (operations.length < 1) { setError('nothing_to_save'); return; }
-      if (operations.length > MAX_OPERATIONS) { setError('nnd_web_fetch_request_invalid'); return; }
+      if (operations.length > MAX_OPERATIONS) { setError('desktop_web_fetch_request_invalid'); return; }
       request = nativeWebFetchRequest(view, operations);
     } catch (failure) { setError(safeError(failure)); return; }
     run(async (signal, current) => {
@@ -93,7 +93,7 @@ export function WebFetchTrust(): ReactNode {
     let operationId: string;
     try { operationId = newNativeOperationId(); } catch (failure) { setError(safeError(failure)); return; }
     const entry = reserveNativeWebFetchOperation(view, operationId, preview.request.expected_revision);
-    if (!entry) { setError('nnd_web_fetch_unavailable'); return; }
+    if (!entry) { setError('desktop_web_fetch_unavailable'); return; }
     pendingRef.current = entry; setPending(entry);
     run(async (signal, current) => { try {
       const result = await saveNativeWebFetch(preview.request, operationId, signal);
@@ -113,7 +113,7 @@ export function WebFetchTrust(): ReactNode {
     run(async (signal, current) => {
       const result = await inspectNativeWebFetchOperation(entry, entry.operation_id, signal);
       if (!current()) return;
-      if (result && result.before_revision !== entry.expected_revision) throw new NativeWebFetchFailure('nnd_web_fetch_view_invalid');
+      if (result && result.before_revision !== entry.expected_revision) throw new NativeWebFetchFailure('desktop_web_fetch_view_invalid');
       if (result?.persistence === 'saved' || result?.persistence === 'unpublished') {
         clearNativeWebFetchOperation(entry); pendingRef.current = null; setPending(null); setView(null); setDraft(null);
       }
@@ -183,8 +183,8 @@ function errorText(code: string): string {
   if (code === 'integration_permission_denied') return 'Native permission denied.';
   if (code === 'operation_not_found') return 'No retained receipt was found. Clear the expired local handle, refresh native trust, and preview before another save.';
   if (code === 'nothing_to_save') return 'No origins differ from the saved trust list.';
-  if (code === 'nnd_web_fetch_request_invalid') return 'A composed change is outside the bounded trust grammar. Origins must be exact credential-free HTTP(S) origins, and one batch stays at most 16 operations.';
-  if (code === 'nnd_web_fetch_source_invalid') return 'WebFetch trust settings need native repair before they can be changed here.';
-  if (code === 'nnd_web_fetch_unsupported') return 'This NNA does not expose native WebFetch trust.';
+  if (code === 'desktop_web_fetch_request_invalid') return 'A composed change is outside the bounded trust grammar. Origins must be exact credential-free HTTP(S) origins, and one batch stays at most 16 operations.';
+  if (code === 'desktop_web_fetch_source_invalid') return 'WebFetch trust settings need native repair before they can be changed here.';
+  if (code === 'desktop_web_fetch_unsupported') return 'This NNA does not expose native WebFetch trust.';
   return 'WebFetch trust could not be read or changed.';
 }

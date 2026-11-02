@@ -7,7 +7,8 @@ import { inventory, noLinks, transferFile, validateEntries, within, payloadTotal
 
 const execute = promisify(execFile);
 const SCRIPTS = ['serve-installed.mjs', 'serve-supervised.mjs', 'supervised-protocol.mjs',
-  'installed-service-package.mjs', 'nnd-manifest-extensions.js', 'nnd-service-contract.js', 'nnd-contract-error.js'];
+  'installed-service-package.mjs', 'desktop-manifest-extensions.js', 'desktop-service-contract.js',
+  'desktop-request-grammar.js', 'desktop-contract-error.js'];
 async function metadata(path, readOnlyDependency = false) {
   await noLinks(path);
   const handle = await open(path, 'r');
@@ -37,7 +38,7 @@ export async function payloadPlan(rootInput) {
   const packageInfo = JSON.parse(await metadata(join(root, 'package.json')));
   const version = (await metadata(join(root, 'VERSION'))).trim();
   if (packageInfo.name !== 'notnative-desktop' || !/^\d{8}-[1-9]\d{0,5}$/u.test(version)
-    || packageInfo.nnd_version !== version || packageInfo.version !== version.replace('-', '.0.') || packageInfo.type !== 'module') throw new Error('payload-version-invalid');
+    || packageInfo.desktop_version !== version || packageInfo.version !== version.replace('-', '.0.') || packageInfo.type !== 'module') throw new Error('payload-version-invalid');
   // Compatibility: pnpm's dependency root may be a junction; its resolved distribution must contain plain files only.
   const dependency = await realpath(join(root, 'packages/electron/node_modules/electron'));
   const electron = await noLinks(join(dependency, 'dist'));

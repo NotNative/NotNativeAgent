@@ -28,7 +28,7 @@ async function fixture(t) {
   await writeFile(join(install, 'installed', 'package.json'), JSON.stringify({ name: 'not-native-agent', nna_version: descriptor.version, type: 'module' }));
   await writeFile(join(install, 'installed', 'VERSION'), descriptor.version);
   const cli = `import{readFileSync}from'node:fs';import{join}from'node:path';
-    if(process.argv.slice(2).join(' ')!=='nnd package status'||!process.env.NNA_HOME||process.env.NODE_OPTIONS)process.exit(10);
+    if(process.argv.slice(2).join(' ')!=='desktop package status'||!process.env.NNA_HOME||process.env.NODE_OPTIONS)process.exit(10);
     const status=JSON.parse(readFileSync(join(process.env.NNA_HOME,'status.json')));
     console.log(JSON.stringify(status));`;
   await writeFile(join(install, 'installed', 'src', 'cli.js'), cli);
@@ -38,7 +38,7 @@ async function fixture(t) {
 }
 async function slot(f) {
   const files = new Map([
-    ['package.json', JSON.stringify({ name: 'notnative-desktop', type: 'module', nnd_version: version,
+    ['package.json', JSON.stringify({ name: 'notnative-desktop', type: 'module', desktop_version: version,
       version: version.replace('-', '.0.') })], ['VERSION', version],
     ['packages/electron/main.mjs', 'console.log("shell")'],
     ['packages/electron/node_modules/electron/dist/electron.exe', Buffer.from('MZ fixture')],
@@ -47,12 +47,12 @@ async function slot(f) {
     files: [...files].map(([path, bytes]) => ({ path, bytes: Buffer.byteLength(bytes), sha256: digest(bytes) }))
       .sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0) };
   const bytes = Buffer.from(JSON.stringify(manifest)), hash = digest(bytes);
-  const root = join(f.data, 'runtime', 'nnd', 'install-slots', 'versions', `${version}-${hash}`);
+  const root = join(f.data, 'runtime', 'desktop', 'install-slots', 'versions', `${version}-${hash}`);
   await mkdir(root, { recursive: true });
   for (const [path, content] of files) {
     await mkdir(dirname(join(root, path)), { recursive: true }); await writeFile(join(root, path), content);
   }
-  await writeFile(join(root, 'NND_PAYLOAD.json'), bytes);
+  await writeFile(join(root, 'DESKTOP_PAYLOAD.json'), bytes);
   await writeFile(join(f.data, 'status.json'), JSON.stringify({ registered: true, valid: true, root, version }));
   return { root, hash };
 }
@@ -70,7 +70,7 @@ test('stable resolver accepts only the pinned fresh-source installation', window
     await mkdir(join(f.selected, folder), { recursive: true });
   }
   await writeFile(join(f.selected, 'package.json'), JSON.stringify({ name: 'notnative-desktop',
-    version: version.replace('-', '.0.'), nnd_version: version }));
+    version: version.replace('-', '.0.'), desktop_version: version }));
   await writeFile(join(f.selected, 'VERSION'), version);
   for (const file of ['scripts/serve-installed.mjs', 'packages/electron/dist-server/server.mjs',
     'packages/electron/main.mjs', 'packages/electron/node_modules/electron/dist/electron.exe',
@@ -91,8 +91,8 @@ test('stable resolver accepts only the pinned fresh-source installation', window
     assert.equal(selection.installRoot, f.install);
     assert.equal(selection.installation_id, runtime.installation_id);
     assert.equal(selection.data_id, runtime.data_id);
-    throw new Error('nnd_service_not_running');
-  }), /nnd_service_not_running/u);
+    throw new Error('desktop_service_not_running');
+  }), /desktop_service_not_running/u);
   assert.equal(invocationCount, 0);
   let invoked;
   let startupAttempts = 0;

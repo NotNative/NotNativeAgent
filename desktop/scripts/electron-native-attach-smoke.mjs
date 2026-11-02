@@ -14,7 +14,7 @@ import { verifyPrebuiltPayload } from './prebuilt-payload-validation.mjs';
 import { nativeConfigurationWriteExpression } from './electron-native-configuration-browser.mjs';
 
 async function runCli(fixture, action) {
-  const child = spawn(process.execPath, [fixture.cli, 'nnd', 'service', action, fixture.install],
+  const child = spawn(process.execPath, [fixture.cli, 'desktop', 'service', action, fixture.install],
     { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NNA_HOME: fixture.data } });
   const exit = once(child, 'exit'); let text = '';
   child.stdout.on('data', (chunk) => { text += chunk; if (text.length > 65536) child.kill(); });
@@ -184,16 +184,16 @@ async function writeReplayGapManifest(fixture, nna) {
 }
 async function waitStopped(fixture) {
   const module = (name) => import(pathToFileURL(join(fixture.install, 'installed/src', name)).href);
-  const [{ readNndServiceIdentity }, { readNndServiceDiscovery }, { acquireNndServiceLock }] = await Promise.all([
-    module('nnd-service-identity.js'), module('nnd-service-discovery.js'), module('nnd-service-lock.js'),
+  const [{ readDesktopServiceIdentity }, { readDesktopServiceDiscovery }, { acquireDesktopServiceLock }] = await Promise.all([
+    module('desktop-service-identity.js'), module('desktop-service-discovery.js'), module('desktop-service-lock.js'),
   ]);
-  const identity = await readNndServiceIdentity(fixture.install);
+  const identity = await readDesktopServiceIdentity(fixture.install);
   for (let count = 0; count < 50; count += 1) {
-    if (await readNndServiceDiscovery(identity) === null) {
+    if (await readDesktopServiceDiscovery(identity) === null) {
       try {
-        const lease = await acquireNndServiceLock({ dataRoot: fixture.data });
+        const lease = await acquireDesktopServiceLock({ dataRoot: fixture.data });
         await lease.close(); return;
-      } catch (error) { if (error.code !== 'nnd_service_already_running') throw error; }
+      } catch (error) { if (error.code !== 'desktop_service_already_running') throw error; }
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }

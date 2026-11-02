@@ -47,7 +47,7 @@ describe('managed mcp credential list parser', () => {
       { ...list([{ reference: referenceFor('a'), applied: false, leaked: 'x' }]) },
       { ...list([], true), credentials: ['nope'] },
     ]) await expect(codeOf(() => Promise.resolve(parseNativeMcpCredentialList(raw))))
-      .resolves.toBe('nnd_mcp_credentials_view_invalid');
+      .resolves.toBe('desktop_mcp_credentials_view_invalid');
   });
 });
 
@@ -99,10 +99,10 @@ describe('request composers pin the bounded wire shapes', () => {
       operation_id: 'op_del' });
     await expect(codeOf(() => Promise.resolve(nativeMcpCredentialDeleteRequest(list([]),
       { reference: 'NNA_MCP_UNMANAGED_FOREIGN', operation_id: 'op_a' }))))
-      .resolves.toBe('nnd_mcp_credentials_request_invalid');
+      .resolves.toBe('desktop_mcp_credentials_request_invalid');
     await expect(codeOf(() => Promise.resolve(nativeMcpCredentialSaveRequest(list([]),
       { server_id: 'bad\nid', token: 'tok-1', operation_id: 'op_a' }))))
-      .resolves.toBe('nnd_mcp_credentials_request_invalid');
+      .resolves.toBe('desktop_mcp_credentials_request_invalid');
     await expect(codeOf(() => Promise.resolve(nativeMcpCredentialSaveRequest(list([]),
       { server_id: 'a', token: 'bad\nline', operation_id: 'op_a' }))))
       .resolves.toBe('mcp_token_invalid');
@@ -111,6 +111,6 @@ describe('request composers pin the bounded wire shapes', () => {
       .resolves.toBe('mcp_token_invalid');
     await expect(codeOf(() => Promise.resolve(nativeMcpCredentialSaveRequest(list([]),
       { server_id: 'a', token: 'tok-1', operation_id: 'not allowed!' }))))
-      .resolves.toBe('nnd_mcp_credentials_request_invalid');
+      .resolves.toBe('desktop_mcp_credentials_request_invalid');
   });
 });

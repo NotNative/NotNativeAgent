@@ -21,7 +21,7 @@ export type WalkthroughModelOption = {
 
 export type WalkthroughReadiness = {
   ready: boolean;
-  reason: 'no-model' | 'empty-diff' | 'only-generated' | 'no-provider-login' | 'nnd_provider_unsupported' | 'structured-output-unsupported' | 'nnd_context_too_small' | null;
+  reason: 'no-model' | 'empty-diff' | 'only-generated' | 'no-provider-login' | 'desktop_provider_unsupported' | 'structured-output-unsupported' | 'desktop_context_too_small' | null;
   requiredChars: number;
   availableChars: number | null;
 };
@@ -149,9 +149,9 @@ function readinessForModel(requiredChars: number, selection: ModelOptionResult):
   let reason: WalkthroughReadiness['reason'] = null;
   if (selection.selected === null || selection.model === null) reason = 'no-model';
   else if (selection.model?.hasLogin === false) reason = 'no-provider-login';
-  else if (!['openai', 'anthropic', 'google'].includes(selection.model.providerID)) reason = 'nnd_provider_unsupported';
+  else if (!['openai', 'anthropic', 'google'].includes(selection.model.providerID)) reason = 'desktop_provider_unsupported';
   else if (selection.model?.structuredOutput === false) reason = 'structured-output-unsupported';
-  else if (available !== null && requiredChars > available) reason = 'nnd_context_too_small';
+  else if (available !== null && requiredChars > available) reason = 'desktop_context_too_small';
   return { ready: reason === null, reason, requiredChars, availableChars: available };
 }
 

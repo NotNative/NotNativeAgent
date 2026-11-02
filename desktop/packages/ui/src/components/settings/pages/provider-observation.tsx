@@ -33,7 +33,7 @@ function useProviderView() {
       if (current()) setView(result);
     } catch (failure) {
       if (current()) {
-        setError(messageFor(isNativeFailure(failure) ? failure.code : 'nnd_provider_observation_unavailable'));
+        setError(messageFor(isNativeFailure(failure) ? failure.code : 'desktop_provider_observation_unavailable'));
       }
     } finally { if (current()) { pending.current = null; setLoading(false); } }
   }, []);

@@ -10,7 +10,7 @@ import { authorityState, subscribeAuthority } from '../../../sync/authority-sync
 import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 
 const BUTTON = 'rounded border border-border px-2 py-1 text-xs disabled:opacity-50';
-const safeError = (error: unknown) => error instanceof NativeServiceLifecycleFailure ? error.code : 'nnd_service_unavailable';
+const safeError = (error: unknown) => error instanceof NativeServiceLifecycleFailure ? error.code : 'desktop_service_unavailable';
 
 /** A runtime switch or login change resets the section; connected endpoints
  * trigger a fresh observation, and any unmount aborts in-flight work. */

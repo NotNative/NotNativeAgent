@@ -12,7 +12,7 @@ export const repairStarter = JSON.stringify({ workspace_root: '', provider: { id
   model: '', trust_zone: 'loopback' } }, null, 2);
 export type PendingPreview = { request: NativeChangeRequest; result: NativePreview };
 export const errorCode = (error: unknown) => error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
-  ? error.code : 'nnd_configuration_unavailable';
+  ? error.code : 'desktop_configuration_unavailable';
 
 function useNativeConfigurationCatalog() {
   const [catalog, setCatalog] = useState<NativeConfigurationCatalog | null>(null);

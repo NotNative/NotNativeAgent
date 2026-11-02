@@ -48,7 +48,7 @@ describe('session lifecycle PATCH channel (§5.22 sidebar product)', () => {
   });
 
   it('a failed abort surfaces the harness error instead of appearing successful', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ error: { code: 'nnd_session_unavailable', message: 'Session unavailable' } }, false));
+    fetchMock.mockResolvedValue(jsonResponse({ error: { code: 'desktop_session_unavailable', message: 'Session unavailable' } }, false));
     await expect(abortSessionAction('ses_x', 'D:/work')).rejects.toThrow('failed');
   });
 });

@@ -12,7 +12,7 @@ const messageFor = (code: string) => actionTriageMessages[code] ?? code;
 const isNativeFailure = (value: unknown): value is { code: string } =>
   value instanceof Object && 'code' in value && typeof (value as { code?: unknown }).code === 'string';
 const toSentence = (value: unknown) => (isNativeFailure(value)
-  ? messageFor(value.code) : messageFor('nnd_configuration_unavailable'));
+  ? messageFor(value.code) : messageFor('desktop_configuration_unavailable'));
 
 /** Native managed SearXNG deployment observation: the HTTP search probe plus
  * the docker container identity. The deploy/install-local/remove lifecycle

@@ -48,7 +48,7 @@ export async function readNnaPrimaryWorkspaceId(options: {
     else {
       if (catalogResponse.status !== 404 && catalogResponse.status !== 500 && catalogResponse.status !== 503) return null;
       const failure = await boundedJson(catalogResponse) as NativeError;
-      const unavailable = failure?.error?.code === 'nnd_workspace_grant_unavailable';
+      const unavailable = failure?.error?.code === 'desktop_workspace_grant_unavailable';
       if (!unavailable && (catalogResponse.status !== 404 || failure?.error?.code !== 'not_found')) return null;
     }
     const pathResponse = await get('/path');

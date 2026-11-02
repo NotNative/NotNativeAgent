@@ -902,7 +902,7 @@ it('recovers an uncertain save only on the same runtime and native identity', as
     before_revision: 'd'.repeat(64), application: 'not_applied', replayed: false });
   await act(async () => { button('Inspect operation').click(); });
   expect(lookupNativeConfigurationOperation).toHaveBeenCalledWith(view, 'operation_1', expect.any(AbortSignal));
-  expect(container.querySelector('[role="alert"]')?.textContent).toContain('nnd_configuration_view_invalid');
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain('desktop_configuration_view_invalid');
   expect(container.textContent).toContain('operation_1');
   expect(sessionStorage.getItem('nnd.configuration.pending.v1')).toContain('operation_1');
   expect(saveNativeConfiguration).toHaveBeenCalledTimes(1);

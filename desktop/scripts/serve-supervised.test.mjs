@@ -14,7 +14,7 @@ async function fixture(t) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'nnd-supervised-')));
   t.after(async () => { assert.ok(root.includes('nnd-supervised-')); await rm(root, { recursive: true, force: true }); });
   for (const path of ['scripts', 'packages/electron/dist-server', 'packages/web/dist']) await mkdir(join(root, path), { recursive: true });
-  await writeFile(join(root, 'package.json'), JSON.stringify({ version: '20261002.0.2', nnd_version: '20261002-2' }));
+  await writeFile(join(root, 'package.json'), JSON.stringify({ version: '20261002.0.2', desktop_version: '20261002-2' }));
   await writeFile(join(root, 'VERSION'), '20261002-2');
   await writeFile(join(root, 'scripts/serve-installed.mjs'), '// fixture');
   await writeFile(join(root, 'packages/web/dist/index.html'), '<!doctype html>');
@@ -53,7 +53,7 @@ async function bootstrap(root, engineEndpoint = 'http://127.0.0.1:4555') {
   const port = listener.address().port; await new Promise(resolve => listener.close(resolve));
   const hash = createHash('sha256').update(root.toLowerCase()).digest('hex');
   return { type:'bootstrap',protocol:'1.0',installation_id:`nna_${hash}`,data_id:`data_${hash}`,generation:'fixture',
-    nna_install_root:root,nna_data_root:root,nnd_data_root:root,ui_origin:`http://127.0.0.1:${port}`,
+    nna_install_root:root,nna_data_root:root,desktop_data_root:root,ui_origin:`http://127.0.0.1:${port}`,
     health_key:Buffer.alloc(32,0x58).toString('base64url'),
     engine:{endpoint:engineEndpoint,token:'a'.repeat(32),capability:'cap_1abcdef.sig_abcdef12345'} };
 }
@@ -173,7 +173,7 @@ test('the supervised child registers the browser callback with the integration h
   assert.equal(registrations.length, 1, 'the child did not register exactly once');
   const registration = registrations[0];
   assert.equal(registration.method, 'POST');
-  assert.equal(registration.path, '/internal/nnd/browser-callback');
+  assert.equal(registration.path, '/internal/desktop/browser-callback');
   assert.equal(registration.authorization, 'Bearer ' + 'a'.repeat(32));
   assert.equal(registration.capability, 'cap_1abcdef.sig_abcdef12345');
   assert.equal(registration.body.url, boot.ui_origin + '/api/browser-control/request');

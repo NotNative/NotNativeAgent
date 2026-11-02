@@ -37,7 +37,7 @@ async function main(nnaSource) {
   try {
     const payload = await exportPrebuiltPayload(join(root, 'payload'));
     assert.equal(payload.version, (await readFile(join(source, 'VERSION'), 'utf8')).trim());
-    assert.equal(payload.sha256, createHash('sha256').update(await readFile(join(payload.root, 'NND_PAYLOAD.json'))).digest('hex'));
+    assert.equal(payload.sha256, createHash('sha256').update(await readFile(join(payload.root, 'DESKTOP_PAYLOAD.json'))).digest('hex'));
     const stage = await install(fixture, ['-StagePrebuiltPayload', '-PrebuiltPayloadRoot', payload.root,
       '-PrebuiltManifestSha256', payload.sha256], 'stage');
     const stageOperation = operationPattern.exec(stage)?.[1];
@@ -51,7 +51,7 @@ async function main(nnaSource) {
     assert.equal(active.registered, true);
     assert.equal(active.valid, true);
     assert.equal(active.version, payload.version);
-    assert.equal((await realpath(active.root)).toLowerCase(), (await realpath(binding.nnd_package_root)).toLowerCase());
+    assert.equal((await realpath(active.root)).toLowerCase(), (await realpath(binding.desktop_package_root)).toLowerCase());
     assert.equal(binding.stage_operation_id, stageOperation);
     assert.equal(binding.payload_sha256, payload.sha256);
     const status = await cli(fixture, 'status');

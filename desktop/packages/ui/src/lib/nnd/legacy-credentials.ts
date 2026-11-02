@@ -26,7 +26,7 @@ export class NativeLegacyCredentialsFailure extends Error {
   constructor(code: string) { super(code); this.name = 'NativeLegacyCredentialsFailure'; this.code = code; }
 }
 
-const viewInvalid = () => new NativeLegacyCredentialsFailure('nnd_legacy_provider_credentials_projection_invalid');
+const viewInvalid = () => new NativeLegacyCredentialsFailure('desktop_legacy_provider_credentials_projection_invalid');
 const KEYS = 'count,data_id,installation_id,loaded,reason,schema_version,scope';
 
 /** Local mirror of the route's fail-closed projector. */
@@ -48,10 +48,10 @@ export function parseNativeLegacyProviderCredentials(raw: unknown): NativeLegacy
 export async function readNativeLegacyProviderCredentials(signal: AbortSignal): Promise<NativeLegacyProviderCredentialsReceipt> {
   const response = await runtimeFetch(BASE, {
     signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]) });
-  if (response.status === 404) throw new NativeLegacyCredentialsFailure('nnd_legacy_credentials_not_available');
+  if (response.status === 404) throw new NativeLegacyCredentialsFailure('desktop_legacy_credentials_not_available');
   if (response.status !== 200) {
     const raw = await response.arrayBuffer();
-    let code = 'nnd_legacy_credentials_unavailable';
+    let code = 'desktop_legacy_credentials_unavailable';
     try {
       const parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw)) as
         { error?: { code?: unknown } };
@@ -66,8 +66,8 @@ export async function readNativeLegacyProviderCredentials(signal: AbortSignal): 
 
 /** Honest sentence map; unmatched codes fall back to the code. */
 export const legacyCredentialsMessages: Record<string, string> = {
-  nnd_legacy_credentials_unavailable: 'The legacy credential observation is unavailable on this runtime.',
-  nnd_legacy_credentials_not_available: 'This runtime does not serve the legacy credential observation.',
-  nnd_legacy_provider_credentials_projection_invalid: 'The legacy credential view drifted from its verified grammar.',
+  desktop_legacy_credentials_unavailable: 'The legacy credential observation is unavailable on this runtime.',
+  desktop_legacy_credentials_not_available: 'This runtime does not serve the legacy credential observation.',
+  desktop_legacy_provider_credentials_projection_invalid: 'The legacy credential view drifted from its verified grammar.',
   integration_permission_denied: 'This account lacks the read right for the legacy credential observation.',
 };

@@ -358,7 +358,7 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
   const [active, setActive] = useState(0);
   // Why (uniformity #2): the walkthrough model selection is COMPONENT-LOCAL
   // state passed PER-REQUEST — NNA honors the operator's model on each
-  // walkthrough call (nnd-walkthrough.js) and has no stored auxiliary-model
+  // walkthrough call (desktop-walkthrough.js) and has no stored auxiliary-model
   // setting. The old stored override claimed a harness persistence it never
   // performed; a local selection makes the same choice honestly.
   const [modelOverride, setModelOverride] = useState('');

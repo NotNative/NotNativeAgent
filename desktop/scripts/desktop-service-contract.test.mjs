@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assertStatusEnvelope, isExecutionGuarded, NND_SERVICE_STATES } from './nnd-service-contract.js';
-import { validateNndManifestExtensions, assertNndActivationCompatibility } from './nnd-manifest-extensions.js';
+import { assertStatusEnvelope, isExecutionGuarded, DESKTOP_SERVICE_STATES } from './desktop-service-contract.js';
+import { validateDesktopManifestExtensions, assertDesktopActivationCompatibility } from './desktop-manifest-extensions.js';
 
 function manifest() {
   return {
-    id: 'nnd-local', ownership: 'nnd', scope: 'local-gui', nna_integration_protocol: '1.0', version: '20261001-42',
+    id: 'desktop-local', ownership: 'desktop', scope: 'local-gui', nna_integration_protocol: '1.0', version: '20261001-42',
     service_activation: {
       schema_version: '1.0', required_capabilities: ['service_supervision', 'setup_control_plane'],
-      data_schemas: { nnd_catalog: 1, nnd_state: 1 }, platform: 'win32', architecture: 'x64',
+      data_schemas: { desktop_catalog: 1, desktop_state: 1 }, platform: 'win32', architecture: 'x64',
       runtime: { name: 'node', minimum_major: 24 }, entrypoint: 'scripts/serve-installed.mjs',
       bundle_identity: { path: 'packages/electron/dist-server/server.mjs', sha256: 'a'.repeat(64) },
       authenticated_callbacks: { token_exchange: 'protected_stdin', protocol: '1.0' },
@@ -18,7 +18,7 @@ function manifest() {
 }
 function host() {
   return { platform: 'win32', architecture: 'x64', node_major: 24,
-    capabilities: ['service_supervision', 'setup_control_plane'], data_schemas: { nnd_catalog: 1, nnd_state: 1 } };
+    capabilities: ['service_supervision', 'setup_control_plane'], data_schemas: { desktop_catalog: 1, desktop_state: 1 } };
 }
 function status() {
   return {
@@ -28,7 +28,7 @@ function status() {
   };
 }
 test('unknown lifecycle values fail closed without coercion', () => {
-  for (const state of [...NND_SERVICE_STATES.filter((entry) => entry !== 'ready'), null, undefined, {}, 'READY']) {
+  for (const state of [...DESKTOP_SERVICE_STATES.filter((entry) => entry !== 'ready'), null, undefined, {}, 'READY']) {
     assert.equal(isExecutionGuarded(state), true);
   }
   assert.equal(isExecutionGuarded('ready'), false);
@@ -36,7 +36,7 @@ test('unknown lifecycle values fail closed without coercion', () => {
 test('status validates complete readiness and separates provider setup from transport', () => {
   assert.equal(assertStatusEnvelope(status()).service_state, 'ready');
   assert.equal(assertStatusEnvelope({ ...status(), provider_state: 'unknown' }).service_state, 'ready');
-  const setup = { ...status(), service_state: 'setup_required', failure_code: 'nnd_setup_required',
+  const setup = { ...status(), service_state: 'setup_required', failure_code: 'desktop_setup_required',
     provider_state: 'setup_required', setup_guidance: 'Configure the primary and reviewer routes.' };
   assert.equal(assertStatusEnvelope(setup).runtime_state, 'ready');
   assert.equal(assertStatusEnvelope({ ...setup, provider_state: 'unknown' }).service_state, 'setup_required');
@@ -48,7 +48,7 @@ test('status refuses malformed identities, unknown protocol, secrets and unsafe 
     { installation_id: null }, { data_id: {} }, { instance_id: '' }, { instance_id: null },
     { installation_id: 'x'.repeat(129) }, { protocol: '2.0' }, { package_version: 20261001 },
     { package_version: '20261001-0' }, { package_version: null }, { provider_state: 'unavailable' },
-    { runtime_state: 'starting' }, { package_state: 'absent' }, { failure_code: 'nnd_service_crashed' },
+    { runtime_state: 'starting' }, { package_state: 'absent' }, { failure_code: 'invented_service_crashed' },
     { setup_guidance: 'Unexpected setup' }, { secret: 'do not expose' }, { endpoint: null },
   ]) assert.throws(() => assertStatusEnvelope({ ...status(), ...patch }));
   for (const endpoint of [
@@ -66,7 +66,7 @@ test('status refuses malformed identities, unknown protocol, secrets and unsafe 
 });
 test('non-live status cannot publish an endpoint and failures require actionable bounded guidance', () => {
   const failed = { ...status(), service_state: 'failed', endpoint: null, runtime_state: 'failed',
-    failure_code: 'nnd_service_crashed', setup_guidance: 'Restart the NND service.' };
+    failure_code: 'desktop_service_crashed', setup_guidance: 'Restart the desktop service.' };
   assert.doesNotThrow(() => assertStatusEnvelope(failed));
   for (const patch of [{ endpoint: status().endpoint }, { setup_guidance: null }, { setup_guidance: '' },
     { setup_guidance: 'x'.repeat(1025) }, { setup_guidance: 'bad\ncontrol' }, { failure_code: null },
@@ -77,18 +77,18 @@ test('non-live status cannot publish an endpoint and failures require actionable
 test('activation schema is pure and does not advertise runtime capabilities', () => {
   const value = manifest();
   const before = structuredClone(value);
-  assert.equal(validateNndManifestExtensions(value), value);
+  assert.equal(validateDesktopManifestExtensions(value), value);
   assert.deepEqual(value, before);
-  assert.throws(() => assertNndActivationCompatibility(value, undefined), { code: 'nnd_package_incompatible' });
-  assert.throws(() => assertNndActivationCompatibility(value, { ...host(), capabilities: [] }), { code: 'nnd_package_incompatible' });
-  assert.equal(assertNndActivationCompatibility(value, host()), value);
+  assert.throws(() => assertDesktopActivationCompatibility(value, undefined), { code: 'desktop_package_incompatible' });
+  assert.throws(() => assertDesktopActivationCompatibility(value, { ...host(), capabilities: [] }), { code: 'desktop_package_incompatible' });
+  assert.equal(assertDesktopActivationCompatibility(value, host()), value);
 });
 test('activation refuses missing requirements, unsupported schemas, unsafe paths and circular release digest', () => {
   const changes = [
     (v) => { v.required_capabilities = []; },
     (v) => { v.required_capabilities = ['service_supervision']; },
     (v) => { v.required_capabilities.push('service_supervision'); },
-    (v) => { v.data_schemas.nnd_catalog = 2; },
+    (v) => { v.data_schemas.desktop_catalog = 2; },
     (v) => { v.data_schemas = {}; },
     (v) => { v.architecture = 'ia32'; },
     (v) => { v.platform = 'linux'; },
@@ -109,18 +109,18 @@ test('activation refuses missing requirements, unsupported schemas, unsafe paths
   for (const mutate of changes) {
     const value = manifest();
     mutate(value.service_activation);
-    assert.throws(() => validateNndManifestExtensions(value), { code: 'nnd_package_manifest_invalid' });
+    assert.throws(() => validateDesktopManifestExtensions(value), { code: 'desktop_package_manifest_invalid' });
   }
   for (const patch of [{ id: 'other' }, { version: null }, { scope: 'remote' }, { service_activation: undefined }]) {
-    assert.throws(() => validateNndManifestExtensions({ ...manifest(), ...patch }), { code: 'nnd_package_manifest_invalid' });
+    assert.throws(() => validateDesktopManifestExtensions({ ...manifest(), ...patch }), { code: 'desktop_package_manifest_invalid' });
   }
 });
 test('host comparison rejects unknown required capabilities and incompatible runtime or store formats', () => {
   const future = manifest();
   future.service_activation.required_capabilities.push('future_capability');
-  assert.throws(() => assertNndActivationCompatibility(future, host()), { code: 'nnd_package_incompatible' });
+  assert.throws(() => assertDesktopActivationCompatibility(future, host()), { code: 'desktop_package_incompatible' });
   for (const patch of [{ platform: 'linux' }, { architecture: 'arm64' }, { node_major: 23 },
-    { node_major: '24' }, { data_schemas: { nnd_catalog: 2, nnd_state: 1 } }, { capabilities: null }]) {
-    assert.throws(() => assertNndActivationCompatibility(manifest(), { ...host(), ...patch }), { code: 'nnd_package_incompatible' });
+    { node_major: '24' }, { data_schemas: { desktop_catalog: 2, desktop_state: 1 } }, { capabilities: null }]) {
+    assert.throws(() => assertDesktopActivationCompatibility(manifest(), { ...host(), ...patch }), { code: 'desktop_package_incompatible' });
   }
 });

@@ -433,7 +433,7 @@ function NativeRepairForm({ model, view }: { model: ControlsModel; view: NativeC
 
 function NativeOutcome({ model, view, onReload }: { model: ControlsModel; view: NativeConfigurationView; onReload: () => void }): ReactNode {
   const { t } = useI18n(), error = model.error;
-  const conflict = error && ['manifest_revision_conflict', 'nnd_configuration_resolution_conflict', 'configuration_source_shadowed'].includes(error);
+  const conflict = error && ['manifest_revision_conflict', 'desktop_configuration_resolution_conflict', 'configuration_source_shadowed'].includes(error);
   return <>
     {model.busy ? <p role="status">{t('settings.nativeConfiguration.working')}</p> : null}
     {error ? <p role="alert">{conflict ? t('settings.nativeConfiguration.conflict')

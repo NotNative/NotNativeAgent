@@ -4,7 +4,7 @@ import { runtimeFetch } from '../../runtime-fetch.ts';
 import { parseNativeSetupStatus, requestNativeSetup } from '../setup.ts';
 vi.mock('../../runtime-fetch.ts',()=>({runtimeFetch:vi.fn()}));
 const status={service_state:'setup_required',configuration_state:'invalid',execution_state:'unavailable',
-  provider_state:'unknown',failure_code:'nnd_setup_configuration_invalid'};
+  provider_state:'unknown',failure_code:'desktop_setup_configuration_invalid'};
 it('validates known states and rejects contradictory or falsely checked provider readiness',()=>{
   expect(parseNativeSetupStatus(status)).toEqual(status);
   for(const value of [{...status,service_state:'ready'},{...status,provider_state:'ready'},

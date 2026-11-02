@@ -198,7 +198,7 @@ function promptBody(task: ScheduledTask, parts: Array<Record<string, unknown>>, 
   return {
     model: { providerID: task.execution.providerID, modelID: task.execution.modelID },
     ...(task.execution.agent !== undefined ? { agent: task.execution.agent } : {}),
-    // Why: no variant — the prompt route rejects per-prompt variant (nnd_variant_override_unsupported).
+    // Why: no variant — the prompt route rejects per-prompt variant (desktop_variant_override_unsupported).
     ...(messageID !== undefined ? { messageID } : {}),
     parts,
   };

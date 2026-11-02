@@ -44,7 +44,7 @@ export class NativeProviderObservationFailure extends Error {
   }
 }
 
-const viewInvalid = () => new NativeProviderObservationFailure('nnd_provider_observation_projection_invalid');
+const viewInvalid = () => new NativeProviderObservationFailure('desktop_provider_observation_projection_invalid');
 
 const record = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value);
@@ -118,7 +118,7 @@ async function call(signal: AbortSignal): Promise<NativeProviderObservationView>
   const response = await runtimeFetch(BASE, { method: 'GET',
     signal: AbortSignal.any([signal, AbortSignal.timeout(25_000)]) });
   if (response.status === 404) {
-    throw new NativeProviderObservationFailure('nnd_provider_observation_not_available');
+    throw new NativeProviderObservationFailure('desktop_provider_observation_not_available');
   }
   if (response.status !== 200) {
     const bytes = await response.arrayBuffer();
@@ -129,8 +129,8 @@ async function call(signal: AbortSignal): Promise<NativeProviderObservationView>
       if (parsed && typeof parsed === 'object' && parsed.error && typeof parsed.error === 'object'
         && typeof parsed.error.code === 'string') message = parsed.error.code;
       else throw new Error('shape');
-    } catch { message = 'nnd_provider_observation_unavailable'; }
-    throw new NativeProviderObservationFailure(message || 'nnd_provider_observation_unavailable');
+    } catch { message = 'desktop_provider_observation_unavailable'; }
+    throw new NativeProviderObservationFailure(message || 'desktop_provider_observation_unavailable');
   }
   const bytes = await response.arrayBuffer();
   if (bytes.byteLength > REQUEST_BYTES) throw viewInvalid();
@@ -143,10 +143,10 @@ export async function readNativeProviderObservation(signal: AbortSignal): Promis
 
 /** Honest sentence map for the panel; unmatched codes fall back to the code. */
 export const providerObservationMessages: Record<string, string> = {
-  nnd_provider_observation_unavailable: 'The provider observation is unavailable on this runtime.',
-  nnd_provider_observation_projection_invalid: 'The provider view drifted from its verified grammar.',
-  nnd_provider_observation_request_invalid: 'The provider observation request was malformed.',
-  nnd_configuration_unavailable: 'The provider observation is not wired on this runtime.',
+  desktop_provider_observation_unavailable: 'The provider observation is unavailable on this runtime.',
+  desktop_provider_observation_projection_invalid: 'The provider view drifted from its verified grammar.',
+  desktop_provider_observation_request_invalid: 'The provider observation request was malformed.',
+  desktop_configuration_unavailable: 'The provider observation is not wired on this runtime.',
   integration_permission_denied: 'This account lacks the read right for provider configuration.',
   invalid_trust_zone: 'A provider declares a trust zone that does not match its endpoint; repair the manifest.',
   invalid_manifest: 'The manifest will not resolve, so no provider view can be served.',

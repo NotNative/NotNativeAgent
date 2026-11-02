@@ -4,7 +4,7 @@
  *  Real `ses_*` sessions generate through NNA's bounded model-only seam
  *  (`POST /v1/nnd/sessions/:id/assist`); synthetic call-site ids never ride
  *  it. The seam's request contract is NNA's, not the desktop's:
- *  Why: nnd-assist.js rejects any control character (including newlines) and
+ *  Why: desktop-assist.js rejects any control character (including newlines) and
  *  bounds max_output_tokens to [256, 2048], so the desktop must normalize its
  *  multi-line draft and clamp its token ask before the seam sees the request;
  *  otherwise the native path is rejected for every real caller and silently
@@ -15,7 +15,7 @@ import { callHarness, harnessRequest } from '../queue/queue-adapter-calls.ts';
 const ASSIST_PROMPT_MAX_CHARS = 8192;
 const ASSIST_OUTPUT_TOKEN_MAX = 2048;
 const ASSIST_OUTPUT_TOKEN_MIN = 256;
-// NNA's assist contract (nnd-assist.js) accepts ONE bounded visible line: the
+// NNA's assist contract (desktop-assist.js) accepts ONE bounded visible line: the
 // prompt may not contain control characters, and newlines are control
 // characters. System and prompt therefore arrive as a newline-joined draft
 // that must be flattened before the seam sees it.

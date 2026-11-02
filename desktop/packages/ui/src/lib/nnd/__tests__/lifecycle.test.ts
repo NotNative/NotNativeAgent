@@ -80,7 +80,7 @@ describe('compatibility-service lifecycle receipts', () => {
   it('maps forwarded codes to honest sentences', () => {
     expect(serviceLifecycleErrorText('opencode_login_wiring_unsupported')).toContain('Windows-only');
     expect(serviceLifecycleErrorText('opencode_identity_unverifiable')).toContain('refuses to stop');
-    expect(serviceLifecycleErrorText('nnd_service_run_unsupported')).toContain('start or the login startup script');
+    expect(serviceLifecycleErrorText('desktop_service_run_unsupported')).toContain('start or the login startup script');
     expect(serviceLifecycleErrorText('opencode_start_failed')).toContain('opencode-console.log');
     expect(serviceLifecycleErrorText('everything_else')).toBe('The compatibility-service action could not be completed.');
   });

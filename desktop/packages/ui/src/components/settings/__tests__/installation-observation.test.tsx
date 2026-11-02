@@ -57,7 +57,7 @@ it('surfaces the descriptor authority verdict when the disk no longer verifies',
   fetchMock.mockImplementation((path: string) => {
     if (String(path).endsWith('/configuration/installation')) {
       return Promise.resolve(new Response(JSON.stringify({ error: {
-        code: 'nnd_install_descriptor_unavailable' } }), { status: 503 }));
+        code: 'desktop_install_descriptor_unavailable' } }), { status: 503 }));
     }
     return Promise.resolve(new Response('{}', { status: 404 }));
   });

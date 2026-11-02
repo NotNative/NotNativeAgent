@@ -53,7 +53,7 @@ describe('managed local NNA launcher', () => {
       ? new Response(JSON.stringify({ error: { code: 'not_found' } }), { status: 404 })
       : new Response(JSON.stringify({ directory: 'D:\\Repos\\A', worktree: 'D:\\Repos\\A', workspace_id: id }))) as unknown as typeof globalThis.fetch;
     const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', spawnChild, fetch });
-    expect(spawnChild.mock.calls[0]?.[1]).toEqual(['nnd', 'serve']);
+    expect(spawnChild.mock.calls[0]?.[1]).toEqual(['desktop', 'serve']);
     process.stdout.write(ready());
     const harness = await promise;
     expect(harness.endpoint).toBe('http://127.0.0.1:4812');
@@ -81,7 +81,7 @@ describe('managed local NNA launcher', () => {
     const process = child();
     const spawnChild = vi.fn((_command: string, _args: string[], _options: unknown) => process);
     const promise = startLocalNnaHarness({ command: 'C:\\node.exe', commandArguments: ['C:\\nna\\installed\\src\\cli.js'], dataRoot: 'D:\\NNA Data', workspaceId: 'local', spawnChild });
-    expect(spawnChild.mock.calls[0]?.[1]).toEqual(['C:\\nna\\installed\\src\\cli.js', 'nnd', 'serve']);
+    expect(spawnChild.mock.calls[0]?.[1]).toEqual(['C:\\nna\\installed\\src\\cli.js', 'desktop', 'serve']);
     expect(spawnChild.mock.calls[0]?.[2]).toMatchObject({ env: { NNA_HOME: 'D:\\NNA Data' } });
     process.stdout.write(ready());
     const harness = await promise;
@@ -95,7 +95,7 @@ describe('managed local NNA launcher', () => {
     const browserCallback = { url: 'http://127.0.0.1:4172/api/browser-control/request', token };
     const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', browserCallback, spawnChild });
     expect(spawnChild.mock.calls[0]?.[2]).toMatchObject({ env: {
-      NNA_NND_BROWSER_URL: browserCallback.url, NNA_NND_BROWSER_TOKEN: token,
+      NNA_DESKTOP_BROWSER_URL: browserCallback.url, NNA_DESKTOP_BROWSER_TOKEN: token,
     } });
     process.stdout.write(ready());
     (await promise).dispose();
@@ -108,13 +108,13 @@ describe('managed local NNA launcher', () => {
     const launched = child();
     const spawnChild = vi.fn((_command: string, _args: string[], _options: unknown) => launched);
     const url = 'http://127.0.0.1:4173/api/agent-tool/callback';
-    process.env.NNA_NND_AGENT_TOOL_URL = 'http://127.0.0.1:1/api/agent-tool/callback';
-    process.env.NNA_NND_AGENT_TOOL_TOKEN = 'stale';
+    process.env.NNA_DESKTOP_AGENT_TOOL_URL = 'http://127.0.0.1:1/api/agent-tool/callback';
+    process.env.NNA_DESKTOP_AGENT_TOOL_TOKEN = 'stale';
     const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local',
       agentToolCallback: { url, token }, spawnChild });
     const childEnv = (spawnChild.mock.calls[0]?.[2] as { env: NodeJS.ProcessEnv }).env;
-    expect(childEnv.NNA_NND_AGENT_TOOL_URL).toBe(url);
-    expect(childEnv.NNA_NND_AGENT_TOOL_TOKEN).toBe(token);
+    expect(childEnv.NNA_DESKTOP_AGENT_TOOL_URL).toBe(url);
+    expect(childEnv.NNA_DESKTOP_AGENT_TOOL_TOKEN).toBe(token);
     launched.stdout.write(ready());
     (await promise).dispose();
   });
@@ -127,24 +127,24 @@ describe('managed local NNA launcher', () => {
   });
 
   it('does not inherit a stale browser callback when this launch has no bridge', async () => {
-    const previousUrl = process.env.NNA_NND_BROWSER_URL;
-    const previousToken = process.env.NNA_NND_BROWSER_TOKEN;
-    process.env.NNA_NND_BROWSER_URL = 'http://127.0.0.1:4172/api/browser-control/request';
-    process.env.NNA_NND_BROWSER_TOKEN = token;
+    const previousUrl = process.env.NNA_DESKTOP_BROWSER_URL;
+    const previousToken = process.env.NNA_DESKTOP_BROWSER_TOKEN;
+    process.env.NNA_DESKTOP_BROWSER_URL = 'http://127.0.0.1:4172/api/browser-control/request';
+    process.env.NNA_DESKTOP_BROWSER_TOKEN = token;
     try {
       const launched = child();
       const spawnChild = vi.fn((_command: string, _args: string[], _options: unknown) => launched);
       const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', spawnChild });
       const childEnv = (spawnChild.mock.calls[0]?.[2] as { env: NodeJS.ProcessEnv }).env;
-      expect(childEnv.NNA_NND_BROWSER_URL).toBeUndefined();
-      expect(childEnv.NNA_NND_BROWSER_TOKEN).toBeUndefined();
+      expect(childEnv.NNA_DESKTOP_BROWSER_URL).toBeUndefined();
+      expect(childEnv.NNA_DESKTOP_BROWSER_TOKEN).toBeUndefined();
       launched.stdout.write(ready());
       (await promise).dispose();
     } finally {
-      if (previousUrl === undefined) delete process.env.NNA_NND_BROWSER_URL;
-      else process.env.NNA_NND_BROWSER_URL = previousUrl;
-      if (previousToken === undefined) delete process.env.NNA_NND_BROWSER_TOKEN;
-      else process.env.NNA_NND_BROWSER_TOKEN = previousToken;
+      if (previousUrl === undefined) delete process.env.NNA_DESKTOP_BROWSER_URL;
+      else process.env.NNA_DESKTOP_BROWSER_URL = previousUrl;
+      if (previousToken === undefined) delete process.env.NNA_DESKTOP_BROWSER_TOKEN;
+      else process.env.NNA_DESKTOP_BROWSER_TOKEN = previousToken;
     }
   });
 
@@ -215,7 +215,7 @@ describe('managed local NNA launcher', () => {
     const result = guardLocalNnaHarness({ handle: vi.fn() }, { isRunning: () => false });
     const response = await result.handle(new Request('http://nnd.local/api/session'));
     expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({ error: { code: 'nnd_harness_stopped', message: 'NNA local harness stopped' } });
+    expect(await response.json()).toEqual({ error: { code: 'desktop_harness_stopped', message: 'NNA local harness stopped' } });
   });
 
   it('refuses managed creation without native identity and preserves a mismatched race-created session', async () => {

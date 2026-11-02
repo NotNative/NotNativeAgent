@@ -164,7 +164,7 @@ async function runMultiRunProbes(call, nextEvent) {
       model: { providerID: 'secondary', modelID: 'test-alt' },
     }),
   }, 400);
-  assert.equal(override.error.code, 'nnd_model_override_unsupported',
+  assert.equal(override.error.code, 'desktop_model_override_unsupported',
     'override followed the assertConfiguredSelection path');
   return { sessionA: sessionA.id, sessionB: sessionB.id };
 }

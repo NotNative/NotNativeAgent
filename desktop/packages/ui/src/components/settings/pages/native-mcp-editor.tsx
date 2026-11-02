@@ -114,11 +114,11 @@ function NativeMcpPatchFields({ draft, update }: { draft: NativeMcpDraft;
 }
 
 function errorText(code: string): string {
-  if (['manifest_revision_conflict', 'nnd_configuration_resolution_conflict', 'configuration_source_shadowed'].includes(code)) {
+  if (['manifest_revision_conflict', 'desktop_configuration_resolution_conflict', 'configuration_source_shadowed'].includes(code)) {
     return 'Configuration changed. Refresh and preview again.';
   }
   if (code === 'integration_permission_denied') return 'Native permission denied.';
   if (code === 'operation_not_found') return 'No retained receipt was found. Do not retry this operation automatically.';
-  if (code === 'nnd_mcp_unsupported') return 'This NNA does not expose native MCP editing.';
+  if (code === 'desktop_mcp_unsupported') return 'This NNA does not expose native MCP editing.';
   return 'Native MCP change could not be completed.';
 }

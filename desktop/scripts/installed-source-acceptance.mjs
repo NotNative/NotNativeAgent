@@ -91,12 +91,12 @@ export async function run(executable, args, { cwd, env, timeout = 30000, outputF
   return stdout;
 }
 export async function cli(fixture, action) {
-  const output = await run(process.execPath, [fixture.cli, 'nnd', 'service', action, fixture.nna],
+  const output = await run(process.execPath, [fixture.cli, 'desktop', 'service', action, fixture.nna],
     { cwd: fixture.root, env: fixture.env, timeout: action === 'start' || action === 'stop' ? 120000 : 45000 });
   return JSON.parse(output.trim());
 }
 export async function selectedPackage(fixture) {
-  const output = await run(process.execPath, [fixture.cli, 'nnd', 'package', 'status'],
+  const output = await run(process.execPath, [fixture.cli, 'desktop', 'package', 'status'],
     { cwd: fixture.root, env: fixture.env, timeout: 45000 });
   return JSON.parse(output.trim());
 }
@@ -261,20 +261,20 @@ export async function prepare(nnaSource, root) {
   const env = { ...process.env };
   const replaced = new Set(Object.keys(overrides).map(key => key.toUpperCase()));
   for (const key of Object.keys(env)) if (replaced.has(key.toUpperCase())
-    || /^(NODE_OPTIONS|NODE_PATH|ELECTRON_RUN_AS_NODE|NNA_INTEGRATION_TOKEN|NNA_PRINCIPAL|NNA_HARNESS_URL|NNA_NND_.*|NND_.*|NOTNATIVE_.*)$/iu.test(key)) delete env[key];
+    || /^(NODE_OPTIONS|NODE_PATH|ELECTRON_RUN_AS_NODE|NNA_INTEGRATION_TOKEN|NNA_PRINCIPAL|NNA_HARNESS_URL|NNA_DESKTOP_.*|NND_.*|NOTNATIVE_.*)$/iu.test(key)) delete env[key];
   Object.assign(env, overrides);
   return { root, nna, data, nnd, shortcuts, env, cli: join(payload, 'src/cli.js') };
 }
 export async function waitStopped(fixture) {
   const module = name => import(pathToFileURL(join(fixture.nna, 'installed/src', name)).href);
-  const [{ readNndServiceIdentity }, { readNndServiceDiscovery }, { acquireNndServiceLock }] = await Promise.all([
-    module('nnd-service-identity.js'), module('nnd-service-discovery.js'), module('nnd-service-lock.js'),
+  const [{ readDesktopServiceIdentity }, { readDesktopServiceDiscovery }, { acquireDesktopServiceLock }] = await Promise.all([
+    module('desktop-service-identity.js'), module('desktop-service-discovery.js'), module('desktop-service-lock.js'),
   ]);
-  const identity = await readNndServiceIdentity(fixture.nna);
+  const identity = await readDesktopServiceIdentity(fixture.nna);
   for (let attempt = 0; attempt < 50; attempt++) {
-    if (await readNndServiceDiscovery(identity) === null) {
-      try { const lease = await acquireNndServiceLock({ dataRoot: fixture.data }); await lease.close(); return; }
-      catch (error) { if (error.code !== 'nnd_service_already_running') throw error; }
+    if (await readDesktopServiceDiscovery(identity) === null) {
+      try { const lease = await acquireDesktopServiceLock({ dataRoot: fixture.data }); await lease.close(); return; }
+      catch (error) { if (error.code !== 'desktop_service_already_running') throw error; }
     }
     await delay(100);
   }

@@ -17,10 +17,10 @@ import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 
 const INPUT = 'w-64 rounded border border-border bg-background px-2 py-1 text-xs';
 const BUTTON = 'rounded border border-border px-2 py-1 text-xs disabled:opacity-50';
-const safeError = (error: unknown) => error instanceof NativeMcpCredentialsFailure ? error.code : 'nnd_mcp_credentials_unavailable';
-const safePrecommit = new Set(['nnd_mcp_credentials_request_invalid', 'mcp_token_invalid',
+const safeError = (error: unknown) => error instanceof NativeMcpCredentialsFailure ? error.code : 'desktop_mcp_credentials_unavailable';
+const safePrecommit = new Set(['desktop_mcp_credentials_request_invalid', 'mcp_token_invalid',
   'mcp_credentials_invalid', 'mcp_credentials_busy', 'mcp_credentials_full',
-  'integration_permission_denied', 'nnd_configuration_unavailable']);
+  'integration_permission_denied', 'desktop_configuration_unavailable']);
 type StagedSave = { server_id: string; token: string };
 type StagedDelete = { reference: string };
 
@@ -85,7 +85,7 @@ export function ManagedMcpCredentialsSettings(): ReactNode {
     let operationId: string;
     try { operationId = newNativeOperationId(); } catch (failure) { setError(safeError(failure)); return; }
     const entry = reserveNativeMcpCredentialOperation(view, operationId);
-    if (!entry) { setError('nnd_mcp_credentials_unavailable'); return; }
+    if (!entry) { setError('desktop_mcp_credentials_unavailable'); return; }
     pendingRef.current = entry; setPending(entry);
     const staged = draft; setDraft(null);
     run(async (signal, current) => { try {
@@ -109,7 +109,7 @@ export function ManagedMcpCredentialsSettings(): ReactNode {
     let operationId: string;
     try { operationId = newNativeOperationId(); } catch (failure) { setError(safeError(failure)); return; }
     const entry = reserveNativeMcpCredentialOperation(view, operationId, deleteDraft.reference);
-    if (!entry) { setError('nnd_mcp_credentials_unavailable'); return; }
+    if (!entry) { setError('desktop_mcp_credentials_unavailable'); return; }
     pendingRef.current = entry; setPending(entry);
     const staged = deleteDraft; setDeleteDraft(null);
     run(async (signal, current) => { try {
@@ -194,9 +194,9 @@ export function ManagedMcpCredentialsSettings(): ReactNode {
 }
 
 function errorText(code: string): string {
-  if (code === 'nnd_mcp_credentials_request_invalid') return 'The composed change is outside the bounded grammar: server ids stay printable, within 128 characters, tokens 1–16,384, and an operation id is required.';
-  if (code === 'nnd_mcp_credentials_view_invalid') return 'NNA served a managed-credential shape this build refuses. Update NNA and this NND together before retrying.';
-  if (code === 'nnd_mcp_credentials_unsupported') return 'This NNA does not expose native managed MCP credentials.';
+  if (code === 'desktop_mcp_credentials_request_invalid') return 'The composed change is outside the bounded grammar: server ids stay printable, within 128 characters, tokens 1–16,384, and an operation id is required.';
+  if (code === 'desktop_mcp_credentials_view_invalid') return 'NNA served a managed-credential shape this build refuses. Update NNA and this NND together before retrying.';
+  if (code === 'desktop_mcp_credentials_unsupported') return 'This NNA does not expose native managed MCP credentials.';
   if (code === 'mcp_token_invalid') return 'The token value is invalid (1–16,384 characters, no line breaks or NUL).';
   if (code === 'mcp_credentials_invalid') return 'The managed credentials store needs native repair before it can be changed here.';
   if (code === 'mcp_credentials_busy') return 'NNA is already writing the credentials store. Wait a moment and retry.';

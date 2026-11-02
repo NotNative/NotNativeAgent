@@ -53,7 +53,7 @@ const ROUTE_MEMBERS = ['provider_id', 'model', 'context_limit_bytes', 'required_
   'max_output_tokens', 'budget', 'fallbacks', 'deadline_ms', 'reasoning_effort', 'enable_thinking'] as const;
 
 // NNA's own role list (src/contracts.js:12) and the subset it lets the desktop rebind
-// (NND_ROUTE_BINDING_ROLES, src/nnd-configuration-intents.js:7). Primary and subagent are
+// (NND_ROUTE_BINDING_ROLES, src/desktop-configuration-intents.js:7). Primary and subagent are
 // bound through the provider route authority instead, so their cards must not imply that
 // the editor below can change them.
 const ROUTE_ROLES = ['primary', 'reviewer', 'subagent', 'vision'] as const;

@@ -44,12 +44,12 @@ async function provider() {
       const toolProbe = userText.includes('NND_TOOL_WRITE_ALLOW') ? 'write'
         : userText.includes('NND_TOOL_READ_ALLOW') ? 'allow'
           : userText.includes('NND_TOOL_READ_ESCAPE') ? 'escape' : null;
-      const callId = toolProbe === 'allow' ? 'nnd_read_allow'
-        : toolProbe === 'escape' ? 'nnd_read_escape' : 'nnd_write_allow';
+      const callId = toolProbe === 'allow' ? 'desktop_read_allow'
+        : toolProbe === 'escape' ? 'desktop_read_escape' : 'desktop_write_allow';
       const toolReply = body.messages?.find(message => message.role === 'tool' && message.tool_call_id === callId);
-      const searched = body.messages?.some(message => message.role === 'tool' && message.tool_call_id === 'nnd_write_search');
+      const searched = body.messages?.some(message => message.role === 'tool' && message.tool_call_id === 'desktop_write_search');
       const toolCall = toolProbe === 'write' && !searched
-        ? { id: 'nnd_write_search', name: 'tool_search', args: { query: 'fs_write_text' } }
+        ? { id: 'desktop_write_search', name: 'tool_search', args: { query: 'fs_write_text' } }
         : toolProbe && !toolReply ? { id: callId, name: toolProbe === 'write' ? 'fs_write_text' : 'fs_read',
           args: toolProbe === 'write' ? { path: 'F1_GOVERNED_WRITE.txt', content: 'governed-selected' }
             : { path: toolProbe === 'allow' ? 'F1_SECONDARY_SENTINEL.txt'
@@ -80,7 +80,7 @@ async function provider() {
 }
 
 async function main(nnaSource) {
-  await access(join(nnaSource, 'src', 'nnd-service-native.js'));
+  await access(join(nnaSource, 'src', 'desktop-service-native.js'));
   const fixture = reserveScratch('nnd-native-multi-root-');
   const primary = join(fixture, 'primary', 'shared');
   const secondary = join(fixture, 'secondary', 'shared');
@@ -97,7 +97,7 @@ async function main(nnaSource) {
       execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-q', '-m', 'fixture'], { cwd: repository });
     }
     fake = await provider();
-    const { paths, environment, identity, startNndNativeService } = await configureNativeFixture(nnaSource, fixture, primary, data, fake.port);
+    const { paths, environment, identity, startDesktopNativeService } = await configureNativeFixture(nnaSource, fixture, primary, data, fake.port);
     process.env.NOTNATIVE_DATA_DIR = join(fixture, 'nnd-data');
     process.env.NOTNATIVE_UI_PASSWORD = '';
     const [{ createNnaHarnessAdapter }, { registerHarnessAdapter }, { createApp }] = await Promise.all([
@@ -106,7 +106,7 @@ async function main(nnaSource) {
       import('../packages/web/src/server/app.ts'),
     ]);
     const attach = async () => {
-      service = await startNndNativeService(paths, identity, { environment });
+      service = await startDesktopNativeService(paths, identity, { environment });
       registerHarnessAdapter(createNnaHarnessAdapter({ endpoint: service.endpoint, token: service.token, principal: 'e30' }));
       return createApp();
     };
@@ -171,7 +171,7 @@ async function main(nnaSource) {
 
 async function configureNativeFixture(nnaSource, fixture, primary, data, providerPort) {
   const { ensureUserDataPaths, userDataPaths } = await import(pathToFileURL(join(nnaSource, 'src', 'product.js')).href);
-  const { startNndNativeService } = await import(pathToFileURL(join(nnaSource, 'src', 'nnd-service-native.js')).href);
+  const { startDesktopNativeService } = await import(pathToFileURL(join(nnaSource, 'src', 'desktop-service-native.js')).href);
   const environment = { ...process.env, NNA_HOME: data };
   const paths = await ensureUserDataPaths(userDataPaths({ environment }));
   await writeFile(join(paths.config, 'manifest.json'), JSON.stringify({
@@ -184,7 +184,7 @@ async function configureNativeFixture(nnaSource, fixture, primary, data, provide
   const identity = { installation_id: `nna_${digest(fixture)}`, data_id: `data_${digest(data)}`,
     install_root: fixture, data_root: data, node: process.execPath,
     node_major: Number(process.versions.node.split('.')[0]), platform: process.platform, architecture: process.arch };
-  return { paths, environment, identity, startNndNativeService };
+  return { paths, environment, identity, startDesktopNativeService };
 }
 
 async function waitForReply(call, id) {

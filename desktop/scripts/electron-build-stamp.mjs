@@ -70,14 +70,14 @@ function treeDigest(paths, options) {
 
 function currentStamp() {
   const pkg = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-  if (typeof pkg.nnd_version !== 'string' || !/^\d{8}-[1-9]\d*$/u.test(pkg.nnd_version)) {
-    throw new Error('root package does not contain a valid nnd_version');
+  if (typeof pkg.desktop_version !== 'string' || !/^\d{8}-[1-9]\d*$/u.test(pkg.desktop_version)) {
+    throw new Error('root package does not contain a valid desktop_version');
   }
   const missing = ARTIFACTS.filter((relative) => !existsSync(path.join(ROOT, relative)));
   if (missing.length) throw new Error(`required build artifacts are missing: ${missing.join(', ')}`);
   return {
     schema: 1,
-    nndVersion: pkg.nnd_version,
+    nndVersion: pkg.desktop_version,
     source: treeDigest(INPUTS, { excludeGenerated: true }),
     artifacts: treeDigest(ARTIFACTS, { excludeGenerated: false }),
   };

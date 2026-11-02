@@ -12,7 +12,7 @@ vi.mock('../../../lib/nnd/setup.ts', () => ({ requestNativeSetup: vi.fn() }));
 vi.mock('../../../lib/runtime-switch.ts', () => ({ getRuntimeKey: () => change.runtime,
   onRuntimeEndpointChanged: (callback: () => void) => { change.callback = callback; return () => {}; } }));
 const required: NativeSetupStatus = { service_state:'setup_required',configuration_state:'invalid',
-  execution_state:'unavailable',provider_state:'unknown',failure_code:'nnd_setup_configuration_invalid' };
+  execution_state:'unavailable',provider_state:'unknown',failure_code:'desktop_setup_configuration_invalid' };
 let root: Root; let container: HTMLDivElement;
 function mount(onOpenConfiguration?: () => void, onActivated?: () => void) {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -87,7 +87,7 @@ it('auth expiry cancels activation and reauthentication only reads fresh status'
   expect(vi.mocked(requestNativeSetup).mock.calls.at(-1)![0]).toBe(false);
   expect(container.textContent).toContain('Invalid or missing');
 });
-it.each(['nnd_setup_activation_timeout','nnd_setup_cleanup_failed'])('requires native restart after %s',async(failure_code)=>{
+it.each(['desktop_setup_activation_timeout','desktop_setup_cleanup_failed'])('requires native restart after %s',async(failure_code)=>{
   vi.mocked(requestNativeSetup).mockResolvedValue({status:{...required,service_state:'failed',failure_code},error:false});
   mount();await act(async()=>{});
   expect(button('Activate NNA execution').disabled).toBe(true);

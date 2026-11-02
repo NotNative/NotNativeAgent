@@ -30,8 +30,8 @@ const SET_FIELDS = ['enabled', 'token_env', 'workspace_root', 'polling_timeout_s
 const RECORD = /^[a-z][a-z0-9_]{0,63}$/u;
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
-const invalid = () => new NativeGatewayFailure('nnd_gateway_timeout_view_invalid');
-const requestInvalid = () => new NativeGatewayFailure('nnd_gateway_timeout_request_invalid');
+const invalid = () => new NativeGatewayFailure('desktop_gateway_timeout_view_invalid');
+const requestInvalid = () => new NativeGatewayFailure('desktop_gateway_timeout_request_invalid');
 const timeout = (value: unknown): value is number =>
   Number.isInteger(value) && typeof value === 'number' && value >= 5 && value <= 50;
 export class NativeGatewayFailure extends Error { constructor(readonly code: string) { super(code); } }
@@ -239,7 +239,7 @@ async function boundedJson(response: Response): Promise<unknown> {
 async function call(path: string, method: 'GET' | 'POST', signal: AbortSignal, body?: unknown): Promise<unknown> {
   const encoded = body === undefined ? undefined : JSON.stringify(body);
   if (encoded && new TextEncoder().encode(encoded).byteLength > REQUEST_BOUNDS) {
-    throw new NativeGatewayFailure('nnd_gateway_timeout_request_invalid');
+    throw new NativeGatewayFailure('desktop_gateway_timeout_request_invalid');
   }
   const response = await runtimeFetch(BASE + path, { method, signal: AbortSignal.any([signal, AbortSignal.timeout(25000)]),
     ...(encoded === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: encoded }) });
@@ -248,7 +248,7 @@ async function call(path: string, method: 'GET' | 'POST', signal: AbortSignal, b
     const error = record(payload) && record(payload.error) ? payload.error : null;
     const code = error && typeof error.code === 'string' && RECORD.test(error.code) ? error.code
       : record(payload) && payload.error === 'operation_not_found' ? 'operation_not_found'
-        : response.status === 404 ? 'nnd_gateway_timeout_unsupported' : 'nnd_gateway_timeout_unavailable';
+        : response.status === 404 ? 'desktop_gateway_timeout_unsupported' : 'desktop_gateway_timeout_unavailable';
     throw new NativeGatewayFailure(code);
   }
   return payload;
@@ -279,13 +279,13 @@ export async function previewNativeGateway(request: NativeGatewayRequest, curren
 }
 export async function saveNativeGateway(request: NativeGatewayRequest, operationId: string,
   signal: AbortSignal): Promise<NativeGatewayReceipt> {
-  if (authorityState() !== 'ready' || !OPERATION_ID.test(operationId)) throw new NativeGatewayFailure('nnd_gateway_timeout_unavailable');
+  if (authorityState() !== 'ready' || !OPERATION_ID.test(operationId)) throw new NativeGatewayFailure('desktop_gateway_timeout_unavailable');
   return parseReceipt(await call('/save', 'POST', signal, { ...request, operation_id: operationId }), request,
     operationId, request.expected_revision);
 }
 export async function inspectNativeGatewayOperation(identity: { installation_id: string; data_id: string },
   operationId: string, signal: AbortSignal): Promise<NativeGatewayReceipt | null> {
-  if (!OPERATION_ID.test(operationId)) throw new NativeGatewayFailure('nnd_gateway_timeout_request_invalid');
+  if (!OPERATION_ID.test(operationId)) throw new NativeGatewayFailure('desktop_gateway_timeout_request_invalid');
   try { return parseReceipt(await call(`/operations/${operationId}`, 'GET', signal), identity, operationId); }
   catch (error) { if (error instanceof NativeGatewayFailure && error.code === 'operation_not_found') return null; throw error; }
 }

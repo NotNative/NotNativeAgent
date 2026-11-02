@@ -42,7 +42,7 @@ async function fixture(t, { fields, cliOptions, census, modes = [], actions = []
   await writeFile(join(nna, 'src', 'cli.js'), `// synthetic: no option literals here\nexport function greet(what) { return what; }\ngreet('hello');\n`);
   const modeSet = `const MODES = new Set([${modes.map((mode) => `'${mode}'`).join(', ')}]);\nconst OPENCODE_ACTIONS = new Set([${actions.map((action) => `'${action}'`).join(', ')}]);\n`;
   await writeFile(join(nna, 'src', 'cli-options.js'), `${modeSet}${cliOptions}`);
-  await writeFile(join(nna, 'src', 'nnd-environment-snapshot.js'),
+  await writeFile(join(nna, 'src', 'desktop-environment-snapshot.js'),
     `export const OBSERVED_NAMES = [${observedNames.map((name) => `'${name}'`).join(', ')}];\n`);
   if (extraSource !== '') {
     await writeFile(join(nna, 'src', 'extra-source.js'), extraSource);
@@ -237,13 +237,13 @@ test('coverage gate classifies positional subcommands and environment reads', wi
     censusRow('invocation:opencode', 'invocation', 'operator_action'),
     censusRow('invocation:status', 'invocation', 'operator_action'),
     censusRow('environment:NNA_HOME', 'environment', 'operator_setting'),
-    censusRow('environment:NNA_NND_AGENT_TOOL_URL', 'environment', 'operator_setting'),
+    censusRow('environment:NNA_DESKTOP_AGENT_TOOL_URL', 'environment', 'operator_setting'),
   );
   const f = await fixture(t, {
     fields: happyFields, cliOptions: happyCliOptions, census,
     modes: ['tui', 'opencode'], actions: ['status'],
     observedNames: ['NNA_HOME'],
-    extraSource: 'export const service = process.env.NNA_NND_AGENT_TOOL_URL;\n',
+    extraSource: 'export const service = process.env.NNA_DESKTOP_AGENT_TOOL_URL;\n',
   });
   const result = await run(f);
   assert.equal(result.status, 0, result.stderr);

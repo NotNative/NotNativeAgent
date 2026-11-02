@@ -16,9 +16,9 @@ beforeEach(() => fetchMock.mockReset());
 
 describe('native MCP contract', () => {
   it('rejects secret-bearing and malformed response fields', () => {
-    expect(() => parseNativeMcpView({ ...view, servers: [{ ...view.servers[0], command: 'secret' }] })).toThrow('nnd_mcp_view_invalid');
-    expect(() => parseNativeMcpView({ ...view, servers: [{ ...view.servers[0], credential: 'private' }] })).toThrow('nnd_mcp_view_invalid');
-    expect(() => parseNativeMcpView({ ...view, servers: [view.servers[0], view.servers[0]] })).toThrow('nnd_mcp_view_invalid');
+    expect(() => parseNativeMcpView({ ...view, servers: [{ ...view.servers[0], command: 'secret' }] })).toThrow('desktop_mcp_view_invalid');
+    expect(() => parseNativeMcpView({ ...view, servers: [{ ...view.servers[0], credential: 'private' }] })).toThrow('desktop_mcp_view_invalid');
+    expect(() => parseNativeMcpView({ ...view, servers: [view.servers[0], view.servers[0]] })).toThrow('desktop_mcp_view_invalid');
   });
 
   it('sends only a typed change and exact native revisions for preview', async () => {
@@ -40,7 +40,7 @@ describe('native MCP contract', () => {
     fetchMock.mockResolvedValueOnce(json({ installation_id: 'foreign', data_id: view.data_id, scope: 'user',
       operation_id: 'op1', persistence: 'saved', persisted_revision: revision, before_revision: revision,
       application: 'not_applied', replayed: true }));
-    await expect(inspectNativeMcpOperation(view, 'op1', new AbortController().signal)).rejects.toThrow('nnd_mcp_view_invalid');
+    await expect(inspectNativeMcpOperation(view, 'op1', new AbortController().signal)).rejects.toThrow('desktop_mcp_view_invalid');
   });
 
   it('projects operation receipts to known public fields', async () => {
@@ -56,6 +56,6 @@ describe('native MCP contract', () => {
 
   it('rejects project shadow before preview construction', () => {
     expect(() => nativeMcpRequest({ ...view, project_shadowed: true },
-      { op: 'delete', id: 'alpha' })).toThrow('nnd_mcp_request_invalid');
+      { op: 'delete', id: 'alpha' })).toThrow('desktop_mcp_request_invalid');
   });
 });

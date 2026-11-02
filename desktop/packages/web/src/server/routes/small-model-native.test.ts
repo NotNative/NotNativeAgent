@@ -18,7 +18,7 @@ import { generateSmallModel } from './small-model.ts';
 
 beforeEach(() => { callHarness.mockReset(); });
 
-/** Mirrors the NNA assist request validation (nnd-assist.js) so the desktop
+/** Mirrors the NNA assist request validation (desktop-assist.js) so the desktop
  *  can never claim the seam with a request the contract would reject. */
 function nndAssistRequestValid(body: unknown): boolean {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) return false;

@@ -299,7 +299,7 @@ export interface PromptAsyncBody {
   model: { providerID: string; modelID: string };
   agent?: string;
   // Why: no variant/delivery fields — NNA rejects both on prompt_async
-  // (nnd_variant_override_unsupported / nnd_delivery_override_unsupported).
+  // (desktop_variant_override_unsupported / desktop_delivery_override_unsupported).
   tools?: Record<string, boolean>;
   format?: unknown;
   system?: string;

@@ -18,9 +18,9 @@ export interface NativeMcpDraft { op: 'create' | 'patch' | 'delete'; id: string;
 export const emptyDraft = (): NativeMcpDraft => ({ op: 'create', id: '', transport: 'stdio', command: '', args: '',
   endpoint: '', enabled: false, deadline: '', deadlineValue: '' });
 const ID = /^[A-Za-z0-9_-]{1,64}$/u;
-const safeError = (error: unknown) => error instanceof NativeMcpFailure ? error.code : 'nnd_mcp_unavailable';
-const safePrecommit = new Set(['nnd_mcp_request_invalid', 'nnd_mcp_conflict', 'manifest_revision_conflict',
-  'nnd_configuration_resolution_conflict', 'configuration_source_shadowed', 'integration_permission_denied']);
+const safeError = (error: unknown) => error instanceof NativeMcpFailure ? error.code : 'desktop_mcp_unavailable';
+const safePrecommit = new Set(['desktop_mcp_request_invalid', 'desktop_mcp_conflict', 'manifest_revision_conflict',
+  'desktop_configuration_resolution_conflict', 'configuration_source_shadowed', 'integration_permission_denied']);
 type NativeMcpAuth = 'ok' | 'expired' | 'reauthenticating';
 type Task = (signal: AbortSignal, current: () => boolean) => Promise<void>;
 function ownsMcpTask(active: { current: AbortController | null }, controller: AbortController, runtime: string, origin: string): boolean {
@@ -39,30 +39,30 @@ async function runNativeMcpTask(active: { current: AbortController | null }, aut
 }
 
 export function nativeMcpChange(draft: NativeMcpDraft, view: NativeMcpView): NativeMcpChange {
-  if (!ID.test(draft.id) || view.project_shadowed) throw new NativeMcpFailure('nnd_mcp_request_invalid');
+  if (!ID.test(draft.id) || view.project_shadowed) throw new NativeMcpFailure('desktop_mcp_request_invalid');
   const exists = view.servers.find(server => server.id === draft.id);
-  if (draft.op === 'delete') { if (!exists) throw new NativeMcpFailure('nnd_mcp_conflict'); return { op: 'delete', id: draft.id }; }
+  if (draft.op === 'delete') { if (!exists) throw new NativeMcpFailure('desktop_mcp_conflict'); return { op: 'delete', id: draft.id }; }
   if (draft.op === 'patch') {
-    if (!exists) throw new NativeMcpFailure('nnd_mcp_conflict');
+    if (!exists) throw new NativeMcpFailure('desktop_mcp_conflict');
     const fields: { enabled: boolean; [key: string]: number | boolean } = { enabled: draft.enabled };
     if (draft.deadline) {
       if (!/^(?:0|[1-9]\d{0,15})$/u.test(draft.deadlineValue)
-        || !Number.isSafeInteger(Number(draft.deadlineValue))) throw new NativeMcpFailure('nnd_mcp_request_invalid');
+        || !Number.isSafeInteger(Number(draft.deadlineValue))) throw new NativeMcpFailure('desktop_mcp_request_invalid');
       fields[draft.deadline] = Number(draft.deadlineValue);
     }
     return { op: 'patch', id: draft.id, fields };
   }
-  if (exists || view.servers.length >= 16) throw new NativeMcpFailure('nnd_mcp_conflict');
+  if (exists || view.servers.length >= 16) throw new NativeMcpFailure('desktop_mcp_conflict');
   if (draft.transport === 'stdio') {
     const args = draft.args === '' ? [] : draft.args.split('\n');
     if (!draft.command.trim() || draft.command.length > 4096 || /[\u0000-\u001f\u007f]/u.test(draft.command)
-      || args.length > 64 || args.some(arg => arg.length > 256)) throw new NativeMcpFailure('nnd_mcp_request_invalid');
+      || args.length > 64 || args.some(arg => arg.length > 256)) throw new NativeMcpFailure('desktop_mcp_request_invalid');
     return { op: 'create', id: draft.id, fields: { transport: 'stdio', command: draft.command, args } };
   }
   let url: URL;
-  try { url = new URL(draft.endpoint); } catch { throw new NativeMcpFailure('nnd_mcp_request_invalid'); }
+  try { url = new URL(draft.endpoint); } catch { throw new NativeMcpFailure('desktop_mcp_request_invalid'); }
   if (draft.endpoint.length > 2048 || !['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
-    throw new NativeMcpFailure('nnd_mcp_request_invalid');
+    throw new NativeMcpFailure('desktop_mcp_request_invalid');
   }
   return { op: 'create', id: draft.id, fields: { transport: 'streamable_http', endpoint: draft.endpoint } };
 }
@@ -105,7 +105,7 @@ export function useNativeMcpModel() {
     try { operationId = newNativeOperationId(); }
     catch (failure) { setError(safeError(failure)); return; }
     const entry = reserveNativeMcpOperation(view, operationId, preview.request.expected_revision);
-    if (!entry) { setError('nnd_mcp_unavailable'); return; }
+    if (!entry) { setError('desktop_mcp_unavailable'); return; }
     pendingRef.current = entry; setPending(entry);
     void run(async (signal, current) => { try {
       const result = await saveNativeMcp(preview.request, operationId, signal);
@@ -121,7 +121,7 @@ export function useNativeMcpModel() {
   const inspect = () => { const entry = pendingRef.current; if (!entry) return;
     void run(async (signal, current) => { const result = await inspectNativeMcpOperation(entry, entry.operation_id, signal);
       if (!current()) return;
-      if (result && result.before_revision !== entry.expected_revision) throw new NativeMcpFailure('nnd_mcp_view_invalid');
+      if (result && result.before_revision !== entry.expected_revision) throw new NativeMcpFailure('desktop_mcp_view_invalid');
       if (result?.persistence === 'saved') { clearNativeMcpOperation(entry); pendingRef.current = null; setPending(null); setView(null); }
       if (result) setReceipt(result); else setError('operation_not_found'); }); };
   const changeDraft = (next: NativeMcpDraft) => { setDraft(next); setPreview(null); setReceipt(null); setError(null); };

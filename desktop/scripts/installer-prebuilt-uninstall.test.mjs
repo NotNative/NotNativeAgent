@@ -13,7 +13,7 @@ const dataId = 'data_' + '4'.repeat(64);
 
 function values(base) {
   const data = join(base, 'nna-data');
-  const slot = join(data, 'runtime', 'nnd', 'install-slots', 'versions', '20261004-4-' + 'a'.repeat(64));
+  const slot = join(data, 'runtime', 'desktop', 'install-slots', 'versions', '20261004-4-' + 'a'.repeat(64));
   return {
     data, anchor: join(base, 'target'), slot,
     stage: '11111111-2222-4333-8444-555555555555',
@@ -35,14 +35,14 @@ async function fixture(t) {
   const value = values(root);
   await mkdir(value.anchor, { recursive: true });
   await mkdir(join(value.slot, 'packages', 'web'), { recursive: true });
-  await writeFile(join(value.slot, 'NND_PAYLOAD.json'), '{}');
+  await writeFile(join(value.slot, 'DESKTOP_PAYLOAD.json'), '{}');
   return { root, ...value };
 }
 
 async function writeBinding(value, selected) {
   await writeFile(join(value.anchor, 'nnd-anchor.json'), JSON.stringify({
     schema_version: '1.0', nna_install_root: selected.installRoot,
-    nnd_package_root: value.slot, version: '20261004-4', data_schema: '1',
+    desktop_package_root: value.slot, version: '20261004-4', data_schema: '1',
     payload_sha256: 'a'.repeat(64), candidate_sha256: 'b'.repeat(64),
     stage_operation_id: value.stage, activation_operation_id: value.activation,
     installation_id: installationId, data_id: dataId,
@@ -89,11 +89,11 @@ test('uninstall refuses foreign, malformed, renamed and reparse-bound slots', { 
   await writeBinding(f, { installRoot: join(f.root, 'nna-install') });
 
   const renamed = (await readFile(bindingPath, 'utf8')).replace(
-    `"nnd_package_root":"${f.slot.replaceAll('\\', '\\\\')}"`,
-    `"nnd_package_root":"${join(f.data, 'runtime', 'nnd', 'install-slots', 'versions', '20261004-4-' + 'b'.repeat(64)).replaceAll('\\', '\\\\')}"`
+    `"desktop_package_root":"${f.slot.replaceAll('\\', '\\\\')}"`,
+    `"desktop_package_root":"${join(f.data, 'runtime', 'desktop', 'install-slots', 'versions', '20261004-4-' + 'b'.repeat(64)).replaceAll('\\', '\\\\')}"`
   );
-  await mkdir(join(f.data, 'runtime', 'nnd', 'install-slots', 'versions'), { recursive: true });
-  await mkdir(join(f.data, 'runtime', 'nnd', 'install-slots', 'versions', '20261004-4-' + 'b'.repeat(64)), { recursive: true });
+  await mkdir(join(f.data, 'runtime', 'desktop', 'install-slots', 'versions'), { recursive: true });
+  await mkdir(join(f.data, 'runtime', 'desktop', 'install-slots', 'versions', '20261004-4-' + 'b'.repeat(64)), { recursive: true });
   await writeFile(bindingPath, renamed);
   assert.throws(() => run(f.root, 'scripts/installer-prebuilt-uninstall.ps1',
     body(`'${join(f.root, 'nna-install').replaceAll("'", "''")}'`)), /package root is invalid/u);
@@ -135,11 +135,11 @@ test('uninstall evidence requires exact native registration and guard identity',
   await writeFile(invalidCli, 'process.stdout.write("not-json")');
   assert.match(evidence(invalidCli).stderr, /status is unavailable/u);
   const incompleteCli = join(root, 'incomplete.mjs');
-  await writeFile(incompleteCli, `process.stdout.write(JSON.stringify(${JSON.stringify({ ...good, valid: false, reason: 'nnd_package_incomplete' })}))`);
+  await writeFile(incompleteCli, `process.stdout.write(JSON.stringify(${JSON.stringify({ ...good, valid: false, reason: 'desktop_package_incomplete' })}))`);
   assert.match(evidence(incompleteCli).stderr, /status is unavailable/u);
   const repair = evidence(incompleteCli, '[Console]::Out.WriteLine($status.reason)', true);
   assert.equal(repair.status, 0, repair.stderr);
-  assert.match(repair.stdout, /nnd_package_incomplete/u);
+  assert.match(repair.stdout, /desktop_package_incomplete/u);
   assert.match(evidence(incompleteCli,
     `Assert-NndUninstallRegistrationStatus $status '${join(root, 'slot').replaceAll("'", "''")}' '20261004-4'`, true).stderr,
   /expected registered NND package/u);
@@ -150,7 +150,7 @@ test('source repair accepts a missing registered package while uninstall still r
   const root = await mkdtemp(join(tmpdir(), 'nnd-missing-package-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const cli = join(root, 'missing.mjs');
-  const status = { registered: true, valid: false, root: join(root, 'missing'), version: '20261014-18', reason: 'nnd_package_root_invalid' };
+  const status = { registered: true, valid: false, root: join(root, 'missing'), version: '20261014-18', reason: 'desktop_package_root_invalid' };
   await writeFile(cli, `process.stdout.write(JSON.stringify(${JSON.stringify(status)}))`);
   const helper = resolve('scripts/installer-prebuilt-uninstall-evidence.ps1');
   const invoke = repair => spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-Command',
@@ -159,5 +159,5 @@ test('source repair accepts a missing registered package while uninstall still r
   assert.match(invoke(false).stderr, /status is unavailable/u);
   const result = invoke(true);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /nnd_package_root_invalid/u);
+  assert.match(result.stdout, /desktop_package_root_invalid/u);
 });

@@ -77,7 +77,7 @@ it('reads the recorded check, honest absence, and refreshes without writing', as
 it('maps errors to honest sentences and pauses for auth and authority', async () => {
   fetchMock.mockImplementation((path: string) => {
     if (path.endsWith('/update-state')) return Promise.resolve(json(
-      { error: { code: 'nnd_update_state_request_invalid' } }, 400));
+      { error: { code: 'desktop_update_state_request_invalid' } }, 400));
     if (path.endsWith('/catalog')) return Promise.resolve(json(catalog));
     throw new Error('unexpected ' + path);
   });

@@ -67,7 +67,7 @@ it('surfaces the honest wrapped authority sentence when the registry cannot load
   fetchMock.mockImplementation((path: string) => {
     if (String(path).endsWith('/configuration/skills/catalog')) {
       return Promise.resolve(new Response(JSON.stringify({ error: {
-        code: 'nnd_skills_catalog_unavailable' } }), { status: 503 }));
+        code: 'desktop_skills_catalog_unavailable' } }), { status: 503 }));
     }
     return Promise.resolve(new Response('{}', { status: 404 }));
   });

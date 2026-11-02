@@ -14,7 +14,7 @@ export function parseNativeSetupStatus(value: unknown): NativeSetupStatus | null
   if (!['setup_required','starting','ready','failed','stopping','stopped'].includes(s.service_state)
     || !['unverified','invalid','ready'].includes(s.configuration_state)
     || !['unavailable','ready'].includes(s.execution_state) || s.provider_state !== 'unknown'
-    || !(s.failure_code === null || typeof s.failure_code === 'string' && /^nnd_[a-z_]{1,80}$/u.test(s.failure_code))) return null;
+    || !(s.failure_code === null || typeof s.failure_code === 'string' && /^desktop_[a-z_]{1,80}$/u.test(s.failure_code))) return null;
   if (s.execution_state === 'ready' && (s.configuration_state !== 'ready' || s.service_state !== 'ready')) return null;
   if (s.service_state === 'ready' && s.execution_state !== 'ready') return null;
   return { service_state: s.service_state, configuration_state: s.configuration_state,

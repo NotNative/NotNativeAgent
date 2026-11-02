@@ -20,7 +20,7 @@ const testRefusal = () => ({ schema_version: '1.0', installation_id: null, data_
 
 const cliOnly = () => ({ schema_version: '1.0', installation_id: null, data_id: null,
   scope: 'user', family: 'searxng', action: 'refresh-managed', application: 'not_applied',
-  refused: true, reason: 'nnd_action_cli_only',
+  refused: true, reason: 'desktop_action_cli_only',
   hint: 'SearXNG refresh-managed drives docker compose against the managed root; run \'nna web-search refresh-managed\' in the terminal' });
 
 const searxngStatus = () => ({ schema_version: '1.0', installation_id: 'nna_1', data_id: 'data_1',
@@ -68,7 +68,7 @@ describe('native gateway test receipt', () => {
 describe('cli-only refusal receipts across families', () => {
   it('parses and fronts the terminal hint', () => {
     const refusal = parseNativeGatewayTest(cliOnly());
-    expect(refusal).toMatchObject({ refused: true, reason: 'nnd_action_cli_only' });
+    expect(refusal).toMatchObject({ refused: true, reason: 'desktop_action_cli_only' });
     expect('hint' in refusal && refusal.hint).toContain('terminal');
   });
 });

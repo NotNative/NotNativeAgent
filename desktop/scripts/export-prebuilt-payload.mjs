@@ -18,7 +18,7 @@ export async function exportPrebuiltPayload(destination, { sourceRoot = ROOT } =
     for (const entry of plan.files) await transferFile(entry.source, join(owned.path, entry.path), entry.expected);
     await writeFile(join(owned.path, 'VERSION'), `${plan.version}\n`, { flag: 'wx' });
     await writeFile(join(owned.path, 'package.json'), `${JSON.stringify({ name: 'notnative-desktop', private: true,
-      type: 'module', version: plan.packageInfo.version, nnd_version: plan.version })}\n`, { flag: 'wx' });
+      type: 'module', version: plan.packageInfo.version, desktop_version: plan.version })}\n`, { flag: 'wx' });
     await writeFile(join(owned.path, 'packages/electron/install-mode.txt'), 'script', { flag: 'wx' });
     await writeInstalledServiceManifest(owned.path);
     if (await verifyBuildStamp(plan.root) !== initialStamp) throw new Error('payload-source-changed');
@@ -27,7 +27,7 @@ export async function exportPrebuiltPayload(destination, { sourceRoot = ROOT } =
     await verifyElectronDependency(plan);
     const manifest = await writePayloadManifest(owned.path, plan.version);
     return { root: owned.path, version: plan.version, files: manifest.files.length,
-      sha256: createHash('sha256').update(await readFile(join(owned.path, 'NND_PAYLOAD.json'))).digest('hex') };
+      sha256: createHash('sha256').update(await readFile(join(owned.path, 'DESKTOP_PAYLOAD.json'))).digest('hex') };
   } catch (error) {
     try { await cleanupDestination(owned); }
     catch (cleanup) { throw new AggregateError([error, cleanup], 'Payload export failed; cleanup ownership could not be verified'); }
@@ -43,7 +43,7 @@ export async function writePayloadManifest(root, version) {
     files.push({ path: entry.path, ...identity });
   }
   const manifest = { schema_version: '1.0', version, platform: 'win32', architecture: 'x64', files };
-  await writeFile(join(root, 'NND_PAYLOAD.json'), `${JSON.stringify(manifest)}\n`, { flag: 'wx' });
+  await writeFile(join(root, 'DESKTOP_PAYLOAD.json'), `${JSON.stringify(manifest)}\n`, { flag: 'wx' });
   return manifest;
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

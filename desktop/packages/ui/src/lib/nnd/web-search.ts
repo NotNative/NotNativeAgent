@@ -30,8 +30,8 @@ const PROFILE_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u;
 const RECORD = /^[a-z][a-z0-9_]{0,63}$/u;
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
-const invalid = () => new NativeWebSearchFailure('nnd_web_search_view_invalid');
-const requestInvalid = () => new NativeWebSearchFailure('nnd_web_search_request_invalid');
+const invalid = () => new NativeWebSearchFailure('desktop_web_search_view_invalid');
+const requestInvalid = () => new NativeWebSearchFailure('desktop_web_search_request_invalid');
 export class NativeWebSearchFailure extends Error { constructor(readonly code: string) { super(code); } }
 
 /** Canonical endpoint text exactly like NNA's normalizeSearxngEndpoint: a credential-free
@@ -288,7 +288,7 @@ async function boundedJson(response: Response, bounds: number): Promise<unknown>
 async function call(path: string, method: 'GET' | 'POST', signal: AbortSignal, body?: unknown): Promise<unknown> {
   const encoded = body === undefined ? undefined : JSON.stringify(body);
   if (encoded && new TextEncoder().encode(encoded).byteLength > WEB_SEARCH_REQUEST_BOUNDS) {
-    throw new NativeWebSearchFailure('nnd_web_search_request_invalid');
+    throw new NativeWebSearchFailure('desktop_web_search_request_invalid');
   }
   const response = await runtimeFetch(BASE + path, { method, signal: AbortSignal.any([signal, AbortSignal.timeout(25000)]),
     ...(encoded === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: encoded }) });
@@ -297,7 +297,7 @@ async function call(path: string, method: 'GET' | 'POST', signal: AbortSignal, b
     const error = record(payload) && record(payload.error) ? payload.error : null;
     const code = error && typeof error.code === 'string' && RECORD.test(error.code) ? error.code
       : record(payload) && payload.error === 'operation_not_found' ? 'operation_not_found'
-        : response.status === 404 ? 'nnd_web_search_unsupported' : 'nnd_web_search_unavailable';
+        : response.status === 404 ? 'desktop_web_search_unsupported' : 'desktop_web_search_unavailable';
     throw new NativeWebSearchFailure(code);
   }
   return payload;
@@ -327,13 +327,13 @@ export async function previewNativeWebSearch(request: NativeWebSearchRequest, cu
 }
 export async function saveNativeWebSearch(request: NativeWebSearchRequest, operationId: string,
   signal: AbortSignal): Promise<NativeWebSearchReceipt> {
-  if (authorityState() !== 'ready' || !OPERATION_ID.test(operationId)) throw new NativeWebSearchFailure('nnd_web_search_unavailable');
+  if (authorityState() !== 'ready' || !OPERATION_ID.test(operationId)) throw new NativeWebSearchFailure('desktop_web_search_unavailable');
   return parseReceipt(await call('/save', 'POST', signal, { ...request, operation_id: operationId }), request,
     operationId, request.expected_revision);
 }
 export async function inspectNativeWebSearchOperation(identity: { installation_id: string; data_id: string },
   operationId: string, signal: AbortSignal): Promise<NativeWebSearchReceipt | null> {
-  if (!OPERATION_ID.test(operationId)) throw new NativeWebSearchFailure('nnd_web_search_request_invalid');
+  if (!OPERATION_ID.test(operationId)) throw new NativeWebSearchFailure('desktop_web_search_request_invalid');
   try { return parseReceipt(await call(`/operations/${operationId}`, 'GET', signal), identity, operationId); }
   catch (error) { if (error instanceof NativeWebSearchFailure && error.code === 'operation_not_found') return null; throw error; }
 }

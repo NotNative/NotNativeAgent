@@ -17,7 +17,7 @@ import { authorityState, subscribeAuthority } from '../../../sync/authority-sync
 import { SettingsSection } from '../primitives.tsx';
 
 const messageFor = (error: unknown) => {
-  const code = error instanceof Error ? error.message : 'nnd_update_state_unavailable';
+  const code = error instanceof Error ? error.message : 'desktop_update_state_unavailable';
   return updateStateMessages[code] ?? code;
 };
 

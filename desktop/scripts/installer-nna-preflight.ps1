@@ -2,7 +2,7 @@
 function Assert-NndNnaCapabilities($SelectedNna) {
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $SelectedNna.Node
-    $startInfo.Arguments = (ConvertTo-NndNativeArgument $SelectedNna.Cli) + ' nnd service capabilities ' + (ConvertTo-NndNativeArgument $SelectedNna.InstallRoot)
+    $startInfo.Arguments = (ConvertTo-NndNativeArgument $SelectedNna.Cli) + ' desktop service capabilities ' + (ConvertTo-NndNativeArgument $SelectedNna.InstallRoot)
     $startInfo.WorkingDirectory = $SelectedNna.InstallRoot
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true

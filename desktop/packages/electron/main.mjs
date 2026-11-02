@@ -474,7 +474,7 @@ function applyServerEnv(port) {
   process.env.NOTNATIVE_APP_VERSION = productVersion();
   // Security: scripted installs identify the GUI package to NNA. NNA checks
   // that this exact root remains registered and version-valid before serving.
-  if (SCRIPTED) process.env.NNA_NND_INSTALL_ROOT = path.resolve(selfDir(), '..', '..');
+  if (SCRIPTED) process.env.NNA_DESKTOP_INSTALL_ROOT = path.resolve(selfDir(), '..', '..');
   // NOTNATIVE_DATA_DIR stays UNSET — the server default ~/.notnative-desktop
   // wins so packaged and `pnpm start` share state (D-09-6).
   if (!process.env.NO_PROXY) process.env.NO_PROXY = 'localhost,127.0.0.1';

@@ -18,7 +18,7 @@ export class NativeUpdateActionFailure extends Error {
   code: string;
   constructor(code: string) { super(code); this.name = 'NativeUpdateActionFailure'; this.code = code; }
 }
-const viewInvalid = () => new NativeUpdateActionFailure('nnd_update_projection_invalid');
+const viewInvalid = () => new NativeUpdateActionFailure('desktop_update_projection_invalid');
 
 export interface UpdateAvailability {
   status: 'ready' | 'unavailable'; checkedAt: string; cached: false;
@@ -102,7 +102,7 @@ async function call(path: string, body: unknown, signal: AbortSignal, status: nu
       ...(signal ? { signal } : {}) });
   } catch (error) {
     if (signal.aborted) throw error;
-    throw new NativeUpdateActionFailure('nnd_update_action_unavailable');
+    throw new NativeUpdateActionFailure('desktop_update_action_unavailable');
   }
   const raw = await response.arrayBuffer();
   if (raw.byteLength > RESPONSE_BYTES) throw viewInvalid();
@@ -112,9 +112,9 @@ async function call(path: string, body: unknown, signal: AbortSignal, status: nu
   if (response.status === status) return parsed;
   const code = (parsed as { error?: { code?: string } } | null)?.error?.code;
   throw new NativeUpdateActionFailure(response.status === 404
-    ? 'nnd_update_action_not_found'
+    ? 'desktop_update_action_not_found'
     : typeof code === 'string' && /^[a-z][a-z0-9_]{0,63}$/u.test(code)
-      ? code : 'nnd_update_action_unavailable');
+      ? code : 'desktop_update_action_unavailable');
 }
 
 export async function runUpdateCheck(signal: AbortSignal): Promise<UpdateCheckReceipt> {
@@ -125,7 +125,7 @@ export async function runUpdateCheck(signal: AbortSignal): Promise<UpdateCheckRe
 export async function attemptInstallForReceipt(signal: AbortSignal): Promise<'refused'> {
   try { await call('/install', {}, signal, 200); }
   catch (failure) {
-    if (failure instanceof NativeUpdateActionFailure && failure.code === 'nnd_update_install_unsupported') {
+    if (failure instanceof NativeUpdateActionFailure && failure.code === 'desktop_update_install_unsupported') {
       return 'refused';
     }
     throw failure;
@@ -135,14 +135,14 @@ export async function attemptInstallForReceipt(signal: AbortSignal): Promise<'re
 
 export function updateActionErrorText(code: string): string {
   const sentences: Record<string, string> = {
-    nnd_update_install_unsupported: 'The installer is refused on this surface: it runs the product\'s own',
-    nnd_update_projection_invalid: 'The native update action surfaced a drifted receipt.',
-    nnd_configuration_unavailable: 'The native update actions are unavailable right now.',
+    desktop_update_install_unsupported: 'The installer is refused on this surface: it runs the product\'s own',
+    desktop_update_projection_invalid: 'The native update action surfaced a drifted receipt.',
+    desktop_configuration_unavailable: 'The native update actions are unavailable right now.',
     integration_permission_denied: 'The operator principal lacks nnd.update.manage.',
   };
   return sentences[code]
-    ?? (code === 'nnd_update_action_not_found' ? 'The native update action surface is absent.'
-      : code === 'nnd_update_action_unavailable'
+    ?? (code === 'desktop_update_action_not_found' ? 'The native update action surface is absent.'
+      : code === 'desktop_update_action_unavailable'
         ? 'The native update action could not be completed.'
         : 'The update action could not be completed natively.');
 }

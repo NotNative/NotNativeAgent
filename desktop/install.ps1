@@ -350,8 +350,8 @@ function Invoke-NndRegistration([string]$Action, [string]$Root, $SelectedNna) {
         $oldPreference = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
         try {
-            if ($Action -eq 'status') { & $nna.Node $nna.Cli nnd package status | Out-Null }
-            else { & $nna.Node $nna.Cli nnd package $Action $Root }
+            if ($Action -eq 'status') { & $nna.Node $nna.Cli desktop package status | Out-Null }
+            else { & $nna.Node $nna.Cli desktop package $Action $Root }
         }
         finally { $ErrorActionPreference = $oldPreference }
         if ($LASTEXITCODE -ne 0) { throw "NNA rejected NND package $Action (exit $LASTEXITCODE)." }
@@ -383,7 +383,7 @@ function Resolve-NndInstallPlan($SelectedNna, [string]$Root) {
     $oldPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        & $SelectedNna.Node $SelectedNna.Cli nnd service status $SelectedNna.InstallRoot *> $null
+        & $SelectedNna.Node $SelectedNna.Cli desktop service status $SelectedNna.InstallRoot *> $null
         $wasRunning = ($LASTEXITCODE -eq 0)
     } finally { $ErrorActionPreference = $oldPreference }
     if ($wasRunning) {
@@ -409,7 +409,7 @@ function Restore-NndRunningService($Plan, $SelectedNna) {
     $env:NNA_HOME = $SelectedNna.DataRoot
     $ErrorActionPreference = 'Continue'
     try {
-        & $SelectedNna.Node $SelectedNna.Cli nnd service start $SelectedNna.InstallRoot | Out-Null
+        & $SelectedNna.Node $SelectedNna.Cli desktop service start $SelectedNna.InstallRoot | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "Updated NND service failed to restart (exit $LASTEXITCODE)." }
     } finally {
         $ErrorActionPreference = $previousPreference

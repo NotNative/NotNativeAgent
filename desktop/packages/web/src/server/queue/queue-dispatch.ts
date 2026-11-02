@@ -164,6 +164,6 @@ async function postPromptRoute(
   // Ids from before the bounded-id rule simply ride without the identity.
   if (QUEUE_ITEM_ID_PATTERN.test(item.id)) body.messageID = item.id;
   if (item.sendConfig.agent) body.agent = item.sendConfig.agent;
-  // Why: no variant on the prompt route — NNA rejects per-prompt variant (nnd_variant_override_unsupported).
+  // Why: no variant on the prompt route — NNA rejects per-prompt variant (desktop_variant_override_unsupported).
   return postSession(sessionId, directory, `/session/${encodeURIComponent(sessionId)}/prompt_async`, body);
 }

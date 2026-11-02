@@ -43,7 +43,7 @@ function reserveOperation(model: ControlsModel, view: NativeConfigurationView, r
   let operationId: string;
   try { operationId = newNativeOperationId(); } catch (failure) { model.setError(errorCode(failure)); return null; }
   if (!reserveNativeConfigurationOperation(view, operationId, revision)) {
-    model.setError('nnd_configuration_unavailable'); return null;
+    model.setError('desktop_configuration_unavailable'); return null;
   }
   const entry = { runtime_key: getRuntimeKey(), installation_id: view.installation_id,
     data_id: view.data_id, operation_id: operationId, expected_revision: revision };
@@ -62,7 +62,7 @@ export function publishNativeField(model: ControlsModel, view: NativeConfigurati
       // Why: native revision and source-ownership refusals occur before publication.
       // Unknown transport outcomes must retain their recovery handle instead.
       if (model.currentWork.current?.signal === signal && model.isCurrent(model.currentWork.current)
-        && ['manifest_revision_conflict', 'nnd_configuration_resolution_conflict', 'configuration_source_shadowed'].includes(errorCode(failure))) {
+        && ['manifest_revision_conflict', 'desktop_configuration_resolution_conflict', 'configuration_source_shadowed'].includes(errorCode(failure))) {
         clearNativeConfigurationOperation(entry); model.pendingOperationRef.current = null;
         model.setPendingOperation(null); model.setPreview(null);
       }
@@ -97,7 +97,7 @@ export function inspectNativeOperation(model: ControlsModel, view: NativeConfigu
   void runNativeConfigurationWork(model, async signal => {
     const result = await lookupNativeConfigurationOperation(view, entry.operation_id, signal);
     if (model.currentWork.current?.signal === signal && model.isCurrent(model.currentWork.current)) {
-      if (result && result.before_revision !== entry.expected_revision) throw new NativeConfigurationFailure('nnd_configuration_view_invalid');
+      if (result && result.before_revision !== entry.expected_revision) throw new NativeConfigurationFailure('desktop_configuration_view_invalid');
       if (result?.persistence === 'saved') clearNativeConfigurationOperation(entry);
       if (result) model.setReceipt(result); else model.setError('operation_not_found');
     }

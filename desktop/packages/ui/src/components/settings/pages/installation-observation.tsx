@@ -26,7 +26,7 @@ function useInstallationView() {
     setLoading(true); setError(null); setView(null);
     try { const result = await readNativeInstallation(controller.signal); if (current()) setView(result); }
     catch (failure) {
-      if (current()) setError(messageFor(isNativeFailure(failure) ? failure.code : 'nnd_installation_unavailable'));
+      if (current()) setError(messageFor(isNativeFailure(failure) ? failure.code : 'desktop_installation_unavailable'));
     }
     finally { if (current()) { pending.current = null; setLoading(false); } }
   }, []);

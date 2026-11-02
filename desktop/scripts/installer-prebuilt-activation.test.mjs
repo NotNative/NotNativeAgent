@@ -69,13 +69,13 @@ if (family === 'package' && action === 'status') {
   mkdirSync(join(root, 'private-activation'), { recursive: true });
   const operation = process.argv[7];
   const evidence = candidateEvidence(root, process.argv[6]);
-  const candidateDirectory = join(dirname(root), 'data', 'runtime', 'nnd', 'install-slots', 'activations');
+  const candidateDirectory = join(dirname(root), 'data', 'runtime', 'desktop', 'install-slots', 'activations');
   mkdirSync(candidateDirectory, { recursive: true });
   writeFileSync(join(candidateDirectory, operation + '.candidate.json'), JSON.stringify(evidence) + newline);
   mkdirSync(join(dirname(root), 'data', 'config'), { recursive: true });
   const registration = JSON.stringify({ root: activeRoot, version: activeVersion, protocol: '1.0' }, null, 2) + newline;
-  writeFileSync(join(dirname(root), 'data', 'config', 'nnd-package.json'), registration);
-  const slotsRoot = join(dirname(root), 'data', 'runtime', 'nnd', 'install-slots');
+  writeFileSync(join(dirname(root), 'data', 'config', 'desktop-package.json'), registration);
+  const slotsRoot = join(dirname(root), 'data', 'runtime', 'desktop', 'install-slots');
   mkdirSync(slotsRoot, { recursive: true });
   const sha64 = value => createHash('sha256').update(value).digest('hex');
   const commit = { protocol: '1.0', state: 'terminal_committed_barred', operation_id: operation,
@@ -201,7 +201,7 @@ test('installer activation mode delegates the selected slot without copying the 
     const shortcutRoot = join(f.base, 'disposable shortcuts');
     await mkdir(shortcutRoot);
     await writeFile(join(shortcutRoot, '.nnd-disposable-shortcuts'), 'nnd-disposable-shortcuts-v1');
-    await writeFile(join(payload, 'NND_PAYLOAD.json'), manifest);
+    await writeFile(join(payload, 'DESKTOP_PAYLOAD.json'), manifest);
     const digest = createHash('sha256').update(manifest).digest('hex');
     const rejected = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', resolve('install.ps1'),
       '-ActivatePrebuiltSlot', '-PrebuiltStageOperation', stageOperation,
@@ -248,7 +248,7 @@ test('a data-schema mismatch is refused before any native staging call',
     await writeFile(join(payload, 'packages', 'web', 'dist', 'index.html'), '<html>fixture</html>');
     const manifest = JSON.stringify({ schema_version: '1.0', version: '20261003-12',
       platform: 'win32', architecture: 'x64', data_schema: '2', files: [] });
-    await writeFile(join(payload, 'NND_PAYLOAD.json'), manifest);
+    await writeFile(join(payload, 'DESKTOP_PAYLOAD.json'), manifest);
     const digest = createHash('sha256').update(manifest).digest('hex');
     const refused = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', resolve('install.ps1'),
       '-ActivatePrebuiltSlot', '-PrebuiltStageOperation', stageOperation,
@@ -277,7 +277,7 @@ test('a failed retained activation leaves no public state and reports the uncert
     await writeFile(join(payload, 'packages', 'web', 'dist', 'index.html'), '<html>fixture</html>');
     const manifest = JSON.stringify({ schema_version: '1.0', version: '20261003-12',
       platform: 'win32', architecture: 'x64', files: [] });
-    await writeFile(join(payload, 'NND_PAYLOAD.json'), manifest);
+    await writeFile(join(payload, 'DESKTOP_PAYLOAD.json'), manifest);
     const digest = createHash('sha256').update(manifest).digest('hex');
     // The retained owner exits nonzero after writing durable candidate
     // evidence: the installer must refuse activation without claiming

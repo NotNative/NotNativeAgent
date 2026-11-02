@@ -47,7 +47,7 @@ test('foreign selection, unconfirmed wiring and failed restart cannot claim succ
   await assert.rejects(foreign.run('restart'), /identity-changed/u); assert.equal(foreign.calls.length, 0);
   const badLogin = await fixture(t, { execute: async () => ({ stdout: '{"enabled":false,"login":{"installed":false}}' }) });
   await assert.rejects(badLogin.run('login', { enabled: true }), /unconfirmed/u);
-  const failed = await fixture(t, { tray: async () => { throw new Error('nnd_owner_unverified'); } });
+  const failed = await fixture(t, { tray: async () => { throw new Error('desktop_owner_unverified'); } });
   await assert.rejects(failed.run('restart'), /unverified/u); assert.equal(failed.timers.length, 0);
   const unsaved = await fixture(t, { beforeRestart: async () => { throw new Error('native-continuity-unavailable'); } });
   await assert.rejects(unsaved.run('restart'), /continuity-unavailable/u);

@@ -170,7 +170,7 @@ export function timelineMultirunProbe() {
     + "parts:[{type:'text',text:'F9 route observation prompt.'}],model:{providerID:'secondary',modelID:'test-alt'}});"
     + 'if(override.status!==400)throw Error(\'override not refused: \'+override.status);'
     + 'const overrideBody=await override.json();'
-    + 'if(overrideBody.error.code!==\'nnd_model_override_unsupported\')'
+    + 'if(overrideBody.error.code!==\'desktop_model_override_unsupported\')'
     + 'throw Error(\'override code \'+overrideBody.error.code);'
     + 'return {sessionA:a,sessionB:b,configuredB};'
     + '})()';

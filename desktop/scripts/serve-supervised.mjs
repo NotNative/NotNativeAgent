@@ -16,10 +16,10 @@ function configureEnvironment(bootstrap, installed) {
   }
   const ui = new URL(bootstrap.ui_origin);
   Object.assign(process.env, { NOTNATIVE_HOST: ui.hostname.replace(/^\[|\]$/gu, ''),
-    NOTNATIVE_PORT: ui.port || '80', NOTNATIVE_DATA_DIR: bootstrap.nnd_data_root,
+    NOTNATIVE_PORT: ui.port || '80', NOTNATIVE_DATA_DIR: bootstrap.desktop_data_root,
     NOTNATIVE_DIST_DIR: installed.dist, NOTNATIVE_APP_VERSION: installed.packageVersion,
     NOTNATIVE_RUNTIME: 'service', NOTNATIVE_HARNESS: 'nna', NOTNATIVE_NNA_MODE: 'attach' });
-  // The attached NNA child keeps the nnd_browser callback (F7): the desktop and
+  // The attached NNA child keeps the desktop_browser callback (F7): the desktop and
   // same-origin browser tabs are the capable broker clients; no bridge flag disables it.
 }
 function quote(path) {
@@ -27,7 +27,7 @@ function quote(path) {
 }
 
 /** F7 attach contract: publish the NND browser-callback descriptor to the
- *  already-running NNA integration host so nnd_browser installs for sessions
+ *  already-running NNA integration host so desktop_browser installs for sessions
  *  created after registration. Best effort with bounded retries: a failed
  *  registration degrades to no browser tool, never to a failed service. The
  *  bounded outcome record lands in the service's own data root diagnostics. */
@@ -38,8 +38,8 @@ async function registerBrowserCallback(bootstrap, browserCallback, capability) {
       const payload = JSON.stringify({ recorded_at: new Date().toISOString(), outcome,
         attempts }) + '\n';
       import('node:fs/promises').then((fs) => fs.mkdir(
-        join(bootstrap.nnd_data_root, 'diagnostics'), { recursive: true })
-        .then(() => fs.writeFile(join(bootstrap.nnd_data_root,
+        join(bootstrap.desktop_data_root, 'diagnostics'), { recursive: true })
+        .then(() => fs.writeFile(join(bootstrap.desktop_data_root,
           'diagnostics/browser-callback-registration.json'), payload)))
         .catch(() => { /* diagnostics are best effort; the protocol channel stays clean */ });
     } catch { /* diagnostics are best effort; the protocol channel stays clean */ }
@@ -48,7 +48,7 @@ async function registerBrowserCallback(bootstrap, browserCallback, capability) {
     record('disabled');
     return 'disabled';
   }
-  const endpoint = new URL(bootstrap.engine.endpoint).origin + '/internal/nnd/browser-callback';
+  const endpoint = new URL(bootstrap.engine.endpoint).origin + '/internal/desktop/browser-callback';
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const response = await fetch(endpoint, { method: 'POST',
@@ -149,7 +149,7 @@ export async function runSupervisedService({ input = process.stdin, output = pro
     }
     clearTimeout(startupTimer);
     // Register the browser callback before the readiness frame so the first
-    // session already sees nnd_browser (F7 attach contract).
+    // session already sees desktop_browser (F7 attach contract).
     const registration = await registerBrowserCallback(bootstrap, handle.browserCallback, capability);
     if (registration !== 'registered') {
       console.error('NND browser callback ' + registration + '; the browser tool stays unavailable this generation');
@@ -170,9 +170,9 @@ export async function runSupervisedService({ input = process.stdin, output = pro
       const trayHost = join(root, 'scripts', 'nnd-tray-host.ps1');
       const child = spawn(powershell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', trayHost,
         // Why: the tray host reads the discovery record at
-        // <DataRoot>/runtime/nnd/current.json, which lives under the NNA data
-        // root (identity.data_root), not under nnd_data_root (<data>/nnd, the
-        // service's own state). Passing nnd_data_root made the tray's timer
+        // <DataRoot>/runtime/desktop/current.json, which lives under the NNA data
+        // root (identity.data_root), not under desktop_data_root (<data>/nnd, the
+        // service's own state). Passing desktop_data_root made the tray's timer
         // never find the record and exit immediately (no tray icon).
         '-DataRoot', bootstrap.nna_data_root, '-InstallRoot', root, '-NodePath', process.execPath, '-Generation', bootstrap.generation],
         // Neutral CWD: a live process locks its working directory, and the

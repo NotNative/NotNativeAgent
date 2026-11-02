@@ -12,7 +12,7 @@ const messageFor = (code: string) => legacyCredentialsMessages[code] ?? code;
 const isNativeFailure = (value: unknown): value is { code: string } =>
   value instanceof Object && 'code' in value && typeof (value as { code?: unknown }).code === 'string';
 const toSentence = (value: unknown) => (isNativeFailure(value) ? messageFor(value.code)
-  : messageFor('nnd_legacy_credentials_unavailable'));
+  : messageFor('desktop_legacy_credentials_unavailable'));
 
 const reasonSentence = (reason: string | null) => reason === null
   ? null

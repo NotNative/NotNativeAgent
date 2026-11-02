@@ -19,7 +19,7 @@ const fixtureBase = process.env.NND_ACCEPTANCE_FIXTURE_ROOT ?? join(homedir(), '
 
 // Stage, then activate one prepared immutable slot; return its live roots.
 async function stageAndActivate(fixture, root, exported, tag = '') {
-  const manifest = await readFile(join(exported.root, 'NND_PAYLOAD.json'));
+  const manifest = await readFile(join(exported.root, 'DESKTOP_PAYLOAD.json'));
   const manifestSha256 = createHash('sha256').update(manifest).digest('hex').toLowerCase();
   const installer = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
     join(source, 'install.ps1')];
@@ -41,9 +41,9 @@ async function stageAndActivate(fixture, root, exported, tag = '') {
   assert.match(activation, /Prebuilt NND activated; public controller attached/u);
   assert.equal(Boolean(slotMatch), true, 'Installer did not expose the activated immutable slot');
   const packageRoot = await realpath(slotMatch[1]);
-  assert.match(packageRoot, /[\\/]runtime[\\/]nnd[\\/]/iu, 'Activation must use an immutable NNA slot');
+  assert.match(packageRoot, /[\\/]runtime[\\/]desktop[\\/]/iu, 'Activation must use an immutable NNA slot');
   assert.equal((await readFile(join(packageRoot, 'VERSION'), 'utf8')).trim(), exported.version);
-  assert.deepEqual(await readFile(join(packageRoot, 'NND_PAYLOAD.json')), manifest);
+  assert.deepEqual(await readFile(join(packageRoot, 'DESKTOP_PAYLOAD.json')), manifest);
   return { installer, common, packageRoot };
 }
 
@@ -53,13 +53,13 @@ async function upgradeCopy(root, exported, tag = 'upgrade', bump = 1) {
   const nextVersion = `${exported.version.slice(0, 8)}-${bump + Number(exported.version.slice(9))}`;
   const next = { root: join(root, `NND payload ${tag}`), version: nextVersion };
   await cp(exported.root, next.root, { recursive: true, errorOnEbusy: false });
-  await rm(join(next.root, 'NND_PAYLOAD.json'));
+  await rm(join(next.root, 'DESKTOP_PAYLOAD.json'));
   await writeFile(join(next.root, 'VERSION'), `${nextVersion}\n`);
   const info = JSON.parse(await readFile(join(next.root, 'package.json'), 'utf8'));
   info.version = nextVersion.replace('-', '.0.');
-  info.nnd_version = nextVersion;
+  info.desktop_version = nextVersion;
   await writeFile(join(next.root, 'package.json'), `${JSON.stringify(info)}\n`);
-  const manifestPath = join(next.root, 'nna-integration', 'nnd-local', 'integration.json');
+  const manifestPath = join(next.root, 'nna-integration', 'desktop-local', 'integration.json');
   const integration = JSON.parse(await readFile(manifestPath, 'utf8'));
   integration.version = nextVersion;
   await writeFile(manifestPath, `${JSON.stringify(integration)}\n`);
@@ -103,7 +103,7 @@ async function uninstall(fixture, root, anchor) {
   assert.equal('ENOENT', (await lstat(anchor).then(() => 'present', error => error.code)),
     'Default uninstall must remove only the launcher anchor');
   assert.equal((await selectedPackage(fixture)).registered, false, 'Default uninstall must deactivate NND');
-  assert.doesNotThrow(async () => await lstat(join(fixture.data, 'runtime', 'nnd', 'install-slots')),
+  assert.doesNotThrow(async () => await lstat(join(fixture.data, 'runtime', 'desktop', 'install-slots')),
     'Default uninstall must preserve immutable slots and provenance');
 }
 
@@ -114,14 +114,14 @@ async function exerciseUpgrade(fixture, root, anchor, exported, operatorWorkFile
   // The installer always addresses the stable launcher anchor, not a slot.
   fixture.nnd = anchor;
   const up = await stageAndActivate(fixture, root, upgraded, 'upgrade-');
-  const slotsRoot = join(fixture.data, 'runtime', 'nnd', 'install-slots');
+  const slotsRoot = join(fixture.data, 'runtime', 'desktop', 'install-slots');
   const consumed = await readdir(join(slotsRoot, 'consumed'));
   assert.equal(consumed.length, 1, 'exactly one consumed receipt pair must be archived');
   assert.match(await readFile(join(slotsRoot, 'activation-retirement-commit.json'), 'utf8'),
     /terminal_committed_barred/u, 'the upgrade must write its own terminal evidence');
   const binding = JSON.parse(await readFile(join(anchor, 'nnd-anchor.json'), 'utf8'));
   assert.equal(binding.version, upgraded.version, 'launcher anchor must rebind to the new slot');
-  assert.equal(binding.nnd_package_root.toLowerCase(), up.packageRoot.toLowerCase());
+  assert.equal(binding.desktop_package_root.toLowerCase(), up.packageRoot.toLowerCase());
   fixture.nnd = up.packageRoot;
   const upgradeStatus = await assertSelected(fixture, up.packageRoot, upgraded.version);
   await exerciseShells(fixture, root, upgradeStatus);
@@ -134,14 +134,14 @@ async function exerciseUpgrade(fixture, root, anchor, exported, operatorWorkFile
 async function exerciseRollback(fixture, root, anchor, exported, operatorWorkFile, operatorWork) {
   fixture.nnd = anchor;
   const back = await stageAndActivate(fixture, root, exported, 'rollback-');
-  const slotsRoot = join(fixture.data, 'runtime', 'nnd', 'install-slots');
+  const slotsRoot = join(fixture.data, 'runtime', 'desktop', 'install-slots');
   const consumed = await readdir(join(slotsRoot, 'consumed'));
   assert.equal(consumed.length, 2, 'the upgrade receipt must rotate before rollback commits');
   assert.match(await readFile(join(slotsRoot, 'activation-retirement-commit.json'), 'utf8'),
     /terminal_committed_barred/u, 'rollback writes its own terminal evidence');
   const binding = JSON.parse(await readFile(join(anchor, 'nnd-anchor.json'), 'utf8'));
   assert.equal(binding.version, exported.version, 'launcher anchor must return to the prior slot');
-  assert.equal(binding.nnd_package_root.toLowerCase(), back.packageRoot.toLowerCase());
+  assert.equal(binding.desktop_package_root.toLowerCase(), back.packageRoot.toLowerCase());
   fixture.nnd = back.packageRoot;
   const status = await assertSelected(fixture, back.packageRoot, exported.version);
   await exerciseShells(fixture, root, status);
@@ -159,11 +159,11 @@ async function exerciseCancellation(fixture, root, anchor, exported) {
   const payload = await upgradeCopy(root, exported, 'cancel', 2);
   const installer = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
     join(source, 'install.ps1')];
-  const manifest = await readFile(join(payload.root, 'NND_PAYLOAD.json'));
+  const manifest = await readFile(join(payload.root, 'DESKTOP_PAYLOAD.json'));
   const manifestSha256 = createHash('sha256').update(manifest).digest('hex').toLowerCase();
   const common = ['-PrebuiltPayloadRoot', `${payload.root}`, '-PrebuiltManifestSha256', manifestSha256,
     '-InstallDir', fixture.nnd, '-NnaInstallRoot', fixture.nna, '-ShortcutRoot', fixture.shortcuts];
-  const transactionsRoot = join(fixture.data, 'runtime', 'nnd', 'install-slots', 'transactions');
+  const transactionsRoot = join(fixture.data, 'runtime', 'desktop', 'install-slots', 'transactions');
   const before = new Set(await readdir(transactionsRoot).catch(() => []));
   const child = spawn('powershell.exe', [...installer, '-StagePrebuiltPayload', ...common],
     { cwd: root, env: fixture.env, windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'] });
@@ -237,9 +237,9 @@ async function exerciseMigration(fixture, root) {
     provider: { id: 'primary', endpoint: 'http://127.0.0.1:1/v1', model: 'test', trust_zone: 'loopback' } };
   await writeFile(join(fixture.data, 'config', 'manifest.json'), JSON.stringify(document));
   const { resolveManifest } = await module('config.js');
-  const { NND_CONFIGURATION_OPTIONS } = await module('nnd-setup-config.js');
+  const { DESKTOP_CONFIGURATION_OPTIONS } = await module('desktop-setup-config.js');
   const { JournalStore } = await module('store.js');
-  const config = resolveManifest(document, NND_CONFIGURATION_OPTIONS);
+  const config = resolveManifest(document, DESKTOP_CONFIGURATION_OPTIONS);
   const id = 'legacy.session';
   const journal = new JournalStore(sessions, id);
   await journal.open();
@@ -250,7 +250,7 @@ async function exerciseMigration(fixture, root) {
   const parent = { sessionId: id, subjectId: 'nnd-local-operator', workspaceIds: ['local'],
     title: 'Preserved', directory: workspace, createdAt: 1, updatedAt: 2,
     reviewMode: 'auto-review', reviewRevision: 7 };
-  const catalogPath = join(sessions, 'nnd-contexts.json');
+  const catalogPath = join(sessions, 'desktop-contexts.json');
   await writeFile(catalogPath, JSON.stringify([parent]));
   const child = { version: 1, sessionId: 'child_one', parentId: id, subjectId: parent.subjectId,
     workspaceIds: ['local'], parentCreatedAt: 1, createdAt: 2, updatedAt: 3,
@@ -259,7 +259,7 @@ async function exerciseMigration(fixture, root) {
   const childPath = join(`${catalogPath}.children`, `${Buffer.from(child.sessionId).toString('hex')}.json`);
   await writeFile(childPath, JSON.stringify(child));
   const result = JSON.parse(await run(process.execPath,
-    [fixture.cli, 'nnd', 'service', 'migrate', fixture.nna],
+    [fixture.cli, 'desktop', 'service', 'migrate', fixture.nna],
     { cwd: root, env: fixture.env, timeout: 120000,
       outputFiles: { stdout: join(root, 'migration-stdout.log'), stderr: join(root, 'migration-stderr.log') } }));
   assert.equal(result.migrated, true);
@@ -270,7 +270,7 @@ async function exerciseMigration(fixture, root) {
   const rewrittenChild = JSON.parse(await readFile(childPath));
   assert.match(rewrittenChild.workspaceIds[0], /^ws_[a-f0-9]{24}$/u);
   assert.deepEqual(await readFile(journal.path), journalBytes, 'journals are never rewritten');
-  const backup = join(fixture.data, 'runtime', 'nnd', 'migrations', result.transaction_id, '0.before');
+  const backup = join(fixture.data, 'runtime', 'desktop', 'migrations', result.transaction_id, '0.before');
   assert.deepEqual(await readFile(backup), Buffer.from(JSON.stringify([parent])), 'original catalog is archived before rewrite');
   // The legacy provider config pointed at a dead endpoint; the activation
   // trial would keep failing health for that unrelated reason. The migrated

@@ -52,7 +52,7 @@ async function runJourney(fixture, provider) {
   // never needs a live origin at load time to observe the offline state.
   const stoppedTicket = (await cli(fixture, 'ui-ticket')).ticket;
   const stopCommand = 'Start-Sleep -Seconds 25; & ' + quote(process.execPath) + ' '
-    + quote(fixture.cli) + ' nnd service stop ' + quote(fixture.nna);
+    + quote(fixture.cli) + ' desktop service stop ' + quote(fixture.nna);
   const delayedStop = run(powershell, ['-NoProfile', '-NonInteractive', '-Command', stopCommand],
     { cwd: fixture.root, env: fixture.env, timeout: 180000 });
   const stopped = await shell(fixture, 'browser', status.endpoint, stoppedTicket, [],

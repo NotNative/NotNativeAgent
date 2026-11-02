@@ -62,8 +62,8 @@ describe('native hooks roster', () => {
       .toThrow(NativeHooksFailure);
   });
   it('maps forwarded codes to honest sentences', () => {
-    expect(hooksErrorText('nnd_configuration_unavailable')).toContain('unavailable on this NNA');
-    expect(hooksErrorText('nnd_hooks_unavailable')).toContain('unavailable');
+    expect(hooksErrorText('desktop_configuration_unavailable')).toContain('unavailable on this NNA');
+    expect(hooksErrorText('desktop_hooks_unavailable')).toContain('unavailable');
     expect(hooksErrorText('anything_else')).toContain('could not be read');
   });
 });

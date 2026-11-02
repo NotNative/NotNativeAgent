@@ -19,7 +19,7 @@ import type { GoalSafetyPorts, GoalSafetyTickResult } from './nna-goal-safety-ti
 
 const AUDIT_ID_LIMIT = 200;
 /** NNA answers 4xx/409-class conflicts per error code, not status alone. */
-const GOAL_AUDIT_RACE_CODES = new Set(['nnd_goal_audit_conflict', 'nnd_goal_audit_busy']);
+const GOAL_AUDIT_RACE_CODES = new Set(['desktop_goal_audit_conflict', 'desktop_goal_audit_busy']);
 /** Accounting-only fields a later tick may legitimately advance. */
 const ACCOUNTING_FIELDS = new Set<keyof GoalPayload>([
   'tokensUsed', 'tokensBaseline', 'tokensCommitted', 'lastAccountedMessageID', 'updatedAt',

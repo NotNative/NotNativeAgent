@@ -6,7 +6,7 @@ function Get-NndRegistrationStatus($SelectedNna, [switch]$AllowInvalidForRepair)
     $previousPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $statusOutput = @(& $SelectedNna.Node $SelectedNna.Cli 'nnd' 'package' 'status')
+        $statusOutput = @(& $SelectedNna.Node $SelectedNna.Cli 'desktop' 'package' 'status')
         if ($LASTEXITCODE -ne 0) { throw 'NNA rejected NND package status.' }
         $text = $statusOutput -join [Environment]::NewLine
         if ($text.Length -gt 32768) { throw 'NND package status exceeded its response bound.' }
@@ -23,7 +23,7 @@ function Get-NndRegistrationStatus($SelectedNna, [switch]$AllowInvalidForRepair)
             $status.root -is [string] -and $status.root.Length -gt 0 -and
             $status.version -is [string] -and
             $status.version -cmatch '^\d{8}-[1-9]\d{0,5}$' -and
-            $status.reason -cin @('nnd_package_incomplete', 'nnd_package_manifest_invalid', 'nnd_package_root_invalid')
+            $status.reason -cin @('desktop_package_incomplete', 'desktop_package_manifest_invalid', 'desktop_package_root_invalid')
         if (!$isInactive -and !$isActive -and !$isRepairable) { throw 'NNA returned an invalid NND package status.' }
         return $status
     } catch {

@@ -29,7 +29,7 @@ export const SECRET_SCOPE_KINDS = ['deployment', 'workspace', 'group', 'role', '
 const REALM = 'nna.local';
 
 export class NativeSecretActionFailure extends Error { constructor(readonly code: string) { super(code); } }
-const viewInvalid = () => new NativeSecretActionFailure('nnd_secret_action_view_invalid');
+const viewInvalid = () => new NativeSecretActionFailure('desktop_secret_action_view_invalid');
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -96,7 +96,7 @@ export function parsePublicSecret(row: unknown, index: number): PublicSecret {
     'realm', 'rotatedAt', 'scope', 'updatedAt', 'useCount'];
   if (!record(row) || Object.keys(row).length !== labels.length
     || labels.some(key => !(key in row))) {
-    throw new NativeSecretActionFailure(index === 0 ? 'secret_broker_unavailable' : 'nnd_secret_action_view_invalid');
+    throw new NativeSecretActionFailure(index === 0 ? 'secret_broker_unavailable' : 'desktop_secret_action_view_invalid');
   }
   if (typeof row.id !== 'string' || !SECRET_ID.test(row.id)
     || row.realm !== REALM
@@ -154,7 +154,7 @@ export function parseAuditEvent(row: unknown, index: number): SecretAuditEvent {
     || row.realm !== REALM
     || typeof row.secretId !== 'string' || !SECRET_ID.test(row.secretId)
     || (row.scope !== null && !scopeShape(row.scope))) {
-    throw new NativeSecretActionFailure(index === 0 ? 'secret_audit_unavailable' : 'nnd_secret_action_view_invalid');
+    throw new NativeSecretActionFailure(index === 0 ? 'secret_audit_unavailable' : 'desktop_secret_action_view_invalid');
   }
   for (const key of ['consumer', 'destination', 'purpose', 'sessionId', 'reviewerDecisionId', 'reason']) {
     if (row[key] !== null && (typeof row[key] !== 'string' || row[key].length > 2_048
@@ -201,7 +201,7 @@ export function secretActionErrorText(code: string): string {
     return 'The secret draft was refused natively; correct the draft and try again.';
   }
   if (code === 'secret_broker_unavailable' || code === 'secret_audit_unavailable'
-    || code === 'nnd_secret_action_unavailable') return 'The native secret broker is unavailable.';
-  if (code === 'nnd_secret_action_view_invalid') return 'The refused projection failed its sentence check instead.';
+    || code === 'desktop_secret_action_unavailable') return 'The native secret broker is unavailable.';
+  if (code === 'desktop_secret_action_view_invalid') return 'The refused projection failed its sentence check instead.';
   return 'The secret action could not be completed natively.';
 }

@@ -40,12 +40,12 @@ function readTail(path, limit) {
 function fail(code) { const error = new Error(code); error.code = code; throw error; }
 function cleanEnvironment(dataRoot) {
   return { ...Object.fromEntries(Object.entries(process.env).filter(([name]) =>
-    !/^(NODE_OPTIONS$|NODE_PATH$|ELECTRON_RUN_AS_NODE$|NNA_HOME$|NNA_INTEGRATION_TOKEN$|NNA_PRINCIPAL$|NNA_HARNESS_URL$|NNA_NND_.*|NND_.*)$/u.test(name))),
+    !/^(NODE_OPTIONS$|NODE_PATH$|ELECTRON_RUN_AS_NODE$|NNA_HOME$|NNA_INTEGRATION_TOKEN$|NNA_PRINCIPAL$|NNA_HARNESS_URL$|NNA_DESKTOP_.*|NND_.*)$/u.test(name))),
     NNA_HOME: dataRoot };
 }
 async function packageStatus(runtime, timeout = 30000) {
   try {
-    const { stdout } = await execute(runtime.node, [runtime.cli, 'nnd', 'package', 'status'], {
+    const { stdout } = await execute(runtime.node, [runtime.cli, 'desktop', 'package', 'status'], {
       cwd: runtime.root, env: cleanEnvironment(runtime.dataRoot), windowsHide: true,
       shell: false, timeout, maxBuffer: 16384,
     });
@@ -108,7 +108,7 @@ function startRetainedNna(runtime, stageOperationId, operationId) {
   mkdirSync(logRoot, { recursive: true });
   const outHandle = openSync(join(logRoot, `${operationId}.out.log`), 'a');
   const errorHandle = openSync(join(logRoot, `${operationId}.err.log`), 'a');
-  const child = spawn(runtime.node, [runtime.cli, 'nnd', 'service', 'activate-slot',
+  const child = spawn(runtime.node, [runtime.cli, 'desktop', 'service', 'activate-slot',
     runtime.root, stageOperationId, operationId], {
     cwd: runtime.root, detached: true, windowsHide: true,
     stdio: ['ignore', outHandle, errorHandle], env: cleanEnvironment(runtime.dataRoot),
@@ -154,7 +154,7 @@ const TERMINAL_KEYS = ['child_process_identity', 'completion_sha256', 'data_id',
   'protocol', 'registration_revision', 'stage_operation_id', 'state'];
 const CLEARED_KEYS = [...TERMINAL_KEYS, 'terminal_sha256'].sort();
 function verifyRetirementReceipts(runtime, { operationId, stageOperationId, generation }) {
-  const root = join(runtime.dataRoot, 'runtime', 'nnd', 'install-slots');
+  const root = join(runtime.dataRoot, 'runtime', 'desktop', 'install-slots');
   const commitBytes = readBoundedFile(join(root, 'activation-retirement-commit.json'), 4096);
   const clearedBytes = readBoundedFile(join(root, 'activation-retirement-cleared.json'), 4096);
   const parse = bytes => {
@@ -190,7 +190,7 @@ function verifyRetirementReceipts(runtime, { operationId, stageOperationId, gene
 }
 
 function verifyActiveRegistration(runtime, commit) {
-  const recordBytes = readBoundedFile(join(runtime.dataRoot, 'config', 'nnd-package.json'), 16384);
+  const recordBytes = readBoundedFile(join(runtime.dataRoot, 'config', 'desktop-package.json'), 16384);
   let record;
   try { record = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(recordBytes)); }
   catch { fail('native_activation_registration_mismatch'); }

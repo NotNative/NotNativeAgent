@@ -3,7 +3,7 @@
  * triage surfaces the -20 slice added over
  * /api/v1/nnd/configuration/gateway/status + /actions/test and
  * /api/v1/nnd/configuration/web-search/actions/managed-status, plus the
- * honest CLI-only refusal grammar (nnd_action_cli_only 200 verdicts) pinned
+ * honest CLI-only refusal grammar (desktop_action_cli_only 200 verdicts) pinned
  * by the gateway_action/web_search_action census families.
  */
 import { runtimeFetch } from '../runtime-fetch.ts';
@@ -48,7 +48,7 @@ export class NativeActionTriageFailure extends Error {
   constructor(code: string) { super(code); this.name = 'NativeActionTriageFailure'; this.code = code; }
 }
 
-const viewInvalid = () => new NativeActionTriageFailure('nnd_action_triage_projection_invalid');
+const viewInvalid = () => new NativeActionTriageFailure('desktop_action_triage_projection_invalid');
 const GATEWAY_STATUS_KEYS = 'action,application,config,data_id,family,'
   + 'installation_id,runtime,schema_version,scope';
 const GATEWAY_STATUS_CONFIG_KEYS = 'authorized_user_ids,configured,enabled,'
@@ -142,8 +142,8 @@ export function parseNativeSearxngStatus(raw: unknown): SearxngStatusReceipt {
 
 /** Honest sentence map; unmatched codes fall back to the code. */
 export const actionTriageMessages: Record<string, string> = {
-  nnd_action_triage_projection_invalid: 'The gateway or SearXNG view drifted from its verified grammar.',
-  nnd_configuration_unavailable: 'This runtime does not serve the gateway or SearXNG action views.',
+  desktop_action_triage_projection_invalid: 'The gateway or SearXNG view drifted from its verified grammar.',
+  desktop_configuration_unavailable: 'This runtime does not serve the gateway or SearXNG action views.',
   integration_permission_denied: 'This account lacks the read right for the gateway or SearXNG action views.',
 };
 
@@ -153,10 +153,10 @@ async function nativeRead(url: string, signal: AbortSignal,
     method: post ? 'POST' : 'GET',
     ...(post ? { headers: { 'content-type': 'application/json' }, body: '{}' } : {}),
     signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]) });
-  if (response.status === 404) throw new NativeActionTriageFailure('nnd_action_triage_unavailable');
+  if (response.status === 404) throw new NativeActionTriageFailure('desktop_action_triage_unavailable');
   if (response.status !== 200) {
     const raw = await response.arrayBuffer();
-    let code = 'nnd_action_triage_unavailable';
+    let code = 'desktop_action_triage_unavailable';
     try {
       const parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw)) as
         { error?: { code?: unknown } };
@@ -189,7 +189,7 @@ export function refusalSentence(receipt: TriageRefusalReceipt): string {
   if (receipt.reason === 'gateway_test_unreachable') {
     return 'The Telegram API probe failed; check connectivity or the token.';
   }
-  if (receipt.reason === 'nnd_action_cli_only') {
+  if (receipt.reason === 'desktop_action_cli_only') {
     return receipt.hint;
   }
   return receipt.reason;

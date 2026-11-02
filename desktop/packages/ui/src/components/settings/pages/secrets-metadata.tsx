@@ -9,7 +9,7 @@ import { authorityState, subscribeAuthority } from '../../../sync/authority-sync
 import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 
 const BUTTON = 'rounded border border-border px-2 py-1 text-xs disabled:opacity-50';
-const safeError = (error: unknown) => error instanceof NativeSecretsFailure ? error.code : 'nnd_secrets_unavailable';
+const safeError = (error: unknown) => error instanceof NativeSecretsFailure ? error.code : 'desktop_secrets_unavailable';
 
 export function SecretsMetadataSettings(): ReactNode {
   const auth = useAuthSessionStore(state => state.status);

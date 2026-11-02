@@ -25,7 +25,7 @@ export interface NativeMcpReceipt { installation_id: string; data_id: string; sc
   application: 'not_applied'; replayed: boolean }
 export class NativeMcpFailure extends Error { constructor(readonly code: string) { super(code); } }
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
-const fail = () => new NativeMcpFailure('nnd_mcp_view_invalid');
+const fail = () => new NativeMcpFailure('desktop_mcp_view_invalid');
 
 function parseServer(value: unknown): NativeMcpServer {
   if (!record(value) || typeof value.id !== 'string' || !ID.test(value.id)
@@ -80,7 +80,7 @@ async function boundedJson(response: Response): Promise<unknown> {
 }
 async function call(path: string, method: 'GET' | 'POST', signal: AbortSignal, body?: unknown): Promise<unknown> {
   const encoded = body === undefined ? undefined : JSON.stringify(body);
-  if (encoded && new TextEncoder().encode(encoded).byteLength > 65536) throw new NativeMcpFailure('nnd_mcp_request_invalid');
+  if (encoded && new TextEncoder().encode(encoded).byteLength > 65536) throw new NativeMcpFailure('desktop_mcp_request_invalid');
   const response = await runtimeFetch(BASE + path, { method, signal: AbortSignal.any([signal, AbortSignal.timeout(25000)]),
     ...(encoded === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: encoded }) });
   const payload = await boundedJson(response);
@@ -88,7 +88,7 @@ async function call(path: string, method: 'GET' | 'POST', signal: AbortSignal, b
     const error = record(payload) && record(payload.error) ? payload.error : null;
     const code = error && typeof error.code === 'string' && /^[a-z][a-z0-9_]{0,63}$/u.test(error.code)
       ? error.code : record(payload) && payload.error === 'operation_not_found' ? 'operation_not_found'
-        : response.status === 404 ? 'nnd_mcp_unsupported' : 'nnd_mcp_unavailable';
+        : response.status === 404 ? 'desktop_mcp_unsupported' : 'desktop_mcp_unavailable';
     throw new NativeMcpFailure(code);
   }
   return payload;
@@ -97,7 +97,7 @@ export async function readNativeMcp(signal: AbortSignal): Promise<NativeMcpView>
   return parseNativeMcpView(await call('', 'GET', signal));
 }
 export function nativeMcpRequest(view: NativeMcpView, change: NativeMcpChange): NativeMcpRequest {
-  if (view.project_shadowed || !ID.test(change.id)) throw new NativeMcpFailure('nnd_mcp_request_invalid');
+  if (view.project_shadowed || !ID.test(change.id)) throw new NativeMcpFailure('desktop_mcp_request_invalid');
   return { installation_id: view.installation_id, data_id: view.data_id, scope: 'user',
     expected_revision: view.source_revision, expected_resolution_revision: view.resolution_revision, change };
 }
@@ -111,13 +111,13 @@ export async function previewNativeMcp(request: NativeMcpRequest, signal: AbortS
   return view;
 }
 export async function saveNativeMcp(request: NativeMcpRequest, operationId: string, signal: AbortSignal): Promise<NativeMcpReceipt> {
-  if (authorityState() !== 'ready' || !ID.test(operationId)) throw new NativeMcpFailure('nnd_mcp_unavailable');
+  if (authorityState() !== 'ready' || !ID.test(operationId)) throw new NativeMcpFailure('desktop_mcp_unavailable');
   return parseReceipt(await call('/save', 'POST', signal, { ...request, operation_id: operationId }), request,
     operationId, request.expected_revision);
 }
 export async function inspectNativeMcpOperation(identity: { installation_id: string; data_id: string }, operationId: string,
   signal: AbortSignal): Promise<NativeMcpReceipt | null> {
-  if (!ID.test(operationId)) throw new NativeMcpFailure('nnd_mcp_request_invalid');
+  if (!ID.test(operationId)) throw new NativeMcpFailure('desktop_mcp_request_invalid');
   try { return parseReceipt(await call(`/operations/${operationId}`, 'GET', signal), identity, operationId); }
   catch (error) { if (error instanceof NativeMcpFailure && error.code === 'operation_not_found') return null; throw error; }
 }

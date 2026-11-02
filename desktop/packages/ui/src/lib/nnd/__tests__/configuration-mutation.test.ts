@@ -44,8 +44,8 @@ it('admits only complete catalog-advertised reviewer/vision binding pairs and se
   const request = nativeRouteBindingChange(view, parsed, 'reviewer', 'local', 'review-model');
   expect(request.operations).toEqual([{ op: 'bind_route', role: 'reviewer', provider_id: 'local', model: 'review-model' }]);
   expect(request.expected_revision).toBe(digest);
-  expect(() => nativeRouteBindingChange(view, parsed, 'vision', 'local', 'model')).toThrow('nnd_configuration_request_invalid');
-  expect(() => nativeRouteBindingChange(view, parsed, 'reviewer', '__proto__', 'model')).toThrow('nnd_configuration_request_invalid');
+  expect(() => nativeRouteBindingChange(view, parsed, 'vision', 'local', 'model')).toThrow('desktop_configuration_request_invalid');
+  expect(() => nativeRouteBindingChange(view, parsed, 'reviewer', '__proto__', 'model')).toThrow('desktop_configuration_request_invalid');
   vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify({ ...catalog,
     fields: [...catalog.fields, pair('reviewer', 'provider_id')] })));
   expect((await requestNativeConfigurationCatalog(signal)).routeBindings).toEqual([]);
@@ -89,8 +89,8 @@ it('constructs bounded typed attachment intents without elevating authority', ()
   expect(nativeChange(view, maximum, 'reset', '').operations).toEqual([
     { op: 'reset', field: 'attachments.max_bytes' },
   ]);
-  expect(() => nativeChange(view, maximum, 'set', '2048.5')).toThrow('nnd_configuration_request_invalid');
-  expect(() => nativeChange(view, enabled, 'set', '"false"')).toThrow('nnd_configuration_request_invalid');
+  expect(() => nativeChange(view, maximum, 'set', '2048.5')).toThrow('desktop_configuration_request_invalid');
+  expect(() => nativeChange(view, enabled, 'set', '"false"')).toThrow('desktop_configuration_request_invalid');
 });
 it('constructs integer memory limit and reset intents for the native preview contract', () => {
   const limit = { ...field, path: 'memory.timeout_ms', type: 'integer' as const };
@@ -100,7 +100,7 @@ it('constructs integer memory limit and reset intents for the native preview con
   expect(nativeChange(view, limit, 'reset', '1000').operations).toEqual([
     { op: 'reset', field: 'memory.timeout_ms' },
   ]);
-  expect(() => nativeChange(view, limit, 'set', '1000.5')).toThrow('nnd_configuration_request_invalid');
+  expect(() => nativeChange(view, limit, 'set', '1000.5')).toThrow('desktop_configuration_request_invalid');
 });
 it('admits coupled memory controls only when both fields carry the native capability marker', async () => {
   const memoryCatalog = { ...catalog, fields: [
@@ -119,7 +119,7 @@ it('admits coupled memory controls only when both fields carry the native capabi
     { op: 'reset', field: 'memory.required' },
   ]);
   expect(() => nativeChange(view, { ...field, path: 'memory.enabled' }, 'set', 'false'))
-    .toThrow('nnd_configuration_request_invalid');
+    .toThrow('desktop_configuration_request_invalid');
   vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify({ ...memoryCatalog,
     fields: memoryCatalog.fields.map(item => item.path === 'memory.required'
       ? { ...item, editability: { ...item.editability, coupled_fields: undefined } } : item) })));
@@ -140,20 +140,20 @@ it('requires native preview to show both coupled memory effects before saving', 
       fields: previewView.fields.map(item => item.path === 'memory.required'
         ? { ...item, effective: { present: true, value: true, source: 'user' } } : item) } })));
   expect((await previewNativeConfiguration(request, signal)).view.fields).toHaveLength(2);
-  await expect(previewNativeConfiguration(request, signal)).rejects.toThrow('nnd_configuration_view_invalid');
+  await expect(previewNativeConfiguration(request, signal)).rejects.toThrow('desktop_configuration_view_invalid');
 });
 it('preserves the operation id for uncertain outcomes and rejects a foreign receipt', async () => {
   vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify({ error: 'operation_not_found' }), { status: 404 }))
     .mockResolvedValueOnce(new Response(JSON.stringify({ ...receipt, data_id: 'foreign' })));
   expect(await lookupNativeConfigurationOperation(view, 'operation_1', signal)).toBeNull();
-  await expect(lookupNativeConfigurationOperation(view, 'operation_1', signal)).rejects.toThrow('nnd_configuration_view_invalid');
+  await expect(lookupNativeConfigurationOperation(view, 'operation_1', signal)).rejects.toThrow('desktop_configuration_view_invalid');
 });
 it('rejects a save receipt for a different CAS base or an impossible saved revision', async () => {
   const request = nativeChange(view, field, 'set', 'false');
   vi.mocked(runtimeFetch).mockResolvedValueOnce(new Response(JSON.stringify({ ...receipt, before_revision: 'd'.repeat(64) })))
     .mockResolvedValueOnce(new Response(JSON.stringify({ ...receipt, persisted_revision: null })));
-  await expect(saveNativeConfiguration(request, 'operation_1', signal)).rejects.toThrow('nnd_configuration_view_invalid');
-  await expect(saveNativeConfiguration(request, 'operation_1', signal)).rejects.toThrow('nnd_configuration_view_invalid');
+  await expect(saveNativeConfiguration(request, 'operation_1', signal)).rejects.toThrow('desktop_configuration_view_invalid');
+  await expect(saveNativeConfiguration(request, 'operation_1', signal)).rejects.toThrow('desktop_configuration_view_invalid');
 });
 it('repair input refuses credentials, authority and unknown source keys before HTTP', () => {
   expect(nativeRepairDocument({ workspace_root: 'C:/work', provider: { id: 'local', endpoint: 'http://127.0.0.1:9',

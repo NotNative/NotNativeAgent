@@ -22,8 +22,8 @@ export const MCP_CREDENTIALS_REQUEST_BOUNDS = 24_576;
 export const MCP_CREDENTIALS_RESPONSE_BOUNDS = 65_536;
 
 export class NativeMcpCredentialsFailure extends Error { constructor(readonly code: string) { super(code); } }
-const viewInvalid = () => new NativeMcpCredentialsFailure('nnd_mcp_credentials_view_invalid');
-const requestInvalid = () => new NativeMcpCredentialsFailure('nnd_mcp_credentials_request_invalid');
+const viewInvalid = () => new NativeMcpCredentialsFailure('desktop_mcp_credentials_view_invalid');
+const requestInvalid = () => new NativeMcpCredentialsFailure('desktop_mcp_credentials_request_invalid');
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -111,7 +111,7 @@ async function call(path: string, method: 'GET' | 'POST', signal: AbortSignal, b
   if (!response.ok) {
     const error = record(payload) && record(payload.error) ? payload.error : null;
     const code = typeof error?.code === 'string' ? error.code
-      : response.status === 404 ? 'nnd_mcp_credentials_unsupported' : 'nnd_mcp_credentials_unavailable';
+      : response.status === 404 ? 'desktop_mcp_credentials_unsupported' : 'desktop_mcp_credentials_unavailable';
     throw new NativeMcpCredentialsFailure(code);
   }
   return payload;

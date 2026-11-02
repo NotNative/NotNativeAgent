@@ -19,7 +19,7 @@ async function fixture(t) {
   const base = await mkdtemp(join(tmpdir(), 'nnd-payload-')), root = join(base, 'source'), destination = join(base, 'payload');
   t.after(() => rm(base, { recursive: true, force: true })); await mkdir(root);
   const put = async (path, content) => { const file = join(root, path); await mkdir(dirname(file), { recursive: true }); await writeFile(file, content); };
-  await put('package.json', JSON.stringify({ name: 'notnative-desktop', nnd_version: version, version: version.replace('-', '.0.'), type: 'module' }));
+  await put('package.json', JSON.stringify({ name: 'notnative-desktop', desktop_version: version, version: version.replace('-', '.0.'), type: 'module' }));
   await put('VERSION', version); await put('packages/web/dist/index.html', '<html>built</html>');
   await put('packages/electron/package.json', '{"type":"module"}');
   for (const name of ['main.mjs', 'preload.mjs', 'fixture.test.mjs']) await put(`packages/electron/${name}`, 'export const fixture = true;');
@@ -39,7 +39,8 @@ async function fixture(t) {
     'chrome_100_percent.pak', 'chrome_200_percent.pak', 'd3dcompiler_47.dll', 'dxcompiler.dll', 'dxil.dll', 'ffmpeg.dll',
     'vk_swiftshader.dll', 'vk_swiftshader_icd.json', 'vulkan-1.dll', 'LICENSE', 'LICENSES.chromium.html']) await put(`${runtime}/dist/${name}`, 'fixture');
   for (const name of ['electron-build-stamp.mjs', 'serve-installed.mjs', 'serve-supervised.mjs', 'supervised-protocol.mjs',
-    'installed-service-package.mjs', 'nnd-manifest-extensions.js', 'nnd-service-contract.js', 'nnd-contract-error.js']) {
+    'installed-service-package.mjs', 'desktop-manifest-extensions.js', 'desktop-service-contract.js',
+    'desktop-request-grammar.js', 'desktop-contract-error.js']) {
     await put(`scripts/${name}`, await readFile(new URL(name, import.meta.url)));
   }
   const stamp = () => execute(process.execPath, [join(root, 'scripts/electron-build-stamp.mjs'), 'write'], { windowsHide: true, timeout: 10000 });
@@ -59,7 +60,7 @@ test('payload paths and manifest counts enforce portable Windows namespace and b
 
 test('fresh fixture export contains plain runtime files and deterministic complete hashes', windows, async (t) => {
   const f = await fixture(t), result = await exportPrebuiltPayload(f.destination, { sourceRoot: f.root });
-  const bytes = await readFile(join(f.destination, 'NND_PAYLOAD.json')), manifest = JSON.parse(bytes);
+  const bytes = await readFile(join(f.destination, 'DESKTOP_PAYLOAD.json')), manifest = JSON.parse(bytes);
   assert.equal(result.sha256, createHash('sha256').update(bytes).digest('hex'));
   assert.deepEqual(Object.keys(manifest), ['schema_version', 'version', 'platform', 'architecture', 'files']);
   assert.equal(manifest.files.some((entry) => entry.path.endsWith('.test.mjs')), false);
@@ -72,7 +73,7 @@ test('fresh fixture export contains plain runtime files and deterministic comple
     assert.equal(info.size, entry.bytes); assert.deepEqual(await transferFile(path), { bytes: entry.bytes, sha256: entry.sha256 });
   }
   const second = join(f.base, 'second'); await exportPrebuiltPayload(second, { sourceRoot: f.root });
-  assert.deepEqual(await readFile(join(second, 'NND_PAYLOAD.json')), bytes);
+  assert.deepEqual(await readFile(join(second, 'DESKTOP_PAYLOAD.json')), bytes);
 });
 
 test('stale or unknown build identity refuses before creating destination', windows, async (t) => {
@@ -169,8 +170,8 @@ test('prebuilt fixture copy preserves every sealed file and admits no injected s
   const clone = join(f.base, 'copied'); await mkdir(clone);
   const original = await verifyPrebuiltPayload(f.destination), copied = await copyPrebuiltPayload(f.destination, clone);
   assert.equal(copied.sha256, original.sha256);
-  assert.deepEqual(await readFile(join(clone, 'nna-integration/nnd-local/integration.json')),
-    await readFile(join(f.destination, 'nna-integration/nnd-local/integration.json')));
+  assert.deepEqual(await readFile(join(clone, 'nna-integration/desktop-local/integration.json')),
+    await readFile(join(f.destination, 'nna-integration/desktop-local/integration.json')));
   await assert.rejects(lstat(join(clone, 'nna-service-selection.json')), { code: 'ENOENT' });
   await assert.rejects(lstat(join(clone, 'electron-smoke.mjs')), { code: 'ENOENT' });
   await writeFile(join(clone, 'packages/electron/main.mjs'), 'mutated');
@@ -179,7 +180,7 @@ test('prebuilt fixture copy preserves every sealed file and admits no injected s
 
 test('prebuilt verification rejects malformed identity, unknown files and altered manifest entries', windows, async (t) => {
   const f = await fixture(t); await exportPrebuiltPayload(f.destination, { sourceRoot: f.root });
-  const path = join(f.destination, 'NND_PAYLOAD.json'), bytes = await readFile(path), manifest = JSON.parse(bytes);
+  const path = join(f.destination, 'DESKTOP_PAYLOAD.json'), bytes = await readFile(path), manifest = JSON.parse(bytes);
   for (const changed of [{ ...manifest, architecture: 'arm64' }, { ...manifest, platform: 'linux' },
     { ...manifest, version: '20260101-2' }, { ...manifest, files: [...manifest.files].reverse() },
     { ...manifest, files: [{ ...manifest.files[0], path: '../escape' }, ...manifest.files.slice(1)] }]) {

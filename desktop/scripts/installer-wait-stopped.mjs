@@ -15,20 +15,20 @@ export async function waitForSelectedNndStop(installRoot, dataRoot, timeoutMs = 
   const nativeRoot = await realpath(installRoot);
   const selectedData = await realpath(dataRoot);
   const nativeModule = name => import(pathToFileURL(join(nativeRoot, 'installed', 'src', name)).href);
-  const [{ readNndServiceIdentity }, { readNndServiceDiscovery }, { acquireNndServiceLock }] =
-    await Promise.all([nativeModule('nnd-service-identity.js'), nativeModule('nnd-service-discovery.js'),
-      nativeModule('nnd-service-lock.js')]);
-  const identity = await readNndServiceIdentity(nativeRoot);
+  const [{ readDesktopServiceIdentity }, { readDesktopServiceDiscovery }, { acquireDesktopServiceLock }] =
+    await Promise.all([nativeModule('desktop-service-identity.js'), nativeModule('desktop-service-discovery.js'),
+      nativeModule('desktop-service-lock.js')]);
+  const identity = await readDesktopServiceIdentity(nativeRoot);
   if (!same(resolve(identity.data_root), selectedData)) throw new Error('selected_service_identity_changed');
   const deadline = Date.now() + timeoutMs;
   do {
-    if (await readNndServiceDiscovery(identity) === null) {
+    if (await readDesktopServiceDiscovery(identity) === null) {
       try {
-        const lease = await acquireNndServiceLock({ dataRoot: identity.data_root });
+        const lease = await acquireDesktopServiceLock({ dataRoot: identity.data_root });
         await lease.close();
         return { stopped: true, installation_id: identity.installation_id, data_id: identity.data_id };
       } catch (error) {
-        if (error.code !== 'nnd_service_already_running') throw error;
+        if (error.code !== 'desktop_service_already_running') throw error;
       }
     }
     await delay(200);

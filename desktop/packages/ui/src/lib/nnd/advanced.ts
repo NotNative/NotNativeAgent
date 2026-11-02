@@ -48,7 +48,7 @@ export class NativeMcpAdvancedFailure extends Error {
   readonly code: string;
   constructor(code: string) { super(code); this.name = 'NativeMcpAdvancedFailure'; this.code = code; }
 }
-const viewInvalid = () => new NativeMcpAdvancedFailure('nnd_mcp_advanced_projection_invalid');
+const viewInvalid = () => new NativeMcpAdvancedFailure('desktop_mcp_advanced_projection_invalid');
 const PRESENCE_KEYS = 'application,data_id,installation_id,project_shadowed,'
   + 'resolution_revision,schema_version,scope,servers,source_revision,source_state';
 const PRESENCE_ROW_KEYS = 'has_args,has_command,has_credential,has_credential_target,'
@@ -143,7 +143,7 @@ async function advancedFetch(inner: boolean, signal: AbortSignal): Promise<unkno
     signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]) });
   if (response.status !== 200) {
     const raw = await response.arrayBuffer();
-    let code = inner ? 'nnd_mcp_advanced_inner_denied' : 'nnd_mcp_advanced_unavailable';
+    let code = inner ? 'desktop_mcp_advanced_inner_denied' : 'desktop_mcp_advanced_unavailable';
     try {
       const parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw)) as
         { error?: { code?: unknown } };
@@ -168,9 +168,9 @@ export async function readMcpInner(signal: AbortSignal): Promise<McpInner> {
 
 /** Honest sentence map; unmatched codes fall back to the code. */
 export const mcpAdvancedMessages: Record<string, string> = {
-  nnd_mcp_advanced_projection_invalid: 'The MCP server details drifted from their verified grammar.',
-  nnd_mcp_advanced_unavailable: 'The MCP server details are unreachable right now.',
-  nnd_mcp_advanced_inner_denied: 'This account lacks the manage right for the MCP reference details.',
-  nnd_configuration_unavailable: 'This runtime does not serve the MCP server details.',
+  desktop_mcp_advanced_projection_invalid: 'The MCP server details drifted from their verified grammar.',
+  desktop_mcp_advanced_unavailable: 'The MCP server details are unreachable right now.',
+  desktop_mcp_advanced_inner_denied: 'This account lacks the manage right for the MCP reference details.',
+  desktop_configuration_unavailable: 'This runtime does not serve the MCP server details.',
   integration_permission_denied: 'This account lacks the read right for the MCP server details.',
 };
