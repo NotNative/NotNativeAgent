@@ -212,7 +212,7 @@ function SettingsDialog({
   useEffect(() => { if (content.current) content.current.scrollTop = 0; }, [page]);
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-[var(--oc-glass-blur)]"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-popover/40 backdrop-blur-[var(--oc-glass-blur)]"
       role="dialog"
       aria-label={t('settings.window.title')}
       onClick={(event) => {
@@ -308,7 +308,7 @@ function SearchResultsPanel({
               onClick={() => onJump(result)}
             >
               <span className="text-xs text-foreground">{result.title}</span>
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{t(PAGE_TITLE_KEYS[result.page])}</span>
+              <span className="text-[length:var(--type-micro)] uppercase tracking-wide text-muted-foreground">{t(PAGE_TITLE_KEYS[result.page])}</span>
             </button>
           ))}
         </div>
@@ -349,7 +349,7 @@ function SettingsNav({ page, onNavigate, nativeAlpha }: { page: SettingsPageSlug
       {groups.filter((group) => SETTINGS_PAGE_ORDER.some((entry) => entry.group === group
         && (!nativeAlpha || NATIVE_ALPHA_PAGES.has(entry.slug)))).map((group) => (
         <div key={group} className="mb-3">
-          <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group}</div>
+          <div className="px-2 pb-1 text-[length:var(--type-micro)] font-semibold uppercase tracking-wider text-muted-foreground">{group}</div>
           {SETTINGS_PAGE_ORDER.filter((entry) => entry.group === group
             && (!nativeAlpha || NATIVE_ALPHA_PAGES.has(entry.slug))).map((entry) => (
             <button
@@ -362,7 +362,7 @@ function SettingsNav({ page, onNavigate, nativeAlpha }: { page: SettingsPageSlug
             >
               {t(entry.titleKey)}
               {isBuiltPage(entry.slug) ? null : (
-                <span className="ml-auto text-[9px] uppercase text-muted-foreground">phase</span>
+                <span className="ml-auto text-[length:var(--type-micro)] uppercase text-muted-foreground">phase</span>
               )}
             </button>
           ))}

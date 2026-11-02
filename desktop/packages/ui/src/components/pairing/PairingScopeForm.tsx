@@ -111,14 +111,14 @@ interface PairingPendingListProps {
 function PairingPendingList(props: PairingPendingListProps) {
   const { rows, title, empty, unnamed, viaRelay, cancel, onCancel } = props;
   if (rows.length === 0) {
-    return <div className="text-[11px] text-muted-foreground">{empty}</div>;
+    return <div className="text-[length:var(--type-meta)] text-muted-foreground">{empty}</div>;
   }
   return (
     <section className="flex flex-col gap-1">
       <h3 className="m-0 text-xs font-medium text-foreground">{title}</h3>
       <ul className="m-0 flex list-none flex-col gap-1 p-0">
         {rows.map((row) => (
-          <li key={row.id} className="flex flex-row items-center gap-2 text-[11px] text-muted-foreground" data-testid="pairing-pending-row">
+          <li key={row.id} className="flex flex-row items-center gap-2 text-[length:var(--type-meta)] text-muted-foreground" data-testid="pairing-pending-row">
             <span className="min-w-0 flex-1 truncate">{row.label ?? unnamed}</span>
             {row.usesRelay ? (
               <span className="rounded-full border border-border/60 px-1.5 py-0.5">{viaRelay}</span>
@@ -173,7 +173,7 @@ function PairingScopeRadios(props: PairingScopeRadiosProps) {
           />
           <span className="flex flex-col">
             <span>{SCOPE_TEXT[option].label}</span>
-            <span className="text-[11px] text-muted-foreground">{SCOPE_TEXT[option].hint}</span>
+            <span className="text-[length:var(--type-meta)] text-muted-foreground">{SCOPE_TEXT[option].hint}</span>
           </span>
         </label>
       ))}
@@ -208,7 +208,7 @@ function PairingLabelFields(props: PairingLabelFieldsProps) {
           placeholder={text.deviceLabelPlaceholder}
           onChange={(event) => props.onLabelChange(event.target.value)}
         />
-        <span className="text-[11px] text-muted-foreground">{text.deviceLabelHint}</span>
+        <span className="text-[length:var(--type-meta)] text-muted-foreground">{text.deviceLabelHint}</span>
       </label>
 
       <label className="flex flex-row items-start gap-2 text-xs text-foreground">

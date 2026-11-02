@@ -80,9 +80,9 @@ export function AuthExpiredBanner({
       aria-live="polite"
       data-testid="auth-expired-banner"
       data-auth-session-state={state}
-      className="sticky top-[var(--oc-header-height,0px)] z-30 flex w-full items-center gap-3 border-b border-border/60 bg-amber-500/10 px-4 py-2 text-sm text-foreground"
+      className="sticky top-[var(--oc-header-height,0px)] z-30 flex w-full items-center gap-3 border-b border-border/60 bg-tone-warning/10 px-4 py-2 text-sm text-foreground"
     >
-      <span aria-hidden="true" className="shrink-0 text-amber-500">
+      <span aria-hidden="true" className="shrink-0 text-tone-warning">
         &#33;
       </span>
       <span className="min-w-0 flex-1">

@@ -222,7 +222,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
       {sidebar.grip}
       <nav className="relative shrink-0 border-b border-border/50 px-3 pb-3 pt-4">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <span className="text-[13px] font-medium text-foreground">Workspaces</span>
+          <span className="text-[length:var(--type-markdown)] font-medium text-foreground">Workspaces</span>
           <div className="flex items-center gap-0.5">
             <button type="button" aria-label="Search conversations" title="Search conversations" className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => { setShowSearch(true); requestAnimationFrame(() => searchRef.current?.focus()); }}><SidebarIcon name="search" /></button>
             <button type="button" aria-label="Filter conversations" title="Filter conversations" aria-expanded={filterOpen} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setFilterOpen(value => !value)}><SidebarIcon name="filter" /></button>
@@ -231,15 +231,15 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
         </div>
         {filterOpen ? <div className="absolute right-3 top-12 z-40 w-56 rounded-xl border border-border/50 bg-muted p-2 text-xs text-foreground shadow-2xl" data-testid="sidebar-filter-menu">
           <button type="button" className="w-full px-2 py-1.5 text-left" onClick={() => setShowHidden(value => !value)}>{showHidden ? 'Hide removed workspaces' : 'Show removed workspaces'}</button>
-          <div className="px-2 pb-1 text-[11px] text-muted-foreground">Group conversations</div>
+          <div className="px-2 pb-1 text-[length:var(--type-meta)] text-muted-foreground">Group conversations</div>
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-muted" onClick={() => setGroupBy('workspace')}>By workspace {groupBy === 'workspace' ? '✓' : ''}</button>
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-muted" onClick={() => setGroupBy('list')}>One list {groupBy === 'list' ? '✓' : ''}</button>
-          <div className="mt-2 border-t border-border/50 px-2 pb-1 pt-2 text-[11px] text-muted-foreground">Show conversations</div>
+          <div className="mt-2 border-t border-border/50 px-2 pb-1 pt-2 text-[length:var(--type-meta)] text-muted-foreground">Show conversations</div>
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-muted" onClick={() => setArchiveMode('active')}>Active {archiveMode === 'active' ? '✓' : ''}</button>
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-muted" onClick={() => setArchiveMode('all')}>All {archiveMode === 'all' ? '✓' : ''}</button>
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-muted" onClick={() => setArchiveMode('archived')}>Archived only {archiveMode === 'archived' ? '✓' : ''}</button>
           <div className="mt-2 border-t border-border/50 pt-2" />
-          <div className="px-2 pb-1 text-[11px] text-muted-foreground">Order workspaces</div>
+          <div className="px-2 pb-1 text-[length:var(--type-meta)] text-muted-foreground">Order workspaces</div>
           <button type="button" className="w-full rounded px-2 py-1.5 text-left hover:bg-muted" onClick={() => { setSortBy('manual'); setFilterOpen(false); }}>Manual {sortBy === 'manual' ? '✓' : ''}</button>
           {props.nativeAlpha ? <button type="button" data-testid="sidebar-select-toggle" aria-pressed={selecting} className="w-full px-2 py-1.5 text-left hover:bg-muted" onClick={() => { setSelecting(!selecting); clearSelected(); setFilterOpen(false); }}>{selecting ? 'Exit selection' : 'Select sessions'}</button> : null}
           <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-muted" onClick={() => { setSortBy('activity'); setFilterOpen(false); }}>Recent activity {sortBy === 'activity' ? '✓' : ''}</button>
@@ -247,24 +247,24 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
         </div> : null}
         {workspaceAddition.controls}
         {props.nativeAlpha ? <DraftPersistenceStatus /> : null}
-        {displayError ? <p role="status" className="text-xs text-amber-300">Workspace names unavailable. <button onClick={() => void useWorkspaceDisplayStore.getState().load()}>Retry names</button></p> : null}
-        {workspaceError ? <div role="alert" className="mb-2 text-[11px] text-amber-300">Workspace list unavailable. <button type="button" className="underline" onClick={() => {
+        {displayError ? <p role="status" className="text-xs text-tone-warning">Workspace names unavailable. <button onClick={() => void useWorkspaceDisplayStore.getState().load()}>Retry names</button></p> : null}
+        {workspaceError ? <div role="alert" className="mb-2 text-[length:var(--type-meta)] text-tone-warning">Workspace list unavailable. <button type="button" className="underline" onClick={() => {
           void useWorkspaceStore.getState().load(true);
         }}>Retry</button></div> : null}
         {props.nativeAlpha ? <WorkspaceRecoveryControls runtimeKey={runtimeKey} refreshKey={workspaceRefreshKey} /> : null}
-        <button type="button" data-testid="sidebar-new-session" className="flex w-full items-center justify-center gap-2 rounded-lg border border-border/60 bg-muted px-3 py-2 text-[13px] font-medium text-foreground hover:bg-muted/80" onClick={event => { if (event.detail < 2) props.actions.openDraft(props.currentDirectory); }}>
+        <button type="button" data-testid="sidebar-new-session" className="flex w-full items-center justify-center gap-2 rounded-lg border border-border/60 bg-muted px-3 py-2 text-[length:var(--type-markdown)] font-medium text-foreground hover:bg-muted/80" onClick={event => { if (event.detail < 2) props.actions.openDraft(props.currentDirectory); }}>
           <SidebarIcon name="plus" /> New conversation
         </button>
-        {!props.nativeAlpha || selecting ? <button type="button" data-testid="sidebar-select-toggle" aria-pressed={selecting} className="mt-2 w-full rounded-lg px-2 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-muted/50 hover:text-foreground" onClick={() => { setSelecting(!selecting); clearSelected(); }}>
+        {!props.nativeAlpha || selecting ? <button type="button" data-testid="sidebar-select-toggle" aria-pressed={selecting} className="mt-2 w-full rounded-lg px-2 py-1.5 text-left text-[length:var(--type-meta)] text-muted-foreground hover:bg-muted/50 hover:text-foreground" onClick={() => { setSelecting(!selecting); clearSelected(); }}>
           {selecting ? 'Exit selection' : 'Select sessions'}
         </button> : null}
       </nav>
-      {selecting ? <div className="border-y border-border/50 px-3 py-2 text-[11px] text-muted-foreground" data-testid="sidebar-bulk-actions">
+      {selecting ? <div className="border-y border-border/50 px-3 py-2 text-[length:var(--type-meta)] text-muted-foreground" data-testid="sidebar-bulk-actions">
         <div>{selected.length} selected <span className="text-muted-foreground">· parent sessions; children follow their parent</span></div>
         <div className="mt-1 flex gap-2">
           <button type="button" disabled={bulkBusy || selected.length === 0} onClick={() => void bulkLifecycle('archive')}>Archive</button>
           {!props.nativeAlpha ? <button type="button" disabled={bulkBusy || selected.length === 0} onClick={() => void bulkMove()}>Move to folder</button> : null}
-          <button type="button" disabled={bulkBusy || selected.length === 0} className="text-red-400" onClick={() => void bulkLifecycle('delete')}>Delete</button>
+          <button type="button" disabled={bulkBusy || selected.length === 0} className="text-tone-error" onClick={() => void bulkLifecycle('delete')}>Delete</button>
         </div>
       </div> : null}
       <div className={`px-3 pt-2 ${showSearch ? '' : 'hidden'}`}>
@@ -275,12 +275,12 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           placeholder="Search sessions…"
           aria-label="Search sessions"
           data-testid="sidebar-search"
-          className="w-full rounded-lg border border-border/50 bg-card px-3 py-2 text-[12px] text-foreground outline-none focus:border-white/25"
+          className="w-full rounded-lg border border-border/50 bg-card px-3 py-2 text-[length:var(--type-meta)] text-foreground outline-none focus:border-border/25"
         />
-        {query.length > 0 ? <div className="mt-1 text-[10px] text-muted-foreground">{filtered.length} match{filtered.length === 1 ? '' : 'es'}</div> : null}
+        {query.length > 0 ? <div className="mt-1 text-[length:var(--type-micro)] text-muted-foreground">{filtered.length} match{filtered.length === 1 ? '' : 'es'}</div> : null}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2" data-testid="workspace-scroll">
-        {sessionsGlobal.status === 'error' ? <div role="alert" className="mb-2 rounded-lg border border-amber-800/50 px-2 py-2 text-[11px] text-amber-300" data-testid="sidebar-sessions-error">
+        {sessionsGlobal.status === 'error' ? <div role="alert" className="mb-2 rounded-lg border border-tone-warning-border/50 px-2 py-2 text-[length:var(--type-meta)] text-tone-warning" data-testid="sidebar-sessions-error">
           Could not refresh sessions. <button type="button" className="underline" onClick={() => void useGlobalSessionsStore.getState().loadSessions()}>Try again</button>
         </div> : null}
         {groupBy === 'list' ? <ul data-testid="sidebar-flat-list">
@@ -291,7 +291,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
               selecting={selecting} selected={selectedIds.has(session.id)} onToggleSelected={() => toggleSelected([session.id])}
               hasChildren={false} expanded={false} onToggleExpanded={() => undefined}
               onRunFusion={props.onRunFusion} allowFolders={false} />)}
-          {filtered.length > listLimit ? <li><button type="button" className="w-full rounded px-3 py-2 text-left text-xs text-sky-300 hover:bg-muted/50" onClick={() => setListLimit(limit => limit + AVATAR_LIMIT)}>Show {Math.min(AVATAR_LIMIT, filtered.length - listLimit)} more conversations</button></li> : null}
+          {filtered.length > listLimit ? <li><button type="button" className="w-full rounded px-3 py-2 text-left text-xs text-primary hover:bg-muted/50" onClick={() => setListLimit(limit => limit + AVATAR_LIMIT)}>Show {Math.min(AVATAR_LIMIT, filtered.length - listLimit)} more conversations</button></li> : null}
         </ul> : [...zones.entries()]
           .filter(([directory]) => filteredDirectories.has(directory) && (query.trim() || showHidden || !workspaceDisplay(directory, workspaceDisplays).hidden))
           .sort(compareZones)
@@ -333,7 +333,7 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           ))}
       </div>
       {archiveMode === 'active' ? props.nativeAlpha ? <button type="button" className="border-t border-border/50 px-4 py-3 text-left text-xs text-muted-foreground hover:bg-muted/50" onClick={() => setArchiveMode('archived')}>Archived conversations ({sessionsGlobal.archived.length})</button> : <div className="border-t border-border/50 px-2 py-2" data-testid="sidebar-archive">
-        {props.onOpenArchive ? <button type="button" data-testid="sidebar-archive-view" className="w-full rounded px-2 py-1 text-left text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground" onClick={props.onOpenArchive}>
+        {props.onOpenArchive ? <button type="button" data-testid="sidebar-archive-view" className="w-full rounded px-2 py-1 text-left text-[length:var(--type-meta)] text-muted-foreground hover:bg-muted/50 hover:text-foreground" onClick={props.onOpenArchive}>
           View all archived sessions ({sessionsGlobal.archived.length})
         </button> : null}
         <button
@@ -341,14 +341,14 @@ export function ChatSidebar(props: ChatSidebarProps): ReactNode {
           data-testid="sidebar-archive-toggle"
           aria-expanded={showArchived}
           onClick={() => setShowArchived(!showArchived)}
-          className="flex w-full items-center gap-1 px-2 py-1 text-left text-[11px] uppercase tracking-wide text-muted-foreground hover:text-muted-foreground"
+          className="flex w-full items-center gap-1 px-2 py-1 text-left text-[length:var(--type-meta)] uppercase tracking-wide text-muted-foreground hover:text-muted-foreground"
         >
           <span aria-hidden>{showArchived ? '▾' : '▸'}</span>
           Archive ({archivedInDirectory.length})
         </button>
         {showArchived ? (
           <ul>
-            {archivedInDirectory.length === 0 ? <li className="px-2 py-1 text-[11px] text-muted-foreground">Nothing archived in this workspace.</li> : null}
+            {archivedInDirectory.length === 0 ? <li className="px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground">Nothing archived in this workspace.</li> : null}
             {archivedInDirectory.slice(0, AVATAR_LIMIT).map((session) => (
               <ArchivedRow key={session.id} session={session} actions={props.actions} />
             ))}
@@ -409,21 +409,21 @@ function Zone({ dragHandle, dropTarget, onMove, showDrafts, display, directory, 
   const createFolder = (name: string): void => { void useSessionFoldersStore.getState().createFolder(directory, name); };
 
   return (
-    <section className={`mb-2 ${dropTarget ? 'rounded-lg ring-1 ring-sky-400' : ''}`} data-workspace-root={directory} data-testid="workspace-zone" data-active={active ? 'true' : undefined}>
+    <section className={`mb-2 ${dropTarget ? 'rounded-lg ring-1 ring-border' : ''}`} data-workspace-root={directory} data-testid="workspace-zone" data-active={active ? 'true' : undefined}>
       <header className={`group mb-1 flex items-center justify-between rounded-lg px-1 py-0.5 hover:bg-muted/50 ${active ? 'bg-muted/50' : ''}`}>
         {dragHandle}
         <button type="button" aria-expanded={zoneOpen} aria-label={`${zoneOpen ? 'Collapse' : 'Expand'} ${directory || 'general'} workspace`} data-testid="workspace-zone-toggle" disabled={forceOpen}
-          className="flex h-8 w-6 shrink-0 items-center justify-center rounded text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="flex h-8 w-6 shrink-0 items-center justify-center rounded text-[length:var(--type-meta)] text-muted-foreground hover:bg-muted hover:text-foreground"
           onClick={onToggleZone} title={forceOpen ? 'Search results keep this workspace open' : directory}>{zoneOpen ? '▾' : '▸'}</button>
         <button type="button" data-workspace-directory={directory} aria-label={`Workspace ${display?.label || shortDirectory(directory)}`} aria-expanded={zoneOpen} aria-current={active ? 'page' : undefined}
-          className={`flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-1.5 text-left text-[13px] hover:text-foreground ${active ? 'font-medium text-foreground' : 'text-muted-foreground'}`}
+          className={`flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-1.5 text-left text-[length:var(--type-markdown)] hover:text-foreground ${active ? 'font-medium text-foreground' : 'text-muted-foreground'}`}
           onClick={onToggleZone} title={`Expand or collapse ${directory}`}>
-          <span className={active ? 'text-sky-400' : 'text-muted-foreground'}><SidebarIcon name="folder" /></span>
+          <span className={active ? 'text-primary' : 'text-muted-foreground'}><SidebarIcon name="folder" /></span>
           <span className="truncate font-medium">{display?.label || shortDirectory(directory)}</span>
-          {duplicateName ? <span className="truncate text-[10px] text-muted-foreground">{directory}</span> : null}
+          {duplicateName ? <span className="truncate text-[length:var(--type-micro)] text-muted-foreground">{directory}</span> : null}
         </button>
         <div className="flex items-center gap-0.5">
-          {allowFolders ? <button type="button" aria-label={`New folder in ${directory || 'general'}`} data-testid={`folder-create-${directory.replace(/[^\w]/g, '_')}`} className="text-[11px] text-muted-foreground hover:text-muted-foreground" onClick={() => {
+          {allowFolders ? <button type="button" aria-label={`New folder in ${directory || 'general'}`} data-testid={`folder-create-${directory.replace(/[^\w]/g, '_')}`} className="text-[length:var(--type-meta)] text-muted-foreground hover:text-muted-foreground" onClick={() => {
             const name = prompt('New folder name', 'Folder'); // eslint-disable-line no-alert
             if (name !== null && name.trim()) createFolder(name);
           }}>▤+</button> : null}
@@ -458,10 +458,10 @@ function Zone({ dragHandle, dropTarget, onMove, showDrafts, display, directory, 
             <li key={folder.id} data-testid={`folder-${folder.id}`}>
               <div className="group flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-muted/50">
                 {selecting && folderSelectable.length > 0 ? <input type="checkbox" aria-label={`Select sessions in ${folder.name}`} checked={folderSelectable.every((id) => selectedIds.has(id))} onChange={() => onToggleSelected(folderSelectable)} /> : null}
-                <button type="button" aria-expanded={!isCollapsed} onClick={() => useSessionFoldersStore.getState().toggleCollapsed(folder.id)} className="flex min-w-0 flex-1 items-center gap-1 text-left text-[11px] text-muted-foreground" data-testid="folder-header">
+                <button type="button" aria-expanded={!isCollapsed} onClick={() => useSessionFoldersStore.getState().toggleCollapsed(folder.id)} className="flex min-w-0 flex-1 items-center gap-1 text-left text-[length:var(--type-meta)] text-muted-foreground" data-testid="folder-header">
                   <span aria-hidden>{isCollapsed ? '▸' : '▾'}</span>
                   <span className="truncate">▤ {folder.name}</span>
-                  <span className="text-neutral-700">{folder.sessionIds.length}</span>
+                  <span className="text-foreground">{folder.sessionIds.length}</span>
                 </button>
                 <FolderActions directory={directory} folderId={folder.id} folderName={folder.name} hasSessions={folder.sessionIds.length > 0} />
               </div>
@@ -470,29 +470,29 @@ function Zone({ dragHandle, dropTarget, onMove, showDrafts, display, directory, 
                   {folderNormal.map((session) => (
                     <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(session.id)} folderId={folder.sessionIds.includes(session.id) ? folder.id : undefined} depth={depthById.get(session.id) ?? 0} selecting={selecting} selected={selectedIds.has(session.id)} onToggleSelected={() => onToggleSelected([session.id])} hasChildren={!forceOpen && childParents.has(session.id)} expanded={expandedIds.has(session.id)} onToggleExpanded={() => onToggleExpanded(session.id)} hiddenAttention={hiddenAttention.get(session.id)} onRunFusion={onRunFusion} allowFolders={allowFolders} />
                   ))}
-                  {folderUnavailable.length > 0 ? <li className="px-2 pt-2 text-[10px] uppercase tracking-wide text-neutral-700">Parent unavailable</li> : null}
+                  {folderUnavailable.length > 0 ? <li className="px-2 pt-2 text-[length:var(--type-micro)] uppercase tracking-wide text-foreground">Parent unavailable</li> : null}
                   {folderUnavailable.map((session) => (
                     <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(session.id)} folderId={folder.sessionIds.includes(session.id) ? folder.id : undefined} depth={depthById.get(session.id) ?? 0} selecting={selecting} selected={selectedIds.has(session.id)} onToggleSelected={() => onToggleSelected([session.id])} hasChildren={!forceOpen && childParents.has(session.id)} expanded={expandedIds.has(session.id)} onToggleExpanded={() => onToggleExpanded(session.id)} hiddenAttention={hiddenAttention.get(session.id)} onRunFusion={onRunFusion} allowFolders={allowFolders} />
                   ))}
-                  {inside.length === 0 ? <li className="px-2 py-1 text-[10px] text-muted-foreground">Empty folder — sessions land via the row menu.</li> : null}
+                  {inside.length === 0 ? <li className="px-2 py-1 text-[length:var(--type-micro)] text-muted-foreground">Empty folder — sessions land via the row menu.</li> : null}
                 </ul>
               ) : null}
             </li>
           );
         })}
         {(folders.length > 0 && (visibleUnsorted.length > 0 || orphaned.length > 0)) || folders.length > 0
-          ? <li className="px-2 pt-1 text-[10px] uppercase tracking-wide text-neutral-700">Sessions</li>
+          ? <li className="px-2 pt-1 text-[length:var(--type-micro)] uppercase tracking-wide text-foreground">Sessions</li>
           : null}
-        {ordered.length === 0 && folders.length === 0 ? <li className="px-2 py-1 text-[11px] text-muted-foreground" data-testid="zone-empty">{sessionListStatus === 'loading' ? 'Loading sessions…' : sessionListStatus === 'error' ? 'Could not refresh sessions.' : 'No sessions in this workspace yet.'}</li> : null}
+        {ordered.length === 0 && folders.length === 0 ? <li className="px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground" data-testid="zone-empty">{sessionListStatus === 'loading' ? 'Loading sessions…' : sessionListStatus === 'error' ? 'Could not refresh sessions.' : 'No sessions in this workspace yet.'}</li> : null}
         {visibleUnsorted.map((sessionID) => (
           <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(sessionID)} depth={depthById.get(sessionID) ?? 0} selecting={selecting} selected={selectedIds.has(sessionID)} onToggleSelected={() => onToggleSelected([sessionID])} hasChildren={!forceOpen && childParents.has(sessionID)} expanded={expandedIds.has(sessionID)} onToggleExpanded={() => onToggleExpanded(sessionID)} hiddenAttention={hiddenAttention.get(sessionID)} onRunFusion={onRunFusion} allowFolders={allowFolders} />
         ))}
-        {orphaned.length > 0 ? <li className="px-2 pt-2 text-[10px] uppercase tracking-wide text-neutral-700">Parent unavailable</li> : null}
+        {orphaned.length > 0 ? <li className="px-2 pt-2 text-[length:var(--type-micro)] uppercase tracking-wide text-foreground">Parent unavailable</li> : null}
         {orphaned.map((sessionID) => (
           <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} pinned={pinnedIds.has(sessionID)} depth={depthById.get(sessionID) ?? 0} selecting={selecting} selected={selectedIds.has(sessionID)} onToggleSelected={() => onToggleSelected([sessionID])} hasChildren={!forceOpen && childParents.has(sessionID)} expanded={expandedIds.has(sessionID)} onToggleExpanded={() => onToggleExpanded(sessionID)} hiddenAttention={hiddenAttention.get(sessionID)} onRunFusion={onRunFusion} allowFolders={allowFolders} />
         ))}
       </ul> : null}
-      {zoneOpen && folders.length > 0 ? <div className="px-2 pt-1 text-[10px] text-neutral-700">{foldersState.status === 'error' ? 'folder store error' : `${folders.length} folder(s)`}</div> : null}
+      {zoneOpen && folders.length > 0 ? <div className="px-2 pt-1 text-[length:var(--type-micro)] text-foreground">{foldersState.status === 'error' ? 'folder store error' : `${folders.length} folder(s)`}</div> : null}
     </section>
   );
 }

@@ -70,7 +70,7 @@ export function AppearancePage(): ReactNode {
         >
           <button
             type="button"
-            className="inline-flex h-8 items-center rounded-[7px] border border-primary/40 px-3 text-xs text-primary hover:bg-primary/10 disabled:opacity-50"
+            className="inline-flex h-8 items-center rounded-[var(--radius-control)] border border-primary/40 px-3 text-xs text-primary hover:bg-primary/10 disabled:opacity-50"
             disabled={themesLoading}
             onClick={() => void reloadThemes()}
           >

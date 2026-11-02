@@ -43,7 +43,7 @@ export function ScheduledScheduleEditor({
 }: ScheduledScheduleEditorProps): ReactNode {
   const intlLocale = useCurrentIntlLocale();
   return (
-    <div lang={intlLocale} data-testid="schedule-editor" className="flex flex-col gap-2 text-[12px] text-neutral-200">
+    <div lang={intlLocale} data-testid="schedule-editor" className="flex flex-col gap-2 text-[length:var(--type-meta)] text-foreground">
       <KindTabs value={value} onChange={onChange} />
       <ZoneSelect value={value} onChange={onChange} />
       {value.kind === 'daily' ? <TimePillGrid selection={value.times} timePreference={timePreference}
@@ -65,7 +65,7 @@ function KindTabs({ value, onChange }: { value: TaskSchedule; onChange: (next: T
       {KINDS.map(({ kind, labelKey }) => (
         <button key={kind} type="button" role="tab" aria-selected={value.kind === kind}
           data-testid={`schedule-kind-${kind}`}
-          className={`rounded px-2 py-1 text-[11px] ${value.kind === kind ? 'bg-neutral-800 text-white' : 'bg-neutral-900 text-neutral-400 hover:text-neutral-200'}`}
+          className={`rounded px-2 py-1 text-[length:var(--type-meta)] ${value.kind === kind ? 'bg-card text-foreground' : 'bg-background text-muted-foreground hover:text-foreground'}`}
           onClick={() => onChange(emptyDraft(kind, value.timezone))}>
           {text[labelKey]}
         </button>
@@ -79,11 +79,11 @@ function ZoneSelect({ value, onChange }: { value: TaskSchedule; onChange: (next:
   const listed = choices.includes(value.timezone);
   const text = useScheduledText();
   return (
-    <label className="flex items-center gap-2 text-[11px] text-neutral-400">
+    <label className="flex items-center gap-2 text-[length:var(--type-meta)] text-muted-foreground">
       <span>{text.timezone}</span>
       <select value={value.timezone} data-testid="schedule-zone-select"
         onChange={(event) => onChange({ ...value, timezone: event.target.value })}
-        className="max-w-full rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200">
+        className="max-w-full rounded-lg border border-border/10 bg-background px-2 py-1 text-[length:var(--type-meta)] text-foreground">
         {!listed && value.timezone.length > 0 ? <option value={value.timezone}>{value.timezone}</option> : null}
         {choices.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
       </select>
@@ -97,11 +97,11 @@ function TimePillGrid({ selection, onToggle, timePreference }: {
   timePreference: 'auto' | '12h' | '24h';
 }): ReactNode {
   return (
-    <div className="max-h-40 overflow-y-auto rounded-lg border border-white/10 bg-neutral-900/60 p-2" data-testid="time-pill-grid">
+    <div className="max-h-40 overflow-y-auto rounded-lg border border-border/10 bg-background/60 p-2" data-testid="time-pill-grid">
       <div className="flex flex-wrap gap-1">
         {PILL_CATALOG.map((pill) => (
           <button key={pill} type="button" data-testid={`pill-${pill}`}
-            className={`rounded px-1.5 py-0.5 text-[10px] ${selection.includes(pill) ? 'bg-sky-900/60 text-sky-200' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'}`}
+            className={`rounded px-1.5 py-0.5 text-[length:var(--type-micro)] ${selection.includes(pill) ? 'bg-primary/60 text-primary' : 'bg-card text-muted-foreground hover:text-foreground'}`}
             onClick={() => onToggle(pill)}>
             {timePillLabel(pill, timePreference)}
           </button>
@@ -125,7 +125,7 @@ function WeeklyFields({ value, onChange, timePreference }: {
       <div className="flex flex-wrap gap-1" data-testid="weekday-chips" aria-label={text.weekdays}>
         {order.map((day) => (
           <button key={day} type="button" data-testid={`weekday-${day}`}
-            className={`rounded px-2 py-0.5 text-[10px] ${value.weekdays.includes(day) ? 'bg-indigo-900/60 text-indigo-200' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'}`}
+            className={`rounded px-2 py-0.5 text-[length:var(--type-micro)] ${value.weekdays.includes(day) ? 'bg-primary/60 text-primary' : 'bg-card text-muted-foreground hover:text-foreground'}`}
             onClick={() => onChange({ ...value, weekdays: toggleMember(value.weekdays, day) })}>
             {labels[day]}
           </button>
@@ -144,12 +144,12 @@ function OnceFields({ value, onChange }: { value: TaskSchedule & { kind: 'once' 
         onInput={(event: FormEvent<HTMLInputElement>) => {
           if (event.currentTarget.value.length > 0) onChange({ ...value, date: event.currentTarget.value });
         }}
-        className="rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200" />
+        className="rounded-lg border border-border/10 bg-background px-2 py-1 text-[length:var(--type-meta)] text-foreground" />
       <input type="time" value={value.time} data-testid="once-time"
         onInput={(event: FormEvent<HTMLInputElement>) => {
           if (event.currentTarget.value.length > 0) onChange({ ...value, time: event.currentTarget.value.slice(0, 5) });
         }}
-        className="rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200" />
+        className="rounded-lg border border-border/10 bg-background px-2 py-1 text-[length:var(--type-meta)] text-foreground" />
     </div>
   );
 }
@@ -161,13 +161,13 @@ function CronFields({ value, onChange }: { value: TaskSchedule & { kind: 'cron' 
       <div className="flex items-center gap-2">
         <input value={value.cron} data-testid="cron-input" aria-label={text.cronAria} spellCheck={false}
           onChange={(event) => onChange({ ...value, cron: event.target.value })}
-          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200" />
-        {!cronShapeOk(value.cron) ? <span className="text-[10px] text-amber-300" data-testid="cron-invalid">{text.cronInvalid}</span> : null}
+          className="min-w-0 flex-1 rounded-lg border border-border/10 bg-background px-2 py-1 text-[length:var(--type-meta)] text-foreground" />
+        {!cronShapeOk(value.cron) ? <span className="text-[length:var(--type-micro)] text-tone-warning" data-testid="cron-invalid">{text.cronInvalid}</span> : null}
       </div>
       <div className="flex flex-wrap gap-1" data-testid="cron-examples">
         {CRON_EXAMPLES.map((example, index) => (
           <button key={example.cron} type="button" data-testid="cron-example"
-            className="rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-neutral-400 hover:text-neutral-200"
+            className="rounded bg-card px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground"
             onClick={() => onChange({ ...value, cron: example.cron })}>
             {text[EXAMPLE_LABEL_KEYS[index] ?? 'exampleHourly']}
           </button>
@@ -212,12 +212,12 @@ function PreviewBlock({ value, preview, timePreference, delayMs }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, delayMs]);
   return (
-    <div className="rounded-lg border border-white/10 bg-neutral-900/60 p-2 text-[10px]" data-testid="schedule-preview">
-      <div className="text-neutral-500">{text.nextRuns}</div>
+    <div className="rounded-lg border border-border/10 bg-background/60 p-2 text-[length:var(--type-micro)]" data-testid="schedule-preview">
+      <div className="text-muted-foreground">{text.nextRuns}</div>
       {slots.map((at) => (
-        <div key={at} className="text-neutral-300" data-testid="schedule-preview-slot">{previewLine(at, value.timezone, timePreference, text)}</div>
+        <div key={at} className="text-muted-foreground" data-testid="schedule-preview-slot">{previewLine(at, value.timezone, timePreference, text)}</div>
       ))}
-      {slots.length === 0 ? <div className="text-neutral-600">{failed ? text.previewUnavailable : text.computing}</div> : null}
+      {slots.length === 0 ? <div className="text-foreground">{failed ? text.previewUnavailable : text.computing}</div> : null}
     </div>
   );
 }

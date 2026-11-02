@@ -35,7 +35,7 @@ export function FileDialog({
   const description = modeDescription(spec.mode, parentPath === '' ? DEFAULT_PATH_LABEL : parentPath, spec.targetName);
   const isDelete = spec.mode === 'delete';
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="files-dialog">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-popover/40" data-testid="files-dialog">
       <div className="w-80 rounded-lg border border-border/60 bg-card p-4 shadow-2xl">
         <div className="text-sm font-medium text-foreground">{t(titleKey)}</div>
         <div className="mt-1 text-xs text-muted-foreground">{description}</div>
@@ -95,7 +95,7 @@ const KEY_MAP: Record<FileDialogMode, { title: I18nKey; description: string }> =
 export function UnsavedChangesGuard({ onSave, onDiscard }: { onSave: () => void; onDiscard: () => void }): ReactNode {
   const { t } = useI18n();
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" data-testid="unsaved-guard">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-popover/50" data-testid="unsaved-guard">
       <div className="w-80 rounded-lg border border-border/60 bg-card p-4 shadow-2xl">
         <div className="text-sm font-medium text-foreground">{t('filesView.editor.unsavedTitle')}</div>
         <div className="mt-1 text-xs text-muted-foreground">{t('filesView.editor.unsavedDescription')}</div>
@@ -161,10 +161,10 @@ export function GoToLineInput({
           if (event.key === 'Escape') onClose();
         }}
       />
-      <span className="text-[10px] text-muted-foreground">
+      <span className="text-[length:var(--type-micro)] text-muted-foreground">
         {t('filesView.goToLine.range', { current: String(currentLine), max: String(maxLines) })}
       </span>
-      <button type="button" className="rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => {
+      <button type="button" className="rounded px-1.5 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={() => {
         const line = Number(draft);
         if (Number.isInteger(line) && line >= 1) onCommit(Math.max(1, Math.min(maxLines, line)));
         onClose();
@@ -180,7 +180,7 @@ export function TabRow({
 }: { openPaths: string[]; selected: string | null; onSelect: (path: string) => void; onClose: (path: string) => void }): ReactNode {
   const { t } = useI18n();
   if (openPaths.length === 0) {
-    return <div className="border-b border-border/40 px-3 py-1.5 text-[11px] text-muted-foreground">{t('filesView.editor.selectAFile')}</div>;
+    return <div className="border-b border-border/40 px-3 py-1.5 text-[length:var(--type-meta)] text-muted-foreground">{t('filesView.editor.selectAFile')}</div>;
   }
   return (
     <div className="flex items-center gap-1 overflow-x-auto border-b border-border/40 px-2 py-1" aria-label={t('filesView.editor.openFiles')}>

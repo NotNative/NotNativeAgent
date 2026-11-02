@@ -82,7 +82,7 @@ function RouteContent({ runningRoute, configured, profiles, providerId, model, b
     <p className="mt-1 text-muted-foreground">{t('settings.agents.route.saved', { route: savedRoute })}</p>
     <RouteControls profiles={profiles} providerId={providerId} model={model} busy={busy} changed={changed}
       onProviderChange={onProviderChange} onModelChange={onModelChange} onSave={onSave} />
-    {pending === true || drift ? <div role="status" className="mt-2 text-amber-500">
+    {pending === true || drift ? <div role="status" className="mt-2 text-tone-warning">
       {t('settings.agents.route.drift')}
       <ProviderRouteActivation onApplied={() => { onApplied(); }} />
     </div> : null}

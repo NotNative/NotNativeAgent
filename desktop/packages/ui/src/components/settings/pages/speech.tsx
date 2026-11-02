@@ -70,12 +70,12 @@ export function SpeechPage(): ReactNode {
           <button type="button" data-testid="speech-voices" disabled={voiceBusy}
             className="rounded border border-border/60 px-2 py-1 text-xs disabled:opacity-40" onClick={() => void loadVoices()}>Voices</button>
         </div>
-        {speakState === 'failed' ? <p className="mt-1 text-[11px] text-amber-300" role="alert" data-testid="speech-failure">Local speech synthesis failed on this machine.</p> : null}
-        {speakState === 'spoken' ? <p className="mt-1 text-[11px] text-neutral-500" role="status" data-testid="speech-spoken">Spoken through the local synthesizer.</p> : null}
+        {speakState === 'failed' ? <p className="mt-1 text-[length:var(--type-meta)] text-tone-warning" role="alert" data-testid="speech-failure">Local speech synthesis failed on this machine.</p> : null}
+        {speakState === 'spoken' ? <p className="mt-1 text-[length:var(--type-meta)] text-muted-foreground" role="status" data-testid="speech-spoken">Spoken through the local synthesizer.</p> : null}
         {voices !== null ? (
           <ul className="mt-2 space-y-0.5" data-testid="speech-voice-list">
-            {voices.map((voice) => <li key={voice.id} className="text-[11px] text-neutral-400">{voice.name} · {voice.culture} · {voice.gender}</li>)}
-            {voices.length === 0 ? <li className="text-[11px] text-neutral-500">No local SAPI voices found.</li> : null}
+            {voices.map((voice) => <li key={voice.id} className="text-[length:var(--type-meta)] text-muted-foreground">{voice.name} · {voice.culture} · {voice.gender}</li>)}
+            {voices.length === 0 ? <li className="text-[length:var(--type-meta)] text-muted-foreground">No local SAPI voices found.</li> : null}
           </ul>
         ) : null}
       </div>
@@ -84,8 +84,8 @@ export function SpeechPage(): ReactNode {
         <p className="mb-2 text-xs text-muted-foreground">Transcribes WAV audio through the local SAPI recognizer. When the local engine is absent the surface stays closed — no cloud fallback by contract.</p>
         <button type="button" data-testid="stt-probe" disabled={sttState === 'busy'}
           className="rounded border border-border/60 px-2 py-1 text-xs disabled:opacity-40" onClick={() => void probeStt()}>Check availability</button>
-        {sttState === 'ready' ? <p className="mt-1 text-[11px] text-emerald-300" role="status" data-testid="stt-ready">Local recognizer available{sttText ? ` — sample: ${sttText}` : ' (silent sample transcribed empty)' }.</p> : null}
-        {sttState === 'unavailable' ? <p className="mt-1 text-[11px] text-amber-300" role="alert" data-testid="stt-unavailable">Local speech recognition is unavailable on this machine (stt-local-unavailable).</p> : null}
+        {sttState === 'ready' ? <p className="mt-1 text-[length:var(--type-meta)] text-tone-success" role="status" data-testid="stt-ready">Local recognizer available{sttText ? ` — sample: ${sttText}` : ' (silent sample transcribed empty)' }.</p> : null}
+        {sttState === 'unavailable' ? <p className="mt-1 text-[length:var(--type-meta)] text-tone-warning" role="alert" data-testid="stt-unavailable">Local speech recognition is unavailable on this machine (stt-local-unavailable).</p> : null}
       </div>
     </div>
   );

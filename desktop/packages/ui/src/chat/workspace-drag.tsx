@@ -13,7 +13,7 @@ export function useWorkspaceDrag(move: (source: string, target: string) => void,
   const hit = (x: number, y: number) => document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-workspace-root]')?.dataset.workspaceRoot ?? null;
   const clear = () => { drag.current = null; setTarget(null); };
   const handle = (directory: string, label: string) => <button type="button" aria-label={`Reorder workspace ${label}`} title="Drag to reorder; Arrow Up or Down to move"
-    className="flex h-8 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-neutral-500 hover:bg-white/10 hover:text-neutral-200 active:cursor-grabbing"
+    className="flex h-8 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:bg-card/10 hover:text-foreground active:cursor-grabbing"
     onPointerDown={event => {
       if (event.button !== 0) return;
       drag.current = { source: directory, runtime: getRuntimeKey(), target: null };

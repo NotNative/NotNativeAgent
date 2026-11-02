@@ -66,7 +66,7 @@ export function PairingResultPanel(props: PairingResultPanelProps) {
 function PairingResultHeader({ props }: Shared) {
   const { text } = props;
   return (
-    <div className="flex flex-row flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+    <div className="flex flex-row flex-wrap items-center gap-3 text-[length:var(--type-meta)] text-muted-foreground">
       <span data-testid="pairing-server-label">{props.serverLabel}</span>
       <span>{text.fingerprintPrefix} {props.fingerprint}</span>
       {props.usesRelay ? (
@@ -90,7 +90,7 @@ function PairingQrBlock({ props }: Shared) {
     <div className="flex flex-row flex-wrap gap-3">
       {props.qrDataUrl === null ? (
         <div
-          className="flex items-center justify-center rounded border border-border/60 text-[11px] text-muted-foreground"
+          className="flex items-center justify-center rounded border border-border/60 text-[length:var(--type-meta)] text-muted-foreground"
           data-testid="pairing-qr-placeholder"
           style={{ width: '192px', height: '192px' }}
         >
@@ -105,24 +105,24 @@ function PairingQrBlock({ props }: Shared) {
           width={QR_DISPLAY_PX}
           height={QR_DISPLAY_PX}
           alt={text.qrAlt}
-          className="rounded border border-border/60 bg-white"
+          className="rounded border border-border/60 bg-card"
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <p className="m-0 break-all font-mono text-[11px] text-muted-foreground" data-testid="pairing-link">
+        <p className="m-0 break-all font-mono text-[length:var(--type-meta)] text-muted-foreground" data-testid="pairing-link">
           {props.link}
         </p>
         <div className="flex flex-row items-center gap-2">
           <button
             type="button"
-            className="rounded border border-border/60 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+            className="rounded border border-border/60 px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground"
             data-testid="pairing-copy"
             onClick={props.onCopy}
           >
             {props.copyState === 'copied' ? text.copied : text.copy}
           </button>
           {props.copyState === 'failed' ? (
-            <span className="text-[11px] text-status-error" data-testid="pairing-copy-failed">
+            <span className="text-[length:var(--type-meta)] text-status-error" data-testid="pairing-copy-failed">
               {text.copyFailed}
             </span>
           ) : null}
@@ -140,7 +140,7 @@ function PairingQrBlock({ props }: Shared) {
 function PairingStatusLine({ props }: Shared) {
   const { text } = props;
   return (
-    <div className="flex flex-row items-center gap-2 text-[11px] text-muted-foreground">
+    <div className="flex flex-row items-center gap-2 text-[length:var(--type-meta)] text-muted-foreground">
       {props.closeReason !== null ? (
         <span data-testid="pairing-close-reason">{closeReasonMessage(props.closeReason, text)}</span>
       ) : props.expired ? null : (

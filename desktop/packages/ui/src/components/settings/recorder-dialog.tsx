@@ -85,7 +85,7 @@ export function ShortcutRecordingDialog({
         : null;
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40" data-nnd-recording-overlay="">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-popover/40" data-nnd-recording-overlay="">
       <div
         className="w-[420px] rounded-lg border border-border/60 bg-card p-4 shadow-2xl brightness-fix"
         data-nnd-settings-dim-target=""
@@ -93,35 +93,35 @@ export function ShortcutRecordingDialog({
         <div className="mb-2 text-xs font-medium text-foreground">
           {t('settings.window.title')} — {t(decl.settingsLabelKey ?? 'shortcuts.label.focus_input')}
         </div>
-        <div className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+        <div className="mb-3 text-[length:var(--type-meta)] leading-relaxed text-muted-foreground">
           {state.phase === 'await-second' ? t('settings.shortcuts.sequenceHint') : t('settings.shortcuts.recording')}
         </div>
         <div className="mb-3 flex min-h-12 items-center gap-2 rounded border border-border/40 bg-background/40 p-2">
           {state.chords.length === 0 ? (
-            <span className="text-[11px] text-muted-foreground">{t('settings.shortcuts.unassigned')}</span>
+            <span className="text-[length:var(--type-meta)] text-muted-foreground">{t('settings.shortcuts.unassigned')}</span>
           ) : (
-            <kbd className="rounded border border-border/50 bg-interactive-hover/40 px-1.5 py-0.5 font-mono text-[11px] text-foreground">
+            <kbd className="rounded border border-border/50 bg-interactive-hover/40 px-1.5 py-0.5 font-mono text-[length:var(--type-meta)] text-foreground">
               {displayCombo({ chords: state.chords }, false)}
             </kbd>
           )}
-          {state.exceeded ? <span className="text-[11px] text-status-error">{t('settings.shortcuts.maxKeys')}</span> : null}
-          {conflict !== null && state.phase === 'ready' ? <span className="text-[11px] text-status-warning">{conflict}</span> : null}
-          {state.risk === 'browser-reserved' ? <span className="text-[11px] text-status-warning">{t('settings.shortcuts.risky')}</span> : null}
+          {state.exceeded ? <span className="text-[length:var(--type-meta)] text-status-error">{t('settings.shortcuts.maxKeys')}</span> : null}
+          {conflict !== null && state.phase === 'ready' ? <span className="text-[length:var(--type-meta)] text-status-warning">{conflict}</span> : null}
+          {state.risk === 'browser-reserved' ? <span className="text-[length:var(--type-meta)] text-status-warning">{t('settings.shortcuts.risky')}</span> : null}
         </div>
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
-            className="rounded border border-border/60 px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+            className="rounded border border-border/60 px-2.5 py-1 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground"
             onClick={() => setState((current) => recorderReset(current))}
           >
             {t('settings.shortcuts.clear')}
           </button>
-          <button type="button" className="rounded px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground" onClick={onCancel}>
+          <button type="button" className="rounded px-2.5 py-1 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={onCancel}>
             {t('settings.shortcuts.cancel')}
           </button>
           <button
             type="button"
-            className="rounded bg-primary/20 px-3 py-1 text-[11px] text-primary disabled:opacity-40"
+            className="rounded bg-primary/20 px-3 py-1 text-[length:var(--type-meta)] text-primary disabled:opacity-40"
             disabled={state.phase !== 'ready'}
             onClick={() => {
               const result = recorderConfirm(stateRef.current, decl.id, overrides);

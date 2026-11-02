@@ -69,13 +69,13 @@ export function SessionTabs({ engine, directory, onActivate }: SessionTabsProps)
     <div className="flex min-w-0 items-center gap-1 overflow-x-auto px-2" role="tablist" aria-label="Open sessions" data-testid="session-tabs" onKeyDown={onDigit}>
       {sessions.map((session, index) => (
         <span key={session.id} role="tab" aria-selected={view.currentSessionId === session.id}
-          className={`flex max-w-48 items-center gap-1 rounded-t-lg px-3 py-1.5 text-[12px] ${view.currentSessionId === session.id ? 'bg-neutral-800 text-neutral-100' : 'text-neutral-500 hover:bg-white/5'}`}>
+          className={`flex max-w-48 items-center gap-1 rounded-t-lg px-3 py-1.5 text-[length:var(--type-meta)] ${view.currentSessionId === session.id ? 'bg-card text-foreground' : 'text-muted-foreground hover:bg-card/5'}`}>
           <button type="button" className="truncate" onClick={() => activate(session)}>
-            <span aria-hidden className="mr-1 text-[10px] text-neutral-600">{index + 1}</span>
+            <span aria-hidden className="mr-1 text-[length:var(--type-micro)] text-foreground">{index + 1}</span>
             <span aria-hidden className="mr-1">{badge(statuses[session.id])}</span>
             {session.title || 'Untitled Session'}
           </button>
-          <button type="button" aria-label={`Close ${session.title || 'session'} tab`} className="text-neutral-600 hover:text-neutral-200" onClick={() => close(session.id, activate)}>×</button>
+          <button type="button" aria-label={`Close ${session.title || 'session'} tab`} className="text-foreground hover:text-foreground" onClick={() => close(session.id, activate)}>×</button>
         </span>
       ))}
     </div>

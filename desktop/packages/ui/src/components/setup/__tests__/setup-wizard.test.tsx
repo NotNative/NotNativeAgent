@@ -71,7 +71,7 @@ describe('setup wizard (W-14)', () => {
     await vi.waitFor(() => {
       expect(node.querySelector('[data-testid="wizard-done"]')?.textContent).toContain('NNA is ready');
     });
-    expect(node.querySelector('[data-testid="wizard-step-detect"]')?.className).toContain('emerald');
+    expect(node.querySelector('[data-testid="wizard-step-detect"]')?.className).toContain('tone-success');
   });
 
   it('setup_required routes to the setup step; activation verifies then completes', async () => {

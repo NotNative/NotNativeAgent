@@ -9,7 +9,7 @@
 import type { ReactNode } from 'react';
 
 export const SETTINGS_SELECT_TRIGGER_CLASS =
-  'h-8 rounded-[7px] border-border/60 bg-interactive-hover/40 px-2 text-xs text-foreground outline-none focus:border-interactive-border-focus disabled:opacity-50';
+  'h-8 rounded-[var(--radius-control)] border-border/60 bg-interactive-hover/40 px-2 text-xs text-foreground outline-none focus:border-interactive-border-focus disabled:opacity-50';
 export const SETTINGS_ICON_BUTTON_CLASS =
   'inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-interactive-hover hover:text-foreground';
 export const SETTINGS_CONTROL_CLUSTER_CLASS = 'flex items-center gap-2';
@@ -17,7 +17,7 @@ export const SETTINGS_NUMBER_INPUT_CLASS =
   SETTINGS_SELECT_TRIGGER_CLASS +
   ' w-20 text-right tabular-nums';
 export const SETTINGS_FIELD_LABEL_CLASS = 'text-xs font-medium text-foreground';
-export const SETTINGS_HELPER_CLASS = 'text-[11px] leading-tight text-muted-foreground';
+export const SETTINGS_HELPER_CLASS = 'text-[length:var(--type-meta)] leading-tight text-muted-foreground';
 
 function anchored(item: string | undefined, className: string, children: ReactNode): ReactNode {
   return (
@@ -38,7 +38,7 @@ export function SettingsSection({ title, item, children }: { title?: string; ite
 
 export function SettingsGroupTitle({ children }: { children: ReactNode }): ReactNode {
   return (
-    <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</h3>
+    <h3 className="mb-2 text-[length:var(--type-meta)] font-semibold uppercase tracking-wider text-muted-foreground">{children}</h3>
   );
 }
 
@@ -207,7 +207,7 @@ export function SettingsNumberInput({
           onChange(Math.max(min, Math.min(max, next)));
         }}
       />
-      {unit !== undefined ? <span className="text-[11px] text-muted-foreground">{unit}</span> : null}
+      {unit !== undefined ? <span className="text-[length:var(--type-meta)] text-muted-foreground">{unit}</span> : null}
       {resetValue !== undefined ? (
         <button type="button" title="Reset" className={SETTINGS_ICON_BUTTON_CLASS} onClick={() => onChange(resetValue)}>↺</button>
       ) : null}

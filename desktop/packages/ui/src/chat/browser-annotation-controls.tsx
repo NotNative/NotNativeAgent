@@ -331,31 +331,31 @@ export function BrowserAnnotationControls({ guest, currentUrl, revision, shieldT
     }
   }
 
-  return <div className="mt-2 text-[11px] text-neutral-300" data-testid="browser-annotation-controls">
+  return <div className="mt-2 text-[length:var(--type-meta)] text-muted-foreground" data-testid="browser-annotation-controls">
     <button type="button" onClick={() => toggle('element')}
       disabled={!selecting && (blocked() || !shieldTarget || !guest()?.executeJavaScript || guest()?.getURL?.() !== url)}
-      aria-pressed={selecting && mode === 'element'} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">
+      aria-pressed={selecting && mode === 'element'} className="rounded border border-border/15 px-2 py-0.5 disabled:opacity-35">
       {selecting && mode === 'element' ? 'Cancel annotation' : 'Annotate element'}
     </button>
     <button type="button" onClick={() => toggle('region')}
       disabled={!selecting && (blocked() || !shieldTarget || !guest()?.executeJavaScript || guest()?.getURL?.() !== url)}
-      aria-pressed={selecting && mode === 'region'} className="ml-2 rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">
+      aria-pressed={selecting && mode === 'region'} className="ml-2 rounded border border-border/15 px-2 py-0.5 disabled:opacity-35">
       {selecting && mode === 'region' ? 'Cancel region' : 'Annotate region'}
     </button>
     <button type="button" onClick={() => toggle('stroke')}
       disabled={!selecting && (blocked() || !shieldTarget || !guest()?.executeJavaScript || guest()?.getURL?.() !== url)}
-      aria-pressed={selecting && mode === 'stroke'} className="ml-2 rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">
+      aria-pressed={selecting && mode === 'stroke'} className="ml-2 rounded border border-border/15 px-2 py-0.5 disabled:opacity-35">
       {selecting && mode === 'stroke' ? 'Cancel drawing' : 'Draw on page'}
     </button>
     {selecting && mode === 'stroke' && strokes.length ? <button type="button" onClick={() => { void confirmStrokes(); }}
-      className="ml-2 rounded border border-sky-500/50 px-2 py-0.5">Use drawing ({strokes.length}/8)</button> : null}
+      className="ml-2 rounded border border-border/50 px-2 py-0.5">Use drawing ({strokes.length}/8)</button> : null}
     {selecting ? <span role="status" className="ml-2">{mode === 'region'
       ? 'Drag a page region; Escape cancels.' : mode === 'stroke'
         ? 'Draw up to eight strokes, then use drawing; Escape cancels.'
         : 'Click a visible page element; Escape cancels.'}</span> : null}
     {selecting && shieldTarget ? createPortal(<div ref={shieldRef} tabIndex={0}
       data-testid="browser-annotation-shield" aria-label={`Select a page ${mode}; Escape cancels`}
-      className="absolute inset-0 z-50 cursor-crosshair touch-none bg-sky-300/5 outline-none"
+      className="absolute inset-0 z-50 cursor-crosshair touch-none bg-primary/5 outline-none"
       onClick={(event) => { void choose(event); }} onPointerDown={(event) => { startRegion(event); startStroke(event); }}
       onPointerMove={(event) => { moveRegion(event); moveStroke(event); }}
       onPointerUp={(event) => { void finishRegion(event); finishStroke(event); }}
@@ -369,7 +369,7 @@ export function BrowserAnnotationControls({ guest, currentUrl, revision, shieldT
       }}
       onContextMenu={(event) => event.preventDefault()}
       onWheel={(event) => event.preventDefault()}>
-      {drag ? <div data-testid="browser-annotation-region" className="pointer-events-none absolute border-2 border-sky-400 bg-sky-400/20"
+      {drag ? <div data-testid="browser-annotation-region" className="pointer-events-none absolute border-2 border-border bg-primary/20"
         style={{ left: `${Math.min(drag.start.x, drag.end.x) * 100}%`, top: `${Math.min(drag.start.y, drag.end.y) * 100}%`,
           width: `${Math.abs(drag.start.x - drag.end.x) * 100}%`, height: `${Math.abs(drag.start.y - drag.end.y) * 100}%` }} /> : null}
       {mode === 'stroke' ? <svg data-testid="browser-annotation-strokes" className="pointer-events-none absolute inset-0 h-full w-full"
@@ -378,22 +378,22 @@ export function BrowserAnnotationControls({ guest, currentUrl, revision, shieldT
           <polyline key={index} points={stroke.map((item) => `${item.x * 1000},${item.y * 1000}`).join(' ')}
             fill="none" stroke="#0ea5e9" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />)}
       </svg> : null}
-      <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded bg-neutral-900 px-3 py-2 text-xs text-white shadow-lg">
+      <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded bg-background px-3 py-2 text-xs text-foreground shadow-lg">
         {mode === 'region' ? 'Drag to mark a region' : mode === 'stroke' ? 'Draw freehand strokes' : 'Click to mark an element'} · Escape cancels
       </div>
     </div>, shieldTarget) : null}
-    {selected ? <div className="mt-2 space-y-1 rounded border border-sky-500/30 p-2" data-testid="browser-annotation-draft">
+    {selected ? <div className="mt-2 space-y-1 rounded border border-border/30 p-2" data-testid="browser-annotation-draft">
       <p className="truncate">{'kind' in selected ? selected.kind === 'stroke' ? 'Selected page drawing' : 'Selected page region'
         : `Selected ${selected.tag} · ${selected.label || selected.selector}`}</p>
       <label htmlFor="browser-annotation-comment">Comment</label>
       <textarea id="browser-annotation-comment" value={comment} maxLength={2000}
         onChange={(event) => setComment(event.target.value)} rows={2}
-        className="block w-full resize-y rounded border border-white/15 bg-neutral-900 p-1 text-neutral-100" />
+        className="block w-full resize-y rounded border border-border/15 bg-background p-1 text-foreground" />
       <button type="button" onClick={() => { void addToComposer(); }} disabled={!comment.trim() || attaching}
-        className="rounded border border-sky-500/50 px-2 py-0.5 disabled:opacity-35">{attaching ? 'Capturing…' : 'Add to chat draft'}</button>
+        className="rounded border border-border/50 px-2 py-0.5 disabled:opacity-35">{attaching ? 'Capturing…' : 'Add to chat draft'}</button>
       <button type="button" disabled={attaching} onClick={() => { setSelected(null); setComment(''); }} className="ml-2 underline disabled:opacity-35">Discard</button>
-      <p className="text-neutral-500">Adds a highlighted viewport screenshot and mark details to the draft; nothing is sent automatically.</p>
+      <p className="text-muted-foreground">Adds a highlighted viewport screenshot and mark details to the draft; nothing is sent automatically.</p>
     </div> : null}
-    {error ? <p role="alert" className="mt-1 text-amber-300">{error}</p> : null}
+    {error ? <p role="alert" className="mt-1 text-tone-warning">{error}</p> : null}
   </div>;
 }

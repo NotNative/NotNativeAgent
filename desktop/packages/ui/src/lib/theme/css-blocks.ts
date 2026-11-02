@@ -6,6 +6,7 @@
  * shadcn-alias block that gets `!important`). Pure maps: name → css value.
  */
 import { darken, isHexColor, lighten, toRgbTuples, withAlpha } from './color.ts';
+import { buildLadder, buildTones } from './ladder.ts';
 import type { Theme } from './types.ts';
 
 export type CssVars = Record<string, string>;
@@ -241,6 +242,27 @@ export const TYPOGRAPHY_VARS: CssVars = {
 
 /** All generated blocks in emission order (doc §B.1 groups; the alias block
  * is serialized separately with `!important` — never duplicated here). */
+/**
+ * The tone ladder (docs/planning/desktop-ui-visual-system.md §4.3): the
+ * surface steps, edge widths, tile tones, selection fill, elevation shadows,
+ * and scrollbar tones every primitive reads. Derived from the theme's own
+ * luminances so a runtime theme inherits correct lighting.
+ */
+const ladderVars = (theme: Theme): CssVars => {
+  const { surface, primary } = theme.colors;
+  const ladder = buildLadder({
+    canvas: surface.background,
+    elevated: surface.elevated,
+    foreground: surface.foreground,
+    primary: primary.base,
+  });
+  const vars: CssVars = { ...ladder.tokens };
+  for (const [name, entry] of Object.entries(theme.colors.status)) {
+    Object.assign(vars, buildTones(ladder, name, entry.value));
+  }
+  return vars;
+};
+
 export function themeVariableBlocks(theme: Theme): CssVars {
   return {
     ...geometryVars(theme),
@@ -253,6 +275,7 @@ export function themeVariableBlocks(theme: Theme): CssVars {
     ...toolsVars(theme),
     ...loadingVars(theme),
     ...configVars(theme),
+    ...ladderVars(theme),
     ...TYPOGRAPHY_VARS,
   };
 }

@@ -453,42 +453,42 @@ export function BrowserSurface({ visible = true }: { visible?: boolean } = {}): 
   }, [desktop, visible]);
 
   return <section className="flex h-full min-h-0 flex-col" data-testid="operator-browser">
-    <header className="border-b border-white/10 p-2">
-      <h2 className="mb-2 text-xs font-medium text-neutral-200">Browser preview</h2>
+    <header className="border-b border-border/10 p-2">
+      <h2 className="mb-2 text-xs font-medium text-foreground">Browser preview</h2>
       <form onSubmit={navigate} className="flex gap-1">
         <input aria-label="Preview address" value={address} onChange={(event) => { setAddress(event.target.value); setInvalid(false); }}
-          placeholder="localhost:5173" spellCheck={false} className="min-w-0 flex-1 rounded border border-white/15 bg-neutral-900 px-2 py-1 text-xs text-neutral-100" />
-        <button type="submit" className="rounded border border-white/15 px-2 text-xs text-neutral-200">Go</button>
+          placeholder="localhost:5173" spellCheck={false} className="min-w-0 flex-1 rounded border border-border/15 bg-background px-2 py-1 text-xs text-foreground" />
+        <button type="submit" className="rounded border border-border/15 px-2 text-xs text-foreground">Go</button>
       </form>
-      {invalid ? <p role="alert" className="mt-1 text-[11px] text-amber-300">Enter an HTTP(S) address outside this app. Desktop preview requires HTTPS or loopback HTTP; credentials are not allowed.</p> : null}
-      <div className="mt-2 flex items-center gap-1 text-[11px] text-neutral-300">
-        <button type="button" aria-label="Preview back" disabled={index <= 0} onClick={() => move(-1)} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">←</button>
-        <button type="button" aria-label="Preview forward" disabled={index < 0 || index >= history.length - 1} onClick={() => move(1)} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">→</button>
-        <button type="button" aria-label="Reload preview" disabled={!active} onClick={() => { setGuestStart(active); setGuestStatus(null); invalidateInspection(); setReload((value) => value + 1); }} className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">Reload</button>
+      {invalid ? <p role="alert" className="mt-1 text-[length:var(--type-meta)] text-tone-warning">Enter an HTTP(S) address outside this app. Desktop preview requires HTTPS or loopback HTTP; credentials are not allowed.</p> : null}
+      <div className="mt-2 flex items-center gap-1 text-[length:var(--type-meta)] text-muted-foreground">
+        <button type="button" aria-label="Preview back" disabled={index <= 0} onClick={() => move(-1)} className="rounded border border-border/15 px-2 py-0.5 disabled:opacity-35">←</button>
+        <button type="button" aria-label="Preview forward" disabled={index < 0 || index >= history.length - 1} onClick={() => move(1)} className="rounded border border-border/15 px-2 py-0.5 disabled:opacity-35">→</button>
+        <button type="button" aria-label="Reload preview" disabled={!active} onClick={() => { setGuestStart(active); setGuestStatus(null); invalidateInspection(); setReload((value) => value + 1); }} className="rounded border border-border/15 px-2 py-0.5 disabled:opacity-35">Reload</button>
         {desktop ? <button type="button" disabled={!active || snapshotBusy} onClick={() => { void inspectPage(); }}
-          className="rounded border border-white/15 px-2 py-0.5 disabled:opacity-35">{snapshotBusy ? 'Inspecting…' : 'Inspect page'}</button> : null}
-        {active ? <a href={active} target="_blank" rel="noopener noreferrer" className="ml-auto rounded border border-white/15 px-2 py-0.5">Open externally</a> : null}
+          className="rounded border border-border/15 px-2 py-0.5 disabled:opacity-35">{snapshotBusy ? 'Inspecting…' : 'Inspect page'}</button> : null}
+        {active ? <a href={active} target="_blank" rel="noopener noreferrer" className="ml-auto rounded border border-border/15 px-2 py-0.5">Open externally</a> : null}
       </div>
       {desktop && active && visible ? <BrowserAnnotationControls key={`${guestStart}|${reload}|${active}`} guest={() => guestRef.current}
         currentUrl={() => historyRef.current[indexRef.current] ?? null}
         revision={() => inspectionRevision.current} shieldTarget={annotationShieldTarget}
         blocked={() => otherActionPending() || snapshotBusy}
         onActive={(value) => { annotationActive.current = value; if (value) invalidateInspection(); }} /> : null}
-      {desktop && guestStatus ? <p role="status" className={`mt-1 text-[11px] ${guestStatus.kind === 'failed' ? 'text-amber-300' : 'text-neutral-400'}`}>{guestStatus.message}</p> : null}
-      {executorStatus !== null ? <span data-testid="browser-executor-status" className="text-[10px] text-neutral-500">{executorStatus}</span> : null}
-      {snapshotError ? <p role="alert" className="mt-1 text-[11px] text-amber-300">{snapshotError}</p> : null}
+      {desktop && guestStatus ? <p role="status" className={`mt-1 text-[length:var(--type-meta)] ${guestStatus.kind === 'failed' ? 'text-tone-warning' : 'text-muted-foreground'}`}>{guestStatus.message}</p> : null}
+      {executorStatus !== null ? <span data-testid="browser-executor-status" className="text-[length:var(--type-micro)] text-muted-foreground">{executorStatus}</span> : null}
+      {snapshotError ? <p role="alert" className="mt-1 text-[length:var(--type-meta)] text-tone-warning">{snapshotError}</p> : null}
     </header>
     {snapshot ? <InspectionPanel snapshot={snapshot} onClose={() => setSnapshot(null)} /> : null}
-    {active && waitForLocal && probeState !== 'ready' ? <div className="p-3 text-xs text-neutral-400" role="status">
+    {active && waitForLocal && probeState !== 'ready' ? <div className="p-3 text-xs text-muted-foreground" role="status">
       {probeState === 'checking' ? 'Waiting for local server to start…' : probeState === 'timed-out'
         ? 'Local server did not answer within 30 seconds.' : 'Readiness check unavailable.'}
       {probeState !== 'checking' ? <button type="button" className="ml-2 underline" onClick={() => setReload((value) => value + 1)}>Retry</button> : null}
     </div> : null}
     {active && (!waitForLocal || probeState === 'ready') && (visible || !desktop) ? desktop
       ? <div className="relative min-h-0 flex-1" ref={setAnnotationShieldTarget}>
-        <webview key={`${guestStart}|${reload}`} ref={(node) => { guestRef.current = node; }} title="Isolated desktop browser preview" src={guestStart ?? active} partition="nnd-preview" className="h-full w-full border-0 bg-white" />
+        <webview key={`${guestStart}|${reload}`} ref={(node) => { guestRef.current = node; }} title="Isolated desktop browser preview" src={guestStart ?? active} partition="nnd-preview" className="h-full w-full border-0 bg-card" />
       </div>
-      : <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={previewProxyUrl(active) ?? active} sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer" ref={(node) => { tabFrameRef.current = node; }} className={`${visible ? '' : 'hidden '}min-h-0 w-full flex-1 border-0 bg-white`} /> : !active ? <PreviewEmptyState desktop={desktop} localRuntime={localRuntime} discovery={discovery}
+      : <iframe key={`${active}|${reload}`} title="Sandboxed browser preview" src={previewProxyUrl(active) ?? active} sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer" ref={(node) => { tabFrameRef.current = node; }} className={`${visible ? '' : 'hidden '}min-h-0 w-full flex-1 border-0 bg-card`} /> : !active ? <PreviewEmptyState desktop={desktop} localRuntime={localRuntime} discovery={discovery}
         onScan={() => setScanRevision((value) => value + 1)} onOpen={open} /> : null}
   </section>;
 }

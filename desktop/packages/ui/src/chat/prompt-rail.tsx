@@ -52,17 +52,17 @@ export function PromptNavigatorRail({ store, sessionID }: { store: StoreApi<Dire
           }}
           onMouseEnter={() => setHovered(prompt.id)}
           onMouseLeave={() => setHovered((current) => (current === prompt.id ? null : current))}
-          className={`h-2 w-2 rounded-full ${prompt.id === prompts[0]?.id ? 'bg-amber-400' : 'bg-neutral-600'} hover:bg-sky-300`}
+          className={`h-2 w-2 rounded-full ${prompt.id === prompts[0]?.id ? 'bg-tone-warning/18' : 'bg-card'} hover:bg-primary`}
         />
       ))}
       {hoveredPrompt ? (
         <div
           data-testid="prompt-rail-preview"
-          className="absolute right-4 top-0 w-64 rounded-lg border border-white/10 bg-neutral-950/95 p-2 text-[11px] text-neutral-300 shadow-xl"
+          className="absolute right-4 top-0 w-64 rounded-lg border border-border/10 bg-popover/95 p-2 text-[length:var(--type-meta)] text-muted-foreground shadow-xl"
         >
-          <div className="mb-1 flex items-baseline justify-between gap-2 uppercase tracking-wide text-[9px] text-neutral-500">
+          <div className="mb-1 flex items-baseline justify-between gap-2 uppercase tracking-wide text-[length:var(--type-micro)] text-muted-foreground">
             <span>Prompt {prompts.indexOf(hoveredPrompt) + 1} of {prompts.length}</span>
-            {hoveredPrompt.id === prompts[0]?.id ? <span className="text-amber-400" data-testid="prompt-rail-current-label">Current prompt</span> : null}
+            {hoveredPrompt.id === prompts[0]?.id ? <span className="text-tone-warning" data-testid="prompt-rail-current-label">Current prompt</span> : null}
           </div>
           <p className="whitespace-pre-wrap break-words">{hoveredPrompt.text.length > PREVIEW_MAX ? `${hoveredPrompt.text.slice(0, PREVIEW_MAX)}…` : hoveredPrompt.text}</p>
         </div>

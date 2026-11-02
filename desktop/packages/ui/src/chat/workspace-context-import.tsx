@@ -70,21 +70,21 @@ export function WorkspaceContextImport({ directory, projectId, onImported, onClo
     }
     finally { setBusy(false); }
   }
-  return <section className="max-h-72 overflow-y-auto border-b border-white/10 p-2 text-xs" aria-label="Copy workspace files to project context">
+  return <section className="max-h-72 overflow-y-auto border-b border-border/10 p-2 text-xs" aria-label="Copy workspace files to project context">
     <div className="flex items-center gap-2"><strong>Copy workspace files</strong>
       <button type="button" className="ml-auto underline" onClick={onClose}>Close</button></div>
-    <p className="my-1 text-neutral-400">Review before copying. This does not delete or modify .opencode/nnd files.</p>
+    <p className="my-1 text-muted-foreground">Review before copying. This does not delete or modify .opencode/nnd files.</p>
     <button type="button" disabled={busy} className="underline disabled:opacity-50" onClick={() => { void scan(); }}>Scan workspace files</button>
     {preview ? <div className="mt-2 space-y-1">
       <p>General note: {preview.noteText === undefined ? 'not found' : `${preview.noteText.length} characters`}</p>
       {preview.noteText ? <textarea readOnly aria-label="Workspace note preview" value={preview.noteText}
-        className="h-20 w-full resize-y rounded border border-white/10 bg-neutral-900/40 p-1" /> : null}
+        className="h-20 w-full resize-y rounded border border-border/10 bg-background/40 p-1" /> : null}
       <p>Todos: {preview.todos === undefined ? 'not found' : preview.todos.length}</p>
       {preview.todos?.length ? <ol className="max-h-20 overflow-y-auto">{preview.todos.map((todo) =>
         <li key={todo.id}>{todo.done ? '✓' : '○'} {todo.text}</li>)}</ol> : null}
       <button type="button" disabled={busy || (preview.noteText?.length ?? 0) > 3000 || (!preview.noteText?.trim() && !preview.todos?.length)}
-        className="rounded border border-white/10 px-2 py-1 disabled:opacity-50" onClick={() => { void copy(); }}>Copy to project context</button>
+        className="rounded border border-border/10 px-2 py-1 disabled:opacity-50" onClick={() => { void copy(); }}>Copy to project context</button>
     </div> : null}
-    {message ? <p role="status" className="mt-1 text-amber-300">{message}</p> : null}
+    {message ? <p role="status" className="mt-1 text-tone-warning">{message}</p> : null}
   </section>;
 }

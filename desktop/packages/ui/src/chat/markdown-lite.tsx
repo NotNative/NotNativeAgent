@@ -10,6 +10,7 @@
  */
 import { type ReactNode } from 'react';
 import type { PreparedMarkdownImage } from './markdown-image-assets.ts';
+import { UiBlock, type BlockHost } from './blocks/render.tsx';
 
 const FENCE = /^```([\w-]*)\s*$/u;
 const HEADING = /^(#{1,4})\s+(.*)$/u;
@@ -71,7 +72,7 @@ function renderInline(text: string, images?: PreparedImages): ReactNode[] {
     if (token.startsWith('**')) {
       nodes.push(<strong key={key++} className="font-semibold text-foreground">{token.slice(2, -2)}</strong>);
     } else if (token.startsWith('`')) {
-      nodes.push(<code key={key++} className="rounded bg-muted/90 px-1 py-0.5 font-mono text-[0.85em] text-amber-200">{token.slice(1, -1)}</code>);
+      nodes.push(<code key={key++} className="rounded bg-muted/90 px-1 py-0.5 font-mono text-[0.85em] text-tone-warning">{token.slice(1, -1)}</code>);
     } else if (token.startsWith('*')) {
       nodes.push(<em key={key++} className="italic text-muted-foreground">{token.slice(1, -1)}</em>);
     } else {
@@ -81,7 +82,7 @@ function renderInline(text: string, images?: PreparedImages): ReactNode[] {
       if (href === null) nodes.push(<span key={key++}>{label}</span>);
       else {
         nodes.push(
-          <a key={key++} href={href} target="_blank" rel="noreferrer noopener nofollow" className="text-sky-400 underline decoration-sky-700 hover:text-sky-300">{label}</a>,
+          <a key={key++} href={href} target="_blank" rel="noreferrer noopener nofollow" className="text-primary underline decoration-sky-700 hover:text-primary">{label}</a>,
         );
       }
     }
@@ -156,9 +157,16 @@ export function markdownBlocks(source: string): Block[] {
 }
 
 /** The renderer: blocks → styled React nodes. Never throws, never injects HTML. */
-export function renderMarkdown(source: string, images?: PreparedImages): ReactNode[] {
+export function renderMarkdown(source: string, images?: PreparedImages, options: { blocks?: BlockHost } = {}): ReactNode[] {
   if (typeof source !== 'string' || source.length === 0) return [];
-  return markdownBlocks(source).map((block, index) => <MarkdownBlockView key={index} block={block} images={images} />);
+  return markdownBlocks(source).map((block, index) => {
+    // Invariant: only an assistant reply draws a block; every other surface
+    // shows the fence as code (docs/planning/desktop-ui-visual-system.md §6.6).
+    if (block.kind === 'code' && block.lang === 'openui-lang' && options.blocks) {
+      return <UiBlock key={index} source={block.text} host={options.blocks} />;
+    }
+    return <MarkdownBlockView key={index} block={block} images={images} />;
+  });
 }
 
 export function MarkdownBlockView({ block, images }: { block: Block; images?: PreparedImages }): ReactNode {
@@ -166,7 +174,7 @@ export function MarkdownBlockView({ block, images }: { block: Block; images?: Pr
     case 'p': return <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground">{renderInline(block.text, images)}</p>;
     case 'code':
       return (
-        <pre className="max-h-72 overflow-auto rounded-lg border border-border/40 p-2.5 text-[11.5px] leading-5" style={{ backgroundColor: 'var(--syntax-background)', color: 'var(--syntax-foreground)' }} data-code-lang={block.lang ?? 'plain'}>
+        <pre className="max-h-72 overflow-auto rounded-lg border border-border/40 p-2.5 text-[length:var(--type-meta)] leading-5" style={{ backgroundColor: 'var(--syntax-background)', color: 'var(--syntax-foreground)' }} data-code-lang={block.lang ?? 'plain'}>
           <code className="font-mono">{block.text}</code>
         </pre>
       );
@@ -176,8 +184,8 @@ export function MarkdownBlockView({ block, images }: { block: Block; images?: Pr
       return <ol className="ml-4 list-decimal space-y-0.5 text-sm leading-6 text-foreground">{(block.items ?? []).map((item, at) => <li key={at}>{renderInline(item, images)}</li>)}</ol>;
     case 'h1': return <h3 className="mt-1 text-base font-semibold text-foreground">{renderInline(block.text, images)}</h3>;
     case 'h2': return <h4 className="mt-1 text-sm font-semibold text-foreground">{renderInline(block.text, images)}</h4>;
-    case 'h3': case 'h4': return <h5 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{renderInline(block.text, images)}</h5>;
-    case 'quote': return <blockquote className="border-l-2 border-border/60 pl-3 text-[13px] leading-6 text-muted-foreground">{renderInline(block.text, images)}</blockquote>;
+    case 'h3': case 'h4': return <h5 className="text-[length:var(--type-markdown)] font-semibold uppercase tracking-wide text-muted-foreground">{renderInline(block.text, images)}</h5>;
+    case 'quote': return <blockquote className="border-l-2 border-border/60 pl-3 text-[length:var(--type-markdown)] leading-6 text-muted-foreground">{renderInline(block.text, images)}</blockquote>;
     case 'hr': return <hr className="border-border/50" />;
     default: return null;
   }

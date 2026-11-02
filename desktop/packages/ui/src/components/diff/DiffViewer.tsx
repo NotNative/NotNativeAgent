@@ -72,10 +72,10 @@ export function DiffViewer({ fileName, fileDiff, original, modified, renderSideB
   }
   const holdClass = wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre overflow-x-auto';
   return (
-    <div className="flex flex-col gap-3 font-mono text-[11px] leading-5" data-testid="diff-viewer" data-file={fileName}>
+    <div className="flex flex-col gap-3 font-mono text-[length:var(--type-meta)] leading-5" data-testid="diff-viewer" data-file={fileName}>
       {fileDiff.hunks.map((hunk, hunkIndex) => (
         <section key={hunkIndex} className="rounded border border-border/40">
-          <header className="flex items-center gap-2 bg-interactive-hover/40 px-2 py-1 text-[10px] text-muted-foreground">
+          <header className="flex items-center gap-2 bg-interactive-hover/40 px-2 py-1 text-[length:var(--type-micro)] text-muted-foreground">
             <span className="font-mono">{hunk.header || `@@ -${hunk.oldStart} +${hunk.newStart} @@`}</span>
             {hunkActions?.(hunkIndex) ?? null}
           </header>

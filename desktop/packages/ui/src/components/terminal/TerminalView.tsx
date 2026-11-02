@@ -191,7 +191,7 @@ function TabStrip({ tabs, activeTabId, directory }: TabStripProps): ReactNode {
   return (
     <div className="flex items-center gap-1 overflow-x-auto border-b border-border/40 pb-1" data-testid="terminal-tabs">
       {tabs.map((tab) => (
-        <span key={tab.id} className={tab.id === activeTabId ? 'inline-flex items-center gap-1 rounded bg-interactive-selection/40 px-2 py-0.5 text-[11px]' : 'inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground'} data-testid="terminal-tab">
+        <span key={tab.id} className={tab.id === activeTabId ? 'inline-flex items-center gap-1 rounded bg-interactive-selection/40 px-2 py-0.5 text-[length:var(--type-meta)]' : 'inline-flex items-center gap-1 rounded px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground'} data-testid="terminal-tab">
           <button type="button" onClick={() => useTerminalStore.getState().setActiveTab(directory, tab.id)}>{tab.label}</button>
           {tab.terminalSessionId !== null && tab.lifecycle === 'running' ? (
             <button type="button" aria-label={`${t('terminal.restart')} ${tab.label}`} data-testid={`terminal-tab-restart-${tab.id}`} onClick={() => void restartActiveTab(directory, tab)}>{t('terminal.restartGlyph')}</button>
@@ -269,7 +269,7 @@ function QuickKeys({ directory, tab, compact }: QuickKeysProps): ReactNode {
       ))}
       <AttachSelectionButton directory={directory} tab={tab} />
       {sessionId !== null ? (
-        <button type="button" className="rounded border border-border/50 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-status-error" data-testid="terminal-kill-session" onClick={() => void killSession(sessionId)}>{t('terminal.kill')}</button>
+        <button type="button" className="rounded border border-border/50 px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground hover:text-status-error" data-testid="terminal-kill-session" onClick={() => void killSession(sessionId)}>{t('terminal.kill')}</button>
       ) : null}
     </div>
   );
@@ -297,7 +297,7 @@ async function killSession(sessionId: string): Promise<void> {
 
 function QuickKey({ label, sequence, clearsLine, send, disabled }: { label: string; sequence: string; clearsLine?: boolean; send: (data: string, clearsLine?: boolean) => void; disabled: boolean }): ReactNode {
   return (
-    <button type="button" disabled={disabled} className="rounded border border-border/50 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50" data-testid={`terminal-quick-key-${label}`} onClick={() => send(sequence, clearsLine)}>{label}</button>
+    <button type="button" disabled={disabled} className="rounded border border-border/50 px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50" data-testid={`terminal-quick-key-${label}`} onClick={() => send(sequence, clearsLine)}>{label}</button>
   );
 }
 
@@ -323,6 +323,6 @@ function AttachSelectionButton({ directory, tab }: { directory: string; tab: Ter
     window.dispatchEvent(new CustomEvent(FOCUS_EVENT_NAME)); // section 7.4 step 5
   }, [directory, sessionKey, tab.id, tab.label]);
   return (
-    <button type="button" className="rounded border border-border/50 px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground" data-testid="terminal-attach-selection" onClick={onClick}>{t('terminal.attachSelection')}</button>
+    <button type="button" className="rounded border border-border/50 px-2 py-0.5 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground" data-testid="terminal-attach-selection" onClick={onClick}>{t('terminal.attachSelection')}</button>
   );
 }

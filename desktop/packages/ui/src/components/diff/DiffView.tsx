@@ -41,10 +41,10 @@ export function DiffView({ directory, visible, focusPath, focusRevision = 0 }: {
       <Sidebar model={model} />
       <div ref={containerRef} className="min-w-0 flex-1 overflow-y-auto" data-testid="diff-scroll">
         {focusPath && model.status && (!linkedPath || !model.status.files.some((item) => item.path === linkedPath))
-          ? <p role="status" className="px-3 py-2 text-xs text-neutral-400">The linked file has no available diff in this workspace.</p> : null}
+          ? <p role="status" className="px-3 py-2 text-xs text-muted-foreground">The linked file has no available diff in this workspace.</p> : null}
         <div className="mb-2 flex items-center gap-2 px-1">
-          <button type="button" className="rounded bg-primary/20 px-2 py-0.5 text-[11px] text-primary disabled:opacity-40" disabled={model.inFlight !== null} onClick={() => void model.stageAll()}>{t('diffUi.stageAll')}</button>
-          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setExpandAll(!expandAll)}>{t('diffUi.expandAll')}</button>
+          <button type="button" className="rounded bg-primary/20 px-2 py-0.5 text-[length:var(--type-meta)] text-primary disabled:opacity-40" disabled={model.inFlight !== null} onClick={() => void model.stageAll()}>{t('diffUi.stageAll')}</button>
+          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={() => setExpandAll(!expandAll)}>{t('diffUi.expandAll')}</button>
         </div>
         {model.entries.map((item) => (
           <EntryRow
@@ -170,7 +170,7 @@ function Sidebar({ model }: { model: DiffModel }): ReactNode {
             type="button"
             data-testid={`diff-scope-${entry.key}`}
             aria-pressed={model.scope === entry.key}
-            className={`rounded-full border px-2 py-0.5 text-[11px] ${model.scope === entry.key ? 'border-primary/60 bg-primary/10 text-primary' : 'border-border/60 text-muted-foreground hover:text-foreground'}`}
+            className={`rounded-full border px-2 py-0.5 text-[length:var(--type-meta)] ${model.scope === entry.key ? 'border-primary/60 bg-primary/10 text-primary' : 'border-border/60 text-muted-foreground hover:text-foreground'}`}
             onClick={() => model.setScope(entry.key)}
           >
             {entry.label}
@@ -219,15 +219,15 @@ function EntryRow({ model, entry, containerRef, anchorPendingRef }: EntryRowProp
           <span className="mr-1 inline-block w-3 text-center" style={{ color: symbolColor(symbol) }}>{symbol}</span>
           {entry.entry.path}
         </button>
-        <span className="text-[10px] text-muted-foreground">{staged ? t('gitUi.staged') : t('gitUi.working')}</span>
-        <button type="button" disabled={busy} className="rounded border border-border/60 px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="diff-entry-stage-toggle" onClick={() => void model.stageToggle(entry.entry, staged)}>
+        <span className="text-[length:var(--type-micro)] text-muted-foreground">{staged ? t('gitUi.staged') : t('gitUi.working')}</span>
+        <button type="button" disabled={busy} className="rounded border border-border/60 px-1.5 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" data-testid="diff-entry-stage-toggle" onClick={() => void model.stageToggle(entry.entry, staged)}>
           {staged ? t('gitUi.unstageButton') : t('gitUi.stageButton')}
         </button>
       </header>
       {isOpen && gated && !overrides ? (
         <div className="p-3 text-xs text-muted-foreground" data-testid="diff-large-gate">
           {t('diffUi.largeDiff', { count: changedLines })}
-          <button type="button" className="ml-2 rounded border border-border/60 px-2 py-0.5 text-[11px] text-foreground hover:text-primary" data-testid="diff-render-anyway" onClick={() => model.renderAnyway(entry.entry.path, entry.staged)}>{t('gitUi.renderAnyway')}</button>
+          <button type="button" className="ml-2 rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-meta)] text-foreground hover:text-primary" data-testid="diff-render-anyway" onClick={() => model.renderAnyway(entry.entry.path, entry.staged)}>{t('gitUi.renderAnyway')}</button>
         </div>
       ) : isOpen ? (
         <div className="px-3 pb-2">
@@ -278,7 +278,7 @@ function HunkButton({ kind, index, busy, onClick }: HunkButtonProps): ReactNode 
       disabled={busy}
       aria-label={t(`diffUi.hunk${kind === 'stage' ? 'Stage' : kind === 'unstage' ? 'Unstage' : 'Discard'}Aria`, { number: index + 1 })}
       data-testid={`diff-hunk-${kind}-${index}`}
-      className="rounded border border-border/60 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+      className="rounded border border-border/60 px-1.5 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground"
       onClick={onClick}
     >
       {t(`diffUi.hunk${kind === 'stage' ? 'Stage' : kind === 'unstage' ? 'Unstage' : 'Discard'}Label`)}

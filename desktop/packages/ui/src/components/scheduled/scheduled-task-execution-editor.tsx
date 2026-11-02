@@ -52,7 +52,7 @@ function LabelledCheck({ label, testid, checked, onToggle }: {
   return (
     <div className="flex items-center gap-2">
       <button type="button" data-testid={testid} aria-pressed={checked}
-        className={`rounded px-2 py-0.5 text-[11px] ${checked ? 'bg-emerald-900/50 text-emerald-300' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'}`}
+        className={`rounded px-2 py-0.5 text-[length:var(--type-meta)] ${checked ? 'bg-tone-success/50 text-tone-success' : 'bg-card text-muted-foreground hover:text-foreground'}`}
         onClick={() => onToggle(!checked)}>{label}</button>
     </div>
   );
@@ -78,11 +78,11 @@ function ModelSelect({ execution, onChange, providers }: {
     onChange({ ...execution, providerID: raw.slice(0, index), modelID: raw.slice(index + MODEL_SEP.length) });
   };
   return (
-    <label className="flex items-center gap-1 text-[11px] text-neutral-400">
+    <label className="flex items-center gap-1 text-[length:var(--type-meta)] text-muted-foreground">
       <span>{text.model}</span>
       <select data-testid="execution-model-select" value={modelValue(execution)}
         onChange={(event) => pick(event.target.value)}
-        className="max-w-64 rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200">
+        className="max-w-64 rounded-lg border border-border/10 bg-background px-2 py-1 text-[length:var(--type-meta)] text-foreground">
         {!listed && customPair ? <option value={modelValue(execution)}>{modelValue(execution)}</option> : null}
         {!hasChoices && !customPair ? <option value="">{text.noModels}</option> : null}
         {providers.map((provider) => (
@@ -106,11 +106,11 @@ function AgentSelect({ execution, onChange, agents }: {
   const listed = agents.includes(current);
   const text = useScheduledText();
   return (
-    <label className="flex items-center gap-1 text-[11px] text-neutral-400">
+    <label className="flex items-center gap-1 text-[length:var(--type-meta)] text-muted-foreground">
       <span>{text.agent}</span>
       <select data-testid="execution-agent-select" value={current}
         onChange={(event) => onChange({ ...execution, agent: event.target.value || undefined })}
-        className="max-w-48 rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200">
+        className="max-w-48 rounded-lg border border-border/10 bg-background px-2 py-1 text-[length:var(--type-meta)] text-foreground">
         {!listed ? <option value={current}>{current}</option> : null}
         {agents.map((name) => <option key={name} value={name}>{name}</option>)}
       </select>
@@ -121,7 +121,7 @@ function AgentSelect({ execution, onChange, agents }: {
 function GoalBudget({ execution, onChange }: { execution: TaskExecution; onChange: (next: TaskExecution) => void }): ReactNode {
   const text = useScheduledText();
   return (
-    <label className="flex items-center gap-2 text-[11px] text-neutral-400">
+    <label className="flex items-center gap-2 text-[length:var(--type-meta)] text-muted-foreground">
       <span>{text.goalBudget}</span>
       <input type="number" min={1000} step={1000} data-testid="execution-goal-budget"
         value={execution.goalTokenBudget ?? ''}
@@ -130,7 +130,7 @@ function GoalBudget({ execution, onChange }: { execution: TaskExecution; onChang
           const budget = event.target.value.length > 0 && Number.isFinite(raw) && raw >= 1 ? raw : undefined;
           onChange({ ...execution, goalTokenBudget: budget });
         }}
-        className="w-40 rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200" />
+        className="w-40 rounded-lg border border-border/10 bg-background px-2 py-1 text-[length:var(--type-meta)] text-foreground" />
     </label>
   );
 }
@@ -208,7 +208,7 @@ function PromptField({ execution, onChange, commands, agents, directory }: {
       <PickerPopup picker={picker} />
       <textarea value={execution.prompt} onChange={onPromptInput} onKeyDown={escapeHatch}
         data-testid="task-prompt-input" rows={3} placeholder={text.promptPlaceholder}
-        className="w-full resize-y rounded-lg border border-white/10 bg-neutral-900 p-2 text-[12px] text-neutral-100 outline-none" />
+        className="w-full resize-y rounded-lg border border-border/10 bg-background p-2 text-[length:var(--type-meta)] text-foreground outline-none" />
     </div>
   );
 }

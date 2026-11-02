@@ -110,3 +110,25 @@ export function readableForeground(onBackground: string, candidates: string[]): 
   }
   return winner;
 }
+
+/**
+ * Raise a tone to a usable contrast on its own surface, changing it only as
+ * far as needed.
+ *
+ * Invariant: a status tone is text somewhere, so it must be readable on the
+ * page it sits on. Seeds author tones for their look, not their contrast, so
+ * a tone under the floor is darkened (light surfaces) or lightened (dark
+ * ones) in steps until it clears it; a tone that already clears keeps its
+ * authored value byte for byte.
+ */
+export function ensureContrast(color: string, onBackground: string, minimum: number): string {
+  const bg = parseHex(onBackground);
+  if (contrastRatio(parseHex(color), bg) >= minimum) return color;
+  const toward = relativeLuminance(bg) > 0.18 ? '#000000' : '#ffffff';
+  let current = color;
+  for (let step = 1; step <= 20; step += 1) {
+    current = mixColors(color, toward, step * 0.05);
+    if (contrastRatio(parseHex(current), bg) >= minimum) return current;
+  }
+  return mixColors(current, toward, 0.5);
+}

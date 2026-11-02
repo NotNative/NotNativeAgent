@@ -157,21 +157,21 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
     setTab(item);
   };
   return <section className="flex h-full min-h-0 flex-col" data-testid="project-notes">
-    <nav className="flex flex-wrap gap-1 border-b border-white/10 p-2" aria-label="Project notes sections">
+    <nav className="flex flex-wrap gap-1 border-b border-border/10 p-2" aria-label="Project notes sections">
       {primaryTabs.map((item) => <button key={item.id} type="button" aria-current={activeTab === item.id ? 'page' : undefined}
-        className={`rounded px-2 py-1 text-[10px] ${activeTab === item.id ? 'bg-white/10 text-white' : 'text-neutral-500'}`}
+        className={`rounded px-2 py-1 text-[length:var(--type-micro)] ${activeTab === item.id ? 'bg-card/10 text-foreground' : 'text-muted-foreground'}`}
         onClick={() => selectTab(item.id)}>{item.label}</button>)}
       {projectId ? <button type="button" aria-expanded={workspaceFilesOpen} aria-controls="workspace-note-files"
-        className="ml-auto rounded px-2 py-1 text-[10px] text-neutral-500 hover:text-neutral-200"
+        className="ml-auto rounded px-2 py-1 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground"
         onClick={() => { setWorkspaceFilesOpen((current) => !current); if (tab === 'notes' || tab === 'todos' || tab === 'plans') setTab('context'); }}>
         Workspace files {workspaceFilesOpen ? '▴' : '▾'}
       </button> : null}
     </nav>
-    {projectId && (activeTab === 'context' || activeTab === 'project-todos' || activeTab === 'saved' || activeTab === 'memory') ? <div className="border-b border-white/10 px-2 py-1">
+    {projectId && (activeTab === 'context' || activeTab === 'project-todos' || activeTab === 'saved' || activeTab === 'memory') ? <div className="border-b border-border/10 px-2 py-1">
       <input aria-label="Search project notes, todos, and plan titles" type="search" value={query}
         onChange={(event) => setQuery(event.target.value)} placeholder="Search notes, todos, plan titles"
-        className="w-full rounded border border-white/10 bg-neutral-900/40 px-2 py-1 text-xs" />
-      {searchEnabled ? <div className="mt-1 text-[10px] text-neutral-500">
+        className="w-full rounded border border-border/10 bg-background/40 px-2 py-1 text-xs" />
+      {searchEnabled ? <div className="mt-1 text-[length:var(--type-micro)] text-muted-foreground">
         {searchLoading ? <span role="status">Counting matches…</span> : searchError ? <span role="alert">Match counts unavailable. Section lists may still be searched.</span> : counts ? <nav aria-label="Search matches by section" className="flex flex-wrap gap-2">
           {([{ id: 'context', label: 'General' }, { id: 'project-todos', label: 'Todos' }, { id: 'saved', label: 'Plans' }] as const).map((item) =>
             <button key={item.id} type="button" onClick={() => selectTab(item.id)} className="underline"
@@ -181,13 +181,13 @@ export function ProjectNotes({ directory, directoryKey, projectId, visible, draf
         <span className="ml-2">Snapshot counts; refresh after changes.</span>
       </div> : null}
     </div> : null}
-    {projectId && workspaceFilesOpen ? <div id="workspace-note-files" className="border-b border-white/10 px-2 pb-2">
-      <p className="pb-1 text-[10px] text-neutral-500">Existing repo-local files remain separate; nothing has been moved.</p>
-      <button type="button" className="mb-1 text-[10px] text-sky-300 underline" onClick={() => setImportOpen(true)}>Copy workspace files to project…</button>
+    {projectId && workspaceFilesOpen ? <div id="workspace-note-files" className="border-b border-border/10 px-2 pb-2">
+      <p className="pb-1 text-[length:var(--type-micro)] text-muted-foreground">Existing repo-local files remain separate; nothing has been moved.</p>
+      <button type="button" className="mb-1 text-[length:var(--type-micro)] text-primary underline" onClick={() => setImportOpen(true)}>Copy workspace files to project…</button>
       <nav className="flex flex-wrap gap-1" aria-label="Legacy workspace notes">
         {([{ id: 'notes', label: 'Note file' }, { id: 'todos', label: 'Todo file' }, { id: 'plans', label: 'Session plan' }] as const).map((item) =>
           <button key={item.id} type="button" aria-current={activeTab === item.id ? 'page' : undefined}
-            className={`rounded px-2 py-1 text-[10px] ${activeTab === item.id ? 'bg-white/10 text-white' : 'text-neutral-500'}`}
+            className={`rounded px-2 py-1 text-[length:var(--type-micro)] ${activeTab === item.id ? 'bg-card/10 text-foreground' : 'text-muted-foreground'}`}
             onClick={() => selectTab(item.id)}>{item.label}</button>)}
       </nav>
     </div> : null}
@@ -251,22 +251,22 @@ function GeneralNotes({ directory, directoryKey, draftLease, setDraftLease }: {
     }, () => { if (live.current && revision.current === saveRevision) setSaved('Save failed'); });
   };
   return <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
-    <header className="flex text-[10px] text-neutral-500"><span>General notes</span><span className="ml-auto">{saved}</span></header>
-    {loadFailed ? <button type="button" className="self-start text-xs text-amber-300 underline" onClick={() => {
+    <header className="flex text-[length:var(--type-micro)] text-muted-foreground"><span>General notes</span><span className="ml-auto">{saved}</span></header>
+    {loadFailed ? <button type="button" className="self-start text-xs text-tone-warning underline" onClick={() => {
       setLoading(true); setSaved('Loading…'); setLoadAttempt((current) => current + 1);
     }}>Retry load</button> : null}
     {locked ? <OtherDraftWarning directoryKey={directoryKey} setDraftLease={setDraftLease} /> : null}
-    <textarea className="min-h-0 flex-1 resize-none rounded border border-white/10 bg-neutral-900/40 p-2 text-xs" value={ownLease?.text ?? text} disabled={loading || loadFailed || locked} onChange={(e) => {
+    <textarea className="min-h-0 flex-1 resize-none rounded border border-border/10 bg-background/40 p-2 text-xs" value={ownLease?.text ?? text} disabled={loading || loadFailed || locked} onChange={(e) => {
       const next = e.target.value;
       revision.current += 1; setText(next); setSaved('Unsaved');
       setDraftLease((current) => current && current.directoryKey !== directoryKey ? current : { directoryKey, text: next, revision: (current?.revision ?? 0) + 1 });
     }} />
-    <button type="button" disabled={loading || loadFailed || locked} className="self-end rounded border border-white/10 px-2 py-1 text-[10px] disabled:opacity-50" onClick={save}>Save notes</button>
+    <button type="button" disabled={loading || loadFailed || locked} className="self-end rounded border border-border/10 px-2 py-1 text-[length:var(--type-micro)] disabled:opacity-50" onClick={save}>Save notes</button>
   </div>;
 }
 
 function OtherDraftWarning({ directoryKey, setDraftLease }: { directoryKey: string; setDraftLease: SetDraftLease }): ReactNode {
-  return <div role="status" className="text-xs text-amber-300">Unsaved notes in another project. Return there to save, or discard that draft before editing here.
+  return <div role="status" className="text-xs text-tone-warning">Unsaved notes in another project. Return there to save, or discard that draft before editing here.
     <button type="button" className="ml-2 underline" onClick={() => {
       if (window.confirm('Discard the unsaved General Notes draft in the other project?')) setDraftLease((current) => current?.directoryKey === directoryKey ? current : null);
     }}>Discard other draft</button>
@@ -279,6 +279,6 @@ function ProjectTodos({ directory }: { directory: string }): ReactNode {
   const live = useRef(true); const writes = useRef(Promise.resolve()); const writeRevision = useRef(0);
   useEffect(() => { live.current = true; void readFileText(directory, TODOS_PATH).then((text) => { const parsed: unknown = JSON.parse(text); if (!Array.isArray(parsed) || !parsed.every(validTodo)) throw new Error('Invalid project todos'); if (live.current) setItems(parsed); }).catch((error: unknown) => { if (live.current && !(error instanceof FileReadError && error.status === 404 && error.reason === 'not-found')) { setLoadFailed(true); setSaveStatus('Load failed — existing todos left untouched'); } }).finally(() => { if (live.current) setLoading(false); }); return () => { live.current = false; }; }, [directory]);
   const persist = (next: Todo[]): void => { setItems(next); setSaveStatus('Saving…'); const revision = writeRevision.current + 1; writeRevision.current = revision; const task = writes.current.then(() => writeFileText(directory, TODOS_PATH, JSON.stringify(next))); writes.current = task.catch(() => undefined); void task.then(() => { if (live.current && writeRevision.current === revision) setSaveStatus('Saved'); }, () => { if (live.current && writeRevision.current === revision) setSaveStatus('Save failed'); }); };
-  return <div className="flex min-h-0 flex-1 flex-col gap-2 p-3"><header className="flex text-[10px] text-neutral-500"><span>Project todos — separate from NNA session tasks.</span><span className="ml-auto">{loading ? 'Loading…' : saveStatus}</span></header><div className="flex gap-1"><input disabled={loading || loadFailed} className="min-w-0 flex-1 rounded border border-white/10 bg-neutral-900/40 px-2 text-xs disabled:opacity-50" value={draft} onChange={(e) => setDraft(e.target.value)} /><button type="button" disabled={loading || loadFailed} className="rounded border border-white/10 px-2 text-xs disabled:opacity-50" onClick={() => { const text = draft.trim(); if (!text) return; persist([...items, { id: crypto.randomUUID(), text, done: false }]); setDraft(''); }}>Add</button></div><ol className="overflow-y-auto">{items.map((item) => <li key={item.id} className="flex gap-2 py-1 text-xs"><input type="checkbox" disabled={loading || loadFailed} checked={item.done} onChange={() => persist(items.map((x) => x.id === item.id ? { ...x, done: !x.done } : x))} /><span className={item.done ? 'line-through text-neutral-500' : ''}>{item.text}</span></li>)}</ol></div>;
+  return <div className="flex min-h-0 flex-1 flex-col gap-2 p-3"><header className="flex text-[length:var(--type-micro)] text-muted-foreground"><span>Project todos — separate from NNA session tasks.</span><span className="ml-auto">{loading ? 'Loading…' : saveStatus}</span></header><div className="flex gap-1"><input disabled={loading || loadFailed} className="min-w-0 flex-1 rounded border border-border/10 bg-background/40 px-2 text-xs disabled:opacity-50" value={draft} onChange={(e) => setDraft(e.target.value)} /><button type="button" disabled={loading || loadFailed} className="rounded border border-border/10 px-2 text-xs disabled:opacity-50" onClick={() => { const text = draft.trim(); if (!text) return; persist([...items, { id: crypto.randomUUID(), text, done: false }]); setDraft(''); }}>Add</button></div><ol className="overflow-y-auto">{items.map((item) => <li key={item.id} className="flex gap-2 py-1 text-xs"><input type="checkbox" disabled={loading || loadFailed} checked={item.done} onChange={() => persist(items.map((x) => x.id === item.id ? { ...x, done: !x.done } : x))} /><span className={item.done ? 'line-through text-muted-foreground' : ''}>{item.text}</span></li>)}</ol></div>;
 }
 function validTodo(value: unknown): value is Todo { return !!value && typeof value === 'object' && typeof (value as Todo).id === 'string' && typeof (value as Todo).text === 'string' && typeof (value as Todo).done === 'boolean'; }

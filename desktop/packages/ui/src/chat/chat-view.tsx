@@ -44,7 +44,7 @@ function RecapNote({ pair }: { pair: { recap: string | null; suggestion: string 
   return (
     <div className="mb-2 flex flex-col gap-1 rounded-lg bg-muted/50 px-3 py-2" data-testid="recap-note">
       {pair.recap ? (
-        <div className="text-[11px] text-muted-foreground">
+        <div className="text-[length:var(--type-meta)] text-muted-foreground">
           <span className="text-muted-foreground">Recap: </span>
           {pair.recap}
         </div>
@@ -55,12 +55,12 @@ function RecapNote({ pair }: { pair: { recap: string | null; suggestion: string 
             type="button"
             title="Use suggested message"
             aria-label="Use suggested message"
-            className="rounded-full border border-border/50 px-2 py-0.5 text-[11px] text-foreground hover:border-white/25"
+            className="rounded-full border border-border/50 px-2 py-0.5 text-[length:var(--type-meta)] text-foreground hover:border-border/25"
             onClick={() => window.dispatchEvent(new CustomEvent('nnd:composer-fill', { detail: { text: pair.suggestion } }))}
           >
             {pair.suggestion}
           </button>
-          <span className="text-[10px] text-muted-foreground">fills the composer — nothing sends without you</span>
+          <span className="text-[length:var(--type-micro)] text-muted-foreground">fills the composer — nothing sends without you</span>
         </div>
       ) : null}
     </div>
@@ -268,9 +268,9 @@ export function ChatView(props: ChatViewProps): ReactNode {
         {isChildSession && selected && shownRef.sessionID ? <header className="border-b border-border/50 bg-background px-4 py-3" data-testid="child-transcript-header">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Subagent transcript{selected.agent ? ` · ${selected.agent}` : ''}</span>
+              <div className="min-w-0"><span className="text-[length:var(--type-micro)] uppercase tracking-wide text-muted-foreground">Subagent transcript{selected.agent ? ` · ${selected.agent}` : ''}</span>
                 <h2 className="truncate text-sm text-foreground">{selected.title || 'Subagent'}</h2></div>
-              {parentSession ? <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-muted-foreground hover:border-white/30"
+              {parentSession ? <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-muted-foreground hover:border-border/30"
                 data-testid="return-to-parent" onClick={() => {
                   persistLastActiveSession(parentSession.id, shownRef.directory);
                   useSessionViewStore.setState({ currentSessionId: parentSession.id, activeDirectory: shownRef.directory });

@@ -41,12 +41,12 @@ function SubscriptionControl({ runtime }: { runtime: string }) {
     } catch { if (current(request)) { setState('unknown'); setFailed(true); } }
     finally { if (current(request)) { pending.current = false; setBusy(false); } }
   };
-  return <section className="rounded border border-white/10 p-3" data-testid="browser-push-control">
+  return <section className="rounded border border-border/10 p-3" data-testid="browser-push-control">
     <h3 className="text-sm">{t('push.heading')}</h3>
-    <p className="mt-1 text-xs text-neutral-400">{t(available ? 'push.hint' : 'push.unavailable')}</p>
+    <p className="mt-1 text-xs text-muted-foreground">{t(available ? 'push.hint' : 'push.unavailable')}</p>
     {available ? <>
       <p role="status" className="mt-2 text-xs">{t(busy ? 'push.saving' : `push.${state}`)}</p>
-      {failed ? <p role="alert" className="text-xs text-red-300">{t('push.failed')}</p> : null}
+      {failed ? <p role="alert" className="text-xs text-tone-error">{t('push.failed')}</p> : null}
       <div className="mt-2 flex gap-3 text-xs">
         <button type="button" disabled={busy} onClick={() => { void change(true); }}>{t('push.enable')}</button>
         <button type="button" disabled={busy || (!failed && state === 'off')} onClick={() => { void change(false); }}>{t('push.disable')}</button>

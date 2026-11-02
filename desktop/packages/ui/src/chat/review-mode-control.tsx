@@ -18,18 +18,18 @@ function SessionReviewMode({ sessionID, runtime, busy }: { sessionID: string; ru
   const authority = useSyncExternalStore(subscribeAuthority, () => authorityState(runtime));
   const control = useReviewMode(sessionID, runtime, busy, authority);
   const { state, loading, saving, failed, load, save } = control;
-  return <section className="rounded-lg border border-white/10 p-3" data-testid="review-mode-control">
-    <label className="flex flex-col gap-2 text-xs text-neutral-300">{t('reviewMode.label')}
+  return <section className="rounded-lg border border-border/10 p-3" data-testid="review-mode-control">
+    <label className="flex flex-col gap-2 text-xs text-muted-foreground">{t('reviewMode.label')}
       {state ? <select aria-label={t('reviewMode.label')} value={state.mode} disabled={authority !== 'ready' || loading || saving || busy || failed}
-        className="rounded bg-neutral-800 p-2" onChange={(event) => { void save(event.target.value as ReviewMode); }}>
+        className="rounded bg-card p-2" onChange={(event) => { void save(event.target.value as ReviewMode); }}>
         {state.availableModes.map((mode) => <option key={mode} value={mode}>{t(`reviewMode.${mode}`)}</option>)}
       </select> : <span>{t(loading ? 'reviewMode.loading' : 'reviewMode.unavailable')}</span>}
     </label>
-    <p className="mt-2 text-[11px] text-neutral-500">{t(state?.effective === 'unattended' ? 'reviewMode.unattendedHint' : 'reviewMode.reviewHint')}</p>
+    <p className="mt-2 text-[length:var(--type-meta)] text-muted-foreground">{t(state?.effective === 'unattended' ? 'reviewMode.unattendedHint' : 'reviewMode.reviewHint')}</p>
     {saving ? <p role="status">{t('reviewMode.saving')}</p> : null}
-    {failed ? <p role="alert" className="mt-2 text-xs text-red-300">{t('reviewMode.failed')}</p> : null}
-    {authority !== 'ready' ? <p role="alert" className="mt-2 text-xs text-amber-300">Native permission authority needs a successful reconnect before changes can be made.</p> : null}
-    <button type="button" disabled={authority !== 'ready' || loading || saving} className="mt-2 text-xs text-neutral-400" onClick={() => { void load(); }}>{t('reviewMode.refresh')}</button>
+    {failed ? <p role="alert" className="mt-2 text-xs text-tone-error">{t('reviewMode.failed')}</p> : null}
+    {authority !== 'ready' ? <p role="alert" className="mt-2 text-xs text-tone-warning">Native permission authority needs a successful reconnect before changes can be made.</p> : null}
+    <button type="button" disabled={authority !== 'ready' || loading || saving} className="mt-2 text-xs text-muted-foreground" onClick={() => { void load(); }}>{t('reviewMode.refresh')}</button>
   </section>;
 }
 

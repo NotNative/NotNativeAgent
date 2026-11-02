@@ -61,7 +61,7 @@ function LeaveDecision({ labels, busy, onKeep, onDiscard }: {
     const restore = ref.current?.contains(document.activeElement); ref.current?.close?.();
     if (restore && previous.current instanceof HTMLElement && previous.current.isConnected) previous.current.focus(); };
   return <dialog ref={ref} aria-label="Unsaved settings" onCancel={event => { event.preventDefault(); finish(onKeep); }}
-    className="m-auto w-[min(448px,90vw)] rounded-xl border border-border bg-background p-5 text-foreground shadow-xl backdrop:bg-black/50">
+    className="m-auto w-[min(448px,90vw)] rounded-xl border border-border bg-background p-5 text-foreground shadow-xl backdrop:bg-popover/50">
     <h2 className="text-lg font-semibold">{busy ? 'Operation in progress' : 'Discard unsaved changes?'}</h2>
     <p className="my-3 text-sm">{busy ? 'Return to the editor and check the save outcome. Wait for NNA to confirm the operation before leaving.'
       : 'Leaving this editor discards its local changes. Nothing will be saved.'}</p>

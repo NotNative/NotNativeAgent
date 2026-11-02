@@ -111,7 +111,7 @@ export function NativeRoutesPage(): ReactNode {
         <summary className="cursor-pointer text-sm">Subagent model binding</summary>
         {subagentOpen ? <SubagentRouteEditor onApplied={() => { void load(); }} /> : null}
       </details>
-      <p role="status" className="text-xs text-amber-500">{t('settings.nativeConfiguration.notApplied')}</p>
+      <p role="status" className="text-xs text-tone-warning">{t('settings.nativeConfiguration.notApplied')}</p>
       <NativeConfigurationControls key={`${view.installation_id}:${view.data_id}:${view.source_revision}:${view.resolution_revision}`}
         view={view} onReload={() => { void load(); }} family="routes" />
     </> : null}

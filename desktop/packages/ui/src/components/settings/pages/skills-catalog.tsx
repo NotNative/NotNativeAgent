@@ -312,7 +312,7 @@ export function SkillsCatalogPage(): ReactNode {
             <div key={item.skillDir} className="rounded-md border border-border/40 p-3 text-xs" data-testid="skill-catalog-item">
               <div className="font-medium text-foreground">{item.skillName}</div>
               <div className="mt-1 text-muted-foreground">{item.description}</div>
-                              <div className="mt-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                              <div className="mt-2 flex items-center justify-between gap-2 text-[length:var(--type-micro)] uppercase tracking-wide text-muted-foreground">
                   <span>{item.installed.isInstalled
                     ? t('settings.skills.catalog.installed') + (item.installed.scope === null
                       ? '' : t('settings.skills.catalog.installedScope', {

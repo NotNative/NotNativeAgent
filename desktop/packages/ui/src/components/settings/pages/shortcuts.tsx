@@ -61,7 +61,7 @@ export function ShortcutsPage({ native = false }: { native?: boolean }): ReactNo
             {groupIndex === 0 ? (
               <button
                 type="button"
-                className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+                className="rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground"
                 onClick={() => overridesField.set({})}
               >
                 {t('settings.shortcuts.resetAll')}
@@ -105,22 +105,22 @@ function ShortcutRow({
           {t(decl.settingsLabelKey ?? 'shortcuts.label.focus_input')}
         </div>
         {binding === UNASSIGNED_SHORTCUT ? (
-          <div className="text-[11px] text-muted-foreground">{t('settings.shortcuts.unassigned')}</div>
+          <div className="text-[length:var(--type-meta)] text-muted-foreground">{t('settings.shortcuts.unassigned')}</div>
         ) : null}
       </div>
       <div className="flex items-center gap-2">
         {combo.chords.length > 0 ? (
-          <kbd className="rounded border border-border/50 bg-interactive-hover/40 px-1.5 py-0.5 font-mono text-[11px] text-foreground">
+          <kbd className="rounded border border-border/50 bg-interactive-hover/40 px-1.5 py-0.5 font-mono text-[length:var(--type-meta)] text-foreground">
             {displayCombo(combo, false)}
           </kbd>
         ) : null}
         {decl.customizable ? (
           <>
-            <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={onEdit}>
+            <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={onEdit}>
               {t('settings.shortcuts.edit')}
             </button>
             {overridden ? (
-              <button type="button" className="rounded px-1 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={onReset}>
+              <button type="button" className="rounded px-1 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={onReset}>
                 {t('settings.shortcuts.reset')} ↺
               </button>
             ) : null}

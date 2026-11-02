@@ -86,7 +86,7 @@ export function NnaMcpInventory(): ReactNode {
         <div key={server.id} className="rounded-md border border-border/40 p-3 text-xs" data-testid="mcp-server">
           <div className="flex items-center gap-2 font-medium text-foreground">
             <span>{server.id}</span>
-            <span className={`rounded px-1.5 py-0.5 text-[10px] ${server.enabled ? 'bg-primary/15 text-primary' : 'bg-interactive-hover/40 text-muted-foreground'}`}>
+            <span className={`rounded px-1.5 py-0.5 text-[length:var(--type-micro)] ${server.enabled ? 'bg-primary/15 text-primary' : 'bg-interactive-hover/40 text-muted-foreground'}`}>
               {server.enabled ? t('settings.mcp.inventory.enabled') : t('settings.mcp.inventory.disabled')}
             </span>
           </div>

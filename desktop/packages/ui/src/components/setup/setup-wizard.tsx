@@ -103,44 +103,44 @@ export function SetupWizard({ onVerified, initial = true }: { onVerified?: (sign
 
   const busyText = step === 'setup' ? 'Activating NNA…' : step === 'verify' ? 'Waiting for the NNA model…' : 'Detecting…';
   return (
-    <div className="rounded-lg border border-white/10 bg-neutral-900/40 p-4" data-testid="setup-wizard">
-      <h3 className="mb-2 text-sm font-medium text-neutral-200">Setup wizard</h3>
-      <ol className="mb-3 flex gap-2 text-[11px] text-neutral-500" aria-label="Wizard steps">
+    <div className="rounded-lg border border-border/10 bg-background/40 p-4" data-testid="setup-wizard">
+      <h3 className="mb-2 text-sm font-medium text-foreground">Setup wizard</h3>
+      <ol className="mb-3 flex gap-2 text-[length:var(--type-meta)] text-muted-foreground" aria-label="Wizard steps">
         {(['detect', 'setup', 'verify', 'done'] as const).map((entry, index) => (
           <li key={entry} data-testid={`wizard-step-${entry}`}
             aria-current={step === entry ? 'step' : undefined}
-            className={step === entry ? 'text-neutral-200' : (step === 'done' || ['detect', 'setup', 'verify'].indexOf(step) > index ? 'text-emerald-400/80' : '')}>
+            className={step === entry ? 'text-foreground' : (step === 'done' || ['detect', 'setup', 'verify'].indexOf(step) > index ? 'text-tone-success/80' : '')}>
             {index + 1}. {entry === 'detect' ? 'Detect' : entry === 'setup' ? 'Set up' : entry === 'verify' ? 'Verify' : 'Ready'}
           </li>
         ))}
       </ol>
-      {step === 'done' ? <p className="text-sm text-emerald-300" data-testid="wizard-done">NNA is ready. Model attached and verified.</p> : null}
+      {step === 'done' ? <p className="text-sm text-tone-success" data-testid="wizard-done">NNA is ready. Model attached and verified.</p> : null}
       {step === 'recover' ? (
         <div className="flex flex-col gap-2" data-testid="wizard-recovery">
-          <p className="text-sm text-amber-300" role="alert">
+          <p className="text-sm text-tone-warning" role="alert">
             Setup needs attention{problem ? ` (${problem})` : ''}.
           </p>
           <div className="flex gap-2">
             <button type="button" data-testid="wizard-retry-detection" disabled={busy}
-              className="rounded border border-white/15 px-3 py-1.5 text-xs text-neutral-200 hover:bg-white/10 disabled:opacity-50"
+              className="rounded border border-border/15 px-3 py-1.5 text-xs text-foreground hover:bg-card/10 disabled:opacity-50"
               onClick={() => void detect()}>Retry detection</button>
             <button type="button" data-testid="wizard-retry-activation" disabled={busy}
-              className="rounded border border-white/15 px-3 py-1.5 text-xs text-neutral-200 hover:bg-white/10 disabled:opacity-50"
+              className="rounded border border-border/15 px-3 py-1.5 text-xs text-foreground hover:bg-card/10 disabled:opacity-50"
               onClick={() => void setup()}>Retry activation</button>
           </div>
         </div>
       ) : null}
       {step === 'setup' ? (
         <div className="flex flex-col gap-2" data-testid="wizard-setup">
-          <p className="text-sm text-neutral-400">The local NNA service needs activation.</p>
+          <p className="text-sm text-muted-foreground">The local NNA service needs activation.</p>
           <button type="button" data-testid="wizard-activate" disabled={busy}
-            className="w-fit rounded border border-white/15 px-3 py-1.5 text-xs text-neutral-200 hover:bg-white/10 disabled:opacity-50"
+            className="w-fit rounded border border-border/15 px-3 py-1.5 text-xs text-foreground hover:bg-card/10 disabled:opacity-50"
             onClick={() => void setup()}>Activate NNA</button>
         </div>
       ) : null}
-      {busy ? <p className="mt-2 text-xs text-neutral-500" role="status" data-testid="wizard-busy">{busyText}</p> : null}
+      {busy ? <p className="mt-2 text-xs text-muted-foreground" role="status" data-testid="wizard-busy">{busyText}</p> : null}
       {status !== null && step !== 'done' ? (
-        <p className="mt-2 text-[11px] text-neutral-600" data-testid="wizard-status">
+        <p className="mt-2 text-[length:var(--type-meta)] text-foreground" data-testid="wizard-status">
           service: {status.service_state} · configuration: {status.configuration_state} · execution: {status.execution_state}
         </p>
       ) : null}

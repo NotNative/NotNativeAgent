@@ -74,8 +74,8 @@ export function MultiRunLauncher({ services, directory, onClose, onLaunched }: M
   });
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" data-testid="multirun-launcher">
-      <form className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-white/10 bg-neutral-950 p-4 shadow-2xl" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-popover/50 p-4" data-testid="multirun-launcher">
+      <form className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-border/10 bg-popover p-4 shadow-2xl" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
         <MultiRunForm
           busy={busy} isolateRuns={isolateRuns} models={models} name={name} pickerOpen={pickerOpen}
           prompt={prompt} providerCatalog={snapshot.provider as Provider[]} sendBlocked={sendBlocked}
@@ -108,18 +108,18 @@ function MultiRunForm(props: {
   return (
     <>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-neutral-200">Launch multi-run</h2>
-        <button type="button" aria-label="Close multi-run launcher" className="text-neutral-500 hover:text-neutral-200 disabled:opacity-50" data-testid="multirun-close" disabled={props.busy} onClick={props.onClose}>X</button>
+        <h2 className="text-sm font-medium text-foreground">Launch multi-run</h2>
+        <button type="button" aria-label="Close multi-run launcher" className="text-muted-foreground hover:text-foreground disabled:opacity-50" data-testid="multirun-close" disabled={props.busy} onClick={props.onClose}>X</button>
       </div>
-      <label className="mt-3 block text-[11px] text-neutral-500" htmlFor="multirun-name">Group name</label>
-      <input id="multirun-name" value={props.name} className="w-full rounded-lg border border-white/10 bg-neutral-900 px-3 py-2 text-sm text-neutral-200 outline-none focus:border-white/25" data-testid="multirun-name" onChange={(event) => props.setName(event.target.value)} />
-      <label className="mt-3 block text-[11px] text-neutral-500" htmlFor="multirun-prompt">Prompt</label>
-      <textarea id="multirun-prompt" rows={5} value={props.prompt} className="w-full resize-y rounded-lg border border-white/10 bg-neutral-900 px-3 py-2 text-sm text-neutral-200 outline-none focus:border-white/25" data-testid="multirun-prompt" onChange={(event) => props.setPrompt(event.target.value)} />
+      <label className="mt-3 block text-[length:var(--type-meta)] text-muted-foreground" htmlFor="multirun-name">Group name</label>
+      <input id="multirun-name" value={props.name} className="w-full rounded-lg border border-border/10 bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-border/25" data-testid="multirun-name" onChange={(event) => props.setName(event.target.value)} />
+      <label className="mt-3 block text-[length:var(--type-meta)] text-muted-foreground" htmlFor="multirun-prompt">Prompt</label>
+      <textarea id="multirun-prompt" rows={5} value={props.prompt} className="w-full resize-y rounded-lg border border-border/10 bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-border/25" data-testid="multirun-prompt" onChange={(event) => props.setPrompt(event.target.value)} />
       <div className="relative mt-3 flex flex-wrap items-center gap-2">
-        <button type="button" disabled={props.sendBlocked} className="rounded bg-white/5 px-3 py-1.5 text-[12px] text-neutral-200 hover:bg-white/10" data-testid="multirun-add-model" onClick={() => props.setPickerOpen(!props.pickerOpen)}>
+        <button type="button" disabled={props.sendBlocked} className="rounded bg-card/5 px-3 py-1.5 text-[length:var(--type-meta)] text-foreground hover:bg-card/10" data-testid="multirun-add-model" onClick={() => props.setPickerOpen(!props.pickerOpen)}>
           Add model {props.models.length > 0 ? `(${props.models.length}/5)` : ''}
         </button>
-        <label className="flex items-center gap-2 text-[12px] text-neutral-400">
+        <label className="flex items-center gap-2 text-[length:var(--type-meta)] text-muted-foreground">
           <input type="checkbox" checked={props.isolateRuns} data-testid="multirun-isolate" onChange={(event) => props.setIsolateRuns(event.target.checked)} />
           Isolate each run in a worktree
         </label>
@@ -127,16 +127,16 @@ function MultiRunForm(props: {
       </div>
       <div className="mt-2 space-y-1" data-testid="multirun-model-list">
         {props.models.map((model, index) => (
-          <div key={`${model.providerID}:${model.modelID}:${index}`} className="flex items-center gap-2 rounded bg-white/5 px-2 py-1.5 text-[12px] text-neutral-300">
+          <div key={`${model.providerID}:${model.modelID}:${index}`} className="flex items-center gap-2 rounded bg-card/5 px-2 py-1.5 text-[length:var(--type-meta)] text-muted-foreground">
             <span className="min-w-0 flex-1 truncate">{model.providerID} · {model.modelID}{model.variant ? ` · ${model.variant}` : ''}</span>
             <button type="button" aria-label={`Remove ${model.modelID}`} onClick={() => props.onRemoveModel(index)}>x</button>
           </div>
         ))}
-        {props.models.length === 0 ? <span className="text-[11px] text-neutral-600">Select at least one model</span> : null}
+        {props.models.length === 0 ? <span className="text-[length:var(--type-meta)] text-foreground">Select at least one model</span> : null}
       </div>
       <div className="mt-4 flex justify-end gap-2">
-          <button type="button" disabled={props.busy} className="rounded border border-white/10 px-3 py-1.5 text-[12px] text-neutral-300 disabled:opacity-50" data-testid="multirun-cancel" onClick={props.onClose}>Cancel</button>
-        <button type="submit" disabled={props.busy || props.sendBlocked} className="rounded bg-emerald-900/50 px-3 py-1.5 text-[12px] text-emerald-200 hover:bg-emerald-900/70 disabled:opacity-50" data-testid="multirun-submit">
+          <button type="button" disabled={props.busy} className="rounded border border-border/10 px-3 py-1.5 text-[length:var(--type-meta)] text-muted-foreground disabled:opacity-50" data-testid="multirun-cancel" onClick={props.onClose}>Cancel</button>
+        <button type="submit" disabled={props.busy || props.sendBlocked} className="rounded bg-tone-success/50 px-3 py-1.5 text-[length:var(--type-meta)] text-tone-success hover:bg-tone-success/70 disabled:opacity-50" data-testid="multirun-submit">
           {props.busy ? 'Launching…' : 'Launch'}
         </button>
       </div>

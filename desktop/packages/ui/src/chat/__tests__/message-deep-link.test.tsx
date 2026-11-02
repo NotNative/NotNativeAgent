@@ -48,8 +48,8 @@ it('navigates a #message-<id> deep link to the anchored row and highlights it', 
   const target = container?.querySelector('[id="message-s1:message:2"]');
   expect(target).not.toBeNull();
   expect(scrolled).toContain(target);
-  expect(target?.className).toContain('outline-amber-400/60');
-  await vi.waitFor(() => expect(target?.className).not.toContain('outline-amber-400/60'), { timeout: 3000 });
+  expect(target?.className).toContain('outline-tone-warning-border/60');
+  await vi.waitFor(() => expect(target?.className).not.toContain('outline-tone-warning-border/60'), { timeout: 3000 });
 });
 
 it('follows a hashchange to a different message without a reload', async () => {
@@ -66,7 +66,7 @@ it('follows a hashchange to a different message without a reload', async () => {
   });
   const target = container?.querySelector('[id="message-newer"]');
   expect(scrolled).toContain(target);
-  expect(target?.className).toContain('outline-amber-400/60');
+  expect(target?.className).toContain('outline-tone-warning-border/60');
 });
 
 it('ignores a deep link whose message is not in the transcript', async () => {

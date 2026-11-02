@@ -30,7 +30,7 @@ export function SessionsPage(): ReactNode {
       <SettingsSection item="sessions.defaults">
         <SettingsGroupTitle>{t('settings.sessions.defaults')}</SettingsGroupTitle>
         <SettingsInset>
-          <div className="text-[11px] leading-relaxed text-muted-foreground">
+          <div className="text-[length:var(--type-meta)] leading-relaxed text-muted-foreground">
             {t('settings.sessions.defaultsNote')}
           </div>
         </SettingsInset>

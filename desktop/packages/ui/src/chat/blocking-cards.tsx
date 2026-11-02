@@ -57,20 +57,20 @@ const TOOL_LABEL: Record<string, string | undefined> = { bash: 'Bash', edit: 'Ed
 function PermissionCardView({ request, engine, sessionID, nnaReview, authorityReady }: { request: PermissionRequest; engine: SyncEngine; sessionID: string; nnaReview: boolean; authorityReady: boolean }): ReactNode {
   const tool = String(request.permission ?? 'tool');
   return (
-    <section className="rounded-lg border border-amber-800/50 bg-amber-950/20 p-3" data-testid="permission-card" data-permission-tool={tool}>
-      <header className="mb-1 flex items-center gap-2 text-[12px] text-amber-200">
+    <section className="rounded-lg border border-tone-warning-border/50 bg-tone-warning/20 p-3" data-testid="permission-card" data-permission-tool={tool}>
+      <header className="mb-1 flex items-center gap-2 text-[length:var(--type-meta)] text-tone-warning">
         <span aria-hidden>⚠️</span>
         <strong className="font-medium">Permission Required</strong>
-        <span className="rounded bg-amber-900/40 px-1.5 py-0.5 text-[10px]">{TOOL_LABEL[tool] ?? tool}</span>
+        <span className="rounded bg-tone-warning/40 px-1.5 py-0.5 text-[length:var(--type-micro)]">{TOOL_LABEL[tool] ?? tool}</span>
       </header>
       <PermissionCardBody request={request} tool={tool} />
       <PatternsLine patterns={request.patterns} />
-      {nnaReview ? <p className="mt-2 text-[11px] text-neutral-400">NNA reviews permissions under its configured policy and scope. Restate your intent in the conversation if further authority is needed.</p> : <div className="mt-2 flex items-center gap-2">
-        <button type="button" disabled={!authorityReady} data-testid="permission-allow-once" className="rounded bg-emerald-600/80 px-2 py-1 text-[11px] text-white" onClick={() => { if (authorityReady) void engine.actions.replyPermission(sessionID, request, 'once'); }}>Allow once</button>
-        <button type="button" disabled={!authorityReady} data-testid="permission-deny" className="rounded bg-red-900/60 px-2 py-1 text-[11px] text-red-200" onClick={() => { if (authorityReady) void engine.actions.replyPermission(sessionID, request, 'reject'); }}>Deny</button>
-        <span className="ml-auto text-[10px] text-neutral-600">Alt+Enter once · Alt+Backspace deny</span>
+      {nnaReview ? <p className="mt-2 text-[length:var(--type-meta)] text-muted-foreground">NNA reviews permissions under its configured policy and scope. Restate your intent in the conversation if further authority is needed.</p> : <div className="mt-2 flex items-center gap-2">
+        <button type="button" disabled={!authorityReady} data-testid="permission-allow-once" className="rounded bg-tone-success/80 px-2 py-1 text-[length:var(--type-meta)] text-foreground" onClick={() => { if (authorityReady) void engine.actions.replyPermission(sessionID, request, 'once'); }}>Allow once</button>
+        <button type="button" disabled={!authorityReady} data-testid="permission-deny" className="rounded bg-tone-error/60 px-2 py-1 text-[length:var(--type-meta)] text-tone-error" onClick={() => { if (authorityReady) void engine.actions.replyPermission(sessionID, request, 'reject'); }}>Deny</button>
+        <span className="ml-auto text-[length:var(--type-micro)] text-foreground">Alt+Enter once · Alt+Backspace deny</span>
       </div>}
-      {!authorityReady ? <p role="alert" className="mt-2 text-xs text-amber-300">Permission actions are paused until native authority has resynchronized.</p> : null}
+      {!authorityReady ? <p role="alert" className="mt-2 text-xs text-tone-warning">Permission actions are paused until native authority has resynchronized.</p> : null}
     </section>
   );
 }
@@ -84,7 +84,7 @@ function PermissionCardBody({ request, tool }: { request: PermissionRequest; too
   if (tool === 'bash' || tool === 'command') {
     return (
       <div className="mb-2 space-y-1">
-        <pre className="rounded border border-amber-800/40 bg-neutral-950/60 px-2 py-1.5 font-mono text-[11px] text-amber-200">{String(metadata['command'] ?? '?')}</pre>
+        <pre className="rounded border border-tone-warning-border/40 bg-popover/60 px-2 py-1.5 font-mono text-[length:var(--type-meta)] text-tone-warning">{String(metadata['command'] ?? '?')}</pre>
         <BashMetaRows metadata={metadata} />
       </div>
     );
@@ -92,8 +92,8 @@ function PermissionCardBody({ request, tool }: { request: PermissionRequest; too
   if (tool === 'edit') {
     return (
       <div className="mb-2 space-y-1">
-        {metadata['replaceAll'] ? <div className="text-[11px] text-amber-300">⚠️ Replace All Occurrences</div> : null}
-        <div className="font-mono text-[11px] text-neutral-300">{String(metadata['path'] ?? '')}</div>
+        {metadata['replaceAll'] ? <div className="text-[length:var(--type-meta)] text-tone-warning">⚠️ Replace All Occurrences</div> : null}
+        <div className="font-mono text-[length:var(--type-meta)] text-muted-foreground">{String(metadata['path'] ?? '')}</div>
         <DiffPreviewBlock diff={typeof metadata['diff'] === 'string' ? String(metadata['diff']) : typeof metadata['changes'] === 'string' ? String(metadata['changes']) : ''} />
       </div>
     );
@@ -102,9 +102,9 @@ function PermissionCardBody({ request, tool }: { request: PermissionRequest; too
   if (tool === 'webfetch') return <WebFetchBody metadata={metadata} />;
   const description = typeof metadata['description'] === 'string' ? String(metadata['description']) : '';
   return (
-    <div className="mb-2 space-y-1 text-[11px] text-neutral-300">
+    <div className="mb-2 space-y-1 text-[length:var(--type-meta)] text-muted-foreground">
       {description ? <div>{description}</div> : null}
-      <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded border border-white/10 bg-neutral-950/50 px-2 py-1 text-[11px] text-neutral-400">{JSON.stringify(metadata, null, 2)}</pre>
+      <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded border border-border/10 bg-popover/50 px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground">{JSON.stringify(metadata, null, 2)}</pre>
     </div>
   );
 }
@@ -115,33 +115,33 @@ function BashMetaRows({ metadata }: { metadata: Record<string, unknown> }): Reac
   if (typeof metadata['timeoutMs'] === 'number') rows.push(`timeout ${metadata['timeoutMs']}ms`);
   if (typeof metadata['description'] === 'string' && metadata['description']) rows.push(String(metadata['description']));
   if (rows.length === 0) return null;
-  return <div className="text-[10px] text-neutral-500">{rows.join(' · ')}</div>;
+  return <div className="text-[length:var(--type-micro)] text-muted-foreground">{rows.join(' · ')}</div>;
 }
 
 function DiffPreviewBlock({ diff }: { diff: string }): ReactNode {
   if (!diff.trim()) return null;
-  return <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words rounded border border-white/10 bg-neutral-950/50 px-2 py-1 text-[10.5px] text-neutral-300">{diff.slice(0, 4000)}</pre>;
+  return <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words rounded border border-border/10 bg-popover/50 px-2 py-1 text-[length:var(--type-micro)] text-muted-foreground">{diff.slice(0, 4000)}</pre>;
 }
 
 function WriteBody({ metadata }: { metadata: Record<string, unknown> }): ReactNode {
   const content = typeof metadata['content'] === 'string' ? String(metadata['content']) : '';
   return (
     <div className="mb-2 space-y-1">
-      <div className="font-mono text-[11px] text-neutral-300">{String(metadata['path'] ?? '')}</div>
-      {content ? <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words rounded border border-white/10 bg-neutral-950/50 px-2 py-1 text-[10.5px] text-neutral-400">{content.slice(0, 4000)}</pre> : null}
+      <div className="font-mono text-[length:var(--type-meta)] text-muted-foreground">{String(metadata['path'] ?? '')}</div>
+      {content ? <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words rounded border border-border/10 bg-popover/50 px-2 py-1 text-[length:var(--type-micro)] text-muted-foreground">{content.slice(0, 4000)}</pre> : null}
     </div>
   );
 }
 
 function WebFetchBody({ metadata }: { metadata: Record<string, unknown> }): ReactNode {
   return (
-    <div className="mb-2 space-y-1 text-[11px] text-neutral-300">
+    <div className="mb-2 space-y-1 text-[length:var(--type-meta)] text-muted-foreground">
       <div className="flex items-center gap-2">
-        {metadata['method'] ? <span className="rounded bg-amber-900/40 px-1.5 py-0.5 text-[10px]">{String(metadata['method'])}</span> : null}
+        {metadata['method'] ? <span className="rounded bg-tone-warning/40 px-1.5 py-0.5 text-[length:var(--type-micro)]">{String(metadata['method'])}</span> : null}
         <span className="min-w-0 truncate font-mono">{String(metadata['url'] ?? '')}</span>
       </div>
-      {metadata['headers'] ? <pre className="max-h-20 overflow-auto whitespace-pre-wrap break-words text-[10.5px] text-neutral-500">{JSON.stringify(metadata['headers'], null, 2)}</pre> : null}
-      {typeof metadata['body'] === 'string' && metadata['body'] ? <pre className="max-h-20 overflow-auto whitespace-pre-wrap break-words text-[10.5px] text-neutral-500">{String(metadata['body'])}</pre> : null}
+      {metadata['headers'] ? <pre className="max-h-20 overflow-auto whitespace-pre-wrap break-words text-[length:var(--type-micro)] text-muted-foreground">{JSON.stringify(metadata['headers'], null, 2)}</pre> : null}
+      {typeof metadata['body'] === 'string' && metadata['body'] ? <pre className="max-h-20 overflow-auto whitespace-pre-wrap break-words text-[length:var(--type-micro)] text-muted-foreground">{String(metadata['body'])}</pre> : null}
     </div>
   );
 }
@@ -149,9 +149,9 @@ function WebFetchBody({ metadata }: { metadata: Record<string, unknown> }): Reac
 function PatternsLine({ patterns }: { patterns: string[] }): ReactNode {
   if (patterns.length === 0) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1 text-[10px] text-neutral-500">
+    <div className="flex flex-wrap items-center gap-1 text-[length:var(--type-micro)] text-muted-foreground">
       <span>Patterns:</span>
-      {patterns.slice(0, 8).map((pattern) => <span key={pattern} className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-neutral-300">{pattern}</span>)}
+      {patterns.slice(0, 8).map((pattern) => <span key={pattern} className="rounded bg-card/5 px-1.5 py-0.5 font-mono text-muted-foreground">{pattern}</span>)}
     </div>
   );
 }
@@ -191,10 +191,10 @@ function QuestionCardView({ request, engine, sessionID }: { request: QuestionReq
   };
 
   return (
-    <section className="rounded-lg border border-indigo-800/50 bg-indigo-950/20 p-3" data-testid="question-card" data-question-id={request.id}>
-      <header className="mb-1 flex items-center gap-2 text-[12px] text-indigo-200">
+    <section className="rounded-lg border border-border/50 bg-primary/20 p-3" data-testid="question-card" data-question-id={request.id}>
+      <header className="mb-1 flex items-center gap-2 text-[length:var(--type-meta)] text-primary">
         <strong className="font-medium">Input needed</strong>
-        <span className="ml-auto text-[10px] text-neutral-600">{allAnswered ? 'ready to send' : questions.length === 1 ? 'answer the question' : `${answers.filter((answer, index) => answered(index)).length}/${questions.length} answered`}</span>
+        <span className="ml-auto text-[length:var(--type-micro)] text-foreground">{allAnswered ? 'ready to send' : questions.length === 1 ? 'answer the question' : `${answers.filter((answer, index) => answered(index)).length}/${questions.length} answered`}</span>
       </header>
       {multi ? <Tabs questions={questions} answers={answers} custom={custom} tab={tab} onTab={setTab} answered={answered} /> : null}
       {tab === -1 && multi ? <SummaryTab questions={questions} answers={answers} custom={custom} onTab={setTab} /> : null}
@@ -215,12 +215,12 @@ function QuestionCardView({ request, engine, sessionID }: { request: QuestionReq
         })
       ) : null}
       <div className="mt-2 flex items-center gap-2">
-        <button type="button" disabled={!allAnswered} data-testid="question-submit" className="rounded bg-white/90 px-2 py-1 text-[11px] font-medium text-black disabled:opacity-40" onClick={() => submit(false)}>Submit</button>
-        {multi ? <button type="button" data-testid="question-next" className="rounded bg-neutral-800 px-2 py-1 text-[11px] text-neutral-300" onClick={nextUnanswered}>Next</button> : null}
-        <button type="button" data-testid="question-dismiss" className="rounded bg-neutral-800 px-2 py-1 text-[11px] text-neutral-300" onClick={() => submit(true)}>Dismiss</button>
-        <span className="ml-auto flex gap-1 text-[10px] text-neutral-600">
-          <button type="button" className="hover:text-neutral-300" onClick={() => void copyQuestion(request, 'markdown')}>Copy md</button>
-          <button type="button" className="hover:text-neutral-300" onClick={() => void copyQuestion(request, 'json')}>Copy json</button>
+        <button type="button" disabled={!allAnswered} data-testid="question-submit" className="rounded bg-card/90 px-2 py-1 text-[length:var(--type-meta)] font-medium text-foreground disabled:opacity-40" onClick={() => submit(false)}>Submit</button>
+        {multi ? <button type="button" data-testid="question-next" className="rounded bg-card px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground" onClick={nextUnanswered}>Next</button> : null}
+        <button type="button" data-testid="question-dismiss" className="rounded bg-card px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground" onClick={() => submit(true)}>Dismiss</button>
+        <span className="ml-auto flex gap-1 text-[length:var(--type-micro)] text-foreground">
+          <button type="button" className="hover:text-muted-foreground" onClick={() => void copyQuestion(request, 'markdown')}>Copy md</button>
+          <button type="button" className="hover:text-muted-foreground" onClick={() => void copyQuestion(request, 'json')}>Copy json</button>
         </span>
       </div>
     </section>
@@ -239,12 +239,12 @@ function Tabs({ questions, answers, custom, tab, onTab, answered }: {
     <div className="mb-2 flex flex-wrap items-center gap-1" data-testid="question-tabs">
       {questions.map((question, index) => (
         <button key={index} type="button" onClick={() => onTab(index)} aria-pressed={tab === index}
-          className={`rounded px-2 py-0.5 text-[11px] ${tab === index ? 'bg-indigo-700/60 text-neutral-100' : 'bg-neutral-900/60 text-neutral-400 hover:text-neutral-200'}`}>
+          className={`rounded px-2 py-0.5 text-[length:var(--type-meta)] ${tab === index ? 'bg-primary/60 text-foreground' : 'bg-background/60 text-muted-foreground hover:text-foreground'}`}>
           Q{index + 1} {question.header || `Question ${index + 1}`}{answered(index) ? ' ✓' : ''}
         </button>
       ))}
       <button type="button" onClick={() => onTab(-1)} aria-pressed={tab === -1}
-        className={`rounded px-2 py-0.5 text-[11px] ${tab === -1 ? 'bg-indigo-700/60 text-neutral-100' : 'bg-neutral-900/60 text-neutral-400 hover:text-neutral-200'}`}>
+        className={`rounded px-2 py-0.5 text-[length:var(--type-meta)] ${tab === -1 ? 'bg-primary/60 text-foreground' : 'bg-background/60 text-muted-foreground hover:text-foreground'}`}>
         Summary
       </button>
     </div>
@@ -253,11 +253,11 @@ function Tabs({ questions, answers, custom, tab, onTab, answered }: {
 
 function SummaryTab({ questions, answers, custom, onTab }: { questions: QuestionRequest['questions']; answers: string[][]; custom: string[]; onTab: (at: number) => void }): ReactNode {
   return (
-    <div className="mb-2 space-y-1 rounded border border-white/10 bg-neutral-900/60 p-2" data-testid="question-summary">
+    <div className="mb-2 space-y-1 rounded border border-border/10 bg-background/60 p-2" data-testid="question-summary">
       {questions.map((question, index) => (
-        <div key={index} className="flex items-center gap-2 text-[11px]">
-          <button type="button" className="text-indigo-300 hover:text-indigo-200" onClick={() => onTab(index)}>{question.header || `Q${index + 1}`}</button>
-          <span className="min-w-0 flex-1 truncate text-neutral-500">{question.custom === true && (custom[index] ?? '').trim() !== '' ? (custom[index] ?? '').trim() : (answers[index] ?? []).join(', ') || '—'}</span>
+        <div key={index} className="flex items-center gap-2 text-[length:var(--type-meta)]">
+          <button type="button" className="text-primary hover:text-primary" onClick={() => onTab(index)}>{question.header || `Q${index + 1}`}</button>
+          <span className="min-w-0 flex-1 truncate text-muted-foreground">{question.custom === true && (custom[index] ?? '').trim() !== '' ? (custom[index] ?? '').trim() : (answers[index] ?? []).join(', ') || '—'}</span>
         </div>
       ))}
     </div>
@@ -273,11 +273,11 @@ function QuestionBlock({ question, picked, customText, onPick, onCustom }: {
 }): ReactNode {
   return (
     <div className="mb-2">
-      <div className="text-[12px] font-medium text-neutral-200">{question.header || 'Question'}</div>
-      {question.question ? <p className="whitespace-pre-wrap text-[12px] text-neutral-400">{question.question}</p> : null}
+      <div className="text-[length:var(--type-meta)] font-medium text-foreground">{question.header || 'Question'}</div>
+      {question.question ? <p className="whitespace-pre-wrap text-[length:var(--type-meta)] text-muted-foreground">{question.question}</p> : null}
       <div className="mt-1 flex flex-col gap-1">
         {(question.options ?? []).map((option) => (
-          <label key={option.label} className="flex cursor-pointer items-center gap-2 text-[12px] text-neutral-300">
+          <label key={option.label} className="flex cursor-pointer items-center gap-2 text-[length:var(--type-meta)] text-muted-foreground">
             <input
               type={question.multiple === true ? 'checkbox' : 'radio'}
               checked={picked.includes(option.label)}
@@ -285,7 +285,7 @@ function QuestionBlock({ question, picked, customText, onPick, onCustom }: {
                 ? (picked.includes(option.label) ? picked.filter((x) => x !== option.label) : [...picked, option.label])
                 : (picked[0] === option.label ? [] : [option.label]))}
             />
-            {option.label}{option.description ? <span className="text-neutral-600">— {option.description}</span> : null}
+            {option.label}{option.description ? <span className="text-foreground">— {option.description}</span> : null}
           </label>
         ))}
         {question.custom === true ? (
@@ -295,7 +295,7 @@ function QuestionBlock({ question, picked, customText, onPick, onCustom }: {
             placeholder="Other…"
             value={customText}
             onChange={(event) => onCustom(event.target.value)}
-            className="mt-1 w-full resize-none rounded-lg border border-white/10 bg-neutral-900 p-2 text-[12px] text-neutral-200 outline-none focus:border-white/25"
+            className="mt-1 w-full resize-none rounded-lg border border-border/10 bg-background p-2 text-[length:var(--type-meta)] text-foreground outline-none focus:border-border/25"
           />
         ) : null}
       </div>

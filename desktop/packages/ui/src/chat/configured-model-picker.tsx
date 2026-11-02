@@ -37,7 +37,7 @@ export function ConfiguredModelPicker({ selected, disabled, onPick }: {
       </div> : null)}
       {!groups.some(group => group.names.length) && !loading ? <p className="p-2 text-muted-foreground">{profiles.length ? 'No matching models' : 'No configured providers'}</p> : null}
       {loading ? <p role="status" className="p-2 text-muted-foreground">Loading available models…</p> : null}
-      {error ? <div role="status" className="p-2 text-amber-300">{error} <button type="button" className="underline" onClick={retry}>Retry</button></div> : null}
+      {error ? <div role="status" className="p-2 text-tone-warning">{error} <button type="button" className="underline" onClick={retry}>Retry</button></div> : null}
     </div> : null}
   </div>;
 }

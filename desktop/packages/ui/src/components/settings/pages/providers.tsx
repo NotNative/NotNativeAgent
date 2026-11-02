@@ -62,7 +62,7 @@ function RuntimeRouteStatus({ configured, route, pending, onApplied }: {
     && (configured.providerID !== route.providerID || configured.modelID !== route.modelID));
   if (pending !== true && !primaryDiffers) return !configured || !route
     ? <p className="text-xs text-muted-foreground">{t('settings.providers.inventory.routeMissing')}</p> : null;
-  return <div role="status" className="rounded border border-amber-500/40 p-2 text-xs text-amber-500">
+  return <div role="status" className="rounded border border-tone-warning-border/40 p-2 text-xs text-tone-warning">
     {primaryDiffers ? t('settings.providers.inventory.routeDiff', { route: `${route?.providerID ?? ''}/${route?.modelID ?? ''}` }) + ' ' : ''}
     {t('settings.providers.inventory.routingPending')}
     <ProviderRouteActivation onApplied={onApplied} />
@@ -192,8 +192,8 @@ export function ProvidersPage({ onOpenConfiguration }: { onOpenConfiguration?: (
         <div key={`${profile.profile_id}:${revision}`} className="rounded-md border border-border/40 p-3 text-xs" data-testid="provider-profile">
           <div className="flex items-center gap-2 font-medium text-foreground">
             <span>{profile.display_name || profile.profile_id}</span>
-            {configuredRoute?.providerID === profile.profile_id ? <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">{t('settings.providers.inventory.configuredPrimary')}</span> : null}
-            {route?.providerID === profile.profile_id ? <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">{t('settings.providers.inventory.runningRoute')}</span> : null}
+            {configuredRoute?.providerID === profile.profile_id ? <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[length:var(--type-micro)] text-primary">{t('settings.providers.inventory.configuredPrimary')}</span> : null}
+            {route?.providerID === profile.profile_id ? <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[length:var(--type-micro)] text-primary">{t('settings.providers.inventory.runningRoute')}</span> : null}
           </div>
           <div className="mt-1 text-muted-foreground">{profile.model}</div>
           {configuredRoute?.providerID === profile.profile_id && configuredRoute.modelID !== profile.model ? <div className="mt-1 text-muted-foreground">{t('settings.providers.inventory.configuredModel', { model: configuredRoute.modelID })}</div> : null}

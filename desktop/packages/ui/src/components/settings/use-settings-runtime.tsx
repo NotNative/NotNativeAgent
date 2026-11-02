@@ -27,7 +27,7 @@ export function useSettingsRuntime(runtimeKey: string) {
 }
 
 export function PendingSettingsRuntime({ failed, retry, close }: { failed: boolean; retry(): void; close(): void }): ReactNode {
-  return <div role="dialog" aria-label="Settings" className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+  return <div role="dialog" aria-label="Settings" className="fixed inset-0 z-40 flex items-center justify-center bg-popover/40">
     <div className="max-w-md rounded-xl border border-border bg-background p-6 text-foreground shadow-xl">
       <p role={failed ? 'alert' : 'status'}>{failed ? 'Could not identify the connected runtime. Settings are unavailable until it responds.' : 'Checking settings capabilities…'}</p>
       <div className="mt-4 flex justify-end gap-4">

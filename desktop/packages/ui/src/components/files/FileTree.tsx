@@ -378,10 +378,10 @@ function TreeRow({ props, node, depth }: { props: TreeRowsProps; node: FileNode;
           {node.name}
         </button>
         {badge !== null && badge.modified > 0 ? (
-          <span className="shrink-0 text-[10px] tabular-nums" style={{ color: 'var(--status-warning)' }}>M{badge.modified}</span>
+          <span className="shrink-0 text-[length:var(--type-micro)] tabular-nums" style={{ color: 'var(--status-warning)' }}>M{badge.modified}</span>
         ) : null}
         {badge !== null && badge.added > 0 ? (
-          <span className="shrink-0 text-[10px] tabular-nums" style={{ color: 'var(--status-success)' }}>+{badge.added}</span>
+          <span className="shrink-0 text-[length:var(--type-micro)] tabular-nums" style={{ color: 'var(--status-success)' }}>+{badge.added}</span>
         ) : null}
         {dot !== null ? (
           <span

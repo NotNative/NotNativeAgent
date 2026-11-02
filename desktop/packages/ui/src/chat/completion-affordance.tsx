@@ -46,5 +46,5 @@ export function CompletionAffordance({ store, sessionID }: { store: StoreApi<Dir
   }, [store, sessionID, status, completionID, successful, preference]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   if (!pulsing || preference === 'off') return null;
-  return <div role="status" data-testid="completion-affordance" className={`mx-auto w-fit rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 ${preference === 'pulse' && !reduced ? 'completion-pulse' : ''}`}>Turn completed</div>;
+  return <div role="status" data-testid="completion-affordance" className={`mx-auto w-fit rounded-full border border-tone-success-border/30 bg-tone-success/10 px-3 py-1 text-xs text-tone-success ${preference === 'pulse' && !reduced ? 'completion-pulse' : ''}`}>Turn completed</div>;
 }

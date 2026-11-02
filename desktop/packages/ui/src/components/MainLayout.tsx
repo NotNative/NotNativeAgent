@@ -341,16 +341,16 @@ export function MainLayout(): ReactNode {
         <button type="button" aria-label="Toggle session sidebar" title="Toggle session sidebar"
           aria-expanded={sidebarOpen} aria-controls="session-sidebar-panel" onClick={() => setSidebarOpen(!sidebarOpen)}
           className="rounded px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">☰</button>
-        <div className="text-[11px] uppercase tracking-widest text-primary">NotNative</div>
+        <div className="text-[length:var(--type-meta)] uppercase tracking-widest text-primary">NotNative</div>
         <WorkspaceIdentity directory={activeDirectory} engine={engine} runtimeKey={runtimeKey} />
         <button type="button" data-testid="mini-chat-open" title={t('shell.minichat.openAria')} aria-label={t('shell.minichat.openAria')}
-          className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground" onClick={openMiniChat}>▣</button>
-        <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] ${connected ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/40 text-red-300'}`} data-testid="connection-pill">
+          className="rounded px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:bg-muted hover:text-foreground" onClick={openMiniChat}>▣</button>
+        <span className={`ml-auto rounded-full px-2 py-0.5 text-[length:var(--type-micro)] ${connected ? 'bg-tone-success/50 text-tone-success' : 'bg-tone-error/40 text-tone-error'}`} data-testid="connection-pill">
           {connected ? t('shell.status.connected') : t('shell.status.reconnecting')}
         </span>
         <button
           type="button"
-          className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="rounded px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:bg-muted hover:text-foreground"
           data-testid="settings-gear"
           title={t('shell.nav.settingsShortcut')}
           aria-label={t('shell.nav.settings')}
@@ -360,7 +360,7 @@ export function MainLayout(): ReactNode {
         </button>
       </header> : null}
       <AuthExpiredBanner />
-      {defaultWorkspaceError ? <p role="alert" className="px-3 py-2 text-xs text-amber-300">{defaultWorkspaceError}</p> : null}
+      {defaultWorkspaceError ? <p role="alert" className="px-3 py-2 text-xs text-tone-warning">{defaultWorkspaceError}</p> : null}
 
         {miniChat ? <ChatView services={services} currentDirectory={activeDirectory} nativeAlpha={nativeAlpha} /> : null}
         {!miniChat ? <main className="flex min-h-0 min-w-0 flex-1" aria-label="Workspace content">{filesOpen ? (

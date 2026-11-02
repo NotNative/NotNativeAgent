@@ -70,7 +70,7 @@ export function EditorStage({
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4">
         <iframe src={rawAssetUrl(directory, selectedPath)} title={t('filesView.editor.pdfTitle')}
-          className="h-full max-h-[75vh] w-full max-w-4xl rounded border border-border/50 bg-white" sandbox="" />
+          className="h-full max-h-[75vh] w-full max-w-4xl rounded border border-border/50 bg-card" sandbox="" />
         <a className="rounded bg-primary/20 px-3 py-1 text-xs text-primary" href={rawAssetUrl(directory, selectedPath, true)} download>
           {t('filesView.editor.saveFile')}
         </a>
@@ -104,8 +104,8 @@ export function EditorStage({
           onChange={(event) => setDraft(event.target.value)}
         />
       )}
-      <button type="button" className="absolute right-3 top-2 rounded border border-border/50 bg-card/70 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={onGoToLine} title="Go to line">⌗</button>
-      <button type="button" className="absolute right-12 top-2 rounded border border-border/50 bg-card/70 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => onViewMode(viewMode === 'view' ? 'edit' : 'view')} title={viewMode === 'view' ? 'Switch to edit' : 'Switch to preview'}>
+      <button type="button" className="absolute right-3 top-2 rounded border border-border/50 bg-card/70 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={onGoToLine} title="Go to line">⌗</button>
+      <button type="button" className="absolute right-12 top-2 rounded border border-border/50 bg-card/70 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={() => onViewMode(viewMode === 'view' ? 'edit' : 'view')} title={viewMode === 'view' ? 'Switch to edit' : 'Switch to preview'}>
         {viewMode === 'view' ? '✎' : '👁'}
       </button>
     </div>

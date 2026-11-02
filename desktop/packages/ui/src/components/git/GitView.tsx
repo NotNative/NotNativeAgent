@@ -280,21 +280,21 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 px-3 pb-3 pt-2" data-testid="git-view">
-      {statusStale ? <div role="status" className="flex items-center gap-2 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300" data-testid="git-status-stale">
+      {statusStale ? <div role="status" className="flex items-center gap-2 rounded border border-tone-warning-border/30 bg-tone-warning/10 px-3 py-2 text-xs text-tone-warning" data-testid="git-status-stale">
         {t('gitUi.staleStatus')}
         <button type="button" className="ml-auto underline" onClick={retryStatus}>{t('gitUi.retry')}</button>
       </div> : null}
       <header className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-card/40 px-3 py-2">
         <span className="min-w-0 truncate text-xs font-medium text-foreground" data-testid="git-branch">{status.branch ?? t('gitUi.detachedHead')}</span>
-        <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] text-primary">{t('gitUi.current')}</span>
+        <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[length:var(--type-micro)] text-primary">{t('gitUi.current')}</span>
         <BranchTracking status={status} />
         <span className={`flex flex-wrap items-center gap-1 ${compact ? 'w-full justify-end' : 'ml-auto'}`}>
-          <button type="button" disabled={busy !== '' || statusStale} className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+          <button type="button" disabled={busy !== '' || statusStale} className="rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground disabled:opacity-40"
             data-testid="git-sync" onClick={syncBranch}>{busy === 'sync' ? t('gitUi.syncing') : t('gitUi.syncBranch')}</button>
-          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-history" onClick={() => setDialog('history')}>{t('gitUi.history')}</button>
-          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-branches" onClick={() => setDialog('branches')}>{t('gitUi.branches')}</button>
-          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-stashes" onClick={() => setDialog('stashes')}>{t('gitUi.stashes')}</button>
-          {onOpenWalkthrough ? <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-walkthrough" onClick={onOpenWalkthrough}>{t('gitUi.walkthrough')}</button> : null}
+          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" data-testid="git-open-history" onClick={() => setDialog('history')}>{t('gitUi.history')}</button>
+          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" data-testid="git-open-branches" onClick={() => setDialog('branches')}>{t('gitUi.branches')}</button>
+          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" data-testid="git-open-stashes" onClick={() => setDialog('stashes')}>{t('gitUi.stashes')}</button>
+          {onOpenWalkthrough ? <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" data-testid="git-open-walkthrough" onClick={onOpenWalkthrough}>{t('gitUi.walkthrough')}</button> : null}
         </span>
       </header>
       {visible ? <IntegrationsStrip directory={directory} /> : null}
@@ -350,18 +350,18 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
         </div>
         <aside className={`flex min-h-0 shrink-0 flex-col overflow-hidden ${compact ? 'max-h-[55%] w-full' : shownFile ? 'w-[min(45vw,520px)]' : 'w-72'}`}>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto" data-testid="git-review-scroll">
-            {reviewLoading && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-neutral-400">{t('gitUi.reviewChecking')}</p> : null}
-            {reviewErrorPath && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-amber-300">
+            {reviewLoading && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-muted-foreground">{t('gitUi.reviewChecking')}</p> : null}
+            {reviewErrorPath && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-tone-warning">
               {t('gitUi.reviewCheckFailed', { path: reviewErrorPath })}
             </p> : null}
-            {missingReviewPath && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-amber-300">
+            {missingReviewPath && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-tone-warning">
               {t('gitUi.reviewPathMissing', { path: missingReviewPath })}
             </p> : null}
             {shownFile ? <GitFilePreview key={`${directory}\u0000${shownFile.path}\u0000${shownFile.staged}`} directory={directory}
               path={shownFile.path} staged={shownFile.staged} revision={status} onClose={() => setSelectedFile(null)} /> : null}
           </div>
           <div className="mt-3 shrink-0 rounded-lg border border-border/60 bg-card/40 p-3" data-testid="git-commit-dock">
-            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t('gitUi.commit')}</div>
+            <div className="mb-1 text-[length:var(--type-meta)] font-semibold uppercase tracking-wider text-muted-foreground">{t('gitUi.commit')}</div>
             <textarea
               className="h-20 w-full rounded border border-border/50 bg-interactive-hover/30 p-2 text-xs text-foreground outline-none"
               placeholder={t('gitUi.commitMessage')}
@@ -387,14 +387,14 @@ export function GitView({ directory, visible = true, compact = false, reviewRequ
                 {busy === 'sync' ? t('gitUi.syncing') : t('gitUi.commitAndSync')}
               </button>
             </div>
-            {staged.length === 0 ? <div className="mt-2 text-[11px] text-muted-foreground">{t('gitUi.stageFilesToCommit')}</div> : null}
+            {staged.length === 0 ? <div className="mt-2 text-[length:var(--type-meta)] text-muted-foreground">{t('gitUi.stageFilesToCommit')}</div> : null}
           </div>
         </aside>
       </div>
       <GitDialogHost directory={directory} onClose={() => setDialog(null)} dialog={dialog}
         onSwitchBranch={changeBranch} switchingDisabled={statusStale || busy !== ''} onApplied={() => void refresh()} />
       {confirmRevert !== null ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="git-revert-dialog">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-popover/40" data-testid="git-revert-dialog">
           <div className="w-80 rounded-lg border border-border/60 bg-card p-4">
             <div className="text-sm font-medium text-foreground">{t('gitUi.revertTitle')}</div>
             <div className="mt-1 text-xs text-muted-foreground">{t('gitUi.revertConfirm', { path: confirmRevert.path })}</div>
@@ -430,14 +430,14 @@ function Section({
     <section className={`rounded-lg border p-2 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border/60 bg-card/40'}`}>
       <header className="mb-1 flex items-center gap-2 px-1">
         <button type="button" aria-expanded={expanded} aria-label={toggle}
-          className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          className="flex items-center gap-1 text-[length:var(--type-meta)] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
           data-testid={`git-${sectionId}-toggle`} onClick={() => setExpanded((value) => !value)}>
           <span aria-hidden="true" className="w-3 text-center">{expanded ? '⌄' : '›'}</span>{title} <span className="font-normal">{count}</span>
         </button>
         {onPrimary !== undefined ? (
           <button
             type="button"
-            className={`ml-auto rounded px-1.5 text-[10px] hover:text-foreground ${accent ? 'text-primary' : 'text-muted-foreground'}`}
+            className={`ml-auto rounded px-1.5 text-[length:var(--type-micro)] hover:text-foreground ${accent ? 'text-primary' : 'text-muted-foreground'}`}
             data-testid={`git-${sectionId}-primary`}
             onClick={onPrimary}
           >
@@ -463,7 +463,7 @@ function FileRow({ entry, staged, selected, mutationDisabled, onOpen, onStageTog
   const symbol = statusSymbol(entry);
   return (
     <div className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-interactive-hover/30" data-testid="git-file-row" data-scope={staged ? 'staged' : 'working'} data-path={entry.path}>
-      <span className="w-4 text-center text-[11px]" style={{ color: symbolColorOf(symbol) }}>{symbol}</span>
+      <span className="w-4 text-center text-[length:var(--type-meta)]" style={{ color: symbolColorOf(symbol) }}>{symbol}</span>
       <button
         type="button"
         className="min-w-0 flex-1 truncate text-left text-xs text-foreground hover:text-primary"
@@ -480,7 +480,7 @@ function FileRow({ entry, staged, selected, mutationDisabled, onOpen, onStageTog
         disabled={mutationDisabled}
         aria-label={t(staged ? 'gitUi.unstageAria' : 'gitUi.stageAria', { path: entry.path })}
         data-testid={`git-file-${staged ? 'unstage' : 'stage'}`}
-        className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+        className="rounded border border-border/60 px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground disabled:opacity-40"
         onClick={onStageToggle}
       >
         {staged ? t('gitUi.unstageButton') : t('gitUi.stageButton')}
@@ -489,7 +489,7 @@ function FileRow({ entry, staged, selected, mutationDisabled, onOpen, onStageTog
         type="button"
         disabled={mutationDisabled}
         aria-label={t(staged ? 'gitUi.unstageAria' : 'gitUi.discardAria', { path: entry.path })}
-        className="rounded px-1 py-0.5 text-[11px] text-muted-foreground hover:text-status-error disabled:opacity-40"
+        className="rounded px-1 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-status-error disabled:opacity-40"
         data-testid={`git-file-revert-${staged ? 'staged' : 'working'}`}
         onClick={onRevert}
       >

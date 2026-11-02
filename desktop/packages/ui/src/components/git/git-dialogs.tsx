@@ -101,14 +101,14 @@ function GitHistoryDialog({ directory, onClose }: { directory: string; onClose: 
             type="button"
             aria-pressed={maxCount === step}
             data-testid={`git-history-maxcount-${step}`}
-            className={`rounded-full border px-2 py-0.5 text-[11px] ${maxCount === step ? 'border-primary/60 bg-primary/10 text-primary' : 'border-border/60 text-muted-foreground hover:text-foreground'}`}
+            className={`rounded-full border px-2 py-0.5 text-[length:var(--type-meta)] ${maxCount === step ? 'border-primary/60 bg-primary/10 text-primary' : 'border-border/60 text-muted-foreground hover:text-foreground'}`}
             onClick={() => setMaxCount(step)}
           >
             {step}
           </button>
         ))}
         {commits !== null && commits.length >= maxCount && maxCount < 500 ? (
-          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-history-load-more" onClick={() => setMaxCount(Math.min(500, maxCount + 50))}>{t('gitUi.history.loadMore')}</button>
+          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" data-testid="git-history-load-more" onClick={() => setMaxCount(Math.min(500, maxCount + 50))}>{t('gitUi.history.loadMore')}</button>
         ) : null}
       </div>
       {failed ? <div role="alert" className="text-xs text-status-error" data-testid="git-history-failed">{t('gitUi.history.loadFailed')}</div> : null}
@@ -118,15 +118,15 @@ function GitHistoryDialog({ directory, onClose }: { directory: string; onClose: 
         {(commits ?? []).map((commit, at) => (
           <div key={commit.hash} className="flex items-center gap-2 rounded px-2 py-1 text-xs text-foreground hover:bg-interactive-hover/30" data-testid="git-history-row">
             <HistoryGraphGlyph row={lanes[at]} />
-            <span className="font-mono text-[10px] text-muted-foreground">{commit.hash.slice(0, 8)}</span>
+            <span className="font-mono text-[length:var(--type-micro)] text-muted-foreground">{commit.hash.slice(0, 8)}</span>
             <span className="min-w-0 flex-1 truncate" title={commit.subject}>{commit.subject}</span>
-            <span className="text-[10px] text-muted-foreground">{commit.author}</span>
-            <span className="text-[10px] tabular-nums text-muted-foreground">{formatLogDate(commit.date)}</span>
+            <span className="text-[length:var(--type-micro)] text-muted-foreground">{commit.author}</span>
+            <span className="text-[length:var(--type-micro)] tabular-nums text-muted-foreground">{formatLogDate(commit.date)}</span>
             <button
               type="button"
               aria-label={t('gitUi.history.copyCommitSha', { hash: commit.hash })}
               data-testid="git-history-copy"
-              className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+              className="rounded border border-border/60 px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground"
               onClick={() => void copySha(commit.hash)}
             >
               {copied === commit.hash ? t('gitUi.history.copied') : t('gitUi.history.copySha')}
@@ -237,14 +237,14 @@ function BranchGroup({ groupId, label, names, current, onSwitch, switchingDisabl
   const { t } = useI18n();
   return (
     <div data-testid={`git-branch-group-${groupId}`}>
-      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="mb-1 text-[length:var(--type-micro)] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="flex flex-col gap-0.5">
         {names.map((name) => (
           <div key={name} className="flex items-center gap-2 rounded px-2 py-0.5 hover:bg-interactive-hover/30" data-testid="git-branch-row">
             <span className="min-w-0 flex-1 truncate font-mono">{name}</span>
-            {current === name ? <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] text-primary">{t('gitUi.branches.current')}</span> : null}
+            {current === name ? <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[length:var(--type-micro)] text-primary">{t('gitUi.branches.current')}</span> : null}
             {onSwitch && current !== name ? <button type="button" disabled={switchingDisabled}
-              aria-label={t('gitUi.branches.switchAria', { name })} className="rounded border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+              aria-label={t('gitUi.branches.switchAria', { name })} className="rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground disabled:opacity-40"
               onClick={() => onSwitch(name)}>{pending === name ? t('gitUi.branches.switching') : t('gitUi.branches.switch')}</button> : null}
           </div>
         ))}
@@ -297,7 +297,7 @@ function GitStashesDialog({ directory, onClose, onApplied }: {
     <DialogShell title={t('gitUi.stashes.title')} onClose={onClose} testid="git-stashes-dialog">
       <div className="mb-2 flex justify-end">
         <button type="button" disabled={busy} data-testid="git-stash-create"
-          className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+          className="rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground disabled:opacity-40"
           onClick={() => void act(() => createGitStash(directory, null))}>
           {t('gitUi.stashes.create')}
         </button>
@@ -321,15 +321,15 @@ function StashRow({ stash, busy, onApply }: {
   const { t } = useI18n();
   return (
     <div className="flex items-center gap-2 rounded px-2 py-1 text-xs text-foreground hover:bg-interactive-hover/30" data-testid="git-stash-row">
-      <span className="font-mono text-[10px] text-muted-foreground">{stash.ref}</span>
+      <span className="font-mono text-[length:var(--type-micro)] text-muted-foreground">{stash.ref}</span>
       <span className="min-w-0 flex-1 truncate" title={stash.subject}>{stash.subject}</span>
       <button type="button" disabled={busy} data-testid="git-stash-apply"
-        className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+        className="rounded border border-border/60 px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground disabled:opacity-40"
         onClick={() => onApply(false)}>
         {t('gitUi.stashes.apply')}
       </button>
       <button type="button" disabled={busy} data-testid="git-stash-drop"
-        className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+        className="rounded border border-border/60 px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground disabled:opacity-40"
         onClick={() => onApply(true)}>
         {t('gitUi.stashes.drop')}
       </button>
@@ -365,7 +365,7 @@ function DialogShell({ title, onClose, wide, children, testid }: {
 }): ReactNode {
   const { t } = useI18n();
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid={testid ?? 'git-dialog'}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-popover/40" data-testid={testid ?? 'git-dialog'}>
       <div className={`flex max-h-[85vh] flex-col rounded-lg border border-border/60 bg-card p-4 ${wide ? 'w-[min(56rem,90vw)]' : 'w-96'}`}>
         <div className="mb-2 flex items-center justify-between">
           <div className="text-sm font-medium text-foreground">{title}</div>

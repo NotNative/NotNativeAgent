@@ -20,7 +20,7 @@ export function useSidebarInteractions(onDismiss: () => void) {
   }, [onDismiss]);
   const resize = (value: number) => setWidth(Math.max(220, Math.min(480, value)));
   const grip = <div role="separator" aria-label="Resize workspace sidebar" aria-orientation="vertical" aria-valuenow={width} aria-valuemin={220} aria-valuemax={480} tabIndex={0}
-    className="absolute inset-y-0 right-0 z-20 w-1 cursor-col-resize touch-none hover:bg-sky-500/40 focus:bg-sky-500/40"
+    className="absolute inset-y-0 right-0 z-20 w-1 cursor-col-resize touch-none hover:bg-primary/40 focus:bg-primary/40"
     onPointerDown={event => { drag.current = { x: event.clientX, width }; event.currentTarget.setPointerCapture(event.pointerId); event.preventDefault(); }}
     onPointerMove={event => { if (drag.current) resize(drag.current.width + event.clientX - drag.current.x); }}
     onPointerUp={event => { drag.current = null; event.currentTarget.releasePointerCapture(event.pointerId); }} onLostPointerCapture={() => { drag.current = null; }}

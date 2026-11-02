@@ -1210,9 +1210,9 @@ describe('OperatorRail', () => {
     act(() => rootHandle!.render(<I18nProvider><OperatorRail store={store} engine={{} as never} directory="D:/work" /></I18nProvider>));
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     const rows = document.querySelector('[data-testid="activity-rows"]')!;
-    expect(rows.querySelectorAll('li')[0]!.className).toContain('border-amber');
-    expect(rows.querySelectorAll('li')[1]!.className).toContain('border-red');
-    expect(rows.querySelectorAll('li')[2]!.className).not.toContain('border-red');
+    expect(rows.querySelectorAll('li')[0]!.className).toContain('border-tone-warning');
+    expect(rows.querySelectorAll('li')[1]!.className).toContain('border-tone-error');
+    expect(rows.querySelectorAll('li')[2]!.className).not.toContain('border-tone-error');
     act(() => ([...document.querySelectorAll('[data-testid="operator-activity"] button')].find((button) => button.textContent === 'Needs input') as HTMLButtonElement).click());
     expect(rows.textContent).toContain('Turn needs input');
     expect(rows.textContent).not.toContain('Command failed');
@@ -1313,3 +1313,4 @@ it('native workspace panels hide unsupported actions and ignore a saved terminal
   expect(container.querySelector('[aria-label="Show Terminal"]')).toBeNull();
   expect(container.querySelector('[aria-label="Show Files"]')).toBeNull();
 });
+

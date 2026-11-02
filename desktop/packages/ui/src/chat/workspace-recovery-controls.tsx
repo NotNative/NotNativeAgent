@@ -23,7 +23,7 @@ export function WorkspaceRecoveryControls({ runtimeKey, refreshKey }: {
       setRoots((await readNativeWorkspaceAdmissions()).unavailable.map(row => row.root));
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not remove the unavailable workspace.'); }
   };
-  return roots.map(root => <div key={root} className="mb-2 rounded border border-amber-500/30 p-2 text-[11px] text-amber-200">
+  return roots.map(root => <div key={root} className="mb-2 rounded border border-tone-warning-border/30 p-2 text-[length:var(--type-meta)] text-tone-warning">
     <div>Unavailable workspace: {root}</div>
     <button type="button" className="mt-1 underline" onClick={() => void remove(root)}>Remove stale admission</button>
   </div>);

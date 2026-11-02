@@ -17,7 +17,7 @@ export function BranchTracking({ status }: { status: GitStatus }): ReactNode {
   const label = status.upstream === null ? t('gitUi.noUpstream') : status.upstreamGone ? t('gitUi.upstreamMissing')
     : status.trackingAhead === 0 && status.trackingBehind === 0 ? t('gitUi.upToDate')
     : t('gitUi.aheadBehind', { ahead: status.trackingAhead, behind: status.trackingBehind });
-  return <span className={`rounded-full px-2 py-0.5 text-[10px] ${status.upstreamGone ? 'bg-amber-500/15 text-amber-300' : 'bg-white/5 text-muted-foreground'}`}
+  return <span className={`rounded-full px-2 py-0.5 text-[length:var(--type-micro)] ${status.upstreamGone ? 'bg-tone-warning/15 text-tone-warning' : 'bg-card/5 text-muted-foreground'}`}
     title={status.upstream ?? t('gitUi.noUpstreamTitle')} data-testid="git-tracking">{label}</span>;
 }
 

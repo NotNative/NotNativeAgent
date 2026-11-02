@@ -107,38 +107,38 @@ export function ScheduledTaskEditorDialog({
 
   return (
     <div role="dialog" aria-label={text.editorTitle} tabIndex={0} data-testid="task-editor-dialog"
-      className="absolute inset-0 z-40 flex items-start justify-center bg-black/60 p-8"
+      className="absolute inset-0 z-40 flex items-start justify-center bg-popover/60 p-8"
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           event.stopPropagation(); // the tasks overlay behind must stay open (E-09-28 (g))
           onClose();
         }
       }}>
-      <div className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-white/10 bg-neutral-950 p-4">
+      <div className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border/10 bg-popover p-4">
         <div className="mb-3 flex items-center gap-2">
-          <strong className="text-[13px] text-neutral-100">{task === null ? text.newTask : text.editTask}</strong>
+          <strong className="text-[length:var(--type-markdown)] text-foreground">{task === null ? text.newTask : text.editTask}</strong>
           <button type="button" aria-label={text.closeEditor} data-testid="task-editor-close"
-            className="ml-auto rounded px-2 py-1 text-[12px] text-neutral-400 hover:text-white" onClick={onClose}>×</button>
+            className="ml-auto rounded px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={onClose}>×</button>
         </div>
-        <label className="mb-3 flex items-center gap-2 text-[11px] text-neutral-400">
+        <label className="mb-3 flex items-center gap-2 text-[length:var(--type-meta)] text-muted-foreground">
           <span>{text.name}</span>
           <input value={name} data-testid="task-name-input"
             onChange={(event) => { setName(event.target.value); setBlocked(''); }}
-            className="min-w-0 flex-1 rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-100" />
+            className="min-w-0 flex-1 rounded-lg border border-border/10 bg-background px-2 py-1 text-[length:var(--type-meta)] text-foreground" />
         </label>
-        {blocked.length > 0 ? <div className="mb-2 text-[11px] text-amber-300" data-testid="save-blocked">{blocked}</div> : null}
+        {blocked.length > 0 ? <div className="mb-2 text-[length:var(--type-meta)] text-tone-warning" data-testid="save-blocked">{blocked}</div> : null}
         <ScheduledScheduleEditor value={schedule} onChange={setSchedule}
           preview={previewNextRuns} timePreference={format.value ?? 'auto'} />
-        <div className="mt-3 border-t border-white/10 pt-3">
+        <div className="mt-3 border-t border-border/10 pt-3">
           <ExecutionEditor execution={execution} onChange={setExecution}
             providers={providers} commands={commandNames} agents={agentNames} directory={directory} />
         </div>
-        <div className="mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
+        <div className="mt-3 flex items-center gap-2 border-t border-border/10 pt-3">
           <button type="button" data-testid="task-enabled-chip" aria-pressed={enabled}
-            className={`rounded px-2 py-1 text-[11px] ${enabled ? 'bg-emerald-900/50 text-emerald-300' : 'bg-neutral-800 text-neutral-400'}`}
+            className={`rounded px-2 py-1 text-[length:var(--type-meta)] ${enabled ? 'bg-tone-success/50 text-tone-success' : 'bg-card text-muted-foreground'}`}
             onClick={() => setEnabled(!enabled)}>{enabled ? text.enabled : text.disabled}</button>
           <button type="button" data-testid="task-save" disabled={saving}
-            className="ml-auto rounded bg-sky-800 px-3 py-1 text-[12px] text-white hover:bg-sky-700 disabled:opacity-40"
+            className="ml-auto rounded bg-primary px-3 py-1 text-[length:var(--type-meta)] text-foreground hover:bg-primary disabled:opacity-40"
             onClick={() => void save()}>{saving ? text.saving : text.save}</button>
         </div>
       </div>

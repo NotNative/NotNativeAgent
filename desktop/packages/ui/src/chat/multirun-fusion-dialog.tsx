@@ -108,21 +108,21 @@ export function MultiRunFusionDialog(props: MultiRunFusionDialogProps): ReactNod
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" data-testid="fusion-dialog">
-      <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl border border-white/10 bg-neutral-950 p-4 shadow-2xl">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-popover/50 p-4" data-testid="fusion-dialog">
+      <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl border border-border/10 bg-popover p-4 shadow-2xl">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-medium text-neutral-200">Run fusion</h2>
-          <button type="button" aria-label="Close fusion dialog" data-testid="fusion-close" className="text-neutral-500 hover:text-neutral-200" disabled={busy} onClick={props.onClose}>X</button>
+          <h2 className="text-sm font-medium text-foreground">Run fusion</h2>
+          <button type="button" aria-label="Close fusion dialog" data-testid="fusion-close" className="text-muted-foreground hover:text-foreground" disabled={busy} onClick={props.onClose}>X</button>
         </div>
-        <p className="mt-2 text-[12px] text-neutral-500">
+        <p className="mt-2 text-[length:var(--type-meta)] text-muted-foreground">
           {sources.length} source{sources.length === 1 ? '' : 's'} · {props.identity.groupSlug}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" disabled={busy || sendBlocked} className="rounded bg-white/5 px-3 py-1.5 text-[12px] text-neutral-200 hover:bg-white/10 disabled:opacity-50" data-testid="fusion-open-model-picker" onClick={() => setPickerOpen(!pickerOpen)}>
+          <button type="button" disabled={busy || sendBlocked} className="rounded bg-card/5 px-3 py-1.5 text-[length:var(--type-meta)] text-foreground hover:bg-card/10 disabled:opacity-50" data-testid="fusion-open-model-picker" onClick={() => setPickerOpen(!pickerOpen)}>
             {modelLabel}
           </button>
-          <label className="text-[12px] text-neutral-400" htmlFor="fusion-agent">Agent</label>
-          <select id="fusion-agent" value={agent} disabled={busy || agents.length === 0} data-testid="fusion-agent" className="max-w-40 rounded border border-white/10 bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-200 outline-none" onChange={(event) => setAgent(event.target.value)}>
+          <label className="text-[length:var(--type-meta)] text-muted-foreground" htmlFor="fusion-agent">Agent</label>
+          <select id="fusion-agent" value={agent} disabled={busy || agents.length === 0} data-testid="fusion-agent" className="max-w-40 rounded border border-border/10 bg-background px-2 py-1.5 text-[length:var(--type-meta)] text-foreground outline-none" onChange={(event) => setAgent(event.target.value)}>
             <option value="">Default</option>
             {agents.map((entry) => <option key={entry.name} value={entry.name}>{entry.name}</option>)}
           </select>
@@ -134,8 +134,8 @@ export function MultiRunFusionDialog(props: MultiRunFusionDialogProps): ReactNod
           }} onOpenAddProvider={() => setPickerOpen(false)} />
         ) : null}
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" disabled={busy} className="rounded border border-white/10 px-3 py-1.5 text-[12px] text-neutral-300 disabled:opacity-50" data-testid="fusion-cancel" onClick={props.onClose}>Cancel</button>
-          <button type="button" disabled={busy || sendBlocked || model === null || sources.length === 0} className="rounded bg-emerald-900/50 px-3 py-1.5 text-[12px] text-emerald-200 hover:bg-emerald-900/70 disabled:opacity-50" data-testid="fusion-start" onClick={() => void submit()}>
+          <button type="button" disabled={busy} className="rounded border border-border/10 px-3 py-1.5 text-[length:var(--type-meta)] text-muted-foreground disabled:opacity-50" data-testid="fusion-cancel" onClick={props.onClose}>Cancel</button>
+          <button type="button" disabled={busy || sendBlocked || model === null || sources.length === 0} className="rounded bg-tone-success/50 px-3 py-1.5 text-[length:var(--type-meta)] text-tone-success hover:bg-tone-success/70 disabled:opacity-50" data-testid="fusion-start" onClick={() => void submit()}>
             {busy ? 'Fusing…' : 'Start fusion'}
           </button>
         </div>

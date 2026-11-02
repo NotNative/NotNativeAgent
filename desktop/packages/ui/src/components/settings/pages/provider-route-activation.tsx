@@ -38,7 +38,7 @@ export function ProviderRouteActivation({ onApplied }: { onApplied: () => void }
   };
   return <div className="mt-2">
     <button type="button" data-testid="activate-provider-routing" disabled={busy} onClick={() => { void apply(); }}
-      className="rounded border border-amber-500/40 px-2 py-1 text-xs text-foreground disabled:opacity-50">
+      className="rounded border border-tone-warning-border/40 px-2 py-1 text-xs text-foreground disabled:opacity-50">
     {busy ? t('settings.providers.route.activation.applying') : t('settings.providers.route.activation.apply')}
     </button>
     {error ? <p role="alert" className="mt-1 text-xs text-destructive">{error}</p> : null}

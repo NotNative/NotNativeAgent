@@ -278,7 +278,7 @@ function scopeSelectorValue(source: SelectedSource): WalkthroughScope | 'branch'
 
 function SourceSelector({ source, onChange }: { source: SelectedSource; onChange: (source: SelectedSource) => void }): ReactNode {
   const selected = asWalkthroughSource(source)!;
-  return <select aria-label="Walkthrough scope" className="min-w-0 rounded border border-white/15 bg-neutral-950 px-1 py-1 text-[11px] text-neutral-300"
+  return <select aria-label="Walkthrough scope" className="min-w-0 rounded border border-border/15 bg-popover px-1 py-1 text-[length:var(--type-meta)] text-muted-foreground"
     value={scopeSelectorValue(selected)}
     onChange={(event) => {
       const value = event.currentTarget.value;
@@ -297,7 +297,7 @@ function SourceSelector({ source, onChange }: { source: SelectedSource; onChange
 }
 
 function textInput(label: string, value: string, onChange: (value: string) => void): ReactNode {
-  return <input aria-label={label} value={value} className="min-w-0 rounded border border-white/15 bg-neutral-950 px-1 py-1 text-[11px] text-neutral-300"
+  return <input aria-label={label} value={value} className="min-w-0 rounded border border-border/15 bg-popover px-1 py-1 text-[length:var(--type-meta)] text-muted-foreground"
     onChange={(event) => onChange(event.currentTarget.value)} />;
 }
 
@@ -307,7 +307,7 @@ function ModelSelector({ options, override, onChange }: { options: WalkthroughMo
     ? override : '';
   // Per-request selection (uniformity #2): writes local component state, not a
   // stored setting — NNA honors the model on each walkthrough call.
-  return <select aria-label="Walkthrough model" className="min-w-0 max-w-64 rounded border border-white/15 bg-neutral-950 px-1 py-1 text-[11px] text-neutral-300"
+  return <select aria-label="Walkthrough model" className="min-w-0 max-w-64 rounded border border-border/15 bg-popover px-1 py-1 text-[length:var(--type-meta)] text-muted-foreground"
     value={selected} onChange={(event) => onChange(event.currentTarget.value)}>
     <option value="">Default chain</option>
     {options.map((option) => <option key={`${option.providerID}/${option.modelID}`}
@@ -379,64 +379,64 @@ export function WalkthroughPreviewSurface({ directory, sessionId, visible }: { d
     setActive(0);
   };
   return <section className="flex h-full min-h-0 flex-col" data-testid="walkthrough-preview">
-    <header className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2">
-      <div className="w-full text-xs font-medium text-neutral-200">Diff walkthrough</div>
+    <header className="flex flex-wrap items-center gap-2 border-b border-border/10 px-3 py-2">
+      <div className="w-full text-xs font-medium text-foreground">Diff walkthrough</div>
       <SourceSelector source={source} onChange={changeSource} />
       <ModelSelector options={modelRecord?.options ?? []} override={modelOverride} onChange={setModelOverride} />
       <SourceFields source={source} onChange={changeSource} />
-      <button type="button" className="rounded border border-white/15 px-2 py-1 text-[11px] text-neutral-300 disabled:opacity-40"
+      <button type="button" className="rounded border border-border/15 px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground disabled:opacity-40"
         disabled={!validSource(source)} onClick={() => { reset(); void refresh(); }}>Refresh</button>
-      <button type="button" className="rounded border border-white/15 px-2 py-1 text-[11px] text-neutral-300 disabled:opacity-40"
+      <button type="button" className="rounded border border-border/15 px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground disabled:opacity-40"
         disabled={!sessionId || !preview?.stops.length || stale || generating} onClick={() => void generate()}>
         {generating ? 'Generating…' : 'Generate explanation'}
       </button>
-      {generating ? <button type="button" className="rounded border border-white/15 px-2 py-1 text-[11px] text-neutral-300" onClick={() => void cancel()}>Cancel</button> : null}
+      {generating ? <button type="button" className="rounded border border-border/15 px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground" onClick={() => void cancel()}>Cancel</button> : null}
     </header>
-    <div className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">
+    <div className="border-b border-border/10 px-3 py-2 text-[length:var(--type-meta)] text-muted-foreground">
       Local Git hunks in patch order. Source selectors can compare branches, commits, or pull requests. Generate explicitly sends a bounded diff digest to the model shown above.
     </div>
-    {modelRecord ? <div className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">
+    {modelRecord ? <div className="border-b border-border/10 px-3 py-2 text-[length:var(--type-meta)] text-muted-foreground">
       {readinessText(modelRecord.readiness, modelError)}
     </div> : null}
     {!validSource(source) && typeof source !== 'string'
-      ? <p className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">Complete all source fields to capture this walkthrough.</p> : null}
-    {generating && stage ? <div className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">
+      ? <p className="border-b border-border/10 px-3 py-2 text-[length:var(--type-meta)] text-muted-foreground">Complete all source fields to capture this walkthrough.</p> : null}
+    {generating && stage ? <div className="border-b border-border/10 px-3 py-2 text-[length:var(--type-meta)] text-muted-foreground">
       Walkthrough stage: {stage}
     </div> : null}
-    {!sessionId ? <p className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">Select a session to generate an explanation.</p> : null}
-    {stale && preview ? <div role="status" className="border-b border-amber-500/30 px-3 py-2 text-xs text-amber-300">
+    {!sessionId ? <p className="border-b border-border/10 px-3 py-2 text-[length:var(--type-meta)] text-muted-foreground">Select a session to generate an explanation.</p> : null}
+    {stale && preview ? <div role="status" className="border-b border-tone-warning-border/30 px-3 py-2 text-xs text-tone-warning">
       {error ? 'The current source could not be verified against this preview. Refresh before relying on it.' : 'Changes moved since this preview was captured. Refresh to rebuild the stops.'}
     </div> : null}
-    {error || generationError ? <div role="alert" className="border-b border-amber-500/30 px-3 py-2 text-xs text-amber-300">{error ?? generationError}</div> : null}
-    {preview && preview.stops.length === 0 ? <p className="p-3 text-xs text-neutral-400">No text hunks to walk through. Binary-only changes are not rendered in this preview.</p> : null}
-    {preview && preview.binaryFiles > 0 ? <p className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-400">{preview.binaryFiles} binary file scope(s) are omitted from hunk navigation.</p> : null}
-    {narrative ? <div className="border-b border-white/10 px-3 py-2 text-[11px] text-neutral-300">
-      <strong className="block text-xs text-neutral-100">{narrative.title}</strong>
+    {error || generationError ? <div role="alert" className="border-b border-tone-warning-border/30 px-3 py-2 text-xs text-tone-warning">{error ?? generationError}</div> : null}
+    {preview && preview.stops.length === 0 ? <p className="p-3 text-xs text-muted-foreground">No text hunks to walk through. Binary-only changes are not rendered in this preview.</p> : null}
+    {preview && preview.binaryFiles > 0 ? <p className="border-b border-border/10 px-3 py-2 text-[length:var(--type-meta)] text-muted-foreground">{preview.binaryFiles} binary file scope(s) are omitted from hunk navigation.</p> : null}
+    {narrative ? <div className="border-b border-border/10 px-3 py-2 text-[length:var(--type-meta)] text-muted-foreground">
+      <strong className="block text-xs text-foreground">{narrative.title}</strong>
       <span className="block py-1">{narrative.focus}</span>
       Model explanation: {narrative.providerID}/{narrative.modelID}. Verify claims against the diff.
       {narrative.omittedSensitiveHunks > 0 ? ` ${narrative.omittedSensitiveHunks} sensitive-path hunk(s) were not sent.` : ''}
     </div> : null}
     {preview && stop ? <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2 text-xs">
+      <div className="flex items-center gap-2 border-b border-border/10 px-3 py-2 text-xs">
         <button type="button" aria-label="Previous hunk" disabled={active === 0} onClick={() => setActive(active - 1)}>←</button>
         <span data-testid="walkthrough-position">{active + 1} / {preview.stops.length}</span>
         <button type="button" aria-label="Next hunk" disabled={active + 1 >= preview.stops.length} onClick={() => setActive(active + 1)}>→</button>
       </div>
-      <nav aria-label="Diff hunk stops" className="max-h-40 overflow-y-auto border-b border-white/10 p-2">
-        {narrative?.chapters.map((chapter) => <div key={chapter.id} className="px-2 py-1 text-[11px] text-neutral-300">
+      <nav aria-label="Diff hunk stops" className="max-h-40 overflow-y-auto border-b border-border/10 p-2">
+        {narrative?.chapters.map((chapter) => <div key={chapter.id} className="px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground">
           {chapter.title} · {chapter.blurb} · {chapter.stops.length} stop(s)
         </div>)}
         {preview.stops.map((item, index) => <button key={item.id} type="button" aria-current={index === active ? 'step' : undefined}
-          className={`block w-full truncate rounded px-2 py-1 text-left text-[11px] ${index === active ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white'}`}
+          className={`block w-full truncate rounded px-2 py-1 text-left text-[length:var(--type-meta)] ${index === active ? 'bg-card/10 text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
           onClick={() => setActive(index)}>{index + 1}. {sourceIdentity(source)} · {item.path}:{item.newStart}</button>)}
       </nav>
       <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
-        <div className="sticky top-0 bg-neutral-950 py-1 text-xs text-neutral-200">{sourceIdentity(source)} · {stop.path} · old:{stop.oldStart} new:{stop.newStart}</div>
+        <div className="sticky top-0 bg-popover py-1 text-xs text-foreground">{sourceIdentity(source)} · {stop.path} · old:{stop.oldStart} new:{stop.newStart}</div>
         {narrative?.chapters.flatMap((chapter) => chapter.stops.map((item) => ({ ...item, chapter: chapter.title })))
-          .filter((item) => item.hunks.some((hunk) => hunk.id === stop.id)).map((item) => <div key={item.id} className="mb-2 rounded border border-white/10 p-2 text-xs text-neutral-200">
-            <div className="mb-1 text-[11px] text-neutral-400">{item.chapter} · {item.title} · {item.importance} · {stop.path} · old:{stop.oldStart} new:{stop.newStart}</div>{item.prose}
+          .filter((item) => item.hunks.some((hunk) => hunk.id === stop.id)).map((item) => <div key={item.id} className="mb-2 rounded border border-border/10 p-2 text-xs text-foreground">
+            <div className="mb-1 text-[length:var(--type-meta)] text-muted-foreground">{item.chapter} · {item.title} · {item.importance} · {stop.path} · old:{stop.oldStart} new:{stop.newStart}</div>{item.prose}
           </div>)}
-        <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-neutral-300" data-testid="walkthrough-hunk">{stop.header}{'\n'}{stop.body}</pre>
+        <pre className="whitespace-pre-wrap break-words font-mono text-[length:var(--type-meta)] leading-5 text-muted-foreground" data-testid="walkthrough-hunk">{stop.header}{'\n'}{stop.body}</pre>
       </div>
     </div> : null}
   </section>;

@@ -29,7 +29,7 @@ export function PairingDialog(props: PairingDialogProps): ReactNode {
   if (props.open !== true) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" data-testid="pairing-dialog">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-popover/40 p-4" data-testid="pairing-dialog">
       <div
         role="dialog"
         aria-modal="true"

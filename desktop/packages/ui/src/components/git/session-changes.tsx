@@ -35,27 +35,27 @@ export function SessionChanges({ store, directory, sessionID, status, stale, vis
   const turnScoped = scope === 'turn' && turnRequestID !== null;
   const files = sessionChangedFiles(snapshot.activity, sessionID, directory, status,
     turnScoped ? turnRequestID : undefined);
-  return <section className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-2" data-testid="git-session-changes">
+  return <section className="rounded-lg border border-border/20 bg-primary/5 p-2" data-testid="git-session-changes">
     <div className="flex items-center justify-between gap-2 px-1">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-sky-300">{turnScoped ? t('gitUi.lastTurnTouched') : t('gitUi.sessionTouched')} · {files.length}</h3>
-      <div role="group" aria-label={t('gitUi.evidenceScope')} className="flex gap-1 text-[10px]">
-        <button type="button" aria-pressed={!turnScoped} className={!turnScoped ? 'text-sky-300' : 'text-muted-foreground'} onClick={() => setScope('session')}>{t('gitUi.sessionScope')}</button>
-        <button type="button" disabled={!turnRequestID} aria-pressed={turnScoped} className={turnScoped ? 'text-sky-300' : 'text-muted-foreground disabled:opacity-40'}
+      <h3 className="text-[length:var(--type-meta)] font-semibold uppercase tracking-wider text-primary">{turnScoped ? t('gitUi.lastTurnTouched') : t('gitUi.sessionTouched')} · {files.length}</h3>
+      <div role="group" aria-label={t('gitUi.evidenceScope')} className="flex gap-1 text-[length:var(--type-micro)]">
+        <button type="button" aria-pressed={!turnScoped} className={!turnScoped ? 'text-primary' : 'text-muted-foreground'} onClick={() => setScope('session')}>{t('gitUi.sessionScope')}</button>
+        <button type="button" disabled={!turnRequestID} aria-pressed={turnScoped} className={turnScoped ? 'text-primary' : 'text-muted-foreground disabled:opacity-40'}
           title={!turnRequestID ? t('gitUi.noTurnIdentity') : undefined} onClick={() => setScope('turn')}>{t('gitUi.lastTurnScope')}</button>
       </div>
     </div>
-    <p className="px-1 py-1 text-[10px] text-muted-foreground">{t('gitUi.evidenceNote')}</p>
-    {nnaSource && historyStatus === 'unavailable' ? <p role="status" className="px-1 py-1 text-[10px] text-amber-300">
+    <p className="px-1 py-1 text-[length:var(--type-micro)] text-muted-foreground">{t('gitUi.evidenceNote')}</p>
+    {nnaSource && historyStatus === 'unavailable' ? <p role="status" className="px-1 py-1 text-[length:var(--type-micro)] text-tone-warning">
       {t('gitUi.activityUnavailable')} <button type="button" className="underline" onClick={() => setRefreshRevision((value) => value + 1)}>{t('gitUi.retry')}</button>
     </p> : null}
-    {stale ? <p className="px-1 text-[10px] text-amber-300">{t('gitUi.staleEvidence')}</p> : null}
-    {files.length === 0 ? <p className="px-1 py-1 text-[11px] text-muted-foreground">{historyStatus === 'loading'
+    {stale ? <p className="px-1 text-[length:var(--type-micro)] text-tone-warning">{t('gitUi.staleEvidence')}</p> : null}
+    {files.length === 0 ? <p className="px-1 py-1 text-[length:var(--type-meta)] text-muted-foreground">{historyStatus === 'loading'
       ? t('gitUi.loadingEvidence') : turnScoped ? t('gitUi.noLastTurnFiles') : t('gitUi.noSessionFiles')}</p> : files.map((file) =>
       <div key={file.path} className="flex items-center gap-2 px-1 py-0.5 text-xs">
         <button type="button" disabled={stale} className="min-w-0 flex-1 truncate text-left text-foreground hover:text-primary disabled:opacity-40"
           title={file.path} aria-label={t('gitUi.viewSessionDiff', { path: file.path })}
           onClick={() => onOpen(file.path, file.working ? false : file.staged)}>{file.path}</button>
-        <span className="shrink-0 text-[10px] text-muted-foreground">{file.working && file.staged ? t('gitUi.workingAndStaged') : file.working ? t('gitUi.working') : t('gitUi.staged')}</span>
+        <span className="shrink-0 text-[length:var(--type-micro)] text-muted-foreground">{file.working && file.staged ? t('gitUi.workingAndStaged') : file.working ? t('gitUi.working') : t('gitUi.staged')}</span>
       </div>)}
   </section>;
 }

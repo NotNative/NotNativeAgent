@@ -99,45 +99,45 @@ export function ArchiveView(props: ArchiveViewProps): ReactNode {
     if (succeeded !== roots.length) toast.error(`${roots.length - succeeded} session${roots.length - succeeded === 1 ? '' : 's'} could not be ${kind === 'restore' ? 'restored' : 'deleted'}`);
   };
 
-  return <main className="min-w-0 flex-1 overflow-y-auto bg-neutral-950 px-5 py-4 text-neutral-200" data-testid="archive-view">
+  return <main className="min-w-0 flex-1 overflow-y-auto bg-popover px-5 py-4 text-foreground" data-testid="archive-view">
     <div className="mx-auto max-w-5xl">
       <header className="mb-4 flex items-center gap-3">
-        <button type="button" className="rounded px-2 py-1 text-sm text-neutral-400 hover:bg-white/10 hover:text-white" onClick={props.onClose}>← Back to chat</button>
+        <button type="button" className="rounded px-2 py-1 text-sm text-muted-foreground hover:bg-card/10 hover:text-foreground" onClick={props.onClose}>← Back to chat</button>
         <h1 className="text-lg font-medium">Archive</h1>
-        <span className="text-xs text-neutral-500">{sessions.archived.length} sessions</span>
+        <span className="text-xs text-muted-foreground">{sessions.archived.length} sessions</span>
       </header>
-      <input aria-label="Search archived sessions" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search archived sessions…" className="mb-5 w-full rounded-lg border border-white/10 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-white/30" />
-      {sessions.status === 'error' ? <p role="alert" className="mb-3 text-xs text-amber-300">Session list could not refresh; showing the last available archive. <button type="button" className="underline" onClick={() => void useGlobalSessionsStore.getState().loadSessions()}>Try again</button></p> : null}
-      {sessions.status === 'loading' && sessions.archived.length === 0 ? <p className="mb-3 text-xs text-neutral-500">Loading archived sessions…</p> : null}
+      <input aria-label="Search archived sessions" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search archived sessions…" className="mb-5 w-full rounded-lg border border-border/10 bg-background px-3 py-2 text-sm outline-none focus:border-border/30" />
+      {sessions.status === 'error' ? <p role="alert" className="mb-3 text-xs text-tone-warning">Session list could not refresh; showing the last available archive. <button type="button" className="underline" onClick={() => void useGlobalSessionsStore.getState().loadSessions()}>Try again</button></p> : null}
+      {sessions.status === 'loading' && sessions.archived.length === 0 ? <p className="mb-3 text-xs text-muted-foreground">Loading archived sessions…</p> : null}
       {workspaces.map((workspace) => <section key={workspace.directory} className="mb-7" data-testid="archive-workspace">
-        <h2 className="mb-2 break-all border-b border-white/10 pb-2 text-sm font-medium" title={workspace.directory}>{workspace.directory || 'General'}</h2>
+        <h2 className="mb-2 break-all border-b border-border/10 pb-2 text-sm font-medium" title={workspace.directory}>{workspace.directory || 'General'}</h2>
         {workspace.buckets.map((bucket) => {
           const visible = bucket.sessions.filter((session) => archiveMatches(session, query));
           if (query.trim() && visible.length === 0) return null;
           const roots = bucket.sessions.filter((session) => !session.parentID);
           return <div key={bucket.key} className="mb-4" data-testid="archive-bucket">
             <div className="mb-1 flex items-center gap-3">
-              <h3 className="text-xs uppercase tracking-wide text-neutral-500">{bucket.label} ({visible.length})</h3>
-              {!query.trim() && roots.length > 0 ? <button type="button" disabled={roots.every((session) => busy.has(session.id))} className="text-[11px] text-red-400 hover:text-red-300 disabled:opacity-40" onClick={() => void act(roots, 'delete')}>Delete all in {bucket.label} ({roots.length})</button> : null}
+              <h3 className="text-xs uppercase tracking-wide text-muted-foreground">{bucket.label} ({visible.length})</h3>
+              {!query.trim() && roots.length > 0 ? <button type="button" disabled={roots.every((session) => busy.has(session.id))} className="text-[length:var(--type-meta)] text-tone-error hover:text-tone-error disabled:opacity-40" onClick={() => void act(roots, 'delete')}>Delete all in {bucket.label} ({roots.length})</button> : null}
             </div>
-            {visible.length === 0 ? <p className="rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-neutral-600">No archived sessions yet.</p> : null}
-            <ul className="divide-y divide-white/5 rounded-lg bg-white/[0.03]">
+            {visible.length === 0 ? <p className="rounded-lg bg-card/[0.03] px-3 py-2 text-xs text-foreground">No archived sessions yet.</p> : null}
+            <ul className="divide-y divide-white/5 rounded-lg bg-card/[0.03]">
               {visible.map((session) => <li key={session.id} className="flex items-center gap-3 px-3 py-2">
                 <button type="button" className="min-w-0 flex-1 text-left" onClick={() => props.onOpenSession(session.id, session.directory ?? '')}>
                   <span className="block truncate text-sm">{session.title || 'Untitled Session'}</span>
-                  <span className="text-[11px] text-neutral-600">{session.id} · archived {formatRelative(session.time.archived ?? session.time.updated)}</span>
+                  <span className="text-[length:var(--type-meta)] text-foreground">{session.id} · archived {formatRelative(session.time.archived ?? session.time.updated)}</span>
                 </button>
                 {!session.parentID ? <>
-                  <button type="button" disabled={busy.has(session.id)} className="text-xs text-neutral-400 hover:text-white disabled:opacity-40" onClick={() => void act([session], 'restore')}>Restore</button>
-                  <button type="button" disabled={busy.has(session.id)} className="text-xs text-red-400 hover:text-red-300 disabled:opacity-40" onClick={() => void act([session], 'delete')}>Delete</button>
-                </> : <span className="text-[11px] text-neutral-600">Child transcript</span>}
+                  <button type="button" disabled={busy.has(session.id)} className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-40" onClick={() => void act([session], 'restore')}>Restore</button>
+                  <button type="button" disabled={busy.has(session.id)} className="text-xs text-tone-error hover:text-tone-error disabled:opacity-40" onClick={() => void act([session], 'delete')}>Delete</button>
+                </> : <span className="text-[length:var(--type-meta)] text-foreground">Child transcript</span>}
               </li>)}
             </ul>
           </div>;
         })}
       </section>)}
-      {sessions.archived.length === 0 && workspaces.length === 0 ? <p className="text-sm text-neutral-500">No archived sessions yet.</p> : null}
-      {query.trim() && !sessions.archived.some((session) => archiveMatches(session, query)) ? <p className="text-sm text-neutral-500">No archived sessions match this search.</p> : null}
+      {sessions.archived.length === 0 && workspaces.length === 0 ? <p className="text-sm text-muted-foreground">No archived sessions yet.</p> : null}
+      {query.trim() && !sessions.archived.some((session) => archiveMatches(session, query)) ? <p className="text-sm text-muted-foreground">No archived sessions match this search.</p> : null}
     </div>
   </main>;
 }

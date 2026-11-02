@@ -58,10 +58,10 @@ export function useWorkspaceAddition(onAdded: (selection: WorkspaceAdmissionSele
   };
 
   const controls = <>
-    {phase ? <div className="mb-2 text-xs text-neutral-300" role="status" data-testid="workspace-add-progress">
+    {phase ? <div className="mb-2 text-xs text-muted-foreground" role="status" data-testid="workspace-add-progress">
       {phase === 'choosing' ? 'Choose a workspace folder…' : 'Adding workspace in NNA…'}
     </div> : null}
-    {feedback ? <div className={`mt-2 rounded-lg border px-2 py-2 text-xs ${feedback.kind === 'error' ? 'border-red-800/60 bg-red-950/30 text-red-200' : 'border-emerald-800/60 bg-emerald-950/30 text-emerald-200'}`}
+    {feedback ? <div className={`mt-2 rounded-lg border px-2 py-2 text-xs ${feedback.kind === 'error' ? 'border-tone-error-border/60 bg-tone-error/30 text-tone-error' : 'border-tone-success-border/60 bg-tone-success/30 text-tone-success'}`}
       role={feedback.kind === 'error' ? 'alert' : 'status'} data-testid="workspace-add-feedback">
       <div>{feedback.message}</div>
       {feedback.kind === 'error' ? <div className="mt-2 flex gap-3">

@@ -451,7 +451,7 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
         <div className="flex items-center gap-2 border-t border-border/40 px-3 py-1.5">
           <button
             type="button"
-            className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+            className="rounded px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground"
             data-testid="files-add-comment"
             onClick={() => beginCommentFromSelection(draft, readSelection(), comments.begin)}
           >
@@ -459,16 +459,16 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
           </button>
           <button
             type="button"
-            className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+            className="rounded px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground"
             data-testid="save-now"
             onClick={() => void saveDraft()}
           >
             {saveStatus === 'saving' ? t('filesView.editor.saving') : saveStatus === 'saved' ? t('filesView.editor.saved') : t('filesView.editor.saveNow', { shortcut: saveShortcutDisplay() })}
           </button>
-          <button type="button" className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setWrapLines(!wrapLines)}>
+          <button type="button" className="rounded px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={() => setWrapLines(!wrapLines)}>
             {wrapLines ? 'Wrap: on' : 'Wrap: off'}
           </button>
-          <button type="button" className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => {
+          <button type="button" className="rounded px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={() => {
             setAutoSaveEnabled(!autoSaveEnabled);
             setRecovery((current) => current === null ? null : { ...current, autoSaveEnabled: !autoSaveEnabled });
           }}>
@@ -477,7 +477,7 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
           {showGoToLine && viewMode === 'edit' ? (
             <EditorGoToLine draft={draft} textareaRef={textareaRef} restoreRef={goToLineRestoreRef} onClose={() => setShowGoToLine(false)} />
           ) : null}
-          <span className="ml-auto text-[11px] text-muted-foreground">{isDirty ? 'Unsaved' : ''}</span>
+          <span className="ml-auto text-[length:var(--type-meta)] text-muted-foreground">{isDirty ? 'Unsaved' : ''}</span>
         </div>
       </div>
       {dialog !== null ? (

@@ -52,7 +52,7 @@ function InlineCommentInput({ controller, inputId }: { controller: InlineComment
   };
   return (
     <div className="flex flex-col gap-1 rounded border border-border/60 bg-card/70 p-2" data-comment-input="true" id={inputId} data-testid="comment-input">
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+      <div className="flex items-center gap-2 text-[length:var(--type-micro)] text-muted-foreground">
         <span data-testid="comment-lines">{t('comments.lines', { start: controller.inputRange!.startLine + 1, end: controller.inputRange!.endLine + 1 })}</span>
       </div>
       <textarea
@@ -64,10 +64,10 @@ function InlineCommentInput({ controller, inputId }: { controller: InlineComment
         onKeyDown={onKeyDown}
       />
       <div className="flex items-center gap-2">
-        <button type="button" className="rounded bg-primary/20 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/30" onClick={controller.save} data-testid="comment-save">
+        <button type="button" className="rounded bg-primary/20 px-2 py-0.5 text-[length:var(--type-meta)] text-primary hover:bg-primary/30" onClick={controller.save} data-testid="comment-save">
           {t('comments.save')}
         </button>
-        <button type="button" className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={controller.cancel}>
+        <button type="button" className="rounded px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={controller.cancel}>
           {t('comments.cancel')}
         </button>
       </div>
@@ -80,11 +80,11 @@ function InlineCommentCard({ draft, controller }: { draft: CommentDraft; control
   return (
     <div className="flex flex-col gap-1 rounded border border-border/40 bg-card/40 px-2 py-1.5" data-comment-card="true" data-testid="comment-card">
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-muted-foreground">{t('comments.lines', { start: draft.startLine + 1, end: draft.endLine + 1 })}</span>
-        <button type="button" className="ml-auto rounded px-1 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => controller.startEdit(draft)} data-testid="comment-edit">
+        <span className="text-[length:var(--type-micro)] text-muted-foreground">{t('comments.lines', { start: draft.startLine + 1, end: draft.endLine + 1 })}</span>
+        <button type="button" className="ml-auto rounded px-1 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground" onClick={() => controller.startEdit(draft)} data-testid="comment-edit">
           {t('comments.editComment')}
         </button>
-        <button type="button" className="rounded px-1 text-[10px] text-muted-foreground hover:text-status-error" onClick={() => controller.remove(draft.id)} data-testid="comment-delete">
+        <button type="button" className="rounded px-1 text-[length:var(--type-micro)] text-muted-foreground hover:text-status-error" onClick={() => controller.remove(draft.id)} data-testid="comment-delete">
           {t('comments.deleteComment')}
         </button>
       </div>

@@ -12,7 +12,7 @@ export function ProviderProfileDialog({ title, busy, onClose, children }: {
     else dialog.setAttribute('open', '');
     return () => { if (typeof dialog.close === 'function') dialog.close(); };
   }, []);
-  return <dialog ref={ref} aria-label={title} className="m-auto max-h-[85vh] w-[min(640px,90vw)] overflow-auto rounded-xl border border-border/60 bg-card p-5 text-foreground shadow-2xl backdrop:bg-black/60"
+  return <dialog ref={ref} aria-label={title} className="m-auto max-h-[85vh] w-[min(640px,90vw)] overflow-auto rounded-xl border border-border/60 bg-card p-5 text-foreground shadow-2xl backdrop:bg-popover/60"
     onCancel={event => { event.preventDefault(); event.stopPropagation(); if (!busy) onClose(); }}
     onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); }}>
     <div className="mb-4 flex items-center justify-between"><h3 className="text-base font-semibold">{title}</h3>

@@ -62,7 +62,7 @@ export function GitFilePreview({ directory, path, staged, revision, onClose }: {
     data-path={path} data-scope={staged ? 'staged' : 'working'}>
     <header className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
       <span className="min-w-0 flex-1 truncate text-xs text-foreground" title={path}>{path}</span>
-      <span className="text-[10px] text-muted-foreground">{staged ? t('gitUi.staged') : t('gitUi.working')}</span>
+      <span className="text-[length:var(--type-micro)] text-muted-foreground">{staged ? t('gitUi.staged') : t('gitUi.working')}</span>
       <button type="button" aria-label={t('gitUi.closeDiffPreview')} className="text-xs text-muted-foreground hover:text-foreground" onClick={onClose}>×</button>
     </header>
     <div className="max-h-[45vh] overflow-auto p-2 text-xs" data-testid="git-file-preview-body">
@@ -74,10 +74,10 @@ export function GitFilePreview({ directory, path, staged, revision, onClose }: {
           <div className="flex gap-2 overflow-auto">
             {([['gitUi.binaryOriginal', imageDiff.original], ['gitUi.binaryModified', imageDiff.modified]] as const).map(([key, url], at) => (
               <figure key={key} className="min-w-0 flex-1">
-                <figcaption className="mb-1 text-[10px] text-muted-foreground">{t(key)}</figcaption>
+                <figcaption className="mb-1 text-[length:var(--type-micro)] text-muted-foreground">{t(key)}</figcaption>
                 {typeof url === 'string'
                   ? <img src={url} alt={t(key)} className="max-h-[40vh] rounded border border-border/50" />
-                  : <div className="rounded border border-border/40 p-4 text-[10px] text-muted-foreground">{t('gitUi.imageDiffUnavailable')}</div>}
+                  : <div className="rounded border border-border/40 p-4 text-[length:var(--type-micro)] text-muted-foreground">{t('gitUi.imageDiffUnavailable')}</div>}
               </figure>
             ))}
           </div>

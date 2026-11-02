@@ -119,7 +119,7 @@ export function NativeConfigurationPage({ nativeOnly = false }: { nativeOnly?: b
         <dt>{t('settings.nativeConfiguration.sourceRevision')}</dt><dd className="break-all">{view.source_revision ?? t('settings.nativeConfiguration.absent')}</dd>
         <dt>{t('settings.nativeConfiguration.resolutionRevision')}</dt><dd className="break-all">{view.resolution_revision ?? t('settings.nativeConfiguration.absent')}</dd>
       </dl>
-      <p className="text-xs text-amber-500" role="status">{t('settings.nativeConfiguration.notApplied')}</p>
+      <p className="text-xs text-tone-warning" role="status">{t('settings.nativeConfiguration.notApplied')}</p>
       <label className="block text-xs">{t('settings.nativeConfiguration.filter')}
         <input value={filter} onChange={event => setFilter(event.target.value)} className="ml-2 rounded border border-border bg-background px-2 py-1 text-foreground" />
       </label>

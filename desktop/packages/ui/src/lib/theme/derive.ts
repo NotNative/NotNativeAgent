@@ -7,7 +7,7 @@
  * lighten10; surface muted/elevated always 8-digit hex ending `90`). No
  * half-mapped tokens: the emitted Theme always passes isValidTheme.
  */
-import { darken, lighten, mixColors, readableForeground, withAlpha } from './color.ts';
+import { darken, ensureContrast, lighten, mixColors, readableForeground, withAlpha } from './color.ts';
 import type { ThemeSeed } from './seed.ts';
 import type {
   Theme,
@@ -20,6 +20,13 @@ import type {
 } from './types.ts';
 
 export const ALPHA_90 = 144 / 255; // 0x90 — the §E.6 surface alpha contract
+
+/**
+ * The contrast floor a status tone must clear on its own theme's page. 3:1 is
+ * the floor for large text and interface state, which is what a tonal label
+ * is; body text uses the theme's own foreground, which is audited separately.
+ */
+export const STATUS_CONTRAST_FLOOR = 3.2;
 
 const DEFAULT_STATUS = {
   light: { error: '#b3261e', warning: '#9a6a00', success: '#1e7d40', info: '#2160b0' },
@@ -132,12 +139,17 @@ function buildStatus(
   isLight: boolean,
 ): ThemeStatusColors {
   const declared = seed.status ?? {};
-  const entry = (value: string): ThemeStatusColors['error'] => ({
-    value,
-    foreground: readableForeground(bg, [value, isLight ? darken(value, 0.25) : lighten(value, 0.2), fg]),
-    background: withAlpha(value, 0.12),
-    border: withAlpha(value, 0.38),
-  });
+  const entry = (value: string): ThemeStatusColors['error'] => {
+    // Why: a tone is drawn as text on the page somewhere (a banner title, a
+    // status row), so it has to clear the readability floor for text.
+    const readable = ensureContrast(value, bg, STATUS_CONTRAST_FLOOR);
+    return {
+      value: readable,
+      foreground: readableForeground(bg, [readable, isLight ? darken(readable, 0.25) : lighten(readable, 0.2), fg]),
+      background: withAlpha(readable, 0.12),
+      border: withAlpha(readable, 0.38),
+    };
+  };
   const defaults = DEFAULT_STATUS[seed.variant];
   return {
     error: entry(declared.error ?? defaults.error),

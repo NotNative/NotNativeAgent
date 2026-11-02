@@ -89,51 +89,51 @@ export function TimelineDialog({ store, engine, sessionID, onClose }: TimelineDi
 
   return (
     <div role="dialog" aria-label="Conversation Timeline" tabIndex={0} data-testid="timeline-dialog"
-      className="absolute inset-0 z-30 flex items-start justify-center bg-black/50 p-10"
+      className="absolute inset-0 z-30 flex items-start justify-center bg-popover/50 p-10"
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           if (forkRow) { setForkRow(null); return; }
           onClose();
         }
       }}>
-      <div className="flex max-h-[70vh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-neutral-950 p-3">
+      <div className="flex max-h-[70vh] w-full max-w-2xl flex-col rounded-xl border border-border/10 bg-popover p-3">
         <div className="mb-2 flex items-center gap-2">
-          <strong className="text-[13px] text-neutral-100">Conversation Timeline</strong>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search messages…" aria-label="Search messages" data-testid="timeline-search" className="ml-auto w-56 rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200 outline-none focus:border-white/25" />
+          <strong className="text-[length:var(--type-markdown)] text-foreground">Conversation Timeline</strong>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search messages…" aria-label="Search messages" data-testid="timeline-search" className="ml-auto w-56 rounded-lg border border-border/10 bg-background px-2 py-1 text-[length:var(--type-meta)] text-foreground outline-none focus:border-border/25" />
           <button type="button" aria-label="Export transcript" data-testid="timeline-export"
             onClick={() => { try { exportSession(store, sessionID); toast.success('Transcript exported as Markdown'); } catch { toast.error('Failed to export the transcript'); } }}
-            className="rounded px-2 py-1 text-[12px] text-neutral-400 hover:text-white">⬇</button>
-          <button type="button" aria-label="Close timeline" className="rounded px-2 py-1 text-[12px] text-neutral-400 hover:text-white" onClick={onClose}>×</button>
+            className="rounded px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground">⬇</button>
+          <button type="button" aria-label="Close timeline" className="rounded px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={onClose}>×</button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {rows.length === 0 ? <div className="p-4 text-[12px] text-neutral-600">No messages in this session yet</div> : null}
-          {visible.length === 0 && rows.length > 0 ? <div className="p-4 text-[12px] text-neutral-600">No messages found</div> : null}
+          {rows.length === 0 ? <div className="p-4 text-[length:var(--type-meta)] text-foreground">No messages in this session yet</div> : null}
+          {visible.length === 0 && rows.length > 0 ? <div className="p-4 text-[length:var(--type-meta)] text-foreground">No messages found</div> : null}
           {visible.map((row, index) => (
-            <div key={row.id} className="flex items-start gap-2 rounded-lg px-2 py-2 hover:bg-white/5" data-testid="timeline-row">
-              <span className="mt-0.5 w-16 shrink-0 text-right text-[10px] text-neutral-600">{formatRelative(row.at)}</span>
-              <button type="button" className="min-w-0 flex-1 text-left text-[12px] text-neutral-300" onClick={() => scrollTo(row.id, onClose)}>
+            <div key={row.id} className="flex items-start gap-2 rounded-lg px-2 py-2 hover:bg-card/5" data-testid="timeline-row">
+              <span className="mt-0.5 w-16 shrink-0 text-right text-[length:var(--type-micro)] text-foreground">{formatRelative(row.at)}</span>
+              <button type="button" className="min-w-0 flex-1 text-left text-[length:var(--type-meta)] text-muted-foreground" onClick={() => scrollTo(row.id, onClose)}>
                 <span className="line-clamp-2">{row.text || '[No text content]'}</span>
               </button>
               {index < visible.length - 1 ? (
-                <button type="button" className="text-[10px] text-neutral-500 hover:text-neutral-200" aria-label="Previous turn" onClick={() => jumpTo(visible[index + 1]!.id)}>↑</button>
+                <button type="button" className="text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground" aria-label="Previous turn" onClick={() => jumpTo(visible[index + 1]!.id)}>↑</button>
               ) : null}
-              <button type="button" className="text-[10px] text-neutral-500 hover:text-neutral-200" aria-label="Revert from here" data-testid="timeline-revert" onClick={() => void revertFromHere(row)}>⟲</button>
-              <button type="button" className="text-[10px] text-neutral-500 hover:text-neutral-200" aria-label="Fork from here" data-testid="timeline-fork" onClick={() => setForkRow(row)}>⑂</button>
+              <button type="button" className="text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground" aria-label="Revert from here" data-testid="timeline-revert" onClick={() => void revertFromHere(row)}>⟲</button>
+              <button type="button" className="text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground" aria-label="Fork from here" data-testid="timeline-fork" onClick={() => setForkRow(row)}>⑂</button>
             </div>
           ))}
         </div>
         {forkRow ? (
-          <div className="mt-2 rounded-lg border border-white/10 bg-neutral-900/80 p-3" data-testid="timeline-fork-dialog">
-            <div className="mb-1 text-[12px] font-medium text-neutral-200">Fork from here</div>
-            <p className="mb-2 text-[11px] text-neutral-400">A new session copies everything up to “{(forkRow.text || '[No text content]').slice(0, 60)}”. Optional first instructions land in the composer — nothing is sent automatically.</p>
-            <textarea value={instruction} onChange={(event) => setInstruction(event.target.value)} rows={2} placeholder="Optional instructions for the fork…" data-testid="timeline-fork-instructions" className="w-full resize-none rounded-lg border border-white/10 bg-neutral-900 p-2 text-[12px] text-neutral-200 outline-none focus:border-white/25" />
+          <div className="mt-2 rounded-lg border border-border/10 bg-background/80 p-3" data-testid="timeline-fork-dialog">
+            <div className="mb-1 text-[length:var(--type-meta)] font-medium text-foreground">Fork from here</div>
+            <p className="mb-2 text-[length:var(--type-meta)] text-muted-foreground">A new session copies everything up to “{(forkRow.text || '[No text content]').slice(0, 60)}”. Optional first instructions land in the composer — nothing is sent automatically.</p>
+            <textarea value={instruction} onChange={(event) => setInstruction(event.target.value)} rows={2} placeholder="Optional instructions for the fork…" data-testid="timeline-fork-instructions" className="w-full resize-none rounded-lg border border-border/10 bg-background p-2 text-[length:var(--type-meta)] text-foreground outline-none focus:border-border/25" />
             <div className="mt-2 flex items-center gap-2">
-              <button type="button" disabled={busy} className="rounded bg-indigo-600/80 px-2 py-1 text-[11px] text-white disabled:opacity-40" data-testid="timeline-fork-confirm" onClick={() => void forkFromHere()}>Fork session</button>
-              <button type="button" className="rounded bg-neutral-800 px-2 py-1 text-[11px] text-neutral-300" onClick={() => setForkRow(null)}>Cancel</button>
+              <button type="button" disabled={busy} className="rounded bg-primary/80 px-2 py-1 text-[length:var(--type-meta)] text-foreground disabled:opacity-40" data-testid="timeline-fork-confirm" onClick={() => void forkFromHere()}>Fork session</button>
+              <button type="button" className="rounded bg-card px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground" onClick={() => setForkRow(null)}>Cancel</button>
             </div>
           </div>
         ) : null}
-        <footer className="mt-2 border-t border-white/10 pt-2 text-[10px] text-neutral-600">Click = scroll · ⟲ = revert (prompt returns to the composer) · ⑂ = fork a new session from here · Esc closes</footer>
+        <footer className="mt-2 border-t border-border/10 pt-2 text-[length:var(--type-micro)] text-foreground">Click = scroll · ⟲ = revert (prompt returns to the composer) · ⑂ = fork a new session from here · Esc closes</footer>
       </div>
     </div>
   );

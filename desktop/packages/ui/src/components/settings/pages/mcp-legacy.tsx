@@ -409,13 +409,13 @@ const ACTION_BUTTON_CLASS = 'rounded border border-border/60 px-2 py-1 text-xs t
 const ACTION_LINK_CLASS = 'rounded border border-border/60 px-2 py-1 font-medium text-primary no-underline transition-colors hover:bg-interactive-hover';
 const TEXT_INPUT_CLASS = 'max-w-56 flex-1 rounded border border-border/60 bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary';
 const STATUS_BADGE_CLASS: Record<string, string> = {
-  connected: 'rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary',
-  disabled: 'rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground',
-  failed: 'rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] text-destructive',
-  needs_auth: 'rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary',
-  needs_client_registration: 'rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary',
-  unknown: 'rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground',
-  unverified: 'rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground',
+  connected: 'rounded bg-primary/15 px-1.5 py-0.5 text-[length:var(--type-micro)] text-primary',
+  disabled: 'rounded bg-muted px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground',
+  failed: 'rounded bg-destructive/15 px-1.5 py-0.5 text-[length:var(--type-micro)] text-destructive',
+  needs_auth: 'rounded bg-primary/10 px-1.5 py-0.5 text-[length:var(--type-micro)] text-primary',
+  needs_client_registration: 'rounded bg-primary/10 px-1.5 py-0.5 text-[length:var(--type-micro)] text-primary',
+  unknown: 'rounded bg-muted px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground',
+  unverified: 'rounded bg-muted px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground',
 };
 
 const STATUS_LABEL_KEY: Record<string, I18nKey> = {

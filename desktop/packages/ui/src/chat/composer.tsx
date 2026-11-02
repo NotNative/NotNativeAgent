@@ -436,12 +436,12 @@ export function Composer(props: ComposerProps): ReactNode {
   const starterList = props.starters ?? [];
 
   return (<>
-    <form className="relative rounded-xl border border-border/50 bg-card/90 p-2 focus-within:border-white/25" data-testid="composer" data-shell={shell ? 'true' : undefined}
+    <form className="ui-floating relative rounded-[var(--radius-panel)] p-[var(--space-2)] focus-within:[box-shadow:var(--elevation-2)]" data-testid="composer" data-shell={shell ? 'true' : undefined}
       data-send-blocked={authSessionBlocksSend(authStatus) ? 'auth-expired' : (configUnavailable ? 'model-config-unavailable' : nnaConfigured && !nnaModel ? 'nna-model-unavailable' : nativeWorkspacePending ? 'nna-workspace-unavailable' : undefined)}
       onSubmit={(event) => { event.preventDefault(); void submitOnce(); }}>
-      {nativeWorkspacePending ? <p role="status" className="px-2 text-[11px] text-amber-300">Waiting for the native workspace before sending.</p> : null}
+      {nativeWorkspacePending ? <p role="status" className="px-2 text-[length:var(--type-meta)] text-tone-warning">Waiting for the native workspace before sending.</p> : null}
       {sessionID !== null ? <QueueChipsRow directory={directory} sessionID={sessionID} onPop={(popText) => { setText(popText); persist(popText, attachments); }} /> : null}
-      {sessionID === null && queueChips.length > 0 ? <div className="px-1 pt-1 text-[11px] text-amber-300" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
+      {sessionID === null && queueChips.length > 0 ? <div className="px-1 pt-1 text-[length:var(--type-meta)] text-tone-warning" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
       <AttachmentChips attachments={attachments} onRemove={(next) => { setAttachments(next); persist(text, next); }} />
       <PickerPopup picker={picker} />
       {modelPickerOpen && !nnaConfigured && !configUnavailable ? (
@@ -452,16 +452,16 @@ export function Composer(props: ComposerProps): ReactNode {
           onOpenAddProvider={() => { setModelPickerOpen(false); props.onAddProvider?.(); }}
         />
       ) : null}
-      {starting ? <p role="status" className="px-2 text-xs text-sky-300">{sessionID === null ? 'Starting conversation…' : 'Sending…'}</p> : null}
-      {pendingStart && !starting ? <p role="status" className="px-2 text-xs text-amber-300">Start needs recovery. Send retries the original message in the same conversation.</p> : null}
+      {starting ? <p role="status" className="px-2 text-xs text-primary">{sessionID === null ? 'Starting conversation…' : 'Sending…'}</p> : null}
+      {pendingStart && !starting ? <p role="status" className="px-2 text-xs text-tone-warning">Start needs recovery. Send retries the original message in the same conversation.</p> : null}
       <textarea spellCheck={spellcheck} readOnly={!!pendingStart || starting} ref={editorRef} value={text} onChange={changed} onKeyDown={onKey}
         rows={rows} placeholder={shell ? 'bash command…' : 'Message the agent…'}
         data-testid="composer-editor"
-        className={`w-full resize-none rounded-lg bg-transparent p-2 text-sm outline-none placeholder:text-muted-foreground ${shell ? 'font-mono text-amber-200' : 'text-foreground'} focus:outline-none`} />
-      {!(nnaConfigured && sessionID === null) ? <div className="flex items-center rounded-lg bg-card px-2 py-1.5 text-[12px] text-muted-foreground" title={nnaConfigured ? 'Primary model configured in NNA' : 'Model and agent settings'}>
+        className={`w-full resize-none rounded-[var(--radius-control)] bg-transparent p-[var(--space-2)] text-[length:var(--type-markdown)] outline-none placeholder:text-muted-foreground ${shell ? 'font-mono text-tone-warning' : 'text-foreground'} focus:outline-none`} />
+      {!(nnaConfigured && sessionID === null) ? <div className="flex items-center rounded-[var(--radius-control)] px-[var(--space-2)] py-1.5 text-[length:var(--type-meta)] text-muted-foreground" title={nnaConfigured ? 'Primary model configured in NNA' : 'Model and agent settings'}>
         {nnaConfigured || configUnavailable ? <span aria-label="Configured model" data-testid="model-trigger">{modelLabel}</span>
-          : <button type="button" aria-label="Model selector" data-testid="model-trigger" className="rounded px-1 py-0.5 hover:bg-muted" onClick={() => setModelPickerOpen(!modelPickerOpen)}>{modelLabel} ▾</button>}
-        {props.onToggleExpanded ? <button type="button" aria-label={props.expanded ? 'Collapse expanded editor' : 'Focus mode'} className="ml-auto text-[11px] text-muted-foreground" onClick={props.onToggleExpanded}>⛶</button> : null}
+          : <button type="button" aria-label="Model selector" data-testid="model-trigger" className="ui-tile rounded-[var(--radius-control)] px-1 py-0.5" onClick={() => setModelPickerOpen(!modelPickerOpen)}>{modelLabel} ▾</button>}
+        {props.onToggleExpanded ? <button type="button" aria-label={props.expanded ? 'Collapse expanded editor' : 'Focus mode'} className="ui-tile ml-auto rounded-[var(--radius-control)] px-[var(--space-2)] text-[length:var(--type-meta)] text-muted-foreground" onClick={props.onToggleExpanded}>⛶</button> : null}
       </div> : null}
       <ComposerFooter
         controls={nnaConfigured && sessionID === null ? <ConversationSettings directory={directory} draftId={sessionKey} model={model} onModel={value => props.onModelSelection?.({ ...value, variant: null })} /> : undefined}

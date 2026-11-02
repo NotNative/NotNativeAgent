@@ -30,15 +30,15 @@ export function PullRequestsPanel({ directory }: { directory: string }): ReactNo
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium">Pull requests</span>
         <button type="button" data-testid="pull-requests-refresh" disabled={feed.state === 'busy'}
-          className="rounded border border-white/15 px-2 py-0.5 text-[11px] hover:bg-white/10 disabled:opacity-50"
+          className="rounded border border-border/15 px-2 py-0.5 text-[length:var(--type-meta)] hover:bg-card/10 disabled:opacity-50"
           onClick={() => void load()}>Refresh</button>
       </div>
-      {feed.state === 'failed' ? <p className="mt-1 text-[11px] text-amber-300" role="alert" data-testid="pull-requests-failure">GitHub unavailable ({feed.code}) — account setup is optional; the list stays closed until the transport works.</p> : null}
-      {feed.state === 'ready' && feed.items.length === 0 ? <p className="mt-1 text-[11px] text-neutral-500">No open pull requests.</p> : null}
+      {feed.state === 'failed' ? <p className="mt-1 text-[length:var(--type-meta)] text-tone-warning" role="alert" data-testid="pull-requests-failure">GitHub unavailable ({feed.code}) — account setup is optional; the list stays closed until the transport works.</p> : null}
+      {feed.state === 'ready' && feed.items.length === 0 ? <p className="mt-1 text-[length:var(--type-meta)] text-muted-foreground">No open pull requests.</p> : null}
       <ul className="mt-1 space-y-1">
         {feed.state === 'ready' ? feed.items.map((pull) => (
-          <li key={pull.number} className="text-[11px] text-neutral-300" data-testid={`pull-${pull.number}`}>
-            #{pull.number} {pull.title} <span className="text-neutral-500">{pull.state} · {pull.headRef} → {pull.baseRef}</span>
+          <li key={pull.number} className="text-[length:var(--type-meta)] text-muted-foreground" data-testid={`pull-${pull.number}`}>
+            #{pull.number} {pull.title} <span className="text-muted-foreground">{pull.state} · {pull.headRef} → {pull.baseRef}</span>
           </li>
         )) : null}
       </ul>
@@ -61,15 +61,15 @@ export function LinearIssuesPanel(): ReactNode {  const [feed, setFeed] = useSta
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium">Linear issues</span>
         <button type="button" data-testid="linear-issues-refresh" disabled={feed.state === 'busy'}
-          className="rounded border border-white/15 px-2 py-0.5 text-[11px] hover:bg-white/10 disabled:opacity-50"
+          className="rounded border border-border/15 px-2 py-0.5 text-[length:var(--type-meta)] hover:bg-card/10 disabled:opacity-50"
           onClick={() => void load()}>Refresh</button>
       </div>
-      {feed.state === 'failed' ? <p className="mt-1 text-[11px] text-amber-300" role="alert" data-testid="linear-issues-failure">Linear unavailable ({feed.code}){feed.code === 'linear-unconfigured' ? ' — setup is optional; add a key to open the list.' : '.'}</p> : null}
-      {feed.state === 'ready' && feed.items.length === 0 ? <p className="mt-1 text-[11px] text-neutral-500">No open issues.</p> : null}
+      {feed.state === 'failed' ? <p className="mt-1 text-[length:var(--type-meta)] text-tone-warning" role="alert" data-testid="linear-issues-failure">Linear unavailable ({feed.code}){feed.code === 'linear-unconfigured' ? ' — setup is optional; add a key to open the list.' : '.'}</p> : null}
+      {feed.state === 'ready' && feed.items.length === 0 ? <p className="mt-1 text-[length:var(--type-meta)] text-muted-foreground">No open issues.</p> : null}
       <ul className="mt-1 space-y-1">
         {feed.state === 'ready' ? feed.items.map((issue) => (
-          <li key={issue.id} className="text-[11px] text-neutral-300" data-testid={`issue-${issue.identifier}`}>
-            {issue.identifier} {issue.title} <span className="text-neutral-500">{issue.state}{issue.assignee ? ` · ${issue.assignee}` : ''}</span>
+          <li key={issue.id} className="text-[length:var(--type-meta)] text-muted-foreground" data-testid={`issue-${issue.identifier}`}>
+            {issue.identifier} {issue.title} <span className="text-muted-foreground">{issue.state}{issue.assignee ? ` · ${issue.assignee}` : ''}</span>
           </li>
         )) : null}
       </ul>

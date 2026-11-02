@@ -55,11 +55,11 @@ export function App() {
 
   if (initFailed) {
     return (
-      <div className="flex h-screen flex-col items-center gap-4 bg-neutral-900 p-8 pt-32 text-neutral-100">
+      <div className="flex h-screen flex-col items-center gap-4 bg-background p-8 pt-32 text-foreground">
         <div className="text-lg font-medium">{t('shell.recovery.title')}</div>
-        <div className="text-sm text-neutral-500">The harness never reported healthy.</div>
+        <div className="text-sm text-muted-foreground">The harness never reported healthy.</div>
         <button onClick={() => { setInitFailed(false); setInitEpoch((epoch) => epoch + 1); }}
-          className="rounded-lg bg-white/90 px-4 py-2 text-sm font-medium text-black" type="button">
+          className="rounded-lg bg-card/90 px-4 py-2 text-sm font-medium text-foreground" type="button">
           {t('shell.recovery.retry')}
         </button>
       </div>

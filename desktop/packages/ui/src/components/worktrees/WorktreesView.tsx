@@ -123,7 +123,7 @@ export function WorktreesView({ projectRoot, onClose, embedded = false, visible 
   }, [createBusy, createWorktreeOnServer]);
 
   return (
-    <div className={embedded ? 'flex h-full min-h-0 flex-col' : 'fixed inset-0 z-40 flex items-center justify-center bg-black/40'} data-testid="worktrees-view">
+    <div className={embedded ? 'flex h-full min-h-0 flex-col' : 'fixed inset-0 z-40 flex items-center justify-center bg-popover/40'} data-testid="worktrees-view">
       <div className={embedded ? 'flex h-full min-h-0 w-full flex-col bg-background p-3' : 'flex max-h-[85vh] w-[640px] max-w-[92vw] flex-col rounded-xl border border-border/60 bg-background p-4 shadow-2xl'}>
         <header className="mb-2 flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">{t('worktrees.title')}</span>
@@ -133,7 +133,7 @@ export function WorktreesView({ projectRoot, onClose, embedded = false, visible 
           <button type="button" className="self-start rounded bg-primary/20 px-3 py-1 text-xs text-primary hover:bg-primary/30" onClick={() => setDialogOpen(true)} data-testid="worktrees-new">
             {t('worktrees.new')}
           </button>
-          {topology.listError !== null ? <span className="text-[10px] text-status-error">{topology.listError}</span> : null}
+          {topology.listError !== null ? <span className="text-[length:var(--type-micro)] text-status-error">{topology.listError}</span> : null}
         </div>
         <WorktreeList cards={topology.cards} entries={topology.entries} onMove={topology.onMove} onRemove={(path) => void removeEntry(path)} emptyLabel={t('worktrees.empty')} showEmpty={topology.entries !== null} />
       </div>
@@ -251,11 +251,11 @@ function WorktreeList({ cards, entries, onMove, onRemove, emptyLabel, showEmpty 
         return (
           <div key={card.path} className="flex min-h-9 items-center gap-2 rounded px-2 hover:bg-interactive-hover/30" data-testid="worktree-card">
             <span className="min-w-0 flex-1 truncate text-xs text-foreground" title={card.path}>{card.path}</span>
-            <span className="rounded bg-interactive-selection/40 px-2 py-0.5 text-[10px] text-foreground">{card.branch}</span>
+            <span className="rounded bg-interactive-selection/40 px-2 py-0.5 text-[length:var(--type-micro)] text-foreground">{card.branch}</span>
             <button type="button" aria-label="Move up" className="rounded px-1 text-muted-foreground hover:text-foreground" onClick={() => onMove(card.path, -1)}>&#8593;</button>
             <button type="button" aria-label="Move down" className="rounded px-1 text-muted-foreground hover:text-foreground" onClick={() => onMove(card.path, 1)}>&#8595;</button>
             {entry?.linked === true ? (
-              <button type="button" className="rounded px-1 text-[10px] text-muted-foreground hover:text-status-error" data-testid="worktree-remove" onClick={() => onRemove(card.path)}>
+              <button type="button" className="rounded px-1 text-[length:var(--type-micro)] text-muted-foreground hover:text-status-error" data-testid="worktree-remove" onClick={() => onRemove(card.path)}>
                 {t('worktrees.remove')}
               </button>
             ) : null}
@@ -295,10 +295,10 @@ function WorktreeCreateDialog(props: CreateDialogProps): ReactNode {
     });
   };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" data-testid="worktree-create-dialog">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-popover/50" data-testid="worktree-create-dialog">
       <div className="flex w-[420px] max-w-[90vw] flex-col gap-2 rounded-xl border border-border/60 bg-background p-4 shadow-2xl">
         <span className="text-sm font-medium text-foreground">{props.title}</span>
-        <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+        <label className="flex flex-col gap-1 text-[length:var(--type-meta)] text-muted-foreground">
           {props.branchLabel}
           <input
             className="rounded border border-border/50 bg-transparent px-2 py-1 text-xs text-foreground outline-none"
@@ -308,7 +308,7 @@ function WorktreeCreateDialog(props: CreateDialogProps): ReactNode {
             onChange={(event) => setBranch(event.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+        <label className="flex flex-col gap-1 text-[length:var(--type-meta)] text-muted-foreground">
           {props.nameLabel}
           <input
             className="rounded border border-border/50 bg-transparent px-2 py-1 text-xs text-foreground outline-none"
@@ -317,7 +317,7 @@ function WorktreeCreateDialog(props: CreateDialogProps): ReactNode {
             onChange={(event) => setName(event.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+        <label className="flex flex-col gap-1 text-[length:var(--type-meta)] text-muted-foreground">
           {props.startLabel}
           <input
             className="rounded border border-border/50 bg-transparent px-2 py-1 text-xs text-foreground outline-none"

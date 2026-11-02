@@ -77,18 +77,18 @@ export function ChildSessionControls({ sessionID, directory }: { sessionID: stri
     } finally { setPending(false); }
   };
 
-  return <div data-testid="subagent-controls" className="text-xs text-neutral-500">
+  return <div data-testid="subagent-controls" className="text-xs text-muted-foreground">
     <span>Subagent transcript is read-only by default.</span>
-    {granted ? <button type="button" className="ml-2 rounded border border-white/15 px-2 py-1 text-neutral-300 hover:border-white/30"
+    {granted ? <button type="button" className="ml-2 rounded border border-border/15 px-2 py-1 text-muted-foreground hover:border-border/30"
       aria-expanded={open} aria-controls="subagent-steering-form" onClick={() => setOpen((value) => !value)}>Steer subagent</button> : null}
     {open && granted ? <div id="subagent-steering-form" className="mt-2 flex flex-col gap-2">
-      <label htmlFor="subagent-steering-text" className="text-neutral-400">Message to subagent</label>
+      <label htmlFor="subagent-steering-text" className="text-muted-foreground">Message to subagent</label>
       <textarea id="subagent-steering-text" value={content} maxLength={MAX_STEER_CHARS} rows={3}
-        onChange={(event) => setContent(event.target.value)} className="rounded border border-white/15 bg-neutral-900 p-2 text-neutral-100"
+        onChange={(event) => setContent(event.target.value)} className="rounded border border-border/15 bg-background p-2 text-foreground"
         disabled={pending} />
       <div><button type="button" onClick={() => { void send(); }} disabled={pending || !content.trim()}
-        className="rounded border border-white/15 px-2 py-1 text-neutral-200 disabled:opacity-40">{pending ? 'Sending…' : 'Send steering'}</button></div>
+        className="rounded border border-border/15 px-2 py-1 text-foreground disabled:opacity-40">{pending ? 'Sending…' : 'Send steering'}</button></div>
     </div> : null}
-    {notice ? <p role="status" className="mt-2 text-neutral-400">{notice}</p> : null}
+    {notice ? <p role="status" className="mt-2 text-muted-foreground">{notice}</p> : null}
   </div>;
 }

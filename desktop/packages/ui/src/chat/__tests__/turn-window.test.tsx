@@ -79,7 +79,7 @@ describe('windowed transcript rendering (W-27.virtualization)', () => {
     await vi.waitFor(() => {
       const anchor = node.querySelector('[id="message-u00"]');
       expect(anchor).toBeTruthy();
-      expect(anchor!.className).toContain('outline-amber-400/60');
+      expect(anchor!.className).toContain('outline-tone-warning-border/60');
     });
   });
 });

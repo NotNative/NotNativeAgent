@@ -44,21 +44,21 @@ export function OperatorFiles({ directory, visible }: { directory: string; visib
   }, [directory, selectedPath]);
   const ignoreMutation = useCallback(() => undefined, []);
   return <section className="flex h-full min-h-0 flex-col" data-testid="operator-files">
-    <div className="min-h-0 flex-[2] border-b border-white/10">
+    <div className="min-h-0 flex-[2] border-b border-border/10">
       <FileTree root={directory} runtimeKey={getRuntimeKey()} visible={visible} onOpenFile={setSelectedPath}
         onNewFile={ignoreMutation} onNewFolder={ignoreMutation} onRename={ignoreMutation} onDelete={ignoreMutation} readOnly />
     </div>
     <div className="flex min-h-0 flex-[3] flex-col" data-testid="operator-file-preview">
-      <header className="flex items-center gap-2 border-b border-white/10 px-3 py-2 text-[11px]">
-        <span className="min-w-0 flex-1 truncate text-neutral-300" title={selectedPath ?? ''}>{selectedPath ? selectedPath.split(/[\\/]/u).at(-1) : 'Select a file to preview'}</span>
-        {selectedPath ? <button type="button" className="text-sky-300 hover:underline" onClick={openEditor}>Open editor</button> : null}
+      <header className="flex items-center gap-2 border-b border-border/10 px-3 py-2 text-[length:var(--type-meta)]">
+        <span className="min-w-0 flex-1 truncate text-muted-foreground" title={selectedPath ?? ''}>{selectedPath ? selectedPath.split(/[\\/]/u).at(-1) : 'Select a file to preview'}</span>
+        {selectedPath ? <button type="button" className="text-primary hover:underline" onClick={openEditor}>Open editor</button> : null}
       </header>
-      {selectedPath && preview?.path === selectedPath ? <div className="min-h-0 flex-1 overflow-auto p-3 text-[11px] text-neutral-400">
+      {selectedPath && preview?.path === selectedPath ? <div className="min-h-0 flex-1 overflow-auto p-3 text-[length:var(--type-meta)] text-muted-foreground">
         {preview.state === 'loading' ? 'Loading preview…' : null}
         {preview.state === 'unavailable' ? 'Preview unavailable. Open the editor to inspect this file.' : null}
         {preview.state === 'binary' ? 'Binary or media file. Open the editor for its supported view.' : null}
         {preview.state === 'too-large' ? 'File is too large for the side preview. Open the editor.' : null}
-        {preview.state === 'text' ? <><pre className="whitespace-pre-wrap break-words font-mono text-neutral-300">{preview.text}</pre>{preview.truncated ? <p className="mt-2 text-amber-300">Preview truncated. Open the editor for the full file.</p> : null}</> : null}
+        {preview.state === 'text' ? <><pre className="whitespace-pre-wrap break-words font-mono text-muted-foreground">{preview.text}</pre>{preview.truncated ? <p className="mt-2 text-tone-warning">Preview truncated. Open the editor for the full file.</p> : null}</> : null}
       </div> : null}
     </div>
   </section>;

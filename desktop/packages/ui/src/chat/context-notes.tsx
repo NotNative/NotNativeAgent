@@ -72,13 +72,13 @@ export function ContextNotes({ projectId, visible, query = '', refreshToken = 0,
 
   return <section className="flex h-full min-h-0 flex-col gap-2 p-3" data-testid="project-context-notes">
     <ContextNotesHeader busy={busy} refresh={refresh} />
-    {error ? <p role="alert" className="text-xs text-amber-300">{error}</p> : null}
-  {pinError ? <p role="alert" className="text-xs text-amber-300">{pinError}</p> : null}
-    {!context ? loading ? <p className="text-xs text-neutral-500">Loading project context…</p> : null : <>
+    {error ? <p role="alert" className="text-xs text-tone-warning">{error}</p> : null}
+  {pinError ? <p role="alert" className="text-xs text-tone-warning">{pinError}</p> : null}
+    {!context ? loading ? <p className="text-xs text-muted-foreground">Loading project context…</p> : null : <>
       <textarea aria-label="New context note" value={draft} onChange={(event) => setDraft(event.target.value)}
-        maxLength={3000} disabled={busy} className="min-h-16 resize-y rounded border border-white/10 bg-neutral-900/40 p-2 text-xs" />
+        maxLength={3000} disabled={busy} className="min-h-16 resize-y rounded border border-border/10 bg-background/40 p-2 text-xs" />
       <button type="button" disabled={busy || !draft.trim()} onClick={() => { void saveNew(); }}
-        className="self-end rounded border border-white/10 px-2 py-1 text-[10px] disabled:opacity-50">Add note</button>
+        className="self-end rounded border border-border/10 px-2 py-1 text-[length:var(--type-micro)] disabled:opacity-50">Add note</button>
       <ContextNoteList notes={context.notes} query={query} editing={editing} editBody={editBody} busy={busy}
         setEditing={setEditing} setEditBody={setEditBody} saveEdit={saveEdit} remove={remove}
     pinnedIDs={new Set(draftPins?.notes ?? [])} onTogglePin={onToggleNotePin} pinBusy={pinBusy} pinLabel={pinLabel} pinTargetLabel={pinTargetLabel} />
@@ -87,7 +87,7 @@ export function ContextNotes({ projectId, visible, query = '', refreshToken = 0,
 }
 
 function ContextNotesHeader({ busy, refresh }: { busy: boolean; refresh: () => void }): ReactNode {
-  return <header className="flex items-center gap-2 text-[10px] text-neutral-400">
+  return <header className="flex items-center gap-2 text-[length:var(--type-micro)] text-muted-foreground">
     <span>Project-owned notes — separate from the workspace note file</span>
     <button type="button" className="ml-auto underline" disabled={busy} onClick={refresh}>Refresh</button>
   </header>;
@@ -146,26 +146,26 @@ function ContextNoteList({ notes, query, editing, editBody, busy, setEditing, se
   const needle = query.trim().toLocaleLowerCase();
   const visibleNotes = notes.filter(usableNote).filter((note) => !needle || note.body.toLocaleLowerCase().includes(needle));
   return <>
-    {notes.some((note) => !usableNote(note)) ? <p role="status" className="text-xs text-amber-300">Some stored notes could not be displayed. Refresh or inspect project context before editing.</p> : null}
-    {needle && !visibleNotes.length ? <p className="text-xs text-neutral-500">No matching notes.</p> : null}
+    {notes.some((note) => !usableNote(note)) ? <p role="status" className="text-xs text-tone-warning">Some stored notes could not be displayed. Refresh or inspect project context before editing.</p> : null}
+    {needle && !visibleNotes.length ? <p className="text-xs text-muted-foreground">No matching notes.</p> : null}
     <ol className="min-h-0 overflow-y-auto">{visibleNotes.map((note) => <li key={note.id}
-      className="mb-2 rounded border border-white/10 p-2 text-xs">
+      className="mb-2 rounded border border-border/10 p-2 text-xs">
       {editing === note.id ? <>
         <textarea aria-label="Edit context note" value={editBody} onChange={(event) => setEditBody(event.target.value)}
-          maxLength={3000} disabled={busy} className="min-h-20 w-full resize-y bg-neutral-900/40 p-1" />
+          maxLength={3000} disabled={busy} className="min-h-20 w-full resize-y bg-background/40 p-1" />
         <button type="button" disabled={busy || !editBody.trim()} onClick={() => { void saveEdit(); }}>Save edit</button>
         <button type="button" disabled={busy} className="ml-2" onClick={() => setEditing(null)}>Cancel</button>
       </> : <>
         <p className="whitespace-pre-wrap break-words">{note.body}</p>
-        <button type="button" disabled={busy || pinBusy || !onTogglePin} className="mt-2 text-amber-300"
+        <button type="button" disabled={busy || pinBusy || !onTogglePin} className="mt-2 text-tone-warning"
           aria-label={`Pin ${note.id} to ${pinTargetLabel}`}
           aria-pressed={pinnedIDs.has(note.id)} onClick={() => onTogglePin?.(note.id, !pinnedIDs.has(note.id))}>
           {pinnedIDs.has(note.id) ? 'Pinned' : pinLabel}
         </button>
-        <button type="button" disabled={busy} className="mt-2 ml-2 text-sky-300" onClick={() => {
+        <button type="button" disabled={busy} className="mt-2 ml-2 text-primary" onClick={() => {
           setEditing(note.id); setEditBody(note.body);
         }}>Edit</button>
-        <button type="button" disabled={busy} className="ml-2 text-amber-300" onClick={() => { void remove(note.id); }}>Delete</button>
+        <button type="button" disabled={busy} className="ml-2 text-tone-warning" onClick={() => { void remove(note.id); }}>Delete</button>
       </>}
     </li>)}</ol>
   </>;

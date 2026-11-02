@@ -114,41 +114,41 @@ export function AgentManagerView(props: AgentManagerViewProps): ReactNode {
   }
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col bg-neutral-950" data-testid="agent-manager">
-      <header className="flex min-h-12 items-center justify-between gap-3 border-b border-white/10 px-3">
+    <section className="flex min-w-0 flex-1 flex-col bg-popover" data-testid="agent-manager">
+      <header className="flex min-h-12 items-center justify-between gap-3 border-b border-border/10 px-3">
         <div className="min-w-0">
-          <div className="truncate text-sm text-neutral-100">{t('agentGroups.title')}</div>
-          <div className="text-[11px] text-neutral-500">{t('agentGroups.summary', { runs: allSessions.length, active: activeCount })}</div>
+          <div className="truncate text-sm text-foreground">{t('agentGroups.title')}</div>
+          <div className="text-[length:var(--type-meta)] text-muted-foreground">{t('agentGroups.summary', { runs: allSessions.length, active: activeCount })}</div>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" disabled={busy || selectedCount === 0} data-testid="agent-remove-sessions" className="rounded border border-white/10 px-2 py-1 text-[11px] text-neutral-300 hover:bg-white/5 disabled:opacity-50" onClick={() => void removeSelected(false)}>
+          <button type="button" disabled={busy || selectedCount === 0} data-testid="agent-remove-sessions" className="rounded border border-border/10 px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground hover:bg-card/5 disabled:opacity-50" onClick={() => void removeSelected(false)}>
             {t('agentGroups.deleteSessions')}
           </button>
-          <button type="button" disabled={busy || selectedCount === 0} data-testid="agent-remove-worktrees" className="rounded bg-red-950 px-2 py-1 text-[11px] text-red-200 hover:bg-red-900 disabled:opacity-50" onClick={() => void removeSelected(true)}>
+          <button type="button" disabled={busy || selectedCount === 0} data-testid="agent-remove-worktrees" className="rounded bg-tone-error/18 px-2 py-1 text-[length:var(--type-meta)] text-tone-error hover:bg-tone-error/18 disabled:opacity-50" onClick={() => void removeSelected(true)}>
             {t('agentGroups.deleteWorktrees')}
           </button>
-          <button type="button" aria-label={t('agentGroups.close')} data-testid="agent-close" className="rounded px-2 py-1 text-neutral-500 hover:text-neutral-100" disabled={busy} onClick={props.onClose}>X</button>
+          <button type="button" aria-label={t('agentGroups.close')} data-testid="agent-close" className="rounded px-2 py-1 text-muted-foreground hover:text-foreground" disabled={busy} onClick={props.onClose}>X</button>
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-auto p-3">
-        {snapshot.status === 'loading' ? <div className="text-xs text-neutral-500">{t('agentGroups.loading')}</div> : null}
+        {snapshot.status === 'loading' ? <div className="text-xs text-muted-foreground">{t('agentGroups.loading')}</div> : null}
         {snapshot.errors.length > 0 ? (
-          <div className="mb-3 rounded bg-red-950/50 p-2 text-[11px] text-red-200" data-testid="agent-errors">
+          <div className="mb-3 rounded bg-tone-error/50 p-2 text-[length:var(--type-meta)] text-tone-error" data-testid="agent-errors">
             {snapshot.errors.map((error) => <div key={error}>{error}</div>)}
           </div>
         ) : null}
         {snapshot.groups.length === 0 && snapshot.status !== 'loading' ? (
-          <div className="rounded bg-white/[0.03] px-3 py-4 text-sm text-neutral-500">{t('agentGroups.empty')}</div>
+          <div className="rounded bg-card/[0.03] px-3 py-4 text-sm text-muted-foreground">{t('agentGroups.empty')}</div>
         ) : (
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
             {snapshot.groups.map((group) => (
-              <div key={group.name} className="rounded-xl border border-white/10 bg-neutral-900/70 p-3" data-testid="agent-group">
+              <div key={group.name} className="rounded-xl border border-border/10 bg-background/70 p-3" data-testid="agent-group">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="truncate text-sm text-neutral-100">{group.name}</div>
-                    <div className="text-[10px] text-neutral-500">{t('agentGroups.groupRuns', { count: group.sessionCount })}</div>
+                    <div className="truncate text-sm text-foreground">{group.name}</div>
+                    <div className="text-[length:var(--type-micro)] text-muted-foreground">{t('agentGroups.groupRuns', { count: group.sessionCount })}</div>
                   </div>
-                  <button type="button" className="text-[10px] text-neutral-500 hover:text-neutral-100" onClick={() => {
+                  <button type="button" className="text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground" onClick={() => {
                     const groupKeys = group.sessions.map(selectionKey);
                     const allSelected = groupKeys.every((key) => selected.has(key));
                     setSelected((current) => {
@@ -170,16 +170,16 @@ export function AgentManagerView(props: AgentManagerViewProps): ReactNode {
                     const active = status !== undefined && status.type !== 'idle';
                     const current = normalizeDirectory(entry.session.directory ?? '') === currentDirectoryKey || isDirectoryInside(currentDirectoryKey, entry.worktreePath);
                     return (
-                      <div key={key} className="rounded-lg border border-white/5 bg-neutral-950 p-2" data-testid="agent-run">
+                      <div key={key} className="rounded-lg border border-border/5 bg-popover p-2" data-testid="agent-run">
                         <label className="flex items-start gap-2">
                           <input type="checkbox" checked={selected.has(key)} onChange={() => toggle(entry)} data-testid="agent-run-select" />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[12px] text-neutral-200">{entry.session.title || t('agentGroups.untitled')}</span>
-                            <span className="block truncate text-[10px] text-neutral-600">{entry.worktreeBranch ?? entry.worktreePath} · {entry.session.directory}</span>
+                            <span className="block truncate text-[length:var(--type-meta)] text-foreground">{entry.session.title || t('agentGroups.untitled')}</span>
+                            <span className="block truncate text-[length:var(--type-micro)] text-foreground">{entry.worktreeBranch ?? entry.worktreePath} · {entry.session.directory}</span>
                           </span>
-                          <span aria-label={active ? t('agentGroups.active') : t('agentGroups.idle')} className={active ? 'h-2 w-2 shrink-0 rounded-full bg-sky-400' : 'h-2 w-2 shrink-0 rounded-full bg-neutral-700'} data-testid={active ? 'agent-active-dot' : undefined} />
+                          <span aria-label={active ? t('agentGroups.active') : t('agentGroups.idle')} className={active ? 'h-2 w-2 shrink-0 rounded-full bg-primary' : 'h-2 w-2 shrink-0 rounded-full bg-card'} data-testid={active ? 'agent-active-dot' : undefined} />
                         </label>
-                        <button type="button" className={current ? 'mt-2 w-full rounded bg-white/10 px-2 py-1 text-[11px] text-neutral-100' : 'mt-2 w-full rounded bg-white/5 px-2 py-1 text-[11px] text-neutral-300 hover:bg-white/10'} onClick={() => props.onOpenSession(entry.session)}>
+                        <button type="button" className={current ? 'mt-2 w-full rounded bg-card/10 px-2 py-1 text-[length:var(--type-meta)] text-foreground' : 'mt-2 w-full rounded bg-card/5 px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground hover:bg-card/10'} onClick={() => props.onOpenSession(entry.session)}>
                           {t('agentGroups.openChat')}
                         </button>
                       </div>

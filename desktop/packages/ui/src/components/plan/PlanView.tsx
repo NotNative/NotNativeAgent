@@ -165,11 +165,11 @@ function PlanHeader(props: { title: string; fileLabel: string; dirty: boolean; s
   return (
     <header className="flex min-w-0 items-center gap-2">
       <span className="min-w-0 truncate text-sm font-medium text-foreground" title={title}>{title}</span>
-      <span className="min-w-0 truncate text-[10px] text-muted-foreground" title={fileLabel}>{fileLabel}</span>
-      <span className="ml-auto shrink-0 text-[10px] text-muted-foreground" data-testid="plan-save-status" title={loadError ?? saveError ?? undefined}>
+      <span className="min-w-0 truncate text-[length:var(--type-micro)] text-muted-foreground" title={fileLabel}>{fileLabel}</span>
+      <span className="ml-auto shrink-0 text-[length:var(--type-micro)] text-muted-foreground" data-testid="plan-save-status" title={loadError ?? saveError ?? undefined}>
         {loadError !== null ? 'Load failed' : disabled ? 'Loading…' : saveError !== null ? statusSaveFailed : dirty ? statusUnsaved : statusSaved}
       </span>
-      <button type="button" disabled={disabled} className="shrink-0 rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50" onClick={onSaveNow}>
+      <button type="button" disabled={disabled} className="shrink-0 rounded border border-border/60 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground disabled:opacity-50" onClick={onSaveNow}>
         {saveNow}
       </button>
     </header>
@@ -264,7 +264,7 @@ function CommentBeginButton(props: { onClick: () => void }): ReactNode {
   return (
     <button
       type="button"
-      className="rounded border border-border/50 bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+      className="rounded border border-border/50 bg-card/60 px-2 py-0.5 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground"
       onClick={props.onClick}
       data-testid="plan-add-comment"
     >

@@ -74,7 +74,7 @@ export function NotificationsPage(): ReactNode {
       <SettingsSection item="notifications.templates">
         <SettingsGroupTitle>{t('settings.notifications.templates')}</SettingsGroupTitle>
         <SettingsInset>
-          <div className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+          <div className="flex flex-col gap-1 font-mono text-[length:var(--type-micro)] text-muted-foreground">
             {TEMPLATE_EVENTS.map((event: TemplateEvent) => (
               <div key={event}>
                 <span className="text-foreground">{event}</span>

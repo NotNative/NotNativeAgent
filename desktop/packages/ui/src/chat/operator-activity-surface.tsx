@@ -56,14 +56,14 @@ export function ActivitySurface({ store, directory, sessionID, expanded, onRevie
     } else if (added > 0) setUnseen((count) => count + added);
   }, [key, records]);
   return <section className="flex h-full min-h-0 flex-col" data-testid="operator-activity">
-    <header className="shrink-0 border-b border-white/10 p-3 pb-2">
+    <header className="shrink-0 border-b border-border/10 p-3 pb-2">
       <div className={expanded ? 'mx-auto w-full max-w-5xl' : 'w-full'} data-testid="activity-reading-column">
-        <div className="mb-2 flex items-center justify-between"><h2 className="text-xs font-medium text-neutral-200">Activity log</h2><span className="text-[10px] text-neutral-500">{records.length} events</span></div>
-        {nnaSource && gapAt !== null ? <p role="status" data-testid="activity-history-gap" className="mb-2 text-[10px] text-amber-300">
+        <div className="mb-2 flex items-center justify-between"><h2 className="text-xs font-medium text-foreground">Activity log</h2><span className="text-[length:var(--type-micro)] text-muted-foreground">{records.length} events</span></div>
+        {nnaSource && gapAt !== null ? <p role="status" data-testid="activity-history-gap" className="mb-2 text-[length:var(--type-micro)] text-tone-warning">
           An event stream gap occurred. Transient activity during that gap may be missing, even after recovery.
         </p> : null}
-        {nnaSource && historyStatus === 'loading' && records.length > 0 ? <p role="status" className="mb-2 text-[10px] text-neutral-400">Loading saved activity; showing live evidence so far.</p> : null}
-        {nnaSource && historyStatus === 'unavailable' ? <div role="status" className="mb-2 flex items-center gap-2 text-[10px] text-amber-300">
+        {nnaSource && historyStatus === 'loading' && records.length > 0 ? <p role="status" className="mb-2 text-[length:var(--type-micro)] text-muted-foreground">Loading saved activity; showing live evidence so far.</p> : null}
+        {nnaSource && historyStatus === 'unavailable' ? <div role="status" className="mb-2 flex items-center gap-2 text-[length:var(--type-micro)] text-tone-warning">
           <span>Saved activity unavailable; live evidence may be incomplete.</span>
           <button type="button" className="underline" onClick={() => setRefreshRevision((value) => value + 1)}>Retry</button>
         </div> : null}
@@ -71,7 +71,7 @@ export function ActivitySurface({ store, directory, sessionID, expanded, onRevie
         {nnaSource ? <DeletedActivityWindow /> : null}
         <div className="flex flex-wrap gap-1" role="group" aria-label="Filter activity">
           {ACTIVITY_FILTERS.map((option) => <button key={option.id} type="button" aria-pressed={filter === option.id}
-            className={`rounded px-1.5 py-1 text-[10px] ${filter === option.id ? 'bg-white/15 text-white' : 'text-neutral-500 hover:text-neutral-200'}`}
+            className={`rounded px-1.5 py-1 text-[length:var(--type-micro)] ${filter === option.id ? 'bg-card/15 text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             onClick={() => setFilter(option.id)}>{option.label}</button>)}
         </div>
       </div>
@@ -82,7 +82,7 @@ export function ActivitySurface({ store, directory, sessionID, expanded, onRevie
         following.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 24;
         if (following.current) setUnseen(0);
       }}>
-      {records.length === 0 ? <li className={`${expanded ? 'mx-auto w-full max-w-5xl' : ''} text-[11px] text-neutral-500`}>{!sessionID ? 'Select a session to watch its activity.'
+      {records.length === 0 ? <li className={`${expanded ? 'mx-auto w-full max-w-5xl' : ''} text-[length:var(--type-meta)] text-muted-foreground`}>{!sessionID ? 'Select a session to watch its activity.'
         : historyStatus === 'loading' ? 'Loading saved activity…'
         : historyStatus === 'unavailable' ? 'Saved activity could not be loaded. Live events will still appear here.'
         : filter === 'all' ? 'No recorded activity for this session yet. Conversation messages remain in the transcript.'
@@ -90,26 +90,26 @@ export function ActivitySurface({ store, directory, sessionID, expanded, onRevie
         : filter === 'files' ? 'No recorded completed file changes for this session.'
         : filter === 'last-turn' ? 'No turn-correlated activity is available for the latest turn.'
         : `No ${filter === 'failed' ? 'failed' : filter} activity evidence has been received for this session.`}</li>
-        : records.map((record) => <li key={record.id} className={`${expanded ? 'mx-auto w-full max-w-5xl ' : ''}rounded border p-2 text-[11px] ${record.status === 'failed' ? 'border-red-500/40 bg-red-950/20' : record.status === 'attention' ? 'border-amber-500/40 bg-amber-950/20' : 'border-white/10 bg-neutral-900/40'}`}><div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-neutral-500"><span>{record.kind}</span><time className="ml-auto min-w-0 break-words text-right" dateTime={new Date(record.time).toISOString()} data-testid="activity-timestamp">{new Date(record.time).toLocaleString(intlLocale, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'attention' || record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status === 'attention' ? 'needs input' : record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p>
+        : records.map((record) => <li key={record.id} className={`${expanded ? 'mx-auto w-full max-w-5xl ' : ''}rounded border p-2 text-[length:var(--type-meta)] ${record.status === 'failed' ? 'border-tone-error-border/40 bg-tone-error/20' : record.status === 'attention' ? 'border-tone-warning-border/40 bg-tone-warning/20' : 'border-border/10 bg-background/40'}`}><div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-muted-foreground"><span>{record.kind}</span><time className="ml-auto min-w-0 break-words text-right" dateTime={new Date(record.time).toISOString()} data-testid="activity-timestamp">{new Date(record.time).toLocaleString(intlLocale, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</time><span className={record.status === 'failed' ? 'text-tone-error' : record.status === 'attention' || record.status === 'redacted' ? 'text-tone-warning' : ''}>{record.status === 'attention' ? 'needs input' : record.status}</span></div><p className="mt-1 break-words text-muted-foreground">{record.summary}</p>
           {record.toolEvidence ? <ToolEvidenceDetail evidence={record.toolEvidence} /> : null}
           {record.kind === 'subagent' && record.childSessionID
             && snapshot.session.some((session) => session.id === record.childSessionID && session.parentID === record.sessionID)
-            ? <button type="button" className="mt-1 text-sky-300 hover:underline"
+            ? <button type="button" className="mt-1 text-primary hover:underline"
               onClick={() => onOpenSubagent(record.childSessionID!)}>Open subagent transcript</button> : null}
           {onReviewPath && record.status === 'completed' && record.toolEvidence?.reviewPath
             && record.toolEvidence.reviewDirectory === directory ? <button type="button"
-            className="mt-1 text-sky-300 hover:underline" onClick={() => onReviewPath?.(record.toolEvidence!.reviewPath!)}>
+            className="mt-1 text-primary hover:underline" onClick={() => onReviewPath?.(record.toolEvidence!.reviewPath!)}>
             Review file in Changes</button> : null}
           {(record.evidenceMessageID || record.toolEvidence?.turnRequestID)
             && snapshot.message[record.sessionID]?.some((message) => message.id === (record.evidenceMessageID || record.toolEvidence?.turnRequestID))
-            ? <button type="button" className="mt-1 text-sky-300 hover:underline" onClick={() => {
+            ? <button type="button" className="mt-1 text-primary hover:underline" onClick={() => {
               const anchor = `message-${record.evidenceMessageID || record.toolEvidence?.turnRequestID}`;
               window.history.replaceState(null, '', window.location.pathname + window.location.search);
               window.location.hash = `#${anchor}`;
               document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
             }}>View prompt</button> : null}</li>)}
     </ol>
-    {unseen > 0 ? <button type="button" className={`m-2 shrink-0 rounded border border-white/15 bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200 ${expanded ? 'self-center' : ''}`} data-testid="activity-jump-live"
+    {unseen > 0 ? <button type="button" className={`m-2 shrink-0 rounded border border-border/15 bg-card px-2 py-1 text-[length:var(--type-micro)] text-foreground ${expanded ? 'self-center' : ''}`} data-testid="activity-jump-live"
       onClick={() => { following.current = true; if (viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight; setUnseen(0); }}>↓ {unseen} new {unseen === 1 ? 'event' : 'events'} · Jump to live</button> : null}
   </section>;
 }
@@ -121,10 +121,10 @@ function ToolEvidenceDetail({ evidence }: { evidence: ToolEvidence }): ReactNode
     ['Exit code', evidence.exitCode === undefined ? undefined : String(evidence.exitCode)],
   ].filter((row): row is [string, string] => row[1] !== undefined);
   if (rows.length === 0) return null;
-  return <details className="mt-1 rounded border border-white/10 px-2 py-1" data-testid="activity-tool-evidence">
-    <summary className="cursor-pointer text-sky-300">Tool evidence</summary>
+  return <details className="mt-1 rounded border border-border/10 px-2 py-1" data-testid="activity-tool-evidence">
+    <summary className="cursor-pointer text-primary">Tool evidence</summary>
     <dl className="mt-1 space-y-1">{rows.map(([label, value]) => <div key={label} className="flex flex-wrap justify-between gap-x-2">
-      <dt className="text-neutral-500">{label}</dt><dd className="max-w-full break-all text-neutral-300">{value}</dd>
+      <dt className="text-muted-foreground">{label}</dt><dd className="max-w-full break-all text-muted-foreground">{value}</dd>
     </div>)}</dl>
   </details>;
 }

@@ -10,5 +10,5 @@ export function Centered({ label, testid }: { label: string; testid: string }): 
 }
 
 export function EmptyLine({ label }: { label: string }): ReactNode {
-  return <div className="px-2 py-1 text-[11px] text-muted-foreground">{label}</div>;
+  return <div className="px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground">{label}</div>;
 }

@@ -51,24 +51,24 @@ export function SavedActivityWindow({ directory, sessionID }: { directory: strin
     }
   }
 
-  return <section className="mt-2 rounded border border-white/10 p-2 text-[10px]" data-testid="saved-activity-window">
-    <button type="button" aria-expanded={open} className="text-sky-300 hover:underline" onClick={() => {
+  return <section className="mt-2 rounded border border-border/10 p-2 text-[length:var(--type-micro)]" data-testid="saved-activity-window">
+    <button type="button" aria-expanded={open} className="text-primary hover:underline" onClick={() => {
       setOpen((value) => !value);
       if (!open && !shown) void load();
     }}>Saved Activity · retained window</button>
     {open ? <div className="mt-2 space-y-2">
-      <p className="text-neutral-400">This is a partial durable snapshot, separate from the live log. Earlier records may have been discarded; stream gaps are not filled by this view.</p>
+      <p className="text-muted-foreground">This is a partial durable snapshot, separate from the live log. Earlier records may have been discarded; stream gaps are not filled by this view.</p>
       {shown?.state === 'loading' ? <p role="status">Loading saved Activity…</p> : null}
-      {shown?.state === 'unavailable' ? <p role="status" className="text-amber-300">Saved Activity could not be verified. <button type="button" className="underline" onClick={() => void load()}>Retry newest</button></p> : null}
-      {shown?.state === 'gap' ? <p role="status" className="text-amber-300">The saved snapshot changed while paging. Previously loaded rows were cleared. <button type="button" className="underline" onClick={() => void load()}>Reload newest</button></p> : null}
+      {shown?.state === 'unavailable' ? <p role="status" className="text-tone-warning">Saved Activity could not be verified. <button type="button" className="underline" onClick={() => void load()}>Retry newest</button></p> : null}
+      {shown?.state === 'gap' ? <p role="status" className="text-tone-warning">The saved snapshot changed while paging. Previously loaded rows were cleared. <button type="button" className="underline" onClick={() => void load()}>Reload newest</button></p> : null}
       {shown?.state === 'ready' ? <>
-        <p role="status" className="text-neutral-400">{shown.snapshot?.durablePresent
+        <p role="status" className="text-muted-foreground">{shown.snapshot?.durablePresent
           ? `${shown.snapshot.retainedCount} retained record${shown.snapshot.retainedCount === 1 ? '' : 's'} in this saved window.`
           : 'No durable snapshot is available for this session.'}</p>
         <ol className="max-h-56 space-y-1 overflow-y-auto" data-testid="saved-activity-rows">{shown.records.map((row) =>
-          <li key={row.id} className="rounded border border-white/10 p-1"><span className="text-neutral-500">{row.kind} · {row.status} · </span><span className="break-words">{row.summary}</span></li>)}</ol>
-        {shown.cursor ? <button type="button" className="text-sky-300 hover:underline" onClick={() => void load(shown.cursor!)}>Load older retained records</button>
-          : <p className="text-neutral-500">End of the retained window; this does not establish the start of session history.</p>}
+          <li key={row.id} className="rounded border border-border/10 p-1"><span className="text-muted-foreground">{row.kind} · {row.status} · </span><span className="break-words">{row.summary}</span></li>)}</ol>
+        {shown.cursor ? <button type="button" className="text-primary hover:underline" onClick={() => void load(shown.cursor!)}>Load older retained records</button>
+          : <p className="text-muted-foreground">End of the retained window; this does not establish the start of session history.</p>}
       </> : null}
     </div> : null}
   </section>;

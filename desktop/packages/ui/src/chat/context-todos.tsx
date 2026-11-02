@@ -68,13 +68,13 @@ export function ContextTodos({ projectId, visible, query = '', refreshToken = 0,
     finally { if (live.current) { setBusy(false); setLoading(false); } }
   }
   return <section className="flex h-full min-h-0 flex-col gap-2 p-3" data-testid="project-context-todos">
-    <header className="flex items-center text-[10px] text-neutral-400">NND project todos — separate from session tasks
+    <header className="flex items-center text-[length:var(--type-micro)] text-muted-foreground">NND project todos — separate from session tasks
       <button type="button" disabled={busy} className="ml-auto underline" onClick={() => setRevision((value) => value + 1)}>Refresh</button>
     </header>
-    {error ? <p role="alert" className="text-xs text-amber-300">{error}</p> : null}
-    {malformed ? <p role="status" className="text-xs text-amber-300">Some stored todos are malformed. Editing is disabled to avoid losing them.</p> : null}
-    {missingRevision ? <p role="status" className="text-xs text-amber-300">Todo revision is unavailable. Refresh or update the server before editing.</p> : null}
-    {!context && loading ? <p className="text-xs text-neutral-500">Loading project todos…</p> : null}
+    {error ? <p role="alert" className="text-xs text-tone-warning">{error}</p> : null}
+    {malformed ? <p role="status" className="text-xs text-tone-warning">Some stored todos are malformed. Editing is disabled to avoid losing them.</p> : null}
+    {missingRevision ? <p role="status" className="text-xs text-tone-warning">Todo revision is unavailable. Refresh or update the server before editing.</p> : null}
+    {!context && loading ? <p className="text-xs text-muted-foreground">Loading project todos…</p> : null}
     {context ? <ContextTodoEditor todos={todos} query={query} draft={draft} setDraft={setDraft} busy={busy || loading || malformed || missingRevision || conflicted}
       onAddToChat={onAddToChat} onAddToNewChat={onAddToNewChat} commit={commit} /> : null}
   </section>;
@@ -94,16 +94,16 @@ function ContextTodoEditor({ todos, query, draft, setDraft, busy, commit, onAddT
     void commit([...todos, { id: crypto.randomUUID(), text, completed: false, createdAt: Date.now() }], true);
   };
   return <>
-    {handoffError ? <p role="alert" className="text-xs text-amber-300">Chat input is not available for this session. The todo was left unchanged.</p> : null}
+    {handoffError ? <p role="alert" className="text-xs text-tone-warning">Chat input is not available for this session. The todo was left unchanged.</p> : null}
     <div className="flex gap-1"><input aria-label="New project todo" value={draft} maxLength={120} disabled={busy}
-      onChange={(event) => setDraft(event.target.value)} className="min-w-0 flex-1 rounded border border-white/10 bg-neutral-900/40 px-2 text-xs" />
+      onChange={(event) => setDraft(event.target.value)} className="min-w-0 flex-1 rounded border border-border/10 bg-background/40 px-2 text-xs" />
     <button type="button" disabled={busy || !draft.trim()} onClick={add} className="text-xs">Add todo</button></div>
-    {needle && !visibleTodos.length ? <p className="text-xs text-neutral-500">No matching todos.</p> : null}
-    {needle && visibleTodos.length > 1 ? <p className="text-[10px] text-neutral-500">Clear search to reorder todos.</p> : null}
-    <ol className="min-h-0 overflow-y-auto">{visibleTodos.map((todo) => <li key={todo.id} className="border-b border-white/5 py-1.5 text-xs">
+    {needle && !visibleTodos.length ? <p className="text-xs text-muted-foreground">No matching todos.</p> : null}
+    {needle && visibleTodos.length > 1 ? <p className="text-[length:var(--type-micro)] text-muted-foreground">Clear search to reorder todos.</p> : null}
+    <ol className="min-h-0 overflow-y-auto">{visibleTodos.map((todo) => <li key={todo.id} className="border-b border-border/5 py-1.5 text-xs">
       <div className="flex items-start gap-2"><input aria-label={`Complete ${todo.text}`} type="checkbox" disabled={busy} checked={todo.completed}
         onChange={() => { void commit(todos.map((item) => item.id === todo.id ? { ...item, completed: !item.completed } : item)); }} />
-      <span className={`min-w-0 flex-1 break-words ${todo.completed ? 'text-neutral-500 line-through' : ''}`}>{todo.text}</span></div>
+      <span className={`min-w-0 flex-1 break-words ${todo.completed ? 'text-muted-foreground line-through' : ''}`}>{todo.text}</span></div>
       <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 pt-1">
         <button type="button" disabled={busy || !!needle || todos[0]?.id === todo.id} aria-label={`Move ${todo.text} up`}
           title={needle ? 'Clear search to reorder' : 'Move up'} onClick={() => { void commit(movedTodo(todos, todo.id, -1)); }}>↑</button>
@@ -111,10 +111,10 @@ function ContextTodoEditor({ todos, query, draft, setDraft, busy, commit, onAddT
           title={needle ? 'Clear search to reorder' : 'Move down'} onClick={() => { void commit(movedTodo(todos, todo.id, 1)); }}>↓</button>
         {onAddToChat ? <button type="button" aria-label={`Add ${todo.text} to chat`} onClick={() => {
           setHandoffError(!onAddToChat(todo.text));
-        }} className="text-sky-300 hover:underline">Add to chat</button> : null}
+        }} className="text-primary hover:underline">Add to chat</button> : null}
         {onAddToNewChat ? <button type="button" aria-label={`Start new chat with ${todo.text}`} onClick={() => {
           setHandoffError(false); onAddToNewChat(todo.text);
-        }} className="text-sky-300 hover:underline">New chat</button> : null}
+        }} className="text-primary hover:underline">New chat</button> : null}
         <button type="button" disabled={busy} aria-label={`Delete ${todo.text}`} onClick={() => {
           void commit(todos.filter((item) => item.id !== todo.id));
         }}>Delete</button>

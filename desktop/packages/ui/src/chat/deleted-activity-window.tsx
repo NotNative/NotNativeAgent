@@ -60,22 +60,22 @@ export function DeletedActivityWindow(): ReactNode {
     }
   }
 
-  return <section className="mt-2 rounded border border-white/10 p-2 text-[10px]" data-testid="deleted-activity-window">
-    <button type="button" aria-expanded={open} disabled={auth !== 'ok'} className="text-sky-300 hover:underline disabled:opacity-50" onClick={() => {
+  return <section className="mt-2 rounded border border-border/10 p-2 text-[length:var(--type-micro)]" data-testid="deleted-activity-window">
+    <button type="button" aria-expanded={open} disabled={auth !== 'ok'} className="text-primary hover:underline disabled:opacity-50" onClick={() => {
       setOpen((value) => !value);
       if (!open && !shown) void load();
     }}>Deleted sessions · retained receipts</button>
     {open ? <div className="mt-2 space-y-2">
-      <p className="text-neutral-400">These are owner-scoped deletion receipts, not a complete deletion history. Older receipts may have been discarded.</p>
+      <p className="text-muted-foreground">These are owner-scoped deletion receipts, not a complete deletion history. Older receipts may have been discarded.</p>
       {shown?.state === 'loading' ? <p role="status">Loading deletion receipts…</p> : null}
-      {shown?.state === 'unavailable' ? <p role="status" className="text-amber-300">Deletion receipts could not be verified. <button type="button" className="underline" onClick={() => void load()}>Retry newest</button></p> : null}
-      {shown?.state === 'gap' ? <p role="status" className="text-amber-300">The retained deletion window moved. Previously loaded receipts were cleared. <button type="button" className="underline" onClick={() => void load(shown.floor)}>Load retained receipts</button></p> : null}
+      {shown?.state === 'unavailable' ? <p role="status" className="text-tone-warning">Deletion receipts could not be verified. <button type="button" className="underline" onClick={() => void load()}>Retry newest</button></p> : null}
+      {shown?.state === 'gap' ? <p role="status" className="text-tone-warning">The retained deletion window moved. Previously loaded receipts were cleared. <button type="button" className="underline" onClick={() => void load(shown.floor)}>Load retained receipts</button></p> : null}
       {shown?.state === 'ready' ? <>
-        <p role="status" className="text-neutral-400">{shown.records.length} retained deletion receipt{shown.records.length === 1 ? '' : 's'} loaded. Retention floor: {shown.floor}.</p>
+        <p role="status" className="text-muted-foreground">{shown.records.length} retained deletion receipt{shown.records.length === 1 ? '' : 's'} loaded. Retention floor: {shown.floor}.</p>
         <ol className="max-h-44 space-y-1 overflow-y-auto" data-testid="deleted-activity-rows">{shown.records.map((row) =>
-          <li key={row.sequence} className="break-all rounded border border-white/10 p-1">Session {row.sessionID} deleted · {new Date(row.deletedAt).toLocaleString()}</li>)}</ol>
-        {shown.more ? <button type="button" className="text-sky-300 hover:underline" onClick={() => void load(shown.cursor)}>Load later retained receipts</button>
-          : <button type="button" className="text-sky-300 hover:underline" onClick={() => void load()}>Refresh retained window</button>}
+          <li key={row.sequence} className="break-all rounded border border-border/10 p-1">Session {row.sessionID} deleted · {new Date(row.deletedAt).toLocaleString()}</li>)}</ol>
+        {shown.more ? <button type="button" className="text-primary hover:underline" onClick={() => void load(shown.cursor)}>Load later retained receipts</button>
+          : <button type="button" className="text-primary hover:underline" onClick={() => void load()}>Refresh retained window</button>}
       </> : null}
     </div> : null}
   </section>;

@@ -73,8 +73,8 @@ export function ProviderDiagnostics({ profileId, showCatalog = true }: { profile
   return (
     <div className="mt-2 border-t border-border/30 pt-2">
       <div className="flex flex-wrap gap-2">
-        <button type="button" data-testid="provider-test" disabled={busy !== null} onClick={() => void run('test')} className="rounded border border-border/60 px-2 py-1 text-[11px] text-foreground disabled:opacity-50">{t('settings.providers.diagnostics.test')}</button>
-        <button type="button" data-testid="provider-discover" disabled={busy !== null} onClick={() => void run('discover')} className="rounded border border-border/60 px-2 py-1 text-[11px] text-foreground disabled:opacity-50">{t('settings.providers.diagnostics.discover')}</button>
+        <button type="button" data-testid="provider-test" disabled={busy !== null} onClick={() => void run('test')} className="rounded border border-border/60 px-2 py-1 text-[length:var(--type-meta)] text-foreground disabled:opacity-50">{t('settings.providers.diagnostics.test')}</button>
+        <button type="button" data-testid="provider-discover" disabled={busy !== null} onClick={() => void run('discover')} className="rounded border border-border/60 px-2 py-1 text-[length:var(--type-meta)] text-foreground disabled:opacity-50">{t('settings.providers.diagnostics.discover')}</button>
       </div>
       {busy ? <p role="status" className="mt-2 text-muted-foreground">{t('settings.providers.diagnostics.contacting')}</p> : null}
       {feedback ? <p role="alert" className="mt-2 text-destructive">{feedback.kind === 'raw' ? feedback.message : t(feedback.key)}</p> : null}

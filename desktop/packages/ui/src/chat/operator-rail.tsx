@@ -222,9 +222,9 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, nat
   // border pixel makes the document itself scroll in both directions.
   const dockWidth = 41;
   return (
-    <aside className={`${suppressed ? 'hidden' : compactOpen || docked ? 'flex' : 'hidden'} ${maximized && docked && !compactOpen ? 'absolute inset-0 z-30 w-full' : `relative shrink-0 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} min-w-0 flex-col border-l border-white/10 bg-neutral-950`} style={docked && !compactOpen && !maximized ? { width: panelOpen ? width + dockWidth : dockWidth } : undefined} data-testid="operator-rail">
+    <aside className={`${suppressed ? 'hidden' : compactOpen || docked ? 'flex' : 'hidden'} ${maximized && docked && !compactOpen ? 'absolute inset-0 z-30 w-full' : `relative shrink-0 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} min-w-0 flex-col border-l border-border/10 bg-popover`} style={docked && !compactOpen && !maximized ? { width: panelOpen ? width + dockWidth : dockWidth } : undefined} data-testid="operator-rail">
       <div role="separator" aria-label="Resize operator panel" aria-orientation="vertical" aria-valuemin={280} aria-valuemax={maxRailWidth(viewportWidth)} aria-valuenow={width} tabIndex={0}
-        className={`absolute bottom-0 left-0 top-0 z-20 w-1 cursor-col-resize hover:bg-white/20 focus:bg-white/20 ${compactOpen || suppressed || !panelOpen || maximized ? 'hidden' : 'hidden min-[1100px]:block'}`}
+        className={`absolute bottom-0 left-0 top-0 z-20 w-1 cursor-col-resize hover:bg-card/20 focus:bg-card/20 ${compactOpen || suppressed || !panelOpen || maximized ? 'hidden' : 'hidden min-[1100px]:block'}`}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           dragCleanup.current?.();
@@ -248,27 +248,27 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, nat
           else if (event.key === 'Home') { event.preventDefault(); resize(280); }
           else if (event.key === 'End') { event.preventDefault(); resize(maxRailWidth(viewportWidth)); }
         }} />
-      {compactOpen ? <div className="border-b border-white/10 px-3 py-2">
-        <button type="button" data-testid="operator-return-chat" className="rounded px-2 py-1 text-xs text-neutral-200 hover:bg-white/10" onClick={onCloseCompact}>← Return to chat</button>
+      {compactOpen ? <div className="border-b border-border/10 px-3 py-2">
+        <button type="button" data-testid="operator-return-chat" className="rounded px-2 py-1 text-xs text-foreground hover:bg-card/10" onClick={onCloseCompact}>← Return to chat</button>
       </div> : null}
-      <div className={`${docked && !panelOpen && !compactOpen ? 'hidden' : 'flex'} shrink-0 items-center justify-between border-b border-white/10 px-3 py-1.5 text-[11px] text-neutral-300`} data-testid="operator-surface-title">
+      <div className={`${docked && !panelOpen && !compactOpen ? 'hidden' : 'flex'} shrink-0 items-center justify-between border-b border-border/10 px-3 py-1.5 text-[length:var(--type-meta)] text-muted-foreground`} data-testid="operator-surface-title">
         {SURFACES.find((item) => item.id === surface)?.label}
         {docked && !compactOpen ? <div className="flex items-center gap-2">
           {!maximized ? <button type="button" aria-label="Fit operator panel to window" title="Fit panel to window"
-            className="rounded px-1 text-neutral-500 hover:text-neutral-200"
+            className="rounded px-1 text-muted-foreground hover:text-foreground"
             onClick={fit}>↔</button> : null}
           <button type="button" aria-label={maximized ? 'Restore operator panel' : 'Maximize operator panel'} aria-pressed={maximized}
-            className="rounded px-1 text-neutral-500 hover:text-neutral-200" onClick={() => setMaximized((value) => !value)}>{maximized ? '↙' : '⛶'}</button>
-          <button type="button" aria-label="Close operator panel" className="rounded px-1 text-neutral-500 hover:text-neutral-200" onClick={() => { setMaximized(false); setPanelOpen(false); selectedButton.current?.focus(); }}>×</button>
+            className="rounded px-1 text-muted-foreground hover:text-foreground" onClick={() => setMaximized((value) => !value)}>{maximized ? '↙' : '⛶'}</button>
+          <button type="button" aria-label="Close operator panel" className="rounded px-1 text-muted-foreground hover:text-foreground" onClick={() => { setMaximized(false); setPanelOpen(false); selectedButton.current?.focus(); }}>×</button>
         </div> : null}
       </div>
       <div className="flex min-h-0 flex-1">
-      <nav className="order-2 flex min-h-0 w-10 shrink-0 flex-col overflow-y-auto overscroll-contain border-l border-white/10 py-2" aria-label="Operator surfaces">
+      <nav className="order-2 flex min-h-0 w-10 shrink-0 flex-col overflow-y-auto overscroll-contain border-l border-border/10 py-2" aria-label="Operator surfaces">
         {panels.order.filter((id) => panels.visible.includes(id)).map((id) => {
           const item = SURFACES.find((candidate) => candidate.id === id)!;
           return (
           <button key={item.id} ref={surface === item.id ? selectedButton : undefined} type="button" title={item.label} aria-label={item.label} aria-pressed={surface === item.id}
-            className={`flex h-10 items-center justify-center ${surface === item.id && paneVisible ? 'text-amber-500' : 'text-neutral-500 hover:text-neutral-200'}`}
+            className={`flex h-10 items-center justify-center ${surface === item.id && paneVisible ? 'text-tone-warning' : 'text-muted-foreground hover:text-foreground'}`}
             onClick={() => {
               if (item.id === 'terminal') setTerminalOpenedKey(storageKey);
               if (item.id === 'browser') setBrowserOpenedKey(storageKey);
@@ -284,17 +284,17 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, nat
           );
         })}
         <button type="button" aria-label="Customize operator panels" aria-expanded={customizing}
-          className="mt-auto px-1 py-2 text-[9px] text-neutral-500 hover:text-neutral-200"
+          className="mt-auto px-1 py-2 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground"
           onClick={() => { setPanelOpen(true); setCustomizing((value) => !value); }}>⋯</button>
       </nav>
       <div className={`${docked && !panelOpen && !compactOpen ? 'hidden' : ''} order-1 min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain`} data-testid="operator-scroll">
-        {customizing ? <section aria-label="Customize operator panels" className="border-b border-white/10 p-2 text-xs">
-          <div className="mb-2 text-neutral-300">Panels</div>
+        {customizing ? <section aria-label="Customize operator panels" className="border-b border-border/10 p-2 text-xs">
+          <div className="mb-2 text-muted-foreground">Panels</div>
           {panels.order.map((id, index) => {
             const item = SURFACES.find((candidate) => candidate.id === id)!;
             const checked = panels.visible.includes(id);
             return <div key={id} className="flex items-center gap-1 py-1">
-              <label className="flex min-w-0 flex-1 items-center gap-1 text-neutral-300">
+              <label className="flex min-w-0 flex-1 items-center gap-1 text-muted-foreground">
                 <input type="checkbox" aria-label={`Show ${item.label}`} checked={checked}
                   disabled={checked && panels.visible.length === 1}
                   onChange={() => {

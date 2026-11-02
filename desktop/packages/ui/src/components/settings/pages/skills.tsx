@@ -64,7 +64,7 @@ export function SkillsPage(): ReactNode {
         <div key={skill.id} className="rounded-md border border-border/40 p-3 text-xs" data-testid="nna-skill">
           <div className="font-medium text-foreground">{skill.id} <span className="font-normal text-muted-foreground">v{skill.version}</span></div>
           <div className="mt-1 text-muted-foreground">{skill.description}</div>
-          <div className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="mt-1 text-[length:var(--type-micro)] uppercase tracking-wide text-muted-foreground">
             {skill.invocation === 'user' ? t('settings.skills.inventory.user') : skill.invocation === 'agent' ? t('settings.skills.inventory.agent') : t('settings.skills.inventory.userAndAgent')}
           </div>
         </div>

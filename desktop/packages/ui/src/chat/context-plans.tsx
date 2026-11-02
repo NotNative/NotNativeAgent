@@ -173,9 +173,9 @@ function SavedPlanPanel({ context, error, loading, busy, refresh, query, draft, 
 }): ReactNode {
   return <section className="flex h-full min-h-0 flex-col gap-2 p-3" data-testid="project-context-plans">
     <SavedPlanHeader busy={busy} refresh={refresh} />
-    {error ? <p role="alert" className="text-xs text-amber-300">{error}</p> : null}
-    {pinError ? <p role="alert" className="text-xs text-amber-300">{pinError}</p> : null}
-    {!context && loading ? <p className="text-xs text-neutral-500">Loading saved plans…</p> : null}
+    {error ? <p role="alert" className="text-xs text-tone-warning">{error}</p> : null}
+    {pinError ? <p role="alert" className="text-xs text-tone-warning">{pinError}</p> : null}
+    {!context && loading ? <p className="text-xs text-muted-foreground">Loading saved plans…</p> : null}
     {context ? <>
       <SavedPlanList plans={context.plans} query={query} busy={busy} open={open} pinnedIDs={pinnedIDs}
         onTogglePin={onTogglePlanPin} pinBusy={pinBusy} />
@@ -186,7 +186,7 @@ function SavedPlanPanel({ context, error, loading, busy, refresh, query, draft, 
 }
 
 function SavedPlanHeader({ busy, refresh }: { busy: boolean; refresh: () => void }): ReactNode {
-  return <header className="flex items-center text-[10px] text-neutral-400">NND saved plans
+  return <header className="flex items-center text-[length:var(--type-micro)] text-muted-foreground">NND saved plans
     <button type="button" disabled={busy} className="ml-auto underline" onClick={refresh}>Refresh</button>
   </header>;
 }
@@ -199,14 +199,14 @@ function SavedPlanList({ plans, query, busy, open, pinnedIDs, onTogglePin, pinBu
   const needle = query.trim().toLocaleLowerCase();
   const visiblePlans = plans.filter(usablePlan).filter((plan) => !needle || plan.title.toLocaleLowerCase().includes(needle));
   return <>
-    {plans.some((item) => !usablePlan(item)) ? <p role="status" className="text-xs text-amber-300">Some stored plans could not be displayed.</p> : null}
-    {needle && !visiblePlans.length ? <p className="text-xs text-neutral-500">No matching plan titles.</p> : null}
+    {plans.some((item) => !usablePlan(item)) ? <p role="status" className="text-xs text-tone-warning">Some stored plans could not be displayed.</p> : null}
+    {needle && !visiblePlans.length ? <p className="text-xs text-muted-foreground">No matching plan titles.</p> : null}
     <ol className="max-h-32 overflow-y-auto">{visiblePlans.map((plan) => <li key={plan.id} className="flex items-center gap-2">
-      <button type="button" disabled={busy} className="py-1 text-left text-xs text-sky-300" onClick={() => { void open(plan.id); }}>
+      <button type="button" disabled={busy} className="py-1 text-left text-xs text-primary" onClick={() => { void open(plan.id); }}>
         {plan.title}
-        <span className="ml-1 text-[10px] text-neutral-400">{plan.source === 'shared' || plan.shared ? 'shared' : 'personal'}</span>
+        <span className="ml-1 text-[length:var(--type-micro)] text-muted-foreground">{plan.source === 'shared' || plan.shared ? 'shared' : 'personal'}</span>
       </button>
-      {onTogglePin ? <button type="button" disabled={busy || pinBusy} className="py-1 text-[10px] text-amber-300"
+      {onTogglePin ? <button type="button" disabled={busy || pinBusy} className="py-1 text-[length:var(--type-micro)] text-tone-warning"
         aria-pressed={pinnedIDs?.includes(plan.id) ?? false}
         onClick={() => onTogglePin?.(plan.id, !pinnedIDs?.includes(plan.id))}>
         {pinnedIDs?.includes(plan.id) ? 'Pinned' : 'Pin'}
@@ -225,7 +225,7 @@ function PlanDraftEditor({ draft, setDraft, busy, create, save, remove, shared, 
   return draft.selectedId ? <div className="flex min-h-0 flex-1 flex-col gap-1">
     <label className="text-xs">Plan markdown<textarea aria-label="Saved plan markdown" value={draft.raw}
       onChange={(event) => setDraft((current) => ({ ...current, raw: event.target.value }))}
-      disabled={busy} className="mt-1 min-h-24 w-full flex-1 resize-y rounded border border-white/10 bg-neutral-900/40 p-2 text-xs" /></label>
+      disabled={busy} className="mt-1 min-h-24 w-full flex-1 resize-y rounded border border-border/10 bg-background/40 p-2 text-xs" /></label>
     <div className="flex gap-2 text-xs"><button type="button" disabled={busy} onClick={() => { void save(); }}>Save plan</button>
       <button type="button" disabled={busy} onClick={() => { void remove(); }}>Delete plan</button>
       <button type="button" disabled={busy} className="ml-2" onClick={() => { void share(shared ? 'unshare' : 'share'); }}>
@@ -234,9 +234,9 @@ function PlanDraftEditor({ draft, setDraft, busy, create, save, remove, shared, 
       <button type="button" disabled={busy} onClick={close}>Close</button></div>
   </div> : <div className="flex flex-col gap-1">
     <input aria-label="New plan title" value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-      disabled={busy} maxLength={200} className="rounded border border-white/10 bg-neutral-900/40 p-2 text-xs" />
+      disabled={busy} maxLength={200} className="rounded border border-border/10 bg-background/40 p-2 text-xs" />
     <textarea aria-label="New plan body" value={draft.body} onChange={(event) => setDraft((current) => ({ ...current, body: event.target.value }))}
-      disabled={busy} className="min-h-24 resize-y rounded border border-white/10 bg-neutral-900/40 p-2 text-xs" />
+      disabled={busy} className="min-h-24 resize-y rounded border border-border/10 bg-background/40 p-2 text-xs" />
     <button type="button" disabled={busy || !draft.title.trim()} className="self-end text-xs" onClick={() => { void create(); }}>Create plan</button>
   </div>;
 }

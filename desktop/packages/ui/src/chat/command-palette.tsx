@@ -86,24 +86,24 @@ export function CommandPalette(props: CommandPaletteProps): ReactNode {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[12vh]" data-testid="command-palette"
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-popover/50 pt-[12vh]" data-testid="command-palette"
       onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
-      <div className="w-[min(560px,92vw)] overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl">
+      <div className="w-[min(560px,92vw)] overflow-hidden rounded-xl border border-border bg-background shadow-2xl">
         <input ref={inputRef} data-testid="command-palette-input" value={query} placeholder="Type a command…"
-          className="w-full border-b border-neutral-800 bg-transparent px-4 py-3 text-sm text-neutral-100 outline-none"
+          className="w-full border-b border-border bg-transparent px-4 py-3 text-sm text-foreground outline-none"
           onChange={(event) => setQuery(event.target.value)} onKeyDown={onKeyDown} role="combobox"
           aria-expanded aria-controls="command-palette-list" aria-label="Command palette" />
         <ul id="command-palette-list" role="listbox" className="max-h-[50vh] overflow-y-auto py-1">
           {commands.map((command, at) => (
             <li key={command.id} role="option" aria-selected={at === selected}>
               <button type="button" data-testid="command-palette-item"
-                className={`flex w-full items-center px-4 py-2 text-left text-[13px] ${at === selected ? 'bg-neutral-800 text-neutral-100' : 'text-neutral-300'}`}
+                className={`flex w-full items-center px-4 py-2 text-left text-[length:var(--type-markdown)] ${at === selected ? 'bg-card text-foreground' : 'text-muted-foreground'}`}
                 onMouseEnter={() => setSelected(at)} onClick={() => run(command)}>
                 <span className="min-w-0 flex-1 truncate">{command.label}</span>
               </button>
             </li>
           ))}
-          {commands.length === 0 ? <li className="px-4 py-3 text-[13px] text-neutral-500" data-testid="command-palette-empty">No matching command</li> : null}
+          {commands.length === 0 ? <li className="px-4 py-3 text-[length:var(--type-markdown)] text-muted-foreground" data-testid="command-palette-empty">No matching command</li> : null}
         </ul>
       </div>
     </div>

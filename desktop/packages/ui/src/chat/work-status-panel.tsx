@@ -23,6 +23,7 @@ import { setSessionMessagePinned, messagePinnedState } from './context-message-p
 import { useSessionOrgStore } from '../stores/useSessionOrgStore.ts';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionKnowledgeSummary } from './session-knowledge-summary.ts';
+import { Bar, Box, Row } from '../components/ui/primitives.tsx';
 
 const PANEL_WIDTH = 300;
 
@@ -60,7 +61,7 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
     directory: selectedSession?.directory ?? '',
     sessionID: sessionID ?? '',
   });
-  if (!sessionID) return <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} p-3 text-xs text-neutral-500`}
+  if (!sessionID) return <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} p-3 text-xs text-muted-foreground`}
     data-testid="work-status-panel">Select a session to inspect its NNA context.</aside>;
 
   // model limit resolves from the provider catalog; unknown model hides Context
@@ -176,10 +177,10 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
   }
   if (subagents.length > 0) {
     sections.push({ id: 'subagents', label: 'Subagents', rows: subagents.map((agent) => onOpenSubagent
-      ? <button key={agent.sessionID} type="button" className="flex w-full items-baseline justify-between gap-2 rounded px-1 py-1 text-left text-[11px] hover:bg-white/5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400"
+      ? <button key={agent.sessionID} type="button" className="flex w-full items-baseline justify-between gap-2 rounded px-1 py-1 text-left text-[length:var(--type-meta)] hover:bg-card/5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-border"
           aria-label={`Open ${agent.title} subagent transcript`} onClick={() => onOpenSubagent(agent.sessionID)}>
-          <span className="min-w-0 truncate text-sky-300">{agent.title}</span>
-          <span className="min-w-0 truncate text-right text-neutral-500">{agent.statusPhrase}{agent.cost ? ` · ${formatMoney(agent.cost)}` : ''}</span>
+          <span className="min-w-0 truncate text-primary">{agent.title}</span>
+          <span className="min-w-0 truncate text-right text-muted-foreground">{agent.statusPhrase}{agent.cost ? ` · ${formatMoney(agent.cost)}` : ''}</span>
         </button>
       : row(agent.title, `${agent.statusPhrase}${agent.cost ? ` · ${formatMoney(agent.cost)}` : ''}`)) });
   }
@@ -197,9 +198,9 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
     const knowledgeRows: (ReactNode | null)[] = [];
     for (const note of knowledge.summary?.notes ?? []) {
       knowledgeRows.push(
-        <div key={`note-${note.id}`} className="flex items-start justify-between gap-2 text-[11px]" data-testid={`ws-knowledge-note-${note.id}`}>
-          <span className="min-w-0 flex-1 break-words text-neutral-300">{shortKnowledgeText(note.body)}</span>
-          <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-neutral-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400 disabled:opacity-50"
+        <div key={`note-${note.id}`} className="flex items-start justify-between gap-2 text-[length:var(--type-meta)]" data-testid={`ws-knowledge-note-${note.id}`}>
+          <span className="min-w-0 flex-1 break-words text-muted-foreground">{shortKnowledgeText(note.body)}</span>
+          <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground hover:bg-card/10 focus-visible:outline focus-visible:outline-1 focus-visible:outline-border disabled:opacity-50"
             disabled={knowledgePinAction === `note:${note.id}`}
             onClick={() => void unpinKnowledge('note', note.id)}>Unpin</button>
         </div>,
@@ -207,9 +208,9 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
     }
     for (const plan of knowledge.summary?.plans ?? []) {
       knowledgeRows.push(
-        <div key={`plan-${plan.id}`} className="flex items-start justify-between gap-2 text-[11px]" data-testid={`ws-knowledge-plan-${plan.id}`}>
-          <span className="min-w-0 flex-1 break-words text-neutral-300">{shortKnowledgeText(plan.title)}</span>
-          <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-neutral-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400 disabled:opacity-50"
+        <div key={`plan-${plan.id}`} className="flex items-start justify-between gap-2 text-[length:var(--type-meta)]" data-testid={`ws-knowledge-plan-${plan.id}`}>
+          <span className="min-w-0 flex-1 break-words text-muted-foreground">{shortKnowledgeText(plan.title)}</span>
+          <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground hover:bg-card/10 focus-visible:outline focus-visible:outline-1 focus-visible:outline-border disabled:opacity-50"
             disabled={knowledgePinAction === `plan:${plan.id}`}
             onClick={() => void unpinKnowledge('plan', plan.id)}>Unpin</button>
         </div>,
@@ -268,19 +269,22 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
     <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} shrink-0 flex-col overflow-y-auto p-3`} style={{ maxWidth: embedded ? undefined : PANEL_WIDTH }} data-testid="work-status-panel">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3" data-testid="context-reading-column">
       {selectedSession ? <header className={expanded ? 'px-1 py-3' : 'px-1 py-1'} data-testid="context-session-header">
-        <h2 className={`truncate font-medium text-neutral-200 ${expanded ? 'text-base' : 'text-sm'}`}>{selectedSession.title}</h2>
-        {routeLabel ? <p className="mt-1 truncate text-xs text-neutral-500">{routeLabel}</p> : null}
+        <h2 className={`truncate font-medium text-foreground ${expanded ? 'text-base' : 'text-sm'}`}>{selectedSession.title}</h2>
+        {routeLabel ? <p className="mt-1 truncate text-xs text-muted-foreground">{routeLabel}</p> : null}
       </header> : null}
       {configuredModel.nnaConfigured && selectedSession && !selectedSession.parentID ? <ReviewModeControl sessionID={sessionID}
         busy={statusById[sessionID]?.type !== undefined && statusById[sessionID]?.type !== 'idle'} /> : null}
-      {(nnaContext || context.tokens || expanded && messages.length > 0) ? <section className={`rounded-lg border border-white/10 bg-neutral-900/40 ${expanded ? 'p-4' : 'p-3'}`} aria-label="Session usage" data-testid="context-usage-summary">
-        <h3 className="text-xs font-medium text-neutral-300">Session usage</h3>
-        {nnaContext || context.tokens ? <div className="mt-3">
-          <div className="flex justify-between gap-3 text-[11px] text-neutral-500"><span>Context</span><span>{nnaContext
-            ? `${nnaContext.estimatedTokens.toLocaleString(intlLocale)} estimated tokens${nnaContext.limitTokens ? ` / ${nnaContext.limitTokens.toLocaleString(intlLocale)} limit` : ' · limit unknown'}`
-            : `${context.tokens?.total?.toLocaleString(intlLocale) ?? 'Usage reported'} reported tokens${context.percent === null ? ' · limit unknown' : ` · ${context.percent.toFixed(1)}% of model limit`}`}</span></div>
-          {contextPercent !== null ? <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label="Context used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, contextPercent))}>
-            <div className="h-full bg-amber-500" style={{ width: `${Math.min(100, Math.max(0, contextPercent))}%` }} />
+      {(nnaContext || context.tokens || expanded && messages.length > 0) ? <section className={`rounded-lg border border-border/10 bg-background/40 ${expanded ? 'p-4' : 'p-3'}`} aria-label="Session usage" data-testid="context-usage-summary">
+        <h3 className="text-xs font-medium text-muted-foreground">Session usage</h3>
+        {nnaContext || context.tokens ? <div className="mt-[var(--space-3)]">
+          <Row
+            label="Context"
+            value={nnaContext
+              ? `${nnaContext.estimatedTokens.toLocaleString(intlLocale)} estimated tokens${nnaContext.limitTokens ? ` / ${nnaContext.limitTokens.toLocaleString(intlLocale)} limit` : ' · limit unknown'}`
+              : `${context.tokens?.total?.toLocaleString(intlLocale) ?? 'Usage reported'} reported tokens${context.percent === null ? ' · limit unknown' : ` · ${context.percent.toFixed(1)}% of model limit`}`}
+          />
+          {contextPercent !== null ? <div className="mt-[var(--space-2)]" role="progressbar" aria-label="Context used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(contextPercent)}>
+            <Bar value={Math.min(100, Math.max(0, contextPercent))} max={100} color="var(--tone-warning)" />
           </div> : null}
         </div> : null}
         {expanded ? <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -289,24 +293,24 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
           {messages.length > 0 ? <UsageFact label="Loaded assistant" value={messages.filter((message) => message.role === 'assistant').length.toLocaleString(intlLocale)} /> : null}
           {cost > 0 ? <UsageFact label="Recorded cost" value={formatMoney(cost)} /> : null}
         </div> : null}
-        {expanded && tokenFacts.length > 0 ? <div className="mt-4 border-t border-white/10 pt-3" data-testid="context-last-assistant-usage">
-          <h4 className="mb-2 text-[11px] text-neutral-400">Last assistant message · reported tokens</h4>
+        {expanded && tokenFacts.length > 0 ? <div className="mt-4 border-t border-border/10 pt-3" data-testid="context-last-assistant-usage">
+          <h4 className="mb-2 text-[length:var(--type-meta)] text-muted-foreground">Last assistant message · reported tokens</h4>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{tokenFacts.map((fact) => <UsageFact key={fact.label} {...fact} />)}</div>
         </div> : null}
       </section> : null}
-      {expanded && ledger.length > 0 ? <section className="rounded-lg border border-white/10 bg-neutral-900/40 p-3" aria-label="Loaded message ledger" data-testid="context-message-ledger">
-        <header className="mb-2 flex items-center justify-between gap-2 text-[11px]">
-          <h3 className="font-medium text-neutral-300">Message ledger</h3>
-          <span className="text-neutral-500">{messages.length > MAX_LEDGER_ROWS ? `Newest ${MAX_LEDGER_ROWS} of ${messages.length} loaded` : `${messages.length} loaded`}</span>
+      {expanded && ledger.length > 0 ? <section className="rounded-lg border border-border/10 bg-background/40 p-3" aria-label="Loaded message ledger" data-testid="context-message-ledger">
+        <header className="mb-2 flex items-center justify-between gap-2 text-[length:var(--type-meta)]">
+          <h3 className="font-medium text-muted-foreground">Message ledger</h3>
+          <span className="text-muted-foreground">{messages.length > MAX_LEDGER_ROWS ? `Newest ${MAX_LEDGER_ROWS} of ${messages.length} loaded` : `${messages.length} loaded`}</span>
         </header>
-        {messagePinIDs.size > 0 ? <div className="mb-2 text-[11px] text-neutral-400" data-testid="context-pin-count">{messagePinIDs.size} saved context {messagePinIDs.size === 1 ? 'pin' : 'pins'}</div> : null}
-        {pinError ? <p className="mb-2 text-[10px] text-amber-400" data-testid="context-pin-error">{pinError}</p> : null}
-        <p className="mb-2 text-[10px] text-neutral-600">Part kinds and reported tokens only; message content is not shown here.</p>
-        <ol className="space-y-1" aria-label="Loaded messages, newest first">{ledger.map((item) => <li key={item.id} className="flex items-center gap-2 rounded bg-white/[0.03] px-2 py-1.5 text-[10px] text-neutral-400">
+        {messagePinIDs.size > 0 ? <div className="mb-2 text-[length:var(--type-meta)] text-muted-foreground" data-testid="context-pin-count">{messagePinIDs.size} saved context {messagePinIDs.size === 1 ? 'pin' : 'pins'}</div> : null}
+        {pinError ? <p className="mb-2 text-[length:var(--type-micro)] text-tone-warning" data-testid="context-pin-error">{pinError}</p> : null}
+        <p className="mb-2 text-[length:var(--type-micro)] text-foreground">Part kinds and reported tokens only; message content is not shown here.</p>
+        <ol className="space-y-1" aria-label="Loaded messages, newest first">{ledger.map((item) => <li key={item.id} className="flex items-center gap-2 rounded bg-card/[0.03] px-2 py-1.5 text-[length:var(--type-micro)] text-muted-foreground">
           <span className="min-w-0 flex-1 truncate" title={`${item.role} · ${item.kinds}`}>{item.role} · {item.kinds}</span>
-          {item.input !== null || item.output !== null ? <span className="shrink-0 tabular-nums text-neutral-500" aria-label="Reported input and output tokens">{item.input === null ? '—' : item.input.toLocaleString(intlLocale)} / {item.output === null ? '—' : item.output.toLocaleString(intlLocale)}</span> : null}
-          {item.created !== null ? <time className="shrink-0 text-neutral-600" dateTime={new Date(item.created).toISOString()}>{new Date(item.created).toLocaleTimeString(intlLocale, { hour: 'numeric', minute: '2-digit' })}</time> : null}
-          <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-neutral-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400 disabled:opacity-50"
+          {item.input !== null || item.output !== null ? <span className="shrink-0 tabular-nums text-muted-foreground" aria-label="Reported input and output tokens">{item.input === null ? '—' : item.input.toLocaleString(intlLocale)} / {item.output === null ? '—' : item.output.toLocaleString(intlLocale)}</span> : null}
+          {item.created !== null ? <time className="shrink-0 text-foreground" dateTime={new Date(item.created).toISOString()}>{new Date(item.created).toLocaleTimeString(intlLocale, { hour: 'numeric', minute: '2-digit' })}</time> : null}
+          <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-[length:var(--type-micro)] text-muted-foreground hover:bg-card/10 focus-visible:outline focus-visible:outline-1 focus-visible:outline-border disabled:opacity-50"
             aria-pressed={messagePinIDs.has(item.id)}
             disabled={pinAction?.sessionID === sessionID && pinAction.messageID === item.id}
             onClick={() => void toggleMessagePin(item.id, !messagePinIDs.has(item.id))}>
@@ -314,32 +318,33 @@ export function WorkStatusPanel({ store, engine, embedded = false, expanded = fa
           </button>
         </li>)}</ol>
       </section> : null}
-      {!hasSessionDetails ? <div className="text-[11px] text-neutral-500">NNA context details are not available for this session yet.</div> : null}
-      {sections.length > 0 && visibleSections.length === 0 ? <div className="text-[11px] text-neutral-500">All sections hidden</div> : null}
+      {!hasSessionDetails ? <div className="text-[length:var(--type-meta)] text-muted-foreground">NNA context details are not available for this session yet.</div> : null}
+      {sections.length > 0 && visibleSections.length === 0 ? <div className="text-[length:var(--type-meta)] text-muted-foreground">All sections hidden</div> : null}
       <div className={`${expanded ? 'grid grid-cols-1 gap-3 md:grid-cols-2' : 'flex flex-col gap-3'}`}>
       {visibleSections.map((section) => (
-        <section key={section.id} className="rounded-lg border border-white/10 bg-neutral-900/40 p-2" data-testid={`ws-${section.id}`}>
+        <section key={section.id} className="rounded-lg border border-border/10 bg-background/40 p-2" data-testid={`ws-${section.id}`}>
           <header className="mb-1 flex items-center justify-between">
-            <h3 className="text-[10px] font-medium uppercase tracking-wide text-neutral-500">{section.label}</h3>
-            <button type="button" aria-label={`Hide ${section.label}`} className="text-[10px] text-neutral-700 hover:text-neutral-400" onClick={() => setHidden([...hidden, section.id])}>×</button>
+            <h3 className="text-[length:var(--type-micro)] font-medium uppercase tracking-wide text-muted-foreground">{section.label}</h3>
+            <button type="button" aria-label={`Hide ${section.label}`} className="text-[length:var(--type-micro)] text-foreground hover:text-muted-foreground" onClick={() => setHidden([...hidden, section.id])}>×</button>
           </header>
           <div className="flex flex-col gap-1">{section.rows.filter(Boolean).map((row, index) => <div key={index}>{row}</div>)}</div>
         </section>
       ))}
       </div>
       {hidden.length > 0 ? (
-        <footer><button type="button" className="text-[10px] text-neutral-600 underline" onClick={() => setHidden([])}>Restore sections</button></footer>
+        <footer><button type="button" className="text-[length:var(--type-micro)] text-foreground underline" onClick={() => setHidden([])}>Restore sections</button></footer>
       ) : null}
       </div>
     </aside>
   );
 
-  function row(label: string, value: string | null, extraClass = ''): ReactNode {
+  function row(label: string, value: string | null, extraClass = '', tone?: 'warning' | 'error'): ReactNode {
     if (value === null || value.length === 0) return null;
+    // One labelled row unit for every readout in this panel: a number without
+    // a name is unreadable at a glance (docs/planning/desktop-ui-visual-system.md §6.5).
     return (
-      <div className="flex items-baseline justify-between gap-2 text-[11px]" data-testid={`ws-row-${label.toLowerCase().replace(/\W+/g, '-')}`}>
-        <span className="min-w-0 shrink text-neutral-500">{label}</span>
-        <span className={`min-w-0 truncate text-right text-neutral-300 ${extraClass}`}>{value}</span>
+      <div data-testid={`ws-row-${label.toLowerCase().replace(/\W+/g, '-')}`} className={extraClass}>
+        <Row label={label} value={value} tone={tone} />
       </div>
     );
   }
@@ -354,7 +359,14 @@ function shortKnowledgeText(value: string): string {
 }
 
 function UsageFact({ label, value }: { label: string; value: string }): ReactNode {
-  return <div className="rounded-md bg-white/[0.03] px-3 py-2"><div className="text-[10px] text-neutral-500">{label}</div><div className="mt-1 text-xs text-neutral-200">{value}</div></div>;
+  // A stat is a box with a named value: the label reads first, and the number
+  // is tabular so figures line up across the row.
+  return (
+    <Box className="!p-[var(--space-2)]">
+      <div className="text-[length:var(--type-micro)] text-muted-foreground">{label}</div>
+      <div className="mt-[var(--space-1)] text-[length:var(--type-meta)] tabular-nums text-foreground">{value}</div>
+    </Box>
+  );
 }
 
 function turnPhaseLabel(phase: string): string {

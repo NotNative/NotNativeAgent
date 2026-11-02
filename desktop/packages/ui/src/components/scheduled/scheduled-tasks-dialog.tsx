@@ -48,10 +48,10 @@ function relativeTo(file: string, directory: string): string {
 }
 
 function badgeClass(status: TaskState['lastStatus']): string {
-  if (status === 'success') return 'bg-emerald-900/50 text-emerald-300';
-  if (status === 'error') return 'bg-red-900/40 text-red-300';
-  if (status === 'running') return 'bg-amber-900/40 text-amber-300';
-  return 'bg-neutral-800 text-neutral-400';
+  if (status === 'success') return 'bg-tone-success/50 text-tone-success';
+  if (status === 'error') return 'bg-tone-error/40 text-tone-error';
+  if (status === 'running') return 'bg-tone-warning/40 text-tone-warning';
+  return 'bg-card text-muted-foreground';
 }
 
 function atText(at: number | undefined, label: string): string {
@@ -128,22 +128,22 @@ function TasksPanel({
   const text = useScheduledText();
   return (
     <div role="dialog" aria-label={text.title} tabIndex={0} data-testid="scheduled-tasks-dialog"
-      className="absolute inset-0 z-30 flex items-start justify-center bg-black/50 p-10"
+      className="absolute inset-0 z-30 flex items-start justify-center bg-popover/50 p-10"
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose();
       }}>
-      <div className="flex max-h-[75vh] w-full max-w-3xl flex-col rounded-xl border border-white/10 bg-neutral-950 p-3">
+      <div className="flex max-h-[75vh] w-full max-w-3xl flex-col rounded-xl border border-border/10 bg-popover p-3">
       <TasksHeader roster={roster} projectId={projectId} onProjectChange={onProjectChange} onClose={onClose}
           onHeaderNew={onHeaderNew} text={text} />
-        {error !== null ? <div className="p-3 text-[12px] text-red-300" data-testid="scheduled-error">{error}</div> : null}
+        {error !== null ? <div className="p-3 text-[length:var(--type-meta)] text-tone-error" data-testid="scheduled-error">{error}</div> : null}
         {!loading && error === null && tasks.length === 0 ? (
-          <div className="p-4 text-[12px] text-neutral-600" data-testid="scheduled-empty">{text.empty}</div>
+          <div className="p-4 text-[length:var(--type-meta)] text-foreground" data-testid="scheduled-empty">{text.empty}</div>
         ) : null}
         <div className="min-h-0 flex-1 overflow-y-auto">
           <TaskRows tasks={tasks} projectId={projectId} directory={directory} busyTaskId={busyTaskId} busy={busy}
             onEdit={onEdit} text={text} />
         </div>
-        <footer className="mt-2 border-t border-white/10 pt-2 text-[10px] text-neutral-600">
+        <footer className="mt-2 border-t border-border/10 pt-2 text-[length:var(--type-micro)] text-foreground">
           {interpolateText(tasks.length === 1 ? text.taskCountOne : text.taskCountMany, { count: tasks.length })} · {text.footerLoopFiles}
         </footer>
       </div>
@@ -161,19 +161,19 @@ function TasksHeader({ roster, projectId, onProjectChange, onClose, onHeaderNew,
 }): ReactNode {
   return (
     <div className="mb-2 flex items-center gap-2">
-      <strong className="text-[13px] text-neutral-100">{text.title}</strong>
+      <strong className="text-[length:var(--type-markdown)] text-foreground">{text.title}</strong>
       <select aria-label={text.projectLabel} data-testid="scheduled-project-select" value={projectId}
         onChange={(event) => onProjectChange(event.target.value)}
-        className="ml-auto rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-[12px] text-neutral-200 outline-none">
+        className="ml-auto rounded-lg border border-border/10 bg-background px-2 py-1 text-[length:var(--type-meta)] text-foreground outline-none">
         {roster.map((project) => (
           <option key={project.id} value={project.id}>{project.id}</option>
         ))}
       </select>
       {onHeaderNew !== null ? (
         <button type="button" data-testid="task-new" title={text.newTaskTitle}
-          className="rounded bg-sky-800 px-2 py-1 text-[11px] text-white hover:bg-sky-700" onClick={onHeaderNew}>{text.newButton}</button>
+          className="rounded bg-primary px-2 py-1 text-[length:var(--type-meta)] text-foreground hover:bg-primary" onClick={onHeaderNew}>{text.newButton}</button>
       ) : null}
-      <button type="button" aria-label={text.close} className="rounded px-2 py-1 text-[12px] text-neutral-400 hover:text-white" onClick={onClose}>×</button>
+      <button type="button" aria-label={text.close} className="rounded px-2 py-1 text-[length:var(--type-meta)] text-muted-foreground hover:text-foreground" onClick={onClose}>×</button>
     </div>
   );
 }
@@ -226,11 +226,11 @@ function TaskRow({
   const loop = task.loopFile !== undefined;
   const loopWithin = loop && withinDir(task.loopFile ?? '', directory);
   return (
-    <div className="flex items-start gap-2 rounded-lg px-2 py-2 hover:bg-white/5" data-testid="scheduled-task-row">
+    <div className="flex items-start gap-2 rounded-lg px-2 py-2 hover:bg-card/5" data-testid="scheduled-task-row">
       <button type="button" aria-label={interpolateText(text.toggle, { name: task.name })} data-testid="task-toggle"
         disabled={busy}
         aria-pressed={task.enabled}
-        className={`mt-0.5 rounded px-1.5 py-0.5 text-[10px] ${task.enabled ? 'bg-emerald-900/50 text-emerald-300' : 'bg-neutral-800 text-neutral-500'} disabled:opacity-40`}
+        className={`mt-0.5 rounded px-1.5 py-0.5 text-[length:var(--type-micro)] ${task.enabled ? 'bg-tone-success/50 text-tone-success' : 'bg-card text-muted-foreground'} disabled:opacity-40`}
         onClick={onToggle}>
         {task.enabled ? text.on : text.off}
       </button>
@@ -247,15 +247,15 @@ function TaskNameBlock({ task, text }: { task: ScheduledTaskView; text: Schedule
   return (
     <div className="min-w-0 flex-1">
       <div className="flex items-center gap-2">
-        <span className="text-[12px] text-neutral-200">{task.name}</span>
-        <span className={`rounded px-1.5 py-0.5 text-[9px] uppercase ${badgeClass(task.state.lastStatus)}`} data-testid="task-badge">{scheduleStatusLabel(task.state.lastStatus, text)}</span>
+        <span className="text-[length:var(--type-meta)] text-foreground">{task.name}</span>
+        <span className={`rounded px-1.5 py-0.5 text-[length:var(--type-micro)] uppercase ${badgeClass(task.state.lastStatus)}`} data-testid="task-badge">{scheduleStatusLabel(task.state.lastStatus, text)}</span>
         {task.loopFile !== undefined ? (
-          <span className="rounded bg-indigo-900/40 px-1.5 py-0.5 text-[9px] text-indigo-300" title={task.loopFile} data-testid="task-loop-chip">{text.loopChip}</span>
+          <span className="rounded bg-primary/40 px-1.5 py-0.5 text-[length:var(--type-micro)] text-primary" title={task.loopFile} data-testid="task-loop-chip">{text.loopChip}</span>
         ) : null}
-        {task.execution.goalEnabled ? <span className="rounded bg-sky-900/40 px-1.5 py-0.5 text-[9px] text-sky-300">{text.goalChip}</span> : null}
+        {task.execution.goalEnabled ? <span className="rounded bg-primary/40 px-1.5 py-0.5 text-[length:var(--type-micro)] text-primary">{text.goalChip}</span> : null}
       </div>
-      <div className="text-[10px] text-neutral-500">{scheduleLabel(task.schedule, text)}</div>
-      <div className="text-[10px] text-neutral-600">
+      <div className="text-[length:var(--type-micro)] text-muted-foreground">{scheduleLabel(task.schedule, text)}</div>
+      <div className="text-[length:var(--type-micro)] text-foreground">
         {atText(task.state.nextRunAt, text.next)}{task.state.nextRunAt !== undefined && task.state.lastRunAt !== undefined ? ' · ' : ''}
         {atText(task.state.lastRunAt, text.last)}
       </div>
@@ -284,21 +284,21 @@ function RowActions({
   return (
     <>
       <button type="button" aria-label={interpolateText(text.runAria, { name: task.name })} data-testid="task-run" disabled={busy}
-        className="rounded bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200 hover:bg-neutral-700 disabled:opacity-40" onClick={onRun}>{text.run}</button>
+        className="rounded bg-card px-2 py-1 text-[length:var(--type-micro)] text-foreground hover:bg-card disabled:opacity-40" onClick={onRun}>{text.run}</button>
       {onEdit !== null ? (
         <button type="button" aria-label={interpolateText(text.editAria, { name: task.name })} data-testid="task-edit" disabled={busy}
-          className="rounded px-2 py-1 text-[10px] text-neutral-400 hover:text-neutral-200 disabled:opacity-30" onClick={onEdit}>{text.edit}</button>
+          className="rounded px-2 py-1 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground disabled:opacity-30" onClick={onEdit}>{text.edit}</button>
       ) : null}
       {loop ? (
         <button type="button" aria-label={interpolateText(text.loopEditAria, { name: task.name })} data-testid="task-loop-edit" disabled={busy || !loopWithin}
-          className="rounded px-2 py-1 text-[10px] text-neutral-400 hover:text-neutral-200 disabled:opacity-30" title={task.loopFile} onClick={onLoopEdit}>{text.loopEdit}</button>
+          className="rounded px-2 py-1 text-[length:var(--type-micro)] text-muted-foreground hover:text-foreground disabled:opacity-30" title={task.loopFile} onClick={onLoopEdit}>{text.loopEdit}</button>
       ) : null}
       {loop && confirmDelete ? (
         <button type="button" aria-label={interpolateText(text.loopDeleteAria, { name: task.name })} data-testid="task-loop-confirm"
-          className="rounded bg-red-900/60 px-2 py-1 text-[10px] text-red-100" onClick={() => { setConfirmDelete(false); onLoopDelete(); }}>{text.loopDelete}</button>
+          className="rounded bg-tone-error/60 px-2 py-1 text-[length:var(--type-micro)] text-tone-error" onClick={() => { setConfirmDelete(false); onLoopDelete(); }}>{text.loopDelete}</button>
       ) : null}
       <button type="button" aria-label={interpolateText(text.deleteAria, { name: task.name })} data-testid="task-delete" disabled={busy}
-        className="rounded px-2 py-1 text-[10px] text-neutral-500 hover:text-red-300 disabled:opacity-40"
+        className="rounded px-2 py-1 text-[length:var(--type-micro)] text-muted-foreground hover:text-tone-error disabled:opacity-40"
         onClick={loop ? () => setConfirmDelete(true) : () => onDelete()}>×</button>
     </>
   );

@@ -66,22 +66,22 @@ export function BtwPanel(props: BtwPanelProps): ReactNode {
       throw new Error('Could not remove the BTW session');
     }
   };
-  return <div className="mx-auto flex w-full max-w-3xl items-center justify-between rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-2" data-testid="btw-panel">
+  return <div className="mx-auto flex w-full max-w-3xl items-center justify-between rounded-lg border border-tone-warning-border/20 bg-tone-warning/20 px-3 py-2" data-testid="btw-panel">
     <div>
-      <p className="text-sm text-amber-100">{props.session.title || 'BTW conversation'}</p>
-      <p className="text-[11px] text-amber-300/70">{(useOrgPath
+      <p className="text-sm text-tone-warning">{props.session.title || 'BTW conversation'}</p>
+      <p className="text-[length:var(--type-meta)] text-tone-warning/70">{(useOrgPath
         ? parentRecord?.btwChildOf === props.childSessionID
         : metadataSessionID(props.session.metadata) === props.childSessionID)
         ? 'Active BTW fork' : 'Submission BTW fork'}</p>
     </div>
     <div className="flex items-center gap-2">
-      <button type="button" className="rounded border border-white/15 px-2 py-1 text-xs text-neutral-200 hover:border-white/30"
+      <button type="button" className="rounded border border-border/15 px-2 py-1 text-xs text-foreground hover:border-border/30"
         data-testid="btw-promote"
           onClick={() => { void promote().catch((error: unknown) => toast.error(errorMessage(error))); }}>Promote</button>
-      <button type="button" className="rounded border border-red-500/40 px-2 py-1 text-xs text-red-200 hover:border-red-400"
+      <button type="button" className="rounded border border-tone-error-border/40 px-2 py-1 text-xs text-tone-error hover:border-tone-error-border"
         data-testid="btw-destroy"
       onClick={() => { void destroy().catch((error: unknown) => toast.error(errorMessage(error))); }}>Remove</button>
-      <button type="button" className="rounded border border-blue-500/30 px-2 py-1 text-xs text-blue-200 hover:border-blue-400"
+      <button type="button" className="rounded border border-border/30 px-2 py-1 text-xs text-primary hover:border-border"
         onClick={() => props.onSelectSession(props.childSessionID, normalizeDirectory(props.directory))}>Open</button>
     </div>
   </div>;
