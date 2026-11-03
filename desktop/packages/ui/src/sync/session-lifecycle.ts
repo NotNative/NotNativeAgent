@@ -52,7 +52,12 @@ export async function createSession(engine: EngineServices, input: { directory: 
     ...(input.startFingerprint ? { start_fingerprint: input.startFingerprint } : {}),
     ...(input.parentID ? { parentID: input.parentID } : {}) });
   if (result.error || !result.data) throw Object.assign(new Error(result.error ?? 'createSession failed'), {
-    creationNotApplied: [400, 401, 403, 422].includes(result.response?.status ?? 0),
+    // Why: a refusal means NNA created nothing, so the caller may drop its
+    // pending start instead of locking the composer behind a recovery prompt
+    // that can never resolve. A 409 that still carries a session is a race
+    // that produced one, so it keeps the start.
+    creationNotApplied: [400, 401, 403, 422].includes(result.response?.status ?? 0)
+      || (result.response?.status === 409 && !result.data),
   });
   const session = result.data;
   assertCreatedSessionAuthority(session.id);

@@ -328,6 +328,14 @@ export function registerNativeWorkspaceAdmissionRoute(app: Hono): void {
           }
           directory = selected.directory; workspaceId = selected.workspace_id;
         }
+        // Why: an admitted folder still needs the id NNA gave it. Without the
+        // id a session create is checked against NNA's single attached folder,
+        // which refuses every other admitted workspace. Best effort: an
+        // unreadable inventory leaves the path-only answer the caller already
+        // handles.
+        if (directory && !workspaceId) {
+          workspaceId = await admitSelectedWorkspace(directory).then(row => row.workspace_id).catch(() => undefined);
+        }
       }
       if (!directory) throw new WorkspaceAdmissionError('Workspace path is invalid.', 400);
       return c.json({ directory, ...(workspaceId ? { workspace_id: workspaceId } : {}) });

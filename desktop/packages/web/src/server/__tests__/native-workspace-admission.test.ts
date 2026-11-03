@@ -164,6 +164,22 @@ it('forks in the admitted parent workspace and refuses conflicting selection bef
   expect(writes).toBe(1);
 });
 
+it('uses the attached workspace ID for the attached root, so a session create names its workspace', async () => {
+  const attachedId = `ws_${'c'.repeat(24)}`;
+  registerHarnessAdapter({ handle: async request => {
+    const path = new URL(request.url).pathname;
+    if (path === '/api/path') return Response.json({ directory: rootA, worktree: rootA });
+    if (path === '/api/v1/nnd/workspaces/admissions') return Response.json({ selection_enabled: true,
+      attached: { root: rootA, id: attachedId }, admitted: [] });
+    return new Response(null, { status: 404 });
+  } });
+  const app = new Hono(); registerNativeWorkspaceAdmissionRoute(app);
+  const admitted = await app.request(`/api/native-workspace/admission?directory=${encodeURIComponent(rootA)}`);
+  expect(admitted.status).toBe(200);
+  // Without this id a create is checked against NNA's attached folder alone.
+  expect(await admitted.json()).toEqual({ directory: rootA, workspace_id: attachedId });
+});
+
 it('uses the native admitted ID for a second root and checks the created session', async () => {
   const selectedId = `ws_${'a'.repeat(24)}`;
   const seen: { directory?: string; workspace_id?: string }[] = [];

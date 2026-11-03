@@ -19,6 +19,28 @@ const engine = { ensureChild: insert, registerSessionRoute: route, loaderInitial
   onSelectSession: selection } as unknown as EngineServices;
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(runtimeFetch).mockResolvedValue(admission(rootA)); });
 
+it('marks a 409 refusal as not applied so the composer can drop its pending start', async () => {
+  vi.mocked(harnessClient.createSession).mockResolvedValue({ error: 'NNA refused the workspace',
+    response: { status: 409 } as never });
+  await expect(createSession(engine, { directory: rootA })).rejects.toMatchObject({ creationNotApplied: true });
+});
+
+it('keeps the pending start when a 409 still returned a session', async () => {
+  const race = { id: 'ses_race', directory: rootB };
+  vi.mocked(harnessClient.createSession).mockResolvedValue({ data: race as never, error: 'workspace changed',
+    response: { status: 409 } as never });
+  await expect(createSession(engine, { directory: rootA })).rejects.toMatchObject({ creationNotApplied: false });
+});
+
+it('frees the composer when the conversation exists under the same operation ID', async () => {
+  // NNA keeps the session id derived from the operation id, so a retry whose
+  // settings changed is refused with desktop_session_exists. That session
+  // already exists: nothing new was made, so the pending start may clear.
+  vi.mocked(harnessClient.createSession).mockResolvedValue({ error: 'Conversation settings changed under the same operation ID',
+    response: { status: 409 } as never });
+  await expect(createSession(engine, { directory: rootA })).rejects.toMatchObject({ creationNotApplied: true });
+});
+
 it('refuses a second selected repository before any native session creation', async () => {
   vi.mocked(runtimeFetch).mockResolvedValue(new Response(JSON.stringify({ error: { message: `NNA is attached to ${rootA}. Select that workspace or reconfigure NNA before creating a session.` } }), { status: 409 }));
   await expect(createSession(engine, { directory: rootB })).rejects.toThrow(`NNA is attached to ${rootA}`);
