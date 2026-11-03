@@ -25,13 +25,24 @@ import { OperatorIcon } from './operator-icons.tsx';
 import { resolveContextProjectId } from './operator-context-project.ts';
 import { panelOpenStorageKey, readPanelOpen } from './operator-panel-open.ts';
 import { maxRailWidth } from './operator-rail-width.ts';
+import { ensureWorkspaceAdmitted, inventoryAdmits } from './workspace-admit.ts';
+import { useWorkspaceStore } from '../stores/useWorkspaceStore.ts';
 import { useOperatorRailWidth } from './use-operator-rail-width.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { useContextRoute } from '../components/use-context-route.ts';
 export { resolveContextProjectId } from './operator-context-project.ts';
 
 type Surface = 'context' | 'activity' | 'changes' | 'files' | 'worktrees' | 'walkthrough' | 'notes' | 'browser' | 'terminal';
-const NATIVE_SURFACES: readonly Surface[] = ['context', 'activity', 'walkthrough'];
+/**
+ * The installed native alpha refuses local PTY creation until NNA has an
+ * authorized terminal root contract, so that one surface stays out. Every
+ * other surface reads or writes through routes NNA authorizes today: fs and
+ * git reads are allowed, mutations are checked against the admitted workspace,
+ * and Notes and Browser ride their own NND surfaces.
+ */
+const NATIVE_SURFACES: readonly Surface[] = ['context', 'activity', 'changes', 'files', 'worktrees', 'walkthrough', 'notes', 'browser'];
+/** Surfaces that read the workspace through fs or git, and so need admission. */
+const WORKSPACE_READING_SURFACES: readonly Surface[] = ['changes', 'files', 'worktrees'];
 const SURFACES: readonly { id: Surface; label: string }[] = [
   { id: 'context', label: 'Context' },
   { id: 'activity', label: 'Activity' },
@@ -170,7 +181,7 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, nat
   // exists for the governed bridge actions (F7).
   useEffect(() => {
     const request = () => {
-      if (nativeAlpha || selection.key !== selectionKey) return;
+      if (selection.key !== selectionKey) return;
       if (!panels.visible.includes('browser')) changePanels({ ...panels, visible: [...panels.visible, 'browser'] });
       setBrowserOpenedKey(storageKey);
       setPanelOpen(true);
@@ -178,7 +189,7 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, nat
     };
     window.addEventListener('nnd-browser-pane-request', request);
     return () => window.removeEventListener('nnd-browser-pane-request', request);
-  }, [selection.key, selectionKey, panels, changePanels, storageKey, nativeAlpha]); // panelOpen setter is stable
+  }, [selection.key, selectionKey, panels, changePanels, storageKey]); // panelOpen setter is stable
   // Keep opened views mounted across rail surfaces. A project switch remounts
   // Notes, while the single dirty-draft lease above survives that remount.
   const [terminalOpenedKey, setTerminalOpenedKey] = useState<string | null>(() => selection.surface === 'terminal' ? storageKey : null);
@@ -218,6 +229,29 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, nat
   useEffect(() => {
     if (selection.key === selectionKey && surface === 'worktrees') setWorktreesOpenedKey(changesIdentity);
   }, [changesIdentity, selection.key, selectionKey, surface]);
+  // Why: fs and git answer 409 until NNA has admitted the folder. Admitting it
+  // here, once per workspace and surface, is what makes the panel open instead
+  // of showing a retry that can never succeed. Reads stay NNA's decision.
+  //
+  // An inventory that has not loaded yet is not evidence of refusal: asking
+  // NNA to admit a folder it already admitted is a wasted round trip. Wait for
+  // the inventory to be ready before deciding.
+  const admittingRef = useRef(new Set<string>());
+  const [unadmitted, setUnadmitted] = useState<string | null>(null);
+  const inventoryReady = useWorkspaceStore((state) => state.phase === 'ready' || state.phase === 'error');
+  useEffect(() => {
+    if (selection.key !== selectionKey || !WORKSPACE_READING_SURFACES.includes(surface) || !inventoryReady) return;
+    const runtime = getRuntimeKey();
+    const target = `${runtime}\u0000${directory}`;
+    if (admittingRef.current.has(target)) return;
+    const known = useWorkspaceStore.getState().inventory;
+    if (known !== null && inventoryAdmits(known, directory)) { setUnadmitted(null); return; }
+    admittingRef.current.add(target);
+    void ensureWorkspaceAdmitted(directory).then((admitted) => {
+      // A runtime switch while the grant was in flight belongs to another host.
+      if (getRuntimeKey() === runtime) setUnadmitted(admitted ? null : directory);
+    });
+  }, [directory, inventoryReady, selection.key, selectionKey, surface]);
   // The 40px icon nav sits inside this aside's 1px border. Omitting that
   // border pixel makes the document itself scroll in both directions.
   const dockWidth = 41;
@@ -320,12 +354,21 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, nat
           persistLastActiveSession(sessionID, directory);
           useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
           if (compactOpen) onCloseCompact?.();
-        }} onReviewPath={nativeAlpha ? undefined : (path) => {
+        }} onReviewPath={(path) => {
           setChangesMode('git');
           setReviewRequest({ directory, path, id: Date.now(), runtimeKey: getRuntimeKey() });
           setSelection({ key: selectionKey, surface: 'changes' });
         }} /> : null}
-        {!nativeAlpha && (changesOpenedKey === changesIdentity || surface === 'changes') ? <div className={surface === 'changes' ? 'h-full min-h-0' : 'hidden'}>
+        {unadmitted !== null && WORKSPACE_READING_SURFACES.includes(surface) ? (
+          <div role="status" data-testid="operator-surface-unadmitted" className="shrink-0 border-b border-tone-warning-border/60 bg-tone-warning/20 p-3 text-xs text-tone-warning">
+            NNA has not admitted this folder, so {SURFACES.find((item) => item.id === surface)?.label} has nothing to read yet.
+            <button type="button" className="ml-2 underline" onClick={() => {
+              admittingRef.current.delete(`${getRuntimeKey()}\u0000${directory}`);
+              void ensureWorkspaceAdmitted(directory).then((admitted) => setUnadmitted(admitted ? null : directory));
+            }}>Try again</button>
+          </div>
+        ) : null}
+        {changesOpenedKey === changesIdentity || surface === 'changes' ? <div className={surface === 'changes' ? 'h-full min-h-0' : 'hidden'}>
           <div className={routedDiff || surface !== 'changes' ? 'hidden' : 'h-full min-h-0'}><GitView key={changesIdentity} directory={directory} draftScope={commitDraftScope(getRuntimeKey(), directory)} visible={surface === 'changes' && paneVisible && !routedDiff} compact reviewRequest={reviewRequest?.runtimeKey === getRuntimeKey() ? reviewRequest : null}
             activityStore={store} sessionID={walkthroughSessionId}
           onOpenWalkthrough={() => {
@@ -334,12 +377,12 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, nat
           }} /></div>
           {retainedDiff ? <div className={routedDiff ? 'h-full min-h-0' : 'hidden'}><DiffView key={changesIdentity} directory={directory} visible={surface === 'changes' && paneVisible && routedDiff} focusPath={diffRoute.path} focusRevision={diffRoute.revision} /></div> : null}
         </div> : null}
-        {!nativeAlpha && (filesOpenedKey === changesIdentity || surface === 'files') ? <div className={surface === 'files' ? 'h-full min-h-0' : 'hidden'}><OperatorFiles key={changesIdentity} directory={directory} visible={surface === 'files' && paneVisible} /></div> : null}
-        {!nativeAlpha && (worktreesOpenedKey === changesIdentity || surface === 'worktrees') ? <div className={surface === 'worktrees' ? 'h-full min-h-0' : 'hidden'}>
+        {filesOpenedKey === changesIdentity || surface === 'files' ? <div className={surface === 'files' ? 'h-full min-h-0' : 'hidden'}><OperatorFiles key={changesIdentity} directory={directory} visible={surface === 'files' && paneVisible} /></div> : null}
+        {worktreesOpenedKey === changesIdentity || surface === 'worktrees' ? <div className={surface === 'worktrees' ? 'h-full min-h-0' : 'hidden'}>
           <WorktreesView key={changesIdentity} projectRoot={directory} embedded visible={surface === 'worktrees' && paneVisible} />
         </div> : null}
         {surface === 'walkthrough' ? <WalkthroughPreviewSurface directory={directory} sessionId={walkthroughSessionId} visible={paneVisible} /> : null}
-        {!nativeAlpha && (notesOpenedKey === storageKey || surface === 'notes') ? (
+        {notesOpenedKey === storageKey || surface === 'notes' ? (
           <div className={surface === 'notes' ? 'h-full min-h-0' : 'hidden'}>
             <ProjectNotes key={storageKey} directory={directory} directoryKey={storageKey} projectId={projectId} visible={surface === 'notes' && paneVisible}
               contextDraft={projectId ? contextDrafts[projectId] : undefined} onContextDraftChange={retainContextDraft}
@@ -363,7 +406,7 @@ export function OperatorRail({ store, engine, directory, displayedSessionID, nat
             <TerminalView directory={directory} visible={surface === 'terminal' && paneVisible} compact />
           </div>
         ) : null}
-        {!nativeAlpha && (browserOpenedKey === storageKey || surface === 'browser') ? (
+        {browserOpenedKey === storageKey || surface === 'browser' ? (
           <div className={surface === 'browser' ? 'h-full min-h-0' : 'hidden'}>
             <BrowserSurface key={storageKey} visible={surface === 'browser' && paneVisible} />
           </div>

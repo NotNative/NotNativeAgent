@@ -1301,16 +1301,38 @@ describe('OperatorRail', () => {
 });
 
 
-it('native workspace panels hide unsupported actions and ignore a saved terminal selection', () => {
-  vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+it('native workspace panels offer every read-safe surface and withhold the gated terminal', () => {  vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
   localStorage.setItem('nnd.operator-rail.surface:D:/work', 'terminal');
   container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
   act(() => rootHandle!.render(<I18nProvider><OperatorRail nativeAlpha store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
   const labels = [...container.querySelectorAll('nav[aria-label="Operator surfaces"] button')].map(button => button.getAttribute('aria-label'));
-  expect(labels).toEqual(['Context', 'Activity', 'Walkthrough', 'Customize operator panels']);
+  // A saved Terminal selection falls back to Context because Terminal is gated.
+  expect(labels).toEqual(['Context', 'Activity', 'Changes', 'Files', 'Worktrees', 'Walkthrough', 'Notes', 'Browser', 'Customize operator panels']);
   expect(container.querySelector('[data-testid="terminal-keepalive-controller"]')).toBeNull();
   act(() => (container!.querySelector('[aria-label="Customize operator panels"]') as HTMLButtonElement).click());
   expect(container.querySelector('[aria-label="Show Terminal"]')).toBeNull();
-  expect(container.querySelector('[aria-label="Show Files"]')).toBeNull();
+  expect(container.querySelector('[aria-label="Show Files"]')).not.toBeNull();
+  expect(container.querySelector('[aria-label="Show Changes"]')).not.toBeNull();
+});
+
+it('admits the folder only once the workspace inventory is loaded, and only once', async () => {
+  vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+  const { useWorkspaceStore } = await import('../../stores/useWorkspaceStore.ts');
+  localStorage.setItem('nnd.operator-rail.surface:D:/work', 'files');
+  useWorkspaceStore.getState().reset();
+  const admit = vi.fn(async () => true);
+  const spy = vi.spyOn(await import('../workspace-admit.ts'), 'ensureWorkspaceAdmitted').mockImplementation(admit);
+  container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+  act(() => rootHandle!.render(<I18nProvider><OperatorRail nativeAlpha store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>));
+  // While the inventory is still resolving, an unloaded answer is not a refusal.
+  expect(admit).not.toHaveBeenCalled();
+  act(() => useWorkspaceStore.getState().adopt({
+    installation_id: 'nna_a', data_id: 'data_b', revision: 'absent', selection_enabled: true,
+    attached: { root: '/elsewhere', id: 'ws_000000000000000000000000' }, admitted: [], unavailable: [],
+  }));
+  await act(async () => { await Promise.resolve(); });
+  expect(admit).toHaveBeenCalledTimes(1);
+  expect(admit).toHaveBeenCalledWith('D:/work');
+  spy.mockRestore();
 });
 
