@@ -36,6 +36,10 @@ export default defineConfig({
     },
   },
   server: {
+    // Why: `localhost` can resolve to ::1, so a preview bound that way is
+    // unreachable at 127.0.0.1 and behaves unlike the app, which binds the
+    // IPv4 loopback. Pin the preview to the same address.
+    host: '127.0.0.1',
     // Production HTML carries the same directive in the static handler.
     // Dev previews can redirect to this Vite origin, so keep parity here.
     headers: { 'Content-Security-Policy': "frame-ancestors 'none'" },

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createUiAuthController, getUiAuthController, installNativeUiAuth, resetUiAuthForTests, upgradeAllowedForRequest } from '../lib/auth/ui-auth.ts';
+import { createUiAuthController, getUiAuthController, installNativeUiAuth, resetUiAuthForTests, socketPeer, upgradeAllowedForRequest, UI_SESSION_COOKIE } from '../lib/auth/ui-auth.ts';
 import { verifySessionJwt } from '../lib/auth/jwt.ts';
 import { createAuthRoutes } from '../routes/auth.ts';
 import { Hono } from 'hono';
@@ -124,5 +124,87 @@ describe('supervised native UI authentication', () => {
       expect(response.status).toBe(501);
       expect(await response.json()).toMatchObject({ code: 'native_device_attachment_unsupported' });
     }
+  });
+});
+
+describe('desktop loopback exemption', () => {
+  const status = (auth: ReturnType<typeof controller>, peer?: string) =>
+    auth.sessionStatus(headers(), new URL(identity.origin + '/auth/session'), 'GET', peer);
+
+  it('opens a connection from this machine without an access code, even with native mode on', () => {
+    const auth = controller('');
+    for (const peer of ['127.0.0.1', '::1', '::ffff:127.0.0.1']) {
+      const action = status(auth, peer);
+      expect(action.status, peer).toBe(200);
+      expect(action.body, peer).toMatchObject({ authenticated: true, scope: 'open', authRequired: false });
+    }
+  });
+
+  it('keeps the access code for a connection from elsewhere', () => {
+    const auth = controller('');
+    const action = status(auth, '192.168.1.20');
+    expect(action.status).toBe(401);
+    expect(action.body).toMatchObject({ authenticated: false, locked: true });
+  });
+
+  it('keeps the access code when the peer is unknown', () => {
+    const auth = controller('');
+    expect(status(auth, undefined).status).toBe(401);
+  });
+
+  it('never trusts a forwarded header as the peer', () => {
+    const auth = controller('');
+    expect(auth.loopbackPeer('192.168.1.20')).toBe(false);
+    expect(auth.loopbackPeer('127.0.0.1')).toBe(true);
+    expect(auth.loopbackPeer(undefined)).toBe(false);
+  });
+
+  it('leaves nna serve gated: without native mode the password is still required', () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'nnd-native-auth-')); roots.push(dataDir);
+    const serve = createUiAuthController({ dataDir, resolvePassword: () => 'hunter2' });
+    const action = serve.sessionStatus(headers(), new URL(identity.origin + '/auth/session'), 'GET', '127.0.0.1');
+    expect(action.status).toBe(401);
+    expect(action.body).toMatchObject({ authenticated: false, locked: true, authRequired: true });
+  });
+
+  it('opens nna serve only when it has no password, as it did before', () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'nnd-native-auth-')); roots.push(dataDir);
+    const serve = createUiAuthController({ dataDir, resolvePassword: () => '' });
+    const action = serve.sessionStatus(headers(), new URL(identity.origin + '/auth/session'), 'GET', '192.168.1.20');
+    expect(action.status).toBe(200);
+    expect(action.body).toMatchObject({ authenticated: true, scope: 'open', authRequired: false });
+  });
+
+  it('lets a loopback /api request through the gate, which is where the UI actually asks', () => {
+    const auth = controller('');
+    const url = new URL(identity.origin + '/api/config/settings');
+    expect(auth.authenticate(headers(), url, 'GET', true, '127.0.0.1').ok).toBe(true);
+    expect(auth.authenticate(headers(), url, 'GET', true, '192.168.1.20').ok).toBe(false);
+    expect(auth.authenticate(headers(), url, 'GET', true, undefined).ok).toBe(false);
+  });
+
+  it('keeps the gate closed for nna serve even from this machine', () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'nnd-native-auth-')); roots.push(dataDir);
+    const serve = createUiAuthController({ dataDir, resolvePassword: () => 'hunter2' });
+    const url = new URL(identity.origin + '/api/config/settings');
+    expect(serve.authenticate(headers(), url, 'GET', true, '127.0.0.1').ok).toBe(false);
+  });
+
+  it('accepts the credential native mode does have from another machine, and the exemption never overrides it', () => {
+    const auth = controller('');
+    const url = new URL(identity.origin + '/api/config/settings');
+    // Without a credential a foreign peer is refused, even though native mode is on.
+    expect(auth.authenticate(new Headers({ origin: identity.origin }), url, 'GET', true, '192.168.1.20').ok).toBe(false);
+    // The native-mode session ticket (a JWT cookie) still passes from anywhere.
+    const ticket = auth.issueSessionToken(60_000).token;
+    const credentialed = new Headers({ origin: identity.origin, cookie: `${UI_SESSION_COOKIE}=${ticket}` });
+    expect(auth.authenticate(credentialed, url, 'GET', true, '192.168.1.20').ok).toBe(true);
+  });
+
+  it('reads the peer from the socket, not from a header', () => {
+    expect(socketPeer({ incoming: { socket: { remoteAddress: '127.0.0.1' } } })).toBe('127.0.0.1');
+    expect(socketPeer({ incoming: { socket: {} } })).toBeUndefined();
+    expect(socketPeer({})).toBeUndefined();
+    expect(socketPeer(undefined)).toBeUndefined();
   });
 });

@@ -94,7 +94,7 @@ export function createAuthRoutes(): Hono {
     const url = new URL(c.req.raw.url);
     const scope = requestScope(headers, url, remoteSocketAddress(c.env));
     if (scope === 'tunnel' || scope === 'unknown-public') return finalize(tunnelSessionStatus(headers, url, c.req.method));
-    return finalize(getUiAuthController().sessionStatus(headers, url, c.req.method));
+    return finalize(getUiAuthController().sessionStatus(headers, url, c.req.method, remoteSocketAddress(c.env)));
   });
 
   registerSessionRoutes(app);

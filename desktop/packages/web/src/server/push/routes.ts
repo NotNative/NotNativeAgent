@@ -2,7 +2,7 @@
 import { join } from 'node:path';
 import { Hono } from 'hono';
 import { ENV } from '../env.ts';
-import { getUiAuthController } from '../lib/auth/ui-auth.ts';
+import { getUiAuthController, socketPeer } from '../lib/auth/ui-auth.ts';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { pushEndpoint, pushSubscription } from './subscription-schema.ts';
 import { PushStoreError, PushSubscriptionStore } from './subscription-store.ts';
@@ -13,9 +13,13 @@ import { pushRegistrationOrigin } from './registration-origin.ts';
 import { recordPublicOriginIfUnset } from '../lib/settings-store.ts';
 type PushRouteApp = Hono<{ Variables: { pushOwner: string; pushAuthority: PushAuthority | undefined } }>;
 
-export function pushCredentialOwner(request: Request): string | null {
-  const grant = getUiAuthController().authenticate(request.headers, new URL(request.url), request.method, false);
-  return grant.ok ? pushGrant(grant)?.owner ?? null : null;
+/** The owner a request may register under. Returns null when the request
+ * carries no principal: an open scope outside the desktop, or no grant. */
+export function pushCredentialOwner(request: Request, peer?: string): string | null {
+  const controller = getUiAuthController();
+  const grant = controller.authenticate(request.headers, new URL(request.url), request.method, false, peer);
+  if (!grant.ok || (grant.scope === 'open' && !controller.openIsPrincipal(grant))) return null;
+  return pushGrant(grant).owner;
 }
 
 export function createPushRoutes(options: { store?: PushSubscriptionStore; visibility?: PushVisibility; badges?: PushBadges; owner?: (request: Request) => string | null; now?: () => number } = {}) {
@@ -30,8 +34,11 @@ export function createPushRoutes(options: { store?: PushSubscriptionStore; visib
   });
   app.get('/api/push/vapid-public-key', async () => guarded(async () => ({ publicKey: await store.publicKey() })));
   app.use('/api/push/*', async (context, next) => {
-    const auth = options.owner ? null : getUiAuthController().authenticate(context.req.raw.headers, new URL(context.req.url), context.req.method, false);
-    const captured = auth?.ok ? pushGrant(auth) : null;
+    const controller = getUiAuthController();
+    const auth = options.owner ? null : controller.authenticate(context.req.raw.headers, new URL(context.req.url), context.req.method, false, socketPeer(context));
+    // Why: an open scope is a principal only in the desktop, where it means a
+    // local reader. In `nna serve` it means no credential was presented.
+    const captured = auth?.ok && (auth.scope !== 'open' || controller.openIsPrincipal(auth)) ? pushGrant(auth) : null;
     const owner = options.owner ? options.owner(context.req.raw) : captured?.owner;
     if (!owner) return Response.json({ error: 'Push registration requires a UI session or client credential' }, { status: 401 });
     context.set('pushOwner', owner);

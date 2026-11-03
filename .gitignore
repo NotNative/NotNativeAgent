@@ -21,4 +21,6 @@
 # Local NNA-managed project memory. Repository instructions belong in AGENTS.md.
 /NNA.md
 .tmp/
+# Screenshots and captures written by the OpenChamber browser panel.
+/.openchamber/
 scripts/semantic-similarity-scan.js

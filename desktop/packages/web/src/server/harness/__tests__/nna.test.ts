@@ -6,6 +6,44 @@ const token = 'a'.repeat(32);
 const principal = Buffer.from(JSON.stringify({ subject_id: 'user_a' })).toString('base64url');
 
 describe('NNA harness adapter', () => {
+  it('translates the desktop nnd prefix to the path NNA actually serves', async () => {
+    const fetch = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => new Response(null, { status: 200 }));
+    const adapter = createNnaHarnessAdapter({ endpoint: 'http://127.0.0.1:4100', token, principal, fetch });
+    const paths: Record<string, string> = {
+      '/api/v1/nnd/workspaces/admissions': '/v1/desktop/workspaces/admissions',
+      '/api/v1/nnd/configuration': '/v1/desktop/configuration',
+      '/api/v1/nnd/sessions/ses_a/goal?x=1': '/v1/desktop/sessions/ses_a/goal?x=1',
+      // Bare harness routes carry no prefix and must pass through untouched.
+      '/api/session': '/session',
+      '/api/v1/desktop/configuration': '/v1/desktop/configuration',
+    };
+    for (const [from, to] of Object.entries(paths)) await adapter.handle(new Request(`http://nnd.local${from}`, { method: 'GET' }));
+    expect(fetch.mock.calls.map(call => String(call[0]))).toEqual(Object.values(paths).map(path => `http://127.0.0.1:4100${path}`));
+    // A lookalike segment is not the prefix.
+    await adapter.handle(new Request('http://nnd.local/api/v1/nndx/thing', { method: 'GET' }));
+    expect(String(fetch.mock.calls.at(-1)![0])).toBe('http://127.0.0.1:4100/v1/nndx/thing');
+  });
+
+  it('publishes NNA desktop facts under the nnd key the UI reads, and leaves other routes alone', async () => {
+    const config = { model: 'p/m', desktop: { engine: 'nna', primaryModel: { providerID: 'p', modelID: 'm' } } };
+    const session = { id: 'ses_a', metadata: { desktop: { configuredModel: { providerID: 'p', modelID: 'm' } } } };
+    const fetch = vi.fn(async (url: string | URL | Request, _init?: RequestInit) => String(url).endsWith('/config')
+      ? new Response(JSON.stringify(config), { status: 200, headers: { 'content-type': 'application/json', 'content-length': String(JSON.stringify(config).length) } })
+      : String(url).endsWith('/session/ses_a')
+        ? new Response(JSON.stringify(session), { status: 200, headers: { 'content-type': 'application/json' } })
+        : new Response('not json', { status: 200, headers: { 'content-type': 'text/plain' } }));
+    const adapter = createNnaHarnessAdapter({ endpoint: 'http://127.0.0.1:4100', token, principal, fetch });
+    const shaped = await (await adapter.handle(new Request('http://nnd.local/api/config'))).json();
+    expect(shaped).toMatchObject({ model: 'p/m', nnd: { engine: 'nna', primaryModel: { providerID: 'p', modelID: 'm' } } });
+    // The reshaped body is longer than the upstream one; it must arrive whole.
+    expect(shaped).toEqual({ model: 'p/m', desktop: config.desktop, nnd: config.desktop });
+    // Session metadata gets the same treatment, nested where the UI looks for it.
+    const read = await (await adapter.handle(new Request('http://nnd.local/api/session/ses_a'))).json();
+    expect(read).toEqual({ ...session, metadata: { desktop: session.metadata.desktop, nnd: session.metadata.desktop } });
+    // A body without the desktop block keeps its original text rather than failing.
+    expect(await (await adapter.handle(new Request('http://nnd.local/api/directory'))).text()).toBe('not json');
+  });
+
   it('forwards only approved request headers and keeps credentials server-side', async () => {
     const fetch = vi.fn(async (url: string | URL | Request, _init?: RequestInit) => new Response(JSON.stringify({ url: String(url) }), { status: 200, headers: { 'set-cookie': 'foreign=value', authorization: 'Bearer reflected', 'x-nna-principal': principal, 'x-nna-revision': '2' } }));
     const adapter = createNnaHarnessAdapter({ endpoint: 'http://127.0.0.1:4100', token, principal, fetch });

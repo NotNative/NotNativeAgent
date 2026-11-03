@@ -32,6 +32,26 @@ export const CLEAR_SESSION_COOKIE_HEADER = `${UI_SESSION_COOKIE}=; Path=/; HttpO
 const CLIENT_URL_PARENT_PREFIX = 'client:'; // URL tokens bound to device records (doc 08 section 2.6)
 const NO_STORE = 'no-store';
 
+/** The address forms a connection from this machine can present. */
+const LOOPBACK_PEERS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+/**
+ * The address of the peer that opened the socket, or undefined when the
+ * runtime does not expose one.
+ *
+ * Accepts either the runtime env or a Hono context: the context exposes the
+ * env on `env`, so reading `env.incoming` off the context itself finds nothing.
+ *
+ * Security: this is the observed connection, not a header a caller controls.
+ */
+export function socketPeer(source: unknown): string | undefined {
+  const env = (source !== null && typeof source === 'object' && 'env' in source ? (source as { env: unknown }).env : source) as
+    | { incoming?: { socket?: { remoteAddress?: string } } }
+    | undefined;
+  const address = env?.incoming?.socket?.remoteAddress;
+  return typeof address === 'string' ? address : undefined;
+}
+
 export type AuthGranted =
   | { ok: true; scope: 'open' }
   | { ok: true; scope: 'session'; sessionToken: string }
@@ -136,7 +156,30 @@ export class UiAuthController {
   authRequired(): boolean { return this.native !== null || this.passwordRequired(); }
   nativeMode(): boolean { return this.native !== null; }
   nativeRequestAllowed(headers: Headers, url: URL): boolean { return this.native?.allowed(headers, url) ?? true; }
-  nativeHandle(): { issueTicket(): { ticket: string; expiresAt: string }; revoke(): void } | undefined {
+
+  /**
+   * Whether the request reached the server from this machine.
+   *
+   * Security: this reads the socket peer only, never `x-forwarded-for`, since
+   * that header is whatever the caller says it is. Only the desktop's own
+   * server uses the result (a loopback connection there needs no access code);
+   * `nna serve` keeps its password, so a shared machine stays gated.
+   */
+  loopbackPeer(peer: string | undefined): boolean {
+    return peer !== undefined && LOOPBACK_PEERS.has(peer);
+  }
+
+  /**
+   * Whether an uncredentialed grant names a real reader.
+   *
+   * An open scope means "no credential was presented". In the desktop that is
+   * the local reader the service itself opened the window for, so features
+   * that need an owner (notifications, push) can serve it. `nna serve` has no
+   * native mode, so an open request there is still anonymous and stays closed.
+   */
+  openIsPrincipal(grant: AuthGranted): boolean {
+    return grant.scope === 'open' && this.native !== null;
+  }  nativeHandle(): { issueTicket(): { ticket: string; expiresAt: string }; revoke(): void } | undefined {
     return this.native ? { issueTicket: () => this.native!.issueTicket(), revoke: () => this.native!.close() } : undefined;
   }
   close(): void { this.native?.close(); this.urlTokens.clear(); }
@@ -193,9 +236,12 @@ export class UiAuthController {
     return { token, expiresAt: new Date(stamp + ttlMs).toISOString() };
   }
 
-  authenticate(headers: Headers, url: URL, method: string, urlTokensEnabled: boolean = true): AuthOutcome {
+  authenticate(headers: Headers, url: URL, method: string, urlTokensEnabled: boolean = true, peer?: string): AuthOutcome {
     if (!this.nativeRequestAllowed(headers, url)) return { ...this.deniedAction(), ok: false, clearSessionCookie: false };
-    const bearer = headers.get('authorization');
+    // Why: same exemption as `sessionStatus`, at the gate every /api request
+    // passes. Native mode alone is not enough; the socket peer must be
+    // loopback, and `nna serve` has no native mode so it keeps its password.
+    if (this.native !== null && this.loopbackPeer(peer)) return { ok: true, scope: 'open' };    const bearer = headers.get('authorization');
     if (bearer !== null) return this.byBearer(bearer); // explicit bearer: cookie deliberately ignored (§2.2)
     const validity: { clearSessionCookie: boolean } = { clearSessionCookie: false };
     const fromCookie = this.byCookie(headers, validity);
@@ -262,7 +308,17 @@ export class UiAuthController {
     return { ok: true, scope: 'client', sessionToken: result.sessionToken, clientId: result.clientId, client: result.client };
   }
 
-  sessionStatus(headers: Headers, url: URL, method: string): RouteAction {
+  sessionStatus(headers: Headers, url: URL, method: string, peer?: string): RouteAction {
+    // Why: the desktop window is the same process a local reader is using, so
+    // a connection from this machine needs no access code. `nna serve` has no
+    // native mode, so its password stays in force.
+    if (this.native !== null && this.loopbackPeer(peer)) {
+      return {
+        status: 200,
+        body: { authenticated: true, scope: 'open', authRequired: false, methods: this.methods(), passkeys: false },
+        headers: { 'cache-control': NO_STORE },
+      };
+    }
     const outcome = this.authenticate(headers, url, method);
     if (outcome.ok) {
       return {

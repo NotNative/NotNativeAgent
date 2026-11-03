@@ -5,7 +5,10 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { UiAuthController } from '../lib/auth/ui-auth.ts';
 import { pushGrant, pushAuthorityActive } from '../push/authority.ts';
+import { pushCredentialOwner } from '../push/routes.ts';
 import { RemoteClientStore } from '../lib/auth/remote-clients.ts';
+
+const nativeIdentity = { installationId: 'nna_' + 'a'.repeat(64), dataId: 'data_' + 'b'.repeat(64), generation: 'generation-1', origin: 'http://127.0.0.1:32145' };
 
 const root = mkdtempSync(join(tmpdir(), 'nnd-push-authority-'));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
@@ -25,6 +28,27 @@ describe('push recipient authority', () => {
     expect(auth.resetSessionAuth(headers).status).toBe(200);
     expect(pushAuthorityActive(captured.authority, auth, now)).toBe(false);
     expect(pushAuthorityActive(undefined, auth, now)).toBe(false);
+  });
+
+  it('keeps a credential-less caller inactive but an open desktop session active', () => {
+    // Plain open mode (no password, no native mode) presents no credential.
+    const serve = new UiAuthController({ dataDir: join(root, 'open'), resolvePassword: () => '' });
+    const open = serve.authenticate(new Headers(), new URL('http://local/api/push/subscribe'), 'POST', false);
+    if (!open.ok) throw new Error('fixture');
+    expect(open.scope).toBe('open');
+    expect(serve.openIsPrincipal(open)).toBe(false);
+    expect(pushCredentialOwner(new Request('http://local/api/push/subscribe', { method: 'POST' }))).toBeNull();
+
+    // The desktop serves that same open scope to its own window.
+    const native = new UiAuthController({ dataDir: join(root, 'native'), nativeAuth: nativeIdentity, resolvePassword: () => '' });
+    const desktop = native.authenticate(new Headers({ origin: nativeIdentity.origin }), new URL(nativeIdentity.origin + '/api/push/subscribe'), 'POST', false, '127.0.0.1');
+    if (!desktop.ok) throw new Error('fixture');
+    expect(native.openIsPrincipal(desktop)).toBe(true);
+    const captured = pushGrant(desktop);
+    expect(captured.authority).toEqual({ scope: 'open' });
+    expect(pushAuthorityActive(captured.authority, native)).toBe(true);
+    // No proof at all is still not active: absence is not a credential either way.
+    expect(pushAuthorityActive(undefined, native)).toBe(false);
   });
 
   it('excludes revoked or expired client credentials', () => {

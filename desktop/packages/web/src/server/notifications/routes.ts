@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Hono } from 'hono';
-import { getUiAuthController } from '../lib/auth/ui-auth.ts';
+import { getUiAuthController, socketPeer } from '../lib/auth/ui-auth.ts';
 import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { pushGrant } from '../push/authority.ts';
 import { PushStoreError } from '../push/subscription-store.ts';
@@ -13,14 +13,16 @@ type NotificationApp = Hono<{ Variables: { notificationOwner: string; notificati
 export function createNotificationRoutes(input: { sessions: NotificationSessions; badges: PushBadges; owner?: (request: Request) => string | null }): NotificationApp {
   const app: NotificationApp = new Hono();
   for (const path of ['/api/sessions/*', '/api/session-activity', '/api/notifications/stream']) app.use(path, async (c, next) => {
-    const auth = input.owner ? null : getUiAuthController().authenticate(c.req.raw.headers, new URL(c.req.url), c.req.method, c.req.path === '/api/notifications/stream');
+    const auth = input.owner ? null : getUiAuthController().authenticate(c.req.raw.headers, new URL(c.req.url), c.req.method, c.req.path === '/api/notifications/stream', socketPeer(c));
     if (auth && !auth.ok) return c.json({ error: 'UI authentication required' }, 401);
-    const grant = auth?.ok ? pushGrant(auth) : null;
+    // An open scope names a real local reader only in the desktop; elsewhere it
+    // means no credential was presented, which is still not an owner.
+    const grant = auth?.ok && (auth.scope !== 'open' || getUiAuthController().openIsPrincipal(auth)) ? pushGrant(auth) : null;
     const owner = input.owner ? input.owner(c.req.raw) : grant?.owner;
     c.set('notificationOwner', owner ?? '');
     c.set('notificationActive', input.owner ? () => input.owner!(c.req.raw) === owner : () => {
-      const current = getUiAuthController().authenticate(c.req.raw.headers, new URL(c.req.url), c.req.method, c.req.path === '/api/notifications/stream');
-      return current.ok && (pushGrant(current)?.owner ?? '') === (owner ?? '');
+      const current = getUiAuthController().authenticate(c.req.raw.headers, new URL(c.req.url), c.req.method, c.req.path === '/api/notifications/stream', socketPeer(c));
+      return current.ok && (current.scope !== 'open' || getUiAuthController().openIsPrincipal(current)) && pushGrant(current).owner === (owner ?? '');
     });
     await next(); c.header('cache-control', c.req.path.endsWith('/stream') ? 'no-cache, no-transform' : 'no-store');
   });

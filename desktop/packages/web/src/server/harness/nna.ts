@@ -65,7 +65,11 @@ export function createNnaHarnessAdapterFromEnvironment(environment: NodeJS.Proce
 
 async function forward(request: Request, endpoint: URL, token: string, principal: string, requestFetch: typeof fetch, generationSignal?: AbortSignal, capability?: string | null): Promise<Response> {
   const source = new URL(request.url);
-  const path = source.pathname.replace(/^\/api(?=\/|$)/u, '') || '/';
+  const stripped = source.pathname.replace(/^\/api(?=\/|$)/u, '') || '/';
+  // Why: the desktop speaks `nnd` for its native surface while NNA serves the
+  // same routes under `desktop`. Translate the prefix here, at the single
+  // seam that reaches NNA, so callers keep one vocabulary.
+  const path = stripped.replace(/^\/v1\/nnd(?=\/|$)/u, '/v1/desktop');
   // Do not compose a URL from an untrusted path string: `/api//host` would
   // otherwise become a scheme-relative URL and receive NNA credentials.
   const target = new URL(endpoint);
@@ -77,11 +81,13 @@ async function forward(request: Request, endpoint: URL, token: string, principal
   // Keep its signal attached to fetch for the stream lifetime so NNA can
   // release the subscriber instead of holding a ghost connection.
   const signal = AbortSignal.any([controller.signal, request.signal, ...(generationSignal ? [generationSignal] : [])]);
-  const timeoutMs = /^\/v1\/nnd\/workspaces\/admissions(?:\/|$)/u.test(path)
+  // Deadlines key on the caller's vocabulary, so a future NNA-side rename of
+  // the served prefix cannot silently lengthen a blocking write.
+  const timeoutMs = /^\/v1\/nnd\/workspaces\/admissions(?:\/|$)/u.test(stripped)
     ? WORKSPACE_ADMISSION_TIMEOUT_MS
-    : request.method === 'POST' && (path === '/session' || /^\/session\/[^/]+\/fork$/u.test(path))
+    : request.method === 'POST' && (stripped === '/session' || /^\/session\/[^/]+\/fork$/u.test(stripped))
       ? SESSION_CREATE_TIMEOUT_MS
-    : request.method === 'POST' && /^\/v1\/nnd\/sessions\/[^/]+\/walkthrough$/u.test(path)
+    : request.method === 'POST' && /^\/v1\/nnd\/sessions\/[^/]+\/walkthrough$/u.test(stripped)
       ? WALKTHROUGH_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -89,7 +95,7 @@ async function forward(request: Request, endpoint: URL, token: string, principal
       method: request.method, headers, redirect: 'error', signal,
       ...(request.method === 'GET' || request.method === 'HEAD' ? {} : { body: request.body, duplex: 'half' }),
     } as RequestInit);
-    return safeResponse(response);
+    return await shapeResponse(response, safeResponse(response));
   } catch (error) {
     if (request.signal.aborted) return harnessError('NND request was cancelled', 499, 'desktop_request_cancelled');
     const timedOut = error instanceof DOMException && error.name === 'AbortError';
@@ -101,6 +107,54 @@ async function forward(request: Request, endpoint: URL, token: string, principal
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * Translate NNA's vocabulary into the one the desktop UI reads. The UI keys
+ * native-engine facts on `nnd` — `config.nnd` and each session's
+ * `metadata.nnd` — while NNA reports the same values as `desktop`. A JSON
+ * document carrying a `desktop` block gets an `nnd` block with identical
+ * contents, so nothing downstream has to be rewritten. `desktop` stays as
+ * NNA's public shape. Anything else, streams included, passes through as the
+ * original text.
+ */
+async function shapeResponse(upstream: Response, safe: Response): Promise<Response> {
+  if (upstream.status !== 200 || !(upstream.headers.get('content-type') ?? '').includes('application/json')) return safe;
+  const text = await safe.text();
+  const body = (() => { try { return JSON.parse(text) as unknown; } catch { return null; } })();
+  const shaped = mirrorNnd(body);
+  if (shaped === null) return new Response(text, { status: 200, headers: safe.headers });
+  const headers = new Headers(safe.headers);
+  headers.set('content-type', 'application/json');
+  // Why: the mirror makes the body longer than the upstream one, so a
+  // forwarded content-length would truncate it. Let the runtime measure it.
+  headers.delete('content-length');
+  return new Response(JSON.stringify(shaped), { status: 200, headers });
+}
+
+/** Add `nnd` wherever a `desktop` block appears; return null when nothing changed. */
+function mirrorNnd(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    let changed = false;
+    const rows = value.map((item) => {
+      const mirrored = mirrorNnd(item);
+      if (mirrored !== null) changed = true;
+      return mirrored ?? item;
+    });
+    return changed ? rows : null;
+  }
+  if (value === null || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  let changed = false;
+  const out: Record<string, unknown> = { ...record };
+  for (const [key, item] of Object.entries(record)) {
+    const mirrored = mirrorNnd(item);
+    if (mirrored !== null) { out[key] = mirrored; changed = true; }
+  }
+  if (record.nnd === undefined && record.desktop !== null && typeof record.desktop === 'object' && !Array.isArray(record.desktop)) {
+    out.nnd = record.desktop; changed = true;
+  }
+  return changed ? out : null;
 }
 
 function parseEndpoint(value: string): URL {

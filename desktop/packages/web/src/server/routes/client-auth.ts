@@ -11,7 +11,7 @@
  */
 import { Hono } from 'hono';
 import {
-  getUiAuthController, sanitizeOutboundClient,
+  getUiAuthController, sanitizeOutboundClient, socketPeer,
   type AuthGranted, type AuthOutcome,
 } from '../lib/auth/ui-auth.ts';
 import type { RemoteClientStore } from '../lib/auth/remote-clients.ts';
@@ -55,7 +55,7 @@ function json(status: number, body: Record<string, unknown>, extraHeaders: Recor
 }
 
 function principalOf(c: ContextLike): AuthOutcome {
-  return getUiAuthController().authenticate(c.req.raw.headers, new URL(c.req.raw.url), c.req.method);
+  return getUiAuthController().authenticate(c.req.raw.headers, new URL(c.req.raw.url), c.req.method, true, socketPeer(c.env));
 }
 
 function granted(outcome: AuthOutcome): AuthGranted | null {

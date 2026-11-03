@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
 import { ENV, nativeServiceTerminalUnavailable } from './env.ts';
 import { nativeAlphaSurfaceGate } from './routes/native-alpha-surface.ts';
-import { getUiAuthController, CLEAR_SESSION_COOKIE_HEADER, type AuthOutcome } from './lib/auth/ui-auth.ts';
+import { getUiAuthController, CLEAR_SESSION_COOKIE_HEADER, socketPeer, type AuthOutcome } from './lib/auth/ui-auth.ts';
 import { getTunnelAuthController, TUNNEL_COOKIE_NAME } from './lib/auth/tunnel-auth.ts';
 import { peekRelayServerId } from './lib/relay/identity.ts';
 import { createStaticHandler, DIST_DIR } from './lib/static.ts';
@@ -125,7 +125,7 @@ async function apiAuthGate(c: Context, next: Next): Promise<Response | void> {
   const method = c.req.method;
   const scope = getTunnelAuthController().classify(headers, url, remoteSocketAddress(c.env));
   if (scope === 'tunnel' || scope === 'unknown-public') return apiTunnelGate(headers, url, method, next);
-  const outcome: AuthOutcome = getUiAuthController().authenticate(headers, url, method);
+  const outcome: AuthOutcome = getUiAuthController().authenticate(headers, url, method, true, socketPeer(c.env));
   if (outcome.ok) return next();
   const responseHeaders = new Headers();
   for (const [name, value] of Object.entries(outcome.headers)) responseHeaders.set(name, value);
