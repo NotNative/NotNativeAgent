@@ -47,8 +47,11 @@ function Stop-Service {
   $record = Read-CurrentRecord
   if (-not $record) { return $false }
   try {
+    # The controller binds every privileged call to one generation and refuses
+    # a request that omits the header with 409 generation_mismatch, so the tray
+    # must name the generation it is retiring exactly as the CLI client does.
     $response = Invoke-WebRequest -UseBasicParsing -Method Post -Uri ($record.endpoint + '/stop') `
-      -Headers @{ authorization = 'Bearer ' + $record.control_token } `
+      -Headers @{ authorization = 'Bearer ' + $record.control_token; 'x-desktop-generation' = $record.instance_id } `
       -ContentType 'application/json' -Body '{}' -TimeoutSec 5
     return ($response.StatusCode -eq 202)
   } catch { return $false }
@@ -102,7 +105,12 @@ $restartItem = $menu.Items.Add('Restart NNA')
 $restartItem.add_Click({ Invoke-TrayAction 'restart' })
 [void]$menu.Items.Add('-')
 $quitItem = $menu.Items.Add('Quit NNA')
-$quitItem.add_Click({ if (Stop-Service) { Exit-Tray } })
+# A refusal must be visible: a silent no-op here reads as a broken tray and
+# hides the real cause (typically the service is already stopping or gone).
+$quitItem.add_Click({
+  if (Stop-Service) { Exit-Tray }
+  else { [void][System.Windows.Forms.MessageBox]::Show('NNA did not accept the stop request. If the service is already stopping, wait a moment and try again.', 'NNA') }
+})
 
 $assetsDir = Join-Path $InstallRoot 'packages\electron\assets'
 $icon = Convert-PngToIcon (Join-Path $assetsDir 'tray-running.png')

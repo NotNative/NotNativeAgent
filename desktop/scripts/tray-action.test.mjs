@@ -35,6 +35,21 @@ test('a stuck controller reaches the bounded stop failure', async () => {
     status: async () => { polls += 1; return { instance_id: 'before' }; } }), { message: 'desktop_stop_timeout' });
   assert.equal(polls, 150);
 });
+test('the tray quit names its generation when it asks the controller to stop', async () => {
+  // The controller refuses any privileged call that omits this header with 409
+  // generation_mismatch. The tray swallowed that refusal and did nothing, so
+  // the quit item read as broken while `nna desktop stop` worked.
+  const source = await readFile(new URL('./nnd-tray-host.ps1', import.meta.url), 'utf8');
+  const stop = source.match(/function Stop-Service \{[\s\S]*?\n\}/u)?.[0] ?? '';
+  assert.match(stop, /x-desktop-generation/u);
+  assert.match(stop, /record\.instance_id/u);
+});
+test('a refused quit is reported instead of silently doing nothing', async () => {
+  const source = await readFile(new URL('./nnd-tray-host.ps1', import.meta.url), 'utf8');
+  const quit = source.match(/\$quitItem\.add_Click\(\{[\s\S]*?\}\)/u)?.[0] ?? '';
+  assert.match(quit, /Exit-Tray/u);
+  assert.match(quit, /MessageBox/u);
+});
 test('standalone desktop branding stays identical to the canonical NNA asset', async () => {
   assert.deepEqual(await readFile(new URL('../packages/electron/brand/nna.png', import.meta.url)), await readFile(new URL('../../resources/icons/notnative-agent-32.png', import.meta.url)));
 });
