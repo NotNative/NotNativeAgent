@@ -10,7 +10,7 @@ import { normalizeDesktopConfigurationOperations, applyDesktopConfigurationOpera
   desktopConfigurationOperationPaths } from '../src/desktop-configuration-intents.js';
 import { projectDesktopConfigurationView } from '../src/desktop-configuration-view.js';
 import { manifestFromConfig, withRouteDeadline } from '../src/provider/route-configuration.js';
-import { resolveManifest } from '../src/config.js';
+import { resolveManifest, migrateManifestDocument } from '../src/config.js';
 import { providerTimeouts } from '../src/config-bounds.js';
 
 const identity = { installation_id: 'installation_test', data_id: 'data_test', scope: 'user' };
@@ -23,6 +23,9 @@ async function fixture(t, present = true) {
   await mkdir(paths.config); await mkdir(join(root, '.nna'));
   const path = join(paths.config, 'manifest.json'), manifest = { provider, workspace_root: root, persistence: 'ephemeral',
     extension_private: { token: 'DO_NOT_DISCLOSE_UNKNOWN_SECRET' } };
+  // Why: a saved document holds the connection and selection records, so file comparisons use the
+  // stored form of the fixture rather than the legacy provider block.
+  const stored = () => JSON.parse(JSON.stringify(migrateManifestDocument(manifest).manifest));
   if (present) await writeFile(path, JSON.stringify(manifest) + '\n');
   const create = () => createDesktopConfigurationService({ paths, installationId: identity.installation_id, dataId: identity.data_id });
   const service = create();
@@ -31,7 +34,7 @@ async function fixture(t, present = true) {
     return { ...identity, expected_revision: snapshot.sourceRevision, expected_resolution_revision: snapshot.resolutionRevision,
       operation_id: operationId, operations };
   };
-  return { root, paths, path, manifest, service, create, request };
+  return { root, paths, path, manifest, stored, service, create, request };
 }
 
 test('typed intents reject grants, workspace, credentials, collections, duplicate fields and unsupported types', () => {
@@ -136,7 +139,7 @@ test('save preserves unknown raw fields privately, reports unapplied and replays
   assert.equal(saved.next_action, 'activate_setup_or_restart_native_service');
   assert.ok(!JSON.stringify(saved).includes('DO_NOT_DISCLOSE_UNKNOWN_SECRET'));
   const document = JSON.parse(await readFile(f.path, 'utf8'));
-  assert.deepEqual(document, { ...f.manifest, provider_timeout_ms: 0 });
+  assert.deepEqual(document, { ...f.stored(), provider_timeout_ms: 0 });
   const replay = await f.create().save(principal, input);
   assert.equal(replay.replayed, true); assert.equal(replay.persisted_revision, saved.persisted_revision);
   await assert.rejects(f.service.save(principal, { ...input, operations: [{ op: 'set', field: 'provider_timeout_ms', value: 3000 }] }), { code: 'manifest_operation_conflict' });
@@ -149,7 +152,7 @@ test('stale source and overlay revisions conflict and reset removes only selecte
   await writeFile(f.path, JSON.stringify({ ...f.manifest, provider_timeout_ms: 3000 }));
   const reset = await f.request([{ op: 'reset', field: 'provider_timeout_ms' }], 'reset');
   await f.service.save(principal, reset);
-  assert.deepEqual(JSON.parse(await readFile(f.path, 'utf8')), f.manifest);
+  assert.deepEqual(JSON.parse(await readFile(f.path, 'utf8')), f.stored());
   const stale = await f.request([{ op: 'set', field: 'memory.enabled', value: false }], 'stale');
   await writeFile(f.path, JSON.stringify({ ...f.manifest, provider_timeout_ms: 4000 }));
   await assert.rejects(f.service.save(principal, stale), { code: 'manifest_revision_conflict' });

@@ -273,12 +273,23 @@ the main console persists the primary selection as the workspace default.
 | --- | --- |
 | 0 — this decision record | Done |
 | 1 — route resolution inheritance, fallback removal, vision refusal wording | Done |
-| 2 — connection/selection manifest records, `format_version: 2`, migration | Pending |
+| 2 — connection/selection manifest records, `format_version: 2`, migration | Done |
 | 3 — per-selection limit observation, primary pick persistence, `/model` sweep | Pending |
 | 4 — `/v1/connections`, `/v1/models`, `/v1/routes`, evidence key rename | Pending |
 | 5 — Connections, Models, Routing surfaces | Pending |
 
+Slice 2 stores `connections[]` and `model_selections[]` and resolves them into the
+flat provider map every existing consumer reads. A route names the **model
+selection** that serves it (`routes[role].selection_id`), and the selection names
+its connection, so two models on one endpoint no longer need two stored records.
+
+The resolved manifest still carries a derived, unpersisted `providers` array so a
+read surface that has always shown provider rows keeps its shape. `manifestFromConfig`
+emits it, `assignProviders` and the intent layer remove it before a write, and it is
+never read back from a document.
+
 Slice 1 keeps the internal name `providerProfiles` for the resolved connection
-map. Slice 2 renames it with the manifest change, so one rename covers the
-resolver, the mutators, the stores, and their tests together.
+map, and slice 2 keeps it: it names the resolved flat records, which are still one
+per model. A later slice can rename it with the `/v1/connections` contract.
+
 

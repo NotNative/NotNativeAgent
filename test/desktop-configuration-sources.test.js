@@ -193,7 +193,13 @@ test('effective provider reads include project profiles but mutations preserve t
   assert.equal((await store.subagentRoute()).providerID, 'project');
   await store.update('local', { display_name: 'User profile' });
   const saved = JSON.parse(await readFile(f.userPath, 'utf8'));
-  assert.deepEqual(saved, { ...f.manifest, provider: { ...provider, display_name: 'User profile' } });
+  // Why: the saved document holds the connection and selection records, so the edited display name
+  // lands on the connection that serves the user's model.
+  assert.equal(saved.connections[0].display_name, 'User profile');
+  assert.equal(saved.connections[0].endpoint, provider.endpoint);
+  assert.equal(saved.model_selections[0].model, provider.model);
+  assert.equal(saved.providers, undefined);
+  assert.equal(saved.provider, undefined);
   assert.equal(saved.provider_timeout_ms, undefined);
   assert.deepEqual(JSON.parse(await readFile(f.projectPath, 'utf8')), project);
   const legacy = new ProviderProfileStore({ configRoot: f.paths.config });

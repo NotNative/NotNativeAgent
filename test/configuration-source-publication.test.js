@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { link, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveManifest } from '../src/config.js';
+import { resolveManifest, migrateManifestDocument } from '../src/config.js';
 import { resolveConfiguration } from '../src/configuration-sources.js';
 import { persistManifest, withRuntimeLimits, withRouteSetting, withUpdatedProvider } from '../src/provider/route-configuration.js';
 import { configurationIntent, intentChanges, applyIntentChanges } from '../src/experience/configuration-intents.js';
@@ -14,6 +14,9 @@ import { prepareWorkspaceSource } from '../src/experience/configuration-source.j
 import { publishWorkspaceConfiguration } from '../src/experience/configuration-publication.js';
 
 const provider = { endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
+// Why: a save writes the stored connection and selection records, so a test that compares the
+// saved file compares the migrated form of the document it expects.
+const stored = (raw) => JSON.parse(JSON.stringify(migrateManifestDocument(raw).manifest));
 async function fixture(t, raw = { provider }) {
   const root = createScratchSync('.nna-source-test-');
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -23,12 +26,18 @@ async function fixture(t, raw = { provider }) {
   return { root, path, source, config: resolveManifest({ provider, ...raw }), options: { configPath: path, persistedSource: source, sourceSnapshots: [source] } };
 }
 
-test('provider field intent preserves singular raw form and omits compiled defaults', () => {
+test('provider field intent writes the stored connection and selection records without compiled defaults', () => {
   const raw = { provider, memory: { enabled: false } }, config = resolveManifest(raw);
   const next = withUpdatedProvider(config, 'manifest-primary', { model: 'updated' });
   const result = applyIntentChanges(raw, intentChanges(config, next.manifest, configurationIntent('provider')));
-  assert.deepEqual(result.provider, { ...provider, model: 'updated' });
+  // Why: the stored document separates the connection from its model selection, so an update to
+  // the selected model rewrites the selection record and leaves the connection record intact.
+  assert.equal(result.provider, undefined);
   assert.equal(result.providers, undefined);
+  assert.equal(result.model_selections.length, 1);
+  assert.equal(result.model_selections[0].model, 'updated');
+  assert.equal(result.connections.length, 1);
+  assert.equal(result.connections[0].endpoint, provider.endpoint);
   assert.equal(result.provider_timeout_ms, undefined);
   assert.deepEqual(result.memory, raw.memory);
 });
@@ -66,7 +75,9 @@ test('explicit reset reveals lower source and saves only selected raw override',
   const next = withRuntimeLimits(workspace.config, { providerMs: null });
   const session = { engine: { config: workspace.config, state: { state: 'running' }, async output() {} } };
   await publishWorkspaceConfiguration(workspace, [{ session, manifest: next.manifest }], next, configurationIntent('limits', { providerMs: null }));
-  assert.deepEqual(JSON.parse(await readFile(workspace.path, 'utf8')), {});
+  // Why: a reset removes the edited field and nothing else, so the saved document equals the
+  // migrated form of the source without that field.
+  assert.deepEqual(JSON.parse(await readFile(workspace.path, 'utf8')), stored({}));
   assert.equal(workspace.config.limits.providerMs, 50000);
   assert.equal(session.engine.pendingConfig.limits.providerMs, 50000);
   assert.equal(workspace.options.persistedSource.manifest.provider, undefined);
@@ -91,10 +102,10 @@ test('explicit selection of the user file edits and resets every snapshot of tha
   assert.equal(workspace.config.limits.providerMs, 30000);
   const reset = configurationIntent('limits', { providerMs: null });
   await publishWorkspaceConfiguration(workspace, [], withRuntimeLimits(workspace.config, { providerMs: null }), reset);
-  assert.deepEqual(JSON.parse(await readFile(workspace.path, 'utf8')), { provider });
+  assert.deepEqual(JSON.parse(await readFile(workspace.path, 'utf8')), stored({ provider }));
   assert.equal(workspace.config.limits.providerMs, 50000);
   for (const source of workspace.options.sourceSnapshots.filter((item) => item.path === workspace.path)) {
-    assert.deepEqual(source.manifest, { provider });
+    assert.deepEqual(source.manifest, stored({ provider }));
     assert.equal(source.revision, workspace.options.persistedSource.revision);
   }
 });
@@ -112,7 +123,7 @@ test('saved runtime failure advances revision and next edit preserves saved data
   await publishWorkspaceConfiguration(workspace, [], withRuntimeLimits(workspace.config, { connectMs: 3000 }), configurationIntent('limits', { connectMs: 3000 }));
   const saved = JSON.parse(await readFile(workspace.path, 'utf8'));
   assert.equal(saved.provider_timeout_ms, 30000); assert.equal(saved.provider_connect_timeout_ms, 3000);
-  assert.deepEqual(Object.keys(saved).sort(), ['provider', 'provider_connect_timeout_ms', 'provider_timeout_ms']);
+  assert.deepEqual(Object.keys(saved).sort(), ['connections', 'format_version', 'manifest_connection_version', 'model_selections', 'output_headroom_version', 'provider_connect_timeout_ms', 'provider_timeout_ms', 'routing_inheritance_version']);
 });
 
 test('unrelated save preserves an ephemeral launch provider without persisting it', async (t) => {
@@ -124,7 +135,12 @@ test('unrelated save preserves an ephemeral launch provider without persisting i
   assert.equal(workspace.config.routes.primary.model, 'temporary');
   assert.equal(workspace.config.launchOverrides.ephemeral, true);
   const saved = JSON.parse(await readFile(workspace.path, 'utf8'));
-  assert.deepEqual(saved, { provider, provider_connect_timeout_ms: 3000 });
+  // Why: the launch override stays ephemeral, so the stored document keeps the user's connection
+  // and never holds the temporary endpoint or model.
+  assert.deepEqual(saved.connections, stored({ provider }).connections);
+  assert.deepEqual(saved.model_selections, stored({ provider }).model_selections);
+  assert.equal(JSON.stringify(saved).includes('127.0.0.1:99'), false);
+  assert.equal(JSON.stringify(saved).includes('temporary'), false);
 });
 
 test('compatibility backup refuses a hardlink without overwriting its external target', async (t) => {

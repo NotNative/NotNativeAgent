@@ -3,7 +3,7 @@ import { ROLES } from './contracts.js';
 import { DEFAULT_KEY_BINDINGS } from './experience/key-bindings.js';
 
 export const MANIFEST_KEYS = Object.freeze([
-  'format_version', 'routing_inheritance_version', 'output_headroom_version', 'persistence', 'provider', 'providers', 'routes', 'application_system_prompt', 'mission',
+  'format_version', 'routing_inheritance_version', 'output_headroom_version', 'manifest_connection_version', 'persistence', 'provider', 'providers', 'connections', 'model_selections', 'routes', 'application_system_prompt', 'mission',
   'workspace_root', 'provider_timeout_ms', 'first_token_timeout_ms', 'idle_timeout_ms',
   'provider_connect_timeout_ms', 'semantic_review_timeout_ms', 'approval_timeout_ms',
   'provider_concurrency', 'provider_queue_limit', 'tool_concurrency',
@@ -16,6 +16,8 @@ export const MANIFEST_KEYS = Object.freeze([
 export const CONFIGURATION_KEYS = Object.freeze({
   manifest: MANIFEST_KEYS,
   provider: Object.freeze(['id', 'display_name', 'endpoint', 'model', 'trust_zone', 'credential', 'credential_env', 'context_limit_bytes', 'output_limit_tokens', 'tool_call_mode', 'capabilities']),
+  connection: Object.freeze(['id', 'display_name', 'endpoint', 'trust_zone', 'credential', 'credential_env']),
+  modelSelection: Object.freeze(['id', 'connection_id', 'model', 'display_name', 'context_limit_bytes', 'output_limit_tokens', 'tool_call_mode', 'capabilities']),
   capabilities: Object.freeze(['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation']),
   credential: Object.freeze(['source', 'name', 'secret_id', 'field']),
   roles: ROLES,
@@ -45,8 +47,12 @@ export const MANIFEST_SHAPE_DESCRIPTORS = Object.freeze([
   shape('$', 'manifest', 'object', 'validateManifestKeys'),
   shape('provider', 'provider', 'object', 'validateNestedManifestKeys', { alternative: 'providers[*]' }),
   shape('providers[*]', 'provider', 'collection', 'validateNestedManifestKeys', { identity: 'id', alternative: 'provider' }),
+  shape('connections[*]', 'connection', 'collection', 'validateNestedManifestKeys', { identity: 'id' }),
+  shape('model_selections[*]', 'modelSelection', 'collection', 'validateNestedManifestKeys', { identity: 'id' }),
+  shape('connections[*].credential', 'credential', 'object', 'validateNestedManifestKeys'),
   shape('provider.capabilities', 'capabilities', 'object', 'validateNestedManifestKeys'),
   shape('providers[*].capabilities', 'capabilities', 'object', 'validateNestedManifestKeys'),
+  shape('model_selections[*].capabilities', 'capabilities', 'object', 'validateNestedManifestKeys'),
   shape('provider.credential', 'credential', 'object', 'validateNestedManifestKeys'),
   shape('providers[*].credential', 'credential', 'object', 'validateNestedManifestKeys'),
   shape('routes', 'roles', 'object', 'validateNestedManifestKeys'),

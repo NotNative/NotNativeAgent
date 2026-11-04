@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { SecretBroker } from '../secret-broker.js';
 import { resolveManifest } from '../config.js';
-import { manifestFromConfig } from '../provider/route-configuration.js';
+import { assignProviders, manifestFromConfig } from '../provider/route-configuration.js';
 import { apiError, invalid, objectInput, textInput } from './v2-contract.js';
 import { normalizeProvider, providerConfigPaths, readProviderDocument } from './provider-document.js';
 import { providerSource, removeProvider, writeProvider } from './provider-configuration.js';
@@ -57,11 +57,16 @@ export class OpenCodeProviderSettings {
     const selected = await this.selection(reference);
     const manifest = manifestFromConfig(base);
     const profile = selected.provider; const limits = selected.model.limit ?? {};
-    manifest.providers = [{ id: profile.id, display_name: profile.name, endpoint: profile.endpoint,
-      model: selected.model.modelID ?? selected.reference.id, trust_zone: trustZone(profile.endpoint), credential: selected.credential,
-      output_limit_tokens: limits.output, context_limit_bytes: limits.context ? limits.context * 4 : undefined,
-      capabilities: { tools: selected.model.capabilities?.tools !== false, images: false } }];
-    manifest.routes = { primary: { provider_id: profile.id, model: selected.model.modelID ?? selected.reference.id } };
+    assignProviders(manifest, [{
+      id: profile.id, displayName: profile.name, endpoint: profile.endpoint,
+      model: selected.model.modelID ?? selected.reference.id, trustZone: trustZone(profile.endpoint),
+      credential: selected.credential?.source === 'secret'
+        ? { source: 'secret', secretId: selected.credential.secret_id, field: selected.credential.field }
+        : selected.credential,
+      outputLimitTokens: limits.output, contextLimitBytes: limits.context ? limits.context * 4 : undefined,
+      capabilities: { tools: selected.model.capabilities?.tools !== false, images: false },
+    }]);
+    manifest.routes = { primary: { selection_id: profile.id, model: selected.model.modelID ?? selected.reference.id } };
     manifest.workspace_root = directory ?? base.workspaceRoot;
     return { config: resolveManifest(manifest), reference: selected.reference };
   }

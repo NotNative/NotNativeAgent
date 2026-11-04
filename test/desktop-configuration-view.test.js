@@ -365,8 +365,8 @@ test('the route family serves inherited bindings, canonical zeros, and its own a
     for (const key of keys) {
       assert.ok(row(bare, `routes.${role}.${key}`), `routes.${role}.${key} is not served`);
     }
-    // Only the primary route states its own layer; the others inherit from it,
-    // so the view refuses to name a source it did not observe.
+    // The primary route names the model selection it serves, so the view reports the layer that
+    // declared that selection; the others inherit from the primary route.
     const inherited = role === 'primary' ? { source: 'compiled_default' } : { source_unavailable: true };
     assert.deepEqual(row(bare, `routes.${role}.provider_id`).effective, { present: true, value: 'local', ...inherited });
     assert.deepEqual(row(bare, `routes.${role}.model`).effective, { present: true, value: 'base', ...inherited });
@@ -492,7 +492,10 @@ test('the manifest root serves its invariants, its two editable rows, and its ho
   // The three version stamps are internal invariants: compiled defaults that
   // the operator never edits, shown so the record states which contract the
   // manifest was written against.
-  for (const key of ['format_version', 'routing_inheritance_version', 'output_headroom_version']) {
+  // The three version stamps name the contract the document was written against. The connection
+  // contract stamps the current format; the two migration markers stay compiled defaults.
+  assert.deepEqual(row(view, 'format_version').effective, { present: true, value: 2, source: 'compiled_default' });
+  for (const key of ['routing_inheritance_version', 'output_headroom_version']) {
     assert.deepEqual(row(view, key).explicit, { present: false }, key);
     assert.deepEqual(row(view, key).effective, { present: true, value: 1, source: 'compiled_default' }, key);
   }

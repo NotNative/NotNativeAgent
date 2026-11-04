@@ -79,7 +79,7 @@ test('extraction preserves malformed shape warning order and key-binding owner r
 
 test('top-level canonical keys still classify unknown extension and security fields', () => {
   const provider = { endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
-  assert.equal(MANIFEST_KEYS.length, 38);
+  assert.equal(MANIFEST_KEYS.length, 41);
   const config = resolveManifest({ provider, future_hint: true });
   assert.deepEqual(config.warnings, ['unknown manifest key ignored: future_hint']);
   assert.throws(() => resolveManifest({ provider, future_security: true }), { code: 'unknown_security_key' });

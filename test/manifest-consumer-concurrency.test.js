@@ -60,12 +60,14 @@ test('independent profile stores retain both edits without materializing unrelat
     second.create({ profile_id: 'added', endpoint: 'http://127.0.0.1:5678/v1', model: 'new' }),
   ]);
   const saved = JSON.parse(await fs.readFile(path, 'utf8'));
-  assert.equal(saved.providers.find(provider => provider.id === 'original').model, 'changed');
-  assert.equal(saved.providers.find(provider => provider.id === 'added').model, 'new');
+  // Why: the stored document keeps one selection per model, so each edited model is a selection row.
+  const selection = (id) => saved.model_selections.find((item) => item.id === id);
+  assert.equal(selection('original').model, 'changed');
+  assert.equal(selection('added').model, 'new');
   assert.deepEqual(saved.memory, raw.memory);
   assert.equal(saved.provider_timeout_ms, undefined);
   assert.equal(saved.tui, undefined);
-  assert.equal(saved.providers.find(provider => provider.id === 'original').tool_call_mode, undefined);
+  assert.equal(selection('original').tool_call_mode, undefined);
 });
 
 test('competing provider editors reject a stale snapshot and preserve the winner and unrelated providers', async t => {

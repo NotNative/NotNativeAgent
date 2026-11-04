@@ -286,7 +286,7 @@ test('first run persists explicit environment configuration and reuses it', asyn
     const environment = { NNA_PROVIDER_ENDPOINT: 'http://127.0.0.1:11434/v1', NNA_MODEL: 'starter-model' };
     const first = await loadStartupManifest({ paths, environment, discover: async () => null });
     assert.equal(first.routes.primary.model, 'starter-model');
-    assert.equal(JSON.parse(await readFile(join(paths.config, 'manifest.json'), 'utf8')).format_version, 1);
+    assert.equal(JSON.parse(await readFile(join(paths.config, 'manifest.json'), 'utf8')).format_version, 2);
     let discovered = false;
     const second = await loadStartupManifest({
       paths, environment: {}, discover: async () => { discovered = true; return null; },
@@ -309,7 +309,7 @@ test('concurrent first-run manifests publish one complete winner and quarantine 
     assert.equal(results[0].routes.primary.model, results[1].routes.primary.model);
     const path = join(paths.config, 'manifest.json');
     const persisted = JSON.parse(await readFile(path, 'utf8'));
-    assert.equal((persisted.providers?.[0] ?? persisted.provider).model, results[0].routes.primary.model);
+    assert.equal((persisted.model_selections?.[0]).model, results[0].routes.primary.model);
     await writeFile(path, '{"format_version":', 'utf8');
     await assert.rejects(loadStartupManifest({ paths, environment: {}, discover: async () => null }), (error) => {
       assert.equal(error.code, 'manifest_invalid');
@@ -331,11 +331,11 @@ test('AC-SESS-08 legacy configuration migrates once with backup and future forma
   try {
     await writeFile(path, `${JSON.stringify(legacy)}\n`, 'utf8');
     await loadStartupManifest({ paths, environment: {}, discover: async () => null });
-    assert.equal(JSON.parse(await readFile(path, 'utf8')).format_version, 1);
+    assert.equal(JSON.parse(await readFile(path, 'utf8')).format_version, 2);
     assert.deepEqual(JSON.parse(await readFile(`${path}.bak`, 'utf8')), legacy);
     await loadStartupManifest({ paths, environment: {}, discover: async () => null });
     assert.deepEqual(JSON.parse(await readFile(`${path}.bak`, 'utf8')), legacy);
-    await writeFile(path, `${JSON.stringify({ ...legacy, format_version: 2 })}\n`, 'utf8');
+    await writeFile(path, `${JSON.stringify({ ...legacy, format_version: 3 })}\n`, 'utf8');
     await assert.rejects(loadStartupManifest({ paths, environment: {}, discover: async () => null }), { code: 'manifest_version_future' });
   } finally { await rm(root, { recursive: true, force: true }); }
 });

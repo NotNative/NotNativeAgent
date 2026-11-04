@@ -25,8 +25,7 @@ test('project configuration is ignored until the exact resolved workspace is tru
   const before = await loadEffectiveStartupConfiguration({ paths, workspaceRoot: workspace });
   assert.equal(before.config.memory.enabled, true);
   assert.equal(before.project.trusted, false);
-  assert.equal(before.provenance['providers.0.endpoint'], 'user');
-  assert.equal(before.provenance.provider_connect_timeout_ms, 'compiled_default');
+  assert.equal(before.provenance['connections.0.endpoint'], 'user');  assert.equal(before.provenance.provider_connect_timeout_ms, 'compiled_default');
   assert.equal(before.provenance['routes.primary.temperature'], 'compiled_default');
   assert.deepEqual(runtimeHookRoots(paths, before.project).map((item) => item.scope), ['user']);
   await trustWorkspace(paths.trustedWorkspaces, workspace);

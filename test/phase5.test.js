@@ -1674,7 +1674,8 @@ test('AC-PROV-03 primary routes stay tab-local while Main publishes global speci
   await workspace.addProvider({ id: 'three', endpoint: 'http://127.0.0.1:3/v1', model: 'd' });
   assert.equal(workspace.activeConfig().providerProfiles.three.model, 'd');
   assert.equal(JSON.parse(await readFile(configPath, 'utf8')).routes.primary.model, 'b');
-  assert.equal(JSON.parse(await readFile(configPath, 'utf8')).providers.length, 3);
+  // Why: the stored document keeps one selection per model, so three models are three selections.
+  assert.equal(JSON.parse(await readFile(configPath, 'utf8')).model_selections.length, 3);
   await workspace.shutdown();
 });
 
@@ -2536,6 +2537,8 @@ test('AC-CONF-01 precedence records the winning source and rejects security-like
   assert.equal(resolved.config.persistence, 'ephemeral');
   assert.equal(resolved.config.routes.primary.model, 'project');
   assert.equal(resolved.provenance.persistence, 'project');
+  // Why: a project overlay states only the model it overrides, so its layer owns that field while
+  // the endpoint stays with the user source that declared it.
   assert.equal(resolved.provenance['provider.model'], 'project');
   assert.equal(resolved.provenance['providers.0.endpoint'], 'user');
   assert.equal(resolved.provenance.provider_connect_timeout_ms, 'compiled_default');
@@ -2547,7 +2550,9 @@ test('AC-CONF-01 precedence records the winning source and rejects security-like
     return true;
   });
   const compatible = resolveManifest({ provider: { ...provider, future_hint: 'safe' } });
-  assert.match(compatible.warnings[0], /provider\.future_hint/u);
+  // Why: a legacy provider block becomes one stored connection, so its unknown key is reported at
+  // the connection record that now holds it.
+  assert.match(compatible.warnings.join(' '), /connections\[0\]\.future_hint/u);
 });
 
 test('AC-CONF-06/AC-REV-06 review-floor rejection attributes its source and emits a redacted security audit event', () => {

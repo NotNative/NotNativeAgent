@@ -20,6 +20,7 @@ export function resolveConfiguration(sources, options = {}) {
     }
     leafPaths(source.manifest);
     merged = merge(merged, source.manifest, '', source.name, winners);
+    recordRouteSelectionWinners(source.manifest, source.name, winners);
   }
   let resolved;
   try {
@@ -32,6 +33,17 @@ export function resolveConfiguration(sources, options = {}) {
   const provenance = effectiveProvenance(manifestFromConfig(resolved), winners);
   const config = Object.freeze({ ...resolved, configurationProvenance: provenance });
   return Object.freeze({ config, provenance });
+}
+
+// Compatibility: a legacy route states the provider that serves it, and the reader stores the same
+// choice as a model selection, so the layer that declared the route also owns that selection.
+function recordRouteSelectionWinners(manifest, source, winners) {
+  if (!isRecord(manifest.routes)) return;
+  for (const [role, route] of Object.entries(manifest.routes)) {
+    if (isRecord(route) && (route.provider_id !== undefined || route.connection_id !== undefined)) {
+      winners[`routes.${role}.selection_id`] = source;
+    }
+  }
 }
 
 function attributeSecurityRejection(error, winners, audit) {

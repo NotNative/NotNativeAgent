@@ -59,7 +59,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'invalid_mcp_credential_target', 'invalid_mcp_cwd', 'invalid_mcp_endpoint',
     'invalid_mcp_header', 'invalid_mcp_headers', 'invalid_mcp_state',
     'invalid_mcp_token', 'invalid_mcp_transport', 'invalid_mission',
-    'invalid_model', 'invalid_nna_home', 'invalid_option',
+    'invalid_model', 'invalid_model_selection', 'invalid_nna_home', 'invalid_option',
     'invalid_permission_choice', 'invalid_persistence', 'invalid_providers',
     'invalid_review_timeout', 'invalid_route_capability',
     'invalid_skills_command', 'invalid_subscription', 'invalid_subscription_bound',

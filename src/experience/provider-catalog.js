@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
-  manifestFromConfig, withGlobalSpecialistRoutes, withPrimaryRoute, withProvider, withoutProvider,
+  assignProviders, manifestFromConfig, profilesFromManifest,
+  withGlobalSpecialistRoutes, withPrimaryRoute, withProvider, withoutProvider,
 } from '../provider/route-configuration.js';
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
@@ -13,8 +14,7 @@ export function providerAdditionPlan(sessions, activeId, globalConfig, input) {
     return { next, entries: providerCatalogEntries(sessions, next.config) };
   }
   next = withPrimaryRoute(next.config, input.id, input.model);
-  next = withoutProvider(next.config, ids[0]);
-  const entries = [];
+  next = withoutProvider(next.config, ids[0]);  const entries = [];
   for (const session of sessions.values()) {
     if (session.id === activeId) entries.push({ session, manifest: next.manifest, route: next.config.routes.primary });
     else {
@@ -73,14 +73,15 @@ export function assertProviderUnused(sessions, globalConfig, id) {
 function resolveCatalog(current, catalogConfig) {
   const manifest = manifestFromConfig(current);
   const catalogManifest = manifestFromConfig(catalogConfig);
-  const currentProviders = manifest.providers;
-  manifest.providers = [...catalogManifest.providers];
-  const known = new Set(manifest.providers.map((provider) => provider.id));
+  const currentProviders = profilesFromManifest(manifest);
   const primaryProviderId = current.routes?.primary?.providerId;
   if (typeof primaryProviderId !== 'string') throw new ContractError('primary_route_required', 'current provider catalog has no primary route');
+  const merged = profilesFromManifest(catalogManifest);
+  const known = new Set(merged.map((provider) => provider.id));
   for (const provider of currentProviders) {
-    if (provider.id === primaryProviderId && !known.has(provider.id)) manifest.providers.push(provider);
+    if (provider.id === primaryProviderId && !known.has(provider.id)) merged.push(provider);
   }
+  assignProviders(manifest, merged);
   return resolveManifest(manifest);
 }
 

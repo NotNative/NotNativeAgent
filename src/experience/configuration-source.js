@@ -5,7 +5,7 @@ import { resolveManifest } from '../config.js';
 import { resolveConfiguration } from '../configuration-sources.js';
 import { manifestFromConfig } from '../provider/route-configuration.js';
 import { transactManifest } from '../persistence/manifest-transaction.js';
-import { applyIntentChanges, at, intentChanges } from './configuration-intents.js';
+import { applyIntentChanges, at, intentChanges, migrateRawDocument } from './configuration-intents.js';
 
 export function prepareWorkspaceSource(workspace, next, intent) {
   const options = workspace.options;
@@ -18,7 +18,10 @@ export function prepareWorkspaceSource(workspace, next, intent) {
   const index = sources.findLastIndex((item) => sameSourcePath(item, source));
   if (index < 0) throw new ContractError('configuration_source_required', 'selected source is absent from startup provenance');
   requireOwnedChanges(sources.slice(index + 1).filter((item) => !sameSourcePath(item, source)), changes, options.configurationLaunchOverrides);
-  const raw = applyIntentChanges(source.manifest, changes);
+  // Why: the stored document is patched in the connection/selection shape, so a legacy raw
+  // document is migrated once here rather than handled by a second write path.
+  const rawSource = migrateRawDocument(source.manifest);
+  const raw = applyIntentChanges(rawSource, changes);
   // Invariant: repeated selections of one file observe one document, including lower-precedence aliases.
   const resolveRaw = (manifest) => resolveConfiguration(sources.map((item) => sameSourcePath(item, source) ? { ...item, manifest } : item)).config;
   const effective = resolveRaw(raw);
@@ -32,7 +35,8 @@ export function prepareWorkspaceSource(workspace, next, intent) {
     ...(options.configurationLaunchOverrides ? { launchOverrides: options.configurationLaunchOverrides } : {}) }) };
   return { next: preparedNext, rebase, persist: async () => {
     const result = await transactManifest({ path: source.path, expectedRevision: source.revision,
-      operationId: newId('tui_manifest'), payload: { changes }, transform: (current) => applyIntentChanges(current ?? source.manifest, changes), validate: resolveRaw });
+      operationId: newId('tui_manifest'), payload: { changes },
+      transform: (current) => applyIntentChanges(migrateRawDocument(current ?? source.manifest), changes), validate: resolveRaw });
     if (result.persistence !== 'saved') throw new ContractError('manifest_publication_failed', 'configuration was not saved');
     const saved = { ...source, manifest: raw, revision: result.persistedRevision };
     options.persistedSource = saved;

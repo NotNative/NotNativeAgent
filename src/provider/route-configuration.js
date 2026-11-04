@@ -8,15 +8,25 @@ import { withManifestLock, readLockedManifestSnapshot, transactLockedManifest } 
 import { backupManifestSnapshot } from './manifest-backup.js';
 import { OUTPUT_HEADROOM_VERSION } from '../reliability/output-headroom.js';
 import { credentialManifest } from '../credential-bindings.js';
+import { isRecord } from '../values.js';
+import {
+  providersManifest as storedRecords, profilesFromManifest as flatRecords, legacyProviderRows as flatRows,
+} from './connection-records.js';
+import { CONNECTION_FORMAT_VERSION } from '../persistence/manifest-migration.js';
 
 export const SPECIALIST_ROUTE_ROLES = Object.freeze(['subagent', 'reviewer', 'vision']);
 export function manifestFromConfig(config) {
+  const providers = providersManifest(config.providerProfiles);
   return compact({
-    format_version: 1,
+    format_version: CONNECTION_FORMAT_VERSION,
+    manifest_connection_version: 1,
     routing_inheritance_version: 1,
     output_headroom_version: OUTPUT_HEADROOM_VERSION,
     persistence: config.persistence,
-    providers: Object.values(config.providerProfiles).map(providerManifest),
+    ...providers,
+    // Compatibility: surfaces that read a flat provider row keep working while the stored document
+    // holds connections and selections. This projection is derived, never read back or persisted.
+    providers: flatRows(config.providerProfiles, compact, providerCapabilitiesManifest, credentialManifest),
     routes: routeManifests(config.routes),
     application_system_prompt: config.applicationPolicy || undefined,
     skills: config.executionManifest ? config.skills?.map((item) => ({
@@ -68,7 +78,7 @@ export function manifestFromConfig(config) {
 
 function routeManifests(routes) {
   return Object.fromEntries(Object.entries(routes).map(([role, route]) => [role, compact({
-    provider_id: role === 'primary' || route.assigned !== false ? route.providerId : undefined,
+    selection_id: role === 'primary' || route.assigned !== false ? route.providerId : undefined,
     model: role === 'primary' || route.assigned !== false ? route.model : undefined,
     context_limit_bytes: route.contextLimitBytes ?? undefined,
     required_capabilities: [...route.requiredCapabilities], temperature: route.temperatureOverride,
@@ -91,7 +101,7 @@ export function withPrimaryRoute(config, providerId, model) {
   const manifest = manifestFromConfig(config);
   const profile = config.providerProfiles[providerId];
   manifest.routes.primary = {
-    ...manifest.routes.primary, provider_id: providerId, model,
+    ...manifest.routes.primary, ...selectedConnection(profile), model,
     context_limit_bytes: profile.model === model ? (profile.contextLimitBytes ?? undefined) : undefined,
   };
   return { manifest, config: resolveManifest(manifest) };
@@ -103,17 +113,25 @@ export function withRoleRoute(config, role, providerId, model) {
   const manifest = manifestFromConfig(config);
   const profile = config.providerProfiles[providerId];
   manifest.routes[role] = {
-    ...manifest.routes[role], provider_id: providerId, model,
+    ...manifest.routes[role], ...selectedConnection(profile), model,
     context_limit_bytes: profile.model === model ? (profile.contextLimitBytes ?? undefined) : undefined,
   };
   return { manifest, config: resolveManifest(manifest) };
 }
 
+// Why: a route names the model selection that serves it. The connection that selection runs on
+// is read from the selection itself, so one endpoint can host several selectable models.
+function selectedConnection(profile) {
+  if (typeof profile.id !== 'string') {
+    throw new ContractError('provider_missing', 'the selected provider has no stored identity');
+  }
+  return { selection_id: profile.id };
+}
 export function withoutRoleRoute(config, role) {
   if (role === 'primary') throw new ContractError('primary_route_required', 'the primary role must have a provider profile');
   if (!Object.hasOwn(config.routes, role)) throw new ContractError('route_role_invalid', `unknown route role ${role}`);
   const manifest = manifestFromConfig(config);
-  delete manifest.routes[role].provider_id;
+  delete manifest.routes[role].selection_id;
   delete manifest.routes[role].model;
   delete manifest.routes[role].context_limit_bytes;
   return { manifest, config: resolveManifest(manifest) };
@@ -122,10 +140,11 @@ export function withoutRoleRoute(config, role) {
 export function withGlobalSpecialistRoutes(config, globalConfig) {
   const manifest = manifestFromConfig(config);
   const globalManifest = manifestFromConfig(globalConfig);
-  const knownProviders = new Set(manifest.providers.map((provider) => provider.id));
-  for (const provider of globalManifest.providers) {
-    if (!knownProviders.has(provider.id)) manifest.providers.push(provider);
-  }
+  const knownProviders = new Set(profilesFromManifest(manifest).map((provider) => provider.id));
+  const missing = profilesFromManifest(globalManifest).filter((provider) => !knownProviders.has(provider.id));
+  if (missing.length > 0) assignProviders(manifest, [...profilesFromManifest(manifest), ...missing]);
+  // Why: a global route names the selection that serves it, and selections carry the same
+  // identity in both documents, so the citation transfers without a remapping step.
   for (const role of SPECIALIST_ROUTE_ROLES) {
     manifest.routes[role] = { ...globalManifest.routes[role] };
   }
@@ -138,7 +157,7 @@ export function withProvider(config, input) {
   }
   if (Object.hasOwn(config.providerProfiles, input.id)) throw new ContractError('provider_duplicate', `provider ${input.id} already exists`);
   const manifest = manifestFromConfig(config);
-  manifest.providers.push(compact({
+  assignProviders(manifest, [...profilesFromManifest(manifest), compact({
     id: input.id, display_name: input.displayName ?? input.id, endpoint: input.endpoint, model: input.model,
     trust_zone: endpointTrustZone(input.endpoint),
     credential: input.credential?.source === 'secret' ? credentialManifest(input.credential) : undefined,
@@ -147,7 +166,7 @@ export function withProvider(config, input) {
     output_limit_tokens: input.outputLimitTokens,
     tool_call_mode: input.toolCallMode,
     capabilities: providerCapabilitiesManifest(input.capabilities),
-  }));
+  })]);
   return { manifest, config: resolveManifest(manifest) };
 }
 
@@ -155,12 +174,16 @@ export function withUpdatedProvider(config, id, input) {
   const current = config.providerProfiles[id];
   if (!current) throw new ContractError('provider_missing', `provider ${id} is not configured`);
   const manifest = manifestFromConfig(config);
-  const index = manifest.providers.findIndex((provider) => provider.id === id);
+  const providers = profilesFromManifest(manifest);
+  const index = providers.findIndex((provider) => provider.id === id);
   const endpoint = input.endpoint ?? current.endpoint;
   const model = input.model ?? current.model;
   const preserveLimits = model === current.model;
-  manifest.providers[index] = compact({
-    ...manifest.providers[index],
+  // Why: an endpoint edit changes the network identity, so the connection it belongs to must be
+  // re-derived rather than reusing the old keyed connection with a different endpoint.
+  delete providers[index].connection_id;
+  providers[index] = compact({
+    ...providers[index],
     display_name: input.displayName ?? current.displayName,
     endpoint,
     model,
@@ -181,8 +204,9 @@ export function withUpdatedProvider(config, id, input) {
       capabilities: providerCapabilitiesManifest({ ...current.capabilities, ...input.capabilities }),
     } : {}),
   });
+  assignProviders(manifest, providers);
   for (const route of Object.values(manifest.routes)) {
-    if (route.provider_id === id && route.model === current.model) route.model = model;
+    if (route.selection_id === id && route.model === current.model) route.model = model;
   }
   return { manifest, config: resolveManifest(manifest) };
 }
@@ -254,11 +278,12 @@ export function withoutProvider(config, id) {
   if (roles.length > 0) {
     throw new ContractError('provider_in_use', `provider ${id} is assigned to: ${roles.join(', ')}`);
   }
+  // Why: the connection record is shared with any other model on the same endpoint, so removing
+  // one selection leaves the connection in place while it still carries another selection.
   const manifest = manifestFromConfig(config);
-  manifest.providers = manifest.providers.filter((provider) => provider.id !== id);
+  assignProviders(manifest, profilesFromManifest(manifest).filter((provider) => provider.id !== id));
   return { manifest, config: resolveManifest(manifest) };
 }
-
 export function withBooleanSetting(config, setting, value) {
   if (typeof value !== 'boolean') throw new ContractError('setting_value_invalid', 'setting value must be boolean');
   const manifest = manifestFromConfig(config);
@@ -405,6 +430,23 @@ function providerManifest(profile) {
     tool_call_mode: profile.toolCallMode === 'single' ? undefined : profile.toolCallMode,
     capabilities,
   });
+}
+
+export function providersManifest(profiles) {
+  return storedRecords(profiles, compact, providerCapabilitiesManifest);
+}
+
+export function profilesFromManifest(manifest) {
+  return flatRecords(manifest, compact);
+}
+
+export function assignProviders(manifest, providers) {
+  const { connections, model_selections: selections } = providersManifest(providers);
+  manifest.connections = connections;
+  manifest.model_selections = selections;
+  delete manifest.providers;
+  delete manifest.provider;
+  return manifest;
 }
 
 function providerCapabilitiesManifest(capabilities = {}) {

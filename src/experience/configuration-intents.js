@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
-import { resolveManifest } from '../config.js';
+import { resolveManifest, migrateManifestDocument } from '../config.js';
 import { manifestFromConfig } from '../provider/route-configuration.js';
 import { isRecord } from '../values.js';
 
@@ -17,7 +17,7 @@ export function configurationIntent(kind, input = {}) {
     ...(input.includeWallClock ? ['recovery.turn_wall_clock_ms'] : [])] };
   if (kind === 'boolean') return { paths: (input.setting === 'memory.enabled' && !input.value) || (input.setting === 'memory.required' && input.value)
     ? ['memory.enabled', 'memory.required'] : [input.setting] };
-  if (kind === 'provider') return { diffRoots: ['providers', 'routes'] };
+  if (kind === 'provider') return { diffRoots: ['model_selections', 'connections', 'routes'] };
   if (kind === 'mcp') return { diffRoots: ['mcp_servers'] };
   if (kind === 'route') return routeIntent(input);
   throw new ContractError('configuration_intent_required', 'a typed configuration intent is required');
@@ -26,7 +26,7 @@ export function configurationIntent(kind, input = {}) {
 function routeIntent({ role, setting }) {
   if (!['primary', 'reviewer', 'subagent', 'vision'].includes(role)) throw new ContractError('route_role_invalid', 'unknown route role');
   const root = `routes.${role}`;
-  if (!setting) return { paths: ['provider_id', 'model', 'context_limit_bytes'].map((key) => `${root}.${key}`) };
+  if (!setting) return { paths: [`${root}.selection_id`, `${root}.model`, `${root}.context_limit_bytes`] };
   if (setting === 'timeout') return { paths: role === 'primary' ? ['provider_timeout_ms', `${root}.deadline_ms`] : [`${root}.deadline_ms`] };
   const field = { temperature: 'temperature', output: 'max_output_tokens', budget: 'budget', reasoning_effort: 'reasoning_effort', enable_thinking: 'enable_thinking' }[setting];
   if (!field) throw new ContractError('route_setting_invalid', 'unknown route setting');
@@ -35,11 +35,13 @@ function routeIntent({ role, setting }) {
 
 export function intentChanges(config, next, intent) {
   if (!intent) throw new ContractError('configuration_intent_required', 'a typed configuration intent is required');
-  const before = manifestFromConfig(config);
+  const before = migrateRawDocument(manifestFromConfig(config));
   const canonical = manifestFromConfig(resolveManifest(next));
   const changes = (intent.paths ?? []).map((path) => ({ path, value: at(next, path) }));
   for (const root of intent.diffRoots ?? []) {
-    if (root === 'providers' || root === 'mcp_servers') {
+    // Why: the document stores a connection list and a selection list separately, so a provider
+    // edit diffs each list by its own identity instead of one flat provider array.
+    if (Array.isArray(before[root]) || Array.isArray(canonical[root])) {
       const old = before[root] ?? [], current = canonical[root] ?? [];
       for (const id of new Set([...old, ...current].map((isRecord) => isRecord.id))) {
         const first = old.find((isRecord) => isRecord.id === id), last = current.find((isRecord) => isRecord.id === id);
@@ -57,12 +59,19 @@ function differences(before, after, path, changes) {
   } else changes.push({ path, value: after });
 }
 
+export function migrateRawDocument(manifest) {
+  if (!isRecord(manifest) || Array.isArray(manifest.connections)) return manifest;
+  return migrateManifestDocument(manifest).manifest;
+}
+
 export function applyIntentChanges(raw, changes) {
-  const result = structuredClone(raw);
+  const result = structuredClone(migrateRawDocument(raw));
+  // Why: the flat provider rows are a derived read projection, so a stored document never keeps
+  // them; the connection and selection records are the only persisted form.
+  delete result.providers;
   for (const change of changes) {
     if (!Object.hasOwn(change, 'id')) { set(result, change.path, change.value); continue; }
-    const singular = change.path === 'providers' && result.provider && !result.providers;
-    const values = singular ? [{ ...result.provider, id: result.provider.id ?? 'manifest-primary' }] : (result[change.path] ?? []);
+    const values = result[change.path] ?? [];
     const index = values.findIndex((value) => value.id === change.id);
     if (!change.value) { if (index >= 0) values.splice(index, 1); }
     else if (!change.before) values.push(structuredClone(change.value));
@@ -71,9 +80,7 @@ export function applyIntentChanges(raw, changes) {
       const edits = []; differences(change.before, change.value, '', edits);
       for (const edit of edits) set(values[index], edit.path.replace(/^\./u, ''), edit.value);
     }
-    if (singular && values.length === 1 && values[0].id === (result.provider.id ?? 'manifest-primary')) {
-      const hadId = Object.hasOwn(result.provider, 'id'); result.provider = values[0]; if (!hadId) delete result.provider.id;
-    } else { result[change.path] = values; if (change.path === 'providers') delete result.provider; }
+    result[change.path] = values;
   }
   return result;
 }

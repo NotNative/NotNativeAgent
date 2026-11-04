@@ -55,7 +55,7 @@ test('provider profile ids accept valid own names and reject empty or malformed 
     const config = resolveManifest({ providers: [provider] });
     assert.equal(config.providerProfiles[id].id, id);
     assert.equal(config.routes.primary.providerId, id);
-    assert.equal(manifestFromConfig(config).providers[0].id, id);
+    assert.equal(manifestFromConfig(config).model_selections[0].id, id);
     assert.throws(() => resolveManifest({ providers: [provider, provider] }), { code: 'duplicate_provider' });
     const added = withProvider(resolveManifest({ providers: [providers[0]] }), provider);
     assert.equal(added.config.providerProfiles[id].id, id);
@@ -109,8 +109,8 @@ test('AC-TURN-07 route and provider context limits survive configuration round t
   assert.equal(manifest.context_compression_level_2_threshold, 0.50);
   assert.equal(manifest.context_compression_level_3_threshold, 0.68);
   assert.equal(manifest.context_compaction_threshold, 0.8);
-  assert.equal(manifest.providers[0].context_limit_bytes, 400_000);
-  assert.equal(manifest.providers[0].output_limit_tokens, 4096);
+  assert.equal(manifest.model_selections[0].context_limit_bytes, 400_000);
+  assert.equal(manifest.model_selections[0].output_limit_tokens, 4096);
   assert.equal(manifest.routes.primary.context_limit_bytes, 250_000);
   assert.equal(candidate.maxOutputTokens, 4096);
 });

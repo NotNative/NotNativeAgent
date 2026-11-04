@@ -50,9 +50,10 @@ test('provider tool-call mode is validated and retained by configuration round t
   assert.equal(current.providerProfiles.one.toolCallMode, 'single');
   const updated = withUpdatedProvider(current, 'one', { toolCallMode: 'batch' });
   assert.equal(updated.config.providerProfiles.one.toolCallMode, 'batch');
-  assert.equal(updated.manifest.providers.find((item) => item.id === 'one').tool_call_mode, 'batch');
+  const selection = (manifest) => manifest.model_selections.find((item) => item.id === 'one');
+  assert.equal(selection(updated.manifest).tool_call_mode, 'batch');
   const qualified = withUpdatedProvider(updated.config, 'one', { capabilities: { tools: true, images: false } });
-  assert.deepEqual(qualified.manifest.providers.find((item) => item.id === 'one').capabilities, { tools: true, images: false });
+  assert.deepEqual(selection(qualified.manifest).capabilities, { tools: true, images: false });
   assert.throws(() => resolveManifest({ provider: {
     id: 'bad', endpoint: 'http://127.0.0.1:1/v1', model: 'model', trust_zone: 'loopback',
     tool_call_mode: 'automatic',
@@ -99,7 +100,7 @@ test('cleared specialist assignment remains unassigned and follows Primary', () 
   const cleared = withoutRoleRoute(current, 'reviewer');
   assert.equal(cleared.config.routes.reviewer.assigned, false);
   assert.equal(cleared.config.routes.reviewer.providerId, 'one');
-  assert.equal(manifestFromConfig(cleared.config).routes.reviewer.provider_id, undefined);
+  assert.equal(manifestFromConfig(cleared.config).routes.reviewer.connection_id, undefined);
   const changed = withRoleRoute(cleared.config, 'primary', 'two', 'other');
   assert.equal(changed.config.routes.reviewer.assigned, false);
   assert.equal(changed.config.routes.reviewer.providerId, 'two');
@@ -195,14 +196,14 @@ test('legacy local profile defaults migrate to reasoning-safe output headroom on
   const migrated = migrateManifestDocument(legacy);
   assert.equal(migrated.migrated, true);
   assert.equal(migrated.manifest.output_headroom_version, 1);
-  assert.equal(migrated.manifest.provider.output_limit_tokens, 32_000);
+  assert.equal(migrated.manifest.model_selections[0].output_limit_tokens, 32_000);
   assert.equal(migrateManifestDocument(migrated.manifest).migrated, false);
 
   const publicLegacy = {
     ...legacy,
     provider: { ...legacy.provider, endpoint: 'https://example.test/v1', trust_zone: 'public_network' },
   };
-  assert.equal(migrateManifestDocument(publicLegacy).manifest.provider.output_limit_tokens, 16_384);
+  assert.equal(migrateManifestDocument(publicLegacy).manifest.model_selections[0].output_limit_tokens, 16_384);
 });
 
 test('manifest persistence retains a last-known-good backup', async () => {
@@ -246,7 +247,9 @@ test('Main provider manager edits, tests, and deletes unused profiles durably', 
   assert.equal(workspace.config.routes.reviewer.assigned, false);
   await workspace.deleteProvider('two');
   assert.equal(workspace.config.providerProfiles.two, undefined);
-  assert.equal(JSON.parse(await readFile(configPath, 'utf8')).providers.length, 1);
+  // Why: the stored document keeps one selection per model, and a connection outlives its
+  // selections, so deleting one model leaves the stored provider count at one selection.
+  assert.equal(JSON.parse(await readFile(configPath, 'utf8')).model_selections.length, 1);
   await workspace.shutdown();
 });
 

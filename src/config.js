@@ -13,7 +13,8 @@ import { resolveConfigurationScalar as scalar } from './configuration-rules.js';
 import { MANIFEST_KEYS } from './configuration-keys.js';
 import { validateAllowedTools, validateHostIdentity } from './execution-policy.js';
 import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
-import { migrateRoutingInheritance } from './persistence/manifest-migration.js';
+import { migrateRoutingInheritance, CONNECTION_FORMAT_VERSION } from './persistence/manifest-migration.js';
+import { validateConnections as connectionsFor } from './provider/connection-validation.js';
 import { validateDream } from './dream-config.js';
 import { validateEnableThinking, validateReasoningEffort } from './provider/reasoning.js';
 import { providerToolCallMode } from './provider/tool-call-mode.js';
@@ -27,12 +28,24 @@ const MISSION_EFFECTS = new Set(['read_only', 'reversible', 'irreversible', 'unk
   'budget_exhaustion', 'expiration', 'disconnect',
 ]);
 const KNOWN_KEYS = new Set(MANIFEST_KEYS);
+function manifestWarnings(manifest) {
+  return [...validateManifestKeys(manifest), ...validateNestedManifestKeys(manifest)];
+}
+
+// Why: a document that still holds a legacy provider list migrates to connections, but a malformed
+// legacy document keeps its providers so the validator reports the exact defect.
+function storedShape(manifest) {
+  if (Array.isArray(manifest.connections)) return manifest;
+  const migrated = migrateRoutingInheritance(manifest).manifest;
+  return Array.isArray(migrated.connections) ? migrated : manifest;
+}
+
 export function resolveManifest(manifest = {}, options = {}) {
   if (!isRecord(manifest)) throw new ContractError('invalid_manifest', 'manifest must be an object');
   assertManifestVersion(manifest.format_version);
+  manifest = storedShape(manifest);
   rejectReviewOverrides(manifest);
-  const warnings = validateManifestKeys(manifest);
-  warnings.push(...validateNestedManifestKeys(manifest));
+  const warnings = manifestWarnings(manifest);
   const profiles = validateProviders(manifest);
   const profile = Object.values(profiles)[0];
   const persistence = manifest.persistence ?? 'durable';
@@ -160,15 +173,21 @@ export function migrateManifestDocument(manifest) {
   return migrateRoutingInheritance(manifest);
 }
 function assertManifestVersion(value) {
-  if (value === undefined || value === 1) return;
-  if (Number.isInteger(value) && value > 1) {
-    throw new ContractError('manifest_version_future', `configuration format ${value} is newer than supported format 1`);
+  if (value === undefined || value === 1 || value === CONNECTION_FORMAT_VERSION) return;
+  if (Number.isInteger(value) && value > CONNECTION_FORMAT_VERSION) {
+    throw new ContractError('manifest_version_future',
+      `configuration format ${value} is newer than supported format ${CONNECTION_FORMAT_VERSION}`);
   }
-  throw new ContractError('manifest_version_invalid', 'configuration format_version must be the integer 1');
+  throw new ContractError('manifest_version_invalid',
+    `configuration format_version must be the integer 1 or ${CONNECTION_FORMAT_VERSION}`);
 }
 function validateProviders(manifest) {
+  // Why: a stored connection owns the endpoint and the credential; a stored selection owns
+  // one model on that connection. One connection can carry several selections, so two models
+  // on one endpoint no longer need two stored records.
+  if (Array.isArray(manifest.connections)) return validateConnections(manifest);
   if (!Array.isArray(manifest.providers) && manifest.provider === undefined) {
-    throw new ContractError('missing_provider', 'manifest requires a provider or providers array');
+    throw new ContractError('missing_provider', 'manifest requires a connection or connections array');
   }
   const values = Array.isArray(manifest.providers) ? manifest.providers : [manifest.provider];
   if (values.length === 0 || values.length > 16) {
@@ -181,6 +200,13 @@ function validateProviders(manifest) {
     result[profile.id] = profile;
   }
   return result;
+}
+function validateConnections(manifest) {
+  // Why: the connection and selection records have their own module so this reader stays one
+  // cohesive file; the validator receives the shared scalar and capability helpers it depends on.
+  return connectionsFor(manifest, {
+    parseEndpoint, endpointZone, trustZones: TRUST_ZONES, scalar, capability,
+  });
 }
 function validateProvider(value) {
   if (!isRecord(value)) throw new ContractError('missing_provider', 'manifest provider is required');
@@ -251,12 +277,15 @@ function buildRoutes(value, profile, profiles, providerMs) {
   const input = isRecord(value) ? value : {}, result = {};
   for (const role of ROLES) {
     const route = isRecord(input[role]) ? input[role] : {};
-    const assigned = role === 'primary' || route.provider_id != null || route.model != null;
+    // Compatibility: a stored route names the connection that serves it. Older documents named
+    // the provider that served it, so both keys resolve the same assignment.
+    const cited = route.selection_id ?? route.connection_id ?? route.provider_id;
+    const assigned = role === 'primary' || cited != null || route.model != null;
     const deadlineOverrideMs = role === 'primary' ? null : providerRouteDeadlineOverride(route.deadline_ms);
     const temperatureOverride = scalar('routes.{role}.temperature', route.temperature);
     const inherited = role === 'primary' ? null : result.primary;
     if (!assigned && !inherited) throw new ContractError('route_inheritance_invalid', `route ${role} has no Primary route to inherit`);
-    const providerId = assigned ? (route.provider_id ?? inherited?.providerId ?? profile.id) : inherited.providerId;
+    const providerId = assigned ? (cited ?? inherited?.providerId ?? profile.id) : inherited.providerId;
     const model = assigned ? (route.model ?? profiles[providerId]?.model ?? profile.model) : inherited.model;
     result[role] = Object.freeze({
       role, assigned, providerId, model,

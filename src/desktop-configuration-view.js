@@ -20,7 +20,7 @@ export function projectDesktopConfigurationView(snapshot) {
       if (rows.length >= MAX_ROWS) throw invalid();
       const explicit = valueAt(raw, binding.rawPath);
       const resolved = valueAt(effective, binding.effectivePath);
-      const source = snapshot.provenance?.[binding.provenancePath];
+      const source = observedSource(snapshot.provenance, binding.provenancePath);
       rows.push({ path: binding.path, catalog_path: field.path,
         ...(binding.entity ? { entity: binding.entity } : {}),
         explicit: projectValue(explicit, field, binding.entity),
@@ -64,6 +64,17 @@ function effectiveManifest(config) {
       context_limit_bytes: route.contextLimitBytes, temperature: route.temperature, deadline_ms: route.deadlineMs });
   }
   return manifest;
+}
+
+// Compatibility: the stored route names the model selection that serves it, while the served row
+// names the provider, so the row reads the layer that declared the selection.
+function observedSource(provenance, path) {
+  const direct = provenance?.[path];
+  if (direct !== undefined) return direct;
+  if (path.startsWith('routes.') && path.endsWith('.provider_id')) {
+    return provenance?.[`${path.slice(0, -'.provider_id'.length)}.selection_id`];
+  }
+  return undefined;
 }
 
 function boundedIdentity(value) {

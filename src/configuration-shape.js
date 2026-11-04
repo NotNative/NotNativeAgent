@@ -11,6 +11,8 @@ export function validateNestedManifestKeys(manifest) {
   const warnings = [];
   inspectObject(manifest.provider, 'provider', KEYS.provider, warnings);
   inspectArray(manifest.providers, 'providers', KEYS.provider, warnings, inspectProviderCapabilities);
+  inspectArray(manifest.connections, 'connections', KEYS.connection, warnings, inspectConnectionCredential);
+  inspectArray(manifest.model_selections, 'model_selections', KEYS.modelSelection, warnings, inspectSelectionCapabilities);
   inspectProviderCapabilities(manifest.provider, 'provider', warnings);
   inspectRoutes(manifest.routes, warnings);
   inspectObject(manifest.attachments, 'attachments', KEYS.attachments, warnings);
@@ -31,6 +33,14 @@ function inspectProviderCapabilities(value, path, warnings) {
     inspectObject(value.capabilities, `${path}.capabilities`, KEYS.capabilities, warnings);
     inspectObject(value.credential, `${path}.credential`, KEYS.credential, warnings);
   }
+}
+
+function inspectConnectionCredential(value, path, warnings) {
+  if (record(value)) inspectObject(value.credential, `${path}.credential`, KEYS.credential, warnings);
+}
+
+function inspectSelectionCapabilities(value, path, warnings) {
+  if (record(value)) inspectObject(value.capabilities, `${path}.capabilities`, KEYS.capabilities, warnings);
 }
 
 function inspectRoutes(value, warnings) {
