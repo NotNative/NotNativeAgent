@@ -275,8 +275,9 @@ the main console persists the primary selection as the workspace default.
 | 1 — route resolution inheritance, fallback removal, vision refusal wording | Done |
 | 2 — connection/selection manifest records, `format_version: 2`, migration | Done |
 | 3 — `/model` discovery sweep, primary pick persistence | Done |
-| 4 — `/v1/connections`, `/v1/models`, `/v1/routes`, evidence key rename | Pending |
-| 5 — Connections, Models, Routing surfaces | Pending |
+| 4 — `/v1/connections`, `/v1/models`, `/v1/routes` read contract | Done |
+| 5 — Routing surface (roles, assignment, clear) | Done |
+| next — per-selection limit observation; rename `providerProfiles` to connections | Pending |
 
 Slice 2 stores `connections[]` and `model_selections[]` and resolves them into the
 flat provider map every existing consumer reads. A route names the **model
