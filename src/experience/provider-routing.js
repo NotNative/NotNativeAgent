@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
-import { withRoleRoute, withRouteSetting, withoutProvider, withoutRoleRoute } from '../provider/route-configuration.js';
+import { withPrimaryRoute, withRoleRoute, withRouteSetting, withoutProvider, withoutRoleRoute } from '../provider/route-configuration.js';
 import { assertProviderUnused } from './provider-catalog.js';
 import { publishWorkspaceConfiguration } from './configuration-publication.js';
 import { configurationIntent } from './configuration-intents.js';
@@ -23,6 +23,25 @@ export async function selectWorkspaceProviderRole(workspace, role, providerId) {
     withRoleRoute(workspace.config, role, providerId, profile.model),
     () => workspace._projectRoute(active.id, sessionNext.config.routes.primary), configurationIntent('route', { role }));
   return { scope, role, providerId, model: profile.model };
+}
+
+export async function selectWorkspaceModel(workspace, providerId, model) {
+  if (typeof model !== 'string' || model.length === 0 || model.length > 256) {
+    throw new ContractError('invalid_model', 'model name is required and bounded');
+  }
+  const active = workspace._active();
+  const current = routeConfiguration(active);
+  if (!current.providerProfiles[providerId]) {
+    throw new ContractError('provider_missing', `provider ${providerId} is not configured`);
+  }
+  // Why: a pick is conversation-scoped, except in Main, where it also becomes the workspace default
+  // that new conversations copy once.
+  const sessionNext = withPrimaryRoute(current, providerId, model);
+  const scope = await updatePrimaryRoute(workspace, active, sessionNext,
+    withPrimaryRoute(workspace.config, providerId, model),
+    () => workspace._projectRoute(active.id, sessionNext.config.routes.primary),
+    configurationIntent('route', { role: 'primary' }));
+  return { scope, providerId, model };
 }
 
 export async function clearWorkspaceProviderRole(workspace, role) {

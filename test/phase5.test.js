@@ -1661,19 +1661,23 @@ test('AC-PROV-03 primary routes stay tab-local while Main publishes global speci
   await workspace.selectModel('a');
   await workspace.selectProviderForRole('reviewer', 'two');
   assert.deepEqual(projection.sessions.get(main).metadata, { provider: 'two', endpoint: 'http://127.0.0.1:2/v1', model: 'a', workspace: root });
-  assert.equal(workspace.config.routes.primary.model, 'b');
+  // Why: a pick in Main is the workspace default, so the global primary route now carries it while
+  // the other conversation keeps the model it chose.
+  assert.equal(workspace.config.routes.primary.model, 'a');
+  assert.equal(workspace.config.routes.primary.providerId, 'two');
   assert.equal(workspace.config.routes.reviewer.providerId, 'two');
   assert.equal(workspace.sessions.get(other).engine.config.routes.reviewer.providerId, 'two');
   assert.deepEqual(projection.sessions.get(other).metadata, { provider: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'c', workspace: root });
   projection.activate(other);
   await workspace.usePrimaryRoute();
-  assert.deepEqual(projection.sessions.get(other).metadata, { provider: 'two', endpoint: 'http://127.0.0.1:2/v1', model: 'b', workspace: root });
+  // Why: copying Main's route now copies the workspace default, which the pick in Main updated.
+  assert.deepEqual(projection.sessions.get(other).metadata, { provider: 'two', endpoint: 'http://127.0.0.1:2/v1', model: 'a', workspace: root });
   await assert.rejects(workspace.selectProviderForRole('reviewer', 'two'), { code: 'provider_main_required' });
   assert.equal(workspace.activeConfig().routes.reviewer.providerId, 'two');
   projection.activate(main);
   await workspace.addProvider({ id: 'three', endpoint: 'http://127.0.0.1:3/v1', model: 'd' });
   assert.equal(workspace.activeConfig().providerProfiles.three.model, 'd');
-  assert.equal(JSON.parse(await readFile(configPath, 'utf8')).routes.primary.model, 'b');
+  assert.equal(JSON.parse(await readFile(configPath, 'utf8')).routes.primary.model, 'a');
   // Why: the stored document keeps one selection per model, so three models are three selections.
   assert.equal(JSON.parse(await readFile(configPath, 'utf8')).model_selections.length, 3);
   await workspace.shutdown();
@@ -1710,7 +1714,9 @@ test('durable Console launch rotates meaningful Main into Previous Main with its
   const tabs = [...second.projection.sessions.values()];
   assert.equal(tabs[0].id, mainId);
   assert.equal(tabs[0].role, 'primary');
-  assert.deepEqual(tabs[0].metadata, { provider: 'two', endpoint: 'http://127.0.0.1:2/v1', model: 'b', workspace: root });
+  // Why: the pick in Main is the workspace default, so the rotated conversation keeps model c and the
+  // new Main starts from the same default.
+  assert.deepEqual(tabs[0].metadata, { provider: 'two', endpoint: 'http://127.0.0.1:2/v1', model: 'c', workspace: root });
   assert.equal(tabs[1].name, 'Previous Main');
   assert.equal(tabs[1].role, 'standard');
   assert.deepEqual(tabs[1].metadata, { provider: 'two', endpoint: 'http://127.0.0.1:2/v1', model: 'c', workspace: root });

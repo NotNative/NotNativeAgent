@@ -41,6 +41,14 @@ export async function handleProviderCommand(argument, workspace, helpers) {
   }));
 }
 
+export async function applyModelChoice(selected, workspace) {
+  // Why: a sweep row names both the connection and the model, so the pick selects that pair.
+  if (typeof selected?.value?.providerId === 'string') {
+    return workspace.selectRoute(selected.value.providerId, selected.value.model);
+  }
+  return workspace.selectModel(selected.id);
+}
+
 export async function handleModelCommand(argument, workspace, helpers) {
   if (argument === 'qualify') {
     const result = await workspace.qualifyActiveModel();
@@ -52,15 +60,15 @@ export async function handleModelCommand(argument, workspace, helpers) {
     workspace.projection.showNotice('route', helpers.modelNotice(workspace));
     return;
   }
-  let models, discoveryError;
-  try { models = await workspace.availableModels(); } catch (error) {
+  let models = [], rows = [], discoveryError;
+  try { rows = await workspace.modelSweep(); } catch (error) {
     models = [workspace.activeConfig().routes.primary.model];
     discoveryError = error.code ?? error.message ?? 'provider unavailable';
   }
   const projected = workspace.projection.active();
   if (!projected) throw new ContractError('provider_session_missing', 'no active conversation is available');
   workspace.projection.openOverlay(modelOverlay({ config: workspace.activeConfig() }, models, {
-    discoveryError, inheritRoute: projected.role === PRIMARY_ROLE ? null : workspace.config?.routes?.primary ?? null,
+    rows, discoveryError, inheritRoute: projected.role === PRIMARY_ROLE ? null : workspace.config?.routes?.primary ?? null,
   }));
 }
 

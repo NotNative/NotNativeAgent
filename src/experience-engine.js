@@ -28,10 +28,11 @@ import { attachCreatedSession, rollbackCreatedSession } from './experience/creat
 const INTERACTIVE_OPERATOR = 'authenticated-interactive-operator';
 import { appliedProviderTestResult, testProviderProfile } from './experience/provider-test.js';
 import { availableWorkspaceModels, qualifyWorkspaceModel } from './experience/models.js';
+import { sweepWorkspaceModels } from './experience/model-sweep.js';
 import { publishWorkspaceConfiguration } from './experience/configuration-publication.js';
 import { configurationIntent } from './experience/configuration-intents.js';
 import { providerAdditionPlan, providerCatalogEntries, routePresentation, specialistRouteEntries } from './experience/provider-catalog.js';
-import { clearWorkspaceProviderRole, configureWorkspaceProviderRoute, deleteWorkspaceProvider, selectWorkspaceProviderRole } from './experience/provider-routing.js';
+import { clearWorkspaceProviderRole, configureWorkspaceProviderRoute, deleteWorkspaceProvider, selectWorkspaceModel, selectWorkspaceProviderRole } from './experience/provider-routing.js';
 import { runGatewayCommand } from './gateway-cli.js';
 import { runWebFetchCommand } from './web-fetch-cli.js';
 import { discoverWorkspaceProviderModels, qualifyWorkspaceProvider } from './experience/provider-discovery.js';
@@ -282,16 +283,7 @@ export class ExperienceEngine {
     const route = this.activeConfig().routes.primary;
     return this.selectRoute(route.providerId, model);
   }
-  async selectRoute(providerId, model) {
-    const active = this._active();
-    const projected = this.projection.active();
-    const next = withPrimaryRoute(active.engine.pendingConfig ?? active.engine.config, providerId, model);
-    await this._updateSession(active, next.manifest);
-    this._projectRoute(active.id, next.config.routes.primary);
-    this.onChange();
-    await this._savePoolRecoverable();
-    return { scope: projected.role === 'primary' ? 'main_conversation' : 'conversation', providerId, model };
-  }
+  async selectRoute(providerId, model) { return selectWorkspaceModel(this, providerId, model); }
   async usePrimaryRoute() {
     const active = this._active();
     if (this.projection.active().role === 'primary') return { scope: 'primary' };
@@ -406,7 +398,11 @@ export class ExperienceEngine {
       secretBroker: this.secretBroker,
     }, id);
   }
-  async availableModels() { return availableWorkspaceModels(this); } async qualifyActiveModel() { return qualifyWorkspaceModel(this); }
+  async availableModels() { return availableWorkspaceModels(this); }
+
+  async modelSweep(options = {}) { return sweepWorkspaceModels(this, options); }
+
+  async qualifyActiveModel() { return qualifyWorkspaceModel(this); }
   webSearchStatus(test = false, profileId = null) { return webSearchStatus(this.#webSearchState(), test, profileId); }
   configureWebSearch(endpoint, managed = false) { return configureWebSearch(this.#webSearchState(), endpoint, managed); }
   addWebSearchProfile(displayName, endpoint) { return addWebSearchProfile(this.#webSearchState(), displayName, endpoint); }

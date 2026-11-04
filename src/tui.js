@@ -16,7 +16,7 @@ import { compactActiveConversation, confirmConversationClear, handoffActiveConve
 import { handleAttachmentCommand } from './tui/attachment-command.js';
 import { handleMemoryCommand } from './tui/memory-command.js';
 import { handleMcpCommand } from './tui/mcp-command.js';
-import { handleModelCommand, handleProviderCommand } from './tui/provider-command.js';
+import { applyModelChoice, handleModelCommand, handleProviderCommand } from './tui/provider-command.js';
 import { handleWorkspaceTrust } from './tui/trust-command.js';
 import { handleMouse, scrollPageUp } from './tui/mouse.js';
 import { attachDroppedPaths, copyTerminalSelection, rightClickClipboard, clearTerminalSelection, pasteClipboard } from './tui/clipboard-actions.js';
@@ -247,7 +247,7 @@ async function handleOverlayAction(action, workspace) {
     else if (overlay.kind === 'provider' && selected.id === 'clear-role') await workspace.clearProviderForRole(overlay.role);
     else if (overlay.kind === 'tab' && selected.id === 'action:close') { projection.closeOverlay(); await workspace.closeActive(false); return; }
     else if (overlay.kind === 'provider') await workspace.selectProviderForRole(overlay.role ?? 'primary', selected.id);
-    else if (overlay.kind === 'model') await workspace.selectModel(selected.id);
+    else if (overlay.kind === 'model') await applyModelChoice(selected, workspace);
     else if (overlay.kind === 'skills') { prepareSkillInvocation(projection, selected.id); return; }
     else if (overlay.kind === 'dream') { await handleDreamSelection(selected.id, workspace); return; }
     else if (overlay.kind === 'websearch') {

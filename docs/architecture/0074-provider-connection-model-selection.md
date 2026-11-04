@@ -274,7 +274,7 @@ the main console persists the primary selection as the workspace default.
 | 0 — this decision record | Done |
 | 1 — route resolution inheritance, fallback removal, vision refusal wording | Done |
 | 2 — connection/selection manifest records, `format_version: 2`, migration | Done |
-| 3 — per-selection limit observation, primary pick persistence, `/model` sweep | Pending |
+| 3 — `/model` discovery sweep, primary pick persistence | Done |
 | 4 — `/v1/connections`, `/v1/models`, `/v1/routes`, evidence key rename | Pending |
 | 5 — Connections, Models, Routing surfaces | Pending |
 

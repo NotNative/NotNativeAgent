@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { contextPercentText } from './context.js';
 import { createConfirmationOverlay, createMenuOverlay } from './surface-engine.js';
+export { modelOverlay } from './model-overlay.js';
 const PROVIDER_ROLE_LABELS = Object.freeze({
   primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',
 });
@@ -122,37 +123,6 @@ function providerRouteSettingsAction(config, role, route, roleLabel) {
 function providerScope(role, isMain) {
   if (role !== 'primary') return 'Global workspace role (shared by every conversation)';
   return isMain ? 'Main workspace default (new conversations copy this once)' : 'This conversation only';
-}
-export function modelOverlay(engine, models = [], options = {}) {
-  const active = engine.config.routes.primary;
-  const profile = engine.config.providerProfiles[active.providerId];
-  const endpoint = profile?.endpoint ?? active.providerId;
-  const providerDefault = profile?.model ?? '--';
-  const lines = [
-    'Choose the model for this conversation.',
-    '',
-    `Provider  ${endpoint}`,
-    `Current   ${active.model}`,
-    `Default   ${providerDefault}`,
-    '',
-    models.length > 0 ? `Available models · discovered from ${endpoint}` : 'No model catalog was returned; use /model NAME.',
-  ];
-  if (options.discoveryError) lines.push(`Discovery unavailable: ${options.discoveryError}`);
-  const items = [];
-  if (options.inheritRoute) items.push({
-    id: 'inherit', label: `Copy Main — ${options.inheritRoute.model}`,
-    detail: `Copy ${engine.config.providerProfiles[options.inheritRoute.providerId]?.endpoint ?? options.inheritRoute.providerId} once`,
-  });
-  for (const model of models) {
-    const badges = [];
-    if (model === active.model) badges.push('current');
-    if (model === providerDefault) badges.push('default');
-    items.push({ id: model, label: model, badge: badges.join(' · ') });
-  }
-  return Object.freeze({
-    ...menuOverlay('model', 'Model', lines, items, active.model),
-    actionLabel: 'Up/Down choose · Enter use model',
-  });
 }
 export function configOverlay(engine, options = {}) {
   const config = engine.config ?? engine;
