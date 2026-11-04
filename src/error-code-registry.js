@@ -385,7 +385,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'provider_input_invalid', 'provider_key_invalid', 'provider_key_read_failed',
     'provider_last_profile', 'provider_limit', 'provider_main_required',
     'provider_malformed_stream', 'provider_messages_invalid', 'provider_metadata_invalid',
-    'provider_metadata_too_large', 'provider_missing', 'provider_missing_terminal',
+    'provider_metadata_too_large', 'provider_missing', 'provider_missing_selection', 'provider_missing_terminal',
     'provider_model_required', 'provider_models_empty', 'provider_name_invalid',
     'provider_operation_invalid', 'provider_output_limit_invalid', 'provider_output_too_large',
     'provider_override_conflict', 'provider_primary_required', 'provider_profile_ambiguous',

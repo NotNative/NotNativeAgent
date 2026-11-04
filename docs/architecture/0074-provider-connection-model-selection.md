@@ -252,6 +252,27 @@ A model pick is conversation-scoped: it overrides the primary selection for the
 current conversation and is stored in the conversation snapshot. A pick made in
 the main console persists the primary selection as the workspace default.
 
+### Routing is two menus, not a flat list
+
+`/routing` asks one question at a time:
+
+1. **Which job?** Four rows, one per job, each naming what the model does
+   ("answers every normal message", "checks tool requests before they run") and
+   which model currently serves it.
+2. **Which model for that job?** A list of every model reachable right now, swept
+   on open, grouped by connection, with the model in use marked. A specialist
+   also offers "Use the Primary model", which clears its assignment.
+
+Entering a job opens the model list in place; Escape steps back one menu before
+leaving routing. `/routing ROLE MODEL` sets a specialist directly and
+`/routing ROLE primary` restores inheritance. Primary can also take a typed model
+name for a connection that cannot list its models.
+
+Rows never present a guess as a fact. A model card limit appears only when the
+endpoint reported one. A vision row is labelled `image capable` only when the
+connection or model card declares image support; an unproven row stays listed and
+unlabelled.
+
 ## Consequences
 
 - One stored route record, one resolution rule, and one apply rule replace
@@ -277,7 +298,8 @@ the main console persists the primary selection as the workspace default.
 | 3 — `/model` discovery sweep, primary pick persistence | Done |
 | 4 — `/v1/connections`, `/v1/models`, `/v1/routes` read contract | Done |
 | 5 — Routing surface (roles, assignment, clear) | Done |
-| 6 — `connectionRecords` rename, per-selection limit tiers | Done |
+| 6 - `connectionRecords` rename, per-selection limit tiers | Done |
+| 7 - `/routing` becomes nested job then model menus | Done |
 
 The resolved map is named `connectionRecords` because each entry is one model
 selection on one endpoint. Durable evidence still records `provider_profile`,

@@ -17,7 +17,7 @@ import { handleAttachmentCommand } from './tui/attachment-command.js';
 import { handleMemoryCommand } from './tui/memory-command.js';
 import { handleMcpCommand } from './tui/mcp-command.js';
 import { applyModelChoice, handleModelCommand, handleProviderCommand } from './tui/provider-command.js';
-import { applyRoutingChoice, handleRoutingCommand } from './tui/routing-overlay.js';import { handleWorkspaceTrust } from './tui/trust-command.js';
+import { handleRoutingAction, handleRoutingCommand } from './tui/routing-overlay.js';import { handleWorkspaceTrust } from './tui/trust-command.js';
 import { handleMouse, scrollPageUp } from './tui/mouse.js';
 import { attachDroppedPaths, copyTerminalSelection, rightClickClipboard, clearTerminalSelection, pasteClipboard } from './tui/clipboard-actions.js';
 import { recordTuiClick } from './tui/telemetry.js';
@@ -219,7 +219,7 @@ async function resetKeys(workspace, decoder) {
 }
 async function handleOverlayAction(action, workspace) {
   const projection = workspace.projection;
-  if (await handleSpecialOverlayAction(action, workspace)) return;
+  if (await handleSpecialOverlayAction(action, workspace)) return; if (!workspace.projection.overlay) return;
   if (['history_up', 'history_down'].includes(action.action)) {
     const direction = action.action === 'history_up' ? -1 : 1;
     if (projection.overlay.items?.length) projection.moveOverlaySelection(direction);
@@ -248,7 +248,7 @@ async function handleOverlayAction(action, workspace) {
     else if (overlay.kind === 'tab' && selected.id === 'action:close') { projection.closeOverlay(); await workspace.closeActive(false); return; }
     else if (overlay.kind === 'provider') await workspace.selectProviderForRole(overlay.role ?? 'primary', selected.id);
     else if (overlay.kind === 'model') await applyModelChoice(selected, workspace);
-    else if (overlay.kind === 'routing') await applyRoutingChoice(selected, workspace);    else if (overlay.kind === 'skills') { prepareSkillInvocation(projection, selected.id); return; }
+    else if (overlay.kind === 'skills') { prepareSkillInvocation(projection, selected.id); return; }
     else if (overlay.kind === 'dream') { await handleDreamSelection(selected.id, workspace); return; }
     else if (overlay.kind === 'websearch') {
       const result = await webSearchAction(selected.id, workspace);
@@ -282,7 +282,7 @@ async function handleSpecialOverlayAction(action, workspace) {
   if (await handleMcpSetupAction(action, workspace)) return true;
   if (await handleSecretSetupAction(action, workspace)) return true;
   if (await handleWebFetchSetupAction(action, workspace)) return true; if (await handleWebSearchSetupAction(action, workspace)) return true;
-  return handleProviderRoleNavigation(action, workspace) || handleHealthOverlayAction(action, workspace);
+  return handleProviderRoleNavigation(action, workspace) || handleRoutingAction(action, workspace) || handleHealthOverlayAction(action, workspace);
 }
 function prepareSkillInvocation(projection, id) {
   projection.closeOverlay();
