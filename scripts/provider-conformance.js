@@ -41,7 +41,7 @@ async function probeProvider(candidate, options) {
     tool_call_mode: candidate.tool_call_mode,
     capabilities: { streaming: true, tools: true },
   } });
-  const profile = config.providerProfiles[candidate.id];
+  const profile = config.connectionRecords[candidate.id];
   const adapter = new OpenAICompatibleProvider(profile, {
     connectMs: candidate.timeout_ms, maxOutputBytes: 2_097_152,
   }, { fetch: options.fetch ?? globalThis.fetch });
