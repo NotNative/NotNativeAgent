@@ -61,7 +61,12 @@ export async function handleModelCommand(argument, workspace, helpers) {
     return;
   }
   let models = [], rows = [], discoveryError;
-  try { rows = await workspace.modelSweep(); } catch (error) {
+  try {
+    // Compatibility: a workspace that does not implement the sweep keeps the single-provider discovery
+    // path, so a surface built against the older engine shape still answers.
+    rows = typeof workspace.modelSweep === 'function' ? await workspace.modelSweep() : [];
+    if (rows.length === 0) models = await workspace.availableModels();
+  } catch (error) {
     models = [workspace.activeConfig().routes.primary.model];
     discoveryError = error.code ?? error.message ?? 'provider unavailable';
   }
