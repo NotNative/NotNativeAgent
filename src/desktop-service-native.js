@@ -69,7 +69,7 @@ export function nativeDesktopTrialPrincipal(workspaceRoot) {
 export function createNativeDesktopSettingsServices(paths, identity, environment) {
   return {
     // Derived-reference scan for the secret delete guard (census
-    // secrets:delete_guard): resolved sources give providerProfiles/mcpServers.
+    // secrets:delete_guard): resolved sources give connectionRecords/mcpServers.
     secretReferences: async () => (await readDesktopConfigurationSources(paths)).config,
     desktopConfigurationService: createDesktopConfigurationService({ paths,
       installationId: identity.installation_id, dataId: identity.data_id }),

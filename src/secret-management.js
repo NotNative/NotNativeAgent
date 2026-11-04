@@ -3,7 +3,7 @@ import { ContractError } from './ids.js';
 
 export function secretReferences(config, id) {
   const references = [];
-  for (const profile of Object.values(config.providerProfiles ?? {})) {
+  for (const profile of Object.values(config.connectionRecords ?? {})) {
     if (profile.credential?.source === 'secret' && profile.credential.secretId === id) {
       references.push(Object.freeze({ kind: 'provider', id: profile.id, label: `Provider ${profile.displayName}` }));
     }

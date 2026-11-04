@@ -126,7 +126,7 @@ async function selectModel(context, state, reference, requireCredential = false)
   try {
     const selected = await context.options.providerSettings.runtimeConfig(context.options.config, reference, state.info.location.directory);
     if (state.closing) throw apiError(409, 'ConflictError', 'Session is closing');
-    if (requireCredential && !selected.config.providerProfiles[selected.reference.providerID].credential) {
+    if (requireCredential && !selected.config.connectionRecords[selected.reference.providerID].credential) {
       throw invalid('Connect an API key for this OpenCode provider in OpenChamber settings before sending a prompt');
     }
     await context.operations.configure(state.info.id, manifestFromConfig(selected.config), selected.reference);

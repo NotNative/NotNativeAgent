@@ -31,13 +31,13 @@ test('native notifications reject malformed context before acquiring a route', a
 test('native notification overrides select configured models and cannot widen egress', async () => {
   const state = fixture(); const router = state.context.engine.router;
   router.resolve = () => ({ profile: { id: 'private', trustZone: 'private_network' }, model: 'default', maxOutputTokens: 128 });
-  router.config = { providerProfiles: { local: { id: 'local', trustZone: 'loopback', outputLimitTokens: 64 },
+  router.config = { connectionRecords: { local: { id: 'local', trustZone: 'loopback', outputLimitTokens: 64 },
     public: { id: 'public', trustZone: 'public_network' } } };
   let selected; const provider = router.provider;
   router.provider = (route) => { selected = route; return provider(); };
   const result = await runDesktopNotification(state.context, { ...body, model: 'local/vendor/small-model' });
   assert.equal(result.providerID, 'local'); assert.equal(result.modelID, 'vendor/small-model');
-  assert.equal(selected.profile, router.config.providerProfiles.local);
+  assert.equal(selected.profile, router.config.connectionRecords.local);
   assert.equal(state.calls.find(([kind]) => kind === 'stream')[1].maxOutputTokens, 64);
   for (const model of ['public/small', 'missing/small', 'local/', 'local/ padded ', 'local']) {
     await assert.rejects(runDesktopNotification(state.context, { ...body, model }), { code: 'desktop_notification_unavailable' });

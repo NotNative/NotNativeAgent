@@ -20,7 +20,7 @@ export async function sweepWorkspaceModels(workspace, options = {}) {
     credentialResolver: engine?.credentialResolver, sessionId: engine?.sessionId,
   });
   const deadlineMs = workspace.options?.providerCapabilityDeadlineMs ?? DEFAULT_CAPABILITY_DEADLINE_MS;
-  const profiles = Object.values(config.providerProfiles).slice(0, MAX_CONNECTIONS);
+  const profiles = Object.values(config.connectionRecords).slice(0, MAX_CONNECTIONS);
   const groups = groupByConnection(profiles);
   const rows = [];
   const seen = new Set();
@@ -68,6 +68,9 @@ function rowFor(profile, model, status) {
     connection_id: connection, connection_name: profile.displayName ?? connection,
     endpoint: profile.endpoint ?? null, model, status,
     context_limit_tokens: null,
+    // Why: the operator's own limit is a different fact from a measured one, so the row carries it
+    // separately and the surface can label which of the two it is showing.
+    context_limit_bytes: Number.isSafeInteger(profile.contextLimitBytes) ? profile.contextLimitBytes : null,
   });
 }
 

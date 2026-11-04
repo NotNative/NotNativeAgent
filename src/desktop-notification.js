@@ -66,7 +66,7 @@ function notificationRoute(router, model) {
   if (model === undefined) return primary;
   const separator = model.indexOf('/');
   const profileId = model.slice(0, separator); const modelId = model.slice(separator + 1);
-  const profile = router.config?.providerProfiles?.[profileId];
+  const profile = router.config?.connectionRecords?.[profileId];
   // Security: settings select configured credentials only and cannot widen the primary route's egress.
   if (separator < 1 || !/^[A-Za-z0-9_-]{1,64}$/u.test(profileId) || !text(modelId, 256) || modelId !== modelId.trim()
     || !profile || !Object.hasOwn(TRUST, profile.trustZone) || !Object.hasOwn(TRUST, primary.profile?.trustZone)

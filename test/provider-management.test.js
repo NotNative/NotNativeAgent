@@ -34,22 +34,22 @@ test('provider edit updates matching default routes but preserves explicit model
   const next = withUpdatedProvider(current, 'one', {
     endpoint: 'http://192.168.1.20:1234/v1', model: 'new', credentialEnv: 'NNA_KEY',
   });
-  assert.equal(next.config.providerProfiles.one.model, 'new');
-  assert.equal(next.config.providerProfiles.one.trustZone, 'private_network');
+  assert.equal(next.config.connectionRecords.one.model, 'new');
+  assert.equal(next.config.connectionRecords.one.trustZone, 'private_network');
   assert.equal(next.config.routes.primary.model, 'new');
   assert.equal(next.config.routes.reviewer.model, 'reviewer-override');
-  assert.equal(next.config.providerProfiles.one.contextLimitBytes, null);
-  assert.equal(next.config.providerProfiles.one.outputLimitTokens, null);
+  assert.equal(next.config.connectionRecords.one.contextLimitBytes, null);
+  assert.equal(next.config.connectionRecords.one.outputLimitTokens, null);
   const limited = withUpdatedProvider(next.config, 'one', { contextLimitBytes: 300_000, outputLimitTokens: 8192 });
-  assert.equal(limited.config.providerProfiles.one.contextLimitBytes, 300_000);
-  assert.equal(limited.config.providerProfiles.one.outputLimitTokens, 8192);
+  assert.equal(limited.config.connectionRecords.one.contextLimitBytes, 300_000);
+  assert.equal(limited.config.connectionRecords.one.outputLimitTokens, 8192);
 });
 
 test('provider tool-call mode is validated and retained by configuration round trips', () => {
   const current = configuration(process.cwd());
-  assert.equal(current.providerProfiles.one.toolCallMode, 'single');
+  assert.equal(current.connectionRecords.one.toolCallMode, 'single');
   const updated = withUpdatedProvider(current, 'one', { toolCallMode: 'batch' });
-  assert.equal(updated.config.providerProfiles.one.toolCallMode, 'batch');
+  assert.equal(updated.config.connectionRecords.one.toolCallMode, 'batch');
   const selection = (manifest) => manifest.model_selections.find((item) => item.id === 'one');
   assert.equal(selection(updated.manifest).tool_call_mode, 'batch');
   const qualified = withUpdatedProvider(updated.config, 'one', { capabilities: { tools: true, images: false } });
@@ -65,9 +65,9 @@ test('provider credential edits switch cleanly between Secret Broker and environ
     id: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'old', trust_zone: 'loopback',
     credential: { source: 'secret', secret_id: 'sec_123', field: 'api_key' },
   } });
-  const preserved = withUpdatedProvider(current, 'one', { model: 'new' }).config.providerProfiles.one;
+  const preserved = withUpdatedProvider(current, 'one', { model: 'new' }).config.connectionRecords.one;
   assert.equal(preserved.credential.source, 'secret');
-  const switched = withUpdatedProvider(current, 'one', { credentialEnv: 'NNA_KEY' }).config.providerProfiles.one;
+  const switched = withUpdatedProvider(current, 'one', { credentialEnv: 'NNA_KEY' }).config.connectionRecords.one;
   assert.equal(switched.credential.source, 'environment');
   assert.equal(switched.credentialEnv, 'NNA_KEY');
 });
@@ -153,7 +153,7 @@ test('restored conversation configuration discards stale specialist assignments'
   assert.equal(workspace.sessions.get(restored).engine.config.routes.reviewer.assigned, false);
   workspace.projection.activate('main');
   await workspace.deleteProvider('two');
-  assert.equal(workspace.config.providerProfiles.two, undefined);
+  assert.equal(workspace.config.connectionRecords.two, undefined);
   await workspace.shutdown();
 });
 
@@ -228,7 +228,7 @@ test('Main provider manager edits, tests, and deletes unused profiles durably', 
   const workspace = new InteractiveWorkspace({ initializeManifest: true, config: configuration(root), configPath, providerFactory });
   await workspace.create('Main', 'main');
   await workspace.editProvider('two', { endpoint: 'http://127.0.0.1:9/v1', model: 'edited' });
-  assert.equal(workspace.config.providerProfiles.two.model, 'edited');
+  assert.equal(workspace.config.connectionRecords.two.model, 'edited');
   const checked = await workspace.testProvider('two');
   assert.equal(checked.ready, true);
   assert.deepEqual(checked.models, ['edited', 'catalog-model']);
@@ -240,13 +240,13 @@ test('Main provider manager edits, tests, and deletes unused profiles durably', 
   assert.equal(checked.tool_call_compatibility.configured_mode, 'batch');
   assert.equal(checked.tool_call_compatibility.recommendation, null);
   assert.equal(checked.configuration.applied, true);
-  assert.equal(workspace.config.providerProfiles.two.toolCallMode, 'batch');
-  assert.equal(workspace.config.providerProfiles.two.capabilities.tools, true);
-  assert.equal(workspace.config.providerProfiles.two.capabilities.images, false);
+  assert.equal(workspace.config.connectionRecords.two.toolCallMode, 'batch');
+  assert.equal(workspace.config.connectionRecords.two.capabilities.tools, true);
+  assert.equal(workspace.config.connectionRecords.two.capabilities.images, false);
   await workspace.clearProviderForRole('reviewer');
   assert.equal(workspace.config.routes.reviewer.assigned, false);
   await workspace.deleteProvider('two');
-  assert.equal(workspace.config.providerProfiles.two, undefined);
+  assert.equal(workspace.config.connectionRecords.two, undefined);
   // Why: the stored document keeps one selection per model, and a connection outlives its
   // selections, so deleting one model leaves the stored provider count at one selection.
   assert.equal(JSON.parse(await readFile(configPath, 'utf8')).model_selections.length, 1);
@@ -273,11 +273,11 @@ test('first saved profile replaces the auto-discovered bootstrap and becomes act
     id: 'lm-studio', displayName: 'LM Studio', endpoint: 'http://127.0.0.1:1234/v1', model: 'qwen',
   });
   assert.equal(workspace.config.routes.primary.providerId, 'lm-studio');
-  assert.equal(workspace.config.providerProfiles['auto-discovered-local'], undefined);
+  assert.equal(workspace.config.connectionRecords['auto-discovered-local'], undefined);
   assert.equal(workspace.sessions.get(main).engine.config.routes.primary.providerId, 'lm-studio');
-  assert.equal(workspace.sessions.get(main).engine.config.providerProfiles['auto-discovered-local'], undefined);
+  assert.equal(workspace.sessions.get(main).engine.config.connectionRecords['auto-discovered-local'], undefined);
   assert.equal(workspace.sessions.get(previous).engine.config.routes.primary.providerId, 'auto-discovered-local');
-  assert.ok(workspace.sessions.get(previous).engine.config.providerProfiles['lm-studio']);
+  assert.ok(workspace.sessions.get(previous).engine.config.connectionRecords['lm-studio']);
   await workspace.shutdown();
 });
 
@@ -298,8 +298,8 @@ test('provider catalog publication preserves each open conversation immutable sc
 
   assert.equal(workspace.sessions.get(main).engine.config.workspaceRoot, root);
   assert.equal(workspace.sessions.get(other).engine.config.workspaceRoot, otherRoot);
-  assert.ok(workspace.sessions.get(main).engine.config.providerProfiles.three);
-  assert.ok(workspace.sessions.get(other).engine.config.providerProfiles.three);
+  assert.ok(workspace.sessions.get(main).engine.config.connectionRecords.three);
+  assert.ok(workspace.sessions.get(other).engine.config.connectionRecords.three);
   await workspace.shutdown();
 });
 
@@ -421,7 +421,7 @@ test('provider profiles publish with the production default provider factory', a
     credentialEnv: '', trustZone: 'loopback',
   });
 
-  assert.equal(workspace.config.providerProfiles.three.model, 'new-model');
+  assert.equal(workspace.config.connectionRecords.three.model, 'new-model');
   assert.equal(typeof workspace.sessions.get(main).engine.router.providerFactory, 'function');
   await workspace.shutdown();
 });

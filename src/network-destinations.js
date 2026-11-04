@@ -35,7 +35,7 @@ function addProviders(result, config) {
     if (!route || typeof route.providerId !== 'string') continue;
     const list = roles.get(route.providerId) ?? []; list.push(role); roles.set(route.providerId, list);
   }
-  for (const profile of Object.values(config?.providerProfiles ?? {})) {
+  for (const profile of Object.values(config?.connectionRecords ?? {})) {
     if (!profile || typeof profile.id !== 'string' || typeof profile.endpoint !== 'string') continue;
     result.push({
     kind: 'provider', id: profile.id, destination: profile.endpoint,

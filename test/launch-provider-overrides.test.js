@@ -25,12 +25,12 @@ test('endpoint overrides require an explicit model and store only a credential r
   const selected = applyLaunchProviderOverrides(original, {
     providerEndpoint: 'http://192.168.1.20:1234/v1', model: 'remote-model', providerCredentialEnv: 'NNA_REMOTE_TOKEN',
   });
-  const profile = selected.providerProfiles[selected.routes.primary.providerId];
+  const profile = selected.connectionRecords[selected.routes.primary.providerId];
   assert.equal(profile.endpoint, 'http://192.168.1.20:1234/v1');
   assert.equal(profile.model, 'remote-model');
   assert.equal(profile.credentialEnv, 'NNA_REMOTE_TOKEN');
   assert.equal(selected.launchOverrides.credentialReference, true);
-  assert.equal(original.providerProfiles['launch-override'], undefined);
+  assert.equal(original.connectionRecords['launch-override'], undefined);
 });
 
 test('launch profile selectors accept human labels and reject ambiguous labels', () => {

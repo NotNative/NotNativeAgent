@@ -29,7 +29,7 @@ test('support command reports its exact local destination before and after creat
   const engine = {
     sessionId: 'session-support', config: {
       routes: { primary: { max_output_tokens: 262144 } },
-      providerProfiles: { local: { id: 'local', outputLimitTokens: 131072 } },
+      connectionRecords: { local: { id: 'local', outputLimitTokens: 131072 } },
     }, telemetry: {
       async flush() {}, async supportSnapshot() { return { format: 1, rows: [], open_spans: [] }; },
     },

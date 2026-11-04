@@ -274,7 +274,7 @@ export class ExperienceEngine {
     return engine.pendingConfig ?? engine.config;
   }
   async selectProvider(providerId) {
-    const profile = this.activeConfig().providerProfiles[providerId];
+    const profile = this.activeConfig().connectionRecords[providerId];
     if (!profile) throw new ContractError('provider_missing', `provider ${providerId} is not configured`);
     return this.selectProviderForRole('primary', providerId);
   }
@@ -311,7 +311,7 @@ export class ExperienceEngine {
     }
     this.onChange();
     await this._savePoolRecoverable();
-    return next.config.providerProfiles[input.id];
+    return next.config.connectionRecords[input.id];
   }
   async editProvider(id, input) {
     this._requireMainProviderManagement();
@@ -326,13 +326,13 @@ export class ExperienceEngine {
     for (const entry of entries) this._projectRoute(entry.session.id, entry.route);
     this.onChange();
     await this._savePoolRecoverable();
-    return globalNext.config.providerProfiles[id];
+    return globalNext.config.connectionRecords[id];
   }
   deleteProvider(id) { return deleteWorkspaceProvider(this, id); }
   async testProvider(id) {
     this._requireMainProviderManagement();
     const config = this.activeConfig();
-    const profile = config.providerProfiles[id];
+    const profile = config.connectionRecords[id];
     if (!profile) throw new ContractError('provider_missing', `provider ${id} is not configured`);
     const provider = this.activeEngine().router.providerForProfile(profile);
     const result = await testProviderProfile(profile, provider, this.options);

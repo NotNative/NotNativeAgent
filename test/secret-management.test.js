@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { deleteUnreferencedSecret, secretReferences } from '../src/secret-management.js';
 
 const config = {
-  providerProfiles: {
+  connectionRecords: {
     p1: { id: 'p1', displayName: 'Alpha', credential: { source: 'secret', secretId: 'sec_one' } },
     p2: { id: 'p2', displayName: 'Beta', credential: { source: 'plaintext', secretId: 'sec_one' } },
   },
@@ -23,7 +23,7 @@ test('secretReferences derives bindings from provider credentials, MCP credentia
   // Unbound ids and absent config sections scan to an empty reference set.
   assert.deepEqual(secretReferences(config, 'sec_missing'), []);
   assert.deepEqual(secretReferences({}, 'sec_one'), []);
-  assert.deepEqual(secretReferences({ providerProfiles: {}, mcpServers: [] }, 'sec_one'), []);
+  assert.deepEqual(secretReferences({ connectionRecords: {}, mcpServers: [] }, 'sec_one'), []);
 });
 
 test('deleteUnreferencedSecret refuses with secret_in_use when the derived scan is non-empty and deletes when it is empty', () => {

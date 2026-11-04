@@ -194,7 +194,7 @@ function settingValue(config, role, setting) {
 
 function effectiveRouteTimeout(config, role) {
   const route = config.routes[role];
-  const profile = config.providerProfiles[route.providerId];
+  const profile = config.connectionRecords[route.providerId];
   const explicitlyConfigured = route.deadlineOverrideMs !== null
     || config.limits.providerOverrideMs !== null;
   if (!explicitlyConfigured && profile?.trustZone !== 'public_network') return null;
@@ -203,7 +203,7 @@ function effectiveRouteTimeout(config, role) {
 
 function timeoutLabel(config, role, configured) {
   if (configured) return role === 'primary' ? 'configured' : 'override';
-  const profile = config.providerProfiles[config.routes[role].providerId];
+  const profile = config.connectionRecords[config.routes[role].providerId];
   if (profile?.trustZone !== 'public_network' && config.limits.providerOverrideMs === null) {
     return 'trusted local · operator cancellation';
   }

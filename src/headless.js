@@ -136,7 +136,7 @@ function headlessWindowTokens(engine) {
 
 function initializedFrame(command, engine, config) {
   const route = config.routes.primary;
-  const profile = config.providerProfiles[route.providerId];
+  const profile = config.connectionRecords[route.providerId];
   return {
     version: '1.0', type: 'initialized', request_id: command.request_id,
     runtime_id: engine.runtimeId, session_id: engine.sessionId,

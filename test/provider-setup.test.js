@@ -33,7 +33,7 @@ test('provider add is a guided form with discovery and a model picker', async ()
     async addProvider(input) {
       config = withProvider(config, input).config;
       this.config = config;
-      return config.providerProfiles[input.id];
+      return config.connectionRecords[input.id];
     },
   };
 
@@ -57,11 +57,11 @@ test('provider add is a guided form with discovery and a model picker', async ()
   assert.equal(projection.overlay.items[1].detail, undefined);
 
   await handleProviderSetupAction({ action: 'submit' }, workspace);
-  assert.equal(config.providerProfiles['lm-studio'].model, 'qwen-test');
-  assert.equal(config.providerProfiles['lm-studio'].displayName, 'LM Studio');
-  assert.equal(config.providerProfiles['lm-studio'].toolCallMode, 'batch');
-  assert.equal(config.providerProfiles['lm-studio'].capabilities.tools, true);
-  assert.equal(config.providerProfiles['lm-studio'].capabilities.images, false);
+  assert.equal(config.connectionRecords['lm-studio'].model, 'qwen-test');
+  assert.equal(config.connectionRecords['lm-studio'].displayName, 'LM Studio');
+  assert.equal(config.connectionRecords['lm-studio'].toolCallMode, 'batch');
+  assert.equal(config.connectionRecords['lm-studio'].capabilities.tools, true);
+  assert.equal(config.connectionRecords['lm-studio'].capabilities.images, false);
   assert.equal(projection.overlay.kind, 'provider');
   assert.match(projection.notice.text, /Qualified and added provider lm-studio/u);
 });
@@ -112,7 +112,7 @@ test('provider tool-call mode picker persists batch compatibility', async () => 
   assert.equal(projection.overlay.kind, 'provider-tool-call-mode');
   projection.moveOverlaySelection(1);
   await handleProviderSetupAction({ action: 'submit' }, workspace);
-  assert.equal(config.providerProfiles.one.toolCallMode, 'batch');
+  assert.equal(config.connectionRecords.one.toolCallMode, 'batch');
   assert.match(projection.notice.text, /batch/u);
 });
 

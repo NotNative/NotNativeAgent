@@ -77,7 +77,7 @@ export function providerOverlay(engine, options = {}) {
     detail: 'Clear this global assignment; each requesting conversation then uses its own Agent profile.',
     section: `${roleLabel} assignment`,
   });
-  for (const profile of Object.values(engine.config.providerProfiles)) {
+  for (const profile of Object.values(engine.config.connectionRecords)) {
     const isActive = assigned && profile.id === active.providerId;
     const isAuthenticated = Boolean(profile.credential || profile.credentialEnv);
     items.push({
@@ -128,7 +128,7 @@ export function configOverlay(engine, options = {}) {
   const config = engine.config ?? engine;
   const limits = config.limits ?? {};
   const primary = config.routes.primary;
-  const endpoint = config.providerProfiles[primary.providerId]?.endpoint ?? primary.providerId;
+  const endpoint = config.connectionRecords[primary.providerId]?.endpoint ?? primary.providerId;
   const lines = [
     'Choose a configuration area. Each entry opens its dedicated manager.',
     `Workspace: ${config.workspaceRoot}`,
@@ -136,7 +136,7 @@ export function configOverlay(engine, options = {}) {
   ];
   if (options.status) lines.push('', options.status);
   const items = [
-    { id: 'provider', label: 'Provider connections and role routing', detail: `${Object.keys(config.providerProfiles).length} configured connections` },
+    { id: 'provider', label: 'Provider connections and role routing', detail: `${Object.keys(config.connectionRecords).length} configured connections` },
     { id: 'routing', label: 'Role routing', detail: 'Choose which model selection serves each role' },
     { id: 'model', label: 'Active model', detail: 'Choose a conversation-local model from the active provider connection' },
     { id: 'mcp', label: 'MCP servers', detail: `${config.mcpServers?.length ?? 0} configured servers` },

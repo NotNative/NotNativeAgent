@@ -1676,7 +1676,7 @@ test('AC-PROV-03 primary routes stay tab-local while Main publishes global speci
   assert.equal(workspace.activeConfig().routes.reviewer.providerId, 'two');
   projection.activate(main);
   await workspace.addProvider({ id: 'three', endpoint: 'http://127.0.0.1:3/v1', model: 'd' });
-  assert.equal(workspace.activeConfig().providerProfiles.three.model, 'd');
+  assert.equal(workspace.activeConfig().connectionRecords.three.model, 'd');
   assert.equal(JSON.parse(await readFile(configPath, 'utf8')).routes.primary.model, 'a');
   // Why: the stored document keeps one selection per model, so three models are three selections.
   assert.equal(JSON.parse(await readFile(configPath, 'utf8')).model_selections.length, 3);

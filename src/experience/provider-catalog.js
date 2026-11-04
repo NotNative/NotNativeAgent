@@ -9,7 +9,7 @@ import { ContractError } from '../ids.js';
 export function providerAdditionPlan(sessions, activeId, globalConfig, input) {
   if (!input || typeof input !== 'object') throw new ContractError('provider_input_invalid', 'provider input is required');
   let next = withProvider(globalConfig, input);
-  const ids = Object.keys(globalConfig.providerProfiles);
+  const ids = Object.keys(globalConfig.connectionRecords);
   if (ids.length !== 1 || ids[0] !== 'auto-discovered-local') {
     return { next, entries: providerCatalogEntries(sessions, next.config) };
   }
@@ -31,7 +31,7 @@ export function routePresentation(config, route, prior = {}) {
   }
   return {
     ...prior, provider: route.providerId, model: route.model,
-    endpoint: config?.providerProfiles[route.providerId]?.endpoint ?? route.providerId,
+    endpoint: config?.connectionRecords[route.providerId]?.endpoint ?? route.providerId,
     ...(config?.launchOverrides?.ephemeral === true ? { temporaryRoute: true } : {}),
   };
 }

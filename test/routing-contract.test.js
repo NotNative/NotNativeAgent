@@ -38,27 +38,27 @@ test('trust zones distinguish IPv6 loopback and complete private IP literals fro
   const loopback = resolveManifest({ provider: {
     id: 'ipv6', endpoint: 'http://[::1]:8000/v1', model: 'local', trust_zone: 'loopback',
   } });
-  assert.equal(loopback.providerProfiles.ipv6.trustZone, 'loopback');
+  assert.equal(loopback.connectionRecords.ipv6.trustZone, 'loopback');
   assert.throws(() => resolveManifest({ provider: {
     id: 'spoof', endpoint: 'https://10.0.0.1.attacker.example/v1', model: 'remote', trust_zone: 'private_network',
   } }), { code: 'invalid_trust_zone' });
   const publicHost = resolveManifest({ provider: {
     id: 'spoof', endpoint: 'https://10.0.0.1.attacker.example/v1', model: 'remote', trust_zone: 'public_network',
   } });
-  assert.equal(publicHost.providerProfiles.spoof.trustZone, 'public_network');
-  assert.equal(resolveManifest({ provider: providers[0] }).providerProfiles.lan.trustZone, 'private_network');
+  assert.equal(publicHost.connectionRecords.spoof.trustZone, 'public_network');
+  assert.equal(resolveManifest({ provider: providers[0] }).connectionRecords.lan.trustZone, 'private_network');
 });
 
 test('provider profile ids accept valid own names and reject empty or malformed ids', () => {
   for (const id of ['constructor', 'toString', '__proto__']) {
     const provider = { ...providers[0], id };
     const config = resolveManifest({ providers: [provider] });
-    assert.equal(config.providerProfiles[id].id, id);
+    assert.equal(config.connectionRecords[id].id, id);
     assert.equal(config.routes.primary.providerId, id);
     assert.equal(manifestFromConfig(config).model_selections[0].id, id);
     assert.throws(() => resolveManifest({ providers: [provider, provider] }), { code: 'duplicate_provider' });
     const added = withProvider(resolveManifest({ providers: [providers[0]] }), provider);
-    assert.equal(added.config.providerProfiles[id].id, id);
+    assert.equal(added.config.connectionRecords[id].id, id);
   }
   for (const id of ['', 'bad space', null, 4]) {
     assert.throws(() => resolveManifest({ providers: [{ ...providers[0], id }] }), { code: 'provider_id_invalid' });

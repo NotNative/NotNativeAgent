@@ -19,7 +19,7 @@ function fixture(events = [{ type: 'text', text: '{"verdict":"continue","note":"
   const context = { sessionId: 'session_test', goal: { id: 'goal_test', status: 'active', objectiveFile: false,
     objective: 'Ship the feature' }, goalRevision: 3, goalTurnReceipts: [], goalTurnReceiptsTruncated: false,
     engine: { sessionId: 'session_test', transcript: [assistant, outcome], config: {
-      providerProfiles: { fallback, primary: { id: 'primary' } },
+      connectionRecords: { fallback, primary: { id: 'primary' } },
     }, router: { providerForProfile(profile) {
       calls.push(['provider', profile.id]);
       return { async *stream(request) { calls.push(['stream', request]); yield* events; } };
@@ -70,14 +70,14 @@ test('goal audit accepts keyed objective but never provider-switches when route 
   state.context.goal.objective = '';
   state.context.goal.objectiveFileKey = 'a'.repeat(64);
   assert.equal((await runDesktopGoalAudit(state.context, BODY)).modelID, 'model-x');
-  delete state.context.engine.config.providerProfiles.fallback;
+  delete state.context.engine.config.connectionRecords.fallback;
   await assert.rejects(runDesktopGoalAudit(state.context, BODY), { code: 'desktop_goal_audit_unavailable' });
 });
 
 test('goal audit refuses a same-ID provider remap after hot reload or restart', async () => {
   const state = fixture();
-  state.context.engine.config.providerProfiles.fallback = {
-    ...state.context.engine.config.providerProfiles.fallback,
+  state.context.engine.config.connectionRecords.fallback = {
+    ...state.context.engine.config.connectionRecords.fallback,
     endpoint: 'https://public.example/v1', trustZone: 'public_network',
   };
   await assert.rejects(runDesktopGoalAudit(state.context, BODY), { code: 'desktop_goal_audit_unavailable' });

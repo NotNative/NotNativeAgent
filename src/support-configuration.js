@@ -4,7 +4,7 @@ import { sanitizeTelemetry } from './forensic-telemetry-sanitize.js';
 
 export function supportConfiguration(config) {
   if (!config || typeof config !== 'object') return { status: 'unavailable' };
-  const profiles = config.providerProfiles && typeof config.providerProfiles === 'object' ? Object.values(config.providerProfiles) : [];
+  const profiles = config.connectionRecords && typeof config.connectionRecords === 'object' ? Object.values(config.connectionRecords) : [];
   return sanitizeTelemetry({
     version: config.version, persistence: config.persistence, provenance: config.provenance,
     workspaceRoot: config.workspaceRoot, routes: config.routes, limits: config.limits,

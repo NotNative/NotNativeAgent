@@ -176,3 +176,11 @@ function migrateLegacySpecialistRoutes(routes, profile) {
   return result;
 }
 
+
+// Why: a document that still holds a legacy provider list migrates to connections, but a malformed
+// legacy document keeps its providers so the validator reports the exact defect.
+export function storedManifestShape(manifest) {
+  if (Array.isArray(manifest.connections)) return manifest;
+  const migrated = migrateRoutingInheritance(manifest).manifest;
+  return Array.isArray(migrated.connections) ? migrated : manifest;
+}

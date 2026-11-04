@@ -11,7 +11,7 @@ const SCOPES = Object.freeze({ global: 'workspace_global', conversation: 'conver
 export async function selectWorkspaceProviderRole(workspace, role, providerId) {
   const active = workspace._active();
   const current = routeConfiguration(active);
-  const profile = current.providerProfiles[providerId];
+  const profile = current.connectionRecords[providerId];
   if (!profile) throw new ContractError('provider_missing', `provider ${providerId} is not configured`);
   if (role !== PRIMARY_ROLE) {
     workspace._requireMainSpecialistManagement();
@@ -31,7 +31,7 @@ export async function selectWorkspaceModel(workspace, providerId, model) {
   }
   const active = workspace._active();
   const current = routeConfiguration(active);
-  if (!current.providerProfiles[providerId]) {
+  if (!current.connectionRecords[providerId]) {
     throw new ContractError('provider_missing', `provider ${providerId} is not configured`);
   }
   // Why: a pick is conversation-scoped, except in Main, where it also becomes the workspace default

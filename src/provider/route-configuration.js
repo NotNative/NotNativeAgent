@@ -16,7 +16,7 @@ import { CONNECTION_FORMAT_VERSION } from '../persistence/manifest-migration.js'
 
 export const SPECIALIST_ROUTE_ROLES = Object.freeze(['subagent', 'reviewer', 'vision']);
 export function manifestFromConfig(config) {
-  const providers = providersManifest(config.providerProfiles);
+  const providers = providersManifest(config.connectionRecords);
   return compact({
     format_version: CONNECTION_FORMAT_VERSION,
     manifest_connection_version: 1,
@@ -26,7 +26,7 @@ export function manifestFromConfig(config) {
     ...providers,
     // Compatibility: surfaces that read a flat provider row keep working while the stored document
     // holds connections and selections. This projection is derived, never read back or persisted.
-    providers: flatRows(config.providerProfiles, compact, providerCapabilitiesManifest, credentialManifest),
+    providers: flatRows(config.connectionRecords, compact, providerCapabilitiesManifest, credentialManifest),
     routes: routeManifests(config.routes),
     application_system_prompt: config.applicationPolicy || undefined,
     skills: config.executionManifest ? config.skills?.map((item) => ({
@@ -97,9 +97,9 @@ function dreamManifest(dream) {
 }
 
 export function withPrimaryRoute(config, providerId, model) {
-  if (!config.providerProfiles[providerId]) throw new ContractError('provider_missing', `provider ${providerId} is not configured`);
+  if (!config.connectionRecords[providerId]) throw new ContractError('provider_missing', `provider ${providerId} is not configured`);
   const manifest = manifestFromConfig(config);
-  const profile = config.providerProfiles[providerId];
+  const profile = config.connectionRecords[providerId];
   manifest.routes.primary = {
     ...manifest.routes.primary, ...selectedConnection(profile), model,
     context_limit_bytes: profile.model === model ? (profile.contextLimitBytes ?? undefined) : undefined,
@@ -109,9 +109,9 @@ export function withPrimaryRoute(config, providerId, model) {
 
 export function withRoleRoute(config, role, providerId, model) {
   if (!Object.hasOwn(config.routes, role)) throw new ContractError('route_role_invalid', `unknown route role ${role}`);
-  if (!config.providerProfiles[providerId]) throw new ContractError('provider_missing', `provider ${providerId} is not configured`);
+  if (!config.connectionRecords[providerId]) throw new ContractError('provider_missing', `provider ${providerId} is not configured`);
   const manifest = manifestFromConfig(config);
-  const profile = config.providerProfiles[providerId];
+  const profile = config.connectionRecords[providerId];
   manifest.routes[role] = {
     ...manifest.routes[role], ...selectedConnection(profile), model,
     context_limit_bytes: profile.model === model ? (profile.contextLimitBytes ?? undefined) : undefined,
@@ -155,7 +155,7 @@ export function withProvider(config, input) {
   if (!/^[A-Za-z0-9_-]{1,64}$/u.test(input.id ?? '')) {
     throw new ContractError('provider_id_invalid', 'provider id must use letters, numbers, underscores, or hyphens');
   }
-  if (Object.hasOwn(config.providerProfiles, input.id)) throw new ContractError('provider_duplicate', `provider ${input.id} already exists`);
+  if (Object.hasOwn(config.connectionRecords, input.id)) throw new ContractError('provider_duplicate', `provider ${input.id} already exists`);
   const manifest = manifestFromConfig(config);
   assignProviders(manifest, [...profilesFromManifest(manifest), compact({
     id: input.id, display_name: input.displayName ?? input.id, endpoint: input.endpoint, model: input.model,
@@ -171,7 +171,7 @@ export function withProvider(config, input) {
 }
 
 export function withUpdatedProvider(config, id, input) {
-  const current = config.providerProfiles[id];
+  const current = config.connectionRecords[id];
   if (!current) throw new ContractError('provider_missing', `provider ${id} is not configured`);
   const manifest = manifestFromConfig(config);
   const providers = profilesFromManifest(manifest);
@@ -268,8 +268,8 @@ export function withRouteSetting(config, role, setting, value) {
 }
 
 export function withoutProvider(config, id) {
-  if (!config.providerProfiles[id]) throw new ContractError('provider_missing', `provider ${id} is not configured`);
-  if (Object.keys(config.providerProfiles).length === 1) {
+  if (!config.connectionRecords[id]) throw new ContractError('provider_missing', `provider ${id} is not configured`);
+  if (Object.keys(config.connectionRecords).length === 1) {
     throw new ContractError('provider_last_profile', 'the final provider profile cannot be deleted');
   }
   const roles = Object.entries(config.routes)

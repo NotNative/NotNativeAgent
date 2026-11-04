@@ -137,7 +137,7 @@ export class AuthorityRecord {
     if (mission) {
       this.snapshot(config);
       const primaryProviderId = config.routes?.primary?.providerId;
-      const profile = primaryProviderId ? config.providerProfiles?.[primaryProviderId] : null;
+      const profile = primaryProviderId ? config.connectionRecords?.[primaryProviderId] : null;
       const credential = credentialReference(profile?.credential);
       if (credential && !mission.credentialRefs.includes(credential)) {
         throw new ContractError('mission_credential_denied', 'primary provider credential is outside the mission envelope');

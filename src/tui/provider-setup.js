@@ -37,7 +37,7 @@ export function beginProviderManagement(action, workspace, sourceOverlay = {}) {
   if (!PROFILE_OPERATIONS.has(action)) {
     throw new ContractError('provider_operation_invalid', `unknown provider operation: ${action}`);
   }
-  const profiles = Object.values(workspace.activeConfig().providerProfiles);
+  const profiles = Object.values(workspace.activeConfig().connectionRecords);
   if (profiles.length === 0) {
     workspace.projection.showNotice('provider', 'Add a provider profile before using that action.');
     return;
@@ -129,7 +129,7 @@ export async function handleProviderSetupAction(action, workspace) {
   return true;
 }
 async function selectProfileAction(profileId, overlay, workspace) {
-  const profile = workspace.activeConfig().providerProfiles[profileId];
+  const profile = workspace.activeConfig().connectionRecords[profileId];
   if (!profile) throw new ContractError('provider_profile_missing', `provider profile does not exist: ${profileId}`);
   if (!PROFILE_OPERATIONS.has(overlay.operation)) {
     throw new ContractError('provider_operation_invalid', `unknown provider operation: ${overlay.operation}`);
@@ -223,7 +223,7 @@ async function discoverModels(form, workspace) {
 
 async function saveProfile(form, workspace) {
   const id = form.operation === 'add'
-    ? availableProfileId(form.draft.displayName, Object.keys(workspace.activeConfig().providerProfiles))
+    ? availableProfileId(form.draft.displayName, Object.keys(workspace.activeConfig().connectionRecords))
     : form.profileId;
   const input = {
     id, displayName: form.draft.displayName, endpoint: form.draft.endpoint,
@@ -435,7 +435,7 @@ function openSetupBack(workspace, overlay) {
     if (overlay.form.mode === 'model') workspace.projection.openOverlay(authenticationOverlay({ ...overlay.form, mode: undefined, discoveryError: undefined }));
     else if (overlay.form.mode === 'credential') workspace.projection.openOverlay(authenticationOverlay({ ...overlay.form, mode: undefined }));
     else if (overlay.form.operation === 'add') workspace.projection.openOverlay(presetOverlay(parent));
-    else workspace.projection.openOverlay(profileSelectionOverlay(overlay.form.operation, Object.values(workspace.activeConfig().providerProfiles), parent));
+    else workspace.projection.openOverlay(profileSelectionOverlay(overlay.form.operation, Object.values(workspace.activeConfig().connectionRecords), parent));
   } else if (overlay.kind === 'provider-auth-select') {
     workspace.projection.openOverlay(profileFormOverlay({ ...overlay.formState, stepIndex: 1 }));
   } else if (overlay.kind === 'provider-secret-select') {
@@ -443,7 +443,7 @@ function openSetupBack(workspace, overlay) {
   } else if (overlay.kind === 'provider-model-select') {
     workspace.projection.openOverlay(authenticationOverlay(overlay.formState));
   } else if (overlay.kind === 'provider-delete-confirm') {
-    workspace.projection.openOverlay(profileSelectionOverlay('delete', Object.values(workspace.activeConfig().providerProfiles), parent));
+    workspace.projection.openOverlay(profileSelectionOverlay('delete', Object.values(workspace.activeConfig().connectionRecords), parent));
   } else openProviderManager(workspace, parent);
 }
 

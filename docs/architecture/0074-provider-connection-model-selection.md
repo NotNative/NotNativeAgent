@@ -277,7 +277,23 @@ the main console persists the primary selection as the workspace default.
 | 3 — `/model` discovery sweep, primary pick persistence | Done |
 | 4 — `/v1/connections`, `/v1/models`, `/v1/routes` read contract | Done |
 | 5 — Routing surface (roles, assignment, clear) | Done |
-| next — per-selection limit observation; rename `providerProfiles` to connections | Pending |
+| 6 — `connectionRecords` rename, per-selection limit tiers | Done |
+
+The resolved map is named `connectionRecords` because each entry is one model
+selection on one endpoint. Durable evidence still records `provider_profile`,
+and every reader resolves that name through the same map, so historical receipts
+keep resolving.
+
+A selected model carries three limit tiers, and a surface states which one it
+shows:
+
+1. **Measured** — the endpoint's model card supplied the window. This is the only
+   tier presented as a measurement.
+2. **Configured** — the route or the selection states a limit the operator entered.
+3. **Unknown** — neither, shown as unknown and never as zero or a guess.
+
+A route that selects the connection's own model inherits that selection's limit.
+A route that selects any other model inherits nothing.
 
 Slice 2 stores `connections[]` and `model_selections[]` and resolves them into the
 flat provider map every existing consumer reads. A route names the **model

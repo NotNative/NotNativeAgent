@@ -470,7 +470,7 @@ test('gateway appears in configuration and exposes actionable menu drafts', () =
   assert.equal(overlayCommandDraft('gateway', 'action:authorize'), '/gateway authorize ');
   const hub = configOverlay({
     workspaceRoot: 'D:\\repo', routes: { primary: { providerId: 'local', model: 'qwen' } },
-    providerProfiles: { local: {} }, mcpServers: [],
+    connectionRecords: { local: {} }, mcpServers: [],
   });
   assert.equal(hub.items.some((item) => item.id === 'gateway'), true);
 });

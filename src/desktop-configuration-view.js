@@ -53,7 +53,7 @@ function effectiveManifest(config) {
   manifest.recovery.turn_wall_clock_ms = config.recovery.turnWallClockMs;
   manifest.tui.key_bindings = validateKeyBindings(config.tui.keyBindings);
   manifest.providers.forEach(provider => {
-    const profile = config.providerProfiles[provider.id];
+    const profile = config.connectionRecords[provider.id];
     provider.tool_call_mode = profile.toolCallMode;
     provider.context_limit_bytes = profile.contextLimitBytes;
     provider.output_limit_tokens = profile.outputLimitTokens;

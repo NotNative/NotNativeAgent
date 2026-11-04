@@ -222,7 +222,7 @@ export async function createIntegrationDesktopEngineHost(paths, options = {}) {
   host.desktopModel = Object.freeze({ providerID: config.routes.primary.providerId, modelID: config.routes.primary.model });
   host.desktopMcpInventory = desktopMcpInventory(config);
   host.desktopAgentInventory = desktopAgentInventory(config);
-  host.providerRoutingPending = (latest) => !isDeepStrictEqual(activeConfig.providerProfiles, latest.providerProfiles)
+  host.providerRoutingPending = (latest) => !isDeepStrictEqual(activeConfig.connectionRecords, latest.connectionRecords)
     || !isDeepStrictEqual(activeConfig.routes, latest.routes);
   host.activateProviderRoute = async () => {
     // Compatibility: legacy NNO/direct hosts retain their original user-only configuration scope.
@@ -231,7 +231,7 @@ export async function createIntegrationDesktopEngineHost(paths, options = {}) {
     if (latest.workspaceRoot !== config.workspaceRoot || latest.persistence !== config.persistence) {
       throw new ContractError('desktop_manifest_invalid', 'desktop provider activation cannot change workspace or persistence scope');
     }
-    activeConfig = Object.freeze({ ...activeConfig, providerProfiles: latest.providerProfiles, routes: latest.routes });
+    activeConfig = Object.freeze({ ...activeConfig, connectionRecords: latest.connectionRecords, routes: latest.routes });
     const route = activeConfig.routes.primary;
     host.desktopModel = Object.freeze({ providerID: route.providerId, modelID: route.model });
     host.desktopAgentInventory = desktopAgentInventory(activeConfig);

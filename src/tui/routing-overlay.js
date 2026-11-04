@@ -25,7 +25,7 @@ export function routingOverlay(engine, options = {}) {
   for (const role of ROLES) {
     const route = config.routes[role.id] ?? {};
     const assigned = role.id === 'primary' || route.assigned !== false;
-    const connection = assigned ? config.providerProfiles[route.providerId] : null;
+    const connection = assigned ? config.connectionRecords[route.providerId] : null;
     const inherited = !assigned && role.id !== 'primary';
     items.push(Object.freeze({
       id: `role:${role.id}`, label: role.label,
@@ -48,7 +48,7 @@ export function routingOverlay(engine, options = {}) {
   }
   if (options.canManage) {
     for (const role of ROLES.filter((item) => GLOBAL_ROLES.includes(item.id))) {
-      for (const profile of Object.values(config.providerProfiles)) {
+      for (const profile of Object.values(config.connectionRecords)) {
         items.push(Object.freeze({
           id: `assign:${role.id}:${profile.id}`, label: `${role.label} → ${profile.displayName}`,
           detail: `${profile.id} · ${profile.model} · ${profile.endpoint}`,

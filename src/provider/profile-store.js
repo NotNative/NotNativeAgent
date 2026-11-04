@@ -32,14 +32,14 @@ export class ProviderProfileStore {
   async list() {
     const config = await this.#read();
     const active = config.routes.primary.providerId;
-    return Object.values(config.providerProfiles).map((profile) => publicProfile(profile, profile.id === active));
+    return Object.values(config.connectionRecords).map((profile) => publicProfile(profile, profile.id === active));
   }
 
   async inventory(isPending) {
     const config = await this.#read();
     const route = config.routes.primary;
     return {
-      profiles: Object.values(config.providerProfiles).map((profile) => publicProfile(profile, profile.id === route.providerId)),
+      profiles: Object.values(config.connectionRecords).map((profile) => publicProfile(profile, profile.id === route.providerId)),
       configured_primary_route: { providerID: route.providerId, modelID: route.model },
       provider_routing_pending: typeof isPending === 'function' ? isPending(config) : null,
     };
@@ -47,7 +47,7 @@ export class ProviderProfileStore {
 
   async get(id) {
     const config = await this.#read();
-    const profile = config.providerProfiles[id];
+    const profile = config.connectionRecords[id];
     return profile ? publicProfile(profile, config.routes.primary.providerId === id) : null;
   }
 
@@ -160,7 +160,7 @@ export class ProviderProfileStore {
         const route = result.config.routes[options.routeRole];
         return { providerID: route.providerId, modelID: route.model };
       }
-      const profile = result.config.providerProfiles[options.profileId] ?? null;
+      const profile = result.config.connectionRecords[options.profileId] ?? null;
       return profile ? publicProfile(profile, result.config.routes.primary.providerId === profile.id) : null;
     }));
     this.#tail = task.catch((error) => { this.lastMutationFailure = error?.code ?? 'provider_mutation_failed'; });
@@ -263,7 +263,7 @@ function providerSnapshot(snapshot) {
 }
 
 function requireProfile(config, id) {
-  const profile = config.providerProfiles[id];
+  const profile = config.connectionRecords[id];
   if (!profile) throw new ContractError('provider_missing', `provider ${id} is not configured`);
   return profile;
 }

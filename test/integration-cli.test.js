@@ -86,7 +86,7 @@ test('desktop sessions resolve the existing local provider secret, including del
   const principal = { subjectId: 'operator', workspaceIds: nativeDesktopPrincipal(root).workspaceIds };
   try {
     const context = await host.create('session_secret', principal);
-    const profile = context.engine.config.providerProfiles.primary;
+    const profile = context.engine.config.connectionRecords.primary;
     const token = await context.engine.credentialResolver.withCredential(profile.credential, {
       consumer: 'provider:primary', destination: profile.endpoint, purpose: 'test provider dispatch',
     }, (value) => value);
@@ -345,8 +345,8 @@ test('provider route activation changes future desktop sessions without mutating
     assert.equal(before.engine.config.routes.primary.providerId, 'old');
     assert.equal(after.engine.config.routes.primary.providerId, 'new');
     assert.equal(after.engine.config.routes.subagent.providerId, 'new');
-    assert.equal(after.engine.config.providerProfiles.old, undefined);
-    assert.ok(before.engine.config.providerProfiles.old);
+    assert.equal(after.engine.config.connectionRecords.old, undefined);
+    assert.ok(before.engine.config.connectionRecords.old);
     assert.deepEqual(host.desktopAgentInventory.route, { providerID: 'new', modelID: 'new-model' });
     document.providers.push({ id: 'third', endpoint: 'http://127.0.0.1:3234/v1', model: 'third-model', trust_zone: 'loopback' });
     document.routes.subagent = { provider_id: 'third', model: 'third-model' };

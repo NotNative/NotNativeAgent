@@ -66,7 +66,7 @@ test('a pick names the connection and the model together', async (t) => {
   assert.equal(route.model, 'qwen-2');
   // Why: the same model name on another connection resolves to that connection's endpoint.
   await f.engine.selectRoute('big', 'qwen-2');
-  const moved = f.engine.activeConfig().providerProfiles[f.engine.activeConfig().routes.primary.providerId];
+  const moved = f.engine.activeConfig().connectionRecords[f.engine.activeConfig().routes.primary.providerId];
   assert.equal(moved.endpoint, 'http://127.0.0.1:1/v1');
   await assert.rejects(f.engine.selectRoute('missing', 'x'), { code: 'provider_missing' });
   await assert.rejects(f.engine.selectRoute('big', ''), { code: 'invalid_model' });

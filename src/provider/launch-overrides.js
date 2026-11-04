@@ -5,7 +5,7 @@ import { withPrimaryRoute, withProvider } from './route-configuration.js';
 const MAX_LAUNCH_OVERRIDE_ATTEMPTS = 1_000;
 
 export function applyLaunchProviderOverrides(config, options = {}) {
-  if (!config?.routes?.primary || !config.providerProfiles || typeof config.providerProfiles !== 'object') {
+  if (!config?.routes?.primary || !config.connectionRecords || typeof config.connectionRecords !== 'object') {
     throw new ContractError('provider_configuration_invalid', 'launch overrides require a resolved provider configuration');
   }
   const profileSelector = options.providerProfile;
@@ -19,11 +19,11 @@ export function applyLaunchProviderOverrides(config, options = {}) {
   if (endpoint && !model) {
     throw new ContractError('provider_model_required', '--provider-endpoint currently requires --model; no catalog entry is selected implicitly');
   }
-  const profileId = profileSelector ? resolveProfileId(config.providerProfiles, profileSelector) : config.routes.primary.providerId;
-  const selected = config.providerProfiles[profileId];
+  const profileId = profileSelector ? resolveProfileId(config.connectionRecords, profileSelector) : config.routes.primary.providerId;
+  const selected = config.connectionRecords[profileId];
   if (!selected && !endpoint) throw new ContractError('provider_missing', `provider ${profileSelector ?? profileId} is not configured`);
   if (!endpoint && !credentialEnv) return tagged(withPrimaryRoute(config, selected.id, model ?? selected.model).config, options);
-  const id = availableId(config.providerProfiles);
+  const id = availableId(config.connectionRecords);
   const added = withProvider(config, {
     id, displayName: `Temporary launch route (${selected?.displayName ?? endpoint})`,
     endpoint: endpoint ?? selected.endpoint, model: model ?? selected.model,

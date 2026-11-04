@@ -13,7 +13,7 @@ import { resolveConfigurationScalar as scalar } from './configuration-rules.js';
 import { MANIFEST_KEYS } from './configuration-keys.js';
 import { validateAllowedTools, validateHostIdentity } from './execution-policy.js';
 import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
-import { migrateRoutingInheritance, CONNECTION_FORMAT_VERSION } from './persistence/manifest-migration.js';
+import { migrateRoutingInheritance, storedManifestShape, CONNECTION_FORMAT_VERSION } from './persistence/manifest-migration.js';
 import { validateConnections as connectionsFor } from './provider/connection-validation.js';
 import { validateDream } from './dream-config.js';
 import { validateEnableThinking, validateReasoningEffort } from './provider/reasoning.js';
@@ -31,19 +31,10 @@ const KNOWN_KEYS = new Set(MANIFEST_KEYS);
 function manifestWarnings(manifest) {
   return [...validateManifestKeys(manifest), ...validateNestedManifestKeys(manifest)];
 }
-
-// Why: a document that still holds a legacy provider list migrates to connections, but a malformed
-// legacy document keeps its providers so the validator reports the exact defect.
-function storedShape(manifest) {
-  if (Array.isArray(manifest.connections)) return manifest;
-  const migrated = migrateRoutingInheritance(manifest).manifest;
-  return Array.isArray(migrated.connections) ? migrated : manifest;
-}
-
 export function resolveManifest(manifest = {}, options = {}) {
   if (!isRecord(manifest)) throw new ContractError('invalid_manifest', 'manifest must be an object');
   assertManifestVersion(manifest.format_version);
-  manifest = storedShape(manifest);
+  manifest = storedManifestShape(manifest);
   rejectReviewOverrides(manifest);
   const warnings = manifestWarnings(manifest);
   const profiles = validateProviders(manifest);
@@ -73,7 +64,7 @@ export function resolveManifest(manifest = {}, options = {}) {
   return deepFreeze({
     version: 1,
     persistence,
-    providerProfiles: profiles,
+    connectionRecords: profiles,
     routes,
     applicationPolicy: stringOrEmpty(manifest.application_system_prompt),
     skills: executionManifest && !executionManifest.allowedCapabilities.includes('skills') ? Object.freeze([]) : skills,
@@ -287,10 +278,14 @@ function buildRoutes(value, profile, profiles, providerMs) {
     if (!assigned && !inherited) throw new ContractError('route_inheritance_invalid', `route ${role} has no Primary route to inherit`);
     const providerId = assigned ? (cited ?? inherited?.providerId ?? profile.id) : inherited.providerId;
     const model = assigned ? (route.model ?? profiles[providerId]?.model ?? profile.model) : inherited.model;
+    // Why: a route selecting the connection's own model inherits its limit. Any other model inherits
+    // nothing, because a limit measured for one model never describes another.
+    const selected = profiles[providerId];
+    const selectionLimits = model === selected?.model;
     result[role] = Object.freeze({
       role, assigned, providerId, model,
       contextLimitBytes: scalar('routes.{role}.context_limit_bytes', route.context_limit_bytes)
-        ?? (model === profiles[providerId]?.model ? profiles[providerId]?.contextLimitBytes : null) ?? null,
+        ?? (selectionLimits ? selected?.contextLimitBytes : null) ?? null,
       requiredCapabilities: validateRouteCapabilities(route.required_capabilities),
       temperature: temperatureOverride === null || temperatureOverride === 0 ? null : temperatureOverride, temperatureOverride,
       maxOutputTokens: scalar('routes.{role}.max_output_tokens', route.max_output_tokens),

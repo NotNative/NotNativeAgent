@@ -60,7 +60,7 @@ export async function runDesktopGoalAudit(context, body) {
 }
 
 async function executeAudit(engine, receipt, expectedFingerprint, objective, assistantText) {
-  const profile = engine.config?.providerProfiles?.[receipt.provider_profile];
+  const profile = engine.config?.connectionRecords?.[receipt.provider_profile];
   if (!profile || !engine.router?.providerForProfile || !engine.scheduler?.acquire) {
     throw new ContractError('desktop_goal_audit_unavailable', 'desktop goal provider route is unavailable');
   }

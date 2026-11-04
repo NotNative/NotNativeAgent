@@ -42,7 +42,7 @@ export function createDesktopProviderObservation({ paths, installationId, dataId
         return { schema_version: '1.0', installation_id: installationId, data_id: dataId, scope: 'user',
           source_state: 'absent', manifest_revision: 'absent', providers: [] };
       }
-      const profiles = resolveManifest(snapshot.rawManifest)?.providerProfiles ?? {};
+      const profiles = resolveManifest(snapshot.rawManifest)?.connectionRecords ?? {};
       const entries = Object.entries(profiles);
       // Legal state cannot reach this: the manifest key grammar is bounded and
       // a wider profile set is a projection the response bound could not carry.

@@ -28,7 +28,7 @@ export class ModelRouter {
     }
     const required = [...new Set([...routeCapabilities, ...optionCapabilities])];
     const targetRole = orderedRoles(this.config.routes, role);
-    const profile = this.config.providerProfiles[route.providerId];
+    const profile = this.config.connectionRecords[route.providerId];
     if (!profile) throw new ContractError('route_profile_missing', 'route profile is unavailable');
     if (incompatible(profile, required)) return Object.freeze([]);
     const logicalRequestId = options.logicalRequestId ?? newId('route');

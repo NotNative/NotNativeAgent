@@ -119,7 +119,7 @@ test('configuration accepts structured provider, MCP bearer, stdio-target, and c
       credential: { source: 'secret', secret_id: 'sec_local', field: 'token' },
     }],
   });
-  assert.deepEqual(config.providerProfiles.remote.credential, { source: 'secret', secretId: 'sec_provider', field: 'api_key' });
+  assert.deepEqual(config.connectionRecords.remote.credential, { source: 'secret', secretId: 'sec_provider', field: 'api_key' });
   assert.equal(config.mcpServers[0].headerCredentials['X-API-Key'].secretId, 'sec_header');
   assert.equal(config.mcpServers[1].credentialTarget, 'SERVER_TOKEN');
 });

@@ -105,8 +105,8 @@ test('source precedence includes explicit configuration and MCP fields identify 
 test('catalog acceptance preserves permissive native fields instead of inventing strict types', () => {
   const provider = { endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback', capabilities: { streaming: false, tools: 'future' } };
   const config = resolveManifest({ provider, attachments: { enabled: 'legacy' }, routes: { primary: { model: 123 } }, telemetry: { enabled: true, destination: 'https://example.com', retention: 'operator-policy' } });
-  assert.equal(config.providerProfiles['manifest-primary'].capabilities.streaming, true);
-  assert.equal(config.providerProfiles['manifest-primary'].capabilities.tools, 'unknown');
+  assert.equal(config.connectionRecords['manifest-primary'].capabilities.streaming, true);
+  assert.equal(config.connectionRecords['manifest-primary'].capabilities.tools, 'unknown');
   assert.equal(config.attachments.enabled, true);
   assert.equal(config.routes.primary.model, 123);
   assert.equal(field('routes.primary.model').type, 'unknown');

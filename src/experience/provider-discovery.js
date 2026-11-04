@@ -9,7 +9,7 @@ const MAX_DISCOVERED_MODEL_LENGTH = 256;
 const MAX_DISCOVERED_MODELS = 4096;
 
 export async function discoverWorkspaceProviderModels(workspace, input) {
-  if (!workspace?.config?.providerProfiles || typeof workspace.activeEngine !== 'function'
+  if (!workspace?.config?.connectionRecords || typeof workspace.activeEngine !== 'function'
     || !input || typeof input !== 'object' || typeof input.endpoint !== 'string' || input.endpoint.length === 0) {
     throw new ContractError('provider_discovery_invalid', 'provider discovery requires a workspace and endpoint');
   }
@@ -34,12 +34,12 @@ export async function qualifyWorkspaceProvider(workspace, input) {
 
 function temporaryProvider(workspace, input) {
   let probeId = 'nna-provider-setup';
-  for (let suffix = 2; workspace.config.providerProfiles[probeId]; suffix += 1) probeId = `nna-provider-setup-${suffix}`;
+  for (let suffix = 2; workspace.config.connectionRecords[probeId]; suffix += 1) probeId = `nna-provider-setup-${suffix}`;
   const profile = withProvider(workspace.config, {
     id: probeId, displayName: input.displayName ?? probeId, endpoint: input.endpoint,
     model: input.model || 'nna-model-discovery', credential: input.credential ?? undefined,
     credentialEnv: input.credentialEnv || undefined,
-  }).config.providerProfiles[probeId];
+  }).config.connectionRecords[probeId];
   const provider = workspace.activeEngine()?.router?.providerForProfile(profile);
   if (!provider || typeof provider !== 'object') {
     throw new ContractError('provider_discovery_unavailable', 'provider discovery route is unavailable');
