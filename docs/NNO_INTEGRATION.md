@@ -80,6 +80,64 @@ require `secret.scope.role:<id>` and `secret.scope.deployment`; cross-scope acce
 Bearer tokens, principal envelopes, secret fields, and authorization headers must be
 redacted from NNO and NNA telemetry.
 
+## Provider connections and model selections
+
+A **connection** stores where inference runs: endpoint, trust zone, and the credential
+reference. A **model selection** names one model on one connection. One connection can
+carry several selections, so two models on one endpoint no longer need two records.
+
+```text
+GET    /v1/connections
+GET    /v1/connections/{connection_id}
+POST   /v1/connections/{connection_id}/discover
+GET    /v1/models
+GET    /v1/routes
+```
+
+The connection contract is read-only in this release. `connection_id` is the stable
+foreign key; `display_name` is presentation text. A response wraps a secret-free
+`connection` object:
+
+```json
+{
+  "connections": [{ "connection_id": "lan", "display_name": "LAN box",
+    "endpoint": "http://model-host.example:1234/v1", "trust_zone": "private_network",
+    "credential": null, "credential_env": null, "connection_revision": "..." }],
+  "selections": [{ "selection_id": "big", "connection_id": "lan", "model": "glm",
+    "context_limit_bytes": null, "output_limit_tokens": null, "tool_call_mode": "single",
+    "active": true, "selection_revision": "..." }],
+  "configured_primary_route": { "connection_id": "big", "model": "glm" }
+}
+```
+
+`/v1/models` lists every configured selection with the connection that serves it, so a
+catalog row always names a usable **connection and model pair**:
+
+```json
+{ "models": [{ "connection_id": "lan", "connection_name": "LAN box",
+  "endpoint": "http://model-host.example:1234/v1", "model": "glm", "selected": true }],
+  "configured_primary_route": { "connection_id": "big", "model": "glm" } }
+```
+
+`/v1/routes` reports the resolved role map. A role that inherits the primary selection
+reports `assigned: false` and the primary's connection:
+
+```json
+{ "roles": { "primary": { "connection_id": "big", "model": "glm", "assigned": true },
+  "reviewer": { "connection_id": "big", "model": "glm", "assigned": false } },
+  "configured_primary_route": { "connection_id": "big", "model": "glm" } }
+```
+
+Discovery returns `{ "connection_id", "models": [...] }`. Every endpoint above requires
+permission `provider.read`, except discovery, which requires `provider.discover`. A write
+method returns `405`; this release defines no connection mutation over HTTP.
+Neither contract accepts or returns a literal credential value.
+
+### Provider profile compatibility projection
+
+The profile contract below still serves one flat row per model selection. It is a
+derived projection of the records above, and it accepts the same writes it always did.
+
 ## Provider profiles
 
 The stable profile ID is the foreign key. `display_name` is presentation text and may be

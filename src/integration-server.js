@@ -128,7 +128,53 @@ function withDesktopEngineHost(context) {
   return { ...context, desktopEngineHost: host, desktopWorkspaceRoot: host?.workspaceRoot };
 }
 
+const CONNECTION_ROUTE = /^\/v1\/connections(?:\/([^/]+))?(?:\/(discover|test))?$/u;
+
+// Why: the connection and selection records are the operator-facing objects, so this contract serves
+// them directly and leaves the profile contract serving its compatibility projection.
+async function dispatchConnectionRequest(request, response, context) {
+  const path = context.url.pathname;
+  const known = path === '/v1/models' || path === '/v1/routes' || CONNECTION_ROUTE.test(path);
+  if (!known) return false;
+  if (request.method !== 'GET') {
+    send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
+    return true;
+  }
+  requireIntegrationPermission(context.principal, 'provider.read');
+  if (path === '/v1/models') {
+    const inventory = await context.providerStore.connections();
+    const models = inventory.selections.map((selection) => {
+      const connection = inventory.connections.find((item) => item.connection_id === selection.connection_id);
+      return Object.freeze({
+        connection_id: selection.connection_id, connection_name: connection?.display_name ?? selection.connection_id,
+        endpoint: connection?.endpoint ?? null, model: selection.model, selected: selection.active,
+      });
+    });
+    send(response, 200, { models, configured_primary_route: inventory.configured_primary_route });
+    return true;
+  }
+  if (path === '/v1/routes') {
+    send(response, 200, await context.providerStore.routes());
+    return true;
+  }
+  const match = CONNECTION_ROUTE.exec(path);
+  const id = match[1] ? providerId(match[1]) : null;
+  const inventory = await context.providerStore.connections();
+  if (!id) {
+    send(response, 200, inventory);
+    return true;
+  }
+  const connection = inventory.connections.find((item) => item.connection_id === id);
+  if (!connection) {
+    send(response, 404, failure('provider_missing', 'connection not found'));
+    return true;
+  }
+  send(response, 200, { connection, selections: inventory.selections.filter((item) => item.connection_id === id) });
+  return true;
+}
+
 export async function dispatchProviderRequest(request, response, context) {
+  if (await dispatchConnectionRequest(request, response, context)) return true;
   if (context.url.pathname === '/v1/provider-route/subagent') return dispatchSubagentRoute(request, response, context);
   if (context.url.pathname === '/v1/provider-route/activate') return dispatchProviderActivation(request, response, context);
   if (context.url.pathname === '/v1/provider-route') {

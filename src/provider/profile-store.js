@@ -3,7 +3,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
-import { withPrimaryRoute, withRoleRoute, withProvider, withUpdatedProvider, withoutProvider } from './route-configuration.js';
+import { withPrimaryRoute, withRoleRoute, withProvider, withUpdatedProvider, withoutProvider, manifestFromConfig } from './route-configuration.js';
+import { isRecord } from '../values.js';
 import { withManifestLock, readLockedManifestSnapshot, transactLockedManifest } from '../persistence/manifest-transaction.js';
 import { configurationIntent, intentChanges, applyIntentChanges } from '../experience/configuration-intents.js';
 import { CredentialResolver, credentialManifest, normalizeCredentialBinding } from '../credential-bindings.js';
@@ -106,6 +107,29 @@ export class ProviderProfileStore {
 
   async config() { return this.#read(); }
 
+  // Why: the connection and selection records are the stored shape, so the contract that serves them
+  // reads the stored document rather than re-deriving rows. A secret value never leaves this layer.
+  async connections() {
+    const config = await this.#read();
+    const manifest = manifestFromConfig(config);
+    const primary = config.routes.primary.providerId;
+    return {
+      connections: (manifest.connections ?? []).map((connection) => publicConnection(connection)),
+      selections: (manifest.model_selections ?? []).map((selection) => publicSelection(selection, selection.id === primary)),
+      configured_primary_route: { connection_id: primary, model: config.routes.primary.model },
+    };
+  }
+
+  async routes() {
+    const config = await this.#read();
+    return {
+      roles: Object.fromEntries(Object.entries(config.routes).map(([role, route]) => [role, {
+        connection_id: route.providerId, model: route.model, assigned: route.assigned,
+      }])),
+      configured_primary_route: { connection_id: config.routes.primary.providerId, model: config.routes.primary.model },
+    };
+  }
+
   async #read() {
     // Invariant: effective read overlays never enter the raw selected-source mutation path.
     if (this.readEffectiveConfiguration) return this.readEffectiveConfiguration();
@@ -142,6 +166,27 @@ export class ProviderProfileStore {
     this.#tail = task.catch((error) => { this.lastMutationFailure = error?.code ?? 'provider_mutation_failed'; });
     return task;
   }
+}
+
+export function publicConnection(connection) {
+  const row = {
+    connection_id: connection.id, display_name: connection.display_name ?? connection.id,
+    endpoint: connection.endpoint, trust_zone: connection.trust_zone,
+    credential: isRecord(connection.credential) && connection.credential.source === 'secret'
+      ? { source: 'secret', secret_id: connection.credential.secret_id, field: connection.credential.field } : null,
+    credential_env: typeof connection.credential_env === 'string' ? connection.credential_env : null,
+  };
+  return Object.freeze({ ...row, connection_revision: createHash('sha256').update(JSON.stringify(row)).digest('hex') });
+}
+
+export function publicSelection(selection, active = false) {
+  const row = {
+    selection_id: selection.id, connection_id: selection.connection_id, model: selection.model,
+    context_limit_bytes: Number.isSafeInteger(selection.context_limit_bytes) ? selection.context_limit_bytes : null,
+    output_limit_tokens: Number.isSafeInteger(selection.output_limit_tokens) ? selection.output_limit_tokens : null,
+    tool_call_mode: selection.tool_call_mode ?? 'single',
+  };
+  return Object.freeze({ ...row, active, selection_revision: createHash('sha256').update(JSON.stringify(row)).digest('hex') });
 }
 
 export function publicProfile(profile, active = false) {
