@@ -313,10 +313,9 @@ explicit override. Qualification makes up to four one-output-token inference req
 remote provider may account for them as ordinary billed requests.
 Each role route accepts
 `provider_id`, `model`, an optional model-specific `context_limit_bytes`, `required_capabilities`, `temperature`,
-`max_output_tokens`, `deadline_ms`, `budget`, and an ordered `fallbacks` list of role
-names. Fallback graphs are bounded and cycle-checked. A candidate conclusively lacking
-a required capability is rejected before inference, and fallback cannot silently cross
-from loopback or private-network context to a less trusted destination.
+`max_output_tokens`, and `deadline_ms`. A role resolves to its own
+selection or to Primary; there is no configurable alternative path. A selection
+conclusively lacking a required capability is rejected before inference.
 Omitting `provider_id` and `model` from a non-primary role means no dedicated profile is
 assigned. The resolved role follows Primary without serializing a false assignment. The Console
 expresses the same operation as “No dedicated profile” or `/provider ROLE clear`. Attachment

@@ -166,8 +166,8 @@ export function configOverlay(engine, options = {}) {
   ];
   if (options.status) lines.push('', options.status);
   const items = [
-    { id: 'provider', label: 'Provider profiles and role routing', detail: `${Object.keys(config.providerProfiles).length} configured profiles` },
-    { id: 'model', label: 'Active model', detail: 'Choose a conversation-local model from the active provider' },
+    { id: 'provider', label: 'Provider connections and role routing', detail: `${Object.keys(config.providerProfiles).length} configured connections` },
+    { id: 'model', label: 'Active model', detail: 'Choose a conversation-local model from the active provider connection' },
     { id: 'mcp', label: 'MCP servers', detail: `${config.mcpServers?.length ?? 0} configured servers` },
     { id: 'secrets', label: 'Secrets', detail: 'Manage write-only credentials in the local NNA broker' },
     { id: 'websearch', label: 'WebSearch', detail: 'Configure, test, or locally deploy SearXNG' },

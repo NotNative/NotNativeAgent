@@ -1034,9 +1034,9 @@ it('offers the remaining advertised route rows in the catalog-gated field choose
   const tuning = ['budget', 'context_limit_bytes', 'deadline_ms', 'enable_thinking', 'max_output_tokens',
     'reasoning_effort', 'temperature'];
   const routePaths = ['primary', 'subagent'].flatMap(role => [...tuning.map(key => `routes.${role}.${key}`),
-    `routes.${role}.required_capabilities`, `routes.${role}.fallbacks`])
-    .concat(['reviewer', 'vision'].flatMap(role => [`routes.${role}.required_capabilities`, `routes.${role}.fallbacks`]));
-  expect(routePaths).toHaveLength(22);
+    `routes.${role}.required_capabilities`])
+    .concat(['reviewer', 'vision'].flatMap(role => [`routes.${role}.required_capabilities`]));
+  expect(routePaths).toHaveLength(18);
   const routeView: NativeConfigurationView = {
     ...view,
     fields: routePaths.map(path => ({
@@ -1047,7 +1047,7 @@ it('offers the remaining advertised route rows in the catalog-gated field choose
   vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({
     fields: routePaths.map(path => ({ path,
       type: path.endsWith('temperature') ? 'number' as const : path.endsWith('enable_thinking') ? 'boolean' as const
-        : path.endsWith('required_capabilities') || path.endsWith('fallbacks') ? 'array' as const : 'integer' as const,
+        : path.endsWith('required_capabilities') ? 'array' as const : 'integer' as const,
       editability: field.editability })),
   });
   mount(routeView); await act(async () => {});

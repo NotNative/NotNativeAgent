@@ -33,8 +33,14 @@ export class RoutedSemanticReviewer {
     if (routes.length === 0) {
       throw new ContractError('route_capability_unavailable', 'no trust-compatible reviewer route is available');
     }
+    // Security: a reviewer that inherits the primary selection reviews the agent's own
+    // request. Record that fact on the durable evidence so the condition stays visible.
+    const primary = this.router.config?.routes?.primary;
+    const reviewer = this.router.config?.routes?.reviewer ?? primary;
+    const selfReview = Boolean(primary && reviewer
+      && primary.providerId === reviewer.providerId && primary.model === reviewer.model);
     const logicalRequestId = newId('reviewer_route');
-    const state = { invalidOutput: null, repairs: 0, effectRepairs: 0, anchorRepairs: 0, repairKind: null };
+    const state = { invalidOutput: null, repairs: 0, effectRepairs: 0, anchorRepairs: 0, repairKind: null, selfReview };
     let lastError = null;
     for (let index = 0; index < routes.length; index += 1) {
       const route = routes[index];
@@ -60,7 +66,7 @@ export class RoutedSemanticReviewer {
       try {
         return await runReviewerAttempts(route, input, signal, state, (request) => this.#runAttempt({
           provider, request, signal, route, profileId, logicalRequestId, correlation,
-          receiptOwner,
+          receiptOwner, selfReview: state.selfReview,
         }));
       } catch (error) {
         lastError = error;
@@ -72,13 +78,13 @@ export class RoutedSemanticReviewer {
     throw lastError ?? new ContractError('reviewer_output_malformed', 'reviewer repair attempt did not produce a decision');
   }
 
-  async #runAttempt({ provider, request, signal, route, profileId, logicalRequestId, correlation, receiptOwner }) {
+  async #runAttempt({ provider, request, signal, route, profileId, logicalRequestId, correlation, receiptOwner, selfReview }) {
     const attemptId = newId('reviewer_attempt');
     const spanId = `provider-request:${attemptId}`;
     const started = process.hrtime.bigint();
     const accounting = { dispatched: false, usage: null, outputBytes: 0, outcome: 'failed', reasonCode: null };
     this.telemetry?.record('provider.request', 'started', {
-      request, role: 'reviewer', model: route.model, provider_profile: profileId,
+      request, role: 'reviewer', model: route.model, provider_profile: profileId, self_review: selfReview,
     }, { ...correlation, spanId, providerRequestId: attemptId, logicalRequestId });
     try {
       accounting.dispatched = true;
@@ -104,7 +110,7 @@ export class RoutedSemanticReviewer {
     } finally {
       if (accounting.dispatched) await this.recordTokenReceipt?.({
         request, context: request.messages, route, role: 'reviewer', attemptId, logicalRequestId,
-        receiptOwner,
+        receiptOwner, self_review: selfReview,
         outcome: accounting.outcome, reasonCode: accounting.reasonCode,
         usage: accounting.usage, outputBytes: accounting.outputBytes, durationMs: elapsedMs(started),
       });

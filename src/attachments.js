@@ -293,8 +293,11 @@ export class AttachmentObservationRouter {
       }
       this.cache.record(primary, 'image_input', this.router.config.version, false);
       attempts.push(attemptFact(primary, 'unsupported'));
+      // Why: the vision role resolved to the primary selection, the only configured model,
+      // and that model refused the image. Name the missing capability instead of retrying.
       throw annotateRouteError(
-        new ContractError('no_eligible_vision_route', 'no distinct eligible vision route is configured'),
+        new ContractError('no_eligible_vision_route',
+          'no vision-capable model is configured: the resolved vision selection refused the image'),
         logicalRequestId, attempts,
       );
     }

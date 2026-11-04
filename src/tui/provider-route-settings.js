@@ -16,7 +16,7 @@ const SETTINGS = Object.freeze({
   timeout: Object.freeze({ label: 'Overall attempt timeout', detail: 'Seconds allowed for prompt processing and generation. Enter 0 for no timeout.' }),
   temperature: Object.freeze({ label: 'Temperature', detail: 'Sampling temperature from 0 through 2. Enter 0 to leave sampling unset and use the provider default.' }),
   output: Object.freeze({ label: 'Maximum output tokens', detail: 'Maximum tokens requested from the provider. Enter 0 for no explicit limit.' }),
-  budget: Object.freeze({ label: 'Fallback attempt budget', detail: 'Maximum eligible route attempts from 1 through 64. Enter 0 to use every eligible route.' }),
+  budget: Object.freeze({ label: 'Attempt budget', detail: 'Not used by current resolution; kept for stored compatibility.' }),
   reasoning_effort: Object.freeze({ label: 'Reasoning effort', detail: 'OpenAI-compatible reasoning_effort. Availability depends on the model.', options: true }),
   enable_thinking: Object.freeze({ label: 'Thinking mode', detail: 'Qwen-compatible chat_template_kwargs.enable_thinking.', options: true }),
 });
@@ -110,12 +110,10 @@ export function routeSettingsOverlay(config, role, options = {}) {
     `Overall attempt timeout  ${formatMs(effectiveTimeout)} (${timeoutLabel(config, role, timeoutConfigured)})`,
     `Temperature              ${temperatureLabel(route)}`,
     `Maximum output tokens    ${route.maxOutputTokens?.toLocaleString('en-US') ?? 'No explicit limit'}`,
-    `Fallback attempt budget  ${route.budget ?? 'All eligible routes'}`,
     `Reasoning effort         ${route.reasoningEffort ?? PROVIDER_DEFAULT}`,
     `Thinking mode            ${thinkingLabel(route.enableThinking)}`,
     `Context limit            ${route.contextLimitBytes?.toLocaleString('en-US') ?? 'provider default'}`,
     `Required capabilities    ${route.requiredCapabilities.length ? route.requiredCapabilities.join(', ') : 'none'}`,
-    `Fallback profiles        ${route.fallbacks.length ? route.fallbacks.join(', ') : 'none'}`,
   ];
   const items = editable ? Object.entries(SETTINGS).map(([id, definition]) => ({
     id, label: definition.label, detail: definition.detail, badge: settingValue(config, role, id), section: 'Configurable settings',

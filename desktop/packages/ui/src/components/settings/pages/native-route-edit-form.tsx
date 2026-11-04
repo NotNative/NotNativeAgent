@@ -8,7 +8,7 @@ import { invalidateNativePreview, type ControlsModel } from './native-configurat
 import { RouteArrayInput, routeArrayValid } from './native-route-array-editor.tsx';
 
 const ROUTE_SCALAR = /^routes\.(?:primary|reviewer|subagent|vision)\.(?:budget|context_limit_bytes|deadline_ms|enable_thinking|max_output_tokens|reasoning_effort|temperature)$/u;
-const ROUTE_ARRAY = /^routes\.(?:primary|reviewer|subagent|vision)\.(?:required_capabilities|fallbacks)$/u;
+const ROUTE_ARRAY = /^routes\.(?:primary|reviewer|subagent|vision)\.required_capabilities$/u;
 // The primary deadline keeps its own typed control in the provider-deadline
 // block on the native configuration page (native-configuration-controls-map.ts
 // PROVIDER_DEADLINE), which previews the global provider timeout and the

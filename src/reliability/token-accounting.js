@@ -93,6 +93,9 @@ export function createProviderTokenReceipt(manifest, active, detail = {}) {
     role: detail.role ?? 'primary',
     provider_profile: detail.providerProfile ?? active?.providerResource ?? null,
     model: detail.model ?? active?.modelName ?? null,
+    // Security: a reviewer call that inherits the primary selection reviews the agent's own
+    // request. The receipt keeps that condition so durable evidence never hides it.
+    self_review: detail.self_review === true,
     request_fingerprint: manifest?.requestFingerprint ?? null,
     outcome: detail.outcome ?? 'failed', reason_code: detail.reasonCode ?? null,
     duration_ms: finiteNonnegative(detail.durationMs), dispatch: 'attempted',

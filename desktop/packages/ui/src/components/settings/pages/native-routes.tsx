@@ -50,7 +50,7 @@ function memberText(value: NativeValue | undefined, t: ReturnType<typeof useI18n
 // so the role card renders the whole family, not only the binding pair: the closed route
 // container is on screen when this card shows everything its role holds.
 const ROUTE_MEMBERS = ['provider_id', 'model', 'context_limit_bytes', 'required_capabilities', 'temperature',
-  'max_output_tokens', 'budget', 'fallbacks', 'deadline_ms', 'reasoning_effort', 'enable_thinking'] as const;
+  'max_output_tokens', 'budget', 'deadline_ms', 'reasoning_effort', 'enable_thinking'] as const;
 
 // NNA's own role list (src/contracts.js:12) and the subset it lets the desktop rebind
 // (NND_ROUTE_BINDING_ROLES, src/desktop-configuration-intents.js:7). Primary and subagent are

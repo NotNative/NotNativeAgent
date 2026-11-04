@@ -3,9 +3,6 @@ import { ContractError, newId } from '../ids.js';
 import { OpenAICompatibleProvider } from '../provider.js';
 import { effectiveModelOutputTokens } from '../reliability/output-headroom.js';
 
-// Fallback may stay within the originating trust zone or move inward, never toward broader egress.
-const TRUST_ZONE_RANK = Object.freeze({ loopback: 0, private_network: 1, public_network: 2 });
-
 export class ModelRouter {
   constructor(config, providerFactory = defaultFactory, options = {}) {
     this.config = config;
@@ -16,7 +13,7 @@ export class ModelRouter {
   resolve(role, options = {}) {
     const candidates = this.candidates(role, options);
     if (candidates.length === 0) {
-      throw new ContractError('route_capability_unavailable', `no trust-compatible ${role} route supports the required capabilities`);
+      throw new ContractError('route_capability_unavailable', `the ${role} route does not support the required capabilities`);
     }
     return candidates[0];
   }
@@ -30,27 +27,23 @@ export class ModelRouter {
       throw new ContractError('route_capability_invalid', 'required route capabilities must be arrays');
     }
     const required = [...new Set([...routeCapabilities, ...optionCapabilities])];
-    const roles = orderedRoles(this.config.routes, role);
-    const originZone = this.config.providerProfiles[route.providerId]?.trustZone;
+    const targetRole = orderedRoles(this.config.routes, role);
+    const profile = this.config.providerProfiles[route.providerId];
+    if (!profile) throw new ContractError('route_profile_missing', 'route profile is unavailable');
+    if (incompatible(profile, required)) return Object.freeze([]);
     const logicalRequestId = options.logicalRequestId ?? newId('route');
-    return Object.freeze(roles.flatMap((targetRole, index) => {
-      const target = this.config.routes[targetRole];
-      const profile = this.config.providerProfiles[target.providerId];
-      if (!profile) throw new ContractError('route_profile_missing', 'route profile is unavailable');
-      if (!trustCompatible(originZone, profile.trustZone) || incompatible(profile, required)) return [];
-      return [Object.freeze({
-        logicalRequestId, role,
-        targetRole, fallback: index > 0, model: target.model, profile,
-        contextLimitBytes: target.contextLimitBytes,
-        requiredCapabilities: Object.freeze(required),
-        deadlineMs: effectiveOverallDeadline(this.config, route, profile),
-        budget: route.budget, temperature: route.temperature,
-        maxOutputTokens: effectiveModelOutputTokens(
-          route.maxOutputTokens, target.model === profile.model ? profile.outputLimitTokens : null,
-        ),
-        reasoningEffort: route.reasoningEffort, enableThinking: route.enableThinking,
-      })];
-    }));
+    return Object.freeze([Object.freeze({
+      logicalRequestId, role,
+      targetRole, model: route.model, profile,
+      contextLimitBytes: route.contextLimitBytes,
+      requiredCapabilities: Object.freeze(required),
+      deadlineMs: effectiveOverallDeadline(this.config, route, profile),
+      budget: route.budget, temperature: route.temperature,
+      maxOutputTokens: effectiveModelOutputTokens(
+        route.maxOutputTokens, route.model === profile.model ? profile.outputLimitTokens : null,
+      ),
+      reasoningEffort: route.reasoningEffort, enableThinking: route.enableThinking,
+    })]);
   }
 
   provider(resolution) {
@@ -76,20 +69,10 @@ function effectiveOverallDeadline(config, route, profile) {
 }
 
 function orderedRoles(routes, role) {
-  const ordered = [];
-  const seen = new Set();
-  const pending = [role];
-  while (pending.length > 0) {
-    const current = pending.pop();
-    if (seen.has(current)) continue;
-    seen.add(current);
-    const route = routes[current];
-    if (!route) throw new ContractError('route_unavailable', `fallback route ${current} is unavailable`);
-    ordered.push(current);
-    const fallbacks = Array.isArray(route.fallbacks) ? route.fallbacks : [];
-    for (let index = fallbacks.length - 1; index >= 0; index -= 1) pending.push(fallbacks[index]);
-  }
-  return ordered;
+  // Why: a route resolves to its own assignment or to the primary route. There is
+  // no second, configurable path, so an operator reads the result in one step.
+  if (!routes[role]) throw new ContractError('route_unavailable', `route ${role} is unavailable`);
+  return role;
 }
 
 function incompatible(profile, required) {
@@ -98,10 +81,6 @@ function incompatible(profile, required) {
 
 function capabilityKey(name) {
   return name.replace(/_([a-z])/gu, (_, character) => character.toUpperCase());
-}
-
-function trustCompatible(origin, candidate) {
-  return TRUST_ZONE_RANK[candidate] <= TRUST_ZONE_RANK[origin];
 }
 
 function defaultFactory(profile, limits, options) {

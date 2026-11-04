@@ -162,3 +162,22 @@ test('vision streaming bounds bytes before collection and cancels oversized outp
     assert.equal(closed, true);
   }
 });
+
+test('a single model that refuses images reports no vision-capable model instead of retrying', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-observation-no-vision-'));
+  const managedPath = join(root, 'image.png');
+  await writeFile(managedPath, Buffer.from('89504e470d0a1a0a', 'hex'));
+  // The vision role and the primary role resolve to the same single selection.
+  const route = { profile: { id: 'only-model' }, model: 'only-model', deadlineMs: 1000, maxOutputTokens: 1024 };
+  let calls = 0;
+  const provider = { async *stream() {
+    calls += 1;
+    throw Object.assign(new Error('image input unsupported'), { code: 'provider_image_unsupported' });
+  } };
+  const observer = new AttachmentObservationRouter({ config: { version: 1 }, resolve: () => route, provider: () => provider });
+  await assert.rejects(observer.observe({ managedPath, mimeType: 'image/png' }, 'inspect', new AbortController().signal), {
+    code: 'no_eligible_vision_route',
+    message: /no vision-capable model is configured/u,
+  });
+  assert.equal(calls, 1, 'the refusal must not retry the same model');
+});

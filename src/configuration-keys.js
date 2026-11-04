@@ -19,7 +19,7 @@ export const CONFIGURATION_KEYS = Object.freeze({
   capabilities: Object.freeze(['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation']),
   credential: Object.freeze(['source', 'name', 'secret_id', 'field']),
   roles: ROLES,
-  route: Object.freeze(['provider_id', 'model', 'context_limit_bytes', 'required_capabilities', 'temperature', 'max_output_tokens', 'budget', 'fallbacks', 'deadline_ms', 'reasoning_effort', 'enable_thinking']),
+  route: Object.freeze(['provider_id', 'model', 'context_limit_bytes', 'required_capabilities', 'temperature', 'max_output_tokens', 'budget', 'deadline_ms', 'reasoning_effort', 'enable_thinking']),
   mcp: Object.freeze([
     'id', 'transport', 'enabled', 'timeout_ms', 'connect_timeout_ms', 'list_timeout_ms',
     'call_timeout_ms', 'shutdown_timeout_ms', 'tool_effects', 'credential', 'credential_env', 'credential_target', 'header_env', 'header_credentials',

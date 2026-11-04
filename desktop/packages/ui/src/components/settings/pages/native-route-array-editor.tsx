@@ -5,15 +5,13 @@ import { useI18n } from '../../I18nProvider.tsx';
 import { invalidateNativePreview, type ControlsModel } from './native-configuration-controls-model.ts';
 
 // Mirrors NNA src/configuration-catalog-metadata.js route family arrays:
-// required_capabilities takes up to six unique capability names, fallbacks up
-// to four unique role names tried in order (cycle checks stay engine-side).
-// Empty lists are legal for both. The engine revalidates every draft on save.
+// required_capabilities takes up to six unique capability names. Role fallback
+// lists were removed by ADR 0074, so the engine no longer offers that row.
+// Empty lists are legal. The engine revalidates every draft on save.
 const CAPABILITIES = ['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation'];
-const ROLES = ['primary', 'reviewer', 'subagent', 'vision'];
 
 export function routeArrayConfig(path: string): { allowed: string[]; max: number } | null {
   if (path.endsWith('.required_capabilities')) return { allowed: CAPABILITIES, max: 6 };
-  if (path.endsWith('.fallbacks')) return { allowed: ROLES, max: 4 };
   return null;
 }
 

@@ -70,7 +70,7 @@ function routeManifests(routes) {
   return Object.fromEntries(Object.entries(routes).map(([role, route]) => [role, compact({
     provider_id: role === 'primary' || route.assigned !== false ? route.providerId : undefined,
     model: role === 'primary' || route.assigned !== false ? route.model : undefined,
-    fallbacks: [...route.fallbacks], context_limit_bytes: route.contextLimitBytes ?? undefined,
+    context_limit_bytes: route.contextLimitBytes ?? undefined,
     required_capabilities: [...route.requiredCapabilities], temperature: route.temperatureOverride,
     max_output_tokens: route.maxOutputTokens, budget: route.budget,
     deadline_ms: role === 'primary' ? undefined : (route.deadlineOverrideMs ?? undefined),

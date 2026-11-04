@@ -283,11 +283,13 @@ selects a pronounced Primary, Sub-agents, Permission reviewer, or Vision role ta
 Primary tab exposes profile-management actions. Primary is conversation-specific: Main supplies
 the one-time default copied by new tabs, while existing tabs retain their own routes. Reviewer,
 Sub-agents, and Vision are global workspace roles and can be assigned or cleared only from Main;
-changes propagate to every open and saved tab. A cleared specialist falls back to the requesting
-tab's Primary route. Vision is attempted only after that Primary cannot process the image. The
+changes propagate to every open and saved tab. A cleared specialist resolves to the requesting
+tab's Primary selection. Vision resolves to a vision-capable model when one exists; when no
+configured model reports image support, NNA names the attachment and reports that no
+vision-capable model is configured instead of retrying. The
 direct clear form is `/provider ROLE clear`. “Copy Main” copies only Main's Primary route once.
 `/model` changes only the active conversation's temporary
-primary-model override and does not rewrite the provider profile. Configuration changes are
+primary-model override and does not rewrite the provider connection. Configuration changes are
 immediate while idle and take effect at the next model boundary while a turn is running.
 `/config` is the keyboard-driven hub for focused configuration surfaces. It opens the
 Provider, Model, MCP, WebSearch, and Workspace Trust managers without duplicating their

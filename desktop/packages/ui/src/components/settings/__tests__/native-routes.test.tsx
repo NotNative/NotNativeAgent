@@ -100,7 +100,7 @@ it('renders every served member of each route role beside its binding pair', asy
   // serves inherited bindings, canonical zeros, and its own availability
   // gate"), so the card lists all of them with their declared raw value and
   // their resolved value with provenance — including the members the paired
-  // editors do not touch (required_capabilities, fallbacks) and the canonical
+  // editors do not touch (required_capabilities) and the canonical
   // zeros and inherited provenance NNA's own test pins.
   const fields = [
     ...['primary', 'reviewer', 'subagent', 'vision'].flatMap(role => ([
@@ -121,9 +121,6 @@ it('renders every served member of each route role beside its binding pair', asy
       { path: `routes.${role}.budget`, catalog_path: `routes.${role}.budget`,
         explicit: { present: false as const }, effective: { present: true as const, value: null, source: 'compiled_default' },
         application: 'not_applied' as const },
-      { path: `routes.${role}.fallbacks`, catalog_path: `routes.${role}.fallbacks`,
-        explicit: { present: false as const }, effective: { present: true as const, value: [], source_unavailable: true },
-        application: 'not_applied' as const },
       { path: `routes.${role}.reasoning_effort`, catalog_path: `routes.${role}.reasoning_effort`,
         explicit: { present: false as const }, effective: { present: true as const, value: null, source: 'compiled_default' },
         application: 'not_applied' as const },
@@ -140,17 +137,17 @@ it('renders every served member of each route role beside its binding pair', asy
   for (const role of ['primary', 'reviewer', 'subagent', 'vision']) {
     // Every member the container holds is rendered in this unit, by name.
     for (const key of ['provider_id', 'model', 'context_limit_bytes', 'required_capabilities', 'temperature',
-      'max_output_tokens', 'budget', 'fallbacks', 'deadline_ms', 'reasoning_effort', 'enable_thinking']) {
+      'max_output_tokens', 'budget', 'deadline_ms', 'reasoning_effort', 'enable_thinking']) {
       expect(card(role), `routes.${role}.${key}`).toContain(`routes.${role}.${key}`);
     }
     // The shapes NNA's own test pins are shown verbatim: the canonical zero
-    // deadline, the null unset limits, the fallbacks and required
-    // capabilities arrays, and per-member provenance (resolved with its
-    // layer, inherited/derived marked Unavailable, unset defaults compiled).
+    // deadline, the null unset limits, the required capabilities array, and
+    // per-member provenance (resolved with its layer, inherited/derived marked
+    // Unavailable, unset defaults compiled).
     expect(card(role)).toContain('0');
     expect(card(role)).toContain('null');
     expect(card(role)).toContain('["tools"]');
-    expect(card(role)).toContain('[]');
+    expect(card(role)).not.toContain('[]');
     expect(card(role)).toContain('user');
     expect(card(role)).toContain('compiled_default');
     expect(card(role)).toContain('Unavailable');
@@ -289,15 +286,13 @@ it('types boolean and enum route scalars from the catalog and gates bad numbers'
   expect(nativeChange).toHaveBeenCalledWith(liveView, expect.objectContaining({ path: 'routes.reviewer.deadline_ms' }), 'set', '0');
 });
 
-it('edits reviewer capability and fallback lists as ordered unique chips', async () => {
+it('edits the reviewer capability list as ordered unique chips', async () => {
   vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({ fields: [
     { path: 'routes.reviewer.required_capabilities', type: 'array' as const,
       editability: { available: true as const, scope: 'user' as const, required_permission: 'nnd.configuration.manage' as const } },
-    { path: 'routes.reviewer.fallbacks', type: 'array' as const,
-      editability: { available: true as const, scope: 'user' as const, required_permission: 'nnd.configuration.manage' as const } },
     editable('routes.reviewer.provider_id', 'string')], routeBindings: ['reviewer', 'vision'] });
   const arrayView = { ...view, fields: [...view.fields,
-    row('routes.reviewer.required_capabilities', ['tools']), row('routes.reviewer.fallbacks', ['vision'])] };
+    row('routes.reviewer.required_capabilities', ['tools'])] };
   vi.mocked(requestNativeConfiguration).mockResolvedValue(arrayView);
   act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>)); await act(async () => {});
   const tuning = container.querySelector('[data-settings-item="native-routes.tuning"]')!;
@@ -307,11 +302,11 @@ it('edits reviewer capability and fallback lists as ordered unique chips', async
     chooser.dispatchEvent(new Event('change', { bubbles: true })); }); };
   const add = (label: string) => [...tuning.querySelectorAll('button')]
     .find(item => item.textContent === `Add ${label}`) as HTMLButtonElement;
-  await pick('routes.reviewer.fallbacks');
+  await pick('routes.reviewer.required_capabilities');
   expect(preview().disabled).toBe(false);
-  await act(async () => { add('primary').click(); });
+  await act(async () => { add('images').click(); });
   expect(preview().disabled).toBe(false);
-  // Order is the point: move the appended role to the front and preview it.
+  // Order is the point: move the appended capability to the front and preview it.
   const chipButton = (label: string, at: number) => [...tuning.querySelectorAll('button')]
     .filter(item => item.getAttribute('aria-label') === label)[at] as HTMLButtonElement;
   expect(chipButton('Move up', 0).disabled).toBe(true);
@@ -323,27 +318,19 @@ it('edits reviewer capability and fallback lists as ordered unique chips', async
   vi.mocked(previewNativeConfiguration).mockResolvedValue({ valid: true, expected_revision: revision,
     resolution_revision: resolution, application: 'not_applied', view });
   await act(async () => preview().click());
-  expect(nativeChange).toHaveBeenCalledWith(arrayView, expect.objectContaining({ path: 'routes.reviewer.fallbacks' }),
-    'set', '["primary","vision"]');
+  expect(nativeChange).toHaveBeenCalledWith(arrayView, expect.objectContaining({ path: 'routes.reviewer.required_capabilities' }),
+    'set', '["images","tools"]');
   // Uniqueness: an already-present entry cannot be appended again.
-  expect(add('primary').disabled).toBe(true);
-  expect(add('vision').disabled).toBe(true);
-  await act(async () => { add('reviewer').click(); });
-  const addSubagent = [...tuning.querySelectorAll('button')].find(item => item.textContent === 'Add subagent') as HTMLButtonElement;
-  await act(async () => { addSubagent.click(); });
-  // Four fallback roles fill the cap.
-  expect(add('primary').disabled).toBe(true);
+  expect(add('tools').disabled).toBe(true);
+  expect(add('images').disabled).toBe(true);
+  // The six-entry cap: tools and images are present, so four more fill it.
+  for (const capability of ['streaming', 'usage', 'cancellation']) await act(async () => { add(capability).click(); });
+  expect(add('usage').disabled).toBe(true);
   expect(preview().disabled).toBe(false);
   const removeEntry = () => [...tuning.querySelectorAll('button')]
     .find(item => item.getAttribute('aria-label') === 'Remove entry') as HTMLButtonElement;
-  for (let at = 0; at < 4; at++) await act(async () => { removeEntry().click(); });
-  // An empty fallback list is legal.
-  expect(preview().disabled).toBe(false);
-  await pick('routes.reviewer.required_capabilities');
-  const addTools = [...tuning.querySelectorAll('button')].find(item => item.textContent === 'Add tools') as HTMLButtonElement;
-  await act(async () => { addTools.click(); });
-  const addImages = [...tuning.querySelectorAll('button')].find(item => item.textContent === 'Add images') as HTMLButtonElement;
-  await act(async () => { addImages.click(); });
+  for (let at = 0; at < 5; at++) await act(async () => { removeEntry().click(); });
+  // An empty capability list is legal.
   expect(preview().disabled).toBe(false);
   // Only the served capability list offers add buttons.
   expect([...tuning.querySelectorAll('button')].some(item => item.textContent === 'Add streaming')).toBe(true);
@@ -378,14 +365,14 @@ it('offers exactly the route rows NNA advertises and none it leaves unbound', as
     'reasoning_effort', 'temperature'];
   const roles = ['primary', 'reviewer', 'subagent', 'vision'];
   const paths = roles.flatMap(role => [...tuning.map(key => `routes.${role}.${key}`),
-    `routes.${role}.required_capabilities`, `routes.${role}.fallbacks`, `routes.${role}.provider_id`,
+    `routes.${role}.required_capabilities`, `routes.${role}.provider_id`,
     `routes.${role}.model`]);
   vi.mocked(requestNativeConfiguration).mockResolvedValue({ ...view,
     fields: [...view.fields.filter(field => !field.path.startsWith('routes.')),
       ...paths.map(path => row(path, 'value'))] });
   vi.mocked(requestNativeConfigurationCatalog).mockResolvedValue({
     fields: paths.map(path => ({ path, type: path.endsWith('temperature') ? 'number' as const
-      : path.endsWith('required_capabilities') || path.endsWith('fallbacks') ? 'array' as const : 'integer' as const,
+      : path.endsWith('required_capabilities') ? 'array' as const : 'integer' as const,
       editability: { available: true as const, scope: 'user' as const,
         required_permission: 'nnd.configuration.manage' as const } })),
     routeBindings: ['reviewer', 'vision'] });
@@ -396,7 +383,7 @@ it('offers exactly the route rows NNA advertises and none it leaves unbound', as
     if (role === 'primary' && key === 'deadline_ms') continue;
     expect(options, `routes.${role}.${key}`).toContain(`routes.${role}.${key}`);
   }
-  for (const role of roles) for (const key of ['required_capabilities', 'fallbacks']) {
+  for (const role of roles) for (const key of ['required_capabilities']) {
     expect(options, `routes.${role}.${key}`).toContain(`routes.${role}.${key}`);
   }
   // The binding pair is never a scalar choice here, and the primary deadline
@@ -406,7 +393,8 @@ it('offers exactly the route rows NNA advertises and none it leaves unbound', as
     expect(options, `routes.${role}.provider_id`).not.toContain(`routes.${role}.provider_id`);
     expect(options, `routes.${role}.model`).not.toContain(`routes.${role}.model`);
   }
-  expect(options.filter(value => value.startsWith('routes.'))).toHaveLength(35);
+  // Four roles times the eight tuning rows, less the primary deadline.
+  expect(options.filter(value => value.startsWith('routes.'))).toHaveLength(31);
   const roleSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Route to bind"]');
   expect(roleSelect).not.toBeNull();
   expect([...roleSelect!.querySelectorAll('option')].map(option => option.value).filter(Boolean))
@@ -495,12 +483,12 @@ it('hides a route member the native catalog does not advertise', async () => {
     editable('routes.subagent.temperature', 'number'), editable('routes.subagent.provider_id', 'string')],
     routeBindings: ['reviewer', 'vision'] });
   const liveView = { ...view, fields: [...view.fields, row('routes.subagent.temperature', 0.3),
-    row('routes.subagent.budget', 4), row('routes.subagent.fallbacks', ['vision'] as string[])] };
+    row('routes.subagent.budget', 4), row('routes.subagent.required_capabilities', ['tools'] as string[])] };
   vi.mocked(requestNativeConfiguration).mockResolvedValue(liveView);
   act(() => root.render(<I18nProvider><NativeRoutesPage /></I18nProvider>)); await act(async () => {});
   const options = [...container.querySelectorAll('option')].map(option => option.value);
   expect(options).toContain('routes.subagent.temperature');
   // Advertised nowhere, offered nowhere: the unbudgeted and list members stay out.
   expect(options).not.toContain('routes.subagent.budget');
-  expect(options).not.toContain('routes.subagent.fallbacks');
+  expect(options).not.toContain('routes.subagent.required_capabilities');
 });

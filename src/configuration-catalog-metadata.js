@@ -80,7 +80,6 @@ export const CONFIGURATION_METADATA = {
     context_limit_bytes: numeric('buildRoutes', { effectiveDefault: inherited('selected_provider.context_limit_bytes') }),
     required_capabilities: field('array', literal([]), { enumItems: ['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation'], constraints: { maximumItems: 6, unique: true } }),
     temperature: numeric('buildRoutes'), max_output_tokens: numeric('buildRoutes'), budget: numeric('buildRoutes'),
-    fallbacks: field('array', literal([]), { acceptance: 'known_unique_roles_without_cycles', constraints: { maximumItems: 4, unique: true } }),
     deadline_ms: numeric('buildRoutes', { effectiveDefault: inherited('provider_timeout_ms'), dependencies: ['provider_timeout_ms'], roleSemantics: { primary: 'overrides_global_provider_timeout', specialist: 'absent_inherits_global_zero_disables' } }),
     reasoning_effort: field('enum', literal(null), { enum: REASONING_EFFORTS, acceptance: 'enum_or_null_or_absent' }),
     enable_thinking: field('boolean', literal(null), { acceptance: 'boolean_or_null_or_absent' }),

@@ -189,10 +189,17 @@
     },
     {
       "id": "CTL-TERM-024",
-      "term": "provider profile",
+      "term": "provider connection",
       "kind": "data_term",
-      "definition": "A stored provider endpoint, model, credentials reference, and capability configuration.",
-      "identifiers": ["providerProfile"]
+      "definition": "A stored provider endpoint, trust zone, and credentialed way to reach it.",
+      "identifiers": ["providerConnection"]
+    },
+    {
+      "id": "CTL-TERM-041",
+      "term": "model selection",
+      "kind": "data_term",
+      "definition": "One model chosen on one provider connection, stored as the connection identity and the model identity.",
+      "identifiers": ["modelSelection"]
     },
     {
       "id": "CTL-TERM-025",

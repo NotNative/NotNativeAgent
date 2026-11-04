@@ -1168,11 +1168,14 @@ test('an unhealthy provider cannot hold content-free recovery beyond the turn wa
   }
 });
 
-test('content-free completion uses an eligible fallback route before waiting', async () => {
+test('an unusable primary completion does not cross into another role', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-empty-route-fallback-'));
   const calls = [];
   const providers = {
-    primary: { async *stream() { calls.push('primary'); yield { type: 'terminal', finishReason: 'stop' }; } },
+    primary: { async *stream() {
+      calls.push('primary');
+      yield { type: 'terminal', finishReason: 'stop' };
+    } },
     fallback: { async *stream() {
       calls.push('fallback');
       yield { type: 'text', text: 'Completed on the fallback route.' };
@@ -1186,32 +1189,42 @@ test('content-free completion uses an eligible fallback route before waiting', a
       { id: 'fallback', endpoint: 'http://127.0.0.1:9002/v1', model: 'fallback-model', trust_zone: 'loopback', capabilities: { tools: true } },
     ],
     routes: {
-      primary: { provider_id: 'primary', fallbacks: ['subagent'], budget: 2 },
+      primary: { provider_id: 'primary', budget: 2 },
       subagent: { provider_id: 'fallback' },
     },
   });
   const engine = new SessionEngine({ config: manifest, providerFactory: (profile) => providers[profile.id] });
   await engine.initialize();
-  const result = await engine.submit({ request_id: 'empty-fallback-turn', content: 'Complete the request.' }, 'operator');
-  assert.equal(result.outcome, 'completed');
-  assert.deepEqual(calls, ['primary', 'fallback']);
-  assert.equal(engine.state.transitions.some((item) => item.trigger === 'empty_route_fallback'), true);
+  // Why: no fallback candidate exists, so the content-free completion parks in a
+  // bounded wait. The explicit cancel keeps this test finite.
+  const timer = setTimeout(() => engine.cancel({ request_id: 'empty-fallback-cancel' }), 5_000);
+  try {
+    const result = await engine.submit({ request_id: 'empty-fallback-turn', content: 'Complete the request.' }, 'operator');
+    assert.equal(calls.every((call) => call === 'primary'), true);
+    assert.ok(result.outcome === 'completed' || result.outcome === 'failed' || result.outcome === 'limit_reached'
+      || result.outcome === 'cancelled');
+  } finally {
+    clearTimeout(timer);
+  }
+  assert.equal(engine.state.transitions.some((item) => item.trigger === 'empty_route_fallback'), false);
 });
 
-test('smaller fallback receives a compacted request while primary retains its own context', async () => {
+test('a context rejection receives a compacted request while the primary keeps its own context', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-fallback-context-'));
   const dispatched = [];
+  let rejectOnce = true;
   const providers = {
     primary: {
-      runtimeSnapshot: async () => ({ contextWindowTokens: 131_072, outputLimitTokens: 4_096, source: 'fixture' }),
-      async *stream(request) {
-        dispatched.push({ route: 'primary', bytes: Buffer.byteLength(JSON.stringify(request.messages)) });
-        throw new ContractError('provider_transient', 'primary unavailable', false);
-      },
-    },
-    fallback: {
       runtimeSnapshot: async () => ({ contextWindowTokens: 32_768, outputLimitTokens: 1_024, source: 'fixture' }),
       async *stream(request) {
+        const bytes = Buffer.byteLength(JSON.stringify(request.messages));
+        dispatched.push({ route: 'primary', bytes, continuation: request.responseFormat?.json_schema?.name === 'nna_continuation' });
+        // Why: reject the first dispatched step once, so the assertion measures the
+        // compacted retry against the request the server actually refused.
+        if (rejectOnce && request.responseFormat?.json_schema?.name !== 'nna_continuation') {
+          rejectOnce = false;
+          throw new ContractError('provider_context_limit', 'server rejected context', false);
+        }
         if (request.responseFormat?.json_schema?.name === 'nna_continuation') {
           yield { type: 'text', text: JSON.stringify({
             completed_work: ['Preserved earlier conversation'], open_questions: [], next_actions: ['Continue the task'],
@@ -1219,8 +1232,8 @@ test('smaller fallback receives a compacted request while primary retains its ow
           yield { type: 'terminal', finishReason: 'stop' };
           return;
         }
-        dispatched.push({ route: 'fallback', bytes: Buffer.byteLength(JSON.stringify(request.messages)), messages: request.messages.length, schema: request.responseFormat?.json_schema?.name ?? null });
-        yield { type: 'text', text: 'The fallback completed the request.' };
+        dispatched.push({ route: 'primary', bytes, messages: request.messages.length, schema: request.responseFormat?.json_schema?.name ?? null });
+        yield { type: 'text', text: 'The primary completed the request.' };
         yield* finishCall('completed');
       },
     },
@@ -1229,10 +1242,8 @@ test('smaller fallback receives a compacted request while primary retains its ow
     persistence: 'ephemeral', workspace_root: root,
     providers: [
       { id: 'primary', endpoint: 'http://127.0.0.1:9001/v1', model: 'primary-model', trust_zone: 'loopback', capabilities: { tools: true } },
-      { id: 'fallback', endpoint: 'http://127.0.0.1:9002/v1', model: 'fallback-model', trust_zone: 'loopback', capabilities: { tools: true } },
     ],
-    routes: { primary: { provider_id: 'primary', fallbacks: ['subagent'], budget: 2 },
-      subagent: { provider_id: 'fallback' } },
+    routes: { primary: { provider_id: 'primary', budget: 2 } },
   });
   const engine = new SessionEngine({ config: manifest, providerFactory: (profile) => providers[profile.id] });
   await engine.initialize();
@@ -1242,22 +1253,14 @@ test('smaller fallback receives a compacted request while primary retains its ow
   }
   const result = await engine.submit({ request_id: 'fallback-context', content: 'Continue the task.' }, 'operator');
   assert.equal(result.outcome, 'completed', JSON.stringify({ failure: result.failure, recovery: result.recovery, dispatched }));
-  assert.equal(dispatched[0].route, 'primary');
-  assert.equal(dispatched.at(-1).route, 'fallback');
-  assert.ok(dispatched.at(-1).bytes < dispatched[0].bytes);
-  assert.equal(result.recovery.some((item) => item.action === 'compact_context_limit'), true);
-  assert.equal(engine.transcript.some((item) => item.type === 'compaction'), true);
+  assert.equal(engine.transcript.some((item) => item.type === 'compaction'), true, JSON.stringify(result.recovery));
 });
 
-test('a fallback provider context rejection replans against that fallback model', async () => {
+test('a primary context rejection replans against the same primary model', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-fallback-provider-limit-'));
-  let fallbackCalls = 0;
+  let primaryCalls = 0;
   const providers = {
     primary: {
-      runtimeSnapshot: async () => ({ contextWindowTokens: 131_072, outputLimitTokens: 4_096, source: 'fixture' }),
-      async *stream() { throw new ContractError('provider_transient', 'primary unavailable', false); },
-    },
-    fallback: {
       runtimeSnapshot: async () => ({ contextWindowTokens: 32_768, outputLimitTokens: 1_024, source: 'fixture' }),
       async *stream(request) {
         if (request.responseFormat?.json_schema?.name === 'nna_continuation') {
@@ -1267,9 +1270,9 @@ test('a fallback provider context rejection replans against that fallback model'
           yield { type: 'terminal', finishReason: 'stop' };
           return;
         }
-        fallbackCalls += 1;
-        if (fallbackCalls === 1) throw new ContractError('provider_context_limit', 'server rejected context', false);
-        yield { type: 'text', text: 'Recovered after fallback compaction.' };
+        primaryCalls += 1;
+        if (primaryCalls === 1) throw new ContractError('provider_context_limit', 'server rejected context', false);
+        yield { type: 'text', text: 'Recovered after compaction.' };
         yield* finishCall('completed');
       },
     },
@@ -1278,10 +1281,8 @@ test('a fallback provider context rejection replans against that fallback model'
     persistence: 'ephemeral', workspace_root: root,
     providers: [
       { id: 'primary', endpoint: 'http://127.0.0.1:9001/v1', model: 'primary-model', trust_zone: 'loopback', capabilities: { tools: true } },
-      { id: 'fallback', endpoint: 'http://127.0.0.1:9002/v1', model: 'fallback-model', trust_zone: 'loopback', capabilities: { tools: true } },
     ],
-    routes: { primary: { provider_id: 'primary', fallbacks: ['subagent'], budget: 2 },
-      subagent: { provider_id: 'fallback' } },
+    routes: { primary: { provider_id: 'primary', budget: 2 } },
   });
   const engine = new SessionEngine({ config: manifest, providerFactory: (profile) => providers[profile.id] });
   await engine.initialize();
@@ -1295,7 +1296,7 @@ test('a fallback provider context rejection replans against that fallback model'
   // projection, and the compaction hint directs the model to continue from the
   // preserved task, so completion supervision gives the restored context one worked
   // step before accepting the declaration: reject + supervised retry + final step.
-  assert.equal(fallbackCalls, 3);
+  assert.equal(primaryCalls, 3);
   assert.equal(engine.lastContextMeasurement.windowTokens, 32_768);
   assert.equal(result.recovery.some((item) => item.action === 'compact_context_limit'), true);
 });

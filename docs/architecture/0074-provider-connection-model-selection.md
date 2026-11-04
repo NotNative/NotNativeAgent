@@ -52,8 +52,12 @@ selection: connection_id, model
 
 A route stores a **model selection**, not a provider profile. The stored route
 record keeps its tuning fields: `context_limit_bytes`, `required_capabilities`,
-`temperature`, `max_output_tokens`, `budget`, `deadline_ms`,
+`temperature`, `max_output_tokens`, `deadline_ms`,
 `reasoning_effort`, `enable_thinking`.
+
+A stored `budget` field is retained for compatibility and is not enforced: a
+role has one selection, so the number of attempts is no longer a routing
+choice. It never appears as a control on a surface.
 
 ### Limits and capabilities leave the stored record
 
@@ -88,6 +92,13 @@ routes[role] = assigned ? routes[role] : routes.primary
 This applies to `reviewer`, `subagent`, and `vision`. The primary route is
 always assigned.
 
+A role with its own assignment is authoritative for that role. NNA does not
+compare its trust zone with the primary zone. The operator selected that
+selection explicitly, and the selection's own zone is what the request uses.
+This replaces the earlier plan to refuse a role whose zone is broader than the
+primary zone: the containment rule existed only to stop a *fallback* from
+widening egress, and no fallback exists now.
+
 The reviewer is a separate inference call with its own resolution. It is not a
 step in the agent's route chain. `RoutedSemanticReviewer.review`
 (`src/provider/model-reviewer.js:32`) already requests `router.candidates
@@ -107,15 +118,15 @@ lookup above. The following code leaves the runtime:
 
 - `validateFallbacks` and the `fallbacks` field in `buildRoutes`
   (`src/config.js`);
-- `validateRouteGraph`, its cycle rule, and the `route_fallback_cycle` error;
+- `validateRouteGraph`, its cycle rule, and the `route_cycle` and
+  `invalid_route_fallback` error codes;
 - `orderedRoles` (`src/provider/router.js:78-93`);
-- the trust-zone containment rule in `trustCompatible` for **fallback
-  candidates**. The rule stays for a single check described below;
-- the fallback array editor in the desktop routing page and the read-only
-  fallback rows in `/provider settings`.
+- the fallback array editor in the desktop routing page, the read-only
+  fallback rows in `/provider settings`, and the `fallbacks` catalog row.
 
 A reader migration removes `fallbacks` from a stored route and records the
-removal in the migration receipt.
+removal in the migration receipt. Until that migration runs, the reader ignores
+a stored list without failing, so an older manifest still loads.
 
 ### Trust zones
 
@@ -123,15 +134,11 @@ A provider connection keeps its trust zone. The zone describes the network
 path the credential and the request payload travel on. It is derived from the
 endpoint and is not configurable.
 
-The trust-zone containment rule that applied to fallback candidates is now
-unnecessary because there are no cross-role fallback candidates. A route that
-inherits from the primary always has the primary's zone. A role with its own
-assignment can use a different zone; that zone is what the operator selected.
-
-The rule that remains: NNA refuses to send a request to a connection whose
-trust zone is **broader** than the primary connection's zone unless the
-operator assigns that role explicitly. An inherited route can never widen
-egress. `test/routing-contract.test.js` re-proves this rule.
+`trustCompatible` (`src/provider/router.js:6-7,103-105`) and its zone-rank
+table are removed with the fallback mechanism. A route that inherits from the
+primary always uses the primary's zone, so an inherited route cannot widen
+egress by construction. A role with its own assignment uses the zone of the
+connection the operator selected.
 
 ### Main selection unavailable
 
@@ -181,6 +188,14 @@ every structured consumer:
 validation is the requirement.
 
 ## Migration
+
+**Slice order note.** The first implementation slices keep the stored
+connection-level `context_limit_bytes`, `output_limit_tokens`, `tool_call_mode`,
+and `capabilities` where they are. That keeps every existing behaviour and every
+stored manifest valid while the connection and selection records are separated.
+The per-selection observation record below is a later slice; until then a
+selection reads the connection default when its model equals the connection's
+default model, which is the rule `buildRoutes` already applies.
 
 The manifest gains `format_version: 2`. `assertManifestVersion`
 (`src/config.js:162`) refuses a future version with `manifest_version_future`.
@@ -251,3 +266,19 @@ the main console persists the primary selection as the workspace default.
   rename `profile_id` to `connection_id` and add `model`. Scheduler capacity
   becomes keyed by `(connection_id, model)` because two models on one
   connection have different capacity.
+
+## Slice record
+
+| Slice | State |
+| --- | --- |
+| 0 — this decision record | Done |
+| 1 — route resolution inheritance, fallback removal, vision refusal wording | Done |
+| 2 — connection/selection manifest records, `format_version: 2`, migration | Pending |
+| 3 — per-selection limit observation, primary pick persistence, `/model` sweep | Pending |
+| 4 — `/v1/connections`, `/v1/models`, `/v1/routes`, evidence key rename | Pending |
+| 5 — Connections, Models, Routing surfaces | Pending |
+
+Slice 1 keeps the internal name `providerProfiles` for the resolved connection
+map. Slice 2 renames it with the manifest change, so one rename covers the
+resolver, the mutators, the stores, and their tests together.
+

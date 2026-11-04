@@ -258,7 +258,6 @@ function buildRoutes(value, profile, profiles, providerMs) {
     if (!assigned && !inherited) throw new ContractError('route_inheritance_invalid', `route ${role} has no Primary route to inherit`);
     const providerId = assigned ? (route.provider_id ?? inherited?.providerId ?? profile.id) : inherited.providerId;
     const model = assigned ? (route.model ?? profiles[providerId]?.model ?? profile.model) : inherited.model;
-    const fallbacks = validateFallbacks(route.fallbacks);
     result[role] = Object.freeze({
       role, assigned, providerId, model,
       contextLimitBytes: scalar('routes.{role}.context_limit_bytes', route.context_limit_bytes)
@@ -268,14 +267,12 @@ function buildRoutes(value, profile, profiles, providerMs) {
       maxOutputTokens: scalar('routes.{role}.max_output_tokens', route.max_output_tokens),
       budget: scalar('routes.{role}.budget', route.budget),
       reasoningEffort: validateReasoningEffort(route.reasoning_effort), enableThinking: validateEnableThinking(route.enable_thinking),
-      fallbacks,
       deadlineMs: deadlineOverrideMs === null ? providerMs : deadlineOverrideMs || null, deadlineOverrideMs,
     });
     if (!profiles[result[role].providerId]) {
       throw new ContractError('route_profile_missing', `route ${role} references an unavailable provider`);
     }
   }
-  validateRouteGraph(result);
   return result;
 }
 function validateAttachments(value) {
@@ -367,21 +364,6 @@ function stringArray(value) {
 }
 function capability(value) {
   return value === true ? true : value === false ? false : 'unknown';
-}
-function validateRouteGraph(routes) {
-  const visit = (role, path = []) => {
-    if (path.includes(role)) throw new ContractError('route_cycle', `route cycle includes ${[...path, role].join(' -> ')}`);
-    for (const fallback of routes[role].fallbacks) visit(fallback, [...path, role]);
-  };
-  for (const role of Object.keys(routes)) visit(role);
-}
-function validateFallbacks(value) {
-  if (value === undefined) return Object.freeze([]);
-  if (!Array.isArray(value) || value.length > 4 || value.some((item) => !ROLES.includes(item))) {
-    throw new ContractError('invalid_route_fallback', 'route fallbacks must name at most four known roles');
-  }
-  if (new Set(value).size !== value.length) throw new ContractError('invalid_route_fallback', 'route fallbacks must be unique');
-  return Object.freeze([...value]);
 }
 function validateRouteCapabilities(value) {
   if (value === undefined) return Object.freeze([]);

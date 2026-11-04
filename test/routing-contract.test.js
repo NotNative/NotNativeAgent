@@ -72,7 +72,7 @@ test('AC-ROUTE-01 validates role settings and returns bounded capability-eligibl
       reasoning_effort: 'xhigh', enable_thinking: false,
     },
     vision: {
-      provider_id: 'lan', required_capabilities: ['images'], fallbacks: ['subagent'],
+      provider_id: 'local-vision', required_capabilities: ['images'],
       reasoning_effort: 'xhigh', enable_thinking: false,
     },
     subagent: { provider_id: 'local-vision' },
@@ -80,7 +80,6 @@ test('AC-ROUTE-01 validates role settings and returns bounded capability-eligibl
   const candidates = new ModelRouter(config).candidates('vision', { logicalRequestId: 'logical-1' });
   assert.equal(candidates.length, 1);
   assert.equal(candidates[0].profile.id, 'local-vision');
-  assert.equal(candidates[0].fallback, true);
   assert.equal(candidates[0].logicalRequestId, 'logical-1');
   assert.equal(config.routes.primary.temperature, 0.3);
   assert.equal(config.routes.primary.budget, 4);
@@ -235,7 +234,7 @@ test('explicit zero disables every provider deadline for any trust zone', () => 
 test('zero removes provider route limits without inventing legacy defaults', () => {
   const config = resolveManifest({
     providers, provider_timeout_ms: 0,
-    routes: { primary: { deadline_ms: 0, temperature: 0, max_output_tokens: 0, budget: 0, fallbacks: ['reviewer'] } },
+    routes: { primary: { deadline_ms: 0, temperature: 0, max_output_tokens: 0, budget: 0 } },
   });
   assert.equal(config.limits.providerMs, null);
   assert.equal(config.limits.providerOverrideMs, 0);
@@ -256,7 +255,7 @@ test('zero removes provider route limits without inventing legacy defaults', () 
   assert.equal(candidate.temperature, null);
   assert.equal(candidate.maxOutputTokens, 32_000);
   assert.equal(candidate.budget, null);
-  assert.equal(new ModelRouter(config).candidates('primary').length, 2);
+  assert.equal(new ModelRouter(config).candidates('primary').length, 1);
 });
 
 test('semantic review inherits the provider deadline and migrates the legacy fifteen-second default', () => {
@@ -298,23 +297,30 @@ test('capability cache evicts least recently used route records under configurat
   assert.equal(cache.get(route, 'image_input', 256), false);
 });
 
-test('AC-ROUTE-02 fallback never silently crosses to a less trusted endpoint', () => {
+test('AC-ROUTE-02 a route never resolves outside its own assignment or the primary', () => {
   const config = resolveManifest({ providers, routes: {
-    primary: { provider_id: 'local-vision', required_capabilities: ['tools'], fallbacks: ['reviewer'] },
+    primary: { provider_id: 'local-vision', required_capabilities: ['tools'] },
     reviewer: { provider_id: 'public' },
   } });
+  // Why: no fallback list exists, so an ineligible primary has no alternate provider to cross into.
   assert.throws(() => new ModelRouter(config).resolve('primary'), { code: 'route_capability_unavailable' });
+  assert.equal(new ModelRouter(config).resolve('reviewer').profile.id, 'public');
+  const inherited = resolveManifest({ providers, routes: { primary: { provider_id: 'lan' } } });
+  assert.equal(new ModelRouter(inherited).resolve('vision').profile.id, 'lan');
+  assert.deepEqual(new ModelRouter(inherited).candidates('reviewer').map((item) => item.targetRole), ['reviewer']);
 });
 
-test('AC-ROUTE-01 rejects recursive route graphs and malformed capability requirements', () => {
-  assert.throws(() => resolveManifest({ providers, routes: {
-    primary: { provider_id: 'lan', fallbacks: ['reviewer'] },
-    reviewer: { provider_id: 'lan', fallbacks: ['vision'] },
-    vision: { provider_id: 'local-vision', fallbacks: ['primary'] },
-  } }), { code: 'route_cycle' });
+test('AC-ROUTE-01 rejects malformed capability requirements and ignores a stale fallback list', () => {
   assert.throws(() => resolveManifest({ providers, routes: {
     primary: { provider_id: 'lan', required_capabilities: ['telepathy'] },
   } }), { code: 'invalid_route_capability' });
+  // Compatibility: the reader ignores a stored fallback list instead of failing on it.
+  const config = resolveManifest({ providers, routes: {
+    primary: { provider_id: 'lan' },
+    reviewer: { provider_id: 'public', fallbacks: ['vision'] },
+  } });
+  assert.equal(new ModelRouter(config).candidates('reviewer').length, 1);
+  assert.equal(manifestFromConfig(config).routes.reviewer.fallbacks, undefined);
 });
 
 test('reasoning route settings reject values outside their documented closed sets', () => {
@@ -326,10 +332,10 @@ test('reasoning route settings reject values outside their documented closed set
   });
 });
 
-test('AC-ROUTE-05 classified failure falls back without partial output and preserves logical identity', async () => {
+test('AC-ROUTE-05 a classified failure does not cross into another role and reports one cause', async () => {
   const fallbackProvider = { ...providers[1], capabilities: { tools: true, images: true } };
   const config = resolveManifest({ persistence: 'ephemeral', providers: [providers[0], fallbackProvider], routes: {
-    primary: { provider_id: 'lan', required_capabilities: ['tools'], fallbacks: ['subagent'], budget: 2 },
+    primary: { provider_id: 'lan', required_capabilities: ['tools'], budget: 2 },
     subagent: { provider_id: 'local-vision' },
   } });
   const calls = [];
@@ -349,11 +355,9 @@ test('AC-ROUTE-05 classified failure falls back without partial output and prese
   }) });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'route-fallback', content: 'Complete the task.' }, 'operator');
-  assert.equal(result.outcome, 'completed');
-  assert.equal(result.text, 'fallback complete');
-  assert.deepEqual(calls, ['lan', 'lan', 'lan', 'local-vision']);
-  const attempts = events.filter((event) => event.event_name === 'provider_attempt.started');
-  assert.equal(new Set(attempts.map((event) => event.logical_request_id)).size, 2);
-  assert.equal(attempts.length, 5);
+  assert.notEqual(result.outcome, 'completed');
+  // Why: the subagent selection still works; only the primary chain failed, so one cause is reported.
+  assert.deepEqual(calls, ['lan', 'lan', 'lan']);
+  assert.equal(new ModelRouter(config).resolve('subagent').profile.id, 'local-vision');
   await engine.shutdown({ request_id: 'shutdown' });
 });

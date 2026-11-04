@@ -359,7 +359,7 @@ test('the manifest scalars serve their native defaults, derived provenance, and 
 test('the route family serves inherited bindings, canonical zeros, and its own availability gate', () => {
   const roles = ['primary', 'reviewer', 'subagent', 'vision'];
   const keys = ['provider_id', 'model', 'context_limit_bytes', 'required_capabilities', 'temperature',
-    'max_output_tokens', 'budget', 'fallbacks', 'deadline_ms', 'reasoning_effort', 'enable_thinking'];
+    'max_output_tokens', 'budget', 'deadline_ms', 'reasoning_effort', 'enable_thinking'];
   const bare = projectDesktopConfigurationView(snapshot());
   for (const role of roles) {
     for (const key of keys) {
@@ -376,8 +376,6 @@ test('the route family serves inherited bindings, canonical zeros, and its own a
       { present: true, value: 1_800_000, source_unavailable: true });
     assert.deepEqual(row(bare, `routes.${role}.context_limit_bytes`).effective,
       { present: true, value: null, source_unavailable: true });
-    assert.deepEqual(row(bare, `routes.${role}.fallbacks`).effective,
-      { present: true, value: [], source_unavailable: true });
     for (const key of ['temperature', 'max_output_tokens', 'budget', 'reasoning_effort', 'enable_thinking']) {
       assert.deepEqual(row(bare, `routes.${role}.${key}`).effective,
         { present: true, value: null, source: 'compiled_default' }, `routes.${role}.${key}`);
@@ -403,7 +401,7 @@ test('the route family serves inherited bindings, canonical zeros, and its own a
     { routes: { reviewer: { context_limit_bytes: 1_000 } } }]) {
     assert.throws(() => snapshot(bad), (error) => error.code === 'invalid_limit', JSON.stringify(bad));
   }
-  // NNA's own gate decides which route rows a surface may offer: 36 typed
+  // NNA's own gate decides which route rows a surface may offer: 32 typed
   // scalars plus the reviewer/vision provider-and-model pair, and nothing
   // else — the primary and subagent bindings and the four route objects are
   // not editable through the configuration contract.
@@ -418,8 +416,8 @@ test('the route family serves inherited bindings, canonical zeros, and its own a
     }
     if (!generic.has(`routes.${role}`) && !binding.has(`routes.${role}`)) refused.push(`routes.${role}`);
   }
-  assert.equal(offered.length, 40, 'route rows offered for editing');
-  assert.equal(offered.filter(path => !binding.has(path)).length, 36, 'typed route scalars offered');
+  assert.equal(offered.length, 36, 'route rows offered for editing');
+  assert.equal(offered.filter(path => !binding.has(path)).length, 32, 'typed route scalars offered');
   assert.deepEqual(binding, new Set(['routes.reviewer.provider_id', 'routes.reviewer.model',
     'routes.vision.provider_id', 'routes.vision.model']));
   assert.deepEqual(refused.sort(), ['routes.primary', 'routes.primary.model', 'routes.primary.provider_id',

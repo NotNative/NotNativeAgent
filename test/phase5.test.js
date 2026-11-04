@@ -1548,7 +1548,7 @@ test('configuration hub lists each focused manager without engine-policy control
   projection.openOverlay(view);
   const frame = new TuiRenderer().frame(projection, { width: 100, height: 36 });
   assert.match(frame, /Choose a configuration area/u);
-  assert.match(frame, /Provider profiles and role routing/u);
+  assert.match(frame, /Provider connections and role routing/u);
   assert.match(frame, /MCP servers/u);
   assert.match(frame, /Workspace trust/u);
   assert.doesNotMatch(frame, /Require memory|Retain attachments|Set context budget|Set recovery budgets|Set runtime deadlines|Set concurrency/u);
