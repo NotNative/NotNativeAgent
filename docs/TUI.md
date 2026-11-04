@@ -291,8 +291,14 @@ direct clear form is `/provider ROLE clear`. “Copy Main” copies only Main's 
 `/model` changes only the active conversation's temporary
 primary-model override and does not rewrite the provider connection. Configuration changes are
 immediate while idle and take effect at the next model boundary while a turn is running.
+`/routing` shows every role and the model selection that serves it. A role that is not
+assigned reports that it follows Primary. From Main, a role can be assigned a selection or,
+for a specialist role, cleared back to inheritance. Direct forms are
+`/routing ROLE ID` and `/routing ROLE clear`. `/provider` remains the profile manager and
+`/model` remains the model chooser.
+
 `/config` is the keyboard-driven hub for focused configuration surfaces. It opens the
-Provider, Model, MCP, WebSearch, and Workspace Trust managers without duplicating their
+Provider, Routing, Model, MCP, WebSearch, and Workspace Trust managers without duplicating their
 logic. Esc returns to the hub when a manager was opened from it. The hub does not expose
 memory service policy, attachment admission, context ceilings, recovery behavior,
 deadlines, concurrency, or key maps as ordinary toggles.

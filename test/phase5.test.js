@@ -1540,7 +1540,7 @@ test('configuration hub lists each focused manager without engine-policy control
   const resolved = config(process.cwd());
   const view = configOverlay({ config: resolved });
   assert.deepEqual(view.items.map((item) => item.id), [
-    'provider', 'model', 'mcp', 'secrets', 'websearch', 'webfetch', 'gateway', 'context', 'workspace-trust', 'hooks', 'extensions',
+    'provider', 'routing', 'model', 'mcp', 'secrets', 'websearch', 'webfetch', 'gateway', 'context', 'workspace-trust', 'hooks', 'extensions',
   ]);
   assert.equal(overlayCommandDraft('config', 'action:recovery'), null);
   const projection = new TuiProjection();

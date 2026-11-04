@@ -17,7 +17,7 @@ import { handleAttachmentCommand } from './tui/attachment-command.js';
 import { handleMemoryCommand } from './tui/memory-command.js';
 import { handleMcpCommand } from './tui/mcp-command.js';
 import { applyModelChoice, handleModelCommand, handleProviderCommand } from './tui/provider-command.js';
-import { handleWorkspaceTrust } from './tui/trust-command.js';
+import { applyRoutingChoice, handleRoutingCommand } from './tui/routing-overlay.js';import { handleWorkspaceTrust } from './tui/trust-command.js';
 import { handleMouse, scrollPageUp } from './tui/mouse.js';
 import { attachDroppedPaths, copyTerminalSelection, rightClickClipboard, clearTerminalSelection, pasteClipboard } from './tui/clipboard-actions.js';
 import { recordTuiClick } from './tui/telemetry.js';
@@ -248,7 +248,7 @@ async function handleOverlayAction(action, workspace) {
     else if (overlay.kind === 'tab' && selected.id === 'action:close') { projection.closeOverlay(); await workspace.closeActive(false); return; }
     else if (overlay.kind === 'provider') await workspace.selectProviderForRole(overlay.role ?? 'primary', selected.id);
     else if (overlay.kind === 'model') await applyModelChoice(selected, workspace);
-    else if (overlay.kind === 'skills') { prepareSkillInvocation(projection, selected.id); return; }
+    else if (overlay.kind === 'routing') await applyRoutingChoice(selected, workspace);    else if (overlay.kind === 'skills') { prepareSkillInvocation(projection, selected.id); return; }
     else if (overlay.kind === 'dream') { await handleDreamSelection(selected.id, workspace); return; }
     else if (overlay.kind === 'websearch') {
       const result = await webSearchAction(selected.id, workspace);
@@ -291,6 +291,7 @@ function prepareSkillInvocation(projection, id) {
 }
 async function openConfigurationSection(section, workspace) {
   if (section === 'provider') await handleProviderCommand('', workspace, { routeNotice, strictInteger });
+  else if (section === 'routing') await handleRoutingCommand('', workspace, (overlay) => workspace.projection.openOverlay(overlay));
   else if (section === 'model') await handleModelCommand('', workspace, { modelNotice });
   else if (section === 'mcp') await handleMcpCommand('', workspace);
   else if (section === 'secrets') await handleSecretsCommand('', workspace);
@@ -372,6 +373,7 @@ async function command(value, workspace, stop) {
   else if (['/hooks', '/extensions', '/stats', '/status', '/files', '/project', '/sessions', '/agents'].includes(name)) {
     await openRuntimeInspection(name === '/status' ? 'stats' : name.slice(1), workspace);
   }
+  else if (name === '/routing') await handleRoutingCommand(argument, workspace, (overlay) => workspace.projection.openOverlay(overlay));
   else if (name === '/provider') await handleProviderCommand(argument, workspace, { routeNotice, strictInteger });
   else if (name === '/model') await handleModelCommand(argument, workspace, { modelNotice });
   else if (name === '/mcp') await handleMcpCommand(argument, workspace);
