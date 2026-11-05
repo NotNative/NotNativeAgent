@@ -15,6 +15,10 @@ export function sendEmpty(res, status) {
   // Why: observed gold OpenCode returns empty-bodied 401/404; a JSON envelope
   // here would be a wire deviation OpenChamber would render differently.
   if (res.writableEnded) return;
+  // Why: a late handler failure reaches this writer after its headers went out.
+  // A second writeHead would throw on a real ServerResponse, so end the
+  // response instead and keep the status already delivered.
+  if (res.headersSent) { res.end(); return; }
   res.writeHead(status, { 'content-length': '0' });
   res.end();
 }

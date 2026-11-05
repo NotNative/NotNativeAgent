@@ -66,8 +66,12 @@ export class OpenCodeCompatServer {
 
   #handle(req, res) {
     const requestUrl = req.url ?? '/';
+    // Why: the response ring records one entry per response. A late handler
+    // failure after headers is recorded once, through the response's own
+    // outcome, so the ring never counts the same response twice or reports a
+    // 500 where a 200 was delivered.
     res.on('finish', () => this.#record(res.statusCode, req.method, requestUrl, res.opencodeErrorCode ?? null));
-    res.on('close', () => { if (!res.writableEnded) this.#record(res.statusCode, req.method, requestUrl, 'client_aborted'); });
+    res.on('close', () => { if (!res.writableEnded) this.#record(res.statusCode, req.method, requestUrl, res.opencodeErrorCode ?? 'client_aborted'); });
     let target;
     try { target = parseTarget(requestUrl); }
     catch {
@@ -109,16 +113,18 @@ export class OpenCodeCompatServer {
   }
 
   #reject(res, status, req, target, error = null) {
-    res.opencodeErrorCode = error ? (error.code ?? 'internal_failure') : null;
-    this.#options.logger?.record({ type: 'opencode_route_failure', status, code: res.opencodeErrorCode ?? 'internal_failure', url: res.req?.url ?? target?.pathname, ...(error ? { message: error.message } : {}) });
     if (res.writableEnded) return;
     if (res.headersSent) {
       // Why: late handler failures after headers must not crash the response
-      // chain with a second writeHead; close the socket instead of lying again.
-      this.#options.logger?.record({ type: 'opencode_http_error', status, code: 'late_handler_failure', url: target?.pathname });
+      // chain with a second writeHead; end the response and let the finish
+      // listener record the status that was actually delivered.
+      res.opencodeErrorCode = 'late_handler_failure';
+      this.#options.logger?.record({ type: 'opencode_http_error', status, code: 'late_handler_failure', url: res.req?.url ?? target?.pathname, ...(error ? { message: error.message } : {}) });
       res.end();
       return;
     }
+    res.opencodeErrorCode = error ? (error.code ?? 'internal_failure') : null;
+    this.#options.logger?.record({ type: 'opencode_route_failure', status, code: res.opencodeErrorCode ?? 'internal_failure', url: res.req?.url ?? target?.pathname, ...(error ? { message: error.message } : {}) });
     sendEmpty(res, status);
   }
 

@@ -118,6 +118,30 @@ test('diagnostics ring records wire traffic for drift investigation', async () =
   });
 });
 
+test('a route failure keeps the status it already delivered', async () => {
+  // Why: sendEmpty is the one writer every rejection path uses. Given a response
+  // whose headers already went out, it must end that response rather than issue
+  // a second writeHead, which would throw on a real ServerResponse.
+  const { sendEmpty } = await import('../src/opencode/protocol.js');
+  const written = [];
+  const res = { writableEnded: false, headersSent: true, writeHead(...args) { written.push(args); }, end() { this.writableEnded = true; } };
+  sendEmpty(res, 500);
+  assert.equal(res.writableEnded, true);
+  assert.deepEqual(written, []);
+});
+
+test('each response yields one diagnostics-ring entry', async () => {
+  await serveDuring({ config: fixtureConfig(), storeRoot: join(await fixtureRoot(), 's'), reviewerRoot: join(await fixtureRoot(), 'r'), directory: 'D:\\fixture-dir' }, async ({ url }) => {
+    const created = await (await request(url, '/session', { method: 'POST', body: JSON.stringify({ title: 'ring' }) })).json();
+    const response = await request(url, `/session/${created.id}`, { method: 'DELETE' });
+    assert.equal(response.status, 200);
+    await response.text();
+    const diagnostics = await (await request(url, '/__nna/diagnostics')).json();
+    // Invariant: one response is one ring entry, so operator counts stay truthful.
+    assert.equal(diagnostics.ring.filter((entry) => entry.method === 'DELETE' && entry.url === `/session/${created.id}`).length, 1);
+  });
+});
+
 test('surface stop shuts down every live session engine, not just the listener', async () => {
   // Why: runtime.stop() must dispose wired sessions through the same engine
   // shutdown the wire's DELETE route uses; skipping it leaves the per-session
