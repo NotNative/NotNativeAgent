@@ -43,7 +43,14 @@ export function createV2Workspace(operations, options) {
     async wait(id) { await Promise.all([...requireState(id).pending]); },
     async remove(id) {
       const state = requireState(id); state.closing = true; cancelQueued(state, events);
-      await operations.remove(id);
+      try { await operations.remove(id); }
+      finally {
+        // Invariant: a removed session releases its slot whether or not the
+        // engine reported the deletion, so the live limit and every listing
+        // reflect only sessions that still exist.
+        states.delete(id);
+        events.emit(state, 'session.deleted', { sessionID: id });
+      }
     },
     update(id, body) { updateSession(requireState(id), body, events); },
     forms(id) { return pendingForms(requireState(id)); },

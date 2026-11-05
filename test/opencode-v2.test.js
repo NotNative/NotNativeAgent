@@ -137,6 +137,24 @@ test('v2 drops a slow event consumer instead of owning its socket forever', asyn
   } finally { events.close(); }
 });
 
+test('v2 deletes release the session slot and its pending state', async (t) => {
+  const { json, request } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  assert.equal((await request(`/api/session/${session.id}`, 'DELETE')).status, 204);
+  // Invariant: a removed session must not survive in any listing, snapshot or
+  // capacity count, or a client that reconnects recreates a ghost.
+  const listed = (await json('/api/session')).data;
+  assert.equal(listed.some((item) => item.id === session.id), false);
+  const active = await json('/api/session/active');
+  assert.equal(Object.hasOwn(active.data, session.id), false);
+  assert.equal((await json('/api/form')).data.length, 0);
+  const again = await request(`/api/session/${session.id}`);
+  assert.equal(again.status, 404);
+  assert.equal((await again.json())._tag, 'SessionNotFoundError');
+  // A second delete of an absent session stays a 404 rather than a silent success.
+  assert.equal((await request(`/api/session/${session.id}`, 'DELETE')).status, 404);
+});
+
 test('v2 prompt admits client IDs, emits native events, and projects message history', async (t) => {
   const { json, request, runtime } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', {})).data;
