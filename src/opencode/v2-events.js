@@ -6,22 +6,28 @@ import { sseOpen, sseFrame } from './protocol.js';
 // The published client defines this stream as live-only and does not replay it.
 export function createV2Events() {
   const subscribers = new Set();
+  // Invariant: a consumer that cannot keep up is closed, not merely forgotten.
+  // Dropping it from the set alone leaves its response and socket alive, and the
+  // live subscriber count would understate the connections this stream owns.
+  const drop = (res) => {
+    subscribers.delete(res);
+    try { res.destroy(); } catch { /* the socket is already gone */ }
+  };
   const write = (res, event) => {
     if (res.destroyed || res.writableEnded) { subscribers.delete(res); return; }
     let writable;
     try { writable = res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`); }
     catch { writable = false; }
-    if (!writable) {
-      // Invariant: slow consumers must reconnect and fetch snapshots, not grow an unbounded queue.
-      subscribers.delete(res); res.destroy();
-    }
+    // Invariant: slow consumers must reconnect and fetch snapshots, not grow an unbounded queue.
+    if (!writable) drop(res);
   };
   const timer = setInterval(() => {
-    for (const res of subscribers) {
+    for (const res of [...subscribers]) {
+      if (res.destroyed || res.writableEnded) { subscribers.delete(res); continue; }
       let writable;
       try { writable = res.write(': heartbeat\n\n'); }
       catch { writable = false; }
-      if (!writable) { subscribers.delete(res); res.destroy(); }
+      if (!writable) drop(res);
     }
   }, 10_000);
   timer.unref();
@@ -30,7 +36,7 @@ export function createV2Events() {
       if (subscribers.size >= 64) return false;
       sseOpen(res);
       if (!sseFrame(res, { event: 'server.connected', data: JSON.stringify({ id: newId('evt'), type: 'server.connected', data: {} }) })) {
-        res.destroy();
+        drop(res);
         return true;
       }
       subscribers.add(res);

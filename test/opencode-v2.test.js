@@ -115,6 +115,28 @@ test('v2 discovery, configured catalogs, and session CRUD conform to published s
   assert.equal(missing.status, 404); assert.equal((await missing.json())._tag, 'SessionNotFoundError');
 });
 
+test('v2 drops a slow event consumer instead of owning its socket forever', async () => {
+  // Invariant: a consumer that stops reading must be closed and released, not
+  // left attached to a stream it can no longer drain.
+  const { createV2Events } = await import('../src/opencode/v2-events.js');
+  const events = createV2Events();
+  const destroyed = []; const listeners = {};
+  const res = { destroyed: false, writableEnded: false, writes: 0,
+    writeHead() {}, flushHeaders() {},
+    write() { this.writes += 1; return this.writes === 1; },
+    on(name, listener) { (listeners[name] ??= []).push(listener); },
+    destroy() { this.destroyed = true; destroyed.push(this); },
+    end() {} };
+  try {
+    assert.equal(events.subscribe(res), true);
+    events.emit({ info: { location: { directory: '/tmp/project' }, id: 'ses_slow', sequence: 0 } }, 'session.created', { sessionID: 'ses_slow' });
+    // The opener frame is written directly, so the first subscriber frame is
+    // the one that reports backpressure and settles the slow consumer.
+    assert.equal(res.destroyed, true);
+    assert.equal(destroyed.length, 1);
+  } finally { events.close(); }
+});
+
 test('v2 prompt admits client IDs, emits native events, and projects message history', async (t) => {
   const { json, request, runtime } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', {})).data;
