@@ -147,13 +147,24 @@ function normalizeHostname(value) {
   // Why: IPv6 literals are stored bare and bracketed only where a published
   // origin needs it (bindUrl), so server.listen in the managed runtime receives
   // an address without literal brackets.
-  const candidate = trimmed.startsWith('[') && trimmed.endsWith(']')
-    ? trimmed.slice(1, -1)
-    : trimmed;
+  const bracketed = trimmed.startsWith('[') && trimmed.endsWith(']');
+  const candidate = bracketed ? trimmed.slice(1, -1) : trimmed;
   if (candidate.includes('[') || candidate.includes(']')) {
     throw new ContractError('opencode_hostname_invalid', 'opencode hostname must be an IP address or hostname without scheme or port');
   }
-  if (isIPv4(candidate) || isIPv6Address(candidate) || isDnsHostname(candidate)) return candidate;
+  // Security: an unvalidated candidate could reach isDnsHostname, whose label
+  // pattern accepts the colons inside an IPv6 literal. Brackets therefore assert
+  // an IPv6 address, and every literal must pass the address parser before a
+  // hostname pattern is considered, so no colons reach the DNS fallback.
+  if (bracketed) {
+    if (isIPv6Address(candidate)) return candidate;
+    throw new ContractError('opencode_hostname_invalid', 'bracketed bind hostnames must be an IPv6 address');
+  }
+  if (candidate.includes(':')) {
+    if (isIPv6Address(candidate)) return candidate;
+    throw new ContractError('opencode_hostname_invalid', 'opencode hostname must be an IP address or hostname without scheme or port');
+  }
+  if (isIPv4(candidate) || isDnsHostname(candidate)) return candidate;
   throw new ContractError('opencode_hostname_invalid', 'opencode hostname must be an IP address or hostname without scheme or port');
 }
 

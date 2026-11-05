@@ -40,6 +40,25 @@ test('configuration is durable, redacted, and reports auto-start independently',
   assert.throws(() => normalizeOpenCodeConfig({ hostname: '0.0.0.0' }), { code: 'opencode_bind_exposed_requires_password' });
 });
 
+test('a bind literal cannot pass as a DNS hostname and evade the exposed-bind rule', () => {
+  // Security: brackets assert an IPv6 address. A bracketed IPv4 literal used to
+  // lose its brackets and reach the hostname pattern, binding the loopback host
+  // while reporting an unvalidated name.
+  assert.equal(normalizeOpenCodeConfig({ hostname: '[::1]' }).hostname, '::1');
+  assert.equal(normalizeOpenCodeConfig({ hostname: '::1' }).hostname, '::1');
+  assert.throws(() => normalizeOpenCodeConfig({ hostname: '[127.0.0.1]' }), { code: 'opencode_hostname_invalid' });
+  assert.throws(() => normalizeOpenCodeConfig({ hostname: '[0.0.0.0]' }), { code: 'opencode_hostname_invalid' });
+  assert.throws(() => normalizeOpenCodeConfig({ hostname: '[not-an-ip]' }), { code: 'opencode_hostname_invalid' });
+  assert.throws(() => normalizeOpenCodeConfig({ hostname: '[::1' }), { code: 'opencode_hostname_invalid' });
+  assert.throws(() => normalizeOpenCodeConfig({ hostname: '::1]' }), { code: 'opencode_hostname_invalid' });
+  // An unbracketed non-loopback literal is still exposed and still needs a password.
+  for (const hostname of ['[fe80::1]', '[2001:db8::1]', '2001:db8::1', '::ffff:127.0.0.1']) {
+    assert.throws(() => normalizeOpenCodeConfig({ hostname }), { code: 'opencode_bind_exposed_requires_password' });
+    assert.equal(normalizeOpenCodeConfig({ hostname, password: generateOpencodePassword() }).hostname,
+      hostname.replace(/^\[|\]$/gu, ''));
+  }
+});
+
 test('start provisions a runtime identity without login auto-start', async () => {
   const paths = await servicePaths();
   const result = await startOpencodeService({}, paths, { platform: 'linux', processIdentity: identity(), spawnProcess: spawn(child()) });
