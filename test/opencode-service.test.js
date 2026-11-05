@@ -46,19 +46,19 @@ test('start provisions a runtime identity without login auto-start', async () =>
   assert.deepEqual(result, { started: true, pid: 3210, port: 4095, url: 'http://127.0.0.1:4095',
     environment: { OPENCODE_SKIP_START: 'true', OPENCODE_HOST: 'http://127.0.0.1:4095',
       OPENCODE_SERVER_PASSWORD: (await loadOpenCodeConfig(paths.opencodeConfig)).password },
-    openchamber: { launched: false, reason: 'unsupported_platform' } });
+    openchamber: { launched: false, reason: 'manual_launch_required' } });
   const config = await loadOpenCodeConfig(paths.opencodeConfig);
   assert.equal(config.enabled, false);
   assert.match(config.password, /^[A-Za-z0-9_-]{43}$/u);
   assert.equal((await opencodeRuntimeStatus(paths, { processIdentity: identity() })).running, true);
 });
 
-test('start hands the binding to the launch and writes no user environment', async () => {
+test('start describes the binding and writes no user environment', async () => {
   const paths = await servicePaths(); const env = environment();
   const scope = { platform: 'win32', processIdentity: identity(), spawnProcess: spawn(child()),
     userEnvironmentRead: env.read, userEnvironmentWrite: env.write, environment: {} };
   const started = await startOpencodeService({}, paths, scope);
-  // Invariant: the binding lives in the launch environment only, so no write
+  // Invariant: the binding is a description of one environment, so no write
   // reaches the user profile and nothing can outlive the server it names.
   assert.deepEqual(env.writes, []);
   assert.equal(started.environment.OPENCODE_HOST, 'http://127.0.0.1:4095');
@@ -68,14 +68,16 @@ test('start hands the binding to the launch and writes no user environment', asy
   assert.equal(again.environment.OPENCODE_HOST, 'http://127.0.0.1:4095');
 });
 
-test('a skipped OpenChamber launch leaves the started server running', async () => {
+test('start never launches OpenChamber, because the login script runs it too', async () => {
   const paths = await servicePaths(); const killed = [];
   const started = await startOpencodeService({}, paths, {
     platform: 'win32', processIdentity: identity(), spawnProcess: spawn(child(3222)),
     pathValue: 'C:\\nowhere', appData: 'C:\\also-nowhere', environment: {}, kill: (...args) => killed.push(args),
   });
   assert.equal(started.started, true);
-  assert.deepEqual(started.openchamber, { launched: false, reason: 'launcher_not_found' });
+  // Invariant: `enable` runs `opencode start` at sign-in, so a launch here would
+  // force the GUI open on every login. The binding stays a description only.
+  assert.deepEqual(started.openchamber, { launched: false, reason: 'manual_launch_required' });
   assert.deepEqual(killed, []);
 });
 

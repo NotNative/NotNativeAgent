@@ -43,14 +43,17 @@ login refresh fails installation instead of reporting preserved state. Behavior 
 four sign-in/running combinations; installed acceptance keeps the operator's OpenCode stopped
 and disabled.
 
-The OpenChamber binding is never stored in the user profile. `nna opencode start` passes
-`OPENCODE_HOST`, `OPENCODE_SKIP_START`, and the generated credential in the environment of the
-OpenChamber process it launches, and `enable` installs only the login script that runs
-`opencode start` again. Because the binding lives exactly as long as that child process, a
-reboot, logoff, or forced kill cannot leave OpenChamber pointed at a server that no longer
-exists; it also cannot suppress OpenChamber's own fallback launch. An upgraded installation
-whose profile still carries a binding written by an earlier build clears it on the next
-`opencode stop`, and the ownership comparison keeps a binding that another product has changed.
+The OpenChamber binding is never stored in the user profile and never acted on by
+`nna opencode start`. Because `enable` installs a login script that runs
+`opencode start`, a launch there would open the GUI at every sign-in; the surface
+start is the service alone. `start` reports the binding (`OPENCODE_HOST`,
+`OPENCODE_SKIP_START`, and the generated credential) only as a description of what
+an operator may hand to a client they launch themselves, alongside
+`openchamber: { launched: false, reason: 'manual_launch_required' }`. `enable`
+installs only the login script that runs `opencode start` again. An upgraded
+installation whose profile still carries a binding written by an earlier build
+clears it on the next `opencode stop`, and the ownership comparison keeps a
+binding that another product has changed.
 
 ## Failure and recovery
 

@@ -15,7 +15,7 @@ import { persistAtomicJson } from '../persistence/atomic-json.js';
 import { ProcessIdentity, validIdentity } from '../reliability/process-identity.js';
 import { loadOpenCodeConfig, openCodeConfigExists, opencodePublicStatus, saveOpenCodeConfig, bindUrl, generateOpencodePassword } from './config.js';
 import { clearUserEnvironment, observeUserEnvironment, runPowershell } from './user-environment.js';
-import { launchOpenchamber, openchamberEnvironment } from './openchamber.js';
+import { openchamberEnvironment } from './openchamber.js';
 
 const STARTUP_SCRIPT_NAME = 'NotNativeAgent-OpenCode.vbs';
 const DEFAULT_BASIC_USERNAME = 'opencode';
@@ -106,16 +106,11 @@ export async function startOpencodeService(options, paths, scope = {}) {
   try {
     const status = await opencodeRuntimeStatus(paths, scope);
     if (status.running) return {
-      started: false, reason: 'already_running', runtime: status,
-      ...(await launchBoundOpenchamber(config, { ...scope, environment: scope.environment ?? process.env })),
+      started: false, reason: 'already_running', runtime: status, ...bindingOutcome(config),
     };
     if (status.stale) await preserveStaleRuntimePid(paths);
-    // Why: the launch child inherits the CLI's real environment (the platform,
-    // the shell's PATH, and the operator's own settings), so an absent
-    // `scope.environment` must not be treated as an empty environment.
     const started = await spawnDetachedOpencodeServe(config, paths, scope);
-    return { ...started,
-      ...(await launchBoundOpenchamber(config, { ...scope, environment: scope.environment ?? process.env })) };
+    return { ...started, ...bindingOutcome(config) };
   } finally {
     await startLock.release();
   }
@@ -331,15 +326,17 @@ function quoteForVbs(value) {
   return String(value).replace(/"/gu, '""').trim();
 }
 
-/** Launch OpenChamber with the binding inside the child's environment. The
- *  result is descriptive only: the server is already running, so a skipped or
- *  failed OpenChamber launch never fails `start`. */
-async function launchBoundOpenchamber(config, scope = {}) {
-  if ((scope.platform ?? process.platform) !== 'win32') {
-    return { environment: openchamberEnvironment(config, bindUrl(config)), openchamber: { launched: false, reason: 'unsupported_platform' } };
-  }
-  const launched = await launchOpenchamber(config, bindUrl(config), scope);
-  return { environment: openchamberEnvironment(config, bindUrl(config)), openchamber: launched };
+/** Describe the binding the operator can hand to OpenChamber by hand.
+ *
+ *  Why: `enable` installs a login script that runs `opencode start`, so a launch
+ *  here would open the GUI at every sign-in. The surface start is the service
+ *  alone; the binding stays a description of one child's environment that no
+ *  command acts on, and the operator launches OpenChamber themselves. */
+function bindingOutcome(config) {
+  return {
+    environment: openchamberEnvironment(config, bindUrl(config)),
+    openchamber: { launched: false, reason: 'manual_launch_required' },
+  };
 }
 
 /** Remove any user-scope binding an earlier NNA build left behind. New

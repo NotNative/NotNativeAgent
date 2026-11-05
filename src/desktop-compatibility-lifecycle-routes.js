@@ -204,8 +204,10 @@ function projectLaunchEnvironment(value) {
   return { supported: true, names: keys.sort() };
 }
 
-/** The launch outcome: {launched,pid,host,environment} on success or
- *  {launched:false,reason} with an optional bounded failure code. */
+/** The binding outcome: `environment` describes the binding an operator may hand
+ *  to OpenChamber by hand, and `openchamber` reports that no launch happened.
+ *  Surface start is the service alone; `manual_launch_required` is the truthful
+ *  answer, never a silent omission. */
 function projectLaunch(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw projection();
   const keys = [...new Set(Object.keys(value))];
@@ -223,6 +225,9 @@ function projectLaunch(value) {
     || keys.some(key => key !== 'launched' && key !== 'reason' && key !== 'error')) throw projection();
   if (typeof value.reason !== 'string' || value.reason.length < 1 || value.reason.length > 64 || CONTROL.test(value.reason)) throw projection();
   if (value.error !== undefined && (typeof value.error !== 'string' || value.error.length < 1 || value.error.length > 64)) throw projection();
+  // Compatibility: a receipt produced before the service stopped launching the
+  // client still names the platform it could not launch on.
+  if (value.reason === 'unsupported_platform' && value.launched !== false) throw projection();
   return { launched: false, reason: value.reason, ...(value.error !== undefined ? { error: value.error } : {}) };
 }
 
