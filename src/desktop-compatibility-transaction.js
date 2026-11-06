@@ -14,6 +14,7 @@
 import { ContractError } from './ids.js';
 import { DEFAULT_OPENCODE_CONFIG, normalizeOpenCodeConfig, opencodePublicStatus }
   from './opencode/config.js';
+import { DEFAULT_BASIC_USERNAME } from './opencode/version.js';
 import { createDesktopSettingsTransaction } from './desktop-settings-transaction.js';
 import { DESKTOP_REVISION } from './desktop-request-grammar.js';
 import { DESKTOP_OPERATION_ID } from './desktop-request-grammar.js';
@@ -73,6 +74,15 @@ function documentWithCandidate(raw, request) {
   if (request.password.action === 'replace') candidate.password = request.password.value;
   if (request.password.action === 'clear') candidate.password = null;
   const prepared = normalizeOpenCodeConfig(candidate);
+  // Compatibility: the same rule the CLI write enforces. The OpenChamber client
+  // authenticates as `opencode` and ignores the override, so a candidate that
+  // would store any other username is refused here rather than becoming an
+  // unexplained 401. A stored username is carried forward untouched, so an
+  // operator editing an older document is not blocked by its legacy value.
+  if (prepared.username !== current.username && prepared.username !== DEFAULT_BASIC_USERNAME) {
+    throw new ContractError('opencode_username_unsupported',
+      `the OpenChamber client authenticates as "${DEFAULT_BASIC_USERNAME}" and cannot use another Basic auth username`);
+  }
   return { version: prepared.version, enabled: prepared.enabled, hostname: prepared.hostname,
     port: prepared.port, username: prepared.username,
     ...(prepared.password === null ? {} : { password: prepared.password }),
