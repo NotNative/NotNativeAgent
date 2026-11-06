@@ -50,6 +50,19 @@ export async function openCodeConfigExists(path) {
 
 export async function saveOpenCodeConfig(path, value) {
   const config = normalizeOpenCodeConfig(value);
+  // Compatibility: OpenChamber builds its upstream Basic credential as
+  // `opencode:<password>` and ignores OPENCODE_SERVER_USERNAME, so any other
+  // username is an authentication the client can never satisfy.
+  //
+  // Why here and not in normalizeOpenCodeConfig: a stored document written by an
+  // earlier build must stay readable and repairable. Refusing the value on load
+  // made status, start, stop and the settings page all fail on a config the
+  // operator could no longer fix. The constraint belongs where a value is
+  // chosen for this surface.
+  if (config.username !== DEFAULT_BASIC_USERNAME) {
+    throw new ContractError('opencode_username_unsupported',
+      `the OpenChamber client authenticates as "${DEFAULT_BASIC_USERNAME}" and cannot use another Basic auth username`);
+  }
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   const temporary = `${path}.tmp-${process.pid}-${randomBytes(8).toString('hex')}`;
   try {
@@ -184,16 +197,7 @@ function normalizeUsername(value) {
     || /[:\r\n\u0000-\u001f]/u.test(value)) {
     throw new ContractError('opencode_username_invalid', 'opencode Basic auth username is invalid');
   }
-  const trimmed = value.trim();
-  // Compatibility: OpenChamber builds its upstream Basic credential as
-  // `opencode:<password>` and ignores OPENCODE_SERVER_USERNAME. Any other
-  // username is an authentication the client can never satisfy, so it is
-  // refused here instead of surfacing as an unexplained 401 on every request.
-  if (trimmed !== DEFAULT_BASIC_USERNAME) {
-    throw new ContractError('opencode_username_unsupported',
-      `the OpenChamber client authenticates as "${DEFAULT_BASIC_USERNAME}" and cannot use another Basic auth username`);
-  }
-  return trimmed;
+  return value.trim();
 }
 
 function normalizeOptionalSecret(value) {

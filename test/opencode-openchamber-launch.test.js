@@ -6,12 +6,12 @@
 // a reboot or logoff.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openchamberEnvironment, resolveOpenchamberLauncher } from '../src/opencode/openchamber.js';
-import { generateOpencodePassword, loadOpenCodeConfig, normalizeOpenCodeConfig } from '../src/opencode/config.js';
+import { generateOpencodePassword, loadOpenCodeConfig, normalizeOpenCodeConfig, saveOpenCodeConfig } from '../src/opencode/config.js';
 import { startOpencodeService, stopOpencodeService } from '../src/opencode/service.js';
 
 async function servicePaths() {
@@ -43,14 +43,33 @@ test('the binding carries the password and never the default username', () => {
   assert.equal(binding.OPENCODE_SKIP_START, 'true');
   assert.equal(binding.OPENCODE_SERVER_PASSWORD, config.password);
   assert.equal(Object.hasOwn(binding, 'OPENCODE_SERVER_USERNAME'), false);
-  // Security: the client authenticates as `opencode` and ignores the override,
-  // so any other username is an authentication it could never satisfy. It is
-  // refused at configuration time instead of becoming an unexplained 401.
-  assert.throws(() => normalizeOpenCodeConfig({ username: 'operator', password: generateOpencodePassword() }),
-    { code: 'opencode_username_unsupported' });
-  // The builder itself still omits a default username it is handed directly.
+  // The builder itself still carries a non-default username it is handed.
   const handBuilt = openchamberEnvironment({ username: 'operator', password: 'x' }, 'http://127.0.0.1:4095');
   assert.equal(handBuilt.OPENCODE_SERVER_USERNAME, 'operator');
+});
+
+test('a custom username is refused when chosen but never strands a stored config', async () => {
+  // Compatibility: OpenChamber authenticates as `opencode` and ignores the
+  // override, so a custom username is an authentication it can never satisfy.
+  // Why not at load time: a document written by an earlier build must stay
+  // readable and repairable. Refusing it on load broke status, start, stop and
+  // the settings page on a config the operator could no longer fix.
+  const root = await mkdtemp(join(tmpdir(), 'nna-username-'));
+  const path = join(root, 'opencode.json');
+  const password = generateOpencodePassword();
+  try {
+    await writeFile(path, JSON.stringify({ version: 1, enabled: true, hostname: '127.0.0.1',
+      port: 4095, username: 'operator', password }));
+    // A legacy document still loads, so every lifecycle command still works.
+    const legacy = await loadOpenCodeConfig(path);
+    assert.equal(legacy.username, 'operator');
+    // Choosing it again is refused with a specific code.
+    await assert.rejects(() => saveOpenCodeConfig(path, { ...legacy }), { code: 'opencode_username_unsupported' });
+    // And the operator can repair it to the username the client sends.
+    const repaired = await saveOpenCodeConfig(path, { ...legacy, username: 'opencode' });
+    assert.equal(repaired.username, 'opencode');
+    assert.equal((await loadOpenCodeConfig(path)).username, 'opencode');
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test('launcher resolution prefers an explicit path, then PATH, then the npm prefix', () => {
