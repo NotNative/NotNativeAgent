@@ -219,6 +219,19 @@ Two limits are deliberate:
   contents, and a success there would report a file state that was never
   captured. Passing `files: false` is accepted because it asks for nothing.
 
+Staging, clearing and committing each announce on the v2 event stream
+(`session.revert.staged` with `{ sessionID, revert: { messageID } }`,
+`session.revert.cleared`, and `session.revert.committed` with `{ sessionID, to }`).
+The client sets its session's `revert` field from `staged` and clears it on the
+other two, so without these events a revert completed on the server and the GUI
+showed nothing.
+
+Why the events matter more than they look: **there are two event streams.** The
+v1 wire bus carries turn cadence to `/global/event`; the client renders from the
+v2 stream at `/api/event`, built by `createV2Events`. A timeline mutation raised
+only on the v1 bus is invisible to OpenChamber. Anything that happens outside a
+turn has to publish on the v2 stream.
+
 ## Isolated provider configuration
 
 The managed service has its own provider configuration. It does not load or write
