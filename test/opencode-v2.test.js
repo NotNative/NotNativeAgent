@@ -350,6 +350,50 @@ test('v2 prompt admits client IDs, emits native events, and projects message his
   contract('SessionInterruptResponse', await json(`/api/session/${session.id}/interrupt`, 'POST'));
 });
 
+test('v2 delivers the answer when the provider sends it in one chunk', { timeout: 20_000 }, async (t) => {
+  // Why: the client builds assistant text from `session.text.delta` and has no
+  // case for `session.text.started`/`session.text.ended`. A provider that
+  // answers in a single chunk used to emit only the latter pair, so the answer
+  // was invisible in the GUI even though the turn succeeded.
+  class SingleChunk {
+    async *stream(request) {
+      if (!request.messages.some((message) => message.tool_calls?.some((call) => call.function?.name === 'turn_finish'))) {
+        yield { type: 'tool_fragment', fragments: [{ index: 0, id: 'finish', function: { name: 'turn_finish', arguments: '{"outcome":"completed"}' } }] };
+        yield { type: 'terminal', finishReason: 'tool_calls' }; return;
+      }
+      yield { type: 'text', text: 'one chunk answer' };
+      yield { type: 'terminal', finishReason: 'stop' };
+    }
+  }
+  const { json, request, runtime } = await fixtureServer(t, { providerFactory: () => new SingleChunk() });
+  const session = (await json('/api/session', 'POST', {})).data;
+  const controller = new AbortController(); t.after(() => controller.abort());
+  const response = await fetch(`${runtime.url}/api/event`, { signal: controller.signal });
+  const reader = response.body.getReader(); const decoder = new TextDecoder();
+  const events = []; let buffer = '';
+  const collected = (async () => {
+    try {
+      for (;;) {
+        const chunk = await reader.read(); if (chunk.done) return;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        let end;
+        while ((end = buffer.indexOf('\n\n')) >= 0) {
+          const block = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+          const data = block.split('\n').find((line) => line.startsWith('data: '));
+          if (data) events.push(JSON.parse(data.slice(6)));
+        }
+      }
+    } catch { /* the reader is cancelled when the test ends */ }
+  })();
+  await json(`/api/session/${session.id}/prompt`, 'POST', { text: 'answer once' });
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  await waitForEvent(events, 'session.text.delta');
+  await controller.abort();
+  await collected;
+  const text = events.filter((event) => event.type === 'session.text.delta').map((event) => event.data.delta).join('');
+  assert.equal(text, 'one chunk answer');
+});
+
 test('v2 history closes each settled turn with an idle record', { timeout: 20_000 }, async (t) => {
   const { json, request } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', {})).data;
