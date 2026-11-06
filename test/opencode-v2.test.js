@@ -166,6 +166,47 @@ test('every v2 event carries the flat envelope the client reads', { timeout: 20_
   assert.ok(sessionEvents.length > 0, 'events identify their session under data.sessionID');
 });
 
+test('v2 stages a revert at a client message and clears it again', { timeout: 30_000 }, async (t) => {
+  // Why: the engine resolves a revert boundary by its own request id, while the
+  // client names the message it supplied. The wire session holds that join, so a
+  // revert must work from the client's id and restore on clear.
+  //
+  // Durable persistence is required: the engine's revert is journal-backed and
+  // refuses an ephemeral store rather than pretending to hide a turn.
+  const { json, request } = await fixtureServer(t, { config: resolveManifest({ persistence: 'durable', provider: {
+    id: 'test', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback' } }) });
+  const session = (await json('/api/session', 'POST', {})).data;
+  await json(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_r1', text: 'first' });
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  const before = (await json(`/api/session/${session.id}/message?order=asc`)).data;
+  assert.equal(before.length, 3);
+
+  const staged = await request(`/api/session/${session.id}/revert/stage`, 'POST', { messageID: 'msg_r1' });
+  assert.equal(staged.status, 200);
+  const body = (await staged.json()).data;
+  assert.equal(body.boundary, 'msg_r1');
+
+  // Clearing the marker restores the timeline.
+  assert.equal((await request(`/api/session/${session.id}/revert`, 'DELETE')).status, 204);
+
+  // An unknown message is refused rather than staging a boundary that would not
+  // resolve, and a body naming fields the route does not accept is refused too.
+  assert.equal((await request(`/api/session/${session.id}/revert/stage`, 'POST', { messageID: 'msg_absent' })).status, 404);
+  assert.equal((await request(`/api/session/${session.id}/revert/stage`, 'POST', { messageID: 'msg_r1', files: 'yes' })).status, 400);
+});
+
+test('a revert on an ephemeral session is refused rather than faked', { timeout: 20_000 }, async (t) => {
+  // Invariant: the engine's revert needs a journal. A surface that answered 200
+  // here would claim to have hidden a turn it cannot restore.
+  const { json, request } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  await json(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_e1', text: 'first' });
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  const denied = await request(`/api/session/${session.id}/revert/stage`, 'POST', { messageID: 'msg_e1' });
+  assert.equal(denied.status, 500);
+  assert.equal((await denied.json())._tag, 'UnknownError');
+});
+
 test('the agent catalog contains exactly the build agent every send names', async (t) => {
   // Why: before a send, the client looks the requested agent up in this catalog
   // and throws AgentUnavailableError when the catalog is non-empty and lacks it.

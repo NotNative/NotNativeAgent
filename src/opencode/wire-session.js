@@ -31,10 +31,17 @@ export function createWireSession({ record, bus, info, version }) {
     seq: 0,
     active: null,
     tail: Promise.resolve(),
+    // Why: the engine journals a prompt under its own `request_id` (oc_prompt_*)
+    // while the client addresses a turn by the message id it supplied (msg_*).
+    // Revert resolves a boundary by engine request id, so this map is the join
+    // between the two. It is bounded by the ledger, which already caps history.
+    requestIdByMessage: new Map(),
   };
   return {
     setModelRef(next) { applyModelRef(state, next); },
     observe(record) { observeEngineRecord(state, record); },
+    // Resolve the engine request id a wire message id was admitted under.
+    requestIdFor(messageID) { return state.requestIdByMessage.get(messageID) ?? null; },
     prompt(parts) { return admit(state, parts).response; },
     admit(parts, input = {}) { return admit(state, parts, input); },
     abort() { return abortPending(state); },
@@ -144,11 +151,15 @@ function admit(state, parts, input = {}) {
   if (state.ledger.length >= HISTORY_LIMIT) {
     const settled = state.ledger.findIndex((entry) => entry.response !== null);
     if (settled < 0) throw new ContractError('opencode_prompt_queue_overflow', 'prompt queue is full');
+    // Invariant: the join map never outgrows the ledger it mirrors.
+    state.requestIdByMessage.delete(state.ledger[settled].userMessageId);
     state.ledger.splice(settled, 1);
   }
   const entry = createEntry(state, text);
   if (input.messageID) entry.userMessageId = input.messageID;
   state.ledger.push(entry);
+  // The join revert needs; bounded by dropping the entry it is evicted with.
+  state.requestIdByMessage.set(entry.userMessageId, entry.requestId);
   // Why: gold OC opens a fresh session's first prompt with a session.updated
   // pair, but later prompts emit the user message first (ledger lifecycle,
   // not run timing, pins the first-seen event order per stream).

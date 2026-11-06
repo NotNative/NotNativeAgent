@@ -80,6 +80,15 @@ async function sessionRoute(ctx, segments) {
     if (!message) throw apiError(404, 'MessageNotFoundError', 'Message was not found', { messageID: itemID });
     return sendJson(res, 200, { data: message });
   }
+  // Compatibility: stage a revert at a user message, then clear it to restore.
+  // The engine's revert is journal-backed; it hides turns rather than deleting
+  // them, which is what makes a clear possible.
+  if (action === 'revert' && segments.length === 3 && segments[2] === 'stage' && method === 'POST') {
+    return sendJson(res, 200, { data: await api.revert(id, await body(ctx)) });
+  }
+  if (action === 'revert' && segments.length === 2 && method === 'DELETE') {
+    await api.unrevert(id); return sendNoContent(res);
+  }
   throw apiError(404, 'InvalidRequestError', 'This session operation is not supported');
 }
 

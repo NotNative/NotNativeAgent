@@ -13,6 +13,8 @@ import slugifyTitle from './slug.js';
 import { createWireEventBus } from './wire-events.js';
 import { createWireSession } from './wire-session.js';
 import { createV2Workspace } from './v2-workspace.js';
+import { apiError } from './v2-contract.js';
+import { runDesktopSessionRevert, runDesktopSessionUnrevert } from '../desktop-session-revert.js';
 
 // Why: the opencode surface is an authenticated operator surface whose only
 // operator voice over the wire is the question reply route. It stays
@@ -142,7 +144,12 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
   });
   const modelRef = configModelRef(runtimeConfig ?? options.config);
   if (modelRef) wireSession.setModelRef(modelRef);
-  const stored = registry.attach({ ...record, wireSession });
+  // Why: the engine's revert mutates a context it owns (it guards against a busy
+  // or closing session and holds the journal). The registry record is frozen, so
+  // this is the mutable side the timeline mutation operates on; `sessionId` is
+  // the engine identity the journal resolves a boundary against.
+  const timeline = { engine, sessionId, closing: false, liveTurn: null };
+  const stored = registry.attach({ ...record, wireSession, timeline });
   workspace.v2?.attach(registry.describe(stored, wiredVersion), metadata, runtimeRef);
   options.logger?.record({ type: 'opencode_session_created', ocId: stored.ocId, sessionId, title }, { sessionId });
   options.logger?.record({ type: 'opencode_session_started', ocId: stored.ocId, sessionId, title, directory: stored.directory }, { sessionId });
@@ -172,6 +179,19 @@ function requireSession(workspace, ocId) {
   return session;
 }
 
+/** Stage a revert, translating the client's message id to the engine's request id.
+ *
+ *  The client names the message it admitted; the engine resolves a boundary by
+ *  its own request id. An id this session never admitted is a missing message,
+ *  not a surface failure, and the answer names the id the client sent. */
+async function stageWireRevert(session, body) {
+  const messageID = body?.messageID;
+  const requestId = session.wireSession.requestIdFor(messageID);
+  if (!requestId) throw apiError(404, 'MessageNotFoundError', 'Message was not found', { messageID });
+  const result = await runDesktopSessionRevert(session.timeline, { messageID: requestId });
+  return { boundary: messageID, revertedTurns: result.reverted_turn_ids.length };
+}
+
 function turnOperations(workspace) {
   return {
     async configure(ocId, manifest, model) {
@@ -182,6 +202,16 @@ function turnOperations(workspace) {
     },
     admit(ocId, parts, input) {
       return requireSession(workspace, ocId).wireSession.admit(parts, input);
+    },
+    /** Stage a revert at a message the client addressed.
+     *
+     *  Why the translation: the engine resolves a revert boundary by its own
+     *  request id, while the client names the message it was admitted under. The
+     *  wire session holds the join, so an unknown id is refused instead of
+     *  staging a boundary the engine would not find. */
+    revert(ocId, body) { return stageWireRevert(requireSession(workspace, ocId), body); },
+    async unrevert(ocId) {
+      await runDesktopSessionUnrevert(requireSession(workspace, ocId).timeline);
     },
     async messages(ocId) {
       const session = requireSession(workspace, ocId);

@@ -31,6 +31,11 @@ export function createV2Workspace(operations, options) {
     // prompt. It is the same admission path, tagged so the transcript can tell
     // it from operator speech; the text is never treated as operator authority.
     async synthetic(id, body) { return admitWithModel(context, requireState(id), { ...body, synthetic: true }); },
+    // Compatibility: staging a revert names a user message. The engine's revert
+    // is journal-backed, so the reverted turns are hidden rather than destroyed
+    // and a clear brings them back.
+    revert(id, body) { requireState(id); return stageRevert(operations, id, body); },
+    async unrevert(id) { requireState(id); await operations.unrevert(id); },
     select(id, reference) { return selectModel(context, requireState(id), reference); },
     async interrupt(id) {
       const state = requireState(id);
@@ -143,6 +148,23 @@ function admitPrompt(state, body, operations, options) {
     state.pending.add(settled);
     return { ...receipt, ...(synthetic ? { type: 'synthetic' } : {}) };
   } catch (error) { state.inputs.delete(id); throw error; }
+}
+
+/** Validate a staged revert before the engine sees it.
+ *
+ *  `files` asks the engine to apply the boundary's file changes. NNA keeps no
+ *  file snapshots, so it cannot honour that, and a success there would report a
+ *  file state that was never captured. `files: false` asks for nothing.
+ *
+ *  Why the boundary check here: an id this session never admitted is a missing
+ *  message, which the caller answers as such rather than as a surface failure. */
+function stageRevert(operations, id, body) {
+  objectInput(body, ['messageID', 'files']);
+  if (!body.messageID || typeof body.messageID !== 'string') throw invalid('messageID is required');
+  if (body.files !== undefined && body.files !== null && body.files !== false) {
+    throw invalid('Reverting file changes is not supported by this surface');
+  }
+  return operations.revert(id, body);
 }
 
 /** One page of session history: messages in arrival order, then the settings

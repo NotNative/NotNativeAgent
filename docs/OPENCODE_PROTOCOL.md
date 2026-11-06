@@ -119,7 +119,7 @@ for them.
 Not implemented, and refused explicitly: attachments, deferred execution,
 active-turn steering, agents beyond build, permission mutations, shell
 execution, filesystem and VCS APIs, session transfer and fork, session move,
-manual compaction, revert, command and generated-text routes, tool-call lifecycle
+manual compaction, command and generated-text routes, tool-call lifecycle
 events, `session.diff` (NNA keeps no file snapshots, so it cannot answer with a
 truthful diff), OAuth and command-based provider connection, and plugin
 management. Reviewer escalation remains fail-closed.
@@ -195,6 +195,29 @@ Two ways forward, both needing review of their own:
 For the same reason, `session.diff` is refused rather than approximated: NNA
 keeps no file snapshots, so it cannot answer truthfully, and the client never
 calls it anyway.
+
+## Revert, and the identifier join it needed
+
+Revert is wired to the engine's journal-backed timeline
+(`src/desktop-session-revert.js`): `POST /api/session/:id/revert/stage` hides the
+turns at or after a boundary message, and `DELETE /api/session/:id/revert` clears
+the marker and brings them back. The turns are hidden, never destroyed.
+
+It required one translation. The engine resolves a revert boundary by its own
+`request_id` (`oc_prompt_*`), while the client names the message it supplied
+(`msg_*`). The wire session now records that join when a prompt is admitted, and
+drops it when the same history entry is evicted, so the map cannot outgrow the
+ledger. A message id this session never admitted answers
+`MessageNotFoundError`, and the response names the id the client sent rather than
+the engine's internal one.
+
+Two limits are deliberate:
+
+- Revert requires a durable journal. On an ephemeral session the engine refuses,
+  and the surface answers an error rather than claiming to have hidden a turn.
+- `files` is refused. NNA keeps no file snapshots, so it cannot revert file
+  contents, and a success there would report a file state that was never
+  captured. Passing `files: false` is accepted because it asks for nothing.
 
 ## Isolated provider configuration
 
