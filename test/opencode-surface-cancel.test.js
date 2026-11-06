@@ -183,6 +183,71 @@ test('abort drains queued prompts and keeps the active turn settled', async () =
   });
 });
 
+/** Parks its first call on a question, then answers protocol-correctly: NNA
+ *  requires a `turn_finish` declaration before a turn can close, so every later
+ *  call declares its outcome first and answers on the following call. */
+class ParkThenCompletes {
+  calls = 0;
+  async *stream(request) {
+    this.calls += 1;
+    if (this.calls === 1) {
+      const args = { questions: [{ question: 'Deploy now?', options: [{ label: 'go' }] }] };
+      yield { type: 'tool_fragment', fragments: [{ index: 0, id: 'question-call', function: { name: 'question', arguments: encode(args) } }] };
+      yield { type: 'terminal', finishReason: 'tool_calls' };
+      return;
+    }
+    if (!request.messages.some((message) => message.tool_calls?.some((call) => call.function?.name === 'turn_finish'))) {
+      yield { type: 'tool_fragment', fragments: [{ index: 0, id: 'finish', function: { name: 'turn_finish', arguments: '{"outcome":"completed"}' } }] };
+      yield { type: 'terminal', finishReason: 'tool_calls' }; return;
+    }
+    yield { type: 'text', text: 'answered' };
+    yield { type: 'terminal', finishReason: 'stop', usage: null };
+  }
+}
+
+test('a prompt after an interrupt still reaches the engine', { timeout: 30_000 }, async () => {
+  // Why: stopping a turn must leave the wire queue able to accept and run the
+  // next prompt. This waits for the parked form before stopping, so the second
+  // prompt is genuinely a fresh provider call rather than a race.
+  const provider = new ParkThenCompletes();
+  const dirs = await roots('nna-wc-after-stop-');
+  await serveDuring({ ...dirs, config: fixtureConfig(), providerFactory: () => provider }, async ({ url }) => {
+    const created = await createSession(url);
+    await postJson(url, `/api/session/${created.id}/prompt`, { text: 'first' });
+    await waitForForm(url, created.id);
+    assert.equal(provider.calls, 1);
+    const stopped = await postJson(url, `/api/session/${created.id}/interrupt`, {});
+    assert.equal(stopped.status, 200);
+    assert.deepEqual(await stopped.json(), { interrupted: true });
+    await fetch(`${url}/api/experimental/session/${created.id}/wait`, { method: 'POST', headers: { connection: 'close' } });
+
+    const callsBefore = provider.calls;
+    const second = await postJson(url, `/api/session/${created.id}/prompt`, { text: 'second' });
+    assert.equal(second.status, 200);
+    const waited = await fetch(`${url}/api/experimental/session/${created.id}/wait`, {
+      method: 'POST', headers: { connection: 'close' }, signal: AbortSignal.timeout(20_000) });
+    assert.equal(waited.status, 204);
+    assert.ok(provider.calls > callsBefore, 'the prompt after the interrupt must reach the engine');
+    const messages = await (await fetch(`${url}/session/${created.id}/message`, { headers: { connection: 'close' } })).json();
+    // The stopped turn closes with an abort; the new turn closes with stop. Each
+    // settled turn carries its idle marker, so history ends: user, assistant.
+    assert.equal(messages.at(-1).info.type, 'idle');
+    assert.equal(messages.at(-2).info.finish, 'stop');
+    const assistantText = messages.at(-2).parts.find((part) => part.type === 'text');
+    assert.equal(assistantText.text, 'answered');
+  });
+});
+
+async function waitForForm(url, sessionID) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const response = await fetch(`${url}/api/session/${sessionID}/form`, { headers: { connection: 'close' } });
+    const forms = (await response.json()).data;
+    if (forms.length > 0) return forms[0];
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return assert.fail('the parked turn never surfaced a form');
+}
+
 test('abort is idempotent on idle sessions and bare-404s unknown sessions', async () => {
   const provider = new ParkProvider();
   const dirs = await roots('nna-wc-');
