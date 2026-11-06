@@ -155,6 +155,41 @@ test('v2 deletes release the session slot and its pending state', async (t) => {
   assert.equal((await request(`/api/session/${session.id}`, 'DELETE')).status, 404);
 });
 
+test('v2 patch events carry only the changed fields', async (t) => {
+  const { json, request, runtime } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  const controller = new AbortController(); t.after(() => controller.abort());
+  const response = await fetch(`${runtime.url}/api/event`, { signal: controller.signal });
+  const reader = response.body.getReader(); const decoder = new TextDecoder();
+  const events = []; let buffer = '';
+  const collected = (async () => {
+    try {
+      for (;;) {
+        const chunk = await reader.read(); if (chunk.done) return;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        let end;
+        while ((end = buffer.indexOf('\n\n')) >= 0) {
+          const block = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+          const data = block.split('\n').find((line) => line.startsWith('data: '));
+          if (data) events.push(JSON.parse(data.slice(6)));
+        }
+      }
+    } catch { /* the reader is cancelled when the test ends */ }
+  })();
+  assert.equal((await request(`/api/session/${session.id}`, 'PATCH', { title: 'Patched' })).status, 204);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal((await request(`/api/session/${session.id}`, 'PATCH', { metadata: { label: 'note' } })).status, 204);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  await controller.abort();
+  await collected;
+  const patches = events.filter((event) => event.type === 'session.patched').map((event) => event.data);
+  // Invariant: the patch names the session and only the fields that changed, so
+  // a client can apply it without reading the record back.
+  assert.equal(patches.length, 2);
+  assert.deepEqual(patches[0], { sessionID: session.id, patch: { title: 'Patched' } });
+  assert.deepEqual(patches[1], { sessionID: session.id, patch: { metadata: { label: 'note' } } });
+});
+
 test('v2 prompt admits client IDs, emits native events, and projects message history', async (t) => {
   const { json, request, runtime } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', {})).data;

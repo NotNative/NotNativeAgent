@@ -158,17 +158,24 @@ function validateMetadata(value) {
 function updateSession(state, body, events) {
   objectInput(body, ['title', 'metadata']);
   validateMetadata(body.metadata);
+  const patch = {};
   if (body.title != null) {
     textInput(body.title, 'title', 256);
     if (!body.title.trim()) throw invalid('Automatic title generation is not supported');
     state.info.title = body.title;
+    patch.title = body.title;
     events.emit(state, 'session.renamed', { sessionID: state.info.id, title: body.title });
   }
   if (body.metadata != null) {
     state.info.metadata = body.metadata;
+    patch.metadata = body.metadata;
     events.emit(state, 'session.metadata.updated', { sessionID: state.info.id, metadata: body.metadata });
   }
   state.info.time.updated = Date.now();
+  // Compatibility: v2 clients apply a changed record from `session.patched` and
+  // carry the changed fields only, so a rename reaches a listener that does not
+  // dispatch the descriptive events beside it.
+  if (Object.keys(patch).length > 0) events.emit(state, 'session.patched', { sessionID: state.info.id, patch });
 }
 
 async function validateLocation(value, config) {
