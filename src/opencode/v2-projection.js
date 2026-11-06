@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { newId } from '../ids.js';
 import { tokenUsage } from './v2-contract.js';
 import { observeForm } from './v2-forms.js';
 
@@ -95,6 +96,11 @@ function finishExecution(state, events) {
   state.running = false;
   state.info.outcome = state.lastOutcome ?? 'succeeded';
   state.info.time.idle = Date.now(); state.info.time.updated = state.info.time.idle;
+  // Compatibility: OpenCode 2 writes an `idle` record into the session's message
+  // list when a turn ends, and a client walks that list newest-first to find
+  // where the running turn began. The v1 ledger carries its own marker; this is
+  // the marker the v2 message read returns.
+  recordIdle(state);
   const extra = state.info.outcome === 'interrupted' ? { reason: 'user' }
     : state.info.outcome === 'failed' ? { error: failureInfo(state) } : {};
   events.emit(state, `session.execution.${state.info.outcome}`, { sessionID: state.info.id, ...extra });
@@ -105,6 +111,18 @@ function finishExecution(state, events) {
     events.emit(state, 'session.error', { sessionID: state.info.id, error: extra.error });
   }
   events.emit(state, 'session.usage.updated', { sessionID: state.info.id, cost: state.info.cost, tokens: state.info.tokens }, false);
+}
+
+/** Add the turn's closing marker once, in order, with the outcome it settled. */
+function recordIdle(state) {
+  const id = newId('msg');
+  state.messages.set(id, {
+    id, sessionID: state.info.id, type: 'idle',
+    outcome: state.info.outcome === 'interrupted' ? 'interrupted'
+      : state.info.outcome === 'failed' ? 'failed' : 'succeeded',
+    time: { created: state.info.time.idle },
+  });
+  state.idleRecord = id;
 }
 
 function failureInfo(state) {

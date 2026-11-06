@@ -332,11 +332,14 @@ test('v2 prompt admits client IDs, emits native events, and projects message his
   assert.equal((await request(`/api/experimental/session/${session.id}/wait`, 'POST')).status, 204);
   await collected;
   const messages = await json(`/api/session/${session.id}/message?order=asc`);
-  assert.equal(messages.data.length, 2);
+  // The settled turn is followed by the idle record a client walks back to.
+  assert.equal(messages.data.length, 3);
   contract('Session.Message.User', messages.data[0]); contract('Session.Message.Assistant', messages.data[1]);
   assert.equal(messages.data[1].content[0].text, 'hello v2');
   assert.equal(messages.data[0].id, receipt.id);
   assert.deepEqual(messages.data[0].metadata, { source: 'test' });
+  assert.equal(messages.data[2].type, 'idle');
+  assert.equal(messages.data[2].outcome, 'succeeded');
   assert.equal(events[0].type, 'server.connected');
   assert.ok(events.some((event) => event.type === 'session.text.delta'));
   assert.ok(events.some((event) => event.type === 'session.text.ended' && event.data.text === 'hello v2'));
@@ -345,6 +348,25 @@ test('v2 prompt admits client IDs, emits native events, and projects message his
   assert.ok(events.every((event) => !('payload' in event) && !('properties' in event)));
   assert.deepEqual((await json('/api/session/active')).data, {});
   contract('SessionInterruptResponse', await json(`/api/session/${session.id}/interrupt`, 'POST'));
+});
+
+test('v2 history closes each settled turn with an idle record', { timeout: 20_000 }, async (t) => {
+  const { json, request } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  for (const [index, text] of ['first', 'second'].entries()) {
+    await json(`/api/session/${session.id}/prompt`, 'POST', { text });
+    assert.equal((await request(`/api/experimental/session/${session.id}/wait`, 'POST')).status, 204);
+    const messages = (await json(`/api/session/${session.id}/message?order=asc`)).data;
+    // Invariant: a v2 client finds the running turn by walking history back to
+    // an idle record. Each settled turn adds exactly one, so a turn's duration
+    // is measurable and a restart cannot mistake an old turn for a live one.
+    const idles = messages.filter((message) => message.type === 'idle');
+    assert.equal(idles.length, index + 1);
+    assert.equal(idles.at(-1).outcome, 'succeeded');
+    assert.match(idles.at(-1).id, /^msg_/u);
+    assert.equal(typeof idles.at(-1).time.created, 'number');
+    assert.equal(messages.at(-1).type, 'idle');
+  }
 });
 
 test('v2 records a model switch as history a client can read back', { timeout: 20_000 }, async (t) => {
