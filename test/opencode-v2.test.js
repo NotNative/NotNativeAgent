@@ -123,6 +123,49 @@ test('v2 prompt accepts text beyond the old 65536-character ceiling', async (t) 
   assert.equal((await json(`/api/session/${session.id}`)).data.outcome, 'succeeded');
 });
 
+test('every v2 event carries the flat envelope the client reads', { timeout: 20_000 }, async (t) => {
+  // Why: the client's translateWireEvent reads payload.type / payload.created /
+  // payload.data. A nested `properties` envelope (the v1 shape) would parse as an
+  // unknown event and be dropped, so the whole turn would vanish from the GUI.
+  const { json, request, runtime } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  const controller = new AbortController(); t.after(() => controller.abort());
+  const response = await fetch(`${runtime.url}/api/event`, { signal: controller.signal });
+  const reader = response.body.getReader(); const decoder = new TextDecoder();
+  const events = []; let buffer = '';
+  const collected = (async () => {
+    try {
+      for (;;) {
+        const chunk = await reader.read(); if (chunk.done) return;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        let end;
+        while ((end = buffer.indexOf('\n\n')) >= 0) {
+          const block = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+          const data = block.split('\n').find((line) => line.startsWith('data: '));
+          if (data) events.push(JSON.parse(data.slice(6)));
+        }
+      }
+    } catch { /* the reader is cancelled when the test ends */ }
+  })();
+  await json(`/api/session/${session.id}/prompt`, 'POST', { text: 'hello' });
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  await waitForEvent(events, 'session.execution.succeeded');
+  await controller.abort();
+  await collected;
+  assert.ok(events.length > 4);
+  for (const event of events) {
+    assert.equal(typeof event.type, 'string', 'every event names its type at the top level');
+    assert.equal(typeof event.created, 'number', `${event.type} carries a top-level created`);
+    assert.equal(typeof event.data, 'object', `${event.type} carries its payload under data`);
+    // The v1 shape must never leak in beside it.
+    assert.equal('payload' in event, false, `${event.type} must not carry a v1 payload`);
+    assert.equal('properties' in event, false, `${event.type} must not carry a v1 properties`);
+  }
+  // The turn's own events name the session under data, where the client reads it.
+  const sessionEvents = events.filter((event) => event.data?.sessionID === session.id);
+  assert.ok(sessionEvents.length > 0, 'events identify their session under data.sessionID');
+});
+
 test('the reported version satisfies the OpenChamber compatibility gate', async (t) => {
   // Why: OpenChamber refuses a server whose major is not 2 or whose version is
   // below its own minimum. This test pins the rule rather than the literal, so a

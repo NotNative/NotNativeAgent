@@ -35,7 +35,12 @@ export function createV2Events() {
     subscribe(res) {
       if (subscribers.size >= 64) return false;
       sseOpen(res);
-      if (!sseFrame(res, { event: 'server.connected', data: JSON.stringify({ id: newId('evt'), type: 'server.connected', data: {} }) })) {
+      // Why created: every other event carries one, and the client reads a
+      // missing value as "now". Sending the real time keeps one envelope shape
+      // instead of a special case for the opener frame.
+      if (!sseFrame(res, { event: 'server.connected', data: JSON.stringify({
+        id: newId('evt'), created: Date.now(), type: 'server.connected', data: {},
+      }) })) {
         drop(res);
         return true;
       }

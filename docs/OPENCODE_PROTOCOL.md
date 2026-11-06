@@ -124,6 +124,50 @@ events, `session.diff` (NNA keeps no file snapshots, so it cannot answer with a
 truthful diff), OAuth and command-based provider connection, and plugin
 management. Reviewer escalation remains fail-closed.
 
+## Client contracts this surface is written against
+
+These were read from the installed OpenChamber desktop build rather than from the
+upstream documentation, because the client's own translation layer — not the raw
+OpenCode wire — decides what an operator actually sees. They are recorded here so
+a future change does not silently break the GUI.
+
+**The event envelope is flat.** The client's `translateWireEvent(payload)` reads
+`payload.type`, `payload.created` and `payload.data`; it does not read a nested
+`properties` object. `data.sessionID` and `data.location.directory` are how a
+session and its directory are identified on every event.
+
+**The translator is not the only consumer.** It maps 29 event types and ends with
+`default: return []`, but two further paths read events the switch ignores: a
+delta hub for `session.text.delta` / `session.reasoning.delta` /
+`session.tool.input.delta`, and a runtime handler for `session.inbox.delivered`
+and `session.patched`. An event missing from the switch is therefore not
+necessarily invisible, and an event audit must search the whole bundle for the
+type string rather than assuming the switch is the contract.
+
+**Transcripts are rebuilt from step events, not message frames.** The GUI renders
+an assistant turn from `session.step.started` / `session.step.ended` plus
+`session.text.delta`. The `message.updated` / `message.part.updated` frames this
+surface also emits are informational; dropping them would not stop the GUI
+rendering a turn.
+
+**A settled turn needs an `idle` record in history.** `turn-start.js` walks
+`GET /api/session/:id/message` newest-first and stops at an `idle` record to find
+where the running turn began. Without one, every turn reads as a single unbroken
+turn and turn duration is wrong. This applies to the v2 message list, not only to
+the v1 ledger.
+
+**A finished compaction is announced by `session.compaction.ended`.** The client
+has no case for NNA's richer `nna.context.compaction` extension, so a compaction
+that only emitted the extension never reached the transcript.
+
+**A recovering provider is a retry status.** While NNA waits out an outage it is
+still busy, and the client shows a bare busy status. `session.retry.scheduled`
+is what turns that into an explained wait.
+
+**Basic auth username is fixed.** The client builds `opencode:<password>` and
+ignores `OPENCODE_SERVER_USERNAME`; see the authentication note above for where
+that is enforced.
+
 ## Isolated provider configuration
 
 The managed service has its own provider configuration. It does not load or write
