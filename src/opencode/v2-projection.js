@@ -98,6 +98,12 @@ function finishExecution(state, events) {
   const extra = state.info.outcome === 'interrupted' ? { reason: 'user' }
     : state.info.outcome === 'failed' ? { error: failureInfo(state) } : {};
   events.emit(state, `session.execution.${state.info.outcome}`, { sessionID: state.info.id, ...extra });
+  // Compatibility: v2 clients end a turn from `session.error`, which also
+  // settles a status a client would otherwise keep as busy. The payload is the
+  // same fixed guidance the execution event carries, never provider text.
+  if (state.info.outcome === 'failed') {
+    events.emit(state, 'session.error', { sessionID: state.info.id, error: extra.error });
+  }
   events.emit(state, 'session.usage.updated', { sessionID: state.info.id, cost: state.info.cost, tokens: state.info.tokens }, false);
 }
 

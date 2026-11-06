@@ -59,6 +59,13 @@ class Provider {
   }
 }
 
+/** Fails the turn at the provider so the engine reports a failed outcome.
+ *  Why the fixed code: only guidance, never provider exception text, may cross
+ *  the wire, and this exercises the credential-guidance branch. */
+class FailingProvider extends Provider {
+  async *stream() { throw Object.assign(new Error('provider-secret-should-not-leak'), { code: 'missing_credential' }); }
+}
+
 async function fixtureServer(t, extra = {}) {
   const root = await mkdtemp(join(tmpdir(), 'nna-v2-'));
   const config = resolveManifest({ persistence: 'ephemeral', provider: {
@@ -190,6 +197,44 @@ test('v2 patch events carry only the changed fields', async (t) => {
   assert.deepEqual(patches[1], { sessionID: session.id, patch: { metadata: { label: 'note' } } });
 });
 
+test('v2 ends a failed turn with session.error carrying fixed guidance only', { timeout: 20_000 }, async (t) => {
+  const { json, request, runtime } = await fixtureServer(t, { providerFactory: () => new FailingProvider() });
+  const session = (await json('/api/session', 'POST', {})).data;
+  const controller = new AbortController(); t.after(() => controller.abort());
+  const response = await fetch(`${runtime.url}/api/event`, { signal: controller.signal });
+  const reader = response.body.getReader(); const decoder = new TextDecoder();
+  const events = []; let buffer = '';
+  const collected = (async () => {
+    try {
+      for (;;) {
+        const chunk = await reader.read(); if (chunk.done) return;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        let end;
+        while ((end = buffer.indexOf('\n\n')) >= 0) {
+          const block = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+          const data = block.split('\n').find((line) => line.startsWith('data: '));
+          if (data) events.push(JSON.parse(data.slice(6)));
+        }
+      }
+    } catch { /* the reader is cancelled when the test ends */ }
+  })();
+  await json(`/api/session/${session.id}/prompt`, 'POST', { text: 'fail please' });
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  await waitForEvent(events, 'session.error');
+  await controller.abort();
+  await collected;
+  const failure = events.find((event) => event.type === 'session.error');
+  assert.ok(failure, 'a failed turn must end with session.error');
+  assert.equal(failure.data.sessionID, session.id);
+  // A provider exception is not classified as a credential failure, so the code
+  // stays the fixed generic one and its message is fixed guidance.
+  assert.equal(failure.data.error.type, 'nna_execution_failed');
+  assert.equal(failure.data.error.message, 'NNA could not complete the turn');
+  // Security: provider exception text never becomes a public error message.
+  assert.equal(JSON.stringify(events).includes('provider-secret-should-not-leak'), false);
+  assert.equal((await json(`/api/session/${session.id}`)).data.outcome, 'failed');
+});
+
 test('v2 prompt admits client IDs, emits native events, and projects message history', async (t) => {
   const { json, request, runtime } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', {})).data;
@@ -301,6 +346,14 @@ class QuestionProvider extends Provider {
     }
     yield* super.stream(request);
   }
+}
+
+async function waitForEvent(events, type) {
+  for (let index = 0; index < 200; index += 1) {
+    if (events.some((event) => event.type === type)) return events.find((event) => event.type === type);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.fail(`${type} did not arrive`);
 }
 
 async function waitForForm(json, sessionID) {
