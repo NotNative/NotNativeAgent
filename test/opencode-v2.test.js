@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url';
 import { resolveManifest } from '../src/config.js';
 import { startOpencodeServe } from '../src/opencode/serve.js';
 import { observeV1Event } from '../src/opencode/v2-projection.js';
+import { MINIMUM_OPENCODE_VERSION, WIRED_OPENCODE_VERSION } from '../src/opencode/version.js';
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/opencode/v2-schemas.json', import.meta.url)));
 
@@ -101,9 +102,22 @@ test('v2 prompt accepts text beyond the old 65536-character ceiling', async (t) 
   assert.equal((await json(`/api/session/${session.id}`)).data.outcome, 'succeeded');
 });
 
+test('the reported version satisfies the OpenChamber compatibility gate', async (t) => {
+  // Why: OpenChamber refuses a server whose major is not 2 or whose version is
+  // below its own minimum. This test pins the rule rather than the literal, so a
+  // future bump cannot silently make the whole surface unreachable.
+  const parts = (value) => value.split(/[-+]/u, 1)[0].split('.').map(Number);
+  const compare = (left, right) => { const a = parts(left); const b = parts(right);
+    for (let index = 0; index < 3; index += 1) if (a[index] !== b[index]) return a[index] - b[index]; return 0; };
+  assert.equal(parts(WIRED_OPENCODE_VERSION)[0], 2, 'OpenChamber rejects a future major');
+  assert.ok(compare(WIRED_OPENCODE_VERSION, MINIMUM_OPENCODE_VERSION) >= 0, 'the reported version must clear the client floor');
+  const { json } = await fixtureServer(t);
+  assert.equal((await json('/api/info')).version, WIRED_OPENCODE_VERSION);
+});
+
 test('v2 discovery, configured catalogs, and session CRUD conform to published schemas', async (t) => {
   const { json, request, root } = await fixtureServer(t);
-  const info = await json('/api/info'); contract('ServerInfo', info); assert.equal(info.version, '2.0.21');
+  const info = await json('/api/info'); contract('ServerInfo', info); assert.equal(info.version, WIRED_OPENCODE_VERSION);
   contract('Location.PublicInfo', await json('/api/location'));
   for (const [path, name] of [['agent', 'Agent.Info'], ['model', 'Model.Info'], ['provider', 'Provider.Info']]) {
     const response = await json(`/api/${path}`); assert.deepEqual(response.location, { directory: root });
@@ -482,7 +496,7 @@ test('published OpenCode client completes the v2 chat lifecycle', { skip: !proce
   const { OpenCode } = await import(pathToFileURL(process.env.NNA_OPENCODE_CLIENT_MODULE).href);
   const { runtime, root } = await fixtureServer(t);
   const client = OpenCode.make({ baseUrl: runtime.url, headers: { 'x-opencode-directory': encodeURIComponent(root) } });
-  assert.equal((await client.server.info()).version, '2.0.21');
+  assert.equal((await client.server.info()).version, WIRED_OPENCODE_VERSION);
   assert.equal((await client.location.get()).directory, root);
   assert.equal((await client.model.list()).data.length, 1);
   assert.deepEqual((await client.permission.request.list()).data, []);

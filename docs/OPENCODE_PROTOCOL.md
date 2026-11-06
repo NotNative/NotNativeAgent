@@ -1,9 +1,25 @@
 # OpenCode protocol compatibility
 
-NNA's `nna opencode` service targets the OpenCode **2.0.21** client contract used
+NNA's `nna opencode` service targets the OpenCode **2.2.5** client contract used
 by OpenChamber. NNA implements an independent compatibility surface over its own
 session engine. The reported version identifies that protocol target, not an
 installed OpenCode runtime. NNA's product version remains separate.
+
+## Why this target
+
+The installed OpenChamber desktop build gates the surface on one rule: the
+reported version must be a `2.x` release at or above its
+`MINIMUM_OPENCODE_VERSION` of `2.2.4`. A future major is refused outright, so
+`3.x` is not an option, and a lower version makes the whole surface unreachable.
+The desktop build pins `@opencode/client` and `@opencode/schema` at `2.2.5`, so
+that is the version NNA reports; `2.2.4` is the floor it must never report
+below. `src/opencode/version.js` holds both numbers and
+`test/opencode-v2.test.js` asserts the rule rather than a literal, so a future
+bump cannot silently make the surface unreachable.
+
+Reporting the target is not a claim that every 2.2.5 operation is implemented.
+Unsupported operations fail explicitly with a tagged error, as recorded under
+Boundaries below.
 
 ## Reference contracts
 
@@ -13,9 +29,10 @@ Research and contract capture date: 2026-10-02.
 - [Official API reference](https://opencode.ai/v2/docs/api)
 - [Published OpenAPI schema](https://opencode.ai/v2/openapi.json)
 - [Official JavaScript client](https://opencode.ai/v2/docs/planning/client), tested with
-  the published `@opencode/client@2.0.21` package.
-- [OpenChamber v2 announcement](https://openchamber.dev/blog/opencode-v2/), which
-  specifies OpenCode 2.0.15 or newer.
+  the published `@opencode/client@2.2.5` package.
+- [OpenChamber v2 announcement](https://openchamber.dev/blog/opencode-v2/).
+- The installed OpenChamber desktop build (2.6.1), whose bundled
+  `compatibility.js` defines the accepted version range read above.
 
 The `agustif/opencode-v2` repository is an older third-party fork, not the
 reference for this migration. No external agent implementation code was copied.
@@ -63,10 +80,23 @@ and streaming, retain the existing configured Basic authentication gate.
 ## Boundaries
 
 This is the NNA text-chat compatibility surface, not the entire OpenCode server.
-Attachments, deferred execution, active-turn steering, agents beyond build,
-permission mutations, shell execution, filesystem APIs,
-session transfer, compaction and plugin management are not implemented here.
-Unsupported actions fail explicitly. Reviewer escalation remains fail-closed.
+A caller that needs an operation outside this list receives a tagged
+`InvalidRequestError`, never a silent success or an empty result that reads as
+"nothing happened".
+
+Implemented at the 2.2.5 target: discovery, location, projects, configuration,
+the model/provider/integration catalogs, session create/list/get/patch/delete
+including archive and restore, text prompts with client IDs and queued
+admission, inbox reads, wait, interrupt, viewed state, paginated message reads,
+native session/inbox/step/text/usage/form events, form settlement, and the
+isolated provider and credential routes.
+
+Not implemented, and refused explicitly: attachments, deferred execution,
+active-turn steering, agents beyond build, permission mutations, shell
+execution, filesystem and VCS APIs, session transfer and fork, session move,
+manual compaction, revert, command and generated-text routes, tool-call events,
+OAuth and command-based provider connection, and plugin management. Reviewer
+escalation remains fail-closed.
 
 ## Isolated provider configuration
 
@@ -177,7 +207,7 @@ credentials, endpoint binding, mutation authentication, session selection and
 configuration/admission races. It also exercises setup and switching through
 the published client when the client-module environment variable is set.
 
-To additionally test the published client, obtain `@opencode/client@2.0.21` in an
+To additionally test the published client, obtain `@opencode/client@2.2.5` in an
 ignored research directory. Set `NNA_OPENCODE_CLIENT_MODULE` to the absolute path
 of its `dist/promise/index.js`, then run the same test command. This enables the
 official-client discovery, directory-header, event, prompt, history and deletion

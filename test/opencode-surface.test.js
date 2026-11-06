@@ -50,7 +50,9 @@ test('health, auth gate, and 404 catch-all match the observed gold wire', async 
     assert.equal((await missing.text()).length, 0);
     const wrongPassword = await request(url, '/global/health', { headers: { authorization: basicAuthorization('opencode', 'nope') } });
     assert.equal(wrongPassword.status, 401);
-    assert.equal(WIRED_OPENCODE_VERSION, '2.0.21');
+    // The version is a client contract, so it must stay a 2.x release the
+    // OpenChamber gate accepts rather than drifting to a future major.
+    assert.match(WIRED_OPENCODE_VERSION, /^2\.\d+\.\d+$/u);
   });
 });
 
