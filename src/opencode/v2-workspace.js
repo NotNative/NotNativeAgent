@@ -216,6 +216,11 @@ function updateSession(state, body, events) {
     if (archivedAt === null) delete state.info.time.archived; else state.info.time.archived = archivedAt;
     state.archived = archivedAt !== null;
     patch.time = { archived: archivedAt };
+    // Compatibility: the client translates `session.unarchived` to a restore on
+    // a session the live list dropped, and has no case for a restore expressed
+    // only as a patch. Archiving stays a patch because that is how a client
+    // applies it.
+    if (archivedAt === null) events.emit(state, 'session.unarchived', { sessionID: state.info.id });
   }
   state.info.time.updated = Date.now();
   // Compatibility: v2 clients apply a changed record from `session.patched` and

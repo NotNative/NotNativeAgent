@@ -202,6 +202,39 @@ test('v2 archives and restores a session through the record patch', async (t) =>
   assert.equal((await json(`/api/session/${session.id}`)).data.time.archived, undefined);
 });
 
+test('v2 restore announces the event a client translates to unarchive', async (t) => {
+  const { json, request, runtime } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  const controller = new AbortController(); t.after(() => controller.abort());
+  const response = await fetch(`${runtime.url}/api/event`, { signal: controller.signal });
+  const reader = response.body.getReader(); const decoder = new TextDecoder();
+  const events = []; let buffer = '';
+  const collected = (async () => {
+    try {
+      for (;;) {
+        const chunk = await reader.read(); if (chunk.done) return;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        let end;
+        while ((end = buffer.indexOf('\n\n')) >= 0) {
+          const block = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+          const data = block.split('\n').find((line) => line.startsWith('data: '));
+          if (data) events.push(JSON.parse(data.slice(6)));
+        }
+      }
+    } catch { /* the reader is cancelled when the test ends */ }
+  })();
+  assert.equal((await request(`/api/session/${session.id}`, 'PATCH', { archived: true })).status, 204);
+  await waitForEvent(events, 'session.patched');
+  assert.equal((await request(`/api/session/${session.id}`, 'PATCH', { archived: null })).status, 204);
+  const restored = await waitForEvent(events, 'session.unarchived');
+  await controller.abort();
+  await collected;
+  // Compatibility: the client's wire translator turns `session.unarchived` into
+  // the restore its reducer applies; a restore expressed only as a patch has no
+  // case there, so the session would stay hidden in the list.
+  assert.deepEqual(restored.data, { sessionID: session.id });
+});
+
 test('v2 patch events carry only the changed fields', async (t) => {
   const { json, request, runtime } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', {})).data;
