@@ -137,7 +137,8 @@ test('prompt lifecycle drives the full wire cadence over /global/event', async (
     assert.ok(assistantBeforeIdle >= 0 && assistantBeforeIdle < idleIndex, 'assistant durability lands before the idle sentinel');
     assert.equal(session.done, true, 'collector settled on idle');
     const messages = await (await fetch(`${url}/session/${created.id}/message`, { headers: { connection: 'close' } })).json();
-    assert.equal(messages.length, 2);
+    // The turn's user and assistant records, plus the idle marker that ends it.
+  assert.equal(messages.length, 3);
     assert.equal(messages[0].info.role, 'user');
     assert.deepEqual(messages[0].info.summary, { diffs: [] });
     assert.equal(messages[0].parts[0].text, 'Reply with exactly: bench-ok');

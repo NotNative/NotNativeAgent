@@ -53,7 +53,9 @@ test('prompt admits, runs, settles, and closes in the observed gold cadence', as
   assert.deepEqual(deltas.map((frame) => frame.properties.delta), ['HE', 'LLO!']);
   assert.equal(deltas[0].properties.messageID, response.info.id);
   const messages = wireSession.messages();
-  assert.equal(messages.length, 2);
+  // Invariant: a closed turn is followed by the idle marker a client walks back
+  // to, so three records describe one turn.
+  assert.equal(messages.length, 3);
   assert.equal(messages[0].info.role, 'user');
   assert.deepEqual(messages[0].info.summary, { diffs: [] });
   assert.equal(messages[0].parts[0].text, 'say hi');
@@ -62,6 +64,10 @@ test('prompt admits, runs, settles, and closes in the observed gold cadence', as
   assert.deepEqual(messages[1].parts.map((part) => part.type), ['step-start', 'text', 'step-finish']);
   assert.equal(messages[1].parts[1].text, 'HELLO!');
   assert.match(messages[1].parts[0].snapshot, /^[0-9a-f]{40}$/u);
+  assert.equal(messages[2].info.type, 'idle');
+  assert.equal(messages[2].info.outcome, 'succeeded');
+  assert.match(messages[2].info.id, /^msg_/u);
+  assert.deepEqual(messages[2].parts, []);
 });
 
 test('OpenCode publishes scoped compaction lifecycle without altering assistant text', async () => {
@@ -107,7 +113,8 @@ test('prompts while busy queue their durable events at admit time and serialize 
   assert.equal(secondResponse.parts[1].text, 'done:two');
   const idleBares = bus.frames.filter((frame) => frame.type === 'session.idle');
   assert.equal(idleBares.length, 2);
-  assert.equal(wireSession.messages().length, 4);
+  // Two turns, each followed by its idle marker.
+  assert.equal(wireSession.messages().length, 6);
 });
 
 test('completed prompts release queue capacity while recent wire history stays bounded', async () => {
@@ -119,9 +126,10 @@ test('completed prompts release queue capacity while recent wire history stays b
     assert.equal(wireSession.pendingCount(), 0);
   }
   const messages = wireSession.messages();
-  assert.equal(messages.length, 128, 'only the latest 64 prompt pairs remain in wire history');
+  // Each retained turn is a user record, an assistant record, and its idle marker.
+  assert.equal(messages.length, 192, 'only the latest 64 turns remain in wire history');
   assert.equal(messages[0].parts[0].text, 'prompt-1');
-  assert.equal(messages.at(-2).parts[0].text, 'prompt-64');
+  assert.equal(messages.at(-3).parts[0].text, 'prompt-64');
 });
 
 test('the queue rejects a 65th unfinished prompt and accepts work after settlement', async () => {
@@ -173,11 +181,14 @@ test('turn failures still answer with a settled assistant response and idle sent
   const wireSession = freshWireSession(record, bus);
   active = wireSession;
   await assert.rejects(() => wireSession.prompt([{ type: 'text', text: 'boom' }]), /provider died/u);
-  assert.equal(wireSession.messages().length, 2);
+  // A failed turn still closes, so it also carries the idle marker that ends it.
+  assert.equal(wireSession.messages().length, 3);
   const messages = wireSession.messages();
   assert.equal(messages[1].info.finish, 'error');
   assert.deepEqual(messages[1].info.tokens, { total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } });
   assert.equal(messages[1].parts[1].text, '');
+  assert.equal(messages[2].info.type, 'idle');
+  assert.equal(messages[2].info.outcome, 'failed');
   assert.deepEqual(bus.frames.filter((frame) => frame.type === 'session.idle').length, 1);
 });
 

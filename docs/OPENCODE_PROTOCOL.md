@@ -48,6 +48,12 @@ the pinned client; changes require conformance checks before changing the target
 | Session | Flat directory, slug and version | `location`, configured agent/model, usage and outcome |
 | Prompt | Text parts; synchronous message or `prompt_async` | `/api/session/:id/prompt`, text and client ID; immediate inbox receipt |
 | History | `{info, parts}` records | Typed user and assistant messages; paginated `{data, cursor}` |
+
+Each settled turn is closed by an `idle` record (`Session.Message.Idle`) in
+session history. A client walks history newest-first and stops at that marker to
+find where the running turn began, so the marker is what makes turn duration and
+post-restart adoption correct. A prompt drained by an operator stop also carries
+its marker: it settled without running, but it still bounds a turn.
 | Events | `{payload}` and `sync` mirrors | `/api/event`, native `type`, `data`, location and sequence metadata |
 | Stop | `/session/:id/abort` | `/api/session/:id/interrupt` with `{interrupted}` |
 | Questions | Question tokens and answer matrices | Session-owned forms with typed fields and answer objects |

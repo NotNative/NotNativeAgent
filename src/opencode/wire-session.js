@@ -188,6 +188,18 @@ function closeTurn(state, entry) {
   publishDurable(state, 'session.updated', { sessionID: state.sessionID, info: currentInfo(state) });
   publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: closedUserInfo(state, entry) });
   entry.closedAt = Date.now();
+  // Compatibility: OpenCode 2 writes an `idle` record when a turn ends, and a
+  // client walks history newest-first to find where the running turn began.
+  // Without the marker every turn reads as one continuous turn.
+  entry.idle = idleInfo(state, entry);
+}
+
+function idleInfo(state, entry) {
+  return {
+    id: newId('msg'), sessionID: state.sessionID, type: 'idle',
+    outcome: entry.finish === 'abort' ? 'interrupted' : entry.finish === 'error' ? 'failed' : 'succeeded',
+    time: { created: entry.closedAt ?? Date.now() },
+  };
 }
 
 // Why: the operator stop button must stop everything, not just the active
@@ -205,6 +217,10 @@ function abortPending(state) {
     publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: entry.textEnded });
     entry.response = buildAssistantResponse(state, entry);
     publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: entry.response.info });
+    // Why: a drained prompt settled without ever running, so it still needs the
+    // idle marker that bounds its turn. Without it a newest-first history walk
+    // reads the abandoned turn as the one still running.
+    entry.idle = idleInfo(state, entry);
     drained.push(entry);
   }
   if (drained.length > 0 && state.active === null) {
@@ -248,6 +264,9 @@ function messagesFromLedger(state) {
   for (const entry of state.ledger) {
     messages.push({ info: closedUserInfo(state, entry), parts: [userPart(state, entry)] });
     if (entry.response !== null) messages.push({ info: entry.response.info, parts: entry.response.parts });
+    // Why: oldest-first history pairs each closed turn with the idle marker that
+    // ends it, so a newest-first reader stops at the correct turn boundary.
+    if (entry.idle) messages.push({ info: entry.idle, parts: [] });
   }
   return messages;
 }

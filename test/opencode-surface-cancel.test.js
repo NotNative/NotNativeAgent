@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mkdtemp } from 'node:fs/promises';
@@ -172,10 +172,14 @@ test('abort drains queued prompts and keeps the active turn settled', async () =
     assert.equal(provider.calls, 1);
     await waitForFrame(frames, (event) => event.type === 'session.idle', 'session.idle');
     const messages = await (await fetch(`${url}/session/${created.id}/message`, { headers: { connection: 'close' } })).json();
-    assert.equal(messages.length, 4);
+    // Two turns, each closed by its idle marker: user, assistant, idle, repeated.
+    assert.equal(messages.length, 6);
     assert.equal(messages[1].info.finish, 'abort');
-    assert.equal(messages[2].info.role, 'user');
-    assert.equal(messages[3].info.finish, 'abort');
+    assert.equal(messages[2].info.type, 'idle');
+    assert.equal(messages[2].info.outcome, 'interrupted');
+    assert.equal(messages[3].info.role, 'user');
+    assert.equal(messages[4].info.finish, 'abort');
+    assert.equal(messages[5].info.type, 'idle');
   });
 });
 
