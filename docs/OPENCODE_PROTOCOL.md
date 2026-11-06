@@ -87,13 +87,19 @@ The Basic auth username is fixed to `opencode`. OpenChamber builds its upstream
 credential as `opencode:<password>` in `auth-state-runtime.js` and explicitly
 ignores `OPENCODE_SERVER_USERNAME`, so any other username is an authentication
 the client can never satisfy. Only the password is a choice.
-
 The refusal lives at the point a value is chosen (`saveOpenCodeConfig`), not at
 load. A document written by an earlier build may already hold a custom username;
 refusing it while loading made `status`, `start`, `stop` and the settings page all
 fail on a configuration the operator could no longer repair. Such a document
 still loads, and saving it again with username `opencode` repairs it. Choosing any
 other username fails with `opencode_username_unsupported`.
+
+A session update refuses `permissions` by name. The client sends that field only
+when a caller sets it, so a rename or archive still works; accepting a ruleset
+would let a caller widen what this surface may do, and permission rules belong to
+NNA's reviewer governance. `archived` is a top-level field on the update the
+client sends, not a `time.archived` patch — the patch shape is what a stored
+record carries, not what a caller writes.
 
 ## Boundaries
 

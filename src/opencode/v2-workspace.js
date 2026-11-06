@@ -239,6 +239,12 @@ function validateMetadata(value) {
 }
 
 function updateSession(state, body, events) {
+  // Security: `permissions` is a real field on this route, and it is refused by
+  // name rather than as an unknown one. Permission rules belong to NNA's
+  // reviewer governance; accepting a ruleset here would let a caller widen what
+  // the surface may do. The client omits the field unless a caller sets it, so a
+  // title or archive update still works.
+  if (body.permissions !== undefined) throw invalid('Session permissions are owned by NNA reviewer governance and cannot be set through this surface');
   objectInput(body, ['title', 'metadata', 'archived']);
   validateMetadata(body.metadata);
   const patch = {};

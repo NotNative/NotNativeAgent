@@ -389,6 +389,19 @@ test('v2 deletes release the session slot and its pending state', async (t) => {
   assert.equal((await request(`/api/session/${session.id}`, 'DELETE')).status, 404);
 });
 
+test('a session update refuses permissions by name and still renames', async (t) => {
+  // Security: permission rules belong to NNA's reviewer governance. The client
+  // omits `permissions` unless a caller sets it, so refusing it must not block a
+  // normal rename or archive.
+  const { json, request } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  const denied = await request(`/api/session/${session.id}`, 'PATCH', { permissions: [] });
+  assert.equal(denied.status, 400);
+  assert.match((await denied.json()).message, /reviewer governance/u);
+  assert.equal((await request(`/api/session/${session.id}`, 'PATCH', { title: 'Still fine' })).status, 204);
+  assert.equal((await json(`/api/session/${session.id}`)).data.title, 'Still fine');
+});
+
 test('v2 archives and restores a session through the record patch', async (t) => {
   const { json, request } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', { title: 'Archivable' })).data;
@@ -928,6 +941,43 @@ test('published OpenCode client completes the v2 chat lifecycle', { skip: !proce
   assert.equal((await client.message.list({ sessionID: session.id, order: 'asc' })).data[1].content[0].text, 'hello v2');
   await client.session.remove({ sessionID: session.id });
   assert.deepEqual((await client.session.list()).data, []);
+});
+
+test('the published client reads and writes every record this surface exposes', { skip: !process.env.NNA_OPENCODE_CLIENT_MODULE, timeout: 30_000 }, async (t) => {
+  // Why through the client: its response schemas are the real contract. Two
+  // defects already survived hand-written tests — a revert answer missing
+  // `messageID`, and an event envelope shape — so each surface is exercised the
+  // way OpenChamber exercises it rather than the way this suite imagined.
+  const { OpenCode } = await import(pathToFileURL(process.env.NNA_OPENCODE_CLIENT_MODULE).href);
+  const { runtime, root } = await fixtureServer(t);
+  const client = OpenCode.make({ baseUrl: runtime.url, headers: { 'x-opencode-directory': encodeURIComponent(root) } });
+
+  // Catalogs the composer reads.
+  assert.equal((await client.agent.list()).data[0].id, 'build');
+  assert.equal((await client.config.get())[0].info.default_agent, 'build');
+  assert.equal((await client.project.list())[0].canonical, root);
+
+  const session = await client.session.create({ title: 'Records', metadata: { label: 'first' } });
+  assert.equal(session.title, 'Records');
+
+  // A rename and a metadata write both land as a patch the client applies.
+  await client.session.update({ sessionID: session.id, title: 'Renamed' });
+  assert.equal((await client.session.get({ sessionID: session.id })).title, 'Renamed');
+  await client.session.update({ sessionID: session.id, metadata: { label: 'second' } });
+  assert.deepEqual((await client.session.get({ sessionID: session.id })).metadata, { label: 'second' });
+
+  // Archive leaves the live list; restore brings it back. The client sends
+  // `archived`, not the `time.archived` patch a stored record carries.
+  await client.session.update({ sessionID: session.id, archived: true });
+  assert.equal((await client.session.list()).data.some((item) => item.id === session.id), false);
+  await client.session.update({ sessionID: session.id, archived: null });
+  assert.equal((await client.session.list()).data.some((item) => item.id === session.id), true);
+
+  // Unread state and the active snapshot both answer in the client's shapes.
+  // `session.active` unwraps to `value.data`, which is the map itself.
+  await client.session.view({ sessionID: session.id, idle: 0 });
+  assert.deepEqual(Object.keys(await client.session.active()), []);
+  await client.session.remove({ sessionID: session.id });
 });
 
 test('the published client stages and clears a revert', { skip: !process.env.NNA_OPENCODE_CLIENT_MODULE, timeout: 20_000 }, async (t) => {
