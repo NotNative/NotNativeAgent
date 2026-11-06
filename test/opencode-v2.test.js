@@ -371,6 +371,28 @@ test('v2 prompt admits client IDs, emits native events, and projects message his
   contract('SessionInterruptResponse', await json(`/api/session/${session.id}/interrupt`, 'POST'));
 });
 
+test('v2 resolves the directory header the proxy forwards, and refuses a bad escape', async (t) => {
+  const { json, request, root } = await fixtureServer(t);
+  // The client percent-encodes the directory, and the proxy forwards it as sent.
+  const header = encodeURIComponent(root);
+  assert.equal((await json('/api/session?ignore=1', 'GET', undefined, { 'x-opencode-directory': header })).data.length, 0);
+  const created = (await json('/api/session', 'POST', {}, { 'x-opencode-directory': header })).data;
+  assert.equal(created.location.directory, root);
+  // A query parameter wins over the header, as the client expects.
+  const viaQuery = (await json(`/api/session?location[directory]=${encodeURIComponent(root)}`, 'GET', undefined,
+    { 'x-opencode-directory': encodeURIComponent('/somewhere/else') })).data;
+  assert.equal(viaQuery.some((session) => session.id === created.id), true);
+  // Why: `session.list` scopes by the `directory` query parameter, not the
+  // header, so a directory-scoped list is expressed in the query.
+  const scoped = (await json(`/api/session?directory=${encodeURIComponent('/somewhere/else')}`)).data;
+  assert.deepEqual(scoped, []);
+  // Why: on a route that does read the header, a malformed escape is a refused
+  // request, never a silent fallback to a different directory.
+  const bad = await request('/api/session', 'POST', {}, { 'x-opencode-directory': '%E0%A4%A' });
+  assert.equal(bad.status, 400);
+  assert.equal((await bad.json())._tag, 'InvalidRequestError');
+});
+
 test('v2 history pagination stays stable across idle records', { timeout: 30_000 }, async (t) => {
   // Why: the idle record this surface appends after every turn changed the list
   // a cursor anchors on. A cursor must not skip or repeat a record, and the
