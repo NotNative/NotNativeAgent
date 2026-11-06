@@ -166,6 +166,45 @@ test('every v2 event carries the flat envelope the client reads', { timeout: 20_
   assert.ok(sessionEvents.length > 0, 'events identify their session under data.sessionID');
 });
 
+test('the config entry names the default agent and model the client folds', async (t) => {
+  // Why: the client reads `info.default_agent` and `info.model` from the config
+  // list, lowest priority first, and takes the last definition. A missing key
+  // leaves its composer with no default rather than reporting an error.
+  const { json } = await fixtureServer(t);
+  const entries = await json('/api/config');
+  assert.equal(Array.isArray(entries), true);
+  assert.equal(entries.length > 0, true);
+  const entry = entries.at(-1);
+  contract('Config.Entry', entry);
+  assert.equal(entry.info.default_agent, 'build');
+  // The client's parseModelSelection accepts `{providerID, modelID ?? model}`,
+  // which is the expanded form this surface emits.
+  assert.equal(typeof entry.info.model.providerID, 'string');
+  assert.equal(typeof entry.info.model.model, 'string');
+  assert.equal(entry.info.model.model.length > 0, true);
+});
+
+test('api/info is the readiness signal the client holds every request on', async (t) => {
+  // Why: the client's readiness gate polls `/api/info` and treats a 200 as "ready
+  // to proxy"; while it is not ready, every request is held and then answered
+  // 503. A shape change here does not degrade one route, it stops the whole
+  // surface, so the exact contract is pinned rather than assumed.
+  const { json } = await fixtureServer(t);
+  const info = await json('/api/info');
+  // The schema requires exactly these, and `paths.tmp` is the only path key.
+  assert.deepEqual(Object.keys(info).sort(), ['paths', 'pid', 'urls', 'version']);
+  assert.equal(typeof info.version, 'string');
+  assert.equal(Number.isSafeInteger(info.pid) && info.pid > 0, true);
+  assert.deepEqual(info.urls, []);
+  assert.deepEqual(Object.keys(info.paths), ['tmp']);
+  assert.equal(typeof info.paths.tmp, 'string');
+  assert.equal(info.paths.tmp.length > 0, true);
+  contract('ServerInfo', info);
+  // A version the readiness gate would reject must never be reported.
+  const major = Number(info.version.split('.')[0]);
+  assert.equal(major, 2, 'the readiness gate refuses any major other than 2');
+});
+
 test('the reported version satisfies the OpenChamber compatibility gate', async (t) => {
   // Why: OpenChamber refuses a server whose major is not 2 or whose version is
   // below its own minimum. This test pins the rule rather than the literal, so a
