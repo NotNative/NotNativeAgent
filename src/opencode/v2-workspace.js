@@ -33,9 +33,8 @@ export function createV2Workspace(operations, options) {
     async synthetic(id, body) { return admitWithModel(context, requireState(id), { ...body, synthetic: true }); },
     // Compatibility: staging a revert names a user message. The engine's revert
     // is journal-backed, so the reverted turns are hidden rather than destroyed
-    // and a clear brings them back.
-    revert(id, body) { requireState(id); return stageRevert(operations, id, body); },
-    async unrevert(id) { requireState(id); await operations.unrevert(id); },
+    // and a clear brings them back. See runRevert for the boundary bookkeeping.
+    ...revertApi(requireState, operations),
     select(id, reference) { return selectModel(context, requireState(id), reference); },
     async interrupt(id) {
       const state = requireState(id);
@@ -148,6 +147,32 @@ function admitPrompt(state, body, operations, options) {
     state.pending.add(settled);
     return { ...receipt, ...(synthetic ? { type: 'synthetic' } : {}) };
   } catch (error) { state.inputs.delete(id); throw error; }
+}
+
+/** The revert surface: stage a boundary, clear it, or keep it.
+ *
+ *  Compatibility: staging names a user message, which is translated to the
+ *  engine's own request id by the operations layer. The engine's revert is
+ *  journal-backed, so reverted turns are hidden rather than destroyed. */
+function revertApi(requireState, operations) {
+  return {
+    revert(id, body) { return runRevert(requireState(id), 'stage', () => stageRevert(operations, id, body)); },
+    unrevert(id) { return runRevert(requireState(id), 'clear', () => operations.unrevert(id)); },
+    commitRevert(id) {
+      const state = requireState(id);
+      return runRevert(state, 'commit', () => operations.commitRevert(id, state.revertBoundary));
+    },
+  };
+}
+
+/** Run one revert step and keep the session's staged boundary in step with it.
+ *
+ *  A stage records the boundary so a later commit can name it without the client
+ *  repeating it; a clear or commit ends the staged state. */
+async function runRevert(state, step, run) {
+  const result = await run();
+  state.revertBoundary = step === 'stage' ? result.boundary : null;
+  return result;
 }
 
 /** Validate a staged revert before the engine sees it.

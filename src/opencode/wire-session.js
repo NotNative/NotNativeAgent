@@ -16,7 +16,7 @@ const MAX_PROMPT_PARTS = 128;
 const DEFAULT_PART_TEXT_ALLOWANCE = physicalWireAllowance(65_536);
 const ZERO_TOKENS = Object.freeze({ total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } });
 
-export function createWireSession({ record, bus, info, version }) {
+export function createWireSession({ record, bus, info, version, publishV2 = null }) {
   const state = {
     sessionID: record.ocId,
     directory: record.directory ?? '',
@@ -42,6 +42,10 @@ export function createWireSession({ record, bus, info, version }) {
     observe(record) { observeEngineRecord(state, record); },
     // Resolve the engine request id a wire message id was admitted under.
     requestIdFor(messageID) { return state.requestIdByMessage.get(messageID) ?? null; },
+    // Why: timeline mutations happen outside a turn, so they cannot ride the
+    // per-turn cadence. They still have to reach the v2 event stream the client
+    // renders revert state from, which is a separate stream from the v1 bus.
+    publishV2(type, properties) { publishV2?.(state, type, properties); },
     prompt(parts) { return admit(state, parts).response; },
     admit(parts, input = {}) { return admit(state, parts, input); },
     abort() { return abortPending(state); },

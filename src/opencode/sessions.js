@@ -95,24 +95,23 @@ function defineWorkspaceOperations(workspace, options) {
   };
 }
 
-async function attachSession(workspace, options, { title, directory, ocId: requestedId, runtimeDirectory, metadata, runtimeConfig, runtimeRef }) {
-  const { registry, bus, wiredVersion } = workspace;
-  const sessionId = newId('session');
-  const ocId = requestedId ?? newId('ses');
-  const sessionDirectory = directory ?? options.directory ?? '';
-  const projectID = projectIdentifier(sessionDirectory);
-  let wireSession = null;
-  const engine = new SessionEngine({
+/** The engine options one wired session runs with.
+ *
+ *  Why a builder: these are the surface's engine policy — auto-review with no
+ *  permission-card transport, canonical ingress only, and workspace scope fixed
+ *  at creation. Keeping them in one place makes that policy readable. */
+function engineOptions({ options, workspace, sessionId, ocId, sessionDirectory, projectID, runtimeDirectory, runtimeConfig, observe }) {
+  return {
     config: runtimeConfig ?? (runtimeDirectory ? Object.freeze({ ...options.config, workspaceRoot: runtimeDirectory }) : options.config),
     sessionId,
     surface: SURFACE_NAME,
     output: async (record) => {
       if (record.type === 'turn_result') workspace.v2?.captureFailure(ocId, record.failure?.code);
-      wireSession?.observe(record);
+      observe(record);
       options.logger?.record(record, { sessionId });
     },
     questionBroker: attachQuestionVoice(workspace, { ocId, sessionId, directory: sessionDirectory, projectID },
-      options, (record) => wireSession?.observe(record)),
+      options, observe),
     permissionBroker: false,
     reviewPosture: 'auto-review',
     storeRoot: options.storeRoot,
@@ -121,7 +120,33 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
     semanticReviewer: options.semanticReviewer,
     scheduler: options.scheduler,
     secretBroker: options.secretBroker,
-  });
+  };
+}
+
+/** A publisher onto the v2 event stream for one session.
+ *
+ *  Why: timeline mutations happen outside a turn and must reach the stream the
+ *  client renders from, which is separate from the v1 wire bus this session uses
+ *  for turn cadence. The v2 state is looked up by its own id at publish time, so
+ *  an event raised before the workspace attached the state is simply skipped. */
+function v2Publisher(workspace, ocId) {
+  return (_state, type, properties) => {
+    const v2State = workspace.v2?.states?.get(ocId);
+    if (v2State) workspace.v2.events.emit(v2State, type, properties, false);
+  };
+}
+
+async function attachSession(workspace, options, { title, directory, ocId: requestedId, runtimeDirectory, metadata, runtimeConfig, runtimeRef }) {
+  const { registry, bus, wiredVersion } = workspace;
+  const sessionId = newId('session');
+  const ocId = requestedId ?? newId('ses');
+  const sessionDirectory = directory ?? options.directory ?? '';
+  const projectID = projectIdentifier(sessionDirectory);
+  let wireSession = null;
+  const engine = new SessionEngine(engineOptions({
+    options, workspace, sessionId, ocId, sessionDirectory, projectID, runtimeDirectory, runtimeConfig,
+    observe: (record) => wireSession?.observe(record),
+  }));
   await engine.initialize({ deferMcp: true });
   const record = {
     ocId,
@@ -136,6 +161,7 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
   };
   wireSession = createWireSession({
     record, bus, version: wiredVersion,
+    publishV2: v2Publisher(workspace, ocId),
     info: () => {
       const stored = registry.get(ocId);
       const touched = registry.touch(ocId) ?? stored;
@@ -183,13 +209,27 @@ function requireSession(workspace, ocId) {
  *
  *  The client names the message it admitted; the engine resolves a boundary by
  *  its own request id. An id this session never admitted is a missing message,
- *  not a surface failure, and the answer names the id the client sent. */
+ *  not a surface failure, and the answer names the id the client sent.
+ *
+ *  Compatibility: the client renders a staged revert from `session.revert.staged`
+ *  and its `data.revert`; the engine mutates its timeline silently, so the event
+ *  is what makes the revert visible at all. */
 async function stageWireRevert(session, body) {
   const messageID = body?.messageID;
   const requestId = session.wireSession.requestIdFor(messageID);
   if (!requestId) throw apiError(404, 'MessageNotFoundError', 'Message was not found', { messageID });
   const result = await runDesktopSessionRevert(session.timeline, { messageID: requestId });
+  publishRevert(session, 'session.revert.staged', { sessionID: session.ocId, revert: { messageID } });
   return { boundary: messageID, revertedTurns: result.reverted_turn_ids.length };
+}
+
+/** Announce a timeline mutation on the stream the client renders from.
+ *
+ *  Why v2 events and not the v1 wire bus: the client's revert state comes from
+ *  its own event stream, which is `createV2Events`. Publishing on the wire bus
+ *  would reach the legacy `/global/event` subscribers and nothing else. */
+function publishRevert(session, type, properties) {
+  session.wireSession.publishV2(type, properties);
 }
 
 function turnOperations(workspace) {
@@ -211,7 +251,17 @@ function turnOperations(workspace) {
      *  staging a boundary the engine would not find. */
     revert(ocId, body) { return stageWireRevert(requireSession(workspace, ocId), body); },
     async unrevert(ocId) {
-      await runDesktopSessionUnrevert(requireSession(workspace, ocId).timeline);
+      const session = requireSession(workspace, ocId);
+      await runDesktopSessionUnrevert(session.timeline);
+      // Compatibility: the client clears its staged revert on this event.
+      publishRevert(session, 'session.revert.cleared', { sessionID: session.ocId });
+    },
+    /** Keep a staged revert: the client drops its staged state and the turns it
+     *  hid stay hidden. The engine's marker stays, so the timeline projection is
+     *  unchanged; only the client's affordance to clear it goes away. */
+    async commitRevert(ocId, messageID) {
+      const session = requireSession(workspace, ocId);
+      publishRevert(session, 'session.revert.committed', { sessionID: session.ocId, to: messageID });
     },
     async messages(ocId) {
       const session = requireSession(workspace, ocId);

@@ -89,6 +89,9 @@ async function sessionRoute(ctx, segments) {
   if (action === 'revert' && segments.length === 2 && method === 'DELETE') {
     await api.unrevert(id); return sendNoContent(res);
   }
+  if (action === 'revert' && segments.length === 3 && segments[2] === 'commit' && method === 'POST') {
+    await api.commitRevert(id); return sendNoContent(res);
+  }
   throw apiError(404, 'InvalidRequestError', 'This session operation is not supported');
 }
 

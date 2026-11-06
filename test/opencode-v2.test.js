@@ -195,6 +195,55 @@ test('v2 stages a revert at a client message and clears it again', { timeout: 30
   assert.equal((await request(`/api/session/${session.id}/revert/stage`, 'POST', { messageID: 'msg_r1', files: 'yes' })).status, 400);
 });
 
+test('v2 announces staged, cleared and committed reverts on the event stream', { timeout: 30_000 }, async (t) => {
+  // Why: the client renders revert state only from these events. The engine
+  // mutates its timeline silently, so without them a revert happened on the
+  // server and the GUI never showed it.
+  const { json, request, runtime } = await fixtureServer(t, { config: resolveManifest({ persistence: 'durable', provider: {
+    id: 'test', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback' } }) });
+  const session = (await json('/api/session', 'POST', {})).data;
+  await json(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_rv', text: 'first' });
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+
+  const controller = new AbortController(); t.after(() => controller.abort());
+  const response = await fetch(`${runtime.url}/api/event`, { signal: controller.signal });
+  const reader = response.body.getReader(); const decoder = new TextDecoder();
+  const events = []; let buffer = '';
+  const collected = (async () => {
+    try {
+      for (;;) {
+        const chunk = await reader.read(); if (chunk.done) return;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        let end;
+        while ((end = buffer.indexOf('\n\n')) >= 0) {
+          const block = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+          const data = block.split('\n').find((line) => line.startsWith('data: '));
+          if (data) events.push(JSON.parse(data.slice(6)));
+        }
+      }
+    } catch { /* the reader is cancelled when the test ends */ }
+  })();
+
+  assert.equal((await request(`/api/session/${session.id}/revert/stage`, 'POST', { messageID: 'msg_rv' })).status, 200);
+  const staged = await waitForEvent(events, 'session.revert.staged');
+  assert.equal(staged.data.sessionID, session.id);
+  // The client sets session.info[id].revert from this payload.
+  assert.deepEqual(staged.data.revert, { messageID: 'msg_rv' });
+
+  assert.equal((await request(`/api/session/${session.id}/revert`, 'DELETE')).status, 204);
+  const cleared = await waitForEvent(events, 'session.revert.cleared');
+  assert.equal(cleared.data.sessionID, session.id);
+
+  // A commit keeps the revert and drops the client's staged affordance.
+  assert.equal((await request(`/api/session/${session.id}/revert/stage`, 'POST', { messageID: 'msg_rv' })).status, 200);
+  assert.equal((await request(`/api/session/${session.id}/revert/commit`, 'POST')).status, 204);
+  const committed = await waitForEvent(events, 'session.revert.committed');
+  assert.equal(committed.data.sessionID, session.id);
+  assert.equal(committed.data.to, 'msg_rv');
+  await controller.abort();
+  await collected;
+});
+
 test('a revert on an ephemeral session is refused rather than faked', { timeout: 20_000 }, async (t) => {
   // Invariant: the engine's revert needs a journal. A surface that answered 200
   // here would claim to have hidden a turn it cannot restore.
