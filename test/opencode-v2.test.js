@@ -980,6 +980,44 @@ test('the published client reads and writes every record this surface exposes', 
   await client.session.remove({ sessionID: session.id });
 });
 
+test('the published client reads a message, interrupts, and settles a form', { skip: !process.env.NNA_OPENCODE_CLIENT_MODULE, timeout: 30_000 }, async (t) => {
+  // Why through the client: `message.get` and the form routes have the most call
+  // sites in OpenChamber, and their response shapes are asserted by the client's
+  // own schemas. Hand-written requests have already missed two such mismatches.
+  const { OpenCode } = await import(pathToFileURL(process.env.NNA_OPENCODE_CLIENT_MODULE).href);
+  const provider = new QuestionProvider();
+  const { runtime, root } = await fixtureServer(t, { providerFactory: () => provider });
+  const client = OpenCode.make({ baseUrl: runtime.url, headers: { 'x-opencode-directory': encodeURIComponent(root) } });
+  const session = await client.session.create({ title: 'Forms' });
+
+  await client.session.prompt({ sessionID: session.id, id: 'msg_form01', text: 'ask me' });
+  // A single message read is what a tool completion uses to finish a call.
+  const asked = await client.session.message.get({ sessionID: session.id, messageID: 'msg_form01' });
+  assert.equal(asked.id, 'msg_form01');
+
+  // The pending form is readable both for the session and globally. These routes
+  // unwrap to `value.data`, so the list is the array itself.
+  let form = null;
+  for (let attempt = 0; attempt < 100 && !form; attempt += 1) {
+    const pending = await client.session.form.list({ sessionID: session.id });
+    form = pending[0] ?? null;
+    if (!form) await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.ok(form, 'a parked question becomes a pending form');
+  assert.equal(form.sessionID, session.id);
+  assert.equal((await client.session.form.get({ sessionID: session.id, formID: form.id })).id, form.id);
+
+  // Answering settles it through the same authenticated ingress as a prompt.
+  await client.session.form.reply({ sessionID: session.id, formID: form.id, answer: { question_0: 'stable' } });
+  await client.session.wait({ sessionID: session.id });
+  assert.deepEqual(await client.session.form.list({ sessionID: session.id }), []);
+
+  // Interrupt on an idle session is an honest no-op.
+  const idle = await client.session.interrupt({ sessionID: session.id });
+  assert.equal(idle.interrupted, false);
+  await client.session.remove({ sessionID: session.id });
+});
+
 test('the published client stages and clears a revert', { skip: !process.env.NNA_OPENCODE_CLIENT_MODULE, timeout: 20_000 }, async (t) => {
   // Why through the published client: the revert path translates a message id
   // into the engine's request id, and only the client proves it sends the id
