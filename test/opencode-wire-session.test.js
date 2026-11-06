@@ -88,6 +88,10 @@ test('OpenCode publishes scoped compaction lifecycle without altering assistant 
   assert.ok(events.every((frame) => frame.properties.sessionID === 'ses_t' && frame.properties.turnID === 'turn_a'));
   assert.equal(events[1].properties.afterEstimatedTokens, 600);
   assert.equal(response.parts.find((part) => part.type === 'text').text, 'Answer');
+  // Compatibility: a client announces a finished compaction only from
+  // session.compaction.ended, and only a settled compaction counts as one.
+  const ended = bus.frames.filter((frame) => frame.type === 'session.compaction.ended');
+  assert.deepEqual(ended.map((frame) => frame.properties.sessionID), ['ses_t', 'ses_t']);
 });
 
 test('prompts while busy queue their durable events at admit time and serialize turns', async () => {

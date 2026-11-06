@@ -9,6 +9,12 @@ export function observeV1Event(state, event, events) {
     // Compatibility: preserve the native v2 event envelope while keeping this
     // NNA extension outside OpenCode's standard message-part contract.
     events.emit(state, type, { ...value }, false);
+    // A client announces a finished compaction from `session.compaction.ended`
+    // and has no case for the extension above, so without this the compaction
+    // never reaches the transcript.
+    if (state.active && (value.status === 'completed' || value.status === 'failed')) {
+      events.emit(state, 'session.compaction.ended', { sessionID: state.info.id }, false);
+    }
     return;
   }
   if (type.startsWith('question.')) return observeForm(state, type, value, events);

@@ -62,6 +62,13 @@ function observeEngineRecord(state, record) {
       contextWindowTokens: record.context_window_tokens ?? null,
       inputGrowthTokens: record.input_growth_tokens ?? null,
     });
+    // Compatibility: a v2 client announces a finished compaction from
+    // `session.compaction.ended` and has no case for the NNA extension above, so
+    // a compaction would otherwise never reach the transcript. Only a settled
+    // compaction is announced; a skipped or in-flight one did not compact.
+    if (record.status === 'completed' || record.status === 'failed') {
+      publishBare(state, 'session.compaction.ended', { sessionID: state.sessionID });
+    }
     return;
   }
   if (record?.type === 'stream_delta' && state.active) {

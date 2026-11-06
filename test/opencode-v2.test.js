@@ -14,15 +14,36 @@ const fixture = JSON.parse(await readFile(new URL('./fixtures/opencode/v2-schema
 
 test('v2 projects scoped compaction lifecycle as a live extension event', () => {
   const emitted = [];
-  const state = { info: { id: 'ses_a' } };
+  const state = { info: { id: 'ses_a' }, active: { assistantId: 'msg_a' } };
   observeV1Event(state, { type: 'nna.context.compaction', properties: {
     sessionID: 'ses_a', turnID: 'turn_a', status: 'completed',
     beforeEstimatedTokens: 30_000, afterEstimatedTokens: 18_000,
   } }, { emit: (_state, type, data, durable) => emitted.push({ type, data, durable }) });
-  assert.deepEqual(emitted, [{ type: 'nna.context.compaction', data: {
-    sessionID: 'ses_a', turnID: 'turn_a', status: 'completed',
-    beforeEstimatedTokens: 30_000, afterEstimatedTokens: 18_000,
-  }, durable: false }]);
+  assert.deepEqual(emitted, [
+    { type: 'nna.context.compaction', data: {
+      sessionID: 'ses_a', turnID: 'turn_a', status: 'completed',
+      beforeEstimatedTokens: 30_000, afterEstimatedTokens: 18_000,
+    }, durable: false },
+    // Compatibility: a client announces a finished compaction only from this
+    // event and has no case for the extension above.
+    { type: 'session.compaction.ended', data: { sessionID: 'ses_a' }, durable: false },
+  ]);
+});
+
+test('v2 announces only a settled compaction, and only during a turn', () => {
+  const run = (status, active) => {
+    const emitted = [];
+    observeV1Event({ info: { id: 'ses_a' }, ...(active ? { active: { assistantId: 'msg_a' } } : {}) },
+      { type: 'nna.context.compaction', properties: { sessionID: 'ses_a', status } },
+      { emit: (_state, type) => emitted.push(type) });
+    return emitted;
+  };
+  // An in-flight or skipped compaction did not compact, so it is not announced.
+  assert.deepEqual(run('started', true), ['nna.context.compaction']);
+  assert.deepEqual(run('skipped', true), ['nna.context.compaction']);
+  // A settled compaction outside a live turn has no transcript to land in.
+  assert.deepEqual(run('completed', false), ['nna.context.compaction']);
+  assert.deepEqual(run('failed', true), ['nna.context.compaction', 'session.compaction.ended']);
 });
 
 function schemaCheck(value, schema) {
