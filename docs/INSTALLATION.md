@@ -65,6 +65,10 @@ When Node.js 24 or newer is unavailable, they download the latest official Node.
 prebuilt archive from `nodejs.org`, match it against the release's `SHASUMS256.txt`, and
 install it inside the per-user NotNativeAgent application directory. The generated
 launcher is bound to the validated executable; it does not silently switch runtimes later.
+An upgrade in place refreshes the recorded runtime pin before it inspects the previous
+release, so a Node.js major upgrade behind the same executable path does not block
+reinstallation. An installed identity accepts a newer supported runtime than its recorded
+pin and reports the runtime it actually verified.
 
 The installers also detect the optional `rg` executable. When it is absent during an
 interactive install, they explain that native search remains functional and offer to install

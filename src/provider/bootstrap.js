@@ -35,9 +35,10 @@ export async function providerBootstrapStatus(paths) {
     if (error.code === 'ENOENT') return { configured: false };
     throw error;
   }
-  resolveManifest(manifest);
-  const providers = Array.isArray(manifest.providers) ? manifest.providers : manifest.provider ? [manifest.provider] : [];
-  return { configured: providers.length > 0, count: providers.length };
+  // Why: the resolved manifest owns both the legacy provider record and the connection and
+  // selection records that replaced it, so one count reports a usable profile in either shape.
+  const count = Object.keys(resolveManifest(manifest).connectionRecords ?? {}).length;
+  return { configured: count > 0, count };
 }
 
 export async function discoverProviderModels(endpoint, key = '', options = {}) {

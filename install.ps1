@@ -96,6 +96,29 @@ function Stop-OpencodeServiceBeforePayloadReplacement([string]$SelectedNode, [st
     } finally { $env:NNA_HOME = $PriorNnaHome }
 }
 
+function Sync-ExistingRuntimePin([string]$SelectedNode, [int]$SelectedMajor, [string]$SelectedInstallRoot, [string]$SelectedDataRoot) {
+    # Why: an operator-side Node upgrade changes the runtime behind the descriptor's node path.
+    # The existing release validates that pin before it can inspect or stop its desktop service,
+    # so the installer refreshes only the runtime fields it records again after payload
+    # replacement. Every other descriptor field remains for the existing release to verify.
+    $DescriptorPath = Join-Path $SelectedInstallRoot 'install.json'
+    if (-not (Test-Path -LiteralPath $DescriptorPath -PathType Leaf)) { return $false }
+    try { $Descriptor = Get-Content -LiteralPath $DescriptorPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch { return $false }
+    if ($null -eq $Descriptor -or [string]$Descriptor.product -ne $Product) { return $false }
+    $RecordedRoot = try { [IO.Path]::GetFullPath([string]$Descriptor.install_root).TrimEnd('\') } catch { '' }
+    $RecordedData = try { [IO.Path]::GetFullPath([string]$Descriptor.data_root).TrimEnd('\') } catch { '' }
+    if (-not $RecordedRoot -or -not $RecordedData -or
+        $RecordedRoot -ine $SelectedInstallRoot.TrimEnd('\') -or $RecordedData -ine $SelectedDataRoot.TrimEnd('\')) { return $false }
+    $RecordedMajor = 0
+    $HasMajor = [int]::TryParse([string]$Descriptor.node_major, [ref]$RecordedMajor)
+    if ([string]$Descriptor.node -ieq $SelectedNode -and $HasMajor -and $RecordedMajor -eq $SelectedMajor) { return $false }
+    $Descriptor.node = $SelectedNode
+    $Descriptor.node_major = $SelectedMajor
+    [IO.File]::WriteAllText($DescriptorPath, ($Descriptor | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+    Write-InstallerStep "Refreshed the existing installation's Node.js runtime pin to v$SelectedMajor before desktop inspection" | Out-Host
+    return $true
+}
+
 function Stop-DesktopBeforePayloadReplacement([string]$SelectedNode, [string]$SelectedInstallRoot, [string]$SelectedDataRoot) {
     if (-not (Test-Path -LiteralPath (Join-Path $SelectedDataRoot 'config\desktop-package.json'))) { return $false }
     $SelectedCli = Join-Path $SelectedInstallRoot 'installed\src\cli.js'
@@ -574,6 +597,7 @@ try {
         if (-not (Test-Path -LiteralPath $ExistingPackagePath)) { throw 'Refusing to replace an unmarked version directory.' }
         $ExistingPackage = Get-Content -LiteralPath $ExistingPackagePath -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($ExistingPackage.name -ne 'not-native-agent') { throw 'Refusing to replace a foreign version directory.' }
+        Sync-ExistingRuntimePin $NodePath $NodeMajor $InstallRoot $DataRoot | Out-Null
         $DesktopStoppedForUpgrade = Stop-DesktopBeforePayloadReplacement $NodePath $InstallRoot $DataRoot
         $GatewayStoppedForUpgrade = Stop-GatewayBeforePayloadReplacement $NodePath (Join-Path $SourceRoot 'src\cli.js') $DataRoot
         $OpencodeStoppedForUpgrade = Stop-OpencodeServiceBeforePayloadReplacement $NodePath (Join-Path $SourceRoot 'src\cli.js') $DataRoot

@@ -2,7 +2,7 @@
 import test from 'node:test';
 import { createScratchSync } from './scratch.js';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -36,6 +36,27 @@ test('installer provider bootstrap discovers, encrypts, binds, and then skips an
   assert.equal(await loadManagedProviderCredentials(paths, {}), 0);
   assert.deepEqual(await providerBootstrapStatus(paths), { configured: true, count: 1 });
   assert.equal((await configureInitialProvider(paths, { endpoint: 'http://elsewhere/v1', model: 'other', key: '' })).skipped, true);
+});
+
+test('installer provider status recognizes a connection and selection profile', async () => {
+  const root = createScratchSync('nna-provider-connections-');
+  const paths = providerPaths(root);
+  await mkdir(paths.config, { recursive: true });
+  await writeFile(join(paths.config, 'manifest.json'), `${JSON.stringify({
+    format_version: 2, manifest_connection_version: 1, persistence: 'durable',
+    connections: [
+      { id: 'lan', display_name: 'LAN box', endpoint: 'http://127.0.0.1:1234/v1', trust_zone: 'loopback' },
+      { id: 'remote', display_name: 'Remote', endpoint: 'https://provider.example/v1', trust_zone: 'public_network' },
+    ],
+    model_selections: [
+      { id: 'big', connection_id: 'lan', model: 'glm' },
+      { id: 'fast', connection_id: 'remote', model: 'spark' },
+    ],
+    routes: { primary: { selection_id: 'big', model: 'glm' } },
+  }, null, 2)}\n`);
+  // Why: ADR 0074 replaced the provider record with connections and selections. The installer
+  // must not ask for a provider profile an existing installation already owns.
+  assert.deepEqual(await providerBootstrapStatus(paths), { configured: true, count: 2 });
 });
 
 test('installer provider bootstrap supports providers without authentication', async () => {

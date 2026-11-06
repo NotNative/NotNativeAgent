@@ -8,6 +8,8 @@ import { ContractError } from './ids.js';
 import { isDesktopVersion } from './desktop-service-contract.js';
 
 const LIMIT = 16 * 1024;
+const MIN_NODE_MAJOR = 24;
+const MAX_NODE_MAJOR = 100;
 const PROBE = 'JSON.stringify({version:process.versions.node,architecture:process.arch,platform:process.platform})';
 const execute = promisify(execFile);
 function fail(code, message) { throw new ContractError(code, message); }
@@ -67,7 +69,7 @@ async function jsonFile(path, code) {
 function validateDescriptor(value) {
   if (value.product !== 'NotNativeAgent' || !isDesktopVersion(value.version)
     || !absolutePath(value.install_root) || !absolutePath(value.data_root) || !absolutePath(value.node)
-    || !Number.isSafeInteger(value.node_major) || value.node_major < 24 || value.node_major > 100
+    || !Number.isSafeInteger(value.node_major) || value.node_major < MIN_NODE_MAJOR || value.node_major > MAX_NODE_MAJOR
     || (value.incarnation_id !== undefined
       && !(typeof value.incarnation_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value.incarnation_id)))) {
     fail('desktop_install_descriptor_invalid', 'NNA installation descriptor fields are invalid');
@@ -86,7 +88,7 @@ async function installedFiles(root, descriptor) {
   }
   return cli;
 }
-async function probeNode(node, major) {
+async function probeNode(node, recordedMajor) {
   let output;
   try {
     // Security: Node startup hooks from the operator environment cannot run during descriptor verification.
@@ -98,12 +100,21 @@ async function probeNode(node, major) {
   try { runtime = JSON.parse(output.stdout); }
   catch { fail('desktop_install_runtime_invalid', 'Selected Node runtime returned invalid metadata'); }
   if (!runtime || typeof runtime.version !== 'string' || !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/u.test(runtime.version)
-    || Number(runtime.version.split('.')[0]) !== major || !['x64', 'arm64'].includes(runtime.architecture)
+    || !['x64', 'arm64'].includes(runtime.architecture)
     || runtime.platform !== process.platform || output.stderr.trim()) {
+    fail('desktop_install_runtime_invalid', 'Selected Node runtime does not match the installation descriptor');
+  }
+  const actualMajor = runtimeMajor(runtime.version);
+  // Compatibility: an installation records the runtime major it was admitted with, while an
+  // operator can upgrade Node in place behind the same executable path. A newer supported runtime
+  // therefore stays valid evidence; an older one does not, because the installation was never
+  // verified on it. The supported bound still limits which runtime may run the desktop service.
+  if (actualMajor < recordedMajor || actualMajor > MAX_NODE_MAJOR) {
     fail('desktop_install_runtime_invalid', 'Selected Node runtime does not match the installation descriptor');
   }
   return runtime;
 }
+function runtimeMajor(version) { return Number(version.split('.')[0]); }
 // Compatibility: identities follow canonical paths. Relocation changes identity; no installed files are written.
 export async function readDesktopServiceIdentity(selectedInstallRoot, options = {}) {
   const root = await canonicalDirectory(selectedInstallRoot, 'desktop_install_root_invalid');
@@ -129,6 +140,7 @@ export async function readDesktopServiceIdentity(selectedInstallRoot, options = 
   return Object.freeze({ installation_id: `nna_${digest(root)}`, data_id: `data_${digest(data)}`,
     incarnation_id: typeof descriptor.incarnation_id === 'string' ? descriptor.incarnation_id : null,
     install_root: root, data_root: data, node, cli_path: cli, version: descriptor.version,
-    node_major: descriptor.node_major, platform: runtime.platform, architecture: runtime.architecture,
+    // The verified runtime major, not the recorded floor: a host manifest must declare what runs.
+    node_major: runtimeMajor(runtime.version), platform: runtime.platform, architecture: runtime.architecture,
     runtime_version: runtime.version });
 }

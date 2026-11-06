@@ -49,7 +49,7 @@ test('missing and malformed selected descriptors fail closed', async (t) => {
 });
 test('invalid metadata, caller data mismatch and unsafe data location fail before executable probing', async (t) => {
   const f = await fixture(t);
-  for (const patch of [{ product: 'Other' }, { version: '1.0.0' }, { node_major: 22 }, { node_major: '24' },
+  for (const patch of [{ product: 'Other' }, { version: '1.0.0' }, { node_major: 22 }, { node_major: 101 }, { node_major: '24' },
     { data_root: 'relative' }, { node: 'node.exe' }, { install_root: null }]) {
     await f.save({ ...f.descriptor, ...patch });
     await assert.rejects(readDesktopServiceIdentity(f.root), { code: 'desktop_install_descriptor_invalid' });
@@ -73,14 +73,26 @@ test('package versions and missing CLI are rejected before selected runtime is p
   await rm(join(f.root, 'installed', 'src', 'cli.js'));
   await assert.rejects(readDesktopServiceIdentity(f.root), { code: 'desktop_install_payload_invalid' });
 });
-test('selected external Node is checked against actual runtime major and cannot run environment startup hooks', async (t) => {
+test('selected external Node must satisfy the recorded runtime floor and cannot run environment startup hooks', async (t) => {
   const f = await fixture(t);
+  const actual = Number(process.versions.node.split('.')[0]);
   const original = process.env.NODE_OPTIONS;
   process.env.NODE_OPTIONS = '--require=nonexistent-desktop-identity-hook';
-  try { assert.equal((await readDesktopServiceIdentity(f.root)).runtime_version, process.versions.node); }
-  finally { if (original === undefined) delete process.env.NODE_OPTIONS; else process.env.NODE_OPTIONS = original; }
-  await f.save({ ...f.descriptor, node_major: f.descriptor.node_major + 1 });
+  try {
+    const verified = await readDesktopServiceIdentity(f.root);
+    assert.equal(verified.runtime_version, process.versions.node);
+    assert.equal(verified.node_major, actual, 'the verified runtime major is reported, not the recorded floor');
+  } finally { if (original === undefined) delete process.env.NODE_OPTIONS; else process.env.NODE_OPTIONS = original; }
+  await f.save({ ...f.descriptor, node_major: actual + 1 });
   await assert.rejects(readDesktopServiceIdentity(f.root), { code: 'desktop_install_runtime_invalid' });
+  // Compatibility: an operator-side Node upgrade leaves the recorded major behind while the
+  // executable serves a newer supported runtime; that installation must stay inspectable.
+  if (actual > 24) {
+    await f.save({ ...f.descriptor, node_major: actual - 1 });
+    const upgraded = await readDesktopServiceIdentity(f.root);
+    assert.equal(upgraded.node_major, actual);
+    assert.equal(upgraded.runtime_version, process.versions.node);
+  }
   await f.save({ ...f.descriptor, node: join(f.root, 'installed', 'src', 'cli.js') });
   await assert.rejects(readDesktopServiceIdentity(f.root), { code: 'desktop_install_runtime_invalid' });
   await f.save({ ...f.descriptor, node: join(f.temp, 'node.exe') });
