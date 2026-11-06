@@ -166,6 +166,25 @@ test('every v2 event carries the flat envelope the client reads', { timeout: 20_
   assert.ok(sessionEvents.length > 0, 'events identify their session under data.sessionID');
 });
 
+test('the agent catalog contains exactly the build agent every send names', async (t) => {
+  // Why: before a send, the client looks the requested agent up in this catalog
+  // and throws AgentUnavailableError when the catalog is non-empty and lacks it.
+  // Advertising an extra agent would therefore be harmless, but advertising a
+  // different id than the one sessions and prompts use would block every send.
+  const { json, request } = await fixtureServer(t);
+  const agents = (await json('/api/agent')).data;
+  assert.equal(Array.isArray(agents), true);
+  assert.deepEqual(agents.map((agent) => agent.id), ['build']);
+  assert.equal(agents[0].mode, 'primary');
+  assert.equal(agents[0].hidden, false);
+  contract('Agent.Info', agents[0]);
+  // The single-agent route answers the same record.
+  const single = (await json('/api/agent/build')).data;
+  assert.equal(single.id, 'build');
+  // An unknown agent is a refusal, not an empty record.
+  assert.equal((await request('/api/agent/other')).status, 404);
+});
+
 test('the config entry names the default agent and model the client folds', async (t) => {
   // Why: the client reads `info.default_agent` and `info.model` from the config
   // list, lowest priority first, and takes the last definition. A missing key
