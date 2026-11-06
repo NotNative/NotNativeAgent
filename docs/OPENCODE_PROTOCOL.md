@@ -83,6 +83,13 @@ Directory-scoped reads accept `location[directory]` or the URI-encoded
 `x-opencode-directory` header used by OpenChamber. All routes, including discovery
 and streaming, retain the existing configured Basic authentication gate.
 
+The Basic auth username is fixed to `opencode`. OpenChamber builds its upstream
+credential as `opencode:<password>` in `auth-state-runtime.js` and explicitly
+ignores `OPENCODE_SERVER_USERNAME`, so any other username is an authentication
+the client can never satisfy. Configuration therefore refuses one with
+`opencode_username_unsupported` instead of leaving an operator with an
+unexplained 401 on every request. Only the password is a choice.
+
 ## Boundaries
 
 This is the NNA text-chat compatibility surface, not the entire OpenCode server.

@@ -43,8 +43,14 @@ test('the binding carries the password and never the default username', () => {
   assert.equal(binding.OPENCODE_SKIP_START, 'true');
   assert.equal(binding.OPENCODE_SERVER_PASSWORD, config.password);
   assert.equal(Object.hasOwn(binding, 'OPENCODE_SERVER_USERNAME'), false);
-  const renamed = normalizeOpenCodeConfig({ username: 'operator', password: generateOpencodePassword() });
-  assert.equal(openchamberEnvironment(renamed, 'http://127.0.0.1:4095').OPENCODE_SERVER_USERNAME, 'operator');
+  // Security: the client authenticates as `opencode` and ignores the override,
+  // so any other username is an authentication it could never satisfy. It is
+  // refused at configuration time instead of becoming an unexplained 401.
+  assert.throws(() => normalizeOpenCodeConfig({ username: 'operator', password: generateOpencodePassword() }),
+    { code: 'opencode_username_unsupported' });
+  // The builder itself still omits a default username it is handed directly.
+  const handBuilt = openchamberEnvironment({ username: 'operator', password: 'x' }, 'http://127.0.0.1:4095');
+  assert.equal(handBuilt.OPENCODE_SERVER_USERNAME, 'operator');
 });
 
 test('launcher resolution prefers an explicit path, then PATH, then the npm prefix', () => {

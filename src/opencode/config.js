@@ -12,6 +12,7 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { isIPv6 as isIPv6Address } from 'node:net';
 import { dirname } from 'node:path';
 import { ContractError } from '../ids.js';
+import { DEFAULT_BASIC_USERNAME } from './version.js';
 
 const MAX_CONFIG_BYTES = 65_536;
 const DEFAULT_BIND_PORT = 4095;
@@ -183,7 +184,16 @@ function normalizeUsername(value) {
     || /[:\r\n\u0000-\u001f]/u.test(value)) {
     throw new ContractError('opencode_username_invalid', 'opencode Basic auth username is invalid');
   }
-  return value.trim();
+  const trimmed = value.trim();
+  // Compatibility: OpenChamber builds its upstream Basic credential as
+  // `opencode:<password>` and ignores OPENCODE_SERVER_USERNAME. Any other
+  // username is an authentication the client can never satisfy, so it is
+  // refused here instead of surfacing as an unexplained 401 on every request.
+  if (trimmed !== DEFAULT_BASIC_USERNAME) {
+    throw new ContractError('opencode_username_unsupported',
+      `the OpenChamber client authenticates as "${DEFAULT_BASIC_USERNAME}" and cannot use another Basic auth username`);
+  }
+  return trimmed;
 }
 
 function normalizeOptionalSecret(value) {
