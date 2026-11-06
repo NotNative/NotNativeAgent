@@ -168,6 +168,34 @@ is what turns that into an explained wait.
 ignores `OPENCODE_SERVER_USERNAME`; see the authentication note above for where
 that is enforced.
 
+## Known gap: revert is blocked on an identifier mismatch
+
+Revert is the largest remaining gap by use: the client calls
+`session.revert.*` fifteen times, more than any other unimplemented method.
+NNA already has journal-backed revert in `src/desktop-session-revert.js`, but it
+cannot be wired to this surface as written.
+
+`resolveForkBoundary` finds the revert boundary by matching
+`item.requestId === messageId` against the engine transcript — the engine's
+`request_id`, which this surface generates as `oc_prompt_*`. The client stages a
+revert with the session message id (`msg_*`), which is stored here as
+`entry.userMessageId`. Nothing joins the two, so the engine revert never finds its
+boundary.
+
+Two ways forward, both needing review of their own:
+
+1. Pass a client-supplied message id through as the engine `request_id`, so the
+   identifiers coincide. Simplest, but it changes how requests are identified in
+   the durable journal.
+2. Keep a bounded `msg_*` → `oc_prompt_*` map per wire session and translate at
+   the revert boundary. Leaves the journal untouched; the map lives only as long
+   as the process, which matches the documented process-local lifetime of the
+   wire projections.
+
+For the same reason, `session.diff` is refused rather than approximated: NNA
+keeps no file snapshots, so it cannot answer truthfully, and the client never
+calls it anyway.
+
 ## Isolated provider configuration
 
 The managed service has its own provider configuration. It does not load or write
