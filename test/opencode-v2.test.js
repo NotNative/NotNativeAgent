@@ -371,6 +371,33 @@ test('v2 prompt admits client IDs, emits native events, and projects message his
   contract('SessionInterruptResponse', await json(`/api/session/${session.id}/interrupt`, 'POST'));
 });
 
+test('v2 history pagination stays stable across idle records', { timeout: 30_000 }, async (t) => {
+  // Why: the idle record this surface appends after every turn changed the list
+  // a cursor anchors on. A cursor must not skip or repeat a record, and the
+  // page a client walks must reach the turn boundary it is looking for.
+  const { json, request } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  for (const text of ['one', 'two', 'three']) {
+    await json(`/api/session/${session.id}/prompt`, 'POST', { text });
+    await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  }
+  const all = (await json(`/api/session/${session.id}/message?order=asc&limit=500`)).data;
+  // user, assistant, idle for each of three turns.
+  assert.equal(all.length, 9);
+  assert.equal(all.filter((message) => message.type === 'idle').length, 3);
+  const firstPage = await json(`/api/session/${session.id}/message?order=asc&limit=4`);
+  assert.equal(firstPage.data.length, 4);
+  assert.equal(firstPage.cursor.next === null, false);
+  // Why no `order` here: the cursor carries the order it was issued under, and a
+  // request that repeats it is refused rather than silently reinterpreted.
+  const secondPage = (await json(`/api/session/${session.id}/message?limit=4&cursor=${encodeURIComponent(firstPage.cursor.next)}`)).data;
+  assert.equal((await request(`/api/session/${session.id}/message?order=asc&cursor=${encodeURIComponent(firstPage.cursor.next)}`)).status, 400);
+  const walked = [...firstPage.data, ...secondPage];
+  // Invariant: walking the pages visits every record exactly once, in order.
+  assert.deepEqual(walked.map((message) => message.id), all.slice(0, walked.length).map((message) => message.id));
+  assert.equal(new Set(walked.map((message) => message.id)).size, walked.length);
+});
+
 test('v2 delivers the answer when the provider sends it in one chunk', { timeout: 20_000 }, async (t) => {
   // Why: the client builds assistant text from `session.text.delta` and has no
   // case for `session.text.started`/`session.text.ended`. A provider that
