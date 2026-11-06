@@ -202,6 +202,23 @@ For the same reason, `session.diff` is refused rather than approximated: NNA
 keeps no file snapshots, so it cannot answer truthfully, and the client never
 calls it anyway.
 
+## Client methods this surface refuses, and why that is safe
+
+The published client exposes more methods than OpenChamber calls. Measuring the
+installed bundle's own call sites separates the two:
+
+| Method | Calls in OpenChamber | Refusal is safe because |
+| --- | --- | --- |
+| `session.context` | 1 | its only caller is the session-title plugin, which wraps the read in `.then(..., () => "")` and titles from the message alone when it fails |
+| `session.command` | 2 | it needs a command catalog this surface does not have; it is a capability gap, not a contract gap |
+| `session.diff` | 0 | never called |
+| `session.environment`, `session.stats`, `session.shell`, `session.generate`, `session.background` | 0 | never called |
+
+`synthetic`, `inbox.list`, `message.get`, `form.*`, `view` and `active` are
+implemented and were re-checked through the published client: the inbox answer is
+a plain array, and a form list unwraps to the array itself rather than a `{ data }`
+wrapper.
+
 ## Revert, and the identifier join it needed
 
 Revert is wired to the engine's journal-backed timeline
