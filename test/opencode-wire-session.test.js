@@ -213,6 +213,26 @@ test('a protocol tool never appears as a tool part', async () => {
   assert.deepEqual(response.parts.map((part) => part.type), ['step-start', 'text', 'step-finish']);
 });
 
+test('a provider recovery is announced once as a scheduled retry', async () => {
+  const bus = recordingBus();
+  let release;
+  const record = makeRecord(() => new Promise((resolve) => { release = resolve; }));
+  const wireSession = freshWireSession(record, bus);
+  const pending = wireSession.prompt([{ type: 'text', text: 'recover' }]);
+  await new Promise((resolve) => setImmediate(resolve));
+  // Why: a recovering turn is still busy, so the client needs the retry status
+  // to explain the wait instead of showing a silently stalled turn.
+  wireSession.observe({ type: 'state_status', semantic_state: 'recovering' });
+  wireSession.observe({ type: 'state_status', semantic_state: 'recovering' });
+  wireSession.observe({ type: 'state_status', semantic_state: 'generating' });
+  const retries = bus.frames.filter((frame) => frame.type === 'session.retry.scheduled');
+  assert.equal(retries.length, 1);
+  assert.equal(retries[0].properties.sessionID, 'ses_t');
+  assert.match(retries[0].properties.error.message, /provider is unavailable/u);
+  release({ outcome: 'completed', text: 'done' });
+  await pending;
+});
+
 test('prompt validation rejects empty, oversized, and non-text parts before any event', async () => {
   const bus = recordingBus();
   const record = makeRecord(async () => ({ outcome: 'completed', text: '' }));

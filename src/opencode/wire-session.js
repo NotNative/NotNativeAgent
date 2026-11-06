@@ -80,6 +80,18 @@ function observeEngineRecord(state, record) {
     return;
   }
   if (record?.type === 'tool_status' && state.active) observeToolStatus(state, record);
+  // Why: NNA waits out a provider outage before retrying. Without a wire signal
+  // the client shows a bare busy status with no explanation, so an operator
+  // cannot tell a stalled turn from a recovering one.
+  if (record?.type === 'state_status' && state.active && record.semantic_state === 'recovering'
+    && state.active.retryAnnounced !== true) {
+    state.active.retryAnnounced = true;
+    publishBare(state, 'session.retry.scheduled', {
+      sessionID: state.sessionID,
+      attempt: null,
+      error: { message: 'The provider is unavailable. NNA is waiting before it retries.' },
+    });
+  }
 }
 
 // Why: a v2 transcript shows tool calls as parts of the assistant message. The
@@ -297,7 +309,7 @@ function createEntry(state, text) {
     createdAt: Date.now(), assistantCreated: null, assistantCompleted: null,
     textStart: null, textEnded: null, deltaStart: null, closedAt: null,
     assistantContent: '', finish: null, tokens: ZERO_TOKENS, response: null, aborted: false,
-    toolParts: new Map(), assistantParts: [],
+    toolParts: new Map(), assistantParts: [], retryAnnounced: false,
   };
 }
 
