@@ -43,10 +43,11 @@ export async function continueAfterTerminalDeclaration(engine, active, items, tr
     const supervised = engine.reliability.evaluateCompletion(
       active, candidate.text, engine.work?.snapshot(),
     );
-    if (supervised.disposition !== 'continue') {
-      // Why: the declaration is a typed settlement for the already-streamed answer.
-      // Generating another answer after settlement duplicates visible output and gives a
-      // later provider call an opportunity to diverge from the reviewed turn evidence.
+    // Why: a rejected declaration that names a typed terminal outcome still owns the settlement.
+    // A promise-of-action rejection has no typed outcome to trust, so it is supervised as a
+    // bounded recovery episode instead of a free bookkeeping continuation.
+    const promiseRejection = supervised.continuation === true && !active.terminalDeclaration;
+    if (supervised.disposition !== 'continue' || promiseRejection) {
       await settleStep(supervised.disposition);
       // Why: delivered text must not carry provider whitespace padding; gating above
       // already ran on the raw text, so only the payload is trimmed here.

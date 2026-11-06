@@ -12,6 +12,7 @@ import { JournalStore } from '../src/store.js';
 import { CanonicalIngress } from '../src/ingress.js';
 import { declaredSubscription } from './event-fixture.js';
 import { completionAdvisories, evaluateCompletion, requestsInput } from '../src/reliability/completion-supervisor.js';
+import { RecoverySupervisor, recoveryHint } from '../src/reliability/recovery-supervisor.js';
 
 const EMPTY_HOOK_ROOT = join(process.cwd(), '.nna-test-hooks-none');
 
@@ -82,7 +83,7 @@ test('structured terminal declarations drive disposition without treating state 
     disposition: 'needs_input', category: 'declared_input_required',
   });
   active.terminalDeclaration = { outcome: 'completed' };
-  assert.deepEqual(evaluateCompletion(active, 'The result is ready.'), {
+  assert.deepEqual(evaluateCompletion(active, 'The fix is in place. Shipping requires a version bump.'), {
     disposition: 'completed', category: 'declared_completion',
   });
 });
@@ -101,7 +102,7 @@ test('an unresolved tool failure cannot disappear behind calm prose or a complet
   });
 });
 
-test('future-action language is advisory and does not override a clean stop', () => {
+test('a narrated next action without a tool call is a supervised continuation', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
     recovery: { actions: [] }, attemptOutputLimitTokens: 32_000,
@@ -109,8 +110,8 @@ test('future-action language is advisory and does not override a clean stop', ()
   };
   const result = evaluateCompletion(active,
     'I will build the scene. Before writing it, let me verify the exact API details.');
-  assert.equal(result.disposition, 'completed');
-  assert.equal(result.category, 'settled_output');
+  assert.equal(result.disposition, 'continue');
+  assert.equal(result.category, 'unfulfilled_future_action');
   assert.ok(completionAdvisories('I will build the scene. Before writing it, let me verify the exact API details next.')
     .includes('future_action_language'));
 });
@@ -159,7 +160,86 @@ test('completion advisories recognize Markdown-wrapped future action language', 
   };
   const text = 'Node and npx are available. I\'ll **bundle everything into one self-contained `index.html`**. Setting up the build structure now.';
   assert.ok(completionAdvisories(text).includes('future_action_language'));
-  assert.equal(evaluateCompletion(active, text).disposition, 'completed');
+  assert.deepEqual(evaluateCompletion(active, text),
+    { disposition: 'continue', category: 'unfulfilled_future_action', required: true, progressEvidence: null, continuation: true,
+      hint: 'This response promised an action that follows it but ended without calling its tool. Perform that action now with one bounded tool call, then report what the evidence shows. Do not narrate the same intent a second time without acting.' });
+});
+
+test('a response that promises an action and stops without a tool call continues instead of settling', async () => {
+  class PromisingProvider {
+    async *stream(request) {
+      const answered = request.messages?.some((message) => message.role === 'assistant'
+        && typeof message.content === 'string' && message.content.includes('Let me diagnose'));
+      // Why: a step that narrates a next action but also declares a typed outcome is a
+      // deliberate stop, so the promise gate must not fire there.
+      const decided = request.messages?.some((message) => (message.tool_calls ?? [])
+        .some((call) => call.function?.name === 'turn_finish')) === true;
+      const tooled = request.messages?.some((message) => message.role === 'tool') === true;
+      if (!answered && !tooled) {
+        yield { type: 'text', text: 'Tensorfold is session 9a2aa34f. Let me diagnose that exact session.' };
+        yield { type: 'terminal', finishReason: 'stop' };
+        return;
+      }
+      if (!request.messages?.some((message) => message.role === 'tool')) {
+        yield { type: 'tool_fragment', fragments: [{
+          index: 0, id: 'diagnose-call', function: { name: 'system_time', arguments: '{}' },
+        }] };
+        yield { type: 'terminal', finishReason: 'tool_calls' };
+        return;
+      }
+      yield { type: 'text', text: 'The session failed on a provider timeout.' };
+      yield* finishCall('completed');
+    }
+  }
+  const provider = new PromisingProvider();
+  const engine = new SessionEngine({ config: config(), providerFactory: () => provider, hookRoot: EMPTY_HOOK_ROOT });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'promised-action', content: 'Why did that turn stop?' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(result.text, 'The session failed on a provider timeout.');
+  const assistant = engine.transcript.filter((item) => item.role === 'assistant');
+  assert.equal(assistant.length, 2);
+  assert.match(assistant[0].content, /Let me diagnose that exact session\.$/u);
+  // Why: the nudge was delivered as a kernel recovery hint before the tool step, and the tool
+  // step's own narration did not re-trigger the gate (its provider stop was a tool-call stop).
+  assert.equal(engine.transcript.filter((item) => item.type === 'tool_request'
+    && item.toolName !== 'turn_finish').length, 1);
+  await engine.shutdown({ version: '1.0', type: 'shutdown', request_id: 'shutdown-promised-action' });
+});
+
+test('a narrated tool step that already performed its promised action settles normally', async () => {
+  // Why: the promise gate inspects the provider's own finish reason. A step that executed a tool
+  // ends with a tool-call stop even when its closing narration reads like a promise.
+  assert.equal(evaluateCompletion({
+    finishReason: 'tool_calls', toolAssembler: { size: 1 }, unresolvedToolFailures: [], recovery: { actions: [] },
+  }, 'Now let me check the second session.').category, 'settled_output');
+});
+
+test('completion supervision continues when prose promises an action but no tool ran', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    correctableToolFailures: [], recovery: { actions: [] }, reviewerCompletion: null,
+  };
+  const promised = evaluateCompletion(active, 'Tensorfold is session 9a2aa34f. Let me diagnose that exact session.');
+  assert.equal(promised.disposition, 'continue');
+  assert.equal(promised.category, 'unfulfilled_future_action');
+  assert.equal(promised.required, true);
+  assert.match(promised.hint, /Perform that action now/u);
+  assert.equal(evaluateCompletion(active, 'Tensorfold is session 9a2aa34f.').disposition, 'completed');
+  assert.equal(evaluateCompletion(active, 'The report is ready. I will remain available for follow-up.').disposition, 'completed');
+  assert.equal(evaluateCompletion({ ...active, terminalDeclaration: { outcome: 'completed' } },
+    'The requested work is complete. I will verify the rest next.').category, 'declared_completion');
+});
+
+test('repeated unfulfilled promises exhaust the supervised episode instead of looping', () => {
+  const supervisor = new RecoverySupervisor({ localLimit: 2, ladder: ['nudge', 'nudge'] });
+  const first = supervisor.continuation('unfulfilled_future_action', null, {}, {});
+  assert.equal(first.continue, true);
+  assert.equal(first.action.action, 'nudge');
+  assert.match(recoveryHint(first.action), /Do not narrate the same intent without acting/u);
+  const second = supervisor.continuation('unfulfilled_future_action', null, {}, {});
+  assert.equal(second.continue, false);
+  assert.equal(second.exhausted, true);
 });
 
 test('legacy prose obligations cannot override a typed terminal declaration', () => {
@@ -196,7 +276,8 @@ test('completion supervision settles an explicit terminal blocker without report
 
   active.terminalDeclaration = null;
   const alternative = evaluateCompletion(active, "I can't continue with that route. I will try a different bounded operation now.");
-  assert.equal(alternative.disposition, 'completed');
+  assert.equal(alternative.disposition, 'continue');
+  assert.equal(alternative.category, 'unfulfilled_future_action');
   assert.ok(completionAdvisories("I can't continue with that route. I will try a different bounded operation now.")
     .includes('future_action_language'));
 });
@@ -927,9 +1008,7 @@ test('AC-FAIL-08 conflicting provider terminal data cannot execute tools', async
   class ConflictingProvider {
     async *stream() {
       yield { type: 'terminal', finishReason: 'stop' };
-      yield { type: 'tool_fragment', fragments: [{
-        index: 0, id: 'late-call', function: { name: 'fs_delete_file', arguments: '{}' },
-      }] };
+      yield { type: 'text', text: 'late text' };
     }
   }
   const engine = new SessionEngine({

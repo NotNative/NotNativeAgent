@@ -166,6 +166,9 @@ export function composeToolContinuationHint(items, trustedHandoff, supervisorHin
 export function resetStep(active) {
   // `active` is the single engine-owned mutable accumulator for the current turn; reset it in place
   // so lifecycle and provider callbacks retain the same authoritative identity across model steps.
+  // Invariant: a step that already executed a tool cannot be missing its tool call; the completion
+  // supervisor only nudges a step with visible text and no tool result.
+  active.callsAtStepStart = active.toolCallsInTurn ?? 0;
   const reasoningMode = active.capabilityPhase === 'action' && active.actionRepairStepPending === true
     ? 'off' : undefined;
   if (reasoningMode === 'off') active.actionRepairStepPending = false;

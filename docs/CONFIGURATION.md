@@ -84,7 +84,12 @@ admits that action only when measured context pressure has reached the full-comp
 below that tier it emits a corrective nudge instead. Schema-invalid tool arguments receive
 schema-correction guidance rather than context reduction, because compaction cannot repair a
 malformed request. Provider-reported context-limit failures retain their dedicated compaction
-and retry path.
+and retry path. A model response that narrates a next action ("Let me inspect that session")
+and then stops without calling a tool is supervised as `unfulfilled_future_action`: the turn
+continues with corrective guidance instead of settling, and the episode is bounded by the same
+ladder before NNA parks for operator attention. A typed `turn_finish` outcome, a step that
+already executed a tool, and a turn that is merely answering without any promised action are
+not affected.
 
 Provider connection and interactive-approval deadlines default to 10 and 120 seconds.
 Public-network provider first-event, inter-event idle, and overall deadlines default to 10,

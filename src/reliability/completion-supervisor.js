@@ -14,9 +14,7 @@ export function evaluateCompletion(active, text, work = null) {
       progressEvidence: truncatedOutputEvidence(text, active.attemptOutputLimitTokens),
     });
   }
-  if (TOOL_SIGNAL.has(finishReason) && (active.toolAssembler?.size ?? 0) === 0) {
-    return Object.freeze({ disposition: 'continue', category: 'missing_tool_call', progressEvidence: null });
-  }
+  if (TOOL_SIGNAL.has(finishReason) && (active.toolAssembler?.size ?? 0) === 0) return missingToolCallGate(active, text);
   const declaration = active.terminalDeclaration ?? null;
   const workGate = unfinishedWorkGate(work, declaration);
   if (workGate) return workGate;
@@ -36,6 +34,15 @@ export function evaluateCompletion(active, text, work = null) {
     && !exactRequestWasBounded(active)) {
     return Object.freeze({ disposition: 'continue', category: 'uncorrected_tool_request', required: true, progressEvidence: null });
   }
+  // Why: a response that narrates the next action ("Let me diagnose that exact session") and
+  // stops without calling a tool leaves the operator-visible promise unfulfilled. Language alone
+  // is a hint; the supervisor bounds the episode and a typed declaration supersedes it.
+  if (!declaration && active.finishReason === 'stop' && promisesFutureAction(text)) {
+    return Object.freeze({
+      disposition: 'continue', category: 'unfulfilled_future_action', required: true, progressEvidence: null, continuation: true,
+      hint: 'This response promised an action that follows it but ended without calling its tool. Perform that action now with one bounded tool call, then report what the evidence shows. Do not narrate the same intent a second time without acting.',
+    });
+  }
   const visualGate = visualEvidenceGate(active.visualEvidence, declaration);
   if (visualGate) return visualGate;
   if (declaration?.outcome === 'needs_input') return Object.freeze({ disposition: 'needs_input', category: 'declared_input_required' });
@@ -46,6 +53,16 @@ export function evaluateCompletion(active, text, work = null) {
   // Invariant: a clean provider stop completes the turn when no structured gate remains.
   // Tool use alone never creates a second terminal protocol or a model self-attestation duty.
   return Object.freeze({ disposition: 'completed', category: 'settled_output' });
+}
+
+// Why: a step that already executed a tool completed its action even when the provider labels
+// a later stop as a tool-call finish. Only a step with visible text and no tool result may be
+// nudged for a missing call; otherwise a provider that narrates after acting is nudged forever.
+function missingToolCallGate(active, text) {
+  if (active.callsAtStepStart > 0 && String(text ?? '').trim().length > 0) {
+    return Object.freeze({ disposition: 'completed', category: 'settled_output' });
+  }
+  return Object.freeze({ disposition: 'continue', category: 'missing_tool_call', progressEvidence: null });
 }
 
 // Why: repeated output-ceiling completions must be supervised as one bounded

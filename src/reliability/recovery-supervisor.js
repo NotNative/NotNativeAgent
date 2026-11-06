@@ -22,8 +22,9 @@ const EMPTY_COMPLETION_ATTEMPT_LIMIT = 8;
 // must own a terminal episode bound; progress evidence that cannot change
 // (an unchanged request shape or output budget) must not keep a turn alive.
 const BOUNDED_COMPLETION_CATEGORIES = new Set([
-  'missing_tool_call', 'truncated_output', 'task_context_lost', 'unresolved_tool_failure',
-  'unresolved_reviewed_tool_outcome', 'uncorrected_tool_request', 'visual_evidence_conflict',
+  'missing_tool_call', 'truncated_output', 'task_context_lost', 'unfulfilled_future_action',
+  'unresolved_tool_failure', 'unresolved_reviewed_tool_outcome', 'uncorrected_tool_request',
+  'visual_evidence_conflict',
 ]);
 
 export class RecoverySupervisor {
@@ -332,10 +333,13 @@ export function recoveryHint(action) {
   const guidance = {
     nudge: action.category === 'truncated_output'
       ? 'The previous response reached the output ceiling without settling. Do not extend the same unfinished segment into the ceiling again; produce a concise completion of the active segment, or declare a truthful task outcome.'
+      : action.category === 'unfulfilled_future_action'
+      ? 'The previous response named an action that should follow it ("Let me inspect...", "I will now check...") but ended without calling a tool. Perform that action now with one bounded tool call, then continue from its result. Do not narrate the same intent without acting.'
       : action.repeated_request_fingerprints?.length > 0
       ? 'The same tool request and result were repeated without observable progress. Do not submit the same arguments again. If the evidence already answers the operator request, finish with that answer and any material caveat; otherwise inspect the failure or choose a materially different bounded action.'
       : 'Previous work made no observable progress. If the evidence already answers the operator request, finish with that answer and any material caveat; otherwise reassess the remaining uncertainty and choose a materially different bounded action.',
     retry_continuation: 'Continue the active operator request using new evidence or a materially different action. Do not restart the conversation, greet the user again, ask what task to perform, or repeat an unchanged failed request.',
+    perform_promised_action: 'The previous response named an action that should follow it ("Let me inspect...", "I will now check...") but ended without calling a tool. Perform that action now with one bounded tool call, then continue from its result. Do not narrate the same intent without acting.',
     compact: 'Context was reduced after repeated no-progress behavior. Preserve the operator task and use the last verified result.',
     reassess: 'Progress is still unclear. Inspect the latest committed evidence, recover the active objective from the recent authenticated conversation, and take one bounded next action.',
     change_strategy: 'The current approach has not demonstrated new progress. Keep the same objective, but change the hypothesis, tool, arguments, or verification method materially before continuing.',

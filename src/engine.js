@@ -291,7 +291,7 @@ export class SessionEngine {
       await this.#persist('message', assistantMessage(active.turnId, active.stepText, { stepId: active.stepId }));
       active.committedStepText = active.stepText;
     }
-    const items = await this.toolLoop.process(calls, active); const trustedHandoff = prepareTrustedToolHandoff(this, items);
+    const items = await this.toolLoop.process(calls, active); const trustedHandoff = prepareTrustedToolHandoff(this, items); active.toolCallsInTurn = (active.toolCallsInTurn ?? 0) + items.length;
     const delegatedAccounting = items.map((item) => item.result?.metadata?.token_accounting).filter(Boolean);
     if (delegatedAccounting.length > 0) active.delegatedTokenAccounting = this.reliability.combineTokenAccounting([
       active.delegatedTokenAccounting, ...delegatedAccounting,

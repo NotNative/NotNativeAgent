@@ -254,22 +254,22 @@ export class ProviderRunner {
     }
     const iterator = stream[Symbol.asyncIterator]();
     const monitor = startProviderHealthMonitor({
-      provider, active, signal, telemetry: this.telemetry,
-      intervalMs: this.healthProbeIntervalMs, timeoutMs: this.healthProbeTimeoutMs,
+      provider, active, signal, telemetry: this.telemetry, intervalMs: this.healthProbeIntervalMs, timeoutMs: this.healthProbeTimeoutMs,
     });
     try {
       while (true) {
-        const boundary = opened ? 'provider_idle_timeout' : 'provider_first_token_timeout';
         const duration = opened ? deadlines.idleMs : deadlines.firstTokenMs;
         const renewFromHealth = opened ? deadlines.renewIdleOnHealth : deadlines.renewFirstTokenOnHealth;
-        const next = await boundedNext(
-          iterator, duration, boundary,
-          renewFromHealth ? () => active.lastProviderHealthAt : null,
-        );
+        const next = await boundedNext(iterator, duration, opened ? 'provider_idle_timeout' : 'provider_first_token_timeout',
+          renewFromHealth ? () => active.lastProviderHealthAt : null);
         if (next.done) break;
         const item = next.value;
         active.lastProviderActivityAt = Date.now();
         if (active.controller.signal.aborted) throw new ContractError('provider_cancelled', 'provider was cancelled');
+        if (lateToolFragment(item, active)) {
+          if (!opened) { this.state.transition('streaming_model', { trigger: 'stream_opened', turnId: active.turnId }); }
+          opened = true; continue;
+        }
         assertProviderEvent(item, active.providerTerminal);
         if (!opened) {
           this.state.transition('streaming_model', { trigger: 'stream_opened', turnId: active.turnId });
@@ -432,6 +432,15 @@ async function closeIterator(iterator) {
   const deadline = new Promise((resolve) => { timer = setTimeout(resolve, ITERATOR_CLOSE_TIMEOUT_MS); });
   try { await Promise.race([iterator.return().catch(() => undefined), deadline]); }
   finally { clearTimeout(timer); }
+}
+
+function lateToolFragment(item, active) {
+  // Compatibility: some OpenAI-compatible providers emit the terminal finish marker before the
+  // final tool fragment. The fragment is buffered transport data, not post-terminal content.
+  if (!active.providerTerminal || item.type !== 'tool_fragment' || !Array.isArray(item.fragments)) return false;
+  active.attemptOutputBytes += Buffer.byteLength(JSON.stringify(item.fragments), 'utf8');
+  active.toolAssembler.add(item.fragments);
+  return true;
 }
 
 function fallbackEligible(error) {
