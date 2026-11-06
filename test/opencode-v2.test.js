@@ -162,6 +162,32 @@ test('v2 deletes release the session slot and its pending state', async (t) => {
   assert.equal((await request(`/api/session/${session.id}`, 'DELETE')).status, 404);
 });
 
+test('v2 archives and restores a session through the record patch', async (t) => {
+  const { json, request } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', { title: 'Archivable' })).data;
+  const other = (await json('/api/session', 'POST', { title: 'Kept' })).data;
+  assert.equal((await request(`/api/session/${session.id}`, 'PATCH', { archived: true })).status, 204);
+  const archived = (await json(`/api/session/${session.id}`)).data;
+  contract('Session.Info', archived);
+  assert.equal(typeof archived.time.archived, 'number');
+  // An archived session leaves the live list and is reachable only by its filter.
+  const live = (await json('/api/session')).data.map((item) => item.id);
+  assert.deepEqual(live, [other.id]);
+  const archivedList = (await json('/api/session?archived=true')).data.map((item) => item.id);
+  assert.deepEqual(archivedList, [session.id]);
+  // Restoring clears the stamp rather than zeroing it.
+  assert.equal((await request(`/api/session/${session.id}`, 'PATCH', { archived: null })).status, 204);
+  const restored = (await json(`/api/session/${session.id}`)).data;
+  assert.equal(Object.hasOwn(restored.time, 'archived'), false);
+  assert.equal((await json('/api/session')).data.length, 2);
+  // `archived: false` is the same restore, and junk is refused before any change.
+  assert.equal((await request(`/api/session/${session.id}`, 'PATCH', { archived: true })).status, 204);
+  assert.equal((await request(`/api/session/${session.id}`, 'PATCH', { archived: false })).status, 204);
+  assert.equal((await json(`/api/session/${session.id}`)).data.time.archived, undefined);
+  assert.equal((await request(`/api/session/${session.id}`, 'PATCH', { archived: 'yes' })).status, 400);
+  assert.equal((await json(`/api/session/${session.id}`)).data.time.archived, undefined);
+});
+
 test('v2 patch events carry only the changed fields', async (t) => {
   const { json, request, runtime } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', {})).data;

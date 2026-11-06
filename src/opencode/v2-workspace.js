@@ -156,7 +156,7 @@ function validateMetadata(value) {
 }
 
 function updateSession(state, body, events) {
-  objectInput(body, ['title', 'metadata']);
+  objectInput(body, ['title', 'metadata', 'archived']);
   validateMetadata(body.metadata);
   const patch = {};
   if (body.title != null) {
@@ -170,6 +170,16 @@ function updateSession(state, body, events) {
     state.info.metadata = body.metadata;
     patch.metadata = body.metadata;
     events.emit(state, 'session.metadata.updated', { sessionID: state.info.id, metadata: body.metadata });
+  }
+  // Compatibility: OpenCode 2.1 added `archived` to this route; `null` restores.
+  // The patch carries it under `time` the way a v2 client applies it, and an
+  // archived session leaves the live list until it is restored.
+  if (body.archived !== undefined) {
+    if (body.archived !== null && body.archived !== true && body.archived !== false) throw invalid('archived must be true, false, or null');
+    const archivedAt = body.archived === false || body.archived === null ? null : Date.now();
+    if (archivedAt === null) delete state.info.time.archived; else state.info.time.archived = archivedAt;
+    state.archived = archivedAt !== null;
+    patch.time = { archived: archivedAt };
   }
   state.info.time.updated = Date.now();
   // Compatibility: v2 clients apply a changed record from `session.patched` and
@@ -200,10 +210,11 @@ function cancelQueued(state, events) {
 }
 
 function listSessions(states, query) {
-  const values = [...states.values()].map((state) => state.info).filter((info) =>
+  const values = [...states.values()].filter((state) => query.archived === 'true' ? state.archived === true : state.archived !== true)
+    .map((state) => state.info).filter((info) =>
     (!query.directory || info.location.directory === query.directory) && (!query.project || info.projectID === query.project)
     && (!query.search || info.title?.toLowerCase().includes(query.search.toLowerCase()))
     && (!query.parentID || query.parentID === 'null') && !query.subpath);
   values.sort((a, b) => a.time.created - b.time.created || a.id.localeCompare(b.id));
-  return paginate(values, query, `sessions:${JSON.stringify([query.directory, query.project, query.search, query.parentID, query.subpath])}`);
+  return paginate(values, query, `sessions:${JSON.stringify([query.directory, query.project, query.search, query.parentID, query.subpath, query.archived])}`);
 }
