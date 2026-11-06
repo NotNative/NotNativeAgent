@@ -296,6 +296,19 @@ test('v2 forms recover pending questions and enforce ownership, choices, and sin
   assert.equal((await json(`/api/session/${first.id}`)).data.outcome, 'succeeded');
 });
 
+test('v2 interrupt reports the work it stopped while the busy frame is still in flight', { timeout: 20_000 }, async (t) => {
+  const provider = new QuestionProvider();
+  const { json } = await fixtureServer(t, { providerFactory: () => provider });
+  const session = (await json('/api/session', 'POST', {})).data;
+  // Admission returns before the projected `session.status busy` frame, so an
+  // operator stop in that window must still report the turn it stopped.
+  await json(`/api/session/${session.id}/prompt`, 'POST', { text: 'ask me' });
+  assert.deepEqual(await json(`/api/session/${session.id}/interrupt`, 'POST'), { interrupted: true });
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  // An idle session with nothing admitted reports a truthful no-op.
+  assert.deepEqual(await json(`/api/session/${session.id}/interrupt`, 'POST'), { interrupted: false });
+});
+
 test('v2 interruption cancels the active question and prevents queued execution', { timeout: 20_000 }, async (t) => {
   const provider = new QuestionProvider();
   const { json, request } = await fixtureServer(t, { providerFactory: () => provider });

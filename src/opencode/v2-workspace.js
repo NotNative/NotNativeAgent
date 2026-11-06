@@ -35,9 +35,14 @@ export function createV2Workspace(operations, options) {
     },
     select(id, reference) { return selectModel(context, requireState(id), reference); },
     async interrupt(id) {
-      const state = requireState(id); const interrupted = state.running;
+      const state = requireState(id);
+      // Why: `running` is projected from the bus `session.status busy` frame,
+      // which arrives after admission. An interrupt issued between admission and
+      // that frame still stops real work, so admitted-but-not-yet-busy prompts
+      // count as interrupted instead of reporting a no-op to the operator.
+      const interrupted = state.running || state.pending.size > 0;
       cancelQueued(state, events);
-      if (interrupted || state.pending.size) await operations.cancel(id);
+      if (interrupted) await operations.cancel(id);
       return { interrupted };
     },
     async wait(id) { await Promise.all([...requireState(id).pending]); },
