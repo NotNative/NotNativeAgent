@@ -184,7 +184,8 @@ test('v2 stages a revert at a client message and clears it again', { timeout: 30
   const staged = await request(`/api/session/${session.id}/revert/stage`, 'POST', { messageID: 'msg_r1' });
   assert.equal(staged.status, 200);
   const body = (await staged.json()).data;
-  assert.equal(body.boundary, 'msg_r1');
+  // The client reads a `Session.Revert`, whose required field is `messageID`.
+  assert.equal(body.messageID, 'msg_r1');
 
   // Clearing the marker restores the timeline.
   assert.equal((await request(`/api/session/${session.id}/revert`, 'DELETE')).status, 204);
@@ -927,4 +928,32 @@ test('published OpenCode client completes the v2 chat lifecycle', { skip: !proce
   assert.equal((await client.message.list({ sessionID: session.id, order: 'asc' })).data[1].content[0].text, 'hello v2');
   await client.session.remove({ sessionID: session.id });
   assert.deepEqual((await client.session.list()).data, []);
+});
+
+test('the published client stages and clears a revert', { skip: !process.env.NNA_OPENCODE_CLIENT_MODULE, timeout: 20_000 }, async (t) => {
+  // Why through the published client: the revert path translates a message id
+  // into the engine's request id, and only the client proves it sends the id
+  // shape this surface expects. Durable persistence is required by the engine.
+  const { OpenCode } = await import(pathToFileURL(process.env.NNA_OPENCODE_CLIENT_MODULE).href);
+  const { runtime, root } = await fixtureServer(t, { config: resolveManifest({ persistence: 'durable', provider: {
+    id: 'test', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback' } }) });
+  const client = OpenCode.make({ baseUrl: runtime.url, headers: { 'x-opencode-directory': encodeURIComponent(root) } });
+  const session = await client.session.create({ title: 'Revert client' });
+  await client.session.prompt({ sessionID: session.id, id: 'msg_sdkrevert01', text: 'hello' });
+  await client.session.wait({ sessionID: session.id });
+
+  const staged = await client.session.revert.stage({ sessionID: session.id, messageID: 'msg_sdkrevert01' });
+  assert.equal(staged.messageID, 'msg_sdkrevert01');
+  await client.session.revert.clear({ sessionID: session.id });
+  // The revert is announced on the stream the client renders from.
+  const events = client.event.subscribe({ signal: AbortSignal.timeout(10_000) })[Symbol.asyncIterator]();
+  assert.equal((await events.next()).value.type, 'server.connected');
+  await client.session.revert.stage({ sessionID: session.id, messageID: 'msg_sdkrevert01' });
+  let sawStaged = false;
+  for (let count = 0; count < 20; count += 1) {
+    const item = await events.next(); if (item.done) break;
+    if (item.value.type === 'session.revert.staged') { sawStaged = true; break; }
+  }
+  await events.return();
+  assert.equal(sawStaged, true, 'the client must receive the staged revert');
 });

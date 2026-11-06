@@ -220,7 +220,10 @@ async function stageWireRevert(session, body) {
   if (!requestId) throw apiError(404, 'MessageNotFoundError', 'Message was not found', { messageID });
   const result = await runDesktopSessionRevert(session.timeline, { messageID: requestId });
   publishRevert(session, 'session.revert.staged', { sessionID: session.ocId, revert: { messageID } });
-  return { boundary: messageID, revertedTurns: result.reverted_turn_ids.length };
+  // Compatibility: the response is a `Session.Revert`, whose only required field
+  // is `messageID`. The client reads `value.data`, so this must be that shape and
+  // not an internal summary.
+  return { messageID, revertedTurns: result.reverted_turn_ids.length };
 }
 
 /** Announce a timeline mutation on the stream the client renders from.

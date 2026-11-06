@@ -171,7 +171,7 @@ function revertApi(requireState, operations) {
  *  repeating it; a clear or commit ends the staged state. */
 async function runRevert(state, step, run) {
   const result = await run();
-  state.revertBoundary = step === 'stage' ? result.boundary : null;
+  state.revertBoundary = step === 'stage' ? result.messageID : null;
   return result;
 }
 
