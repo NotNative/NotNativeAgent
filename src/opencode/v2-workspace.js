@@ -5,6 +5,7 @@ import { apiError, invalid, objectInput, textInput, wireId, tokenUsage, modelRef
 import { pendingForms, getForm, settleForm } from './v2-forms.js';
 import { realpath, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { newId } from '../ids.js';
 import { manifestFromConfig } from '../provider/route-configuration.js';
 import { physicalWireAllowance } from '../reliability/context-budget.js';
 
@@ -24,10 +25,7 @@ export function createV2Workspace(operations, options) {
     captureFailure(id, code) { const state = states.get(id); if (state) state.failureCode = code; },
     create(body, directory) { return createSession(context, body, directory); },
     list(query) { return listSessions(states, query); },
-    messages(id, query) {
-      const values = [...requireState(id).messages.values()].filter((message) => !query.type || message.type === query.type);
-      return paginate(values, query, `messages:${id}:${query.type ?? ''}`);
-    },
+    messages(id, query) { return historyPage(requireState(id), id, query); },
     async prompt(id, body) { return admitWithModel(context, requireState(id), body); },
     // Compatibility: OpenCode 2 continues an interrupted turn with a synthetic
     // prompt. It is the same admission path, tagged so the transcript can tell
@@ -147,6 +145,18 @@ function admitPrompt(state, body, operations, options) {
   } catch (error) { state.inputs.delete(id); throw error; }
 }
 
+/** One page of session history: messages in arrival order, then the settings
+ *  records that happened between them.
+ *
+ *  Why not sort by `time.created`: a turn's user record takes its closed
+ *  timestamp when the turn settles, so time order would place the assistant
+ *  answer before the prompt that caused it. */
+function historyPage(state, id, query) {
+  const values = [...state.messages.values(), ...(state.records ?? [])]
+    .filter((message) => !query.type || message.type === query.type);
+  return paginate(values, query, `messages:${id}:${query.type ?? ''}`);
+}
+
 async function selectModel(context, state, reference, requireCredential = false) {
   if (state.running || state.pending.size || state.selecting || state.closing) throw apiError(409, 'ConflictError', 'Wait for the session to become idle before changing its model');
   state.selecting = true;
@@ -161,8 +171,19 @@ async function selectModel(context, state, reference, requireCredential = false)
     state.info.model = selected.reference;
     if (previous.id !== selected.reference.id || previous.providerID !== selected.reference.providerID) {
       context.events.emit(state, 'session.model.selected', { sessionID: state.info.id, model: selected.reference, previous });
+      // Compatibility: OpenCode 2 records a `model-switched` history entry the
+      // way it records `idle`, and a client reading history expects to see the
+      // switch rather than a silent gap between turns.
+      recordModelSwitch(state, selected.reference, previous);
     }
   } finally { state.selecting = false; }
+}
+
+function recordModelSwitch(state, model, previous) {
+  const record = { id: newId('msg'), sessionID: state.info.id, type: 'model-switched',
+    model, ...(previous ? { previous } : {}), time: { created: Date.now() } };
+  state.records ??= [];
+  state.records.push(record);
 }
 
 function validateMetadata(value) {

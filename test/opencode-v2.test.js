@@ -314,6 +314,32 @@ test('v2 prompt admits client IDs, emits native events, and projects message his
   contract('SessionInterruptResponse', await json(`/api/session/${session.id}/interrupt`, 'POST'));
 });
 
+test('v2 records a model switch as history a client can read back', { timeout: 20_000 }, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-v2-model-'));
+  const settingsPath = join(root, 'config', 'opencode.json');
+  await (await import('node:fs/promises')).mkdir(join(root, 'config'));
+  const { OpenCodeProviderSettings } = await import('../src/opencode/provider-settings.js');
+  const settings = new OpenCodeProviderSettings({ root: join(root, 'runtime'), configPaths: [settingsPath], environment: {} });
+  const { json, request } = await fixtureServer(t, { providerSettings: settings });
+  await settings.upsert({ providerID: 'test', scope: 'user', config: { name: 'Test',
+    package: '@opencode/ai/providers/openai-compatible', settings: { baseURL: 'http://127.0.0.1:9999/v1' },
+    models: { alpha: { name: 'Alpha' }, beta: { name: 'Beta' } } } });
+  const session = (await json('/api/session', 'POST', { model: { id: 'alpha', providerID: 'test' } })).data;
+  assert.equal((await request(`/api/session/${session.id}/model`, 'POST', { model: { id: 'beta', providerID: 'test' } })).status, 204);
+  const messages = (await json(`/api/session/${session.id}/message?order=asc`)).data;
+  const switched = messages.filter((message) => message.type === 'model-switched');
+  // Compatibility: OpenCode 2 records a model switch in history; a client that
+  // walks history expects the switch rather than a silent gap.
+  assert.equal(switched.length, 1);
+  assert.deepEqual(switched[0].model, { id: 'beta', providerID: 'test' });
+  assert.deepEqual(switched[0].previous, { id: 'alpha', providerID: 'test' });
+  assert.equal(typeof switched[0].time.created, 'number');
+  assert.match(switched[0].id, /^msg_/u);
+  // Filtering by type still works over the combined history.
+  const onlySwitches = (await json(`/api/session/${session.id}/message?type=model-switched`)).data;
+  assert.equal(onlySwitches.length, 1);
+});
+
 test('v2 synthetic admission continues a turn behind the same guards as a prompt', { timeout: 20_000 }, async (t) => {
   const { json, request } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', {})).data;
