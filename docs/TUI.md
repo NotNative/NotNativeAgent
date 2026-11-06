@@ -179,6 +179,10 @@ The Experience Engine derives a terse 1–3 word local topic after the first inf
 using at most the first two user messages. This does not make another provider request.
 Generated names persist with the tab pool. A user rename—or an explicit name supplied to
 `/new`—sets a durable lock, so later turns and restores cannot replace that name.
+Tab names are private operator labels, not session content: `nna_diagnose_turn` accepts one as
+`tab_label` only when the current Console's own tab-pool records, or the Desktop session catalog,
+tie it to exactly one durable session, and `nna_list_sessions` discloses those names as
+`tab_labels` without drafts or attachments.
 Multiple Console processes may run concurrently. The first owns the workspace authority
 lease and displays its replaceable tab name as `[* Main *]`; later Consoles receive an
 independent, non-authoritative Main. Sessions already open elsewhere are skipped without a

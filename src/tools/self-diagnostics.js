@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readdir, stat } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { readJournalPage, readJournalPrefix } from '../store.js';
 import { ContractError } from '../ids.js';
@@ -14,6 +14,10 @@ const TURN_DIAGNOSTIC_PAGE_LIMIT = 2_000;
 const MAX_TURN_DIAGNOSTIC_RECORDS = 20_000;
 const MAX_TURN_OFFSET = 31;
 const MAX_AVAILABLE_TURNS = 32;
+const TAB_LABEL_MAX_CHARACTERS = 128;
+const TAB_LABEL_MAX_BYTES = 262_144;
+const TAB_POOL_SCHEMA_VERSION = 5;
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/u;
 
 export function selfDiagnosticsDefinitions(contextProvider) {
   return [diagnoseTurnDefinition(contextProvider), listSessionsDefinition(contextProvider)];
@@ -29,28 +33,31 @@ function diagnoseTurnDefinition(contextProvider) {
       properties: {
         selector: { type: 'string', enum: ['current', 'latest', 'latest_failed', 'list'], description: 'Select the current turn, latest session, latest failed session, or a bounded session list. Defaults to current.' },
         limit: { type: 'integer', minimum: 1, maximum: 64, description: 'Maximum sessions when selector is list. Defaults to 20.' },
-        session_id: { type: 'string', minLength: 1, maxLength: 256, description: 'Optional exact durable session id. Do not combine with selector.' },
+        session_id: { type: 'string', minLength: 1, maxLength: 256, description: 'Optional exact durable session id. Do not combine with selector or tab_label.' },
+        tab_label: { type: 'string', minLength: 1, maxLength: 128, description: 'Optional Console tab or Desktop conversation title exactly as the operator sees it. Do not combine with session_id or selector.' },
         turn_id: { type: 'string', minLength: 1, maxLength: 256, description: 'Optional turn id. Defaults to the active or latest turn in the selected session.' },
         turn_offset: { type: 'integer', minimum: 0, maximum: 31, description: 'Select a recent turn by position: 0 is current or latest, 1 is the previous turn, and larger values move further back. Do not combine with turn_id.' },
       },
     },
     validate: async (args) => {
-      if (!hasOnlyKeys(args, ['selector', 'limit', 'session_id', 'turn_id', 'turn_offset'])
-        || !optionalIdentifier(args.session_id) || !optionalIdentifier(args.turn_id)
+      if (!hasOnlyKeys(args, ['selector', 'limit', 'session_id', 'tab_label', 'turn_id', 'turn_offset'])
+        || !optionalIdentifier(args.session_id) || !optionalIdentifier(args.turn_id) || !optionalTabLabel(args.tab_label)
         || (args.session_id !== undefined && !SESSION_ID.test(args.session_id))
         || (args.selector !== undefined && !['current', 'latest', 'latest_failed', 'list'].includes(args.selector))
         || (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > MAX_SESSION_LIMIT))
         || (args.turn_offset !== undefined && (!Number.isInteger(args.turn_offset)
           || args.turn_offset < 0 || args.turn_offset > MAX_TURN_OFFSET))
         || (args.session_id !== undefined && args.selector !== undefined)
+        || (args.tab_label !== undefined && (args.session_id !== undefined || args.selector !== undefined))
         || (args.turn_id !== undefined && args.turn_offset !== undefined)
         || (args.turn_id !== undefined && args.selector === 'list')
         || (args.turn_offset !== undefined && args.selector === 'list')) {
-        throw new ContractError('tool_schema_invalid', 'diagnostic selector, limit, session_id, turn_id, or turn_offset is invalid or conflicting');
+        throw new ContractError('tool_schema_invalid', 'diagnostic selector, limit, session_id, tab_label, turn_id, or turn_offset is invalid or conflicting');
       }
       return { args: {
         selector: args.selector ?? 'current', limit: args.limit ?? DEFAULT_SESSION_LIMIT,
         ...(args.session_id === undefined ? {} : { session_id: args.session_id }),
+        ...(args.tab_label === undefined ? {} : { tab_label: args.tab_label }),
         ...(args.turn_id === undefined ? {} : { turn_id: args.turn_id }),
         ...(args.turn_offset === undefined ? {} : { turn_offset: args.turn_offset }),
       } };
@@ -68,6 +75,22 @@ async function executeTurnDiagnosis(contextProvider, request, signal) {
     return { content: JSON.stringify({ schema: 'nna.session_catalog.v1', sessions }, null, 2), metadata: { sessions: sessions.length, redacted: true } };
   }
   let selectedSessionId = request.args.session_id;
+  if (request.args.tab_label !== undefined) {
+    const labels = await listTabLabels(context, signal);
+    const exact = labels.filter((label) => label.label === request.args.tab_label);
+    const candidateIds = new Set(exact.map((label) => label.session_id));
+    if (candidateIds.size !== 1) {
+      // Invariant: a tab label resolves to a session only when the Console or Desktop catalog
+      // ties it to exactly one session id. Ambiguity or absence stays a negative observation so
+      // the caller can choose another title or an exact session_id instead of guessing.
+      return negativeDiagnosis(candidateIds.size === 0 ? 'tab_label_not_found' : 'tab_label_ambiguous', {
+        tab_label: request.args.tab_label,
+        candidate_session_ids: [...candidateIds],
+        available_tab_labels: labels.filter((label) => sameLabelText(label.label, request.args.tab_label)),
+      });
+    }
+    selectedSessionId = [...candidateIds][0];
+  }
   if (!selectedSessionId && ['latest', 'latest_failed'].includes(request.args.selector)) {
     const sessions = await listDurableSessions(context, MAX_SESSION_LIMIT, signal);
     const selected = request.args.selector === 'latest_failed'
@@ -97,6 +120,7 @@ async function executeTurnDiagnosis(contextProvider, request, signal) {
   return {
     content: JSON.stringify({
       ...summarize(sessionId, turnId, records, sessionId === context.sessionId ? context.state : null),
+      ...(request.args.tab_label === undefined ? {} : { requested_tab_label: request.args.tab_label }),
       available_turns: availableTurns,
     }, null, 2),
     metadata: { session_id: sessionId, turn_id: turnId, records_examined: records.length, redacted: true, truncated_history: page.hasMore },
@@ -116,7 +140,7 @@ function negativeDiagnosis(observationOutcome, detail) {
 function listSessionsDefinition(contextProvider) {
   return {
     name: 'nna_list_sessions', version: 1,
-    purpose: 'List bounded recent durable NNA sessions so a different Console run can be selected for diagnosis.',
+    purpose: 'List bounded recent durable NNA sessions, with their operator-facing tab labels, so a different Console run or Desktop conversation can be selected for diagnosis.',
     sideEffect: 'read_only', scope: 'runtime_diagnostics', cancellation: true, timeoutMs: 10_000,
     inputSchema: {
       type: 'object', additionalProperties: false,
@@ -156,18 +180,25 @@ export async function listDurableSessions(context, limit = DEFAULT_SESSION_LIMIT
     }));
   throwIfCancelled(signal);
   const selected = candidates.sort((a, b) => b.modifiedMs - a.modifiedMs).slice(0, bounded);
+  const tabLabels = await indexTabLabels(context, signal);
   const sessions = await Promise.all(selected.map(async (candidate) => {
     throwIfCancelled(signal);
     const page = await readDiagnosticPage(candidate.path, SESSION_DIAGNOSTIC_RECORD_LIMIT);
-    const header = (await readJournalPrefix(candidate.path, 1))[0]?.payload ?? {};
+    const headerRecords = await readJournalPrefix(candidate.path, 1);
+    const header = headerRecords[0]?.payload ?? {};
     throwIfCancelled(signal);
     const turnId = latestTurnId(page.records);
     const records = turnId ? page.records.filter((record) => recordTurnId(record) === turnId) : [];
     const terminal = [...records].reverse().find((record) => record.type === 'turn_outcome')?.payload ?? null;
     const hosted = header.executionManifest != null;
     const mission = header.mission != null;
+    // Why: a Console tab name or Desktop conversation title is the label the operator
+    // describes. Exposing it beside the durable session id lets a diagnostic caller map
+    // the user's words to concrete evidence without guessing by timestamp alone.
+    const labels = Object.hasOwn(tabLabels, candidate.sessionId) ? tabLabels[candidate.sessionId] : [];
     return Object.freeze({
       session_id: candidate.sessionId, current: candidate.sessionId === context.sessionId,
+      ...(labels.length === 0 ? {} : { tab_labels: labels }),
       updated_at: new Date(candidate.modifiedMs).toISOString(), latest_turn_id: turnId,
       latest_outcome: terminal?.outcome ?? (turnId ? 'active_or_interrupted' : null),
       latest_failure_code: terminal?.failure?.code ?? null,
@@ -176,6 +207,91 @@ export async function listDurableSessions(context, limit = DEFAULT_SESSION_LIMIT
     });
   }));
   return Object.freeze(sessions);
+}
+
+/** Operator-facing label sources are private UI state that lives beside, not inside, the
+ *  durable session journal. This index returns only validated names keyed by session id. */
+async function indexTabLabels(context, signal) {
+  const labels = {};
+  for (const source of tabLabelSources(context)) {
+    const found = await readTabLabelSource(source, signal);
+    for (const [sessionId, label] of found) (labels[sessionId] ??= []).push(label);
+  }
+  return labels;
+}
+
+async function listTabLabels(context, signal) {
+  return Object.entries(await indexTabLabels(context, signal))
+    .flatMap(([sessionId, labels]) => labels.map((label) => Object.freeze({ session_id: sessionId, label })));
+}
+
+function tabLabelSources(context) {
+  if (!context?.sessionsRoot) return [];
+  const sources = [];
+  // Compatibility: Console pools are written by separate Console processes; only the pool
+  // whose writer lock this session holds names the labels this session can vouch for.
+  if (typeof context.consoleId === 'string' && context.consoleId.length > 0) {
+    sources.push({
+      role: 'console_tab', kind: 'tab_pool', path: join(context.sessionsRoot, '..', 'root-tui', 'pool.json'),
+      consoleId: context.consoleId,
+    });
+  }
+  sources.push({
+    role: 'desktop_conversation', kind: 'desktop_catalog', path: join(context.sessionsRoot, 'desktop-contexts.json'),
+  });
+  return sources;
+}
+
+async function readTabLabelSource(source, signal) {
+  let sourceText;
+  try {
+    const metadata = await stat(source.path);
+    // Why: labels are optional attribution. An absent, oversized, or malformed catalog must
+    // not turn a completed diagnostic query into an execution failure.
+    if (!metadata.isFile() || metadata.size > TAB_LABEL_MAX_BYTES) return [];
+    sourceText = await readFile(source.path, 'utf8');
+  } catch { return []; }
+  throwIfCancelled(signal);
+  let value;
+  try { value = JSON.parse(sourceText); } catch { return []; }
+  if (source.kind === 'tab_pool') return tabPoolLabels(value, source.consoleId);
+  if (source.kind === 'desktop_catalog') return desktopCatalogLabels(value);
+  return [];
+}
+
+function tabPoolLabels(value, consoleId) {
+  if (!value || value.schema_version !== TAB_POOL_SCHEMA_VERSION || !Array.isArray(value.tabs)) return [];
+  const labels = new Map();
+  for (const tab of value.tabs) {
+    if (!tab || typeof tab !== 'object' || !SESSION_ID.test(tab.session_id ?? '')) continue;
+    if (tab.console_id !== consoleId) continue;
+    const label = operatorLabel(tab.name);
+    if (label === null) continue;
+    labels.set(tab.session_id, label);
+  }
+  return labels;
+}
+
+function desktopCatalogLabels(value) {
+  if (!Array.isArray(value)) return [];
+  const labels = new Map();
+  for (const record of value) {
+    if (!record || typeof record !== 'object' || !SESSION_ID.test(record.sessionId ?? '')) continue;
+    const label = operatorLabel(record.title);
+    if (label === null) continue;
+    labels.set(record.sessionId, label);
+  }
+  return labels;
+}
+
+function operatorLabel(value) {
+  return typeof value === 'string' && value.trim() && value.length <= TAB_LABEL_MAX_CHARACTERS
+    && !CONTROL_CHARACTERS.test(value) && value.trim() !== 'Main' ? value.trim() : null;
+}
+
+function sameLabelText(left, right) {
+  return typeof left === 'string' && typeof right === 'string'
+    && left.toLocaleLowerCase('en-US') === right.toLocaleLowerCase('en-US');
 }
 
 function hasOnlyKeys(args, allowedKeys) {
@@ -200,6 +316,11 @@ function throwIfCancelled(signal) {
 
 function optionalIdentifier(value) {
   return value === undefined || (typeof value === 'string' && value.length >= 1 && value.length <= 256);
+}
+
+function optionalTabLabel(value) {
+  return value === undefined || (typeof value === 'string' && value.trim().length >= 1
+    && value.length <= TAB_LABEL_MAX_CHARACTERS && !CONTROL_CHARACTERS.test(value));
 }
 
 async function readDiagnosticPage(path, limit = 2_000) {

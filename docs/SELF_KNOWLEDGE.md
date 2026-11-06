@@ -25,7 +25,12 @@ application restart is not required.
 For a failed, stalled, unexpectedly compacted, or otherwise surprising turn, NNA must use
 `nna_diagnose_turn` before inferring a cause from the visible transcript. Its `selector` can
 inspect `current`, `latest`, `latest_failed`, or return a bounded `list`; an exact correlated
-`turn_id` or `session_id` can select older evidence. This lets one Console
+`turn_id` or `session_id` can select older evidence, and `tab_label` selects the Console tab or
+Desktop conversation title the operator names. A `tab_label` resolves only when the current
+Console's tab pool or the Desktop session catalog ties that title to exactly one durable
+session; otherwise the result is a bounded `tab_label_not_found` or `tab_label_ambiguous`
+observation with the matching labels, and the catalog's `tab_labels` show which titles exist.
+This lets one Console
 inspect another Console's durable journal without guessing filesystem paths. The result is deliberately bounded and
 content-redacted: it reports provider-attempt outcomes, recovery actions, tool terminal states,
 compaction boundaries, and the durable terminal classification without reproducing prompts,

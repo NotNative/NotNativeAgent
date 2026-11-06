@@ -10,10 +10,11 @@ requires_tools: [nna_diagnose_turn, nna_search_guidance, nna_read_guidance]
 Diagnose NNA itself from runtime evidence. Do not infer the cause from the visible transcript alone.
 
 1. If the user means the current or immediately previous turn in this Console, call `nna_diagnose_turn` with no arguments.
-2. If the user means another Console, tab, or older session, call `nna_diagnose_turn` with `selector: "list"`. Use timestamps, outcomes, and the user's description to select the likely session. If more than one candidate remains plausible, show the short candidate list and ask which one they mean.
-3. Call `nna_diagnose_turn` with the selected `session_id` and, when known, `turn_id`.
-4. Search and read the relevant packaged NNA guidance.
-5. Report:
+2. If the user names a tab or conversation title ("Short Story", "verify-fix"), call `nna_diagnose_turn` with `tab_label` set to that title exactly as the operator wrote it. If the result is `tab_label_ambiguous`, choose among its `candidate_session_ids` with the user's context or ask which one they mean.
+3. If the label is unknown or absent, call `nna_diagnose_turn` with `selector: "list"`. Entries may include `tab_labels`, the operator-facing Console tab names or Desktop conversation titles; use those first, then timestamps and outcomes. If more than one candidate remains plausible, show the short candidate list and ask which one they mean.
+4. Call `nna_diagnose_turn` with the selected `session_id` and, when known, `turn_id`.
+5. Search and read the relevant packaged NNA guidance.
+6. Report:
    - what failed or degraded;
    - the evidence and reason codes;
    - what is known versus inferred;

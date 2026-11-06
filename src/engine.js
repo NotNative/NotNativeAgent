@@ -58,16 +58,16 @@ export class SessionEngine {
     this.reviewPosture = options.reviewPosture ?? 'auto-review';
     this.runtimeId = options.runtimeId ?? newId('runtime');
     this.sessionId = options.sessionId ?? newId('session');
-    this.sessionLineage = validateSessionLineage(options.sessionLineage, this.sessionId); this.forkIngest = forkIngestContract(options.forkIngest);
+    this.sessionLineage = validateSessionLineage(options.sessionLineage, this.sessionId); this.forkIngest = forkIngestContract(options.forkIngest); this.consoleId = options.consoleId || null;
+    // Compatibility: hosted, gateway, and headless surfaces pass no Console identity; they claim no tab-pool labels.
     this.desktopSessionRegistry = options.desktopSessionRegistry ?? null; this.dataPaths = resolveUserDataPaths(options.dataPaths); this.subagentDepth = options.subagentDepth ?? 0;
     this.subagentOptions = {
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer, secretBroker: options.secretBroker,
       memoryAdapter: options.memoryAdapter, mcpTransportFactory: options.mcpTransportFactory,
       hookRoot: options.hookRoot, hookRoots: options.hookRoots, skillRoots: options.skillRoots,
       webSearchConfigPath: options.webSearchConfigPath, webSearchClient: options.webSearchClient,
-      webFetchConfigPath: options.webFetchConfigPath, lspConfigPath: options.lspConfigPath,
-      lspSpawnProcess: options.lspSpawnProcess, attachmentRoot: options.attachmentRoot,
-      reviewerRoot: options.reviewerRoot, governanceRoot: options.governanceRoot, telemetryRoot: options.telemetryRoot,
+      webFetchConfigPath: options.webFetchConfigPath, lspConfigPath: options.lspConfigPath, lspSpawnProcess: options.lspSpawnProcess,
+      attachmentRoot: options.attachmentRoot, reviewerRoot: options.reviewerRoot, governanceRoot: options.governanceRoot, telemetryRoot: options.telemetryRoot,
       workspaceBinding: options.workspaceBinding, workspaceBindingResolver: options.workspaceBindingResolver,
     };
     this.telemetry = createEngineTelemetry(this, options);

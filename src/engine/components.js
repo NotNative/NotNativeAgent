@@ -147,7 +147,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     diagnosticContext: () => ({
       journalPath: engine.store?.path ?? null,
       sessionsRoot: engine.storeRoot,
-      sessionId: engine.sessionId,
+      sessionId: engine.sessionId, consoleId: engine.consoleId ?? null,
       activeTurnId: engine.active?.turnId ?? null,
       state: engine.state.state,
     }),

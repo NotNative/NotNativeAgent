@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -624,12 +624,110 @@ test('turn diagnostics can enumerate and inspect another durable session', async
   assert.doesNotMatch(JSON.stringify(overlay), /file_missing/u);
 });
 
+test('turn diagnostics resolve an operator-facing tab label to exactly one durable session', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tab-label-diagnose-'));
+  const parent = await mkdtemp(join(tmpdir(), 'nna-tab-label-pool-'));
+  const sessionsRoot = join(parent, 'sessions');
+  await mkdir(sessionsRoot);
+  const current = new JournalStore(sessionsRoot, 'current');
+  const other = new JournalStore(sessionsRoot, 'renamed');
+  await current.open(); await current.append('session_created', { sessionId: 'current' }); await current.close();
+  await other.open();
+  await other.append('tool_result', { turnId: 'turn-renamed', toolName: 'fs_read_text', status: 'failed', reasonCode: 'file_missing' });
+  await other.append('turn_outcome', { turn_id: 'turn-renamed', outcome: 'failed', failure: { code: 'recovery_exhausted' } });
+  await other.close();
+  const poolsRoot = join(parent, 'root-tui');
+  await mkdir(poolsRoot);
+  const manifest = { version: 1, persistence: 'durable', workspace_root: parent };
+  const presentation = {
+    draft: 'unfinished operator draft', viewport_end: null, expanded_turn_ids: [], review_posture: 'auto-review',
+    pending_attachments: [], work_collapsed: false,
+  };
+  await writeFile(join(poolsRoot, 'pool.json'), JSON.stringify({
+    schema_version: 5, saved_at: new Date().toISOString(), active_session_id: 'current',
+    tabs: [
+      { session_id: 'renamed', name: 'Short Story', role: 'standard', main: false, meaningful: true, manifest, presentation, console_id: 'console-a' },
+      { session_id: 'current', name: 'Main', role: 'primary', main: true, meaningful: true, manifest, presentation, console_id: 'console-a' },
+      { session_id: 'current', name: 'Foreign Tab', role: 'standard', main: false, meaningful: true, manifest, presentation, console_id: 'console-b' },
+    ],
+  }), 'utf8');
+  const definitions = selfDiagnosticsDefinitions(() => ({
+    journalPath: current.path, sessionsRoot, sessionId: 'current', consoleId: 'console-a', state: 'IDLE',
+  }));
+  const diagnose = definitions.find((item) => item.name === 'nna_diagnose_turn');
+
+  const resolved = await diagnose.executor(await diagnose.validate({ tab_label: 'Short Story' }), new AbortController().signal);
+  const diagnosis = JSON.parse(resolved.content);
+  assert.equal(diagnosis.session_id, 'renamed');
+  assert.equal(diagnosis.requested_tab_label, 'Short Story');
+  assert.equal(diagnosis.terminal.failure_code, 'recovery_exhausted');
+  assert.doesNotMatch(resolved.content, /unfinished operator draft/u);
+
+  const list = definitions.find((item) => item.name === 'nna_list_sessions');
+  const catalog = await list.executor(await list.validate({ limit: 10 }), new AbortController().signal);
+  assert.match(catalog.content, /"session_id": "renamed"[^]*"tab_labels": \[\s*"Short Story"\s*\]/u);
+  assert.doesNotMatch(catalog.content, /Foreign Tab/u);
+  assert.doesNotMatch(catalog.content, /unfinished operator draft/u);
+
+  const missing = await diagnose.executor(await diagnose.validate({ tab_label: 'Unknown Tab' }), new AbortController().signal);
+  assert.equal(JSON.parse(missing.content).observation_outcome, 'tab_label_not_found');
+  assert.equal(missing.metadata.observation_outcome, 'tab_label_not_found');
+});
+
+test('turn diagnostics treat a tab label shared by two sessions as an ambiguous observation', async () => {
+  const parent = await mkdtemp(join(tmpdir(), 'nna-tab-label-ambiguous-'));
+  const sessionsRoot = join(parent, 'sessions');
+  await mkdir(sessionsRoot);
+  const poolsRoot = join(parent, 'root-tui');
+  await mkdir(poolsRoot);
+  const manifest = { version: 1, persistence: 'durable', workspace_root: parent };
+  const presentation = {
+    draft: '', viewport_end: null, expanded_turn_ids: [], review_posture: 'auto-review',
+    pending_attachments: [], work_collapsed: false,
+  };
+  for (const id of ['first', 'second']) {
+    const store = new JournalStore(sessionsRoot, id);
+    await store.open(); await store.append('session_created', { sessionId: id }); await store.close();
+  }
+  await writeFile(join(poolsRoot, 'pool.json'), JSON.stringify({
+    schema_version: 5, saved_at: new Date().toISOString(), active_session_id: null,
+    tabs: ['first', 'second'].map((sessionId) => ({
+      session_id: sessionId, name: 'Shared Name', role: 'standard', main: false, meaningful: true,
+      manifest, presentation, console_id: 'console-a',
+    })),
+  }), 'utf8');
+  const diagnose = selfDiagnosticsDefinitions(() => ({
+    journalPath: join(sessionsRoot, 'first.journal.ndjson'), sessionsRoot, sessionId: 'first',
+    consoleId: 'console-a', state: 'IDLE',
+  })).find((item) => item.name === 'nna_diagnose_turn');
+  const result = await diagnose.executor(await diagnose.validate({ tab_label: 'Shared Name' }), new AbortController().signal);
+  const observation = JSON.parse(result.content);
+  assert.equal(observation.observation_outcome, 'tab_label_ambiguous');
+  assert.deepEqual(observation.candidate_session_ids.sort(), ['first', 'second']);
+  assert.deepEqual(observation.available_tab_labels, [
+    { session_id: 'first', label: 'Shared Name' }, { session_id: 'second', label: 'Shared Name' },
+  ]);
+});
+
+test('turn diagnostics reject conflicting or malformed tab labels', async () => {
+  const diagnose = selfDiagnosticsDefinitions(() => ({})).find((item) => item.name === 'nna_diagnose_turn');
+  await assert.rejects(diagnose.validate({ session_id: 'ses_a', tab_label: 'A' }), /tab_label/u);
+  await assert.rejects(diagnose.validate({ selector: 'latest', tab_label: 'A' }), /tab_label/u);
+  await assert.rejects(diagnose.validate({ tab_label: '   ' }), /tab_label/u);
+  await assert.rejects(diagnose.validate({ tab_label: 'a'.repeat(129) }), /tab_label/u);
+  await assert.rejects(diagnose.validate({ tab_label: 'line\nbreak' }), /tab_label/u);
+  await assert.rejects(diagnose.validate({ selector: 'list', tab_label: 'A' }), /tab_label/u);
+  await assert.rejects(diagnose.validate({ selector: 'list', turn_offset: 1 }), /turn_offset/u);
+  assert.deepEqual((await diagnose.validate({ tab_label: 'Short Story', turn_offset: 1 })).args,
+    { selector: 'current', limit: 20, tab_label: 'Short Story', turn_offset: 1 });
+});
+
 test('self diagnostics reject invalid optional values', async () => {
   const definitions = selfDiagnosticsDefinitions(() => ({}));
   const list = definitions.find((item) => item.name === 'nna_list_sessions');
   const diagnose = definitions.find((item) => item.name === 'nna_diagnose_turn');
   await assert.rejects(list.validate({ limit: null }), /limit must be an optional integer/u);
-  await assert.rejects(diagnose.validate({ session_id: '../outside' }), /diagnostic selector, limit, session_id, turn_id, or turn_offset is invalid or conflicting/u);
+  await assert.rejects(diagnose.validate({ session_id: '../outside' }), /tab_label/u);
   await assert.rejects(diagnose.validate({ turn_id: 'turn-1', turn_offset: 1 }), /turn_offset is invalid or conflicting/u);
   await assert.rejects(diagnose.validate({ turn_offset: 32 }), /turn_offset is invalid or conflicting/u);
   assert.deepEqual((await diagnose.validate({})).args, { selector: 'current', limit: 20 });

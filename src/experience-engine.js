@@ -120,6 +120,8 @@ export class ExperienceEngine {
       storeRoot: this.options.storeRoot ?? paths.sessions ?? defaults.sessions,
       reviewerRoot: this.options.reviewerRoot ?? paths.reviewerLedger ?? defaults.reviewerLedger,
       attachmentRoot: this.options.attachmentRoot,
+      // Why: the private tab pool is shared by concurrent Consoles; a diagnostic session claims only its own labels.
+      consoleId: this.consoleId,
       providerFactory: this.options.providerFactory,
       semanticReviewer: this.options.semanticReviewer, memoryAdapter: this.options.memoryAdapter,
       mcpTransportFactory: this.options.mcpTransportFactory, hookRoot: this.options.hookRoot,
