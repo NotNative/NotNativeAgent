@@ -6,13 +6,13 @@
 // a reboot or logoff.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openchamberEnvironment, resolveOpenchamberLauncher } from '../src/opencode/openchamber.js';
 import { generateOpencodePassword, loadOpenCodeConfig, normalizeOpenCodeConfig, saveOpenCodeConfig } from '../src/opencode/config.js';
-import { startOpencodeService, stopOpencodeService } from '../src/opencode/service.js';
+import { startOpencodeService, stopOpencodeService, disableOpencodeService } from '../src/opencode/service.js';
 
 async function servicePaths() {
   const root = await mkdtemp(join(tmpdir(), 'nna-openchamber-launch-'));
@@ -46,6 +46,28 @@ test('the binding carries the password and never the default username', () => {
   // The builder itself still carries a non-default username it is handed.
   const handBuilt = openchamberEnvironment({ username: 'operator', password: 'x' }, 'http://127.0.0.1:4095');
   assert.equal(handBuilt.OPENCODE_SERVER_USERNAME, 'operator');
+});
+
+test('a stored custom username never blocks a lifecycle command', async () => {
+  // Why: enable, disable and start carry the existing document forward. They are
+  // not choosing a username, so a legacy value must not block them — a service
+  // an operator cannot stop is worse than one they cannot start.
+  const paths = await servicePaths();
+  const password = generateOpencodePassword();
+  await mkdir(join(paths.root, 'config'), { recursive: true });
+  await writeFile(paths.opencodeConfig, JSON.stringify({ version: 1, enabled: true,
+    hostname: '127.0.0.1', port: 4095, username: 'operator', password }));
+  const scope = { platform: 'win32', processIdentity: identity(), spawnProcess: () => fakeChild(3211),
+    startupFolder: async () => paths.root, fileRemove: async () => undefined, fileWriter: async () => undefined,
+    userEnvironmentRead: async (names) => Object.fromEntries(names.map((name) => [name, ''])),
+    userEnvironmentWrite: async () => undefined, kill: () => undefined, environment: {} };
+  // disable always rewrites the document, so it exercises the lifecycle write
+  // that used to be blocked by a stored username.
+  const disabled = await disableOpencodeService({}, paths, scope);
+  assert.equal(disabled.config.autostart_enabled, false);
+  // The stored username is carried forward untouched rather than rewritten.
+  const stored = JSON.parse(await readFile(paths.opencodeConfig, 'utf8'));
+  assert.equal(stored.username, 'operator');
 });
 
 test('a custom username is refused when chosen but never strands a stored config', async () => {

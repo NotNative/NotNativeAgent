@@ -31,7 +31,7 @@ export async function enableOpencodeService(options, paths, scope = {}) {
     port: options.servePort ?? prior.port,
     password: prior.password ?? generateOpencodePassword(),
     updated_at: new Date().toISOString(),
-  });
+  }, { preserveUnsupportedUsername: true });
   let login;
   try {
     login = await installLoginStartup(saved, paths, scope);
@@ -50,7 +50,8 @@ export async function enableOpencodeService(options, paths, scope = {}) {
 
 async function restoreOpenCodeConfig(path, prior, priorExisted) {
   if (priorExisted) {
-    await saveOpenCodeConfig(path, prior);
+    // Restoring is not choosing a username: it puts back exactly what was there.
+    await saveOpenCodeConfig(path, prior, { preserveUnsupportedUsername: true });
     return;
   }
   // Why: a first enable has no prior record, so the revert is a removal; the
@@ -63,7 +64,8 @@ async function restoreOpenCodeConfig(path, prior, priorExisted) {
 export async function disableOpencodeService(options, paths, scope = {}) {
   assertWindowsWiring(scope);
   const config = await loadOpenCodeConfig(paths.opencodeConfig);
-  const saved = await saveOpenCodeConfig(paths.opencodeConfig, { ...config, enabled: false, updated_at: new Date().toISOString() });
+  const saved = await saveOpenCodeConfig(paths.opencodeConfig,
+    { ...config, enabled: false, updated_at: new Date().toISOString() }, { preserveUnsupportedUsername: true });
   const login = await removeLoginStartup(scope);
   const runtime = await opencodeRuntimeStatus(paths, scope);
   return { config: opencodePublicStatus(saved, scope.environment ?? process.env), login, runtime };
@@ -164,7 +166,9 @@ async function ensureServiceConfiguration(options, paths) {
     password: config.password ?? generateOpencodePassword(),
   };
   if (updated.hostname === config.hostname && updated.port === config.port && updated.password === config.password) return config;
-  return saveOpenCodeConfig(paths.opencodeConfig, { ...updated, updated_at: new Date().toISOString() });
+  // A start provisions credentials; it does not revisit a stored username.
+  return saveOpenCodeConfig(paths.opencodeConfig, { ...updated, updated_at: new Date().toISOString() },
+    { preserveUnsupportedUsername: true });
 }
 
 export async function opencodeRuntimeStatus(paths, scope = {}) {

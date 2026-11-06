@@ -48,7 +48,7 @@ export async function openCodeConfigExists(path) {
   }
 }
 
-export async function saveOpenCodeConfig(path, value) {
+export async function saveOpenCodeConfig(path, value, options = {}) {
   const config = normalizeOpenCodeConfig(value);
   // Compatibility: OpenChamber builds its upstream Basic credential as
   // `opencode:<password>` and ignores OPENCODE_SERVER_USERNAME, so any other
@@ -57,9 +57,14 @@ export async function saveOpenCodeConfig(path, value) {
   // Why here and not in normalizeOpenCodeConfig: a stored document written by an
   // earlier build must stay readable and repairable. Refusing the value on load
   // made status, start, stop and the settings page all fail on a config the
-  // operator could no longer fix. The constraint belongs where a value is
-  // chosen for this surface.
-  if (config.username !== DEFAULT_BASIC_USERNAME) {
+  // operator could no longer fix.
+  //
+  // Why `preserveUnsupportedUsername`: lifecycle writes (enable, disable) carry
+  // the existing document forward. They are not choosing a username, so they must
+  // not be blocked by one already stored — a service an operator cannot stop is
+  // worse than one they cannot start. Only a write that would *introduce* the
+  // value is refused.
+  if (config.username !== DEFAULT_BASIC_USERNAME && options.preserveUnsupportedUsername !== true) {
     throw new ContractError('opencode_username_unsupported',
       `the OpenChamber client authenticates as "${DEFAULT_BASIC_USERNAME}" and cannot use another Basic auth username`);
   }
