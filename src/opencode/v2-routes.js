@@ -86,6 +86,9 @@ async function sessionRoute(ctx, segments) {
 async function sessionPost(ctx, state, action) {
   const { res, options, target } = ctx; const api = options.v2; const id = state.info.id;
   if (action === 'prompt') return sendJson(res, 200, { data: await api.prompt(id, await body(ctx)) });
+  // Compatibility: a synthetic prompt continues an interrupted turn; the text
+  // is continuation text, not operator speech, so it grants no authority.
+  if (action === 'synthetic') return sendJson(res, 200, { data: await api.synthetic(id, await body(ctx)) });
   if (action === 'interrupt') {
     if (target.query.resume !== undefined && target.query.resume !== 'false') throw invalid('Resume after interruption is not supported');
     return sendJson(res, 200, await api.interrupt(id));

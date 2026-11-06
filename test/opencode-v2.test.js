@@ -314,6 +314,26 @@ test('v2 prompt admits client IDs, emits native events, and projects message his
   contract('SessionInterruptResponse', await json(`/api/session/${session.id}/interrupt`, 'POST'));
 });
 
+test('v2 synthetic admission continues a turn behind the same guards as a prompt', { timeout: 20_000 }, async (t) => {
+  const { json, request } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  const receipt = (await json(`/api/session/${session.id}/synthetic`, 'POST', {
+    id: 'msg_synthetic', text: 'resume the interrupted turn', description: 'opencode-restart',
+  })).data;
+  // Compatibility: a continuation is admitted like a prompt and tagged as
+  // synthetic so a transcript can tell it from operator speech.
+  assert.equal(receipt.id, 'msg_synthetic');
+  assert.equal(receipt.type, 'synthetic');
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  const messages = (await json(`/api/session/${session.id}/message?order=asc`)).data;
+  assert.equal(messages[0].id, 'msg_synthetic');
+  // The same input rules apply, so a synthetic continuation cannot smuggle in
+  // an unsupported field or a reserved identifier.
+  assert.equal((await request(`/api/session/${session.id}/synthetic`, 'POST', { text: 'x', permissions: [] })).status, 400);
+  assert.equal((await request(`/api/session/${session.id}/synthetic`, 'POST', null)).status, 400);
+  assert.equal((await request('/api/session/ses_missing/synthetic', 'POST', { text: 'x' })).status, 404);
+});
+
 test('v2 rejects malformed and unsupported requests before engine submission', async (t) => {
   const { json, request, runtime } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', {})).data;

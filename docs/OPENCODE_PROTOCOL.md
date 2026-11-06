@@ -93,9 +93,10 @@ A caller that needs an operation outside this list receives a tagged
 Implemented at the 2.2.5 target: discovery, location, projects, configuration,
 the model/provider/integration catalogs, session create/list/get/patch/delete
 including archive and restore, text prompts with client IDs and queued
-admission, inbox reads, wait, interrupt, viewed state, paginated message reads,
-native session/inbox/step/text/usage/form events, form settlement, and the
-isolated provider and credential routes.
+admission, synthetic continuation prompts, inbox reads, wait, interrupt, viewed
+state, paginated message reads, native session/inbox/step/text/usage/form
+events, `idle` turn markers in history, form settlement, and the isolated
+provider and credential routes.
 
 Not implemented, and refused explicitly: attachments, deferred execution,
 active-turn steering, agents beyond build, permission mutations, shell

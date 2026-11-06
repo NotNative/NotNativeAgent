@@ -28,11 +28,11 @@ export function createV2Workspace(operations, options) {
       const values = [...requireState(id).messages.values()].filter((message) => !query.type || message.type === query.type);
       return paginate(values, query, `messages:${id}:${query.type ?? ''}`);
     },
-    async prompt(id, body) {
-      const state = requireState(id);
-      if (options.providerSettings && !state.pending.size) await selectModel(context, state, state.info.model, true);
-      return admitPrompt(state, body, operations, options);
-    },
+    async prompt(id, body) { return admitWithModel(context, requireState(id), body); },
+    // Compatibility: OpenCode 2 continues an interrupted turn with a synthetic
+    // prompt. It is the same admission path, tagged so the transcript can tell
+    // it from operator speech; the text is never treated as operator authority.
+    async synthetic(id, body) { return admitWithModel(context, requireState(id), { ...body, synthetic: true }); },
     select(id, reference) { return selectModel(context, requireState(id), reference); },
     async interrupt(id) {
       const state = requireState(id);
@@ -106,10 +106,25 @@ function attachState(states, info, model, events, version, metadata) {
     slug: info.slug, title: info.title, agent: 'build', model, version, ...(metadata == null ? {} : { metadata }) });
 }
 
+/** Bind the session's current provider selection before admitting text. The
+ *  selection is refreshed only when nothing is already pending, so a queued
+ *  prompt keeps the binding it was admitted under. */
+async function admitWithModel(context, state, body) {
+  const { options, operations } = context;
+  if (options.providerSettings && !state.pending.size) await selectModel(context, state, state.info.model, true);
+  return admitPrompt(state, body, operations, options);
+}
+
 function admitPrompt(state, body, operations, options) {
   if (state.closing) throw apiError(409, 'ConflictError', 'Session is closing');
   if (state.selecting) throw apiError(409, 'ConflictError', 'Model selection is in progress');
-  objectInput(body, ['id', 'text', 'files', 'agents', 'skills', 'metadata', 'delivery', 'resume']);
+  // `synthetic` is set by the caller that already decided the admission is a
+  // continuation, never by the request body, so it is not an accepted field.
+  // Why the guard: destructuring a non-object would raise a TypeError before
+  // validation, turning a rejected admission into a 500.
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw invalid('Expected a JSON object');
+  const { synthetic = false, ...input } = body;
+  objectInput(input, ['id', 'text', 'files', 'agents', 'skills', 'metadata', 'delivery', 'resume', 'description']);
   textInput(body.text, 'text', physicalWireAllowance(options.registry?.get(state.info.id)?.engine?.ingressContextWindowTokens ?? 65_536));
   for (const field of ['files', 'agents', 'skills']) {
     if (body[field] !== undefined && (!Array.isArray(body[field]) || body[field].length)) throw invalid(`${field} are not supported by this surface`);
@@ -122,13 +137,13 @@ function admitPrompt(state, body, operations, options) {
   if (state.inputs.has(id) || state.messages.has(id)) throw apiError(409, 'ConflictError', 'Message already exists');
   state.inputs.set(id, body);
   try {
-    const admitted = operations.admit(state.info.id, [{ type: 'text', text: body.text }], { messageID: id });
+    const admitted = operations.admit(state.info.id, [{ type: 'text', text: body.text }], { messageID: id, synthetic });
     const receipt = state.inbox.get(id);
     const settled = admitted.response.catch((error) => {
       options.logger?.record({ type: 'opencode_prompt_failed', code: error?.code ?? 'internal_failure', sessionID: state.info.id });
     }).finally(() => state.pending.delete(settled));
     state.pending.add(settled);
-    return receipt;
+    return { ...receipt, ...(synthetic ? { type: 'synthetic' } : {}) };
   } catch (error) { state.inputs.delete(id); throw error; }
 }
 
