@@ -277,6 +277,43 @@ async function waitForForm(json, sessionID) {
   assert.fail('Question did not become a form');
 }
 
+test('v2 settlement emits the form.settled disposition clients clear from', { timeout: 20_000 }, async (t) => {
+  const provider = new QuestionProvider();
+  const { json, request, runtime } = await fixtureServer(t, { providerFactory: () => provider });
+  const session = (await json('/api/session', 'POST', {})).data;
+  const controller = new AbortController(); t.after(() => controller.abort());
+  const response = await fetch(`${runtime.url}/api/event`, { signal: controller.signal });
+  const reader = response.body.getReader(); const decoder = new TextDecoder();
+  const events = []; let buffer = '';
+  const collected = (async () => {
+    try {
+      for (;;) {
+        const chunk = await reader.read(); if (chunk.done) return;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        let end;
+        while ((end = buffer.indexOf('\n\n')) >= 0) {
+          const block = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+          const data = block.split('\n').find((line) => line.startsWith('data: '));
+          if (data) events.push(JSON.parse(data.slice(6)));
+        }
+      }
+    } catch { /* the reader is cancelled when the test ends */ }
+  })();
+  await json(`/api/session/${session.id}/prompt`, 'POST', { text: 'ask me' });
+  const form = await waitForForm(json, session.id);
+  assert.equal((await request(`/api/session/${session.id}/form/${form.id}/reply`, 'POST', { answer: { question_0: 'stable' } })).status, 204);
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  await controller.abort();
+  await collected;
+  const settled = events.filter((event) => event.type === 'form.settled');
+  assert.equal(settled.length, 1);
+  assert.equal(settled[0].data.sessionID, session.id);
+  assert.equal(settled[0].data.formID, form.id);
+  assert.equal(settled[0].data.disposition, 'replied');
+  // The answer-bearing event stays available for clients that read it instead.
+  assert.ok(events.some((event) => event.type === 'form.replied'));
+});
+
 test('v2 forms recover pending questions and enforce ownership, choices, and single settlement', { timeout: 20_000 }, async (t) => {
   const provider = new QuestionProvider();
   const { json, request } = await fixtureServer(t, { providerFactory: () => provider });

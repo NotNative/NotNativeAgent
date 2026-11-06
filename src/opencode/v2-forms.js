@@ -25,6 +25,12 @@ export function observeForm(state, type, properties, events) {
     events.emit(state, answered ? 'form.replied' : 'form.cancelled', {
       id, sessionID: state.info.id, ...(answered ? { answer: form.state.answer } : {}),
     }, false);
+    // Compatibility: v2 clients clear a pending form from `form.settled`, which
+    // carries the disposition rather than the answer. Both events describe one
+    // settlement so a client that knows only one of them still converges.
+    events.emit(state, 'form.settled', {
+      sessionID: state.info.id, formID: id, disposition: answered ? 'replied' : 'cancelled',
+    }, false);
   }
 }
 
