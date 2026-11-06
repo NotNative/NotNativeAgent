@@ -95,15 +95,22 @@ the model/provider/integration catalogs, session create/list/get/patch/delete
 including archive and restore, text prompts with client IDs and queued
 admission, synthetic continuation prompts, inbox reads, wait, interrupt, viewed
 state, paginated message reads, native session/inbox/step/text/usage/form
-events, `idle` turn markers in history, form settlement, and the isolated
-provider and credential routes.
+events, `idle` turn markers in history, tool parts with name and lifecycle state,
+form settlement, and the isolated provider and credential routes.
+
+Tool parts carry the tool's name and its state, never its arguments or raw
+result: a tool's input can contain a secret and its output can contain retrieved
+content that must not gain authority. NNA's own protocol tools (such as the
+turn-outcome declaration) are not rendered, because OpenCode has no call to show
+for them.
 
 Not implemented, and refused explicitly: attachments, deferred execution,
 active-turn steering, agents beyond build, permission mutations, shell
 execution, filesystem and VCS APIs, session transfer and fork, session move,
-manual compaction, revert, command and generated-text routes, tool-call events,
-OAuth and command-based provider connection, and plugin management. Reviewer
-escalation remains fail-closed.
+manual compaction, revert, command and generated-text routes, tool-call lifecycle
+events, `session.diff` (NNA keeps no file snapshots, so it cannot answer with a
+truthful diff), OAuth and command-based provider connection, and plugin
+management. Reviewer escalation remains fail-closed.
 
 ## Isolated provider configuration
 

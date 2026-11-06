@@ -8,6 +8,7 @@
 import { ContractError, newId } from '../ids.js';
 import { createHash } from 'node:crypto';
 import { physicalWireAllowance } from '../reliability/context-budget.js';
+import { PROTOCOL_TOOL_NAMES } from '../tools/core-names.js';
 
 const QUEUE_LIMIT = 64;
 const HISTORY_LIMIT = 64;
@@ -69,7 +70,47 @@ function observeEngineRecord(state, record) {
       field: 'text', delta: record.text ?? '',
     });
     if (state.active.deltaStart === null) state.active.deltaStart = Date.now();
+    return;
   }
+  if (record?.type === 'tool_status' && state.active) observeToolStatus(state, record);
+}
+
+// Why: a v2 transcript shows tool calls as parts of the assistant message. The
+// engine already reports each tool's name and lifecycle, so the wire projects
+// that into the tool state a client renders.
+//
+// Security: tool rows carry the tool name and its state only. Arguments and raw
+// results stay with the engine; a tool's input can contain a secret and its
+// output can contain retrieved content that must not gain authority.
+const RUNNING_TOOL_STATES = new Set(['review_pending', 'approved', 'running']);
+
+function observeToolStatus(state, record) {
+  if (typeof record.tool !== 'string' || !record.tool) return;
+  // Why: a protocol tool declares turn control instead of doing visible work,
+  // and OpenCode has no call to show for it. Rendering it would invent a tool
+  // step the model never performed.
+  if (PROTOCOL_TOOL_NAMES.includes(record.tool)) return;
+  const key = record.tool_request_id ?? record.provider_call_id ?? record.tool;
+  const nowMs = Date.now();
+  let part = state.active.toolParts.get(key);
+  if (!part) {
+    part = { id: newId('prt'), messageID: state.active.assistantId, sessionID: state.sessionID,
+      type: 'tool', name: record.tool, time: { created: nowMs }, state: null };
+    state.active.toolParts.set(key, part);
+  }
+  const status = record.status;
+  part.state = RUNNING_TOOL_STATES.has(status)
+    ? { status: 'running', input: {}, metadata: {} }
+    : status === 'succeeded'
+      ? { status: 'completed', input: {}, content: [{ type: 'text', text: '' }] }
+      : { status: 'error', input: {}, error: { type: 'nna_tool_failed',
+        message: 'The tool did not complete. NNA records the reason in its own journal.' } };
+  if (part.state.status === 'running') part.time.ran = nowMs; else part.time.completed = nowMs;
+  // Compatibility: the part is projected on the assistant message so a client
+  // that rebuilds the transcript from parts renders the call in place.
+  const assistant = state.active.assistantParts ?? [];
+  const existing = assistant.findIndex((item) => item.id === part.id);
+  if (existing >= 0) assistant[existing] = part; else assistant.push(part);
 }
 
 function admit(state, parts, input = {}) {
@@ -249,13 +290,16 @@ function createEntry(state, text) {
     createdAt: Date.now(), assistantCreated: null, assistantCompleted: null,
     textStart: null, textEnded: null, deltaStart: null, closedAt: null,
     assistantContent: '', finish: null, tokens: ZERO_TOKENS, response: null, aborted: false,
+    toolParts: new Map(), assistantParts: [],
   };
 }
 
 function buildAssistantResponse(state, entry) {
   return {
     info: assistantInfo(state, entry, { completed: entry.assistantCompleted, finish: entry.finish ?? 'error' }),
-    parts: [stepStartPart(state, entry), textPartFinal(state, entry), stepFinishPart(state, entry)],
+    // Why: tool parts sit between the step's opening and its finish, so a client
+    // renders each call where the model made it rather than after the answer.
+    parts: [stepStartPart(state, entry), ...(entry.assistantParts ?? []), textPartFinal(state, entry), stepFinishPart(state, entry)],
   };
 }
 

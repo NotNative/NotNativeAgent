@@ -150,6 +150,65 @@ test('the queue rejects a 65th unfinished prompt and accepts work after settleme
   assert.equal((await next).parts[1].text, 'after');
 });
 
+test('tool status records become tool parts on the assistant message', async () => {
+  const bus = recordingBus();
+  let release;
+  const record = makeRecord(() => new Promise((resolve) => { release = resolve; }));
+  const wireSession = freshWireSession(record, bus);
+  const pending = wireSession.prompt([{ type: 'text', text: 'use a tool' }]);
+  await new Promise((resolve) => setImmediate(resolve));
+  wireSession.observe({ type: 'tool_status', tool: 'file_read', tool_request_id: 'req_1', status: 'running' });
+  wireSession.observe({ type: 'tool_status', tool: 'file_read', tool_request_id: 'req_1', status: 'succeeded' });
+  release({ outcome: 'completed', text: 'done' });
+  const response = await pending;
+  const tools = response.parts.filter((part) => part.type === 'tool');
+  // Invariant: one part per tool request, updated in place rather than appended
+  // once per lifecycle record.
+  assert.equal(tools.length, 1);
+  assert.equal(tools[0].name, 'file_read');
+  assert.equal(tools[0].state.status, 'completed');
+  assert.equal(tools[0].messageID, response.info.id);
+  assert.match(tools[0].id, /^prt_/u);
+  assert.equal(typeof tools[0].time.completed, 'number');
+  // The tool sits between the step's opening and its finish.
+  assert.equal(response.parts[0].type, 'step-start');
+  assert.equal(response.parts.at(-1).type, 'step-finish');
+});
+
+test('a failed tool reports fixed guidance without engine detail', async () => {
+  const bus = recordingBus();
+  let release;
+  const record = makeRecord(() => new Promise((resolve) => { release = resolve; }));
+  const wireSession = freshWireSession(record, bus);
+  const pending = wireSession.prompt([{ type: 'text', text: 'fail a tool' }]);
+  await new Promise((resolve) => setImmediate(resolve));
+  wireSession.observe({ type: 'tool_status', tool: 'shell_run', tool_request_id: 'req_2', status: 'failed' });
+  release({ outcome: 'completed', text: 'ok' });
+  const response = await pending;
+  const tool = response.parts.find((part) => part.type === 'tool');
+  assert.equal(tool.state.status, 'error');
+  // Security: the wire carries fixed guidance, never a raw tool result, and a
+  // tool's input can contain a secret.
+  assert.equal(tool.state.error.type, 'nna_tool_failed');
+  assert.equal(Object.keys(tool.state.input).length, 0);
+});
+
+test('a protocol tool never appears as a tool part', async () => {
+  const bus = recordingBus();
+  let release;
+  const record = makeRecord(() => new Promise((resolve) => { release = resolve; }));
+  const wireSession = freshWireSession(record, bus);
+  const pending = wireSession.prompt([{ type: 'text', text: 'declare an outcome' }]);
+  await new Promise((resolve) => setImmediate(resolve));
+  // Why: turn_finish declares the turn's outcome; it is not work the model did,
+  // and OpenCode has no call to show for it.
+  wireSession.observe({ type: 'tool_status', tool: 'turn_finish', tool_request_id: 'req_finish', status: 'running' });
+  release({ outcome: 'completed', text: 'done' });
+  const response = await pending;
+  assert.deepEqual(response.parts.filter((part) => part.type === 'tool'), []);
+  assert.deepEqual(response.parts.map((part) => part.type), ['step-start', 'text', 'step-finish']);
+});
+
 test('prompt validation rejects empty, oversized, and non-text parts before any event', async () => {
   const bus = recordingBus();
   const record = makeRecord(async () => ({ outcome: 'completed', text: '' }));

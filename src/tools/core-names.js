@@ -30,3 +30,9 @@ export const LEGACY_PROVIDER_TOOL_NAMES = Object.freeze([
 export const INTERNAL_TOOL_NAMES = Object.freeze([
   'project_verify', 'code_diagnostics', 'ref_store', 'process_run',
 ]);
+
+/** Protocol tools that declare turn control rather than perform observable work.
+ *  Why: a surface that renders tool calls must not present these as work the
+ *  model did; `turn_finish` is how NNA declares a turn's outcome, and OpenCode
+ *  has no equivalent call to show. */
+export const PROTOCOL_TOOL_NAMES = Object.freeze(['turn_finish']);
