@@ -115,7 +115,19 @@ function attachState(states, info, model, events, version, metadata) {
  *  prompt keeps the binding it was admitted under. */
 async function admitWithModel(context, state, body) {
   const { options, operations } = context;
-  if (options.providerSettings && !state.pending.size) await selectModel(context, state, state.info.model, true);
+  // Why the serialized rebind: this runs before every prompt, and it briefly
+  // marks the session as selecting a model. Two prompts arriving in the same tick
+  // — two tabs, or the desktop and a phone — made the loser fail with "Wait for
+  // the session to become idle before changing its model", a selection it never
+  // asked for. The admissions now take turns, which costs an await and keeps the
+  // queue-never-reject contract.
+  if (options.providerSettings && !state.pending.size) {
+    const previous = state.rebinding ?? Promise.resolve();
+    const rebind = previous.catch(() => undefined).then(
+      () => (options.providerSettings && !state.pending.size ? selectModel(context, state, state.info.model, true) : undefined));
+    state.rebinding = rebind;
+    try { await rebind; } finally { if (state.rebinding === rebind) state.rebinding = null; }
+  }
   return admitPrompt(state, body, operations, options);
 }
 

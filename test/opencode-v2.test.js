@@ -747,6 +747,32 @@ test('a timeline mutation the session cannot accept is a conflict, not a failure
   assert.equal((await noRevert.json())._tag, 'ConflictError');
 });
 
+test('prompts arriving together all admit instead of blaming a model selection', { timeout: 40_000 }, async (t) => {
+  // Why: every prompt re-binds the provider selection first, and that briefly
+  // marks the session as selecting. Two clients arriving in the same tick — two
+  // tabs, or the desktop and a phone — made the loser answer 409 "Wait for the
+  // session to become idle before changing its model", a selection it never asked
+  // for. Prompts queue rather than reject, so concurrent admissions take turns.
+  const { json, request } = await fixtureServer(t, { config: resolveManifest({ persistence: 'durable', provider: {
+    id: 'test', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback' } }) });
+  const session = (await json('/api/session', 'POST', { title: 'Together' })).data;
+  // Fired in the same tick, with no awaits between them.
+  const admitted = await Promise.all([
+    request(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_tog1', text: 'one' }),
+    request(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_tog2', text: 'two' }),
+    request(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_tog3', text: 'three' }),
+  ]);
+  assert.deepEqual(admitted.map((response) => response.status), [200, 200, 200],
+    'no concurrent prompt is refused for a selection it did not request');
+  assert.equal((await request(`/api/experimental/session/${session.id}/wait`, 'POST')).status, 204);
+  const messages = (await json(`/api/session/${session.id}/message?order=asc&limit=500`)).data;
+  const users = messages.filter((message) => message.type === 'user');
+  // Invariant: every admitted prompt is present exactly once, and answered.
+  assert.deepEqual(users.map((message) => message.id).sort(), ['msg_tog1', 'msg_tog2', 'msg_tog3']);
+  assert.equal(messages.filter((message) => message.type === 'assistant').length, 3);
+  assert.equal(messages.filter((message) => message.type === 'idle').length, 3);
+});
+
 test('v2 forks a session and the child inherits its settled turn', { timeout: 30_000 }, async (t) => {
   // Why: a fork replays the parent prefix into the child engine silently, so no
   // events describe the inherited turns. The child's message list was therefore
