@@ -138,6 +138,30 @@ file snapshots, so it cannot answer truthfully), OAuth and command-based
 provider connection, and plugin management. Reviewer escalation remains
 fail-closed.
 
+## Session move: refused, and why the refusal is structural
+
+`POST /api/session/:id/move` answers a tagged `InvalidRequestError` rather than
+moving anything. This is the one refusal here that is architectural rather than a
+missing wire mapping, and it was checked rather than assumed.
+
+The engine's `changeEngineWorkspace` is complete — it validates the target,
+persists a `workspace_changed` record and notifies. But its guard
+`assertWorkspaceTransition` refuses three cases: an unavailable tool root, an
+authenticated execution manifest or desktop-bound surface, and, decisively, **no
+active turn**: "working directory transition requires an active reviewed tool
+call". Workspace movement belongs to the `workspace_change` tool, which a reviewed
+turn invokes and the reviewer can refuse. It is not an operator API.
+
+OpenChamber calls `session.move` when relocating a session into a new git
+worktree — a request that arrives while the session is idle. Satisfying the guard
+would mean fabricating an active turn, which would defeat exactly the review the
+guard exists to require. So the route refuses, and an operator who needs a session
+in another directory creates it there.
+
+Verified live: the route answers a tagged 404 and the engine answers
+`workspace_change_unavailable` for the same attempt, so the surface is not hiding
+a capability it could have offered.
+
 ## Fork
 
 `POST /api/session/:id/fork` creates a child session from a validated parent
