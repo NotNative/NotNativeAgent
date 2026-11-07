@@ -141,6 +141,10 @@ function observeToolStatus(state, record) {
   const assistant = state.active.assistantParts ?? [];
   const existing = assistant.findIndex((item) => item.id === part.id);
   if (existing >= 0) assistant[existing] = part; else assistant.push(part);
+  // Why publish the part: a surface that projects the transcript from events
+  // learns about a tool call only from a part update. Returning the part in the
+  // final response is not enough — the v2 workspace listens to the bus.
+  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part, time: nowMs });
 }
 
 function admit(state, parts, input = {}) {

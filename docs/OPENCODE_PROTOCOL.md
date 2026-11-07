@@ -122,6 +122,14 @@ content that must not gain authority. NNA's own protocol tools (such as the
 turn-outcome declaration) are not rendered, because OpenCode has no call to show
 for them.
 
+A tool part lives on the assistant message beside the text, and a text part
+replaces only prior text. The first implementation assigned the whole content
+array when the answer arrived, which erased every tool call the moment a turn
+finished: a live turn that read a file reported the correct contents and showed
+no tool row at all. Only an end-to-end run against a real provider exposed it,
+because the engine emitted the correct `tool_status` records and the parts were
+published with the correct message id — the loss was one assignment later.
+
 Not implemented, and refused explicitly: attachments, deferred execution,
 active-turn steering, agents beyond build, permission mutations, shell
 execution, filesystem and VCS APIs, session transfer and fork, session move,

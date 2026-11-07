@@ -669,6 +669,52 @@ test('v2 delivers the answer when the provider sends it in one chunk', { timeout
   assert.equal(text, 'one chunk answer');
 });
 
+test('a tool part survives the text part that follows it', () => {
+  // Why: a text part is rewritten as it streams, and a wholesale content
+  // assignment erased every tool call the moment the answer landed. A turn that
+  // read a file then showed the answer with no tool row, which is what a live
+  // tool-using turn exposed.
+  const emitted = [];
+  const state = { info: { id: 'ses_a', model: { id: 'm', providerID: 'p' } }, messages: new Map(),
+    inputs: new Map(), inbox: new Map(), cancelled: new Set(), forms: new Map() };
+  const events = { emit: (_s, type, data) => emitted.push({ type, data }) };
+  observeV1Event(state, { type: 'message.updated', properties: {
+    info: { id: 'msg_a', sessionID: 'ses_a', role: 'assistant', time: { created: 1 } } } }, events);
+  observeV1Event(state, { type: 'message.part.updated', properties: { part: {
+    type: 'tool', id: 'prt_t', messageID: 'msg_a', name: 'fs_read',
+    state: { status: 'running', input: {}, metadata: {} }, time: { created: 2 } } } }, events);
+  // The answer arrives after the tool call.
+  observeV1Event(state, { type: 'message.part.updated', properties: { part: {
+    type: 'text', id: 'prt_x', messageID: 'msg_a', text: 'the answer',
+    time: { start: 3, end: 4 } } } }, events);
+  const content = state.messages.get('msg_a').content;
+  assert.deepEqual(content.map((item) => item.type), ['tool', 'text']);
+  assert.equal(content[0].name, 'fs_read');
+  assert.equal(content[1].text, 'the answer');
+  // Security: the tool part carries the name and lifecycle state. The wire sends
+  // an empty input placeholder, and no arguments or result content ride along.
+  assert.deepEqual(content[0].state.input ?? {}, {});
+  assert.equal('content' in content[0].state, false);
+  assert.equal('error' in content[0].state, false);
+});
+
+test('a tool part updates in place rather than appending a row per record', () => {
+  const emitted = [];
+  const state = { info: { id: 'ses_a', model: { id: 'm', providerID: 'p' } }, messages: new Map(),
+    inputs: new Map(), inbox: new Map(), cancelled: new Set(), forms: new Map() };
+  const events = { emit: () => undefined };
+  observeV1Event(state, { type: 'message.updated', properties: {
+    info: { id: 'msg_b', sessionID: 'ses_a', role: 'assistant', time: { created: 1 } } } }, events);
+  for (const status of ['running', 'running', 'completed']) {
+    observeV1Event(state, { type: 'message.part.updated', properties: { part: {
+      type: 'tool', id: 'prt_same', messageID: 'msg_b', name: 'fs_read',
+      state: { status }, time: { created: 2 } } } }, events);
+  }
+  assert.equal(state.messages.get('msg_b').content.length, 1);
+  assert.equal(state.messages.get('msg_b').content[0].state.status, 'completed');
+  void emitted;
+});
+
 test('v2 history closes each settled turn with an idle record', { timeout: 20_000 }, async (t) => {
   const { json, request } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', {})).data;

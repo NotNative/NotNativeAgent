@@ -67,6 +67,10 @@ function finishMessage(state, info, events) {
 }
 
 function observePart(state, part, events) {
+  // Compatibility: a tool call is a part of the assistant message. It carries the
+  // tool's name and lifecycle state only — never its arguments or raw result,
+  // which can hold a secret or retrieved content.
+  if (part.type === 'tool') { observeToolPart(state, part); return; }
   if (part.type !== 'text') return;
   const message = state.messages.get(part.messageID);
   if (!message) return;
@@ -81,7 +85,12 @@ function observePart(state, part, events) {
       item: { type: 'user', payload: item.payload, delivery: item.delivery } });
     return;
   }
-  message.content = [{ type: 'text', text: part.text }];
+  // Why replace only the text entries: a text part is rewritten several times as
+  // it streams, but tool parts sit beside it in the same assistant message. A
+  // wholesale assignment erased every tool call the moment the answer landed,
+  // which is why a turn that read a file showed no tool row.
+  const kept = message.content.filter((item) => item.type !== 'text');
+  message.content = [...kept, { type: 'text', text: part.text }];
   events.emit(state, part.time?.end == null ? 'session.text.started' : 'session.text.ended', {
     sessionID: state.info.id, assistantMessageID: message.id, ordinal: 0,
     ...(part.time?.end == null ? {} : { text: part.text }),
@@ -98,8 +107,23 @@ function observeDelta(state, value, events) {
     ordinal: 0, delta: value.delta }, false);
 }
 
-function finishExecution(state, events) {
-  state.running = false;
+/** Keep a tool part on its assistant message, in call order.
+ *
+ *  Security: the stored part is rebuilt from `name` and `state` only. A tool's
+ *  input can contain a secret and its output can contain retrieved content that
+ *  must not gain authority, so neither is copied.
+ *
+ *  Why replace by id: one call reports several lifecycle records, and the
+ *  transcript should show one row whose state changes, not a row per record. */
+function observeToolPart(state, part) {
+  const message = state.messages.get(part.messageID);
+  if (!message || message.type !== 'assistant') return;
+  const stored = { type: 'tool', id: part.id, name: part.name, state: part.state, time: part.time };
+  const index = message.content.findIndex((item) => item.type === 'tool' && item.id === part.id);
+  if (index >= 0) message.content[index] = stored; else message.content.push(stored);
+}
+
+function finishExecution(state, events) {  state.running = false;
   state.info.outcome = state.lastOutcome ?? 'succeeded';
   state.info.time.idle = Date.now(); state.info.time.updated = state.info.time.idle;
   // Compatibility: OpenCode 2 writes an `idle` record into the session's message
