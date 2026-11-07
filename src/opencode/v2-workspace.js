@@ -251,13 +251,19 @@ async function selectModel(context, state, reference, requireCredential = false)
     }
     await context.operations.configure(state.info.id, manifestFromConfig(selected.config), selected.reference);
     const previous = state.info.model;
-    state.info.model = selected.reference;
-    if (previous.id !== selected.reference.id || previous.providerID !== selected.reference.providerID) {
-      context.events.emit(state, 'session.model.selected', { sessionID: state.info.id, model: selected.reference, previous });
+    // Why carry the variant: the level the operator chose has to survive onto the
+    // session record, or the next prompt would silently fall back to the model's
+    // default thinking level while the UI still showed the chosen one.
+    const next = selected.reasoningEffortVariant
+      ? { ...selected.reference, variant: selected.reasoningEffortVariant }
+      : selected.reference;
+    state.info.model = next;
+    if (previous.id !== next.id || previous.providerID !== next.providerID || previous.variant !== next.variant) {
+      context.events.emit(state, 'session.model.selected', { sessionID: state.info.id, model: next, previous });
       // Compatibility: OpenCode 2 records a `model-switched` history entry the
       // way it records `idle`, and a client reading history expects to see the
       // switch rather than a silent gap between turns.
-      recordModelSwitch(state, selected.reference, previous);
+      recordModelSwitch(state, next, previous);
     }
   } finally { state.selecting = false; }
 }

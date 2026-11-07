@@ -6,6 +6,7 @@ import { resolveManifest } from '../config.js';
 import { assignProviders, manifestFromConfig } from '../provider/route-configuration.js';
 import { apiError, invalid, objectInput, textInput } from './v2-contract.js';
 import { normalizeProvider, providerConfigPaths, readProviderDocument } from './provider-document.js';
+import { REASONING_EFFORTS } from '../provider/reasoning.js';
 import { providerSource, removeProvider, writeProvider } from './provider-configuration.js';
 
 export class OpenCodeProviderSettings {
@@ -40,11 +41,29 @@ export class OpenCodeProviderSettings {
   async selection(reference) {
     const snapshot = await this.snapshot();
     const desired = reference ?? defaultReference(snapshot.document, snapshot.providers);
-    objectInput(desired, ['id', 'providerID']);
+    objectInput(desired, ['id', 'providerID', 'variant']);
     const requested = snapshot.providers.find((item) => item.id === desired.providerID);
     if (requested?.protocolError) throw invalid(requested.protocolError);
     const provider = snapshot.providers.find((item) => item.id === desired.providerID && item.activation !== 'disabled');
     if (!provider || !Object.hasOwn(provider.models, desired.id) || provider.models[desired.id].disabled) throw invalid('Select an enabled model configured for OpenCode');
+    // Compatibility: a model's `variant` is a thinking level this surface now
+    // advertises in its catalog, so choosing one has to be honoured rather than
+    // refused as an unknown field. The level's own `settings` carry the provider
+    // spelling NNA forwards, which is `reasoningEffort` for a Chat Completions
+    // provider. An unknown level is refused instead of quietly using the default.
+    const variants = provider.models[desired.id].variants ?? [];
+    const chosen = desired.variant == null ? undefined
+      : variants.find((item) => item.id === desired.variant)
+        ?? variants.find((item) => (typeof item === 'string' ? item : item?.id) === desired.variant);
+    if (desired.variant != null && !chosen) throw invalid('Select a thinking level this model declares');
+    const reasoningEffort = chosen?.settings?.reasoningEffort;
+    // Why refuse here: NNA accepts a fixed set of efforts, and a provider that
+    // spells a level differently (vLLM's "max", for instance) would otherwise
+    // fail deep inside routing as an opaque 500. Naming it keeps the refusal
+    // where the operator can act on it.
+    if (reasoningEffort != null && !REASONING_EFFORTS.includes(reasoningEffort)) {
+      throw invalid(`Thinking level "${desired.variant}" asks for reasoning effort "${reasoningEffort}", which NNA does not support; supported levels are ${REASONING_EFFORTS.join(', ')}`);
+    }
     const secret = snapshot.secrets.find((item) => item.enabled && item.metadata.providerID === provider.id && item.metadata.endpoint === provider.endpoint);
     const environmentName = provider.env.find((name) => this.environment[name]);
     const credential = secret ? { source: 'secret', secret_id: secret.id, field: 'key' }
@@ -57,6 +76,7 @@ export class OpenCodeProviderSettings {
       .filter((item) => item.metadata.providerID === provider.id)
       .map((item) => item.metadata.endpoint))];
     return { reference: { id: desired.id, providerID: provider.id }, provider, model: provider.models[desired.id], credential,
+      ...(reasoningEffort ? { reasoningEffort, variant: desired.variant } : {}),
       ...(staleEndpoints.length ? { credentialEndpoints: staleEndpoints } : {}) };
   }
 
@@ -74,9 +94,13 @@ export class OpenCodeProviderSettings {
       outputLimitTokens: limits.output, contextLimitBytes: limits.context ? limits.context * 4 : undefined,
       capabilities: { tools: selected.model.capabilities?.tools !== false, images: false },
     }]);
-    manifest.routes = { primary: { selection_id: profile.id, model: selected.model.modelID ?? selected.reference.id } };
+    manifest.routes = { primary: { selection_id: profile.id, model: selected.model.modelID ?? selected.reference.id,
+      // Compatibility: the chosen thinking level becomes the manifest's reasoning
+      // effort, which is how NNA carries it to the provider request.
+      ...(selected.reasoningEffort ? { reasoning_effort: selected.reasoningEffort } : {}) } };
     manifest.workspace_root = directory ?? base.workspaceRoot;
     return { config: resolveManifest(manifest), reference: selected.reference,
+      ...(selected.variant ? { reasoningEffortVariant: selected.variant } : {}),
       ...(selected.credentialEndpoints ? { credentialEndpoints: selected.credentialEndpoints } : {}) };
   }
 

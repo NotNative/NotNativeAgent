@@ -320,6 +320,44 @@ test('a credential bound to another endpoint is named rather than reported as mi
   await rm(root, { recursive: true, force: true });
 });
 
+test('a chosen thinking level becomes the reasoning effort, and an unsupported one is refused', async (t) => {
+  // Why: the catalog advertises a model's variants, so the client renders a
+  // level picker and sends the chosen id back as `variant`. Accepting it only in
+  // the catalog left the picker broken: switching to a level answered 400 for an
+  // unknown field. NNA also accepts a fixed set of efforts, so a provider that
+  // spells one differently must be refused where the operator can see why.
+  const root = await mkdtemp(join(tmpdir(), 'nna-oc-variant-select-'));
+  await mkdir(join(root, 'config'));
+  const path = join(root, 'config', 'opencode.json');
+  await writeFile(path, JSON.stringify({ providers: { v: {
+    name: 'V', package: '@opencode/ai/providers/openai-compatible',
+    settings: { baseURL: 'http://127.0.0.1:9999/v1' },
+    models: {
+      supported: { name: 'Supported', variants: [{ id: 'high', settings: { reasoningEffort: 'high' } }] },
+      spelled: { name: 'Spelled', variants: [{ id: 'max', settings: { reasoningEffort: 'max' } }] },
+    },
+  } } }));
+  const settings = new OpenCodeProviderSettings({ root: join(root, 'runtime'), configPaths: [path], environment: {} });
+  const base = resolveManifest({ persistence: 'ephemeral', provider: {
+    id: 'nna', endpoint: 'http://127.0.0.1:8888/v1', model: 'nna', trust_zone: 'loopback' } });
+  try {
+    const chosen = await settings.runtimeConfig(base, { id: 'supported', providerID: 'v', variant: 'high' }, root);
+    assert.equal(chosen.config.routes.primary.reasoningEffort, 'high');
+    assert.equal(chosen.reasoningEffortVariant, 'high');
+    // A level the model does not declare is refused.
+    await assert.rejects(() => settings.runtimeConfig(base, { id: 'supported', providerID: 'v', variant: 'nope' }, root),
+      { message: /thinking level this model declares/u });
+    // A declared level whose spelling NNA does not accept is refused by name.
+    await assert.rejects(() => settings.runtimeConfig(base, { id: 'spelled', providerID: 'v', variant: 'max' }, root),
+      { message: /reasoning effort "max", which NNA does not support/u });
+    // Selecting no level keeps the provider default. The resolved route reports
+    // an unset effort as null rather than omitting it.
+    const plain = await settings.runtimeConfig(base, { id: 'supported', providerID: 'v' }, root);
+    assert.equal(plain.config.routes.primary.reasoningEffort ?? null, null);
+    assert.equal(plain.reasoningEffortVariant, undefined);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('provider source metadata enables edit, preserves keys, and separates profile removal from disconnect', async (t) => {
   const { add, connect, json, request, path, settings } = await setup(t);
   await add(); await connect(); const secrets = await settings.broker.list();

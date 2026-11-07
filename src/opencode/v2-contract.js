@@ -38,7 +38,13 @@ export function modelReference(config) {
 export function validateSelection(input, model) {
   if (input.agent != null && input.agent !== 'build') throw invalid('This surface supports the build agent only');
   if (input.model != null) {
-    objectInput(input.model, ['id', 'providerID']);
+    // Compatibility: `variant` names a thinking level the catalog advertises, so
+    // it is an accepted field. It is honoured only with provider settings, where
+    // a level maps onto the provider's own reasoning setting.
+    objectInput(input.model, ['id', 'providerID', 'variant']);
+    if (input.model.variant != null && (typeof input.model.variant !== 'string' || !input.model.variant)) {
+      throw invalid('variant must be a non-empty string');
+    }
     if (input.model.id !== model.id || input.model.providerID !== model.providerID) throw invalid('Select the model configured in NNA');
   }
 }
