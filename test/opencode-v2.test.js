@@ -715,6 +715,30 @@ test('a tool part updates in place rather than appending a row per record', () =
   void emitted;
 });
 
+test('v2 reads one message by id and refuses an unknown one', { timeout: 20_000 }, async (t) => {
+  // Why: a tool completion reads a single message to finish a call, and this
+  // route had no direct test — it is the one a live turn relied on.
+  const { json, request } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  await json(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_read01', text: 'hello' });
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+
+  const user = (await json(`/api/session/${session.id}/message/msg_read01`)).data;
+  // The pinned schema requires exactly id, time, text and type; a `parts` array
+  // here would violate its additionalProperties rule.
+  assert.deepEqual(Object.keys(user).sort(), ['id', 'text', 'time', 'type']);
+  assert.equal(user.type, 'user');
+  assert.equal(user.text, 'hello');
+  assert.equal(user.time.created > 0, true);
+  contract('Session.Message.User', user);
+
+  const missing = await request(`/api/session/${session.id}/message/msg_absent`);
+  assert.equal(missing.status, 404);
+  assert.equal((await missing.json())._tag, 'MessageNotFoundError');
+  // A message id belonging to no session in this surface is still a refusal.
+  assert.equal((await request('/api/session/ses_missing/message/msg_read01')).status, 404);
+});
+
 test('v2 history closes each settled turn with an idle record', { timeout: 20_000 }, async (t) => {
   const { json, request } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', {})).data;
