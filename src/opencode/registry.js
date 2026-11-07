@@ -34,6 +34,9 @@ export class OpenCodeSessionRegistry {
       tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
       title: record.title,
       version: wiredVersion,
+      // Compatibility: a forked session names the session it came from, which the
+      // client uses to place it in the tree rather than the top-level list.
+      ...(record.parentID ? { parentID: record.parentID } : {}),
       time: { created: record.createdAt, updated: record.updatedAt },
     };
   }

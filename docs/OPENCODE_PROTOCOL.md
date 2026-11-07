@@ -132,11 +132,29 @@ published with the correct message id — the loss was one assignment later.
 
 Not implemented, and refused explicitly: attachments, deferred execution,
 active-turn steering, agents beyond build, permission mutations, shell
-execution, filesystem and VCS APIs, session transfer and fork, session move,
-manual compaction, command and generated-text routes, tool-call lifecycle
-events, `session.diff` (NNA keeps no file snapshots, so it cannot answer with a
-truthful diff), OAuth and command-based provider connection, and plugin
-management. Reviewer escalation remains fail-closed.
+execution, filesystem and VCS APIs, session move, manual compaction, command and
+generated-text routes, tool-call lifecycle events, `session.diff` (NNA keeps no
+file snapshots, so it cannot answer truthfully), OAuth and command-based
+provider connection, and plugin management. Reviewer escalation remains
+fail-closed.
+
+## Fork
+
+`POST /api/session/:id/fork` creates a child session from a validated parent
+prefix and answers the new session record. `before` is the boundary message id
+the client admitted; omitting it carries the whole settled timeline over. The
+engine resolves a boundary by its own request id, so the same join revert uses
+applies here.
+
+Two things a fork needs beyond the engine call. The child is created through the
+ordinary session path with `forkIngest` and a `parentID`, so it has the same
+engine, registry and wire voice as any session and the client can nest it in the
+tree. And because the ingest replays the parent prefix into the engine
+*silently* — no events describe those turns — the child's wire history is seeded
+from the transcript it inherited. Without that seeding a fork looked like a blank
+session whose engine nonetheless held the transcript. The timeline context a fork
+is handed also has to carry `title` and `directory`: an absent title produced a
+child named `undefined-fork`, and the parent's location was lost.
 
 ## Client contracts this surface is written against
 

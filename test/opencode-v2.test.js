@@ -715,6 +715,41 @@ test('a tool part updates in place rather than appending a row per record', () =
   void emitted;
 });
 
+test('v2 forks a session and the child inherits its settled turn', { timeout: 30_000 }, async (t) => {
+  // Why: a fork replays the parent prefix into the child engine silently, so no
+  // events describe the inherited turns. The child's message list was therefore
+  // empty and a fork looked like a blank session, even though its engine held the
+  // transcript. The descriptive context fields matter too: without a title the
+  // child was named "undefined-fork".
+  const { json, request } = await fixtureServer(t, { config: resolveManifest({ persistence: 'durable', provider: {
+    id: 'test', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback' } }) });
+  const parent = (await json('/api/session', 'POST', { title: 'Parent' })).data;
+  await json(`/api/session/${parent.id}/prompt`, 'POST', { id: 'msg_fork01', text: 'hello' });
+  await request(`/api/experimental/session/${parent.id}/wait`, 'POST');
+
+  const forked = await request(`/api/session/${parent.id}/fork`, 'POST', {});
+  assert.equal(forked.status, 200);
+  const child = (await forked.json()).data;
+  assert.match(child.id, /^ses_/u);
+  assert.equal(child.parentID, parent.id);
+  assert.equal(child.slug, 'parent-fork');
+  assert.notEqual(child.id, parent.id);
+
+  const childHistory = (await json(`/api/session/${child.id}/message?order=asc`)).data;
+  // The inherited turn arrives as a user prompt and its assistant reply.
+  assert.deepEqual(childHistory.map((message) => message.type), ['user', 'assistant']);
+  assert.equal(childHistory[1].content[0].text, 'hello v2');
+  // The parent keeps its own idle marker and is not disturbed.
+  assert.deepEqual((await json(`/api/session/${parent.id}/message?order=asc`)).data.map((message) => message.type),
+    ['user', 'assistant', 'idle']);
+  // The child is listed under its parent, which the client uses for the tree.
+  const listed = (await json('/api/session')).data;
+  assert.equal(listed.length, 2);
+  assert.equal(listed.filter((session) => session.parentID === parent.id).length, 1);
+  // An unknown boundary is a missing message, not a surface failure.
+  assert.equal((await request(`/api/session/${parent.id}/fork`, 'POST', { before: 'msg_absent' })).status, 404);
+});
+
 test('v2 reads one message by id and refuses an unknown one', { timeout: 20_000 }, async (t) => {
   // Why: a tool completion reads a single message to finish a call, and this
   // route had no direct test — it is the one a live turn relied on.

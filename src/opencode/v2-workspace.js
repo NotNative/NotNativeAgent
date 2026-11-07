@@ -21,6 +21,7 @@ export function createV2Workspace(operations, options) {
   const api = {
     events, model, states, requireState,
     attach(info, metadata, reference) { attachState(states, info, reference ?? model, events, options.wiredVersion, metadata); },
+    inherit(id, inherited) { inheritState(requireState(id), inherited); },
     observe(event) { observeEvent(states, event, events); },
     captureFailure(id, code) { const state = states.get(id); if (state) state.failureCode = code; },
     create(body, directory) { return createSession(context, body, directory); },
@@ -35,6 +36,7 @@ export function createV2Workspace(operations, options) {
     // is journal-backed, so the reverted turns are hidden rather than destroyed
     // and a clear brings them back. See runRevert for the boundary bookkeeping.
     ...revertApi(requireState, operations),
+    ...forkApi(requireState, operations),
     select(id, reference) { return selectModel(context, requireState(id), reference); },
     async interrupt(id) {
       const state = requireState(id);
@@ -147,6 +149,34 @@ function admitPrompt(state, body, operations, options) {
     state.pending.add(settled);
     return { ...receipt, ...(synthetic ? { type: 'synthetic' } : {}) };
   } catch (error) { state.inputs.delete(id); throw error; }
+}
+
+/** Seed a child session's history from the turns it inherited.
+ *
+ *  Why: a fork replays the parent prefix into the engine silently, so no events
+ *  describe those turns. Without this the child's message list was empty even
+ *  though its engine held the transcript — a fork looked like a blank session.
+ *  `parentID` travels the same way, so the client can nest the child. */
+function inheritState(state, inherited) {
+  if (inherited.parentID) state.info.parentID = inherited.parentID;
+  for (const item of inherited.messages ?? []) state.messages.set(item.id, item);
+}
+
+/** The fork surface: the child session record, or a missing-boundary refusal.
+ *
+ *  Compatibility: the client sends `before`, a message id it admitted, and reads
+ *  a session record back. An absent boundary carries the whole settled timeline
+ *  into the child. */
+function forkApi(requireState, operations) {
+  return {
+    fork(id, body) {
+      requireState(id);
+      objectInput(body, ['before', 'messageID']);
+      const before = body.before ?? body.messageID;
+      if (before !== undefined && (typeof before !== 'string' || !before)) throw invalid('before must be a message id');
+      return operations.fork(id, before === undefined ? {} : { before });
+    },
+  };
 }
 
 /** The revert surface: stage a boundary, clear it, or keep it.

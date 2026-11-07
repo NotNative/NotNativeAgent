@@ -15,6 +15,7 @@ import { createWireSession } from './wire-session.js';
 import { createV2Workspace } from './v2-workspace.js';
 import { apiError } from './v2-contract.js';
 import { runDesktopSessionRevert, runDesktopSessionUnrevert } from '../desktop-session-revert.js';
+import { runDesktopSessionFork } from '../desktop-session-fork.js';
 
 // Why: the opencode surface is an authenticated operator surface whose only
 // operator voice over the wire is the question reply route. It stays
@@ -71,7 +72,7 @@ function defineWorkspaceOperations(workspace, options) {
       const session = requireSession(workspace, ocId);
       return registry.describe(session, wiredVersion);
     },
-    ...turnOperations(workspace),
+    ...turnOperations(workspace, options),
     // Why: question tokens identify owning sessions; answers travel the same
     // authenticated ingress as prompt traffic and settle the parked tool call.
     ...questionOperations(workspace),
@@ -100,11 +101,14 @@ function defineWorkspaceOperations(workspace, options) {
  *  Why a builder: these are the surface's engine policy — auto-review with no
  *  permission-card transport, canonical ingress only, and workspace scope fixed
  *  at creation. Keeping them in one place makes that policy readable. */
-function engineOptions({ options, workspace, sessionId, ocId, sessionDirectory, projectID, runtimeDirectory, runtimeConfig, observe }) {
+function engineOptions({ options, workspace, sessionId, ocId, sessionDirectory, projectID, runtimeDirectory, runtimeConfig, forkIngest = null, observe }) {
   return {
     config: runtimeConfig ?? (runtimeDirectory ? Object.freeze({ ...options.config, workspaceRoot: runtimeDirectory }) : options.config),
     sessionId,
     surface: SURFACE_NAME,
+    // Why: a forked child starts from a validated parent prefix. The engine
+    // replays it as its own history, so the child continues from that turn.
+    ...(forkIngest ? { forkIngest } : {}),
     output: async (record) => {
       if (record.type === 'turn_result') workspace.v2?.captureFailure(ocId, record.failure?.code);
       observe(record);
@@ -136,7 +140,7 @@ function v2Publisher(workspace, ocId) {
   };
 }
 
-async function attachSession(workspace, options, { title, directory, ocId: requestedId, runtimeDirectory, metadata, runtimeConfig, runtimeRef }) {
+async function attachSession(workspace, options, { title, directory, ocId: requestedId, runtimeDirectory, metadata, runtimeConfig, runtimeRef, forkIngest, parentID, slugSeed }) {
   const { registry, bus, wiredVersion } = workspace;
   const sessionId = newId('session');
   const ocId = requestedId ?? newId('ses');
@@ -144,7 +148,7 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
   const projectID = projectIdentifier(sessionDirectory);
   let wireSession = null;
   const engine = new SessionEngine(engineOptions({
-    options, workspace, sessionId, ocId, sessionDirectory, projectID, runtimeDirectory, runtimeConfig,
+    options, workspace, sessionId, ocId, sessionDirectory, projectID, runtimeDirectory, runtimeConfig, forkIngest,
     observe: (record) => wireSession?.observe(record),
   }));
   await engine.initialize({ deferMcp: true });
@@ -153,11 +157,12 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
     engine,
     ingress: new CanonicalIngress(engine, { interactive: true }),
     title,
-    slug: slugifyTitle(title),
+    slug: slugifyTitle(slugSeed ?? title),
     directory: sessionDirectory,
     projectID,
     path: '',
     createdAt: Date.now(),
+    ...(parentID ? { parentID } : {}),
   };
   wireSession = createWireSession({
     record, bus, version: wiredVersion,
@@ -174,7 +179,13 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
   // or closing session and holds the journal). The registry record is frozen, so
   // this is the mutable side the timeline mutation operates on; `sessionId` is
   // the engine identity the journal resolves a boundary against.
-  const timeline = { engine, sessionId, closing: false, liveTurn: null };
+  // Why the descriptive fields: the engine's timeline operations (revert, fork)
+  // read the context they are handed — a fork titles its child and places it in
+  // the parent's directory from here, so an absent title produced "undefined-fork"
+  // and an absent directory lost the parent's location.
+  const timeline = { engine, sessionId, closing: false, liveTurn: null,
+    title, directory: sessionDirectory, modelRoute: undefined,
+    ...(parentID ? { parentID } : {}) };
   const stored = registry.attach({ ...record, wireSession, timeline });
   workspace.v2?.attach(registry.describe(stored, wiredVersion), metadata, runtimeRef);
   options.logger?.record({ type: 'opencode_session_created', ocId: stored.ocId, sessionId, title }, { sessionId });
@@ -235,7 +246,78 @@ function publishRevert(session, type, properties) {
   session.wireSession.publishV2(type, properties);
 }
 
-function turnOperations(workspace) {
+/** Fork a wire session at an optional boundary and answer the child record.
+ *
+ *  Compatibility: the client sends `before`, a message id it admitted, and reads
+ *  a session record back. The engine resolves a boundary by its own request id,
+ *  so the same join revert uses applies here; omitting the boundary carries the
+ *  whole settled timeline over. */
+async function forkWireSession(workspace, options, session, body) {
+  const requestId = body?.before == null ? undefined : session.wireSession.requestIdFor(body.before);
+  if (body?.before != null && !requestId) {
+    throw apiError(404, 'MessageNotFoundError', 'Message was not found', { messageID: body.before });
+  }
+  const child = await runDesktopSessionFork(session.timeline, {
+    createContext: async (childId, forkOptions) => createForkedContext(workspace, options, session, childId, forkOptions),
+    get: (childId) => {
+      const record = workspace.registry.get(childId);
+      if (!record) throw new ContractError('opencode_session_missing', 'forked session was not found');
+      return { id: record.ocId };
+    },
+  }, requestId === undefined ? {} : { messageID: requestId });
+  const record = workspace.registry.get(child?.id);
+  return record ? workspace.registry.describe(record, workspace.wiredVersion) : { id: child?.id };
+}
+
+/** Create the child session a fork produces.
+ *
+ *  Why through attachSession: the child is an ordinary wire session that starts
+ *  from a parent prefix, so it needs the same engine, registry, wire voice and
+ *  v2 state as any other. `forkIngest` carries the validated prefix and
+ *  `parentID` places it under the session it came from. */
+async function createForkedContext(workspace, options, parent, childId, forkOptions) {
+  const created = await attachSession(workspace, options, {
+    title: forkOptions?.title ?? `${parent.title} (fork)`,
+    directory: forkOptions?.directory ?? parent.directory,
+    ocId: childId,
+    metadata: undefined,
+    runtimeConfig: undefined,
+    runtimeRef: undefined,
+    forkIngest: forkOptions?.forkIngest,
+    parentID: parent.ocId,
+    slugSeed: forkOptions?.title ?? parent.title,
+  });
+  // The ingest replays silently, so the child's wire history is seeded from the
+  // transcript it inherited rather than left empty until its first own turn.
+  const child = workspace.registry.get(created.id);
+  workspace.v2?.inherit(created.id, {
+    parentID: parent.ocId,
+    messages: inheritedMessages(child?.engine?.transcript, created.id),
+  });
+  return created;
+}
+
+/** Project an inherited engine transcript into wire message records.
+ *
+ *  Why a summary rather than the full text: the child's own turns carry full
+ *  content. An inherited turn is shown as its user prompt and its assistant
+ *  reply, which is what a reader expects to see carried over.
+ *  @param {Array<object>} transcript the child's replayed transcript
+ *  @param {string} sessionID the child session id these records belong to */
+function inheritedMessages(transcript, sessionID) {
+  if (!Array.isArray(transcript)) return [];
+  const records = [];
+  for (const item of transcript) {
+    if (item?.type !== 'message' || !['user', 'assistant'].includes(item.role)) continue;
+    const text = typeof item.content === 'string' ? item.content
+      : Array.isArray(item.content) ? item.content.filter((part) => part?.type === 'text').map((part) => part.text).join('') : '';
+    records.push({ id: newId('msg'), sessionID, type: item.role, time: { created: item.createdAt ?? 0 },
+      ...(item.role === 'user' ? { text } : { content: [{ type: 'text', text }], agent: 'build', model: { id: 'nna', providerID: 'nna' } }) });
+  }
+  return records;
+}
+
+function turnOperations(workspace, options) {
   return {
     async configure(ocId, manifest, model) {
       const session = requireSession(workspace, ocId);
@@ -246,13 +328,10 @@ function turnOperations(workspace) {
     admit(ocId, parts, input) {
       return requireSession(workspace, ocId).wireSession.admit(parts, input);
     },
-    /** Stage a revert at a message the client addressed.
-     *
-     *  Why the translation: the engine resolves a revert boundary by its own
-     *  request id, while the client names the message it was admitted under. The
-     *  wire session holds the join, so an unknown id is refused instead of
-     *  staging a boundary the engine would not find. */
+    // Both translate the client's message id to the engine's request id; see
+    // stageWireRevert and forkWireSession for why the join exists.
     revert(ocId, body) { return stageWireRevert(requireSession(workspace, ocId), body); },
+    async fork(ocId, body) { return forkWireSession(workspace, options, requireSession(workspace, ocId), body); },
     async unrevert(ocId) {
       const session = requireSession(workspace, ocId);
       await runDesktopSessionUnrevert(session.timeline);
