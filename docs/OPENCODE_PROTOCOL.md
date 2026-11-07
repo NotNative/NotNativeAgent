@@ -293,6 +293,30 @@ turn 3       : prompt=200 wait=204 | route=null
 So `spark` and `AGDuo/spark` honour a level; `Qwen/Qwen3.8-Flash-Next` and
 `qwen-vllm/Qwen/Qwen3.8-Flash-Next` will not, by design.
 
+## Reviewer forms, and the posture that keeps them quiet
+
+The form surface is complete: `GET` lists a session's pending forms, a form can be
+read by id, settled with a decision, or dismissed. Settling publishes
+`form.settled`, which is what a client uses to clear its prompt.
+
+**Under this adapter's posture, however, no form is raised.** Sessions are created
+with `reviewPosture: 'auto-review'`, so every tool call is approved without
+asking. Measured: a turn that read a file went from prompt to `succeeded` with no
+`session.form.*` event and no pending form at any poll, and its assistant message
+carried a completed tool row.
+
+That is a deliberate choice rather than an oversight, and its consequence should
+be stated plainly: **NNA's reviewer governance does not engage for a session
+driven from OpenChamber.** The engine still holds the posture and the desktop
+surface still reviews, but a GUI session runs tools unattended. An operator who
+wants approval prompts should drive the same work from NNA's desktop surface,
+where the mode is selectable (`default`, `auto-review`, `unattended`).
+
+The routes stay implemented rather than removed: the posture is a session
+property, so a future mode selector has somewhere to land, and the tests exercise
+settling directly. A client that never sees a form behaves correctly, because an
+empty list is a valid answer.
+
 ## Client methods this surface refuses, and why that is safe
 
 The published client exposes more methods than OpenChamber calls. Measuring the

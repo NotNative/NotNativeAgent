@@ -747,6 +747,28 @@ test('a timeline mutation the session cannot accept is a conflict, not a failure
   assert.equal((await noRevert.json())._tag, 'ConflictError');
 });
 
+test('the form routes answer an empty list when nothing is pending', { timeout: 20_000 }, async (t) => {
+  // Why: sessions are created with `auto-review`, so a client driven from
+  // OpenChamber never sees a pending form. These routes had no test because the
+  // obvious path never reaches them; an empty list must be a valid answer rather
+  // than an error, or a client that polls for forms would show a failure.
+  const { json, request } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', { title: 'Forms' })).data;
+  const list = await json(`/api/session/${session.id}/form`);
+  assert.deepEqual(list.data, []);
+  // Reading, settling or dismissing a form that is not pending names what is
+  // missing instead of failing as an internal error.
+  for (const [method, path, body] of [
+    ['GET', `/api/session/${session.id}/form/frm_absent`, undefined],
+    ['POST', `/api/session/${session.id}/form/frm_absent`, { decision: 'approve' }],
+    ['DELETE', `/api/session/${session.id}/form/frm_absent`, undefined],
+  ]) {
+    const response = await request(path, method, body);
+    assert.equal(response.status, 404, `${method} ${path}`);
+  }
+  assert.equal((await request('/api/session/ses_absent/form')).status, 404);
+});
+
 test('prompts arriving together all admit instead of blaming a model selection', { timeout: 40_000 }, async (t) => {
   // Why: every prompt re-binds the provider selection first, and that briefly
   // marks the session as selecting. Two clients arriving in the same tick — two
