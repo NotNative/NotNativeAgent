@@ -255,6 +255,34 @@ v2 stream at `/api/event`, built by `createV2Events`. A timeline mutation raised
 only on the v1 bus is invisible to OpenChamber. Anything that happens outside a
 turn has to publish on the v2 stream.
 
+## Verified against a live service
+
+The surface was run as the operator runs it (`nna opencode start`, port 4095,
+`~/.nna/config/opencode.json`) and queried with the real credential. That found a
+defect no test had: every catalog route answered **400** because the operator's
+OpenCode document declares a model `variants` field — a model's thinking levels —
+which `normalizeProvider` refused as an unknown key. `/api/model`, `/api/agent`,
+`/api/config` and `/api/provider` all failed, so the composer would have had no
+models, agents or provider at all, while the whole suite was green.
+
+Verified live after the fix: `/api/info` 200 with `version: 2.2.5`, and
+`/api/model`, `/api/agent`, `/api/config`, `/api/provider`, `/api/project` all 200.
+Session creation returns 200 with a `ses_` id.
+
+A prompt then answered 400 with
+`Connect an API key for this OpenCode provider in OpenChamber settings before
+sending a prompt`. That is the endpoint binding working as designed: the stored
+credential was connected at `192.168.20.25:8000` while the provider now points at
+`:8015`, so the key is deliberately not sent to a different endpoint. The
+operator must reconnect the key. The response carries that guidance in a JSON
+envelope — an empty body read earlier was a PowerShell client artifact, not a
+missing message.
+
+Two lessons worth keeping: a document written by another tool is the real input,
+and only running the service exercises it; and a refused credential must be read
+from the response body, because the status alone cannot distinguish "no key" from
+"key bound to another endpoint".
+
 ## Isolated provider configuration
 
 The managed service has its own provider configuration. It does not load or write
