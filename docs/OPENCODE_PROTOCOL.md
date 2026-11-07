@@ -283,6 +283,25 @@ and only running the service exercises it; and a refused credential must be read
 from the response body, because the status alone cannot distinguish "no key" from
 "key bound to another endpoint".
 
+A sweep of every read route against the live service then found a second
+config-driven defect that status codes hid. Every route answered 200, but the
+catalog reported `variants: []` for **every** model — the field was hardcoded —
+so a model whose document declares thinking levels showed none and the client's
+level picker stayed empty. The catalog now projects a model's declared variants
+into the `{ id }` shape its schema uses. The fixed-provider catalog, which has no
+provider document behind it, still reports `[]` honestly.
+
+The live v2 event stream was also verified end to end: a create, rename, archive,
+restore and delete produced `session.created`, `session.renamed`,
+`session.patched` (once per mutation), `session.unarchived` and `session.deleted`.
+Every frame carried the flat `{ type, created, data }` envelope with no v1
+`payload` or `properties` field, and `session.created` carried exactly
+`agent, location, model, projectID, sessionID, slug, title, version`.
+
+Method note: checking status codes alone proved insufficient twice in one round.
+Reading the response bodies against the operator's real configuration is what
+finds these, and it is faster than reasoning about what the GUI might want.
+
 ## Isolated provider configuration
 
 The managed service has its own provider configuration. It does not load or write
