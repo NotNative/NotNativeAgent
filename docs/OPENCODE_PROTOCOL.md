@@ -310,6 +310,37 @@ implemented and were re-checked through the published client: the inbox answer i
 a plain array, and a form list unwraps to the array itself rather than a `{ data }`
 wrapper.
 
+## Failure and busy-state behaviour
+
+The error surface was probed deliberately, because a client renders these as
+user-facing states rather than logs. Nineteen failure paths answer a tagged JSON
+error with a sensible status: unknown session, message and form; no auth and bad
+auth; malformed JSON; wrong method; a create naming an unknown model, a
+non-build agent, a non-string title or malformed metadata; a bad cursor, limit or
+order; and an unknown route. None crashes, and none answers an empty 200.
+
+**A refused timeline mutation is a conflict, not a failure.** The engine's guards
+raise plain contract codes with no HTTP status, so these once arrived as an opaque
+`500 UnknownError`:
+
+| Situation | Answer |
+| --- | --- |
+| fork or revert while a turn runs | `409` "Wait for the session to become idle…" |
+| fork a session with no settled turn | `409` "Fork requires a session that has completed at least one turn" |
+| fork at a message the session never admitted | `404` `MessageNotFoundError` |
+| clear a revert that was never staged | `409` "This session has no revert point to clear" |
+
+Forking a **brand-new** session was the worst case: a fresh session is a
+legitimate idle state, and the answer used to be a 500.
+
+**Deleting a session mid-turn is safe, though it looks alarming.** The delete
+answers `204`, the registry and v2 state both release the session, and the engine
+enters `shutting_down` — which is its *terminal* state, not a stalled shutdown
+(`test/opencode-surface.test.js` asserts the same after a surface stop). An
+admitted prompt that was already in flight still answers `200` with its user
+receipt: admission succeeded before the delete, and the answer describes the
+message admission, not a turn that ran against a removed session.
+
 ## Revert, and the identifier join it needed
 
 Revert is wired to the engine's journal-backed timeline
