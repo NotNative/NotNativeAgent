@@ -245,6 +245,150 @@ test('v2 announces staged, cleared and committed reverts on the event stream', {
   await collected;
 });
 
+test('manual compaction answers a full inbox record and announces the lifecycle', { timeout: 40_000 }, async (t) => {
+  // Why: the client admits a compaction locally and waits for these events to move
+  // the bubble out of `status: running`; the engine's operator compaction emits
+  // nothing, so a surface that only compacts leaves the GUI spinning forever.
+  const { json, request, runtime } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  await json(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_cp1', text: 'first' });
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+
+  const controller = new AbortController(); t.after(() => controller.abort());
+  const response = await fetch(`${runtime.url}/api/event`, { signal: controller.signal });
+  const reader = response.body.getReader(); const decoder = new TextDecoder();
+  const events = []; let buffer = '';
+  const collected = (async () => {
+    try {
+      for (;;) {
+        const chunk = await reader.read(); if (chunk.done) return;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        let end;
+        while ((end = buffer.indexOf('\n\n')) >= 0) {
+          const block = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+          const data = block.split('\n').find((line) => line.startsWith('data: '));
+          if (data) events.push(JSON.parse(data.slice(6)));
+        }
+      }
+    } catch { /* the reader is cancelled when the test ends */ }
+  })();
+
+  const compacted = (await json(`/api/session/${session.id}/compact`, 'POST', { id: 'msg_compact01' })).data;
+  // The client admits this record under its own id and joins it to the events by
+  // that id; anything else leaves both a stray bubble and an unjoined event.
+  contract('Session.Inbox.Compaction', compacted);
+
+  const started = await waitForEvent(events, 'session.compaction.started');
+  assert.equal(started.data.sessionID, session.id);
+  assert.equal(started.data.reason, 'manual');
+  assert.equal(started.data.inputID, 'msg_compact01');
+  const ended = await waitForEvent(events, 'session.compaction.ended');
+  assert.equal(ended.data.sessionID, session.id);
+  assert.equal(ended.data.reason, 'manual');
+  // The client keeps the running compaction under inputID and writes `text` onto it
+  // when the turn ends, so a mismatch would leave the original bubble running.
+  assert.equal(ended.data.inputID, 'msg_compact01');
+  assert.equal(typeof ended.data.text, 'string');
+  await controller.abort();
+  await collected;
+
+  // The finished compaction stays in history, so a client that reloads still sees
+  // why the transcript shrank rather than an unexplained gap between turns.
+  const ledger = (await json(`/api/session/${session.id}/message`)).data
+    .find((item) => item.type === 'compaction');
+  contract('Session.Message.Compaction.Completed', ledger);
+  assert.equal(ledger.id, 'msg_compact01');
+
+  // An omitted id is minted, not left undefined: the client reads the record's id
+  // before it has any event to join to.
+  const minted = (await json(`/api/session/${session.id}/compact`, 'POST', {})).data;
+  assert.match(minted.id, /^msg_/u);
+  assert.equal(minted.delivery, 'steer');
+});
+
+test('manual compaction refuses bad input, a busy session, and reports its failure', { timeout: 40_000 }, async (t) => {
+  const { json, request, runtime } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+
+  // A delivery the client does not have, a field the route does not accept, and an
+  // id from another namespace are each refused with the 400 the SDK declares.
+  assert.equal((await request(`/api/session/${session.id}/compact`, 'POST', { delivery: 'later' })).status, 400);
+  assert.equal((await request(`/api/session/${session.id}/compact`, 'POST', { text: 'compact please' })).status, 400);
+  assert.equal((await request(`/api/session/${session.id}/compact`, 'POST', { id: 'ses_wrong' })).status, 400);
+  assert.equal((await request(`/api/session/${session.id}/compact`, 'POST', { delivery: 'steer' })).status, 200);
+  assert.equal((await request('/api/session/ses_missing/compact', 'POST', {})).status, 404);
+
+  // The client renders a conflict as guidance, so the engine's own busy refusal has
+  // to reach it as 409 ConflictError rather than an opaque 500.
+  const engine = runtime.workspace.registry.get(session.id).engine;
+  engine.state.transition('preparing_turn', { trigger: 'test_busy' });
+  try {
+    const busy = await request(`/api/session/${session.id}/compact`, 'POST', {});
+    assert.equal(busy.status, 409);
+    assert.equal((await busy.json())._tag, 'ConflictError');
+  } finally { engine.state.transition('finalizing_turn', { trigger: 'test_busy_done' }); }
+
+  // Why the journal: a failed compaction is the one path where the engine's own
+  // durability speaks, and it fails before the model runs, so this exercises the
+  // failure event without depending on provider behaviour.
+  const durableRoot = await mkdtemp(join(tmpdir(), 'nna-v2-cfail-'));
+  const durableConfig = resolveManifest({ persistence: 'durable', provider: {
+    id: 'test', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback' } });
+  const durable = await startOpencodeServe({ config: durableConfig, directory: durableRoot,
+    storeRoot: join(durableRoot, 's'), reviewerRoot: join(durableRoot, 'r'),
+    providerFactory: () => new Provider(), stdout: { write() {} } });
+  t.after(async () => { await durable.stop(); await rm(durableRoot, { recursive: true, force: true }); });
+  const call = (path, value) => fetch(`${durable.url}${path}`, {
+    method: 'POST', headers: { connection: 'close', 'content-type': 'application/json' }, body: JSON.stringify(value),
+  });
+  const wired = (await (await call('/api/session', {})).json()).data;
+
+  const controller = new AbortController(); t.after(() => controller.abort());
+  const stream = await fetch(`${durable.url}/api/event`, { signal: controller.signal });
+  const reader = stream.body.getReader(); const decoder = new TextDecoder();
+  const events = []; let buffer = '';
+  const collected = (async () => {
+    try {
+      for (;;) {
+        const chunk = await reader.read(); if (chunk.done) return;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        let end;
+        while ((end = buffer.indexOf('\n\n')) >= 0) {
+          const block = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+          const data = block.split('\n').find((line) => line.startsWith('data: '));
+          if (data) events.push(JSON.parse(data.slice(6)));
+        }
+      }
+    } catch { /* the reader is cancelled when the test ends */ }
+  })();
+
+  const target = durable.workspace.registry.get(wired.id).engine.store;
+  const original = target.append.bind(target);
+  target.append = async (type, payload) => (type === 'compaction_snapshot'
+    ? Promise.reject(Object.assign(new Error('journal-secret-should-not-leak'), { code: 'journal_write_failed' }))
+    : original(type, payload));
+  const failed = await call(`/api/session/${wired.id}/compact`, { id: 'msg_compactfail' });
+  target.append = original;
+  assert.equal(failed.status, 500);
+  assert.equal((await failed.json())._tag, 'UnknownError');
+
+  const started = await waitForEvent(events, 'session.compaction.started');
+  assert.equal(started.data.inputID, 'msg_compactfail');
+  const failure = await waitForEvent(events, 'session.compaction.failed');
+  assert.equal(failure.data.sessionID, wired.id);
+  assert.equal(failure.data.inputID, 'msg_compactfail');
+  // The client writes this straight onto the failed record.
+  assert.equal(typeof failure.data.error.type, 'string');
+  assert.equal(typeof failure.data.error.message, 'string');
+  // Security: the exception text stays on the server.
+  assert.doesNotMatch(JSON.stringify(failure.data.error), /journal-secret-should-not-leak/u);
+  // A failed compaction is not a compaction: nothing lands in history.
+  const ledger = await fetch(`${durable.url}/api/session/${wired.id}/message`, { headers: { connection: 'close' } });
+  assert.equal(((await ledger.json()).data ?? []).some((item) => item.type === 'compaction'), false);
+  await controller.abort();
+  await collected;
+});
+
 test('a revert on an ephemeral session is refused rather than faked', { timeout: 20_000 }, async (t) => {
   // Invariant: the engine's revert needs a journal. A surface that answered 200
   // here would claim to have hidden a turn it cannot restore.

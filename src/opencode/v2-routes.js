@@ -40,6 +40,10 @@ const TIMELINE_BUSY_CODES = new Map([
   ['desktop_fork_boundary_unsettled', 'Fork requires a boundary turn that has completed'],
   ['desktop_fork_invalid', 'Fork requires a session that has completed at least one turn'],
   ['desktop_revert_none', 'This session has no revert point to clear'],
+  // Why also here and not only at the route: the workspace idle check answers the
+  // common case, but a prompt admitted between that check and the engine's own
+  // guard still raises this engine code, which would otherwise be a 500.
+  ['compaction_busy', 'Wait for the session to become idle before compacting it'],
 ]);
 
 async function dispatch(ctx) {
@@ -129,6 +133,11 @@ async function sessionPost(ctx, state, action) {
   // Compatibility: a fork answers the new session record. `before` is optional —
   // omitting it carries the whole settled timeline over.
   if (action === 'fork') return sendJson(res, 200, { data: await api.fork(id, await body(ctx)) });
+  // Compatibility: the client sends `{ id, delivery }`, where `id` names the
+  // admission it recorded locally and is not a message this surface stores. A
+  // finished compaction is announced by `session.compaction.ended`, which the
+  // client's own translation renders as `session.compacted`.
+  if (action === 'compact') return sendJson(res, 200, { data: await api.compact(id, await body(ctx)) });
   if (action === 'interrupt') {
     if (target.query.resume !== undefined && target.query.resume !== 'false') throw invalid('Resume after interruption is not supported');
     return sendJson(res, 200, await api.interrupt(id));

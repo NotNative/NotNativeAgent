@@ -32,11 +32,9 @@ export function createV2Workspace(operations, options) {
     // prompt. It is the same admission path, tagged so the transcript can tell
     // it from operator speech; the text is never treated as operator authority.
     async synthetic(id, body) { return admitWithModel(context, requireState(id), { ...body, synthetic: true }); },
-    // Compatibility: staging a revert names a user message. The engine's revert
-    // is journal-backed, so the reverted turns are hidden rather than destroyed
-    // and a clear brings them back. See runRevert for the boundary bookkeeping.
     ...revertApi(requireState, operations),
     ...forkApi(requireState, operations),
+    ...compactApi(requireState, operations),
     select(id, reference) { return selectModel(context, requireState(id), reference); },
     async interrupt(id) {
       const state = requireState(id);
@@ -217,6 +215,28 @@ async function runRevert(state, step, run) {
   return result;
 }
 
+/** The compaction surface: compact a conversation on request.
+ *
+ *  Compatibility: the client answers with the admission it recorded, so the
+ *  record it gets back must be a `SessionInbox.Compaction`; the operations
+ *  layer builds it and announces the lifecycle events. The completed
+ *  compaction is also kept in history, the way a model switch is, so a client
+ *  that reloads still sees why the transcript shrank. The engine refuses a
+ *  session that turned busy underneath this check with `compaction_busy`,
+ *  which the route layer maps to a conflict. */
+function compactApi(requireState, operations) {
+  return {
+    async compact(id, body) {
+      const state = requireState(id);
+      objectInput(body, ['id', 'delivery']);
+      if (state.running || state.pending.size) throw apiError(409, 'ConflictError', 'Wait for the session to become idle before compacting it');
+      const result = await operations.compact(id, body);
+      recordCompaction(state, result?.record, result?.summary);
+      return result?.record;
+    },
+  };
+}
+
 /** Validate a staged revert before the engine sees it.
  *
  *  `files` asks the engine to apply the boundary's file changes. NNA keeps no
@@ -284,6 +304,22 @@ function recordModelSwitch(state, model, previous) {
     model, ...(previous ? { previous } : {}), time: { created: Date.now() } };
   state.records ??= [];
   state.records.push(record);
+}
+
+/** Ledger a finished compaction in session history.
+ *
+ *  Why a second shape: the route answers with the `SessionInbox.Compaction` the
+ *  client matched to its own admission, while history carries the
+ *  `Session.Message.Compaction.Completed` a client rebuilds the transcript from
+ *  after a reload. Without it the summary the operator just saw vanishes on
+ *  refresh, leaving a shrunken transcript with no record of why. */
+function recordCompaction(state, record, summary) {
+  if (!record) return;
+  state.records ??= [];
+  state.records.push({
+    id: record.id, sessionID: state.info.id, type: 'compaction', status: 'completed',
+    reason: 'manual', summary: String(summary ?? ''), time: { created: record.time.created },
+  });
 }
 
 function validateMetadata(value) {

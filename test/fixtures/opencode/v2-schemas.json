@@ -3131,6 +3131,123 @@
           "queue"
         ]
       },
+      "Session.Inbox.Compaction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^msg_"
+          },
+          "sessionID": {
+            "type": "string",
+            "pattern": "^ses"
+          },
+          "time": {
+            "type": "object",
+            "properties": {
+              "created": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "created"
+            ],
+            "additionalProperties": false
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "compaction"
+            ]
+          },
+          "payload": {
+            "$ref": "#/components/schemas/Session.Inbox.CompactionPayload"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Session.Inbox.Delivery"
+          }
+        },
+        "required": [
+          "id",
+          "sessionID",
+          "time",
+          "type",
+          "payload",
+          "delivery"
+        ],
+        "additionalProperties": false
+      },
+      "Session.Inbox.CompactionPayload": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "Session.Message.Compaction.Completed": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^msg_"
+          },
+          "sessionID": {
+            "type": "string",
+            "pattern": "^ses"
+          },
+          "time": {
+            "type": "object",
+            "properties": {
+              "created": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "created"
+            ],
+            "additionalProperties": false
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "compaction"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "manual"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/Model.Ref"
+          },
+          "cost": {
+            "$ref": "#/components/schemas/Money.USD"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/TokenUsage.Info"
+          }
+        },
+        "required": [
+          "id",
+          "sessionID",
+          "time",
+          "type",
+          "status",
+          "reason",
+          "summary"
+        ],
+        "additionalProperties": false
+      },
       "Session.Inbox.UserPayload": {
         "type": "object",
         "properties": {

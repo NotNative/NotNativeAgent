@@ -13,9 +13,10 @@ import slugifyTitle from './slug.js';
 import { createWireEventBus } from './wire-events.js';
 import { createWireSession } from './wire-session.js';
 import { createV2Workspace } from './v2-workspace.js';
-import { apiError } from './v2-contract.js';
+import { apiError, invalid, objectInput, wireId } from './v2-contract.js';
 import { runDesktopSessionRevert, runDesktopSessionUnrevert } from '../desktop-session-revert.js';
 import { runDesktopSessionFork } from '../desktop-session-fork.js';
+import { compactEngineConversation } from '../engine/context-controls.js';
 
 // Why: the opencode surface is an authenticated operator surface whose only
 // operator voice over the wire is the question reply route. It stays
@@ -246,6 +247,50 @@ function publishRevert(session, type, properties) {
   session.wireSession.publishV2(type, properties);
 }
 
+/** Compact a wire session and announce the lifecycle the client renders from.
+ *
+ *  The client sends `{ id, delivery }`. `id` names the compaction admission it
+ *  recorded locally and awaits; the response and the lifecycle events must all
+ *  carry the same id, or its bubble never leaves `status: running`.
+ *
+ *  Compatibility: `session.compaction.started` / `ended` / `failed` are what
+ *  the client's store renders a compaction from — `session.compacted` is only
+ *  the client's own translation of `ended`, and the engine's operator
+ *  compaction publishes nothing on any event stream. The summary travels as
+ *  `ended`'s `text`, which is what the completed record keeps.
+ *
+ *  Security: a failure publishes fixed guidance, never the exception text,
+ *  which can carry provider detail an operator did not put here. */
+async function compactWireSession(session, body) {
+  const ocId = session.ocId;
+  objectInput(body, ['id', 'delivery']);
+  if (body.delivery != null && !['queue', 'steer'].includes(body.delivery)) throw invalid('Invalid delivery mode');
+  const id = wireId(body.id, 'msg');
+  const delivery = body.delivery ?? 'steer';
+  publishRevert(session, 'session.compaction.started', { sessionID: ocId, reason: 'manual', inputID: id });
+  let result;
+  try {
+    result = await compactEngineConversation(session.engine);
+  } catch (error) {
+    // Security: only the code crosses the wire; provider text can contain secrets.
+    const busy = error?.code === 'compaction_busy';
+    publishRevert(session, 'session.compaction.failed', {
+      sessionID: ocId, reason: 'manual', inputID: id,
+      error: { type: busy ? 'compaction_busy' : 'nna_compaction_failed',
+        message: busy
+          ? 'The session became busy while compacting. Wait for the turn to finish and try again'
+          : 'NNA could not compact this conversation' },
+    });
+    throw error;
+  }
+  const text = String(result.fact?.summary ?? '');
+  publishRevert(session, 'session.compaction.ended', { sessionID: ocId, reason: 'manual', inputID: id, text });
+  const record = { id, sessionID: ocId, time: { created: Date.now() }, type: 'compaction', payload: {}, delivery };
+  // The summary goes back alongside the record so the workspace can ledger the
+  // finished compaction; the wire answer is the record alone.
+  return { record, summary: text };
+}
+
 /** Fork a wire session at an optional boundary and answer the child record.
  *
  *  Compatibility: the client sends `before`, a message id it admitted, and reads
@@ -332,6 +377,8 @@ function turnOperations(workspace, options) {
     // stageWireRevert and forkWireSession for why the join exists.
     revert(ocId, body) { return stageWireRevert(requireSession(workspace, ocId), body); },
     async fork(ocId, body) { return forkWireSession(workspace, options, requireSession(workspace, ocId), body); },
+    // Announces the lifecycle the client renders a compaction from; see compactWireSession.
+    compact(ocId, body) { return compactWireSession(requireSession(workspace, ocId), body); },
     async unrevert(ocId) {
       const session = requireSession(workspace, ocId);
       await runDesktopSessionUnrevert(session.timeline);

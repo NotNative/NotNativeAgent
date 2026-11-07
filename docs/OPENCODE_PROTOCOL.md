@@ -48,16 +48,16 @@ the pinned client; changes require conformance checks before changing the target
 | Session | Flat directory, slug and version | `location`, configured agent/model, usage and outcome |
 | Prompt | Text parts; synchronous message or `prompt_async` | `/api/session/:id/prompt`, text and client ID; immediate inbox receipt |
 | History | `{info, parts}` records | Typed user and assistant messages; paginated `{data, cursor}` |
+| Events | `{payload}` and `sync` mirrors | `/api/event`, native `type`, `data`, location and sequence metadata |
+| Stop | `/session/:id/abort` | `/api/session/:id/interrupt` with `{interrupted}` |
+| Questions | Question tokens and answer matrices | Session-owned forms with typed fields and answer objects |
+| Errors | Bare statuses or `UnknownError` | Tagged JSON errors for supported v2 operations |
 
 Each settled turn is closed by an `idle` record (`Session.Message.Idle`) in
 session history. A client walks history newest-first and stops at that marker to
 find where the running turn began, so the marker is what makes turn duration and
 post-restart adoption correct. A prompt drained by an operator stop also carries
 its marker: it settled without running, but it still bounds a turn.
-| Events | `{payload}` and `sync` mirrors | `/api/event`, native `type`, `data`, location and sequence metadata |
-| Stop | `/session/:id/abort` | `/api/session/:id/interrupt` with `{interrupted}` |
-| Questions | Question tokens and answer matrices | Session-owned forms with typed fields and answer objects |
-| Errors | Bare statuses or `UnknownError` | Tagged JSON errors for supported v2 operations |
 
 Legacy routes remain available. The separate desktop native integration is not
 relabelled as OpenCode v2.
@@ -132,7 +132,7 @@ published with the correct message id — the loss was one assignment later.
 
 Not implemented, and refused explicitly: attachments, deferred execution,
 active-turn steering, agents beyond build, permission mutations, shell
-execution, filesystem and VCS APIs, session move, manual compaction, command and
+execution, filesystem and VCS APIs, session move, command and
 generated-text routes, tool-call lifecycle events, `session.diff` (NNA keeps no
 file snapshots, so it cannot answer truthfully), OAuth and command-based
 provider connection, and plugin management. Reviewer escalation remains
@@ -214,7 +214,8 @@ the v1 ledger.
 
 **A finished compaction is announced by `session.compaction.ended`.** The client
 has no case for NNA's richer `nna.context.compaction` extension, so a compaction
-that only emitted the extension never reached the transcript.
+that only emitted the extension never reached the transcript. It is also the only
+signal a *manual* compaction has: see the compaction section below.
 
 **A recovering provider is a retry status.** While NNA waits out an outage it is
 still busy, and the client shows a bare busy status. `session.retry.scheduled`
@@ -370,6 +371,7 @@ raise plain contract codes with no HTTP status, so these once arrived as an opaq
 | Situation | Answer |
 | --- | --- |
 | fork or revert while a turn runs | `409` "Wait for the session to become idle…" |
+| compact while a turn runs | `409` "Wait for the session to become idle before compacting it" |
 | fork a session with no settled turn | `409` "Fork requires a session that has completed at least one turn" |
 | fork at a message the session never admitted | `404` `MessageNotFoundError` |
 | clear a revert that was never staged | `409` "This session has no revert point to clear" |
@@ -420,6 +422,38 @@ v1 wire bus carries turn cadence to `/global/event`; the client renders from the
 v2 stream at `/api/event`, built by `createV2Events`. A timeline mutation raised
 only on the v1 bus is invisible to OpenChamber. Anything that happens outside a
 turn has to publish on the v2 stream.
+
+## Manual compaction, and the id that joins its three halves
+
+`POST /api/session/:id/compact` compacts on request. The body carries `{ id,
+delivery }` and the answer is a full `SessionInbox.Compaction` record, because
+the client admits that record into its own transcript and joins it to the
+lifecycle events by its id.
+
+Three halves have to agree:
+
+1. `session.compaction.started` with `{ sessionID, reason: "manual", inputID }`
+   moves the client's locally admitted bubble into `status: running`.
+2. `session.compaction.ended` with the same `inputID` and the summary as `text`
+   completes it; `session.compaction.failed` with a `{ type, message }` error
+   fails it instead. Only fixed guidance crosses the wire — the exception text
+   stays on the server, where it can name a file or a provider.
+3. The response record `{ id, sessionID, time.created, type: "compaction",
+   payload: {}, delivery }` is what the client admits and then removes from its
+   outbox when the call answers.
+
+An omitted `id` is minted, never returned as `undefined`: the client reads the
+record's id before any event can join to it. A finished compaction is also kept
+in `GET /api/session/:id/message` as a `compaction` record with
+`status: completed` — the same standard a model switch meets — so a client that
+reloads still sees why the transcript shrank instead of an unexplained gap.
+
+Two things made this worth writing down. The engine's operator compaction is
+silent: it appends its snapshot, records telemetry, and publishes nothing on
+either stream, so the first version of this route compacted correctly and left
+the GUI's bubble spinning at `running` forever. And the answer used to be
+`{ data: { id } }`, which is not a `SessionInbox.Compaction` at all. Both were
+invisible to a route test that only checked the status code.
 
 ## Verified against a live service
 
