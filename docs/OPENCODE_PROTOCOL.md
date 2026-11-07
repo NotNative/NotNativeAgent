@@ -405,6 +405,19 @@ restart. Event sequence metadata follows the v2 wire shape; it does not add a
 crash-replay guarantee. The v2 event stream is live-only. Reconnects must fetch
 session, message, active-session and pending-form snapshots.
 
+Verified against a live service with a real provider:
+
+- **Concurrent sessions.** Three sessions prompted in parallel each produced
+  their own `user, assistant, idle` history with the expected answer, their own
+  `session.text.delta` frames, no event naming another session, and an active
+  snapshot that drained to `{}` when all turns settled.
+- **Reconnect mid-turn.** Dropping the event subscriber while a turn ran did not
+  disturb it: the prompt still answered 200, `wait` returned 204, and the
+  transcript settled with its idle record. A subscriber attaching mid-turn
+  received the remaining frames from the point it connected, and no earlier ones.
+  That matches the live-only contract rather than contradicting it — the client
+  is expected to fetch the message snapshot, which it can.
+
 V2 admits at most 128 live sessions and 64 event subscribers. Message pagination
 accepts 1–500 records. Legacy wire sessions queue at most 64 unfinished prompts
 and retain the latest 64 prompts in process-local message history; a settled
