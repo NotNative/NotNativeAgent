@@ -79,7 +79,13 @@ export function normalizeProvider(id, input, { allowUnsupported = false } = {}) 
 }
 
 function normalizeModel(input) {
-  objectInput(input, ['name', 'modelID', 'limit', 'capabilities', 'disabled']);
+  // Compatibility: `variants` is a real field of an OpenCode model — a list of
+  // thinking levels, `{ id }[]` — and OpenChamber's own catalog defaults it to
+  // an empty list. A document using reasoning levels must still load, so the
+  // field is accepted and passed through rather than rejected as unknown. This
+  // surface does not offer variant selection, which is a capability bound, not a
+  // reason to refuse a provider that declares one.
+  objectInput(input, ['name', 'modelID', 'limit', 'capabilities', 'disabled', 'variants']);
   if (input.limit) {
     objectInput(input.limit, ['context', 'input', 'output']);
     if (Object.values(input.limit).some((value) => !Number.isSafeInteger(value) || value < 1 || value > 10_000_000)) throw invalid('Invalid model token limits');
@@ -87,6 +93,7 @@ function normalizeModel(input) {
   if (input.capabilities) objectInput(input.capabilities, ['tools', 'input', 'output']);
   if (input.capabilities?.tools != null && typeof input.capabilities.tools !== 'boolean') throw invalid('Invalid model tool capability');
   if (input.disabled != null && typeof input.disabled !== 'boolean') throw invalid('Invalid model availability');
+  if (input.variants != null && !Array.isArray(input.variants)) throw invalid('Invalid model variants');
   if (input.modelID != null && !textInput(input.modelID, 'modelID', 256)) throw invalid('modelID must not be empty');
   if (input.name != null) textInput(input.name, 'model name', 256);
   return structuredClone(input);

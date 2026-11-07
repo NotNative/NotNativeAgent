@@ -217,6 +217,37 @@ test('OpenChamber source authentication lookup receives credential presence with
   assert.equal((await json('/api/credential')).data.filter((entry) => entry.active).length, 1);
 });
 
+test('a model declaring reasoning variants still loads', async (t) => {
+  // Why: `variants` is a real OpenCode model field — its thinking levels. A
+  // document that declares one used to be refused as an unknown key, which made
+  // every catalog request fail for an operator whose config used reasoning
+  // levels. This surface does not offer variant selection; that is a capability
+  // bound, not a reason to reject the provider.
+  const root = await mkdtemp(join(tmpdir(), 'nna-oc-variants-'));
+  await mkdir(join(root, 'config'));
+  const path = join(root, 'config', 'opencode.json');
+  await writeFile(path, JSON.stringify({ providers: { variant: {
+    name: 'Variant', package: '@opencode/ai/providers/openai-compatible',
+    settings: { baseURL: 'http://127.0.0.1:9999/v1' },
+    models: { alpha: { name: 'Alpha', variants: [{ id: 'low' }, { id: 'high' }] } },
+  } } }));
+  try {
+    const settings = new OpenCodeProviderSettings({ root: join(root, 'runtime'), configPaths: [path], environment: {} });
+    const snapshot = await settings.snapshot();
+    assert.equal(snapshot.providers.length, 1);
+    assert.equal(snapshot.providers[0].id, 'variant');
+    assert.deepEqual(snapshot.providers[0].models.alpha.variants, [{ id: 'low' }, { id: 'high' }]);
+    // A non-array is still refused rather than passed through.
+    await writeFile(path, JSON.stringify({ providers: { variant: {
+      name: 'Variant', package: '@opencode/ai/providers/openai-compatible',
+      settings: { baseURL: 'http://127.0.0.1:9999/v1' },
+      models: { alpha: { name: 'Alpha', variants: 'high' } },
+    } } }));
+    await assert.rejects(() => new OpenCodeProviderSettings({ root: join(root, 'runtime'),
+      configPaths: [path], environment: {} }).snapshot(), { message: /Invalid model variants/u });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('provider source metadata enables edit, preserves keys, and separates profile removal from disconnect', async (t) => {
   const { add, connect, json, request, path, settings } = await setup(t);
   await add(); await connect(); const secrets = await settings.broker.list();
