@@ -325,7 +325,7 @@ installed bundle's own call sites separates the two:
 | Method | Calls in OpenChamber | Refusal is safe because |
 | --- | --- | --- |
 | `session.context` | 1 | its only caller is the session-title plugin, which wraps the read in `.then(..., () => "")` and titles from the message alone when it fails |
-| `session.command` | 2 | it needs a command catalog this surface does not have; it is a capability gap, not a contract gap |
+| `session.command` | 2 | both call sites are gated: each resolves a command name against `command.list()` first and only calls this when the catalog matched, and this surface's catalog is always empty, so the refusal is unreachable rather than hit. Exposing NNA's own user-invocable skills as OpenChamber slash commands would be a product decision, not a wire fix |
 | `session.diff` | 0 | never called |
 | `session.environment`, `session.stats`, `session.shell`, `session.generate`, `session.background` | 0 | never called |
 
