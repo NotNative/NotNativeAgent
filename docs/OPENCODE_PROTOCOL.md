@@ -517,6 +517,16 @@ can complete, but its features that require reading an actual key (such as quota
 lookups) cannot use this projection. Integration connection metadata and trusted
 NNA model transport continue to use the real credential.
 
+`POST /api/credential` — creating a credential directly, outside an integration
+connect — is not routed. Checked rather than assumed: OpenChamber instantiates one
+OpenCode credential source at startup
+(`configureOpenCodeCredentials(openCodeCredentialSource(...))`), and its own
+comment scopes that source to "quota lookups, voice keys and routing", all reads.
+The source object does expose a `create` method, but the only `source.create(`
+call in the bundle belongs to an unrelated SSH-passphrase store, so the OpenCode
+one has no caller. Keys are created where OpenChamber actually creates them,
+through `/api/integration/:id/connect/key`, which this surface serves.
+
 Credentials are bound to the endpoint where they were connected. Changing an
 endpoint requires connecting a credential for that endpoint. The service rejects
 a new prompt with setup guidance when its configured credential is unavailable,
