@@ -252,6 +252,47 @@ For the same reason, `session.diff` is refused rather than approximated: NNA
 keeps no file snapshots, so it cannot answer truthfully, and the client never
 calls it anyway.
 
+## Thinking levels, traced end to end
+
+A model's `variants` are its thinking levels. They cross six layers, and three
+defects were found by following them one layer at a time — each visible only
+after the previous was fixed, which is why the whole chain is recorded here
+together.
+
+1. **Catalog.** `/api/model` reports a model's declared variants as `{ id }`. It
+   used to report `[]` for every model regardless of the document, so a level
+   never appeared.
+2. **Selection.** `session.switchModel` and the `model` on `POST /api/session`
+   accept `variant`. Before that, choosing an advertised level answered 400
+   `Unsupported field: variant` — the picker existed and every choice failed.
+3. **Mapping.** A level's own `settings.reasoningEffort` becomes the manifest's
+   `reasoning_effort`. NNA accepts a fixed set of efforts, so a level spelled
+   differently — vLLM's `max`, for instance — is refused by name rather than
+   failing inside routing as an opaque 500.
+4. **Session record.** The level travels on the reference the selection returns,
+   so both create and switch keep it. A create that named a level used to drop
+   it, leaving the UI showing a level the next prompt did not use.
+5. **Route.** The engine's resolved route carries `reasoningEffort`, which is
+   where the request builder reads it.
+6. **Request.** `providerReasoningControls` emits `reasoning_effort` for a model
+   that understands the scale. A Qwen-named model is deliberately left at its
+   native default: those hosts expose binary thinking, and promoting an
+   unsupported value can turn reasoning fully on.
+
+Verified against a live service, across three consecutive turns:
+
+```
+create high  : route=high wire={"reasoning_effort":"high"}
+turn 1       : prompt=200 wait=204 | route=high
+switch low   : 204 | model={...,"variant":"low"} | route=low
+turn 2       : prompt=200 wait=204 | route=low
+clear level  : 204 | model={id,providerID} | route=null wire={}
+turn 3       : prompt=200 wait=204 | route=null
+```
+
+So `spark` and `AGDuo/spark` honour a level; `Qwen/Qwen3.8-Flash-Next` and
+`qwen-vllm/Qwen/Qwen3.8-Flash-Next` will not, by design.
+
 ## Client methods this surface refuses, and why that is safe
 
 The published client exposes more methods than OpenChamber calls. Measuring the
