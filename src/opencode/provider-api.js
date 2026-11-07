@@ -89,7 +89,26 @@ function providerInfo(provider) {
 
 function modelInfo(provider, id, model) {
   return { id, modelID: model.modelID ?? id, providerID: provider.id, name: model.name ?? id, package: provider.protocolError ? provider.package : COMPATIBLE_PACKAGE,
-    capabilities: { tools: model.capabilities?.tools !== false, input: ['text'], output: ['text'] }, variants: [],
+    capabilities: { tools: model.capabilities?.tools !== false, input: ['text'], output: ['text'] },
+    // Compatibility: a model's `variants` are its thinking levels, and the client
+    // builds its level picker from this field. Reporting an empty list for a
+    // model that declares levels hides them, so the declared ids are passed
+    // through in the `{ id }` shape the catalog schema uses.
+    variants: modelVariantIds(model.variants),
     time: { released: 0 }, cost: [], status: 'active', enabled: provider.activation !== 'disabled' && !model.disabled,
     limit: { context: model.limit?.context ?? 0, output: model.limit?.output ?? 0 } };
+}
+
+/** The `{ id }` projection of a model's declared variants.
+ *
+ *  Why only ids: the catalog schema names `{ id }` and the settings that select a
+ *  level are the provider's own business. A malformed entry is skipped rather
+ *  than failing the whole catalog. */
+function modelVariantIds(variants) {
+  if (!Array.isArray(variants)) return [];
+  return variants
+    .map((variant) => (typeof variant === 'string' ? variant : variant?.id))
+    .filter((id) => typeof id === 'string' && id.length > 0 && id.length <= 128)
+    .slice(0, 16)
+    .map((id) => ({ id }));
 }

@@ -248,6 +248,41 @@ test('a model declaring reasoning variants still loads', async (t) => {
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('a declared model variant reaches the catalog as the id the client reads', async (t) => {
+  // Why: the client builds its thinking-level picker from a model's `variants`.
+  // The catalog reported an empty list for every model regardless of the
+  // document, so a model with levels showed none. Only a real document (found by
+  // running against the operator's config) exercised this.
+  const root = await mkdtemp(join(tmpdir(), 'nna-oc-variants-catalog-'));
+  await mkdir(join(root, 'config'));
+  const path = join(root, 'config', 'opencode.json');
+  await writeFile(path, JSON.stringify({ providers: { variant: {
+    name: 'Variant', package: '@opencode/ai/providers/openai-compatible',
+    settings: { baseURL: 'http://127.0.0.1:9999/v1' },
+    models: {
+      declared: { name: 'Declared', variants: [{ id: 'max', settings: { reasoningEffort: 'max' } }, { id: 'low' }] },
+      plain: { name: 'Plain' },
+    },
+  } } }));
+  const settings = new OpenCodeProviderSettings({ root: join(root, 'runtime'), configPaths: [path], environment: {} });
+  const config = resolveManifest({ persistence: 'ephemeral', provider: { id: 'nna',
+    endpoint: 'http://127.0.0.1:8888/v1', model: 'nna-model', trust_zone: 'loopback' } });
+  const runtime = await startOpencodeServe({ config, providerSettings: settings, directory: root,
+    storeRoot: join(root, 'sessions'), reviewerRoot: join(root, 'reviewer'), stdout: { write() {} } });
+  t.after(async () => { await runtime.stop(); await rm(root, { recursive: true, force: true }); });
+  const response = await fetch(`${runtime.url}/api/model`, {
+    headers: { connection: 'close', 'content-type': 'application/json' },
+  });
+  assert.equal(response.status, 200);
+  const { data } = await response.json();
+  const declared = data.find((model) => model.id === 'declared');
+  const plain = data.find((model) => model.id === 'plain');
+  // The settings a level selects stay the provider's business; the catalog
+  // carries only the id in the `{ id }` shape its schema declares.
+  assert.deepEqual(declared.variants, [{ id: 'max' }, { id: 'low' }]);
+  assert.deepEqual(plain.variants, []);
+});
+
 test('provider source metadata enables edit, preserves keys, and separates profile removal from disconnect', async (t) => {
   const { add, connect, json, request, path, settings } = await setup(t);
   await add(); await connect(); const secrets = await settings.broker.list();
