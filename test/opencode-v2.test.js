@@ -715,6 +715,38 @@ test('a tool part updates in place rather than appending a row per record', () =
   void emitted;
 });
 
+test('a timeline mutation the session cannot accept is a conflict, not a failure', { timeout: 30_000 }, async (t) => {
+  // Why: the engine's timeline guards raise plain contract codes with no HTTP
+  // status, so a busy session reached the client as an opaque 500 "NNA could not
+  // complete the request". A refused mutation is a conflict the caller can act on.
+  // Forking a session that has not completed a turn was the worst case: a brand
+  // new session is a legitimate idle state, and the answer was still a 500.
+  const { json, request } = await fixtureServer(t, { config: resolveManifest({ persistence: 'durable', provider: {
+    id: 'test', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback' } }) });
+  const fresh = (await json('/api/session', 'POST', { title: 'Fresh' })).data;
+
+  const noTurn = await request(`/api/session/${fresh.id}/fork`, 'POST', {});
+  assert.equal(noTurn.status, 409);
+  const noTurnBody = await noTurn.json();
+  assert.equal(noTurnBody._tag, 'ConflictError');
+  assert.match(noTurnBody.message, /at least one turn/u);
+
+  // A boundary this session never admitted names the message.
+  await json(`/api/session/${fresh.id}/prompt`, 'POST', { id: 'msg_cf01', text: 'hello' });
+  await request(`/api/experimental/session/${fresh.id}/wait`, 'POST');
+  const unknownBoundary = await request(`/api/session/${fresh.id}/fork`, 'POST', { before: 'msg_absent' });
+  assert.equal(unknownBoundary.status, 404);
+  assert.equal((await unknownBoundary.json())._tag, 'MessageNotFoundError');
+
+  // With a settled turn and no boundary, the fork succeeds.
+  assert.equal((await request(`/api/session/${fresh.id}/fork`, 'POST', {})).status, 200);
+
+  // Clearing a revert that was never staged is a conflict, not a failure.
+  const noRevert = await request(`/api/session/${fresh.id}/revert`, 'DELETE');
+  assert.equal(noRevert.status, 409);
+  assert.equal((await noRevert.json())._tag, 'ConflictError');
+});
+
 test('v2 forks a session and the child inherits its settled turn', { timeout: 30_000 }, async (t) => {
   // Why: a fork replays the parent prefix into the child engine silently, so no
   // events describe the inherited turns. The child's message list was therefore

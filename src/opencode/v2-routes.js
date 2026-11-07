@@ -11,11 +11,36 @@ export async function handleV2Request(ctx) {
     if (error instanceof URIError) return sendJson(ctx.res, 400, { _tag: 'InvalidRequestError', message: 'Invalid URL encoding' });
     if (error.body && error.httpStatus) return sendJson(ctx.res, error.httpStatus, error.body);
     if (error.code?.startsWith('opencode_prompt_')) return sendJson(ctx.res, 400, { _tag: 'InvalidRequestError', message: error.message });
+    // Why: the engine's timeline guards raise plain contract codes with no HTTP
+    // status, so a busy session reached the client as an opaque 500 "NNA could not
+    // complete the request". A refused timeline mutation is a conflict the caller
+    // can retry, which is what the model switch already answers.
+    const busy = TIMELINE_BUSY_CODES.get(error.code);
+    if (busy) return sendJson(ctx.res, 409, { _tag: 'ConflictError', message: busy });
     ctx.options.logger?.record({ type: 'opencode_route_failure', code: error.code ?? 'internal_failure', url: ctx.target.pathname });
     if (!ctx.res.headersSent) sendJson(ctx.res, 500, { _tag: 'UnknownError', message: 'NNA could not complete the request' });
     else ctx.res.end();
   }
 }
+
+/** Engine timeline refusals a caller can act on.
+ *
+ *  Why a 409 for all of them: the engine raises plain contract codes with no HTTP
+ *  status, so each reached the client as an opaque 500 "NNA could not complete the
+ *  request". A refused timeline mutation is a conflict, not an internal failure —
+ *  the model switch already answers 409, and a client renders these as guidance.
+ *
+ *  Why `desktop_fork_invalid` is here: a session with no settled turn has no
+ *  boundary to fork at. That is a request the caller can correct, and forking a
+ *  brand-new session used to answer 500. */
+const TIMELINE_BUSY_CODES = new Map([
+  ['desktop_fork_busy', 'Wait for the session to become idle before forking it'],
+  ['desktop_revert_busy', 'Wait for the session to become idle before changing its revert boundary'],
+  ['desktop_fork_boundary_unknown', 'Fork requires a boundary message that exists in the session'],
+  ['desktop_fork_boundary_unsettled', 'Fork requires a boundary turn that has completed'],
+  ['desktop_fork_invalid', 'Fork requires a session that has completed at least one turn'],
+  ['desktop_revert_none', 'This session has no revert point to clear'],
+]);
 
 async function dispatch(ctx) {
   const { req, res, target, options } = ctx;
