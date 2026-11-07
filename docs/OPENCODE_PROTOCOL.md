@@ -353,9 +353,12 @@ NNA model transport continue to use the real credential.
 
 Credentials are bound to the endpoint where they were connected. Changing an
 endpoint requires connecting a credential for that endpoint. The service rejects
-a new prompt with setup guidance when its configured credential is unavailable.
-Known credential failures during a turn also receive fixed, safe guidance; raw
-provider exception text never becomes a public error message.
+a new prompt with setup guidance when its configured credential is unavailable,
+and the guidance names the endpoint that holds a stale key when one exists: a key
+connected at another endpoint is otherwise indistinguishable from never
+connecting one, and only the operator knows the endpoint moved. Known credential
+failures during a turn also receive fixed, safe guidance; raw provider exception
+text never becomes a public error message.
 
 Session creation accepts a model from this catalog. `/api/session/:id/model`
 switches the model through canonical configuration ingress and emits

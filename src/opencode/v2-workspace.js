@@ -211,7 +211,13 @@ async function selectModel(context, state, reference, requireCredential = false)
     const selected = await context.options.providerSettings.runtimeConfig(context.options.config, reference, state.info.location.directory);
     if (state.closing) throw apiError(409, 'ConflictError', 'Session is closing');
     if (requireCredential && !selected.config.connectionRecords[selected.reference.providerID].credential) {
-      throw invalid('Connect an API key for this OpenCode provider in OpenChamber settings before sending a prompt');
+      // Why name the stale endpoints: a key connected at another endpoint looks
+      // exactly like no key at all, and only the operator knows the endpoint
+      // moved. Naming both makes the fix obvious instead of a dead end.
+      const stale = selected.credentialEndpoints;
+      throw invalid(stale?.length
+        ? `This provider's credential is bound to ${stale.join(', ')} but the provider now points at ${selected.config.connectionRecords[selected.reference.providerID].endpoint}. Reconnect the API key for this endpoint in OpenChamber settings before sending a prompt`
+        : 'Connect an API key for this OpenCode provider in OpenChamber settings before sending a prompt');
     }
     await context.operations.configure(state.info.id, manifestFromConfig(selected.config), selected.reference);
     const previous = state.info.model;

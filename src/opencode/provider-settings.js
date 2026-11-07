@@ -49,7 +49,15 @@ export class OpenCodeProviderSettings {
     const environmentName = provider.env.find((name) => this.environment[name]);
     const credential = secret ? { source: 'secret', secret_id: secret.id, field: 'key' }
       : environmentName ? { source: 'environment', name: environmentName } : undefined;
-    return { reference: { id: desired.id, providerID: provider.id }, provider, model: provider.models[desired.id], credential };
+    // Why: a key connected at another endpoint is the common cause of "no
+    // credential", and the operator cannot tell it apart from never connecting
+    // one. Reporting the endpoint that actually holds a key turns a dead end into
+    // an instruction.
+    const staleEndpoints = secret ? [] : [...new Set(snapshot.secrets
+      .filter((item) => item.metadata.providerID === provider.id)
+      .map((item) => item.metadata.endpoint))];
+    return { reference: { id: desired.id, providerID: provider.id }, provider, model: provider.models[desired.id], credential,
+      ...(staleEndpoints.length ? { credentialEndpoints: staleEndpoints } : {}) };
   }
 
   async runtimeConfig(base, reference, directory) {
@@ -68,7 +76,8 @@ export class OpenCodeProviderSettings {
     }]);
     manifest.routes = { primary: { selection_id: profile.id, model: selected.model.modelID ?? selected.reference.id } };
     manifest.workspace_root = directory ?? base.workspaceRoot;
-    return { config: resolveManifest(manifest), reference: selected.reference };
+    return { config: resolveManifest(manifest), reference: selected.reference,
+      ...(selected.credentialEndpoints ? { credentialEndpoints: selected.credentialEndpoints } : {}) };
   }
 
   mutate(operation) {

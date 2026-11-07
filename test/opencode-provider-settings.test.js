@@ -283,6 +283,43 @@ test('a declared model variant reaches the catalog as the id the client reads', 
   assert.deepEqual(plain.variants, []);
 });
 
+test('a credential bound to another endpoint is named rather than reported as missing', async (t) => {
+  // Why: a key connected at another endpoint is indistinguishable from no key,
+  // and only the operator knows the endpoint moved. Naming both turns a dead end
+  // into an instruction. Found by running against a config whose provider had
+  // been re-pointed at a new port.
+  const root = await mkdtemp(join(tmpdir(), 'nna-oc-stale-endpoint-'));
+  await mkdir(join(root, 'config'));
+  const path = join(root, 'config', 'opencode.json');
+  await writeFile(path, JSON.stringify({ providers: { moved: {
+    name: 'Moved', package: '@opencode/ai/providers/openai-compatible',
+    settings: { baseURL: 'http://127.0.0.1:9999/v1' },
+    models: { alpha: { name: 'Alpha', modelID: 'alpha' } },
+  } } }));
+  const settings = new OpenCodeProviderSettings({ root: join(root, 'runtime'), configPaths: [path], environment: {} });
+  // Connect a key, then re-point the provider at a different endpoint.
+  await settings.connect('moved', { key: 'secret-key' });
+  await writeFile(path, JSON.stringify({ providers: { moved: {
+    name: 'Moved', package: '@opencode/ai/providers/openai-compatible',
+    settings: { baseURL: 'http://127.0.0.1:9998/v1' },
+    models: { alpha: { name: 'Alpha', modelID: 'alpha' } },
+  } } }));
+  const selected = await settings.runtimeConfig(resolveManifest({ persistence: 'ephemeral',
+    provider: { id: 'nna', endpoint: 'http://127.0.0.1:8888/v1', model: 'nna', trust_zone: 'loopback' } }),
+    { id: 'alpha', providerID: 'moved' });
+  // The record represents "no credential" as null, not undefined.
+  assert.equal(selected.config.connectionRecords.moved.credential ?? null, null);
+  assert.deepEqual(selected.credentialEndpoints, ['http://127.0.0.1:9999/v1']);
+  // A key at the current endpoint reports no stale list.
+  await settings.connect('moved', { key: 'secret-key-2' });
+  const fresh = await settings.runtimeConfig(resolveManifest({ persistence: 'ephemeral',
+    provider: { id: 'nna', endpoint: 'http://127.0.0.1:8888/v1', model: 'nna', trust_zone: 'loopback' } }),
+    { id: 'alpha', providerID: 'moved' });
+  assert.ok(fresh.config.connectionRecords.moved.credential);
+  assert.equal(fresh.credentialEndpoints, undefined);
+  await rm(root, { recursive: true, force: true });
+});
+
 test('provider source metadata enables edit, preserves keys, and separates profile removal from disconnect', async (t) => {
   const { add, connect, json, request, path, settings } = await setup(t);
   await add(); await connect(); const secrets = await settings.broker.list();
