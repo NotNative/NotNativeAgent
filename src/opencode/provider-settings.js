@@ -99,7 +99,10 @@ export class OpenCodeProviderSettings {
       // effort, which is how NNA carries it to the provider request.
       ...(selected.reasoningEffort ? { reasoning_effort: selected.reasoningEffort } : {}) } };
     manifest.workspace_root = directory ?? base.workspaceRoot;
-    return { config: resolveManifest(manifest), reference: selected.reference,
+    // Compatibility: the session record names the level it runs at, so a create
+    // that chose one is not silently downgraded to the model's default.
+    return { config: resolveManifest(manifest),
+      reference: selected.variant ? { ...selected.reference, variant: selected.variant } : selected.reference,
       ...(selected.variant ? { reasoningEffortVariant: selected.variant } : {}),
       ...(selected.credentialEndpoints ? { credentialEndpoints: selected.credentialEndpoints } : {}) };
   }

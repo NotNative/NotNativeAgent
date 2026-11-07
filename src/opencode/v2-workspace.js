@@ -251,12 +251,11 @@ async function selectModel(context, state, reference, requireCredential = false)
     }
     await context.operations.configure(state.info.id, manifestFromConfig(selected.config), selected.reference);
     const previous = state.info.model;
-    // Why carry the variant: the level the operator chose has to survive onto the
-    // session record, or the next prompt would silently fall back to the model's
-    // default thinking level while the UI still showed the chosen one.
-    const next = selected.reasoningEffortVariant
-      ? { ...selected.reference, variant: selected.reasoningEffortVariant }
-      : selected.reference;
+    // Why the variant travels on the reference: the level the operator chose has
+    // to survive onto the session record, or the next prompt silently falls back
+    // to the model's default while the UI still shows the chosen level. The
+    // selection puts it there, so both create and switch carry it the same way.
+    const next = selected.reference;
     state.info.model = next;
     if (previous.id !== next.id || previous.providerID !== next.providerID || previous.variant !== next.variant) {
       context.events.emit(state, 'session.model.selected', { sessionID: state.info.id, model: next, previous });

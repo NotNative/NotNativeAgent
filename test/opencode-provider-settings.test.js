@@ -358,6 +358,46 @@ test('a chosen thinking level becomes the reasoning effort, and an unsupported o
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('a create that names a thinking level keeps it on the session and the route', async (t) => {
+  // Why: creating a session with a variant used to drop it — the record lost the
+  // level and the next prompt ran at the model default while the UI still showed
+  // the chosen level. The effort has to reach the engine's resolved route, which
+  // is where the request builder reads it.
+  const root = await mkdtemp(join(tmpdir(), 'nna-oc-variant-create-'));
+  await mkdir(join(root, 'config'));
+  const path = join(root, 'config', 'opencode.json');
+  await writeFile(path, JSON.stringify({ providers: { v: {
+    name: 'V', package: '@opencode/ai/providers/openai-compatible',
+    settings: { baseURL: 'http://127.0.0.1:9999/v1' },
+    models: { spark: { name: 'Spark', variants: [{ id: 'high', settings: { reasoningEffort: 'high' } }] } },
+  } } }));
+  const settings = new OpenCodeProviderSettings({ root: join(root, 'runtime'), configPaths: [path], environment: {} });
+  await settings.connect('v', { key: 'k', label: 'x' });
+  const config = resolveManifest({ persistence: 'ephemeral', provider: {
+    id: 'nna', endpoint: 'http://127.0.0.1:8888/v1', model: 'nna', trust_zone: 'loopback' } });
+  class Answer { async *stream() { yield { type: 'terminal', finishReason: 'stop' }; } }
+  const runtime = await startOpencodeServe({ config, providerSettings: settings, directory: root,
+    storeRoot: join(root, 's'), reviewerRoot: join(root, 'r'), providerFactory: () => new Answer(), stdout: { write() {} } });
+  t.after(async () => { await runtime.stop(); await rm(root, { recursive: true, force: true }); });
+  const request = async (p, method = 'GET', value) => fetch(`${runtime.url}${p}`, { method,
+    headers: { connection: 'close', 'content-type': 'application/json' },
+    ...(value === undefined ? {} : { body: JSON.stringify(value) }) });
+  const created = await (await request('/api/session', 'POST',
+    { model: { id: 'spark', providerID: 'v', variant: 'high' } })).json();
+  // The record names the level it runs at.
+  assert.equal(created.data.model.variant, 'high');
+  const record = runtime.workspace.registry.get(created.data.id);
+  assert.equal(record.engine.router.resolve('primary')?.reasoningEffort, 'high');
+  // And the request builder would put it on the wire for this model.
+  const { providerReasoningControls } = await import('../src/provider/reasoning.js');
+  assert.deepEqual(providerReasoningControls({ reasoningEffort: 'high', model: 'spark' }),
+    { reasoning_effort: 'high' });
+  // A Qwen-named model is binary-thinking by design: the effort is left off
+  // rather than promoted to fully-enabled reasoning by a host that does not
+  // understand the scale.
+  assert.deepEqual(providerReasoningControls({ reasoningEffort: 'high', model: 'Qwen/Qwen3.8-Flash' }), {});
+});
+
 test('provider source metadata enables edit, preserves keys, and separates profile removal from disconnect', async (t) => {
   const { add, connect, json, request, path, settings } = await setup(t);
   await add(); await connect(); const secrets = await settings.broker.list();
