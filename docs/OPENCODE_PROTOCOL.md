@@ -319,6 +319,26 @@ auth; malformed JSON; wrong method; a create naming an unknown model, a
 non-build agent, a non-string title or malformed metadata; a bad cursor, limit or
 order; and an unknown route. None crashes, and none answers an empty 200.
 
+**Prompts that arrive together take turns.** Every prompt re-binds the provider
+selection first, which briefly marks the session as selecting. Two clients firing
+in the same tick — two tabs, or the desktop and a phone — used to make the loser
+answer `409` "Wait for the session to become idle before changing its model", a
+selection it never asked for, contradicting the rule that prompts queue rather
+than reject. Concurrent admissions are now serialized. Verified live: three
+simultaneous prompts all admit, each gets its own answer, and none is lost.
+
+**Deleting a session races admitted work safely, in either order.** Verified
+across three repeats of each ordering:
+
+| Ordering | Result |
+| --- | --- |
+| delete and prompt in the same tick | delete wins deterministically: the prompt answers `404 SessionNotFoundError`, the session leaves the list |
+| prompt admitted, then deleted mid-turn | `200` then `204`; the session is gone and no turn is left dangling |
+
+After three mid-turn deletes in a row the surface still answers `/api/info` and a
+fresh session still runs a turn. `shutting_down` is the engine's terminal state,
+not a stalled shutdown.
+
 **A refused timeline mutation is a conflict, not a failure.** The engine's guards
 raise plain contract codes with no HTTP status, so these once arrived as an opaque
 `500 UnknownError`:
