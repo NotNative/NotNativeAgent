@@ -539,6 +539,19 @@ restart. Event sequence metadata follows the v2 wire shape; it does not add a
 crash-replay guarantee. The v2 event stream is live-only. Reconnects must fetch
 session, message, active-session and pending-form snapshots.
 
+Measured across an actual restart on the same data roots: a session that had
+`user, assistant, idle` before the stop listed zero sessions afterwards, and its
+id answered `404 SessionNotFoundError`. A new session on the same roots then
+prompted normally, so the store is healthy and only the catalog is not reopened.
+
+This is a deliberate boundary, not a hidden absence: NNA itself can rehydrate a
+transcript (`restoreSessionRecords` feeds the engine's own restore path), and
+`SessionDataManager` lists stored sessions for the console. Reopening them here
+would be a feature with its own questions — which sessions a GUI should adopt,
+and what an adopted session's wire history contains — so it is left out rather
+than half-built. An operator who needs earlier work creates a session and reuses
+the transcripts NNA already keeps.
+
 Verified against a live service with a real provider:
 
 - **Concurrent sessions.** Three sessions prompted in parallel each produced
