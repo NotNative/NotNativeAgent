@@ -40,27 +40,38 @@ async function bumpVersionLocked(root, options, io) {
   sbom.name = `NotNativeAgent-${version}`;
   sbom.documentNamespace = `https://example.invalid/not-native-agent/sbom/${version}`;
   primaryPackage.versionInfo = version;
-  // Why: one product, one canonical stamp — desktop is a component, not a peer
-  // product; its VERSION/package mirror the root stamp instead of advancing independently.
-  // Compatibility: desktop mirrors use the same semver mapping `${date}.0.${iteration}` and
-  // the root nna_version string doubles as desktop_version, so desktop consumers see one stamp.
-  const desktopPath = join(root, 'desktop');
-  const desktopVersionPath = join(desktopPath, 'VERSION');
-  const desktopPackagePath = join(desktopPath, 'package.json');
-  const desktopOriginals = await Promise.all([
-    read(desktopVersionPath, 'utf8'), read(desktopPackagePath, 'utf8'),
+  // Why: one product, one canonical stamp — a bundled desktop component mirrors
+  // the root stamp instead of advancing independently.
+  // Compatibility: the desktop tree is parked on branch `desktop/parked`; when it
+  // is absent the bump publishes only the root files, and when it is present the
+  // mirrors are stamped in the same synchronized publication as before, so a
+  // revived subtree rejoins the single stamp without a migration.
+  const desktopVersionPath = join(root, 'desktop', 'VERSION');
+  const desktopPackagePath = join(root, 'desktop', 'package.json');
+  const desktopMirror = await Promise.all([
+    read(desktopVersionPath, 'utf8').catch(() => null),
+    read(desktopPackagePath, 'utf8').catch(() => null),
   ]);
-  const desktopPackageJson = parseMetadata(desktopOriginals[1], desktopPackagePath);
-  desktopPackageJson.version = packageVersion;
-  desktopPackageJson.desktop_version = version;
-  await writeSynchronized([
+  const entries = [
     { path: versionPath, before: originals[0], after: `${version}\n` },
     { path: packagePath, before: originals[1], after: `${JSON.stringify(packageJson, null, 2)}\n` },
     { path: productPath, before: originals[2], after: nextProduct },
     { path: sbomPath, before: originals[3], after: `${JSON.stringify(sbom, null, 2)}\n` },
-    { path: desktopVersionPath, before: desktopOriginals[0], after: `${version}\n` },
-    { path: desktopPackagePath, before: desktopOriginals[1], after: `${JSON.stringify(desktopPackageJson, null, 2)}\n` },
-  ], write, io.writeFile ? {} : { read });
+  ];
+  const present = desktopMirror.map((value) => value !== null);
+  if (present[0] !== present[1]) {
+    throw new Error(`desktop version mirror is incomplete; restore or remove both of ${desktopVersionPath} and ${desktopPackagePath}`);
+  }
+  if (present[0]) {
+    const desktopPackageJson = parseMetadata(desktopMirror[1], desktopPackagePath);
+    desktopPackageJson.version = packageVersion;
+    desktopPackageJson.desktop_version = version;
+    entries.push(
+      { path: desktopVersionPath, before: desktopMirror[0], after: `${version}\n` },
+      { path: desktopPackagePath, before: desktopMirror[1], after: `${JSON.stringify(desktopPackageJson, null, 2)}\n` },
+    );
+  }
+  await writeSynchronized(entries, write, io.writeFile ? {} : { read });
   return Object.freeze({ current, version });
 }
 

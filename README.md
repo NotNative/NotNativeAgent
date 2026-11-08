@@ -17,25 +17,18 @@ native-platform, and live-server release validation remains pending; see
 
 ## Desktop surface
 
-The desktop GUI is one of NNA's own surfaces. It lives in the
-[`desktop/`](desktop/README.md) subtree: one repository, one version stamp, one
-gate run, one commit. It has no separate product name and no separate release
-identity. See
+The desktop GUI is one of NNA's own surfaces. It has no separate product name and
+no separate release identity. See
 [ADR 0073](docs/architecture/0073-desktop-surface-identity.md).
 
-The desktop surface keeps its own pnpm/vite toolchain inside `desktop/` (its
-quality gates, release manifest, and build stamp live there and are run from
-that directory), while this repository's `src/`, tests, and release gates are
-unchanged — `desktop/` is deliberately outside their include prefixes. NNA owns
-the payload contract that stages `desktop/` output for installation. Development
-plans, execution guides, and progress ledgers live under
-`desktop/docs/planning/` (local-only, untracked, never deployed).
-
-**Starting a development session here?** Begin with
-[`desktop/docs/planning/INDEX.md`](desktop/docs/planning/INDEX.md) — it orders
-the plan, handoff map, ledger, and both suites' baseline commands. NNA's own
-quick commands: `node scripts/quality-gates.js` and `npm test`
-(scoped, serialized `test/*.test.js`).
+**Parked.** The `desktop/` subtree is removed from the working tree and preserved
+on branch [`desktop/parked`](/desktop/parked); every file is intact there, and the
+root backend (`src/desktop-*.js`), its suites, and the payload contract remain on
+main and stay tested. Restore it with
+`git checkout desktop/parked -- desktop/` (and re-run `npm run graph:build` +
+`node scripts/quality-gates.js`), or merge the branch back to resume the effort.
+`scripts/bump-version.js` stamps the desktop mirrors again automatically once
+`desktop/VERSION` and `desktop/package.json` exist.
 
 ## Getting started
 

@@ -368,9 +368,10 @@ test('version bump synchronizes canonical, runtime, package, and SBOM versions',
     }
     await copyFile(join(projectRoot, 'src', 'product.js'), join(root, 'src', 'product.js'));
     await copyFile(join(projectRoot, 'scripts', 'bump-version.js'), join(root, 'scripts', 'bump-version.js'));
-    for (const path of ['VERSION', 'package.json']) {
-      await copyFile(join(projectRoot, 'desktop', path), join(root, 'desktop', path));
-    }
+    // Why the literal fixtures: the desktop mirror is stamped from these files,
+    // and the parked tree (branch `desktop/parked`) must not be a fixture input.
+    await writeFile(join(root, 'desktop', 'VERSION'), `${(await readFile(join(projectRoot, 'VERSION'), 'utf8')).trim()}\n`, 'utf8');
+    await writeFile(join(root, 'desktop', 'package.json'), JSON.stringify(JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8'))), 'utf8');
     const result = spawnSync(process.execPath, [join(root, 'scripts', 'bump-version.js'), '--date', '20991231', '--iteration', '7'], {
       cwd: root, encoding: 'utf8',
     });
