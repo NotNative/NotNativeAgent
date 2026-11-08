@@ -10,7 +10,13 @@ export async function handleV2Request(ctx) {
   catch (error) {
     if (error instanceof URIError) return sendJson(ctx.res, 400, { _tag: 'InvalidRequestError', message: 'Invalid URL encoding' });
     if (error.body && error.httpStatus) return sendJson(ctx.res, error.httpStatus, error.body);
-    if (error.code?.startsWith('opencode_prompt_')) return sendJson(ctx.res, 400, { _tag: 'InvalidRequestError', message: error.message });
+    // Why status-preserving: a full queue is a capacity refusal the caller can
+    // retry, and the legacy prompt surface already answers it 429. Flattening
+    // every `opencode_prompt_*` code to a 400 told the client its admitted
+    // text was malformed, so it discarded a briefing it should have retried.
+    if (error.code?.startsWith('opencode_prompt_')) {
+      return sendJson(ctx.res, error.httpStatus ?? 400, { _tag: 'InvalidRequestError', message: error.message });
+    }
     // Why: the engine's timeline guards raise plain contract codes with no HTTP
     // status, so a busy session reached the client as an opaque 500 "NNA could not
     // complete the request". A refused timeline mutation is a conflict the caller

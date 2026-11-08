@@ -6,15 +6,24 @@
 // event id and a per-session monotonic seq, while status/idle/diff/delta
 // frames ride bare; the sync prompt response resolves after the turn closes.
 import { ContractError, newId } from '../ids.js';
+import { persistEngineRecord } from '../engine/persistence.js';
 import { createHash } from 'node:crypto';
 import { physicalWireAllowance } from '../reliability/context-budget.js';
 import { PROTOCOL_TOOL_NAMES } from '../tools/core-names.js';
+import {
+  ZERO_TOKENS, assistantInfo, closeTurn, abortPending, currentInfo, publishBare, publishDurable,
+  settleEntry, settleFailure, stepStartPart, textPartOpen, closedUserInfo, userPart, userInfo, tokenView,
+} from './wire-transcript.js';
 
 const QUEUE_LIMIT = 64;
+// Why 16: a held synthetic is client-authored briefing text waiting for the
+// next scheduled turn, not an operator prompt. The clients that use it
+// (goal mode, context-obligation ticks) hold one or two at a time, so a
+// larger pile is a stuck caller rather than a real conversation.
+const HELD_LIMIT = 16;
 const HISTORY_LIMIT = 64;
 const MAX_PROMPT_PARTS = 128;
 const DEFAULT_PART_TEXT_ALLOWANCE = physicalWireAllowance(65_536);
-const ZERO_TOKENS = Object.freeze({ total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } });
 
 export function createWireSession({ record, bus, info, version, publishV2 = null }) {
   const state = {
@@ -189,13 +198,13 @@ function admit(state, parts, input = {}) {
     state.record.engine?.ingressContextWindowTokens ?? state.record.engine?.lastContextMeasurement?.windowTokens ?? 65_536,
   ) });
   if (pendingCount(state) >= QUEUE_LIMIT) {
-    throw new ContractError('opencode_prompt_queue_overflow', 'prompt queue is full');
+    throw new ContractError('opencode_prompt_queue_overflow', 'prompt queue is full', false, { httpStatus: 429 });
   }
   // Invariant: queue capacity counts unfinished prompts; completed messages
   // remain in a separate bounded recent-history projection.
   if (state.ledger.length >= HISTORY_LIMIT) {
     const settled = state.ledger.findIndex((entry) => entry.response !== null);
-    if (settled < 0) throw new ContractError('opencode_prompt_queue_overflow', 'prompt queue is full');
+    if (settled < 0) throw new ContractError('opencode_prompt_queue_overflow', 'prompt queue is full', false, { httpStatus: 429 });
     // Invariant: the join map never outgrows the ledger it mirrors.
     state.requestIdByMessage.delete(state.ledger[settled].userMessageId);
     state.ledger.splice(settled, 1);
@@ -205,29 +214,82 @@ function admit(state, parts, input = {}) {
   state.ledger.push(entry);
   // The join revert needs; bounded by dropping the entry it is evicted with.
   state.requestIdByMessage.set(entry.userMessageId, entry.requestId);
+  if (input.held) return holdEntry(state, entry, input);
   // Why: gold OC opens a fresh session's first prompt with a session.updated
   // pair, but later prompts emit the user message first (ledger lifecycle,
   // not run timing, pins the first-seen event order per stream).
-  if (state.ledger.length === 1) emitFirstAdmission(state, entry);
-  else emitFollowAdmission(state, entry);
+  // Why count scheduled admissions rather than ledger length: a held briefing
+  // admitted before the first prompt (goal mode admits it first on purpose)
+  // must not consume the opening pair the first real turn depends on.
+  if (state.scheduled === undefined) {
+    state.scheduled = 0;
+    emitFirstAdmission(state, entry);
+  } else emitFollowAdmission(state, entry);
+  state.scheduled += 1;
   const bound = state.tail.then(() => runEntry(state, entry));
   state.tail = bound.catch(() => {});
   return { response: bound, messageID: entry.userMessageId };
 }
 
+/** Admit a synthetic input without scheduling a turn.
+ *
+ *  Why no assistant row or idle marker: a held entry is not a turn. Gold OC
+ *  publishes the `session.synthetic` row itself for this case and opens no
+ *  assistant turn, so no run state, status frame, or turn boundary appears —
+ *  a client would otherwise show a session running with nothing in it.
+ *
+ *  Compatibility: no `session.inbox.enqueued` either. The OpenChamber reducer
+ *  inserts an enqueued item into its pending queue and removes it on delivery
+ *  or cancellation, so an item that is never steered and never cancelled sits
+ *  in the composer queue indefinitely. `session.synthetic` is the event the
+ *  client renders this row from, both live and (via history) after a reload. */
+function holdEntry(state, entry, input) {
+  if (heldPending(state) >= HELD_LIMIT) {
+    state.ledger.splice(state.ledger.indexOf(entry), 1);
+    state.requestIdByMessage.delete(entry.userMessageId);
+    throw new ContractError('opencode_prompt_queue_overflow', 'held synthetic queue is full', false, { httpStatus: 429 });
+  }
+  entry.held = true;
+  entry.createdAt = Date.now();
+  entry.textEnded = entry.createdAt;
+  entry.assistantCompleted = entry.createdAt;
+  if (input.metadata) entry.metadata = input.metadata;
+  publishDurable(state, 'session.synthetic', {
+    sessionID: state.sessionID, text: entry.text,
+    ...(input.description ? { description: input.description } : {}),
+    ...(input.metadata ? { metadata: input.metadata } : {}),
+  });
+  // Why a `response` with no assistant: the row is complete on its own and
+  // history must stop at it, so the entry reads as settled to the queue, the
+  // idle sentinel, and eviction, while `messagesFromLedger` still skips the
+  // empty assistant it never opened.
+  entry.response = { info: null, parts: [] };
+  return { response: Promise.resolve(entry.response), messageID: entry.userMessageId, held: true };
+}
+
+function heldPending(state) {
+  return state.ledger.reduce((count, entry) => count + Number(Boolean(entry.held) && entry.deliveredAt === undefined), 0);
+}
+
 function pendingCount(state) {
-  return state.ledger.reduce((count, entry) => count + Number(entry.response === null), 0);
+  // Why held entries do not count: they are settled rows that never run, so
+  // they must not consume prompt-queue capacity — the client holds a briefing
+  // and then prompts, and that prompt has to be admitted.
+  return state.ledger.reduce((count, entry) => count + Number(entry.response === null && !entry.held), 0);
 }
 
 async function runEntry(state, entry) {
   // Why: an aborted queued entry was settled by the wire abort path; its
   // chained turn must not submit a fresh prompt after the operator's stop.
+  // The briefings it would have carried stay undelivered, so the next real
+  // turn still reads them.
   if (entry.aborted) return entry.response;
   state.active = entry;
   entry.assistantCreated = entry.createdAt;
   entry.textStart = Date.now();
   emitTurnStarted(state, entry);
   try {
+    await journalBriefings(state);
     const result = await state.record.ingress.submit(
       { type: 'submit', request_id: entry.requestId, content: entry.text, version: '1.0' }, 'opencode-wire',
     );
@@ -239,6 +301,47 @@ async function runEntry(state, entry) {
   } finally {
     closeTurn(state, entry);
     state.active = null;
+  }
+}
+
+/** Carry the briefings held since the last turn into the engine journal.
+ *
+ *  Why the journal and not the submission: the client contract says a synthetic
+ *  input is admitted "and schedules agent-loop execution unless resume is
+ *  false", and the goal-mode caller says plainly that without `resume: false`
+ *  "the model would start on the briefing alone, before the task arrived". So
+ *  a held briefing must never open its own turn, yet it must reach the model
+ *  with the next real prompt. The two submission lanes cannot carry it:
+ *  `submit.content` is journaled as an operator utterance and `engine.steer`
+ *  is converted to one, and this text is client-authored context, not operator
+ *  speech. A `message` record appended before the submission reaches the
+ *  provider as transcript context under its own trust, which is exactly the
+ *  lane the engine uses for recalled memory and hook context.
+ *
+ *  Security: never let this text reach `submit.content`, `engine.steer`, or any
+ *  other lane that journals `trust: 'operator'`. AGENTS.md forbids content
+ *  that arrived over the wire from granting authority, and the role is
+ *  `system` rather than `user` so no projection that reads operator
+ *  authority — the conversation text lane, the project-memory reconciler, or
+ *  skill opportunity mining — can ever treat it as an authenticated utterance.
+ *
+ *  Invariant: journaling happens at the turn boundary, before the submission,
+ *  and never mutates an entry's `text`, so the wire rows, the part ledger, and
+ *  revert still read exactly what each caller admitted. A record carries no
+ *  `turnId`: the briefing is client-authored context, not part of the turn that
+ *  consumed it, so reverting that turn must not erase it. */
+async function journalBriefings(state) {
+  const held = state.ledger.filter((item) => item.held && !item.deliveredAt);
+  if (held.length === 0) return;
+  const engine = state.record?.engine;
+  const now = Date.now();
+  for (const item of held) {
+    await persistEngineRecord(engine, 'message', {
+      type: 'message', role: 'system', content: item.text,
+      trust: 'untrusted_client_briefing', partial: false, createdAt: now,
+      ...(item.metadata ? { metadata: item.metadata } : {}),
+    });
+    item.deliveredAt = now;
   }
 }
 
@@ -267,96 +370,6 @@ function emitTurnStarted(state, entry) {
   publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartOpen(state, entry), time: nowMs });
 }
 
-function settleEntry(state, entry, result) {
-  const nowMs = Date.now();
-  entry.assistantContent = typeof result?.text === 'string' ? result.text : '';
-  entry.textEnded = nowMs;
-  entry.assistantCompleted = nowMs;
-  entry.tokens = tokenView(result?.usage);
-  // Why: a cancelled turn settles distinctly from an engine failure; the wire
-  // voice labels operator-stopped turns `abort` so OpenChamber can render it.
-  entry.finish = result?.outcome === 'completed' ? 'stop'
-    : result?.outcome === 'cancelled' ? 'abort' : 'error';
-  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: nowMs });
-  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: nowMs });
-  const response = buildAssistantResponse(state, entry);
-  publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: response.info });
-  return response;
-}
-
-function settleFailure(state, entry) {
-  const nowMs = Date.now();
-  entry.assistantContent = '';
-  entry.textEnded = nowMs;
-  entry.assistantCompleted = nowMs;
-  entry.tokens = ZERO_TOKENS;
-  entry.finish = 'error';
-  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: nowMs });
-  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: nowMs });
-  const response = buildAssistantResponse(state, entry);
-  publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: response.info });
-  return response;
-}
-
-function closeTurn(state, entry) {
-  publishBare(state, 'session.status', { sessionID: state.sessionID, status: { type: 'idle' } });
-  publishBare(state, 'session.idle', { sessionID: state.sessionID });
-  publishDurable(state, 'session.updated', { sessionID: state.sessionID, info: currentInfo(state) });
-  publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: closedUserInfo(state, entry) });
-  entry.closedAt = Date.now();
-  // Compatibility: OpenCode 2 writes an `idle` record when a turn ends, and a
-  // client walks history newest-first to find where the running turn began.
-  // Without the marker every turn reads as one continuous turn.
-  entry.idle = idleInfo(state, entry);
-}
-
-function idleInfo(state, entry) {
-  return {
-    id: newId('msg'), sessionID: state.sessionID, type: 'idle',
-    outcome: entry.finish === 'abort' ? 'interrupted' : entry.finish === 'error' ? 'failed' : 'succeeded',
-    time: { created: entry.closedAt ?? Date.now() },
-  };
-}
-
-// Why: the operator stop button must stop everything, not just the active
-// turn: queued prompts never reach the engine, so the wire abandons them here
-// (settled responses, no busy frames, and an idle sentinel when nothing runs).
-function abortPending(state) {
-  const drained = [];
-  for (const entry of state.ledger) {
-    if (entry.response !== null || entry === state.active) continue;
-    entry.aborted = true;
-    entry.finish = 'abort';
-    entry.textEnded = Date.now();
-    entry.assistantCompleted = entry.textEnded;
-    publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: entry.textEnded });
-    publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: entry.textEnded });
-    entry.response = buildAssistantResponse(state, entry);
-    publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: entry.response.info });
-    // Why: a drained prompt settled without ever running, so it still needs the
-    // idle marker that bounds its turn. Without it a newest-first history walk
-    // reads the abandoned turn as the one still running.
-    entry.idle = idleInfo(state, entry);
-    drained.push(entry);
-  }
-  if (drained.length > 0 && state.active === null) {
-    publishBare(state, 'session.status', { sessionID: state.sessionID, status: { type: 'idle' } });
-    publishBare(state, 'session.idle', { sessionID: state.sessionID });
-  }
-  return drained.length;
-}
-
-function publishDurable(state, type, properties) {
-  state.seq += 1;
-  state.bus.publishSession({ directory: state.directory, project: state.project, sessionID: state.sessionID, type, properties, mirror: true, seq: state.seq });
-}
-
-function publishBare(state, type, properties) {
-  state.bus.publishSession({ directory: state.directory, project: state.project, sessionID: state.sessionID, type, properties });
-}
-
-function currentInfo(state) { return state.info(); }
-
 function createEntry(state, text) {
   return {
     requestId: newId('oc_prompt'), text,
@@ -369,70 +382,19 @@ function createEntry(state, text) {
   };
 }
 
-function buildAssistantResponse(state, entry) {
-  return {
-    info: assistantInfo(state, entry, { completed: entry.assistantCompleted, finish: entry.finish ?? 'error' }),
-    // Why: tool parts sit between the step's opening and its finish, so a client
-    // renders each call where the model made it rather than after the answer.
-    parts: [stepStartPart(state, entry), ...(entry.assistantParts ?? []), textPartFinal(state, entry), stepFinishPart(state, entry)],
-  };
-}
-
 function messagesFromLedger(state) {
   const messages = [];
   for (const entry of state.ledger) {
     messages.push({ info: closedUserInfo(state, entry), parts: [userPart(state, entry)] });
-    if (entry.response !== null) messages.push({ info: entry.response.info, parts: entry.response.parts });
+    // Why check `info`: a held briefing settles with no assistant message at
+    // all, and pushing that empty response would hand a reader a row with a
+    // null `info` to dereference.
+    if (entry.response !== null && entry.response.info !== null) messages.push({ info: entry.response.info, parts: entry.response.parts });
     // Why: oldest-first history pairs each closed turn with the idle marker that
     // ends it, so a newest-first reader stops at the correct turn boundary.
     if (entry.idle) messages.push({ info: entry.idle, parts: [] });
   }
   return messages;
-}
-
-function closedUserInfo(state, entry) {
-  return { ...userInfo(state, entry), summary: { diffs: [] } };
-}
-
-function userInfo(state, entry) {
-  return {
-    id: entry.userMessageId, role: 'user', sessionID: state.sessionID,
-    time: { created: entry.createdAt }, agent: 'build',
-    model: { providerID: state.modelRef.providerID, modelID: state.modelRef.modelID },
-  };
-}
-
-function assistantInfo(state, entry, extra = {}) {
-  const complete = Boolean(extra.completed);
-  return {
-    id: entry.assistantId, parentID: entry.userMessageId, role: 'assistant', mode: 'build', agent: 'build',
-    path: { cwd: state.directory, root: state.directory }, cost: 0,
-    tokens: complete ? (entry.tokens ?? ZERO_TOKENS) : ZERO_TOKENS,
-    modelID: state.modelRef.modelID, providerID: state.modelRef.providerID,
-    time: { created: entry.assistantCreated, ...(complete ? { completed: extra.completed } : {}) },
-    ...(extra.finish ? { finish: extra.finish } : {}),
-    sessionID: state.sessionID,
-  };
-}
-
-function userPart(state, entry) {
-  return { type: 'text', text: entry.text, messageID: entry.userMessageId, sessionID: state.sessionID, id: entry.userPartId };
-}
-
-function stepStartPart(state, entry) {
-  return { id: entry.stepStartId, messageID: entry.assistantId, sessionID: state.sessionID, snapshot: state.snapshot, type: 'step-start' };
-}
-
-function textPartOpen(state, entry) {
-  return { id: entry.textPartId, messageID: entry.assistantId, sessionID: state.sessionID, type: 'text', text: '', time: { start: entry.textStart } };
-}
-
-function textPartFinal(state, entry) {
-  return { id: entry.textPartId, messageID: entry.assistantId, sessionID: state.sessionID, type: 'text', text: entry.assistantContent, time: { start: entry.textStart, end: entry.textEnded ?? entry.textStart } };
-}
-
-function stepFinishPart(state, entry) {
-  return { id: entry.stepFinishId, messageID: entry.assistantId, sessionID: state.sessionID, reason: entry.finish ?? 'stop', snapshot: state.snapshot, type: 'step-finish', cost: 0, tokens: entry.tokens ?? ZERO_TOKENS };
 }
 
 export function buildPromptCommand(parts, limits = {}) {
@@ -466,12 +428,6 @@ function requireTextPart(part, maxText) {
   }
   if (part.text.length > maxText) throw new ContractError('opencode_prompt_parts_invalid', 'prompt text exceeds bounds');
   return part.text;
-}
-
-export function tokenView(usage = {}) {
-  const input = Number(usage?.prompt_tokens ?? 0);
-  const output = Number(usage?.completion_tokens ?? 0);
-  return { total: Number(usage?.total_tokens ?? input + output), input, output, reasoning: 0, cache: { read: 0, write: 0 } };
 }
 
 export function snapshotValue(directory) {

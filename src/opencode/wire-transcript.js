@@ -1,0 +1,164 @@
+// SPDX-License-Identifier: Apache-2.0
+// Wire transcript synthesis for one session: the message and part shapes a
+// turn is published in, and the settlement frames that close it. Split from
+// `wire-session.js`, which owns the queue, so each file reads as one contract
+// — the events a turn looks like versus the ordering of turns.
+import { newId } from '../ids.js';
+
+export const ZERO_TOKENS = Object.freeze({ total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } });
+
+/** The provider usage record reduced to the wire token shape. */
+export function tokenView(usage = {}) {
+  const input = Number(usage?.prompt_tokens ?? 0);
+  const output = Number(usage?.completion_tokens ?? 0);
+  return { total: Number(usage?.total_tokens ?? input + output), input, output, reasoning: 0, cache: { read: 0, write: 0 } };
+}
+
+export function publishDurable(state, type, properties) {
+  state.seq += 1;
+  state.bus.publishSession({ directory: state.directory, project: state.project, sessionID: state.sessionID, type, properties, mirror: true, seq: state.seq });
+}
+
+export function publishBare(state, type, properties) {
+  state.bus.publishSession({ directory: state.directory, project: state.project, sessionID: state.sessionID, type, properties });
+}
+
+export function currentInfo(state) { return state.info(); }
+
+export function userInfo(state, entry) {
+  return {
+    id: entry.userMessageId, role: 'user', sessionID: state.sessionID,
+    time: { created: entry.createdAt }, agent: 'build',
+    model: { providerID: state.modelRef.providerID, modelID: state.modelRef.modelID },
+  };
+}
+
+export function closedUserInfo(state, entry) {
+  return { ...userInfo(state, entry), summary: { diffs: [] } };
+}
+
+export function assistantInfo(state, entry, extra = {}) {
+  const complete = Boolean(extra.completed);
+  return {
+    id: entry.assistantId, parentID: entry.userMessageId, role: 'assistant', mode: 'build', agent: 'build',
+    path: { cwd: state.directory, root: state.directory }, cost: 0,
+    tokens: complete ? (entry.tokens ?? ZERO_TOKENS) : ZERO_TOKENS,
+    modelID: state.modelRef.modelID, providerID: state.modelRef.providerID,
+    time: { created: entry.assistantCreated, ...(complete ? { completed: extra.completed } : {}) },
+    ...(extra.finish ? { finish: extra.finish } : {}),
+    sessionID: state.sessionID,
+  };
+}
+
+export function userPart(state, entry) {
+  // Compatibility: the v1 vocabulary has no synthetic message type — a
+  // client-supplied briefing rides as a text part flagged `synthetic: true`,
+  // which is how gold OpenCode marked one. Without the flag a legacy reader
+  // would render a held briefing as operator speech.
+  return { type: 'text', text: entry.text, messageID: entry.userMessageId, sessionID: state.sessionID, id: entry.userPartId,
+    ...(entry.held ? { synthetic: true } : {}) };
+}
+
+export function stepStartPart(state, entry) {
+  return { id: entry.stepStartId, messageID: entry.assistantId, sessionID: state.sessionID, snapshot: state.snapshot, type: 'step-start' };
+}
+
+export function textPartOpen(state, entry) {
+  return { id: entry.textPartId, messageID: entry.assistantId, sessionID: state.sessionID, type: 'text', text: '', time: { start: entry.textStart } };
+}
+
+export function textPartFinal(state, entry) {
+  return { id: entry.textPartId, messageID: entry.assistantId, sessionID: state.sessionID, type: 'text', text: entry.assistantContent, time: { start: entry.textStart, end: entry.textEnded ?? entry.textStart } };
+}
+
+export function stepFinishPart(state, entry) {
+  return { id: entry.stepFinishId, messageID: entry.assistantId, sessionID: state.sessionID, reason: entry.finish ?? 'stop', snapshot: state.snapshot, type: 'step-finish', cost: 0, tokens: entry.tokens ?? ZERO_TOKENS };
+}
+
+export function idleInfo(state, entry) {
+  return {
+    id: newId('msg'), sessionID: state.sessionID, type: 'idle',
+    outcome: entry.finish === 'abort' ? 'interrupted' : entry.finish === 'error' ? 'failed' : 'succeeded',
+    time: { created: entry.closedAt ?? Date.now() },
+  };
+}
+
+export function buildAssistantResponse(state, entry) {
+  return {
+    info: assistantInfo(state, entry, { completed: entry.assistantCompleted, finish: entry.finish ?? 'error' }),
+    // Why: tool parts sit between the step's opening and its finish, so a client
+    // renders each call where the model made it rather than after the answer.
+    parts: [stepStartPart(state, entry), ...(entry.assistantParts ?? []), textPartFinal(state, entry), stepFinishPart(state, entry)],
+  };
+}
+
+export function settleEntry(state, entry, result) {
+  const nowMs = Date.now();
+  entry.assistantContent = typeof result?.text === 'string' ? result.text : '';
+  entry.textEnded = nowMs;
+  entry.assistantCompleted = nowMs;
+  entry.tokens = tokenView(result?.usage);
+  // Why: a cancelled turn settles distinctly from an engine failure; the wire
+  // voice labels operator-stopped turns `abort` so OpenChamber can render it.
+  entry.finish = result?.outcome === 'completed' ? 'stop'
+    : result?.outcome === 'cancelled' ? 'abort' : 'error';
+  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: nowMs });
+  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: nowMs });
+  const response = buildAssistantResponse(state, entry);
+  publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: response.info });
+  return response;
+}
+
+export function settleFailure(state, entry) {
+  const nowMs = Date.now();
+  entry.assistantContent = '';
+  entry.textEnded = nowMs;
+  entry.assistantCompleted = nowMs;
+  entry.tokens = ZERO_TOKENS;
+  entry.finish = 'error';
+  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: nowMs });
+  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: nowMs });
+  const response = buildAssistantResponse(state, entry);
+  publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: response.info });
+  return response;
+}
+
+export function closeTurn(state, entry) {
+  publishBare(state, 'session.status', { sessionID: state.sessionID, status: { type: 'idle' } });
+  publishBare(state, 'session.idle', { sessionID: state.sessionID });
+  publishDurable(state, 'session.updated', { sessionID: state.sessionID, info: currentInfo(state) });
+  publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: closedUserInfo(state, entry) });
+  entry.closedAt = Date.now();
+  // Compatibility: OpenCode 2 writes an `idle` record when a turn ends, and a
+  // client walks history newest-first to find where the running turn began.
+  // Without the marker every turn reads as one continuous turn.
+  entry.idle = idleInfo(state, entry);
+}
+
+// Why: the operator stop button must stop everything, not just the active
+// turn: queued prompts never reach the engine, so the wire abandons them here
+// (settled responses, no busy frames, and an idle sentinel when nothing runs).
+export function abortPending(state) {
+  const drained = [];
+  for (const entry of state.ledger) {
+    if (entry.response !== null || entry === state.active) continue;
+    entry.aborted = true;
+    entry.finish = 'abort';
+    entry.textEnded = Date.now();
+    entry.assistantCompleted = entry.textEnded;
+    publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: entry.textEnded });
+    publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: entry.textEnded });
+    entry.response = buildAssistantResponse(state, entry);
+    publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: entry.response.info });
+    // Why: a drained prompt settled without ever running, so it still needs the
+    // idle marker that bounds its turn. Without it a newest-first history walk
+    // reads the abandoned turn as the one still running.
+    entry.idle = idleInfo(state, entry);
+    drained.push(entry);
+  }
+  if (drained.length > 0 && state.active === null) {
+    publishBare(state, 'session.status', { sessionID: state.sessionID, status: { type: 'idle' } });
+    publishBare(state, 'session.idle', { sessionID: state.sessionID });
+  }
+  return drained.length;
+}

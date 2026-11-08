@@ -28,5 +28,10 @@ export class ContractError extends Error {
     this.name = 'ContractError';
     this.code = code;
     this.retryable = retryable;
+    // Why optional: most contract refusals have no opinion about transport and
+    // stay 400. A surface that knows a refusal is about capacity rather than a
+    // malformed request sets this so the route answers 429 and the caller
+    // retries instead of discarding what it admitted.
+    if (Number.isInteger(options?.httpStatus)) this.httpStatus = options.httpStatus;
   }
 }

@@ -2892,6 +2892,50 @@
       "Session.Message.ProviderState": {
         "type": "object"
       },
+      "Session.Message.Synthetic": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^msg_"
+          },
+          "sessionID": {
+            "type": "string",
+            "pattern": "^ses"
+          },
+          "time": {
+            "type": "object",
+            "properties": {
+              "created": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "created"
+            ],
+            "additionalProperties": false
+          },
+          "text": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "synthetic"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "time",
+          "text",
+          "type"
+        ],
+        "additionalProperties": false
+      },
       "Session.Message.User": {
         "type": "object",
         "properties": {
@@ -3130,6 +3174,70 @@
           "steer",
           "queue"
         ]
+      },
+      "Session.Inbox.Synthetic": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^msg_"
+          },
+          "sessionID": {
+            "type": "string",
+            "pattern": "^ses"
+          },
+          "time": {
+            "type": "object",
+            "properties": {
+              "created": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "created"
+            ],
+            "additionalProperties": false
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "synthetic"
+            ]
+          },
+          "payload": {
+            "$ref": "#/components/schemas/Session.Inbox.SyntheticPayload"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Session.Inbox.Delivery"
+          }
+        },
+        "required": [
+          "id",
+          "sessionID",
+          "time",
+          "type",
+          "payload",
+          "delivery"
+        ],
+        "additionalProperties": false
+      },
+      "Session.Inbox.SyntheticPayload": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
       },
       "Session.Inbox.Compaction": {
         "type": "object",

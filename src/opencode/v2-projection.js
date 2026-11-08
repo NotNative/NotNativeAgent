@@ -19,6 +19,21 @@ export function observeV1Event(state, event, events) {
   // tool row — it declares `message.part.updated` and dispatches no case for it,
   // so without this forwarding a tool-using turn shows no tool until a reload.
   if (type.startsWith('session.tool.')) { events.emit(state, type, { ...value }, true, TOOL_EVENT_VERSION[type] ?? 1); return; }
+  // Compatibility: a synthetic row is the one message the client builds from the
+  // event itself — its reducer inserts a row whose id is derived from the v2
+  // event id, so the same id must answer a later message read or a reload shows
+  // the briefing twice. Version 1 is what the client declares for this type.
+  //
+  // Security: `metadata` rides the live event only. The stored row is the
+  // client's `Session.Message.Synthetic`, a strict schema without a metadata
+  // field, so one extra key would fail the parse of the whole history page.
+  if (type === 'session.synthetic') {
+    const event = events.emit(state, type, { ...value });
+    const id = `msg_${String(event.id).slice(4)}`;
+    state.messages.set(id, { id, sessionID: state.info.id, type: 'synthetic', text: String(value.text ?? ''),
+      time: { created: event.created }, ...(typeof value.description === 'string' ? { description: value.description } : {}) });
+    return;
+  }
   if (type === 'nna.context.compaction') {
     // Compatibility: preserve the native v2 event envelope while keeping this
     // NNA extension outside OpenCode's standard message-part contract.

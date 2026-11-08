@@ -398,3 +398,166 @@ test('buildPromptCommand joins text parts and snapshotValue is printable hex', (
   assert.equal(buildPromptCommand([{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }]), 'a\nb');
   assert.match(snapshotValue('C:\\workspace'), /^[0-9a-f]{40}$/u);
 });
+
+// A held synthetic is the client's briefing lane (`resume: false`): text that
+// must reach the model with the next real prompt but must never open a turn of
+// its own. These pin both halves of that contract — the wire silence and the
+// untrusted journal delivery.
+function journalRecord(submit) {
+  const records = [];
+  return {
+    records,
+    record: {
+      ocId: 'ses_t', directory: 'C:\\fx', projectID: 'p'.repeat(40),
+      engine: { transcript: [], store: { append: async (type, payload) => { records.push({ type, ...payload }); } } },
+      ingress: { submit },
+    },
+  };
+}
+
+test('a held synthetic settles its row without opening a turn', async () => {
+  const bus = recordingBus();
+  const submitted = [];
+  const { record } = journalRecord(async (command) => { submitted.push(command.content); return { outcome: 'completed', text: 'ok' }; });
+  const wireSession = createWireSession({
+    record, bus, version: '9',
+    info: () => ({ id: 'ses_t', directory: record.directory, tokens: {}, version: '9', time: { created: 1, updated: 2 } }),
+  });
+  const held = wireSession.admit([{ type: 'text', text: 'goal briefing' }], { messageID: 'msg_hold', held: true });
+  assert.equal(held.held, true);
+  assert.deepEqual(await held.response, { info: null, parts: [] });
+  assert.equal(wireSession.pendingCount(), 0, 'a held briefing is not queued work');
+  assert.deepEqual(submitted, [], 'a held briefing schedules no turn of its own');
+  const synthetics = bus.frames.filter((frame) => frame.type === 'session.synthetic');
+  assert.equal(synthetics.length, 1);
+  assert.equal(synthetics[0].properties.text, 'goal briefing');
+  assert.equal(synthetics[0].properties.sessionID, 'ses_t');
+  assert.equal(synthetics[0].mirror, true, 'the row is durable so a reconnect replays it');
+  // Invariant: no run state at all — a client that saw busy or an assistant row
+  // would render a session running with nothing in it.
+  assert.deepEqual(bus.frames.filter((frame) => frame.type === 'session.status' || frame.type === 'session.idle'), []);
+  const rows = wireSession.messages();
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].info.role, 'user');
+  assert.equal(rows[0].parts[0].text, 'goal briefing');
+  // Compatibility: the v1 surface has no synthetic message type, so the held
+  // row rides as a text part flagged `synthetic: true` — the client's own
+  // `TextPartInput` declares that flag, and without it a legacy reader would
+  // render the briefing as operator speech.
+  assert.equal(rows[0].parts[0].synthetic, true);
+});
+
+test('a held briefing reaches the next turn through the untrusted journal lane', async () => {
+  const submitted = [];
+  const { record, records } = journalRecord(async (command) => {
+    submitted.push(command.content);
+    // Read the journal as the provider would see it at submit time.
+    return { outcome: 'completed', text: `echo:${command.content}`, seen: record.engine.transcript.map((item) => ({ ...item })) };
+  });
+  const wireSession = createWireSession({
+    record, bus: { publishSession() {} }, version: '9',
+    info: () => ({ id: 'ses_t', directory: record.directory, tokens: {}, version: '9', time: { created: 1, updated: 2 } }),
+  });
+  await wireSession.admit([{ type: 'text', text: 'BRIEFING' }], { messageID: 'msg_hold', held: true, description: 'goal' }).response;
+  const response = await wireSession.prompt([{ type: 'text', text: 'the task' }]);
+  assert.equal(response.parts[1].text, 'echo:the task');
+  // Security: the briefing never enters the submission, which the engine journals
+  // as an operator utterance. AGENTS.md forbids wire-supplied text granting authority.
+  assert.deepEqual(submitted, ['the task']);
+  assert.equal(records.length, 1);
+  assert.equal(records[0].type, 'message');
+  assert.equal(records[0].role, 'system', 'a user role would be projected as an authenticated utterance');
+  assert.equal(records[0].content, 'BRIEFING');
+  assert.notEqual(records[0].trust, 'operator');
+  assert.equal(records[0].trust, 'untrusted_client_briefing');
+  // Why no turnId: the briefing is client-authored context, not part of the turn
+  // that consumed it, so reverting that turn must not erase it.
+  assert.equal(records[0].turnId, undefined);
+  // Invariant: it is in the transcript the provider reads, ahead of the prompt.
+  assert.deepEqual(record.engine.transcript.map((item) => item.content), ['BRIEFING']);
+});
+
+test('briefings are delivered once and a stop leaves the undelivered ones for the next turn', async () => {
+  let release;
+  const submitted = [];
+  const { record, records } = journalRecord((command) => {
+    submitted.push(command.content);
+    return new Promise((resolve) => { release = () => resolve({ outcome: 'completed', text: 'ok' }); });
+  });
+  const wireSession = createWireSession({
+    record, bus: { publishSession() {} }, version: '9',
+    info: () => ({ id: 'ses_t', directory: record.directory, tokens: {}, version: '9', time: { created: 1, updated: 2 } }),
+  });
+  await wireSession.admit([{ type: 'text', text: 'FIRST' }], { messageID: 'msg_a', held: true }).response;
+  const first = wireSession.prompt([{ type: 'text', text: 'task-1' }]);
+  await new Promise((resolve) => setImmediate(resolve));
+  // The queue holds the second prompt; stopping the session must not consume the
+  // briefing the second prompt was waiting to carry.
+  const second = wireSession.prompt([{ type: 'text', text: 'task-2' }]);
+  await new Promise((resolve) => setImmediate(resolve));
+  await wireSession.admit([{ type: 'text', text: 'SECOND' }], { messageID: 'msg_b', held: true }).response;
+  assert.equal(wireSession.abort(), 1);
+  release();
+  await first;
+  await second.catch(() => {});
+  assert.deepEqual(submitted, ['task-1'], 'the stopped prompt never submits');
+  assert.deepEqual(records.map((item) => item.content), ['FIRST']);
+  const third = wireSession.prompt([{ type: 'text', text: 'task-3' }]);
+  await new Promise((resolve) => setImmediate(resolve));
+  release();
+  await third;
+  // Invariant: both briefings reach the model exactly once, in admission order,
+  // and neither becomes part of the prompt text.
+  assert.deepEqual(submitted, ['task-1', 'task-3']);
+  assert.deepEqual(records.map((item) => item.content), ['FIRST', 'SECOND']);
+});
+
+test('a held briefing admitted before the first prompt does not consume its opening pair', async () => {
+  const bus = recordingBus();
+  const { record } = journalRecord(async () => ({ outcome: 'completed', text: 'ok' }));
+  const wireSession = createWireSession({
+    record, bus, version: '9',
+    info: () => ({ id: 'ses_t', directory: record.directory, tokens: {}, version: '9', time: { created: 1, updated: 2 } }),
+  });
+  await wireSession.admit([{ type: 'text', text: 'briefing' }], { messageID: 'msg_hold', held: true }).response;
+  await wireSession.prompt([{ type: 'text', text: 'task' }]);
+  const mirrored = bus.frames.filter((frame) => frame.mirror).map((frame) => frame.type);
+  // Invariant: the held briefing publishes only its own row. The first real
+  // prompt still opens with the `session.updated` pair around its user record,
+  // which is what gold OpenCode does for a fresh session — a held briefing
+  // admitted first must not consume that opening.
+  assert.deepEqual(mirrored.filter((type) => type !== 'session.synthetic').slice(0, 4), [
+    'session.updated', 'message.updated', 'message.part.updated', 'session.updated',
+  ]);
+  assert.equal(mirrored[0], 'session.synthetic', 'the held row is published when it is admitted');
+  // The held row is the single record of the briefing: no user message.updated
+  // accompanies it, so no reader mistakes it for an operator utterance.
+  assert.equal(bus.frames.filter((frame) => frame.type === 'message.updated'
+    && frame.properties.info.id === 'msg_hold').length, 0);
+});
+
+test('the held queue is bounded and answers as a capacity refusal', async () => {
+  const { record } = journalRecord(async () => ({ outcome: 'completed', text: 'ok' }));
+  const wireSession = createWireSession({
+    record, bus: { publishSession() {} }, version: '9',
+    info: () => ({ id: 'ses_t', directory: record.directory, tokens: {}, version: '9', time: { created: 1, updated: 2 } }),
+  });
+  for (let index = 0; index < 16; index += 1) {
+    await wireSession.admit([{ type: 'text', text: `briefing-${index}` }], { messageID: `msg_h${index}`, held: true }).response;
+  }
+  // Why 429 and not 400: the caller's text is fine, the session is full of it.
+  // A 400 tells the client to discard a briefing it should retry.
+  assert.throws(() => wireSession.admit([{ type: 'text', text: 'one too many' }], { messageID: 'msg_over', held: true }),
+    { code: 'opencode_prompt_queue_overflow', httpStatus: 429 });
+  // Invariant: a full held queue still admits real prompts, so a stuck briefing
+  // caller cannot starve the conversation.
+  assert.equal(wireSession.pendingCount(), 0);
+  const unblocked = await wireSession.prompt([{ type: 'text', text: 'unblock' }]);
+  assert.equal(unblocked.parts[1].text, 'ok');
+  // The rejected admission left nothing behind to deliver later.
+  const journal = await wireSession.prompt([{ type: 'text', text: 'next' }]);
+  assert.equal(journal.parts[1].text, 'ok');
+  const delivered = record.engine.transcript.map((item) => item.content);
+  assert.equal(delivered.length, 16, 'only the 16 admitted briefings are ever delivered');
+  assert.equal(delivered.includes('one too many'), false);
+});

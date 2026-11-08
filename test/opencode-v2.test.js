@@ -1092,10 +1092,175 @@ test('v2 synthetic admission continues a turn behind the same guards as a prompt
   assert.equal((await request('/api/session/ses_missing/synthetic', 'POST', { text: 'x' })).status, 404);
 });
 
+/** Open the live event stream and collect frames until `stopOn` appears. */
+async function collectEvents(t, runtime, stopOn, admit) {
+  const controller = new AbortController(); t.after(() => controller.abort());
+  const response = await fetch(`${runtime.url}/api/event`, { signal: controller.signal });
+  const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = ''; const events = [];
+  const collected = (async () => {
+    while (!controller.signal.aborted) {
+      const chunk = await reader.read(); if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      let end;
+      while ((end = buffer.indexOf('\n\n')) >= 0) {
+        const block = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+        const data = block.split('\n').find((line) => line.startsWith('data: '));
+        if (data) events.push(JSON.parse(data.slice(6)));
+      }
+      if (events.some((event) => event.type === stopOn)) { await reader.cancel(); break; }
+    }
+  })();
+  await admit();
+  await collected;
+  return events;
+}
+
+test('v2 holds a resume:false synthetic as a durable row that opens no turn', async (t) => {
+  const { json, request, runtime } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  // The goal-mode order the published client sends: prompt first, briefing
+  // after ("the user message above"), and the briefing must not start a turn.
+  (await json(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_task', text: 'the task' })).data;
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  const held = (await json(`/api/session/${session.id}/synthetic`, 'POST', {
+    id: 'msg_brief', text: 'goal briefing', description: 'goal', metadata: { source: 'goal' }, resume: false,
+  })).data;
+  contract('Session.Inbox.Synthetic', held);
+  assert.equal(held.id, 'msg_brief'); assert.equal(held.type, 'synthetic');
+  assert.equal(held.payload.description, 'goal');
+  const state = runtime.workspace.v2.states.get(session.id);
+  // Invariant: holding a briefing schedules nothing — no second run on a
+  // session the wait already settled, and no queued work behind it.
+  assert.equal(state.running, false);
+  assert.equal(state.pending.size, 0);
+  assert.deepEqual([...state.inbox.keys()], [], 'a held briefing never enters the inbox the composer reconciles from');
+  const rows = (await json(`/api/session/${session.id}/message?order=asc`)).data;
+  const synthetics = rows.filter((row) => row.type === 'synthetic');
+  assert.equal(synthetics.length, 1);
+  contract('Session.Message.Synthetic', synthetics[0]);
+  // Compatibility: the client-minted `id` in the request body is not the row
+  // id. The published reducer names the row from the v2 event id
+  // (`evt_` → `msg_`), and the next test pins that binding; a row keyed to the
+  // caller's id would never match what the live stream inserted.
+  assert.match(synthetics[0].id, /^msg_[0-9a-f-]{36}$/u);
+  assert.equal(synthetics[0].text, 'goal briefing');
+  assert.equal(synthetics[0].description, 'goal');
+  assert.equal('metadata' in synthetics[0], false, 'the strict client schema has no metadata field');
+  // And exactly once on a fresh read: the row is stored, not re-derived.
+  const again = (await json(`/api/session/${session.id}/message?order=asc`)).data;
+  assert.equal(again.filter((row) => row.type === 'synthetic').length, 1);
+  assert.equal(again.filter((row) => row.type === 'assistant').length, 1, 'the briefing opened no assistant turn');
+});
+
+test('v2 announces a held synthetic as durable version one on the event stream', async (t) => {
+  const { json, runtime } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  const events = await collectEvents(t, runtime, 'session.synthetic', async () => {
+    (await json(`/api/session/${session.id}/synthetic`, 'POST', { text: 'goal briefing', description: 'goal', metadata: { openchamber: { goal: true } }, resume: false })).data;
+  });
+  const synthetic = events.filter((event) => event.type === 'session.synthetic');
+  assert.equal(synthetic.length, 1);
+  assert.equal(synthetic[0].durable.version, 1, 'the client declares version 1 for this type');
+  assert.equal(typeof synthetic[0].durable.seq, 'number', 'a reconnect replays the row from the durable stream');
+  assert.equal(synthetic[0].data.sessionID, session.id);
+  assert.equal(synthetic[0].data.text, 'goal briefing');
+  assert.equal(synthetic[0].data.description, 'goal');
+  assert.deepEqual(synthetic[0].data.metadata, { openchamber: { goal: true } });
+  // Compatibility: the client's reducer names the row from the v2 event id
+  // (`evt_` → `msg_`), so the stored row must carry that same id or a reload
+  // shows the briefing twice.
+  const row = (await json(`/api/session/${session.id}/message?order=asc`)).data
+    .find((message) => message.type === 'synthetic');
+  assert.equal(row.id, `msg_${String(synthetic[0].id).slice(4)}`);
+});
+
+test('v2 delivers a held briefing to the model as untrusted system context', async (t) => {
+  const seen = [];
+  class RecordingProvider extends Provider {
+    async *stream(request) { seen.push(request.messages.map((message) => ({ role: message.role, content: message.content }))); return super.stream(request); }
+  }
+  const { json, request } = await fixtureServer(t, { providerFactory: () => new RecordingProvider() });
+  const session = (await json('/api/session', 'POST', {})).data;
+  (await json(`/api/session/${session.id}/synthetic`, 'POST', { text: 'BRIEFING TEXT', resume: false })).data;
+  (await json(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_task', text: 'the task' })).data;
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  assert.ok(seen.length >= 1);
+  const final = seen.at(-1);
+  // Security: the briefing reaches the model, and never through the operator
+  // lane — no user-role message may carry it (AGENTS.md: nothing the wire
+  // carries may grant authority).
+  assert.equal(final.some((message) => message.role === 'user' && String(message.content).includes('BRIEFING TEXT')), false);
+  assert.equal(final.some((message) => String(message.content).includes('BRIEFING TEXT')), true, 'the briefing must reach the model at all');
+  assert.ok(final.some((message) => message.role === 'system' && String(message.content).includes('BRIEFING TEXT')));
+  assert.ok(final.some((message) => message.role === 'user' && String(message.content).includes('the task')));
+  // The briefing survives a revert of the turn that consumed it: it is context,
+  // not part of that turn, so history keeps showing it.
+  const rows = (await json(`/api/session/${session.id}/message?order=asc`)).data;
+  assert.equal(rows.filter((row) => row.type === 'synthetic').length, 1);
+});
+
+test('v2 answers a full held queue as a retryable capacity refusal', async (t) => {
+  const { json, request, runtime } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  for (let index = 0; index < 16; index += 1) {
+    const held = await json(`/api/session/${session.id}/synthetic`, 'POST', { text: `briefing-${index}`, resume: false });
+    assert.equal(held.data.type, 'synthetic');
+  }
+  const refused = await request(`/api/session/${session.id}/synthetic`, 'POST', { text: 'one too many', resume: false });
+  // Why 429 and not 400: the caller's text is fine, the session is full of it.
+  // A 400 tells the client to discard a briefing it should retry.
+  assert.equal(refused.status, 429);
+  // The queue recovers once its briefings are delivered by the next real turn.
+  (await json(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_task', text: 'the task' })).data;
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  const later = await request(`/api/session/${session.id}/synthetic`, 'POST', { text: 'after delivery', resume: false });
+  assert.equal(later.status, 200);
+  assert.equal(runtime.workspace.registry.get(session.id).wireSession.pendingCount(), 0);
+});
+
+test('v2 accepts resume on a prompt, refuses defer on one, and refuses a non-boolean resume', async (t) => {
+  const { json, request } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  // The client sends `resume` on prompts too in goal-adjacent paths; accepting
+  // the boolean keeps a strict-forwarding proxy from failing the admission.
+  (await json(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_bool', text: 'a', resume: true })).data;
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  // Why a prompt cannot defer: its text is an operator task, and this surface
+  // has no deferred lane for it. Every real `resume: false` caller in the
+  // client posts to `/synthetic`; silently holding a task would deliver
+  // operator speech later as untrusted briefing context and never run it.
+  const refuseDefer = await request(`/api/session/${session.id}/prompt`, 'POST', { text: 'b', resume: false });
+  assert.equal(refuseDefer.status, 400); assert.equal((await refuseDefer.json())._tag, 'InvalidRequestError');
+  for (const resume of ['false', 0, 1, 'true']) {
+    const denied = await request(`/api/session/${session.id}/prompt`, 'POST', { text: 'b', resume });
+    assert.equal(denied.status, 400); assert.equal((await denied.json())._tag, 'InvalidRequestError');
+    const synth = await request(`/api/session/${session.id}/synthetic`, 'POST', { text: 'b', resume });
+    assert.equal(synth.status, 400);
+  }
+});
+
+test('v2 interrupt leaves held briefings for the next turn', async (t) => {
+  const { json, request, runtime } = await fixtureServer(t);
+  const session = (await json('/api/session', 'POST', {})).data;
+  (await json(`/api/session/${session.id}/synthetic`, 'POST', { text: 'undelivered briefing', resume: false })).data;
+  const queued = request(`/api/session/${session.id}/prompt`, 'POST', { id: 'msg_q', text: 'queued prompt' });
+  await new Promise((resolve) => setImmediate(resolve));
+  // The first prompt runs; the second waits behind it, so stopping drains the
+  // queue. The briefing belongs to no drained turn.
+  const interrupt = (await json(`/api/session/${session.id}/interrupt`, 'POST'));
+  contract('SessionInterruptResponse', interrupt);
+  await queued.catch(() => {});
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  const state = runtime.workspace.v2.states.get(session.id);
+  assert.deepEqual([...state.inbox.keys()], [], 'interrupt clears only the inbox lane');
+  const rows = (await json(`/api/session/${session.id}/message?order=asc`)).data;
+  assert.equal(rows.filter((row) => row.type === 'synthetic').length, 1, 'the briefing is not cancelled with the queue');
+});
+
 test('v2 rejects malformed and unsupported requests before engine submission', async (t) => {
   const { json, request, runtime } = await fixtureServer(t);
   const session = (await json('/api/session', 'POST', {})).data;
-  for (const input of [null, [], { text: 'x', files: [{}] }, { text: 'x', permissions: [] }, { text: 'x', resume: false }, { text: 'x', model: { id: 'other' } }]) {
+  for (const input of [null, [], { text: 'x', files: [{}] }, { text: 'x', permissions: [] }, { text: 'x', resume: 'false' }, { text: 'x', resume: 0 }, { text: 'x', model: { id: 'other' } }]) {
     const denied = await request(`/api/session/${session.id}/prompt`, 'POST', input);
     assert.equal(denied.status, 400); assert.equal((await denied.json())._tag, 'InvalidRequestError');
   }

@@ -143,7 +143,20 @@ function admitPrompt(state, body, operations, options) {
   for (const field of ['files', 'agents', 'skills']) {
     if (body[field] !== undefined && (!Array.isArray(body[field]) || body[field].length)) throw invalid(`${field} are not supported by this surface`);
   }
-  if (body.resume != null && body.resume !== true) throw invalid('Deferred execution is not supported by this surface');
+  // Compatibility: `resume: false` is how the client admits text that must not
+  // open a turn — the goal briefing says so in as many words ("the model would
+  // start on the briefing alone, before the task arrived"). Gold OC holds such
+  // an admission and delivers it with the next scheduled turn, so NNA holds it
+  // too: the text is journaled into the next turn as untrusted context, never
+  // as an operator utterance, and never starts a turn of its own.
+  if (body.resume != null && typeof body.resume !== 'boolean') throw invalid('resume must be a boolean');
+  // Why the prompt route refuses it: prompt text is an operator task, and a
+  // surface that cannot defer must say so rather than hold a task silently.
+  // Holding it would deliver operator speech later as untrusted briefing
+  // context, downgrading authority it earned and never running it. Every real
+  // `resume: false` caller in the client posts to `/synthetic`.
+  if (body.resume === false && !synthetic) throw invalid('Deferred execution is not supported by this surface');
+  const held = synthetic && body.resume === false;
   if (body.delivery != null && !['queue', 'steer'].includes(body.delivery)) throw invalid('Invalid delivery mode');
   if (body.delivery === 'steer' && (state.running || state.pending.size)) throw apiError(409, 'ConflictError', 'Use queue delivery while NNA is running');
   validateMetadata(body.metadata);
@@ -151,8 +164,22 @@ function admitPrompt(state, body, operations, options) {
   if (state.inputs.has(id) || state.messages.has(id)) throw apiError(409, 'ConflictError', 'Message already exists');
   state.inputs.set(id, body);
   try {
-    const admitted = operations.admit(state.info.id, [{ type: 'text', text: body.text }], { messageID: id, synthetic });
-    const receipt = state.inbox.get(id);
+    const admitted = operations.admit(state.info.id, [{ type: 'text', text: body.text }],
+      { messageID: id, synthetic, held, ...(typeof body.description === 'string' ? { description: body.description } : {}),
+        ...(body.metadata ? { metadata: body.metadata } : {}) });
+    const receipt = admitted.held
+      // Why built here instead of read back from the inbox projection: a held
+      // admission is deliberately absent from `state.inbox`. The client
+      // reconciles its composer queue from `session.inbox.list`, and an item
+      // that is never steered and never cancelled would sit in the composer
+      // forever. The receipt keeps the shape an admitted item has;
+      // `description` rides only the synthetic payload, which is the one the
+      // client declares it — a user payload is strict without it.
+      ? { id, sessionID: state.info.id, time: { created: Date.now() }, type: synthetic ? 'synthetic' : 'user',
+        payload: { text: body.text,
+          ...(synthetic && typeof body.description === 'string' ? { description: body.description } : {}),
+          ...(body.metadata ? { metadata: body.metadata } : {}) }, delivery: body.delivery ?? 'queue' }
+      : state.inbox.get(id);
     const settled = admitted.response.catch((error) => {
       options.logger?.record({ type: 'opencode_prompt_failed', code: error?.code ?? 'internal_failure', sessionID: state.info.id });
     }).finally(() => state.pending.delete(settled));
