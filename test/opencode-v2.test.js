@@ -859,6 +859,35 @@ test('a tool part updates in place rather than appending a row per record', () =
   void emitted;
 });
 
+test('the tool lifecycle reaches the v2 stream verbatim, the way a live client reads it', () => {
+  // Why: the wire session publishes session.tool.* on the engine bus, and the v2
+  // projection is the only path from that bus to /api/event. It dispatches no
+  // case for these types, so without forwarding a tool-using turn shows no tool
+  // row while it runs — the client renders live tools only from this vocabulary.
+  const emitted = [];
+  const state = { info: { id: 'ses_a' } };
+  const events = { emit: (_s, type, data, durable = true, version = 1) => emitted.push({ type, data, durable, version }) };
+  const base = { sessionID: 'ses_a', assistantMessageID: 'msg_a', id: 'prt_t' };
+  observeV1Event(state, { type: 'session.tool.input.started', properties: { ...base, name: 'fs_read' } }, events);
+  observeV1Event(state, { type: 'session.tool.called', properties: { ...base, input: {}, executed: true } }, events);
+  observeV1Event(state, { type: 'session.tool.success', properties: {
+    ...base, content: [{ type: 'text', text: '' }], executed: true } }, events);
+  observeV1Event(state, { type: 'session.tool.failed', properties: {
+    ...base, error: { type: 'nna_tool_failed', message: 'x' }, executed: true } }, events);
+  assert.deepEqual(emitted.map((event) => event.type), [
+    'session.tool.input.started', 'session.tool.called', 'session.tool.success', 'session.tool.failed',
+  ]);
+  // Invariant: forwarded unchanged — the id that joins the row and the cell that
+  // closes it survive the trip to the stream.
+  assert.equal(emitted[0].data.name, 'fs_read');
+  assert.equal(emitted[1].data.executed, true);
+  assert.deepEqual(emitted[2].data.content, [{ type: 'text', text: '' }]);
+  for (const event of emitted) assert.equal(event.durable, true);
+  // Compatibility: the client declares the terminal pair at durable version 2 and
+  // the opening pair at the shared 1; a mismatch fails a strict envelope decode.
+  assert.deepEqual(emitted.map((event) => event.version), [1, 1, 2, 2]);
+});
+
 test('a timeline mutation the session cannot accept is a conflict, not a failure', { timeout: 30_000 }, async (t) => {
   // Why: the engine's timeline guards raise plain contract codes with no HTTP
   // status, so a busy session reached the client as an opaque 500 "NNA could not

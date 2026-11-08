@@ -3,8 +3,22 @@ import { newId } from '../ids.js';
 import { tokenUsage } from './v2-contract.js';
 import { observeForm } from './v2-forms.js';
 
+// The durable schema version the published client declares for each tool event.
+// The terminal pair was raised to 2; the opening pair rides the shared 1. The
+// stream must stamp what the client expects or a strict envelope decode rejects
+// the event, so this mirrors the client's own declarations rather than guessing.
+const TOOL_EVENT_VERSION = {
+  'session.tool.success': 2,
+  'session.tool.failed': 2,
+};
+
 export function observeV1Event(state, event, events) {
   const { type, properties: value } = event;
+  // Compatibility: the tool lifecycle is published verbatim by the wire session.
+  // It is the only vocabulary in which the OpenChamber client renders a live
+  // tool row — it declares `message.part.updated` and dispatches no case for it,
+  // so without this forwarding a tool-using turn shows no tool until a reload.
+  if (type.startsWith('session.tool.')) { events.emit(state, type, { ...value }, true, TOOL_EVENT_VERSION[type] ?? 1); return; }
   if (type === 'nna.context.compaction') {
     // Compatibility: preserve the native v2 event envelope while keeping this
     // NNA extension outside OpenCode's standard message-part contract.

@@ -203,8 +203,23 @@ type string rather than assuming the switch is the contract.
 **Transcripts are rebuilt from step events, not message frames.** The GUI renders
 an assistant turn from `session.step.started` / `session.step.ended` plus
 `session.text.delta`. The `message.updated` / `message.part.updated` frames this
-surface also emits are informational; dropping them would not stop the GUI
-rendering a turn.
+surface also emits are informational *for text*: dropping them would not stop the
+GUI rendering a turn. They are not informational for tools — see below.
+
+**A live tool row comes only from `session.tool.*`.** The client declares
+`message.part.updated` in its schema but dispatches no reducer case for it, so a
+tool published as a part appears after a reload and never while the turn runs.
+The reducer renders tools solely from `session.tool.input.started`,
+`session.tool.called`, `session.tool.progress`, `session.tool.success` and
+`session.tool.failed`, each joined to its row by `id` plus `assistantMessageID`.
+Two reducer rules decide what a server must send: `success` is dropped unless the
+row is already `running`, and `failed` is dropped unless it is `streaming` or
+`running`. A tool reported only by its terminal status therefore needs the
+opening pair first, or it never appears. NNA publishes `input.started`, `called`
+and the closing event from each `tool_status` record, carrying a fixed empty input
+and an empty success cell: arguments and results stay in the engine, where the
+reviewer governs them. The terminal pair is stamped durable `version: 2`, matching
+the client's declaration for those two types; everything else rides `version: 1`.
 
 **A settled turn needs an `idle` record in history.** `turn-start.js` walks
 `GET /api/session/:id/message` newest-first and stops at an `idle` record to find

@@ -48,9 +48,12 @@ export function createV2Events() {
       res.on('close', () => subscribers.delete(res));
       return true;
     },
-    emit(state, type, data, durable = true) {
+    emit(state, type, data, durable = true, version = 1) {
       const event = { id: newId('evt'), created: Date.now(), type, location: state.info.location, data };
-      if (durable) event.durable = { aggregateID: state.info.id, seq: ++state.sequence, version: 1 };
+      // Compatibility: the durable envelope carries the schema version the client
+      // declares per type. Two tool events were raised to version 2; the rest of
+      // the vocabulary is version 1, which is what a plain `durable` publishes.
+      if (durable) event.durable = { aggregateID: state.info.id, seq: ++state.sequence, version };
       for (const res of subscribers) write(res, event);
       return event;
     },

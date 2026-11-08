@@ -107,6 +107,48 @@ test('v2 SSE disconnects a subscriber whose event write reports backpressure', (
   events.close();
 });
 
+test('v2 durable frames carry the version the client declares for the event type', () => {
+  // Why: the client's own `durable()` helper pins each event's envelope version to
+  // a literal, and its terminal tool events sit at 2 while everything else sits at
+  // 1. A frame stamped with the wrong version is rejected by a strict envelope
+  // decode before the reducer ever sees it, so the number is wire contract, not
+  // decoration. This asserts the serialized bytes, which is what crosses the socket.
+  const events = createV2Events();
+  const written = [];
+  const res = { writableEnded: false, destroyed: false,
+    writeHead() {}, flushHeaders() {}, on() {}, end() {},
+    write(chunk) { written.push(chunk); return true; }, destroy() { this.destroyed = true; } };
+  events.subscribe(res);
+  const state = { info: { id: 'ses_1', location: {} }, sequence: 0 };
+  events.emit(state, 'session.tool.input.started', { id: 'prt_1' }, true, 1);
+  events.emit(state, 'session.tool.success', { id: 'prt_1' }, true, 2);
+  events.emit(state, 'session.tool.failed', { id: 'prt_1' }, true, 2);
+  const envelopes = written.slice(1).map((chunk) => JSON.parse(/data: (.*)\n\n/u.exec(chunk)[1]).durable);
+  assert.deepEqual(envelopes.map((frame) => frame.version), [1, 2, 2]);
+  for (const frame of envelopes) {
+    assert.equal(frame.aggregateID, 'ses_1');
+    assert.equal(typeof frame.seq, 'number');
+  }
+  assert.deepEqual(envelopes.map((frame) => frame.seq), [1, 2, 3], 'seq stays monotonic across versions');
+  events.close();
+});
+
+test('a default emit still stamps the shared version 1', () => {
+  const events = createV2Events();
+  const written = [];
+  const res = { writableEnded: false, destroyed: false,
+    writeHead() {}, flushHeaders() {}, on() {}, end() {},
+    write(chunk) { written.push(chunk); return true; }, destroy() { this.destroyed = true; } };
+  events.subscribe(res);
+  const state = { info: { id: 'ses_1', location: {} }, sequence: 0 };
+  const emitted = events.emit(state, 'session.patched', { sessionID: 'ses_1' });
+  assert.equal(emitted.durable.version, 1);
+  assert.equal(emitted.durable.aggregateID, 'ses_1');
+  const nonDurable = events.emit(state, 'session.usage.updated', { sessionID: 'ses_1' }, false);
+  assert.equal(nonDurable.durable, undefined, 'a non-durable frame carries no envelope at all');
+  events.close();
+});
+
 test('bus mirrors durable session events with the same id, .1 suffix, and monotonic seq', () => {
   const bus = createWireEventBus();
   const written = [];

@@ -109,6 +109,12 @@ function observeEngineRecord(state, record) {
 // engine already reports each tool's name and lifecycle, so the wire projects
 // that into the tool state a client renders.
 //
+// Compatibility: the part is what a client rebuilds history from, but the live
+// transcript of the OpenChamber client is driven by the `session.tool.*`
+// lifecycle — it declares `message.part.updated` and dispatches no case for it.
+// Without the lifecycle events a tool-using turn runs with no tool row until it
+// is reloaded. See publishToolLifecycle for the order the client requires.
+//
 // Security: tool rows carry the tool name and its state only. Arguments and raw
 // results stay with the engine; a tool's input can contain a secret and its
 // output can contain retrieved content that must not gain authority.
@@ -128,23 +134,54 @@ function observeToolStatus(state, record) {
       type: 'tool', name: record.tool, time: { created: nowMs }, state: null };
     state.active.toolParts.set(key, part);
   }
+  const previous = part.state;
   const status = record.status;
-  part.state = RUNNING_TOOL_STATES.has(status)
-    ? { status: 'running', input: {}, metadata: {} }
-    : status === 'succeeded'
-      ? { status: 'completed', input: {}, content: [{ type: 'text', text: '' }] }
-      : { status: 'error', input: {}, error: { type: 'nna_tool_failed',
-        message: 'The tool did not complete. NNA records the reason in its own journal.' } };
+  const terminal = status === 'succeeded' ? 'completed'
+    : RUNNING_TOOL_STATES.has(status) ? null : 'error';
+  part.state = terminal === 'completed'
+    ? { status: 'completed', input: {}, content: [{ type: 'text', text: '' }] }
+    : terminal === 'error'
+      ? { status: 'error', input: {}, error: { type: 'nna_tool_failed',
+        message: 'The tool did not complete. NNA records the reason in its own journal.' } }
+      : { status: 'running', input: {}, metadata: {} };
   if (part.state.status === 'running') part.time.ran = nowMs; else part.time.completed = nowMs;
+  // Why publish the part: a surface that projects the transcript from events
+  // learns about a tool call only from a part update. Returning the part in the
+  // final response is not enough — the v2 workspace listens to the bus.
+  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part, time: nowMs });
+  publishToolLifecycle(state, part, previous, terminal);
   // Compatibility: the part is projected on the assistant message so a client
   // that rebuilds the transcript from parts renders the call in place.
   const assistant = state.active.assistantParts ?? [];
   const existing = assistant.findIndex((item) => item.id === part.id);
   if (existing >= 0) assistant[existing] = part; else assistant.push(part);
-  // Why publish the part: a surface that projects the transcript from events
-  // learns about a tool call only from a part update. Returning the part in the
-  // final response is not enough — the v2 workspace listens to the bus.
-  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part, time: nowMs });
+}
+
+/** Announce one tool transition in the vocabulary the live transcript reads.
+ *
+ *  Why the prelude: the client opens a tool row only on `input.started`, moves it
+ *  out of `streaming` only on `called`, and drops `success` unless the row is
+ *  already `running` and `failed` unless it is `streaming` or `running`. The
+ *  engine's own lifecycle can be a single terminal record, so a terminal event
+ *  for a row the client never saw opened is preceded by the events that open it.
+ *
+ *  Why empty input: a tool's arguments can carry a secret, and the client's row
+ *  renders them. `executed` is what NNA actually observed — a tool that reached
+ *  running ran, and one stopped by review before it never did. */
+function publishToolLifecycle(state, part, previous, terminal) {
+  const base = { sessionID: state.sessionID, assistantMessageID: state.active.assistantId, id: part.id };
+  if (!previous) publishDurable(state, 'session.tool.input.started', { ...base, name: part.name });
+  if (previous?.status !== 'running') {
+    publishDurable(state, 'session.tool.called', {
+      ...base, input: {}, executed: Boolean(part.time.ran) || terminal === 'completed',
+    });
+  }
+  if (terminal === 'completed') {
+    publishDurable(state, 'session.tool.success', { ...base, content: [{ type: 'text', text: '' }], executed: true });
+  }
+  if (terminal === 'error') {
+    publishDurable(state, 'session.tool.failed', { ...base, error: part.state.error, executed: Boolean(part.time.ran) });
+  }
 }
 
 function admit(state, parts, input = {}) {

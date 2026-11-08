@@ -213,6 +213,125 @@ test('a protocol tool never appears as a tool part', async () => {
   assert.deepEqual(response.parts.map((part) => part.type), ['step-start', 'text', 'step-finish']);
 });
 
+test('a tool lifecycle is announced in the vocabulary the live transcript reads', async () => {
+  // Why: the OpenChamber client renders a live tool row only from the
+  // session.tool.* lifecycle — it has no reducer case for message.part.updated.
+  // A running tool, then its success, must move the row streaming → running →
+  // completed in the order the client's reducer requires.
+  const bus = recordingBus();
+  let release;
+  const record = makeRecord(() => new Promise((resolve) => { release = resolve; }));
+  const wireSession = freshWireSession(record, bus);
+  const pending = wireSession.prompt([{ type: 'text', text: 'use a tool' }]);
+  await new Promise((resolve) => setImmediate(resolve));
+  wireSession.observe({ type: 'tool_status', tool: 'file_read', tool_request_id: 'req_l', status: 'running' });
+  wireSession.observe({ type: 'tool_status', tool: 'file_read', tool_request_id: 'req_l', status: 'succeeded' });
+  release({ outcome: 'completed', text: 'done' });
+  await pending;
+  const lifecycle = bus.frames.filter((frame) => frame.type.startsWith('session.tool.'));
+  const response = wireSession.messages().find((item) => item.info.role === 'assistant');
+  const toolId = response.parts.find((part) => part.type === 'tool').id;
+  // The two records collapse to one row: open once, move to running once, close once.
+  assert.deepEqual(lifecycle.map((frame) => frame.type), [
+    'session.tool.input.started', 'session.tool.called', 'session.tool.success',
+  ]);
+  // Invariant: every event joins to the same row by the part's own id and its
+  // assistant message, which is how the client finds the tool to edit.
+  for (const frame of lifecycle) {
+    assert.equal(frame.properties.id, toolId);
+    assert.equal(frame.properties.assistantMessageID, response.info.id);
+    assert.equal(frame.properties.sessionID, 'ses_t');
+  }
+  assert.equal(lifecycle[0].properties.name, 'file_read');
+  assert.equal(lifecycle[1].properties.executed, true);
+  // Security: `called` opens the row with an empty input, never the arguments.
+  assert.deepEqual(lifecycle[1].properties.input, {});
+  assert.equal(lifecycle[2].properties.executed, true);
+  // Security: the success content is a fixed empty text cell, not the tool result.
+  assert.deepEqual(lifecycle[2].properties.content, [{ type: 'text', text: '' }]);
+});
+
+test('a single terminal tool record still opens its row before closing it', async () => {
+  // Why: the engine can report only a tool's final status. The client drops a
+  // success unless the row is already running and a failure unless it is
+  // streaming or running, so a lone terminal record must be preceded by the
+  // events that open the row, or the tool never appears.
+  for (const [status, close] of [['succeeded', 'session.tool.success'], ['failed', 'session.tool.failed']]) {
+    const bus = recordingBus();
+    let release;
+    const record = makeRecord(() => new Promise((resolve) => { release = resolve; }));
+    const wireSession = freshWireSession(record, bus);
+    const pending = wireSession.prompt([{ type: 'text', text: 'one record' }]);
+    await new Promise((resolve) => setImmediate(resolve));
+    wireSession.observe({ type: 'tool_status', tool: 'shell_run', tool_request_id: `req_${status}`, status });
+    release({ outcome: 'completed', text: 'done' });
+    await pending;
+    const lifecycle = bus.frames.filter((frame) => frame.type.startsWith('session.tool.'));
+    assert.deepEqual(lifecycle.map((frame) => frame.type), [
+      'session.tool.input.started', 'session.tool.called', close,
+    ], status);
+  }
+});
+
+test('a tool stopped before it ran is reported as not executed', async () => {
+  // Why: a review denial ends a tool that never reached running. `executed` is
+  // what NNA observed — claiming a denied tool ran would misreport the turn.
+  const bus = recordingBus();
+  let release;
+  const record = makeRecord(() => new Promise((resolve) => { release = resolve; }));
+  const wireSession = freshWireSession(record, bus);
+  const pending = wireSession.prompt([{ type: 'text', text: 'deny a tool' }]);
+  await new Promise((resolve) => setImmediate(resolve));
+  // A review-pending record that then goes to a terminal denial without running.
+  wireSession.observe({ type: 'tool_status', tool: 'shell_run', tool_request_id: 'req_d', status: 'review_pending' });
+  wireSession.observe({ type: 'tool_status', tool: 'shell_run', tool_request_id: 'req_d', status: 'denied' });
+  release({ outcome: 'completed', text: 'done' });
+  await pending;
+  const lifecycle = bus.frames.filter((frame) => frame.type.startsWith('session.tool.'));
+  // review_pending opened and ran the row; only the failure closes it.
+  assert.deepEqual(lifecycle.map((frame) => frame.type), [
+    'session.tool.input.started', 'session.tool.called', 'session.tool.failed',
+  ]);
+  // The tool reached running, so it did execute even though it was then denied.
+  assert.equal(lifecycle[1].properties.executed, true);
+  assert.equal(lifecycle[2].properties.executed, true);
+  assert.equal(lifecycle[2].properties.error.type, 'nna_tool_failed');
+});
+
+test('a pure terminal failure on an unseen tool reports not executed', async () => {
+  // Why: a tool denied before it ever reached running must not claim it ran.
+  const bus = recordingBus();
+  let release;
+  const record = makeRecord(() => new Promise((resolve) => { release = resolve; }));
+  const wireSession = freshWireSession(record, bus);
+  const pending = wireSession.prompt([{ type: 'text', text: 'fail cold' }]);
+  await new Promise((resolve) => setImmediate(resolve));
+  wireSession.observe({ type: 'tool_status', tool: 'shell_run', tool_request_id: 'req_cold', status: 'denied' });
+  release({ outcome: 'completed', text: 'done' });
+  await pending;
+  const lifecycle = bus.frames.filter((frame) => frame.type.startsWith('session.tool.'));
+  assert.deepEqual(lifecycle.map((frame) => frame.type), [
+    'session.tool.input.started', 'session.tool.called', 'session.tool.failed',
+  ]);
+  assert.equal(lifecycle[1].properties.executed, false);
+  assert.equal(lifecycle[2].properties.executed, false);
+});
+
+test('a protocol tool is announced in neither the part stream nor the lifecycle', async () => {
+  // Why: turn_finish declares the outcome; publishing it as a tool, in either
+  // vocabulary, would invent a step the model never performed.
+  const bus = recordingBus();
+  let release;
+  const record = makeRecord(() => new Promise((resolve) => { release = resolve; }));
+  const wireSession = freshWireSession(record, bus);
+  const pending = wireSession.prompt([{ type: 'text', text: 'declare' }]);
+  await new Promise((resolve) => setImmediate(resolve));
+  wireSession.observe({ type: 'tool_status', tool: 'turn_finish', tool_request_id: 'req_f', status: 'succeeded' });
+  release({ outcome: 'completed', text: 'done' });
+  await pending;
+  assert.deepEqual(bus.frames.filter((frame) => frame.type.startsWith('session.tool.')), []);
+});
+
 test('a provider recovery is announced once as a scheduled retry', async () => {
   const bus = recordingBus();
   let release;
