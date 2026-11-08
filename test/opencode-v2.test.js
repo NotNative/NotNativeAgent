@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -1331,6 +1331,15 @@ class QuestionProvider extends Provider {
   }
 }
 
+class RecordingQuestionProvider extends QuestionProvider {
+  turns = [];
+  async *stream(request) {
+    this.turns.push(request.messages.map((message) => ({ role: message.role, content: String(message.content) })));
+    yield* super.stream(request);
+  }
+  sawSkill() { return this.turns.at(-1).some((message) => message.role === 'system' && message.content.includes('SECRET BODY OF audit')); }
+}
+
 async function waitForEvent(events, type) {
   for (let index = 0; index < 200; index += 1) {
     if (events.some((event) => event.type === type)) return events.find((event) => event.type === type);
@@ -1501,6 +1510,204 @@ test('the published client reads and writes every record this surface exposes', 
   await client.session.view({ sessionID: session.id, idle: 0 });
   assert.deepEqual(Object.keys(await client.session.active()), []);
   await client.session.remove({ sessionID: session.id });
+});
+
+class PromptRecordingProvider extends Provider {
+  turns = [];
+  async *stream(request) {
+    this.turns.push(request.messages.map((message) => ({ role: message.role, content: String(message.content) })));
+    yield* super.stream(request);
+  }
+  // The active-skill message is the only place a discovered body may appear, so
+  // it is the marker for whether a turn ran a workflow at all.
+  sawSkill(turn) { return this.turns.at(turn ?? -1).some((message) => message.role === 'system' && message.content.includes('SECRET BODY OF ')); }
+  operatorTexts(turn) { return this.turns.at(turn ?? -1).filter((message) => message.role === 'user').map((message) => message.content); }
+}
+
+const COMMAND_INFO_SCHEMA = {
+  type: 'object', additionalProperties: false, required: ['name'],
+  properties: { name: { type: 'string' }, description: { type: 'string' } },
+};
+// Why registered alongside the sampled gold schemas rather than added to the
+// fixture: the fixture is a released, hashed artifact of selected public
+// opencode schemas, and this one is asserted from the asar byte trace of
+// `Command.Info`, so it belongs with the test that pins it.
+fixture.components.schemas['Command.Info.inline'] = COMMAND_INFO_SCHEMA;
+
+async function skillRoot(t, files) {
+  const root = await mkdtemp(join(tmpdir(), 'nna-cmd-skills-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  for (const [name, text] of Object.entries(files)) await writeFile(join(root, name), text, 'utf8');
+  return [{ scope: 'user', path: root }];
+}
+
+const SKILL_FRONTMATTER = (id, invocation) => `---\nid: ${id}\nversion: 1\ndescription: ${id} description for the palette\ninvocation: ${invocation}\n---\nSECRET BODY OF ${id}\n`;
+
+test('the command palette is the user-invocable skill catalog and never a skill body', async (t) => {
+  const roots = await skillRoot(t, {
+    'audit.skill.md': SKILL_FRONTMATTER('audit', 'user'),
+    'brief.skill.md': SKILL_FRONTMATTER('brief', 'both'),
+    'internal.skill.md': SKILL_FRONTMATTER('internal', 'agent'),
+  });
+  const { json, request, runtime } = await fixtureServer(t, { skillRoots: roots });
+
+  // Compatibility: the client renders this list as its slash-command palette and
+  // reads only `name` and an optional `description`; `Command.Info` has no other
+  // field, so anything else — a hint, a template, a source path — is a shape the
+  // strict client schema rejects or a disclosure it never asked for.
+  const listed = (await json('/api/command')).data;
+  assert.deepEqual(listed, [
+    { name: 'audit', description: 'audit description for the palette' },
+    { name: 'brief', description: 'brief description for the palette' },
+  ]);
+  for (const entry of listed) contract('Command.Info.inline', entry);
+  const palette = await json('/api/command');
+  // Security: a body is operator-authored workflow text. It reaches a model only
+  // through the engine's `configured_skill` journaling, never through a listing.
+  assert.equal(JSON.stringify(palette).includes('SECRET BODY'), false);
+
+  // The palette answers before any session exists, which is exactly when the
+  // client's scheduled-command resolver calls `command.list`. Its answer is the
+  // surface's own registered commands — the same roots every engine reads — so a
+  // listing is never a guess taken from whichever session happens to be alive.
+  const bareRoot = await mkdtemp(join(tmpdir(), 'nna-cmd-bare-'));
+  const bare = await startOpencodeServe({
+    config: resolveManifest({ persistence: 'ephemeral', provider: {
+      id: 'test', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback' } }),
+    directory: bareRoot, storeRoot: join(bareRoot, 's'), reviewerRoot: join(bareRoot, 'r'),
+    providerFactory: () => new Provider(), stdout: { write() {} }, skillRoots: roots,
+  });
+  t.after(async () => { await bare.stop(); await rm(bareRoot, { recursive: true, force: true }); });
+  const bareList = await (await fetch(`${bare.url}/api/command`, { headers: { connection: 'close' } })).json();
+  assert.deepEqual(bareList.data, listed, 'a palette needs no live session to be the palette');
+
+  // Compatibility: the SDK declares this experimental route and no GUI calls it.
+  // It stages the skill for the next turn the session runs and starts none.
+  const session = (await json('/api/session', 'POST', {})).data;
+  assert.equal((await request(`/api/experimental/session/${session.id}/skill`, 'POST', { id: 'audit' })).status, 204);
+  const state = runtime.workspace.v2.states.get(session.id);
+  assert.equal(state.running, false, 'staging a skill opens no turn');
+  assert.equal(state.pending.size, 0, 'staging schedules nothing to run');
+  const rows = (await json(`/api/session/${session.id}/message?order=asc`)).data;
+  assert.deepEqual(rows, [], 'staging writes no transcript row');
+
+  // An agent-only skill exists and is not a command; both codes answer the same
+  // 404 so a caller cannot tell a private skill from an absent one.
+  const missing = await request(`/api/experimental/session/${session.id}/skill`, 'POST', { id: 'internal' });
+  assert.equal(missing.status, 404);
+  assert.equal((await missing.json())._tag, 'SkillNotFoundError');
+  assert.equal((await request(`/api/experimental/session/${session.id}/skill`, 'POST', { id: 'nope' })).status, 404);
+  assert.equal((await request(`/api/experimental/session/${session.id}/skill`, 'POST', { id: '' })).status, 400);
+  assert.equal((await request(`/api/experimental/session/${session.id}/skill`, 'POST', { id: 'audit', extra: 1 })).status, 400);
+  // Why 400 and not a silent ignore: `resume` on this route means "run it now",
+  // which is the command route's job; honouring it would start a turn from a
+  // route whose contract says it stages.
+  assert.equal((await request(`/api/experimental/session/${session.id}/skill`, 'POST', { id: 'audit', resume: true })).status, 400);
+  assert.equal((await request('/api/experimental/session/ses_missing/skill', 'POST', { id: 'audit' })).status, 404);
+});
+
+test('running a command queues its skill, opens a turn with the command text, and refuses bad requests', { timeout: 30_000 }, async (t) => {
+  const roots = await skillRoot(t, {
+    'audit.skill.md': SKILL_FRONTMATTER('audit', 'user'),
+    'internal.skill.md': SKILL_FRONTMATTER('internal', 'agent'),
+  });
+  const provider = new PromptRecordingProvider();
+  const { json, request, runtime } = await fixtureServer(t, { skillRoots: roots, providerFactory: () => provider });
+  const session = (await json('/api/session', 'POST', {})).data;
+
+  // Failure paths first, while the session is idle and nothing has run.
+  assert.equal((await request(`/api/session/${session.id}/command`, 'POST', { name: 'nope' })).status, 404);
+  const forbidden = await request(`/api/session/${session.id}/command`, 'POST', { name: 'internal' });
+  assert.equal(forbidden.status, 404);
+  assert.equal((await forbidden.json())._tag, 'CommandNotFoundError');
+  assert.equal((await request('/api/session/ses_missing/command', 'POST', { name: 'audit' })).status, 404);
+  assert.equal((await request(`/api/session/${session.id}/command`, 'POST', {})).status, 400);
+  assert.equal((await request(`/api/session/${session.id}/command`, 'POST', { name: '  ' })).status, 400);
+  assert.equal((await request(`/api/session/${session.id}/command`, 'POST', { name: 'audit', text: 7 })).status, 400);
+  assert.equal((await request(`/api/session/${session.id}/command`, 'POST', { name: 'audit', template: 'x' })).status, 400);
+  // Security: an attachment would vanish from the admitted prompt, so the surface
+  // refuses rather than run a command on less than the caller asked for.
+  assert.equal((await request(`/api/session/${session.id}/command`, 'POST', { name: 'audit', text: 'a', files: [{ filename: 'a.txt' }] })).status, 400);
+  assert.equal((await request(`/api/session/${session.id}/command`, 'POST', { name: 'audit', text: 'a', skills: ['x'] })).status, 400);
+  assert.equal(provider.turns.length, 0, 'a refused command admits no prompt at all');
+
+  // Compatibility: gold declares this route's success as NoContent, so the SDK's
+  // 204/empty contract is what the caller parses.
+  const ran = await request(`/api/session/${session.id}/command`, 'POST', { name: 'audit', text: 'check the ledger' });
+  assert.equal(ran.status, 204);
+  assert.equal(await ran.text(), '');
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  assert.equal((await json(`/api/session/${session.id}`)).data.outcome, 'succeeded');
+  // One command is one admitted turn, not a briefing plus a turn.
+  assert.equal((await json(`/api/session/${session.id}/message?order=asc`)).data
+    .filter((message) => message.type === 'user').length, 1);
+  // The command's text is the turn's operator prompt, verbatim, and the only one.
+  assert.deepEqual(provider.operatorTexts(0), ['check the ledger']);
+  assert.equal(provider.turns[0].filter((message) => message.role === 'user').length, 1);
+  // Invariant: the skill body reaches the model as the engine's own journaling —
+  // a system message stating it grants nothing (AGENTS.md) — and not as operator
+  // speech, so workflow text can never read as an authorized instruction.
+  const skillMessage = provider.turns[0].find((message) => message.content.includes('SECRET BODY OF audit'));
+  assert.ok(skillMessage, 'the commanded workflow reached the model');
+  assert.equal(skillMessage.role, 'system');
+  assert.match(skillMessage.content, /cannot grant tools, secrets, permissions, or broader scope/u);
+
+  // A command with no argument text still runs the workflow, which is what the
+  // TUI does when `/skill` gets no words after it.
+  const bare = await request(`/api/session/${session.id}/command`, 'POST', { name: 'audit' });
+  assert.equal(bare.status, 204, await bare.text());
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  // `at(-1)`, not `[0]`: the provider sees the whole conversation, so the newest
+  // user message is the one this command admitted.
+  assert.match(provider.operatorTexts().at(-1), /^Run the audit workflow using the current conversation/u);
+  assert.ok(provider.sawSkill(), 'the second command ran its workflow too');
+});
+
+test('a command refuses a busy session, and an admission refusal retracts its queued skill', { timeout: 30_000 }, async (t) => {
+  const roots = await skillRoot(t, { 'audit.skill.md': SKILL_FRONTMATTER('audit', 'user') });
+  const provider = new RecordingQuestionProvider();
+  const { json, request, runtime } = await fixtureServer(t, { skillRoots: roots, providerFactory: () => provider });
+  const session = (await json('/api/session', 'POST', {})).data;
+  const state = runtime.workspace.v2.states.get(session.id);
+
+  await json(`/api/session/${session.id}/prompt`, 'POST', { text: 'ask me' });
+  await waitForForm(json, session.id);
+  // Why 409: skills promote only at turn start, so a skill queued now would bind
+  // its workflow to the turn after the one in flight — work the caller never
+  // opened — and a `steer` delivery would split its text from its workflow.
+  const busy = await request(`/api/session/${session.id}/command`, 'POST', { name: 'audit', text: 'now' });
+  assert.equal(busy.status, 409);
+  assert.equal((await busy.json())._tag, 'ConflictError');
+  const staged = await request(`/api/experimental/session/${session.id}/skill`, 'POST', { id: 'audit' });
+  assert.equal(staged.status, 409, 'staging is bound to the same turn-start rule as running');
+
+  const forms = (await json(`/api/session/${session.id}/form`)).data;
+  await request(`/api/session/${session.id}/form/${forms[0].id}/reply`, 'POST', { answer: { question_0: 'stable' } });
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  assert.equal(provider.sawSkill(), false, 'a refused command runs no workflow on the turn that follows');
+
+  // Why the selection flag: a model switch in flight makes the shared admission
+  // refuse after the skill was already queued — the queue-overflow sibling is
+  // unreachable here because anything filling the queue also makes the session
+  // busy. A skill left pending would be promoted by whatever turn ran next,
+  // binding the workflow to work the caller never opened; the turn below is that
+  // later turn, and it must not see the skill.
+  state.selecting = true;
+  const refused = await request(`/api/session/${session.id}/command`, 'POST', { name: 'audit', text: 'too soon' });
+  state.selecting = false;
+  assert.equal(refused.status, 409);
+  assert.equal((await refused.json())._tag, 'ConflictError');
+  await json(`/api/session/${session.id}/prompt`, 'POST', { text: 'the next task', id: 'msg_next' });
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  assert.equal(provider.sawSkill(), false, 'the retracted skill ran on no later turn either');
+
+  // A command the session cannot run is a 404, not a half-open turn.
+  assert.equal((await request(`/api/session/${session.id}/command`, 'POST', { name: 'nope', text: 'x' })).status, 404);
+  // And a command still runs normally afterwards: the refusal above retracted
+  // only its own queueing.
+  assert.equal((await request(`/api/session/${session.id}/command`, 'POST', { name: 'audit', text: 'after' })).status, 204);
+  await request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  assert.ok(provider.sawSkill());
 });
 
 test('the published client reads a message, interrupts, and settles a form', { skip: !process.env.NNA_OPENCODE_CLIENT_MODULE, timeout: 30_000 }, async (t) => {

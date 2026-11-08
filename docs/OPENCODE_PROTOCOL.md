@@ -75,7 +75,8 @@ relabelled as OpenCode v2.
 - Native session, inbox, assistant-step, text, completion and form events.
 - Pending form recovery, form details, answer and cancel. Forms are bound to their
   owning sessions and settle through the existing authenticated question ingress.
-- Empty catalogs for OpenCode-specific plugins, skills, commands,
+- The command catalog: NNA's commands are exactly its user-invocable skills.
+- Empty catalogs for OpenCode-specific plugins, skill listings,
   MCP servers, references, background shells and permission requests. These do not
   expose or configure NNA's own extension catalogs.
 
@@ -132,7 +133,7 @@ published with the correct message id — the loss was one assignment later.
 
 Not implemented, and refused explicitly: attachments, deferred execution,
 active-turn steering, agents beyond build, permission mutations, shell
-execution, filesystem and VCS APIs, session move, command and
+execution, filesystem and VCS APIs, session move,
 generated-text routes, tool-call lifecycle events, `session.diff` (NNA keeps no
 file snapshots, so it cannot answer truthfully), OAuth and command-based
 provider connection, and plugin management. Reviewer escalation remains
@@ -321,14 +322,14 @@ installed bundle's own call sites separates the two:
 | Method | Calls in OpenChamber | Refusal is safe because |
 | --- | --- | --- |
 | `session.context` | 1 | its only caller is the session-title plugin, which wraps the read in `.then(..., () => "")` and titles from the message alone when it fails |
-| `session.command` | 2 | both call sites are gated: each resolves a command name against `command.list()` first and only calls this when the catalog matched, and this surface's catalog is always empty, so the refusal is unreachable rather than hit. Exposing NNA's own user-invocable skills as OpenChamber slash commands would be a product decision, not a wire fix |
 | `session.diff` | 0 | never called |
 | `session.environment`, `session.stats`, `session.shell`, `session.generate`, `session.background` | 0 | never called |
 
-`synthetic`, `inbox.list`, `message.get`, `form.*`, `view` and `active` are
-implemented and were re-checked through the published client: the inbox answer is
-a plain array, and a form list unwraps to the array itself rather than a `{ data }`
-wrapper.
+`synthetic`, `inbox.list`, `message.get`, `form.*`, `view`, `active` and
+`command` are implemented and were re-checked through the published client: the
+inbox answer is a plain array, a form list unwraps to the array itself rather
+than a `{ data }` wrapper, and the command call answers 204 with an empty body,
+which is the success the SDK declares.
 
 ## Failure and busy-state behaviour
 
@@ -449,6 +450,51 @@ either stream, so the first version of this route compacted correctly and left
 the GUI's bubble spinning at `running` forever. And the answer used to be
 `{ data: { id } }`, which is not a `SessionInbox.Compaction` at all. Both were
 invisible to a route test that only checked the status code.
+
+## Slash commands are the operator's installed skills
+
+`GET /api/command` is the palette the client renders as its slash-command list, and
+the surface it resolves scheduled commands through. `Command.Info` declares exactly
+two fields, `name` and an optional `description`, so that is all the listing
+carries. NNA's commands are its user-invocable skills, one per skill, listed by id:
+no built-in commands are invented for operations this surface does not implement.
+
+Discovery is done once by the surface over the same roots a session engine reads,
+with the engine's own registry options, which is what makes a listed command a
+runnable one — a hosted run answers from host skills and a local run from the roots,
+so palette and engine cannot disagree. Listing from live session engines was the
+obvious design and is wrong: the client's scheduled-command resolver calls
+`command.list` with a location and no live session at all, which is precisely the
+moment a session-derived palette is empty.
+
+`POST /api/session/:id/command` takes `{ name, ...prompt fields }` and answers 204,
+the success gold declares. It queues the skill and admits the command's text as the
+turn's operator prompt — the same lane the TUI's `/skill` takes — so the workflow
+binds to the turn its own text opens. A command with no argument text runs the
+workflow against the conversation. `POST /api/experimental/session/:id/skill` takes
+`{ id, resume? }`, also 204, and stages without starting a turn; `resume: true`
+there would start one, so it is refused and left to the command route. No GUI calls
+that route — the SDK declares it.
+
+Three behaviours are load-bearing:
+
+- **Busy refuses.** Skills promote only at turn start, so a command queued while a
+  turn runs would bind its workflow to a turn the caller never opened, and a
+  `steer` delivery would split its text from its workflow. Both routes answer 409.
+- **A refused admission retracts its queueing.** Admission can refuse after the
+  skill was queued — a model switch in flight is the reachable case, since
+  anything that fills the prompt queue also makes the session busy. A skill left
+  pending is promoted by whatever turn runs next, hijacking unrelated work.
+- **No body crosses the wire.** A listing exposes name and description only, so it
+  cannot disclose workflow text or a source path. A body reaches a model solely
+  through the engine's `configured_skill` journaling, as a system message stating
+  it grants no tools, secrets, permissions, or scope. Command text is operator
+  speech only because the operator typed the command carrying it.
+
+`command.updated` is never emitted: NNA has no runtime skill install or unload —
+`nna skills` lists — so the palette cannot go stale, and a client is entitled to
+cache it. An engine's registry is immutable after initialization for the same
+reason, so a skill added to disk joins sessions opened after that point.
 
 ## Verified against a live service
 

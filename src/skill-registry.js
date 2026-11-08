@@ -124,6 +124,11 @@ export class SkillRegistry {
     return skill;
   }
 
+  // Why: a pending skill promotes at the next turn start, so an invocation whose
+  // turn never came must retract its queueing or the workflow binds to work the
+  // caller never opened.
+  unqueueUser(id) { return this.#pendingUser.delete(id); }
+
   beginTurn() {
     this.#active.clear();
     for (const id of this.#pendingUser) this.#active.set(id, this.#skills.get(id));

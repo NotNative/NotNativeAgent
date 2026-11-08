@@ -29,6 +29,7 @@ export async function startOpencodeServe(options = {}) {
     logger: options.logger ?? null,
     storeRoot: options.storeRoot, reviewerRoot: options.reviewerRoot,
     directory: options.directory,
+    ...(options.skillRoots ? { skillRoots: options.skillRoots } : {}),
     scheduler: options.scheduler, secretBroker: providerSettings?.secretBroker ?? options.secretBroker, providerSettings,
     providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
   });

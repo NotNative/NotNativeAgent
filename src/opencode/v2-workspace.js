@@ -3,6 +3,7 @@ import { createV2Events } from './v2-events.js';
 import { observeV1Event } from './v2-projection.js';
 import { apiError, invalid, objectInput, textInput, wireId, tokenUsage, modelReference, validateSelection, paginate } from './v2-contract.js';
 import { pendingForms, getForm, settleForm } from './v2-forms.js';
+import { commandApi, createCommandSurface } from './v2-commands.js';
 import { realpath, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { newId } from '../ids.js';
@@ -32,6 +33,7 @@ export function createV2Workspace(operations, options) {
     // prompt. It is the same admission path, tagged so the transcript can tell
     // it from operator speech; the text is never treated as operator authority.
     async synthetic(id, body) { return admitWithModel(context, requireState(id), { ...body, synthetic: true }); },
+    ...commandApi(context, requireState, admitWithModel, createCommandSurface(options)),
     ...revertApi(requireState, operations),
     ...forkApi(requireState, operations),
     ...compactApi(requireState, operations),

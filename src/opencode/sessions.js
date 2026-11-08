@@ -121,6 +121,10 @@ function engineOptions({ options, workspace, sessionId, ocId, sessionDirectory, 
     reviewPosture: 'auto-review',
     storeRoot: options.storeRoot,
     reviewerRoot: options.reviewerRoot,
+    // Why pass-through: a caller that names its skill roots owns the command
+    // palette this surface serves; otherwise the engine reads the operator's
+    // user skills directory like every other surface.
+    ...(options.skillRoots ? { skillRoots: options.skillRoots } : {}),
     providerFactory: options.providerFactory,
     semanticReviewer: options.semanticReviewer,
     scheduler: options.scheduler,
@@ -373,6 +377,8 @@ function turnOperations(workspace, options) {
     admit(ocId, parts, input) {
       return requireSession(workspace, ocId).wireSession.admit(parts, input);
     },
+    queueCommand(ocId, name) { requireSession(workspace, ocId).engine.skills.queueUser(name); },
+    unqueueCommand(ocId, name) { requireSession(workspace, ocId).engine.skills.unqueueUser(name); },
     // Both translate the client's message id to the engine's request id; see
     // stageWireRevert and forkWireSession for why the join exists.
     revert(ocId, body) { return stageWireRevert(requireSession(workspace, ocId), body); },

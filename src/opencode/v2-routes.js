@@ -76,12 +76,19 @@ async function dispatch(ctx) {
   if (method === 'POST' && segments[0] === 'experimental' && segments[1] === 'session' && segments[3] === 'wait' && segments.length === 4) {
     await api.wait(segments[2]); return sendNoContent(res);
   }
+  // Compatibility: the SDK declares this experimental skill route with no GUI
+  // caller. It stages the skill for the next turn the session runs, so a client
+  // may prime a session without starting work; `resume: true` would start one,
+  // which is what the command route is for, so it is refused.
+  if (method === 'POST' && segments[0] === 'experimental' && segments[1] === 'session' && segments[3] === 'skill' && segments.length === 4) {
+    await api.useSkill(segments[2], await body(ctx)); return sendNoContent(res);
+  }
   if (method === 'GET') {
     if (options.providerSettings && ['/api/agent', '/api/model', '/api/model/default', '/api/provider', '/api/integration', '/api/config'].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
       const catalog = await providerCatalog(options.providerSettings, path, requestDirectory(target, req, options.directory));
       if (catalog !== undefined) return sendJson(res, 200, catalog);
     }
-    const result = catalogResponse(path, requestDirectory(target, req, options.directory), api, options.config);
+    const result = await catalogResponse(path, requestDirectory(target, req, options.directory), api, options.config);
     if (result !== undefined) return sendJson(res, 200, result);
   }
   throw apiError(404, 'InvalidRequestError', 'This operation is not supported by the NNA OpenCode surface');
@@ -136,6 +143,11 @@ async function sessionPost(ctx, state, action) {
   // Compatibility: a synthetic prompt continues an interrupted turn; the text
   // is continuation text, not operator speech, so it grants no authority.
   if (action === 'synthetic') return sendJson(res, 200, { data: await api.synthetic(id, await body(ctx)) });
+  // Compatibility: gold declares this route's success as NoContent, and the SDK
+  // sends `{ name, ...prompt fields }` expecting an empty 204. The command's
+  // text is an operator task; the skill it names reaches the model through the
+  // engine's own skill journaling, never through this payload.
+  if (action === 'command') { await api.command(id, await body(ctx)); return sendNoContent(res); }
   // Compatibility: a fork answers the new session record. `before` is optional —
   // omitting it carries the whole settled timeline over.
   if (action === 'fork') return sendJson(res, 200, { data: await api.fork(id, await body(ctx)) });

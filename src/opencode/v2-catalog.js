@@ -14,7 +14,7 @@ export function locationInfo(directory) {
   return { directory, project: { id: projectIdentifier(directory), directory, canonical: directory } };
 }
 
-export function catalogResponse(path, directory, api, config) {
+export async function catalogResponse(path, directory, api, config) {
   const location = { directory }; const model = modelInfo(api.model, config);
   if (path === '/api/location') return locationInfo(directory);
   if (path === '/api/model') return { location, data: [model] };
@@ -30,11 +30,15 @@ export function catalogResponse(path, directory, api, config) {
   if (path === '/api/permission/saved') return { data: [] };
   if (path === '/api/config') return [{ type: 'document', info: { model: { providerID: api.model.providerID, model: api.model.id }, default_agent: 'build' } }];
   if (path === '/api/form') return { location, data: [...api.states.values()].filter((state) => state.info.location.directory === directory).flatMap((state) => api.forms(state.info.id)) };
+  // Compatibility: the palette is the client's command list, and NNA's commands
+  // are exactly its user-invocable skills — no built-ins are invented for
+  // operations this surface does not implement.
+  if (path === '/api/command') return { location, data: await api.commands() };
   if (EMPTY_CATALOGS.has(path)) return { location, data: [] };
   return undefined;
 }
 
-const EMPTY_CATALOGS = new Set(['/api/plugin', '/api/skill', '/api/command', '/api/integration', '/api/reference', '/api/mcp', '/api/permission/request', '/api/shell']);
+const EMPTY_CATALOGS = new Set(['/api/plugin', '/api/skill', '/api/integration', '/api/reference', '/api/mcp', '/api/permission/request', '/api/shell']);
 
 function modelInfo(model, config) {
   // Compatibility: this catalog exposes only the configured NNA route, never provider credentials.
