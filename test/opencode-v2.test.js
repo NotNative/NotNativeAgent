@@ -1327,8 +1327,15 @@ test('v2 rejected selections, invalid directories, and partial updates do not ch
   assert.equal((await request('/api/session', 'POST', { location: { directory: join(root, 'missing') } })).status, 400);
   assert.equal((await request(`/api/session/${session.id}/model`, 'POST', { model: { id: 'other', providerID: 'test' } })).status, 400);
   assert.equal((await request(`/api/session/${session.id}/agent`, 'POST', { agent: 'plan' })).status, 400);
+  // Compatibility: gold records `agent-switched` and `location-switched` history
+  // rows. Neither switch can occur here — this surface serves exactly one agent
+  // and fixes the workspace at creation — so an honest history has no such row,
+  // including after the no-op same-agent selection the client may still send.
+  assert.equal((await request(`/api/session/${session.id}/agent`, 'POST', { agent: 'build' })).status, 204);
   assert.equal((await request(`/api/session/${session.id}`, 'PATCH', { title: 'Changed', metadata: 12 })).status, 400);
   assert.equal((await json(`/api/session/${session.id}`)).data.title, 'Original');
+  assert.equal((await json(`/api/session/${session.id}/message?order=asc`)).data.length, 0,
+    'a same-agent selection records no switch history');
   assert.equal((await request('/api/location', 'GET', undefined, { 'x-opencode-directory': '%invalid' })).status, 400);
 });
 
