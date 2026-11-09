@@ -3,6 +3,7 @@
 // live session workspace, binds it, and emits the exact OpenCode stdout
 // handshake that OpenChamber's launcher parses.
 import { createOpenCodeSessionWorkspace } from './sessions.js';
+import { restorePersistedSessions } from './session-restore.js';
 import { OpenCodeCompatServer } from './server.js';
 import { bindUrl } from './config.js';
 import { OpenCodeProviderSettings } from './provider-settings.js';
@@ -49,6 +50,10 @@ export async function startOpencodeServe(options = {}) {
     username: options.username ?? DEFAULT_BASIC_USERNAME,
   });
   const bound = await server.start();
+  // Why restore before the handshake: OpenChamber starts, lists sessions, and
+  // only then may a client open one, so the restored history must exist by the
+  // time the launcher hands the URL over. A skipped session never blocks boot.
+  const { restored, skipped } = await restorePersistedSessions(workspace, options);
   const stopWatching = providerSettings ? watchProviderSettings(providerSettings, workspace.v2.events,
     options.directory ?? config.workspaceRoot, options.logger) : () => {};
   const hostname = options.hostname ?? DEFAULT_SERVE_HOSTNAME;
@@ -58,6 +63,7 @@ export async function startOpencodeServe(options = {}) {
   if (options.handshakeSink) await options.handshakeSink(line);
   return new OpencodeServeRuntime({
     server, workspace, config, url, port: bound.port, wiredVersion, stdout: options.stdout ?? null, stopWatching,
+    restoreSummary: { restored: restored.length, skipped: skipped.length },
   });
 }
 
@@ -77,7 +83,7 @@ async function resolveScenarioConfiguration(options) {
 }
 
 export class OpencodeServeRuntime {
-  constructor({ server, workspace, config, url, port, wiredVersion, stdout, stopWatching }) {
+  constructor({ server, workspace, config, url, port, wiredVersion, stdout, stopWatching, restoreSummary }) {
     this.server = server;
     this.workspace = workspace;
     this.config = config;
@@ -86,6 +92,9 @@ export class OpencodeServeRuntime {
     this.wiredVersion = wiredVersion;
     this.stdout = stdout;
     this.stopWatching = stopWatching;
+    // Why exposed: the managed runtime logs it, so an operator can see from the
+    // console record how many conversations came back and how many were skipped.
+    this.restoreSummary = restoreSummary ?? { restored: 0, skipped: 0 };
     this.closed = false;
   }
 
@@ -99,7 +108,10 @@ export class OpencodeServeRuntime {
       // Invariant: stored sessions are keyed by ocId; the wire Session shape's id
       // never reaches removal, and a failed removal would leak the engine's
       // telemetry worker forever, so the surface stop must shut each one down.
-      try { await this.workspace.operations.remove(record.ocId ?? record.id); } catch { /* stop is best-effort */ }
+      // Why `close` and not `remove`: stopping the process says nothing about
+      // the conversation; removal would also erase the durable identity and
+      // the next boot would not restore the session the GUI still lists.
+      try { await this.workspace.operations.close(record.ocId ?? record.id); } catch { /* stop is best-effort */ }
     }
     await this.server.stop();
     this.workspace.bus.close();

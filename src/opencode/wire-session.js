@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { physicalWireAllowance } from '../reliability/context-budget.js';
 import { PROTOCOL_TOOL_NAMES } from '../tools/core-names.js';
 import {
-  ZERO_TOKENS, assistantInfo, closeTurn, abortPending, currentInfo, publishBare, publishDurable,
+  ZERO_TOKENS, assistantInfo, buildAssistantResponse, closeTurn, abortPending, currentInfo, idleInfo, publishBare, publishDurable,
   settleEntry, settleFailure, stepStartPart, textPartOpen, closedUserInfo, userPart, userInfo, tokenView,
 } from './wire-transcript.js';
 
@@ -60,6 +60,9 @@ export function createWireSession({ record, bus, info, version, publishV2 = null
     abort() { return abortPending(state); },
     messages() { return messagesFromLedger(state); },
     pendingCount() { return pendingCount(state); },
+    // Compatibility: a restored session's replayed turns enter the same ledger
+    // live turns use, so history, revert joins, and eviction stay uniform.
+    seedHistory(turns) { return seedHistory(state, turns); },
   };
 }
 
@@ -395,6 +398,52 @@ function messagesFromLedger(state) {
     if (entry.idle) messages.push({ info: entry.idle, parts: [] });
   }
   return messages;
+}
+
+/** Enter replayed turns into the wire ledger as settled entries.
+ *
+ *  Why a settled entry rather than a fresh admission: a restored turn already
+ *  ran in a previous process. It must render in history and answer a revert
+ *  join by its engine request id, but it must not count as pending or re-emit
+ *  its events, so each entry lands fully settled with its replayed idle marker.
+ *  The queue capacity counts `response === null` entries only, so settled
+ *  history never consumes live-prompt capacity, and eviction of the oldest
+ *  settled entry (`admit`) works unchanged.
+ *
+ *  Security: the seeded text is the operator prompt and the settled answer the
+ *  engine's own journal carries. Tool rows enter through the same projection
+ *  live turns use, which records names and states only. */
+function seedHistory(state, turns) {
+  if (!Array.isArray(turns)) return 0;
+  let seeded = 0;
+  for (const turn of turns.slice(-HISTORY_LIMIT)) {
+    if (!turn || typeof turn.text !== 'string') continue;
+    const entry = {
+      requestId: turn.requestId ?? newId('oc_prompt'),
+      userMessageId: newId('msg'), userPartId: newId('prt'),
+      assistantId: newId('msg'), stepStartId: newId('prt'), textPartId: newId('prt'), stepFinishId: newId('prt'),
+      createdAt: Number.isFinite(turn.createdAt) ? turn.createdAt : Date.now(),
+      assistantCreated: Number.isFinite(turn.createdAt) ? turn.createdAt : Date.now(),
+      assistantCompleted: Number.isFinite(turn.completedAt) ? turn.completedAt : Date.now(),
+      textStart: Number.isFinite(turn.createdAt) ? turn.createdAt : Date.now(),
+      textEnded: Number.isFinite(turn.completedAt) ? turn.completedAt : Date.now(),
+      deltaStart: null, closedAt: Number.isFinite(turn.completedAt) ? turn.completedAt : Date.now(),
+      assistantContent: turn.text, finish: turn.finish ?? 'stop',
+      tokens: turn.tokens ?? ZERO_TOKENS, response: null, aborted: false,
+      toolParts: new Map(), assistantParts: [], retryAnnounced: false,
+    };
+    // Why re-stamp here: the seeded tool parts carry only their lifecycle; the
+    // wire identity (assistant message, session) is minted in this entry.
+    for (const part of turn.tools?.values() ?? []) {
+      entry.assistantParts.push({ ...part, id: `${entry.assistantId}:${part.id}`, messageID: entry.assistantId, sessionID: state.sessionID });
+    }
+    entry.response = buildAssistantResponse(state, entry);
+    entry.idle = idleInfo(state, entry);
+    if (entry.requestId) state.requestIdByMessage.set(entry.userMessageId, entry.requestId);
+    state.ledger.push(entry);
+    seeded += 1;
+  }
+  return seeded;
 }
 
 export function buildPromptCommand(parts, limits = {}) {

@@ -2,6 +2,8 @@
 import { createV2Events } from './v2-events.js';
 import { observeV1Event } from './v2-projection.js';
 import { apiError, invalid, objectInput, textInput, wireId, tokenUsage, modelReference, validateSelection, paginate } from './v2-contract.js';
+import { seedProjectionState } from './v2-seed.js';
+import { validatePromptAdmission } from './v2-admission.js';
 import { pendingForms, getForm, settleForm } from './v2-forms.js';
 import { commandApi, createCommandSurface } from './v2-commands.js';
 import { realpath, stat } from 'node:fs/promises';
@@ -23,6 +25,9 @@ export function createV2Workspace(operations, options) {
     events, model, states, requireState,
     attach(info, metadata, reference) { attachState(states, info, reference ?? model, events, options.wiredVersion, metadata); },
     inherit(id, inherited) { inheritState(requireState(id), inherited); },
+    // Compatibility: a restored session's replayed turns enter the same
+    // projection live turns use, so a reload renders them like any other turn.
+    seed(id, turns) { return seedState(requireState(id), turns, events, options.wiredVersion); },
     observe(event) { observeEvent(states, event, events); },
     captureFailure(id, code) { const state = states.get(id); if (state) state.failureCode = code; },
     create(body, directory) { return createSession(context, body, directory); },
@@ -51,17 +56,7 @@ export function createV2Workspace(operations, options) {
       return { interrupted };
     },
     async wait(id) { await Promise.all([...requireState(id).pending]); },
-    async remove(id) {
-      const state = requireState(id); state.closing = true; cancelQueued(state, events);
-      try { await operations.remove(id); }
-      finally {
-        // Invariant: a removed session releases its slot whether or not the
-        // engine reported the deletion, so the live limit and every listing
-        // reflect only sessions that still exist.
-        states.delete(id);
-        events.emit(state, 'session.deleted', { sessionID: id });
-      }
-    },
+    async remove(id) { return removeWorkspaceSession(operations, states, events, id, () => requireState(id)); },
     update(id, body) { updateSession(requireState(id), body, events); },
     forms(id) { return pendingForms(requireState(id)); },
     form(id, formID) { const form = getForm(requireState(id), formID); return { ...form.info, state: form.state }; },
@@ -71,8 +66,19 @@ export function createV2Workspace(operations, options) {
   return api;
 }
 
-function observeEvent(states, event, events) {
-  const state = states.get(event.properties?.sessionID);
+/** A client delete: close the session, then release its slot regardless of
+ *  what the engine reported, so the live limit and every listing reflect only
+ *  sessions that still exist. */
+async function removeWorkspaceSession(operations, states, events, id, require) {
+  const state = require(); state.closing = true; cancelQueued(state, events);
+  try { await operations.remove(id); }
+  finally {
+    states.delete(id);
+    events.emit(state, 'session.deleted', { sessionID: id });
+  }
+}
+
+function observeEvent(states, event, events) {  const state = states.get(event.properties?.sessionID);
   if (!state) return;
   if (event.type === 'session.deleted') {
     events.emit(state, 'session.deleted', { sessionID: state.info.id }); states.delete(state.info.id); return;
@@ -111,6 +117,12 @@ function attachState(states, info, model, events, version, metadata) {
     slug: info.slug, title: info.title, agent: 'build', model, version, ...(metadata == null ? {} : { metadata }) });
 }
 
+/** Enter replayed turns into a restored session's projection; the body lives
+ *  in `v2-seed.js`, which owns the seeded-row shapes. */
+function seedState(state, turns) {
+  return seedProjectionState(state, turns);
+}
+
 /** Bind the session's current provider selection before admitting text. The
  *  selection is refreshed only when nothing is already pending, so a queued
  *  prompt keeps the binding it was admitted under. */
@@ -132,38 +144,10 @@ async function admitWithModel(context, state, body) {
   return admitPrompt(state, body, operations, options);
 }
 
+/** Validate a prompt admission the way the wire requires; the admission rules
+ *  and their client-contract rationale live in `v2-admission.js`. */
 function admitPrompt(state, body, operations, options) {
-  if (state.closing) throw apiError(409, 'ConflictError', 'Session is closing');
-  if (state.selecting) throw apiError(409, 'ConflictError', 'Model selection is in progress');
-  // `synthetic` is set by the caller that already decided the admission is a
-  // continuation, never by the request body, so it is not an accepted field.
-  // Why the guard: destructuring a non-object would raise a TypeError before
-  // validation, turning a rejected admission into a 500.
-  if (!body || typeof body !== 'object' || Array.isArray(body)) throw invalid('Expected a JSON object');
-  const { synthetic = false, ...input } = body;
-  objectInput(input, ['id', 'text', 'files', 'agents', 'skills', 'metadata', 'delivery', 'resume', 'description']);
-  textInput(body.text, 'text', physicalWireAllowance(options.registry?.get(state.info.id)?.engine?.ingressContextWindowTokens ?? 65_536));
-  for (const field of ['files', 'agents', 'skills']) {
-    if (body[field] !== undefined && (!Array.isArray(body[field]) || body[field].length)) throw invalid(`${field} are not supported by this surface`);
-  }
-  // Compatibility: `resume: false` is how the client admits text that must not
-  // open a turn — the goal briefing says so in as many words ("the model would
-  // start on the briefing alone, before the task arrived"). Gold OC holds such
-  // an admission and delivers it with the next scheduled turn, so NNA holds it
-  // too: the text is journaled into the next turn as untrusted context, never
-  // as an operator utterance, and never starts a turn of its own.
-  if (body.resume != null && typeof body.resume !== 'boolean') throw invalid('resume must be a boolean');
-  // Why the prompt route refuses it: prompt text is an operator task, and a
-  // surface that cannot defer must say so rather than hold a task silently.
-  // Holding it would deliver operator speech later as untrusted briefing
-  // context, downgrading authority it earned and never running it. Every real
-  // `resume: false` caller in the client posts to `/synthetic`.
-  if (body.resume === false && !synthetic) throw invalid('Deferred execution is not supported by this surface');
-  const held = synthetic && body.resume === false;
-  if (body.delivery != null && !['queue', 'steer'].includes(body.delivery)) throw invalid('Invalid delivery mode');
-  if (body.delivery === 'steer' && (state.running || state.pending.size)) throw apiError(409, 'ConflictError', 'Use queue delivery while NNA is running');
-  validateMetadata(body.metadata);
-  const id = wireId(body.id, 'msg');
+  const { synthetic = false, held, id } = validatePromptAdmission(state, body, options);
   if (state.inputs.has(id) || state.messages.has(id)) throw apiError(409, 'ConflictError', 'Message already exists');
   state.inputs.set(id, body);
   try {
@@ -171,17 +155,7 @@ function admitPrompt(state, body, operations, options) {
       { messageID: id, synthetic, held, ...(typeof body.description === 'string' ? { description: body.description } : {}),
         ...(body.metadata ? { metadata: body.metadata } : {}) });
     const receipt = admitted.held
-      // Why built here instead of read back from the inbox projection: a held
-      // admission is deliberately absent from `state.inbox`. The client
-      // reconciles its composer queue from `session.inbox.list`, and an item
-      // that is never steered and never cancelled would sit in the composer
-      // forever. The receipt keeps the shape an admitted item has;
-      // `description` rides only the synthetic payload, which is the one the
-      // client declares it — a user payload is strict without it.
-      ? { id, sessionID: state.info.id, time: { created: Date.now() }, type: synthetic ? 'synthetic' : 'user',
-        payload: { text: body.text,
-          ...(synthetic && typeof body.description === 'string' ? { description: body.description } : {}),
-          ...(body.metadata ? { metadata: body.metadata } : {}) }, delivery: body.delivery ?? 'queue' }
+      ? heldReceipt(state, id, body, synthetic)
       : state.inbox.get(id);
     const settled = admitted.response.catch((error) => {
       options.logger?.record({ type: 'opencode_prompt_failed', code: error?.code ?? 'internal_failure', sessionID: state.info.id });
@@ -189,6 +163,20 @@ function admitPrompt(state, body, operations, options) {
     state.pending.add(settled);
     return { ...receipt, ...(synthetic ? { type: 'synthetic' } : {}) };
   } catch (error) { state.inputs.delete(id); throw error; }
+}
+
+/** Why built here instead of read back from the inbox projection: a held
+ *  admission is deliberately absent from `state.inbox`. The client reconciles
+ *  its composer queue from `session.inbox.list`, and an item that is never
+ *  steered and never cancelled would sit in the composer forever. The receipt
+ *  keeps the shape an admitted item has; `description` rides only the synthetic
+ *  payload, which is the one the client declares it — a user payload is strict
+ *  without it. */
+function heldReceipt(state, id, body, synthetic) {
+  return { id, sessionID: state.info.id, time: { created: Date.now() }, type: synthetic ? 'synthetic' : 'user',
+    payload: { text: body.text,
+      ...(synthetic && typeof body.description === 'string' ? { description: body.description } : {}),
+      ...(body.metadata ? { metadata: body.metadata } : {}) }, delivery: body.delivery ?? 'queue' };
 }
 
 /** Seed a child session's history from the turns it inherited.
@@ -320,17 +308,9 @@ async function selectModel(context, state, reference, requireCredential = false)
   if (state.running || state.pending.size || state.selecting || state.closing) throw apiError(409, 'ConflictError', 'Wait for the session to become idle before changing its model');
   state.selecting = true;
   try {
-    const selected = await context.options.providerSettings.runtimeConfig(context.options.config, reference, state.info.location.directory);
     if (state.closing) throw apiError(409, 'ConflictError', 'Session is closing');
-    if (requireCredential && !selected.config.connectionRecords[selected.reference.providerID].credential) {
-      // Why name the stale endpoints: a key connected at another endpoint looks
-      // exactly like no key at all, and only the operator knows the endpoint
-      // moved. Naming both makes the fix obvious instead of a dead end.
-      const stale = selected.credentialEndpoints;
-      throw invalid(stale?.length
-        ? `This provider's credential is bound to ${stale.join(', ')} but the provider now points at ${selected.config.connectionRecords[selected.reference.providerID].endpoint}. Reconnect the API key for this endpoint in OpenChamber settings before sending a prompt`
-        : 'Connect an API key for this OpenCode provider in OpenChamber settings before sending a prompt');
-    }
+    const selected = await context.options.providerSettings.runtimeConfig(context.options.config, reference, state.info.location.directory);
+    refuseMissingCredential(selected, requireCredential);
     await context.operations.configure(state.info.id, manifestFromConfig(selected.config), selected.reference);
     const previous = state.info.model;
     // Why the variant travels on the reference: the level the operator chose has
@@ -347,6 +327,18 @@ async function selectModel(context, state, reference, requireCredential = false)
       recordModelSwitch(state, next, previous);
     }
   } finally { state.selecting = false; }
+}
+
+function refuseMissingCredential(selected, requireCredential) {
+  if (!requireCredential
+    || selected.config.connectionRecords[selected.reference.providerID].credential) return;
+  // Why name the stale endpoints: a key connected at another endpoint looks
+  // exactly like no key at all, and only the operator knows the endpoint
+  // moved. Naming both makes the fix obvious instead of a dead end.
+  const stale = selected.credentialEndpoints;
+  throw invalid(stale?.length
+    ? `This provider's credential is bound to ${stale.join(', ')} but the provider now points at ${selected.config.connectionRecords[selected.reference.providerID].endpoint}. Reconnect the API key for this endpoint in OpenChamber settings before sending a prompt`
+    : 'Connect an API key for this OpenCode provider in OpenChamber settings before sending a prompt');
 }
 
 function recordModelSwitch(state, model, previous) {

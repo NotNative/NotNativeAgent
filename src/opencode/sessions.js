@@ -5,18 +5,20 @@
 // façade's route-level error vocabulary.
 import { SessionEngine } from '../engine.js';
 import { CanonicalIngress } from '../ingress.js';
-import { newId, ContractError } from '../ids.js';
-import { QuestionBroker } from '../question-broker.js';
+import { newId, ContractError, requireExternalId } from '../ids.js';
 import { mkdirSync } from 'node:fs';
 import { OpenCodeSessionRegistry, projectIdentifier } from './registry.js';
 import slugifyTitle from './slug.js';
 import { createWireEventBus } from './wire-events.js';
 import { createWireSession } from './wire-session.js';
+import { questionOperations, attachQuestionVoice } from './question-voice.js';
 import { createV2Workspace } from './v2-workspace.js';
 import { apiError, invalid, objectInput, wireId } from './v2-contract.js';
 import { runDesktopSessionRevert, runDesktopSessionUnrevert } from '../desktop-session-revert.js';
 import { runDesktopSessionFork } from '../desktop-session-fork.js';
 import { compactEngineConversation } from '../engine/context-controls.js';
+import { appendSessionIndex } from './session-index.js';
+import { closeSession, removeSession, restoreSession } from './session-lifecycle.js';
 
 // Why: the opencode surface is an authenticated operator surface whose only
 // operator voice over the wire is the question reply route. It stays
@@ -77,22 +79,16 @@ function defineWorkspaceOperations(workspace, options) {
     // Why: question tokens identify owning sessions; answers travel the same
     // authenticated ingress as prompt traffic and settle the parked tool call.
     ...questionOperations(workspace),
-    async remove(ocId) {
-      const session = requireSession(workspace, ocId);
-      session.wireSession.abort();
-      await session.engine.shutdown({ request_id: newId('oc_shutdown'), type: 'shutdown' });
-      registry.remove(ocId);
-      for (const [token, owner] of [...workspace.pendingQuestions.entries()]) {
-        if (owner === ocId) workspace.pendingQuestions.delete(token);
-      }
-      bus.publishSession({
-        directory: session.directory ?? '',
-        project: session.projectID ?? '',
-        sessionID: ocId,
-        type: 'session.deleted',
-        properties: { sessionID: ocId },
-      });
-      return { closed: true };
+    /** Surface-stop close: shuts the engine down and releases its lock without
+     *  deleting anything. See `session-lifecycle.js` for why this is distinct
+     *  from `remove`. */
+    async close(ocId) { return closeSession(workspace, ocId); },
+    async remove(ocId) { return removeSession(workspace, options, ocId); },
+    /** Re-open a durable journal under its recorded wire identity; boot-time
+     *  restore is the only caller. See `session-lifecycle.js`. */
+    async restore(input = {}) {
+      return restoreSession(workspace, options, input,
+        (candidate) => attachSession(workspace, options, candidate));
     },
   };
 }
@@ -145,12 +141,16 @@ function v2Publisher(workspace, ocId) {
   };
 }
 
-async function attachSession(workspace, options, { title, directory, ocId: requestedId, runtimeDirectory, metadata, runtimeConfig, runtimeRef, forkIngest, parentID, slugSeed }) {
+async function attachSession(workspace, options, { title, directory, ocId: requestedId, engineSessionId, createdAt, runtimeDirectory, metadata, runtimeConfig, runtimeRef, forkIngest, parentID, slugSeed }) {
   const { registry, bus, wiredVersion } = workspace;
-  const sessionId = newId('session');
+  // Why the durable id can be caller-supplied: boot-time restore re-opens the
+  // journal a previous process journaled, which is the engine's own resume
+  // identity; every other caller keeps the fresh-id behaviour.
+  const sessionId = engineSessionId ? requireExternalId(engineSessionId, 'session_id') : newId('session');
   const ocId = requestedId ?? newId('ses');
   const sessionDirectory = directory ?? options.directory ?? '';
   const projectID = projectIdentifier(sessionDirectory);
+  const createdAtMs = Number.isFinite(createdAt) ? createdAt : Date.now();
   let wireSession = null;
   const engine = new SessionEngine(engineOptions({
     options, workspace, sessionId, ocId, sessionDirectory, projectID, runtimeDirectory, runtimeConfig, forkIngest,
@@ -166,7 +166,7 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
     directory: sessionDirectory,
     projectID,
     path: '',
-    createdAt: Date.now(),
+    createdAt: createdAtMs,
     ...(parentID ? { parentID } : {}),
   };
   wireSession = createWireSession({
@@ -192,10 +192,25 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
     title, directory: sessionDirectory, modelRoute: undefined,
     ...(parentID ? { parentID } : {}) };
   const stored = registry.attach({ ...record, wireSession, timeline });
-  workspace.v2?.attach(registry.describe(stored, wiredVersion), metadata, runtimeRef);
-  options.logger?.record({ type: 'opencode_session_created', ocId: stored.ocId, sessionId, title }, { sessionId });
-  options.logger?.record({ type: 'opencode_session_started', ocId: stored.ocId, sessionId, title, directory: stored.directory }, { sessionId });
+  await publishAttach(workspace, options, { stored, sessionId, ocId, createdAtMs, parentID, metadata, runtimeRef });
   return registry.describe(stored, wiredVersion);
+}
+
+/** Wire the attached session to the v2 stream, the durable index, and the log.
+ *
+ *  Why the index write: the wire identity is the only link between what the
+ *  client sees (`ses_*`) and the journal the engine will re-open on the next
+ *  boot (`session_*`). Without it a restart loses the GUI's history again. */
+async function publishAttach(workspace, options, { stored, sessionId, ocId, createdAtMs, parentID, metadata, runtimeRef }) {
+  const { registry, wiredVersion } = workspace;
+  workspace.v2?.attach(registry.describe(stored, wiredVersion), metadata, runtimeRef);
+  if (options.storeRoot) {
+    const entry = { ocId, sessionId, title: stored.title, directory: stored.directory, createdAt: createdAtMs, ...(parentID ? { parentID } : {}) };
+    await appendSessionIndex(options.storeRoot, entry)
+      .catch((error) => options.logger?.record({ type: 'opencode_session_index_failed', ocId, code: error.code ?? 'index_write_failed' }));
+  }
+  options.logger?.record({ type: 'opencode_session_created', ocId: stored.ocId, sessionId, title: stored.title }, { sessionId });
+  options.logger?.record({ type: 'opencode_session_started', ocId: stored.ocId, sessionId, title: stored.title, directory: stored.directory }, { sessionId });
 }
 
 function configModelRef(config) {
@@ -425,58 +440,6 @@ function turnOperations(workspace, options) {
       return session.wireSession.pendingCount();
     },
   };
-}
-
-function questionOperations(workspace) {
-  return {
-    questionReply(token, body = {}) {
-      const session = requireQuestionSession(workspace, token);
-      return session.ingress.submit({
-        version: '1.0', type: 'question_response', request_id: newId('oc_qreply'),
-        question_token: token, answers: body.answers ?? [],
-      }, 'opencode-wire');
-    },
-    questionReject(token, body = {}) {
-      const session = requireQuestionSession(workspace, token);
-      return session.ingress.submit({
-        version: '1.0', type: 'question_decline', request_id: newId('oc_qreject'),
-        question_token: token, ...(body.reason === undefined ? {} : { reason: body.reason }),
-      }, 'opencode-wire');
-    },
-  };
-}
-
-function requireQuestionSession(workspace, token) {
-  const owner = workspace.pendingQuestions.get(token ?? '');
-  const session = owner === undefined ? null : workspace.registry.get(owner);
-  if (!session) throw new ContractError('question_unknown', 'interactive question is unavailable on this surface');
-  return session;
-}
-
-function attachQuestionVoice(workspace, ids, options, observe) {
-  const { bus, pendingQuestions } = workspace;
-  return new QuestionBroker({
-    output: async (record) => { observe(record); options.logger?.record(record, { sessionId: ids.sessionId }); },
-    emit: {
-      asked: (pending) => {
-        pendingQuestions.set(pending.token, ids.ocId);
-        publishQuestion(bus, ids, 'question.asked', {
-          question_token: pending.token, narrative: pending.narrative, questions: pending.batch,
-        });
-      },
-      settled: (pending, kind) => {
-        pendingQuestions.delete(pending.token);
-        publishQuestion(bus, ids, `question.${kind}`, { question_token: pending.token, kind });
-      },
-    },
-  });
-}
-
-function publishQuestion(bus, ids, type, properties) {
-  bus.publishSession({
-    directory: ids.directory, project: ids.projectID, sessionID: ids.ocId, type,
-    properties: Object.freeze({ sessionID: ids.ocId, ...properties }),
-  });
 }
 
 function boundedTitle(value) {
