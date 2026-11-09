@@ -409,9 +409,15 @@ Two limits are deliberate:
 Staging, clearing and committing each announce on the v2 event stream
 (`session.revert.staged` with `{ sessionID, revert: { messageID } }`,
 `session.revert.cleared`, and `session.revert.committed` with `{ sessionID, to }`).
-The client sets its session's `revert` field from `staged` and clears it on the
-other two, so without these events a revert completed on the server and the GUI
-showed nothing.
+The events alone were not enough, and the live run against the installed client
+showed why: its sync path reads `revert.messageID` from the **session record**
+(`GET /api/session/:id`), looks the boundary message up, and cuts every history
+read past that timestamp on each load — so the record must carry the boundary or
+a reload un-hid the taken-back turns. The record now serves
+`revert: { messageID }` while a boundary exists: a stage sets it, a clear ends
+it, and a commit keeps it, because the commit's own event promises the tail
+stays hidden. A session that was never reverted carries no field, which is the
+same shape an absent boundary had.
 
 Why the events matter more than they look: **there are two event streams.** The
 v1 wire bus carries turn cadence to `/global/event`; the client renders from the
