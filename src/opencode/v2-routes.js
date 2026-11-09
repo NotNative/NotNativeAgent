@@ -99,7 +99,7 @@ async function sessionRoute(ctx, segments) {
   const [id, action, itemID, subaction] = segments; const method = req.method;
   const state = api.requireState(id);
   if (segments.length === 1) {
-    if (method === 'GET') return sendJson(res, 200, { data: state.info });
+    if (method === 'GET') return sendJson(res, 200, { data: api.read(id) });
     if (method === 'DELETE') { await api.remove(id); return sendNoContent(res); }
     if (method === 'PATCH') { api.update(id, await body(ctx)); return sendNoContent(res); }
   }

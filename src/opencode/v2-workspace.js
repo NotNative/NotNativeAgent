@@ -27,6 +27,7 @@ export function createV2Workspace(operations, options) {
     captureFailure(id, code) { const state = states.get(id); if (state) state.failureCode = code; },
     create(body, directory) { return createSession(context, body, directory); },
     list(query) { return listSessions(states, query); },
+    read(id) { return sessionView(requireState(id)); },
     messages(id, query) { return historyPage(requireState(id), id, query); },
     async prompt(id, body) { return admitWithModel(context, requireState(id), body); },
     // Compatibility: OpenCode 2 continues an interrupted turn with a synthetic
@@ -234,13 +235,17 @@ function revertApi(requireState, operations) {
   };
 }
 
-/** Run one revert step and keep the session's staged boundary in step with it.
+/** Run one revert step and keep the session's boundary in step with it.
  *
  *  A stage records the boundary so a later commit can name it without the client
- *  repeating it; a clear or commit ends the staged state. */
+ *  repeating it; a clear ends it; a commit keeps it — the taken-back turns stay
+ *  hidden after the commit, and the client's history builder reads this exact
+ *  field on every reload to keep them hidden on its side too. */
 async function runRevert(state, step, run) {
   const result = await run();
-  state.revertBoundary = step === 'stage' ? result.messageID : null;
+  // A commit's operation publishes and returns nothing; the boundary it keeps is
+  // the one the stage already recorded.
+  state.revertBoundary = step === 'clear' ? null : step === 'commit' ? state.revertBoundary : result.messageID;
   return result;
 }
 
@@ -293,6 +298,22 @@ function historyPage(state, id, query) {
   const values = [...state.messages.values(), ...(state.records ?? [])]
     .filter((message) => !query.type || message.type === query.type);
   return paginate(values, query, `messages:${id}:${query.type ?? ''}`);
+}
+
+/** The session record as the wire sees it: the stored info plus the staged
+ *  revert boundary while one exists.
+ *
+ *  Compatibility: the client's history builder reads `session.revert.messageID`
+ *  from `GET /api/session/:id` and cuts every read past that boundary's
+ *  timestamp — live, on reconnect, and on a fresh load. Without the field a
+ *  committed revert survives only in the reducer's memory: the server hid the
+ *  tail, the GUI un-hid it on the next sync, and a reload showed turns the
+ *  operator took back. A missing field and an absent boundary are the same
+ *  answer, so nothing is added when nothing is staged. */
+function sessionView(state) {
+  return state.revertBoundary
+    ? { ...state.info, revert: { messageID: state.revertBoundary } }
+    : state.info;
 }
 
 async function selectModel(context, state, reference, requireCredential = false) {

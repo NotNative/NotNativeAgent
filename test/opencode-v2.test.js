@@ -230,10 +230,14 @@ test('v2 announces staged, cleared and committed reverts on the event stream', {
   assert.equal(staged.data.sessionID, session.id);
   // The client sets session.info[id].revert from this payload.
   assert.deepEqual(staged.data.revert, { messageID: 'msg_rv' });
-
+  // Compatibility: the client's history builder reads `revert` from the session
+  // record itself and cuts every read past that boundary on each sync. A stage
+  // that left the record without it would un-hide the tail on the next load.
+  assert.deepEqual((await json(`/api/session/${session.id}`)).data.revert, { messageID: 'msg_rv' });
   assert.equal((await request(`/api/session/${session.id}/revert`, 'DELETE')).status, 204);
   const cleared = await waitForEvent(events, 'session.revert.cleared');
   assert.equal(cleared.data.sessionID, session.id);
+  assert.equal((await json(`/api/session/${session.id}`)).data.revert, undefined, 'a clear ends the boundary');
 
   // A commit keeps the revert and drops the client's staged affordance.
   assert.equal((await request(`/api/session/${session.id}/revert/stage`, 'POST', { messageID: 'msg_rv' })).status, 200);
@@ -241,6 +245,9 @@ test('v2 announces staged, cleared and committed reverts on the event stream', {
   const committed = await waitForEvent(events, 'session.revert.committed');
   assert.equal(committed.data.sessionID, session.id);
   assert.equal(committed.data.to, 'msg_rv');
+  // The boundary survives the commit: this is what a reload reads, and what
+  // keeps the taken-back turns hidden after the reducer's memory is gone.
+  assert.deepEqual((await json(`/api/session/${session.id}`)).data.revert, { messageID: 'msg_rv' });
   await controller.abort();
   await collected;
 });
