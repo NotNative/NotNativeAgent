@@ -426,7 +426,11 @@ function listSessions(states, query) {
     .map((state) => state.info).filter((info) =>
     (!query.directory || info.location.directory === query.directory) && (!query.project || info.projectID === query.project)
     && (!query.search || info.title?.toLowerCase().includes(query.search.toLowerCase()))
-    && (!query.parentID || query.parentID === 'null') && !query.subpath);
+    // Compatibility: the client's lineage walk selects by `parentID`. The literal
+    // `'null'` selects roots — a session with no parent — and a concrete id selects
+    // that parent's children, so a fork tree is walkable either way.
+    && (!query.parentID || (query.parentID === 'null' ? !info.parentID : info.parentID === query.parentID))
+    && !query.subpath);
   values.sort((a, b) => a.time.created - b.time.created || a.id.localeCompare(b.id));
   return paginate(values, query, `sessions:${JSON.stringify([query.directory, query.project, query.search, query.parentID, query.subpath, query.archived])}`);
 }

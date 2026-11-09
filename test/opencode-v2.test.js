@@ -999,6 +999,21 @@ test('v2 forks a session and the child inherits its settled turn', { timeout: 30
   const listed = (await json('/api/session')).data;
   assert.equal(listed.length, 2);
   assert.equal(listed.filter((session) => session.parentID === parent.id).length, 1);
+  // The lineage walk: the client selects roots with the literal 'null' and a
+  // fork's children with the parent's id. Before this slice the concrete-id form
+  // matched nothing, so a fork tree was unreadable.
+  const roots = (await json("/api/session?parentID=null")).data;
+  assert.deepEqual(roots.map((session) => session.id), [parent.id]);
+  const children = (await json(`/api/session?parentID=${parent.id}`)).data;
+  assert.deepEqual(children.map((session) => session.id), [child.id]);
+  assert.equal(children[0].parentID, parent.id);
+  assert.equal((await json(`/api/session?parentID=${child.id}`)).data.length, 0, 'a child is not a parent');
+  // An absent parentID is the unfiltered list, and archived parents stay out of
+  // the default walk.
+  assert.equal((await json('/api/session')).data.length, 2);
+  await request(`/api/session/${child.id}`, 'DELETE');
+  assert.equal((await json(`/api/session?parentID=${parent.id}`)).data.length, 0);
+  assert.equal((await json('/api/session')).data.length, 1);
   // An unknown boundary is a missing message, not a surface failure.
   assert.equal((await request(`/api/session/${parent.id}/fork`, 'POST', { before: 'msg_absent' })).status, 404);
 });
