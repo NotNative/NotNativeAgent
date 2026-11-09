@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
-import { SCRATCH_ROOT, createScratchSync } from './scratch.js';
+import { SCRATCH_ROOT, armScratchRestore, assertScratchPath, createScratchSync, disarmScratchRestore } from './scratch.js';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -108,17 +108,26 @@ test('null DACL and generic-all ancestor grants cannot masquerade as safe ACLs',
     const root = join(parent, 'data');
     await mkdir(root);
     const before = sddl(root);
+    assertScratchPath(root, 'private-storage DACL replacement');
     const replace = (value) => powershell(`
       $info=[IO.DirectoryInfo]::new($request.path)
       $acl=$info.GetAccessControl()
       $acl.SetSecurityDescriptorSddlForm($request.descriptor, [Security.AccessControl.AccessControlSections]::Access)
       $info.SetAccessControl($acl)
     `, { path: root, descriptor: value });
+    // Why the armed restore: this test intentionally replaces a whole DACL with
+    // an open-ended one. If the runner dies between the replace and the
+    // restoration in the finally below, the descriptor must not outlive the
+    // process as `NO_ACCESS_CONTROL` or generic-all.
+    armScratchRestore(root, () => replace(before));
     try {
       replace(descriptor);
       await assert.rejects(ensurePrivateDesktopRuntimeDirectory(root), { code: 'desktop_private_namespace_unsafe' });
       assert.deepEqual(await readdir(root), []);
-    } finally { replace(before); }
+    } finally {
+      replace(before);
+      disarmScratchRestore(root);
+    }
   }
 });
 test('reparse directories and invalid paths fail closed without following them', windows, async (t) => {

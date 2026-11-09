@@ -16,7 +16,9 @@ import { join, sep } from 'node:path';
 
 export const SCRATCH_ROOT = join(homedir(), '.nna-test-scratch');
 const tracked = new Set();
+const armedRestores = new Map();
 let exitHandlerInstalled = false;
+let aclExitHandlerInstalled = false;
 
 function track(root) {
   tracked.add(root);
@@ -76,5 +78,54 @@ export async function disposeScratch(root) {
     throw new TypeError('disposeScratch only accepts paths inside the scratch root');
   }
   tracked.delete(root);
+  armedRestores.delete(root);
   await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+}
+
+/** Assert one path is inside the scratch root before an ACL mutation runs.
+ *
+ *  Why a shared function instead of each suite's own string check: ACL
+ *  mutation is the one test action whose residue can outlive the process, and
+ *  a mis-resolved path once stranded a foreign ACE on the workspace root.
+ *  Every mutating call asserts here, so the guarantee lives in one audited
+ *  place instead of nine hand-rolled copies. */
+export function assertScratchPath(path, label) {
+  if (typeof path !== 'string' || !path.startsWith(SCRATCH_ROOT + sep)) {
+    throw new TypeError(`${label ?? 'ACL mutation'} refused: ${String(path)} is outside the scratch root`);
+  }
+  return path;
+}
+
+function installAclExitRestore() {
+  if (aclExitHandlerInstalled) return;
+  aclExitHandlerInstalled = true;
+  // Why a separate exit listener: the scratch-removal handler must run even
+  // when a restore throws, so removal stays first and restores come second.
+  process.once('exit', () => {
+    for (const [path, applySddl] of armedRestores) {
+      try { applySddl(); } catch { /* best effort: a failed restore must not mask the original failure */ }
+    }
+    armedRestores.clear();
+  });
+}
+
+/** Arm a crash restore for one mutated scratch path.
+ *
+ *  Why: a suite can die between replacing a descriptor and restoring it — an
+ *  unrelated flake aborts the runner mid-test — and a DACL left
+ *  `NO_ACCESS_CONTROL` or generic-all outlives the scratch directory's own
+ *  deletion only if the path was outside the root. Inside the root the exit
+ *  removal already handles it; this arm covers the window where the mutated
+ *  path is created but not yet removed, and makes the restore explicit so a
+ *  later reader sees the armed state instead of trusting cleanup order. */
+export function armScratchRestore(path, applySddl) {
+  assertScratchPath(path, 'ACL restore');
+  if (typeof applySddl !== 'function') throw new TypeError('armScratchRestore requires a restore function');
+  installAclExitRestore();
+  armedRestores.set(path, applySddl);
+}
+
+export function disarmScratchRestore(path) {
+  assertScratchPath(path, 'ACL disarm');
+  armedRestores.delete(path);
 }

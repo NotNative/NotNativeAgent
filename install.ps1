@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+﻿# SPDX-License-Identifier: Apache-2.0
 [CmdletBinding()]
 param(
     [string]$SourceRoot,
@@ -122,8 +122,24 @@ function Sync-ExistingRuntimePin([string]$SelectedNode, [int]$SelectedMajor, [st
 function Stop-DesktopBeforePayloadReplacement([string]$SelectedNode, [string]$SelectedInstallRoot, [string]$SelectedDataRoot) {
     if (-not (Test-Path -LiteralPath (Join-Path $SelectedDataRoot 'config\desktop-package.json'))) { return $false }
     $SelectedCli = Join-Path $SelectedInstallRoot 'installed\src\cli.js'
-    $WaitHelper = Join-Path $SourceRoot 'desktop\scripts\installer-wait-stopped.mjs'
-    if (-not (Test-Path -LiteralPath $WaitHelper -PathType Leaf)) { throw 'Desktop stop verification helper is missing; existing runtime files were preserved.' }
+    # Why the registered root: the desktop tree is parked out of NNA's source
+    # (branch `desktop/parked`), so the helper no longer ships with this source.
+    # The registration record names the installed package that owns the service,
+    # and that package carries its own copy of the helper.
+    $RegisteredRoot = $null
+    try {
+        $Registration = Get-Content -LiteralPath (Join-Path $SelectedDataRoot 'config\desktop-package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($Registration -and [string]$Registration.root) {
+            $Candidate = [IO.Path]::GetFullPath([string]$Registration.root)
+            if (Test-Path -LiteralPath (Join-Path $Candidate 'scripts\installer-wait-stopped.mjs') -PathType Leaf) { $RegisteredRoot = $Candidate }
+        }
+    } catch { $RegisteredRoot = $null }
+    if (-not $RegisteredRoot) {
+        $Fallback = Join-Path $SelectedInstallRoot 'installed\desktop\scripts\installer-wait-stopped.mjs'
+        if (Test-Path -LiteralPath $Fallback -PathType Leaf) { $RegisteredRoot = $SelectedInstallRoot }
+    }
+    if (-not $RegisteredRoot) { throw 'A desktop package is registered but no installed copy carries the stop verification helper; existing runtime files were preserved.' }
+    $WaitHelper = Join-Path $RegisteredRoot 'scripts\installer-wait-stopped.mjs'
     $PriorNnaHome = $env:NNA_HOME
     $env:NNA_HOME = $SelectedDataRoot
     try {
@@ -1101,16 +1117,19 @@ function Confirm-DesktopInstallation([bool]$Requested, [bool]$InputRedirected) {
     return $Answer -in @('y', 'Y', 'yes', 'Yes', 'YES')
 }
 Write-InstallerSection 'Desktop component'
+# Compatibility: the desktop tree is parked on branch `desktop/parked`, so this
+# source tree legitimately ships without `desktop\install.cmd`. That is a skip,
+# not a failure — NNA itself is complete without the GUI, and a registered
+# package keeps its last installed version until the branch is restored.
 $DesktopScript = Join-Path $SourceRoot 'desktop\install.cmd'
 $DesktopInstallFailed = $false
 if (-not (Test-Path -LiteralPath $DesktopScript)) {
     if ($DesktopRegistered) {
-        Write-InstallerWarning "A desktop package is registered but $DesktopScript is missing from this source tree; the desktop package was NOT upgraded."
-        Write-InstallerWarning "Run it manually after this install: desktop\install.cmd"
-        $DesktopInstallFailed = $true
+        Write-InstallerWarning 'A desktop package is registered, but the desktop source is parked (branch desktop/parked); its installed copy keeps serving as-is.'
+        Write-InstallerSkip 'Desktop component not upgraded; restore the branch to upgrade it.'
     } elseif ($InstallDesktop) {
-        Write-InstallerWarning 'Desktop installation was requested but the desktop installer is missing.'
-        $DesktopInstallFailed = $true
+        Write-InstallerWarning 'Desktop installation was requested but the desktop source is parked (branch desktop/parked).'
+        Write-InstallerSkip 'Restore the branch (git checkout desktop/parked -- desktop/) to install it.'
     } else {
         Write-InstallerSkip 'Desktop component not present in this source tree; skipped.'
     }

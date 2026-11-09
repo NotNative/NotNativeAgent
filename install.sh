@@ -583,7 +583,8 @@ if [ -f "$(dirname "$source_root")/desktop/install.sh" ] || [ -f "$source_root/d
   printf '%s\n' '[--] The desktop component requires Windows (win32/x64 payload); skipped on this platform.'
   printf '%s\n' '     On a Windows machine it installs with the NNA installer, or manually: desktop/install.cmd'
 else
-  printf '%s\n' '[--] Desktop component not present in this source tree; skipped.'
+  printf '%s\n' '[--] Desktop source is parked (branch desktop/parked); component skipped.'
+  printf '%s\n' '     Restore it with: git checkout desktop/parked -- desktop/'
 fi
 
 printf '\n%b INSTALL COMPLETE%b\n' "$c_magenta" "$c_reset"
