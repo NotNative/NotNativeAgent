@@ -43,11 +43,10 @@ export async function startOpencodeServe(options = {}) {
     ...(options.skillRoots ? { skillRoots: options.skillRoots } : {}),
     scheduler, secretBroker: providerSettings?.secretBroker ?? options.secretBroker, providerSettings,
     providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
-    // Why opt-in: the legacy store belongs to the standalone product, and serving it
-    // is an operator decision — an explicit archive in options, never a silent default.
+    // Why threaded here: a conversation shown by a hosting surface drives that
+    // pane, resolved once per surface so every conversation shares one binding.
+    ...(options.hostedBrowserTransport ? { hostedBrowserTransport: options.hostedBrowserTransport } : {}),
     archive: options.archive ?? null,
-    // Why an injected callback: the v2 workspace resolves demand re-attach without
-    // importing the eviction module; the bundle carries operations and store root.
     reattachEvicted: (id) => reattachEvictedSession(
       workspace.core, { storeRoot: options.storeRoot, operations: workspace.operations }, id),
   });  // Why eviction: an idle conversation should not hold three durable file handles;

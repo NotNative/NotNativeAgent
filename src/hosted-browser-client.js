@@ -16,6 +16,7 @@
  * binding that outlived its server would point at a dead port.
  */
 import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
 
 const ROUTE = '/api/openchamber/nna/browser';
@@ -84,6 +85,30 @@ export async function resolveHostedBrowserBinding({ environment = process.env, c
   const fromEnvironment = hostedBrowserBindingFromEnvironment(environment);
   if (fromEnvironment) return fromEnvironment;
   return readHostedBrowserBinding(capabilityPath, read === undefined ? {} : { read });
+}
+
+/**
+ * The OpenChamber instance's own capability file, beside the state it keeps for
+ * itself. Why there: the binding is per-instance, so it lives where that
+ * instance already writes, and it dies with the directory it wrote.
+ */
+export function hostedBrowserCapabilityPath(dataRoot) {
+  return typeof dataRoot === 'string' && dataRoot.length > 0 ? join(dataRoot, 'nna-browser.json') : null;
+}
+
+/**
+ * Builds the transport a served conversation drives, or null when this host has
+ * no pane to drive.
+ *
+ * Why null rather than an error: an operator may run NNA's surface without
+ * OpenChamber at all, and a conversation with no page to show must get no
+ * browser tool instead of one whose every call fails.
+ */
+export async function openHostedBrowserTransport({ environment = process.env, dataRoot = null, ...rest } = {}) {
+  const binding = await resolveHostedBrowserBinding({
+    environment, capabilityPath: hostedBrowserCapabilityPath(dataRoot), ...rest,
+  }).catch(() => null);
+  return binding ? createHostedBrowserTransport(binding, rest) : null;
 }
 
 function boundedBody(value) {

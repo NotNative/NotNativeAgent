@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { startOpencodeServe } from './serve.js';
 import { StructuredLog } from '../structured-log.js';
 import { loadOpenCodeConfig } from './config.js';
+import { openHostedBrowserTransport } from '../hosted-browser-client.js';
 import {
   disableOpencodeService, enableOpencodeService, opencodeServiceStatus, removeRuntimePid, requireServiceRuntime,
   startOpencodeService, stopOpencodeService, writeRuntimePid,
@@ -36,6 +37,14 @@ async function runManagedService(options, paths, scope, diagnostics) {
   const config = await loadOpenCodeConfig(paths.opencodeConfig);
   requireServiceRuntime(config);
   const logger = await new StructuredLog({ path: join(paths.logs, RUNTIME_LOG_FILE) }).initialize();
+  // Why here: this is where the surface is actually served, and the pane binding
+  // belongs to this process's run. A missing binding is an ordinary state — an
+  // operator may run NNA without OpenChamber — so the surface serves without a
+  // browser tool rather than refusing to start.
+  const hostedBrowserTransport = await openHostedBrowserTransport({
+    environment: scope.environment ?? process.env, dataRoot: paths.root,
+    ...(scope.fetcher ? { fetcher: scope.fetcher } : {}),
+  }).catch(() => null);
   const runtime = await startOpencodeServe({
     paths, manifestPath: options.manifestPath ?? undefined,
     hostname: config.hostname,
@@ -43,6 +52,7 @@ async function runManagedService(options, paths, scope, diagnostics) {
     username: config.username,
     password: config.password,
     logger,
+    ...(hostedBrowserTransport ? { hostedBrowserTransport } : {}),
   });
   await writeRuntimePid(paths, process.pid, { port: runtime.port, url: runtime.url }, scope);
   diagnostics.write(`nna opencode: managed surface ready at ${runtime.url}\n`);
