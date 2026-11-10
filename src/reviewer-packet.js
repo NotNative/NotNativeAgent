@@ -4,15 +4,36 @@ import { sha256Hex } from './digests.js';
 export function safeReviewRequest(request, outsideWorkspace) {
   const process = ['shell_run', 'process_run'].includes(request.toolName);
   const resolved = request.resolved ?? {};
+  // Why the destination and method travel with the packet: for a network request
+  // the reviewer must judge where the data goes, not only which tool ran. An
+  // agent that reaches a page or posts to it can carry workspace content out.
+  const destination = safeDestination(resolved.destination);
   return Object.freeze({
     id: request.id, toolName: request.toolName, args: safeArguments(request.toolName, request.args),
     // Security: a process working directory is not a ceiling on paths named by its command.
     resolvedTarget: process ? 'unresolved_process_effects'
-      : resolved.path ?? resolved.source?.path ?? resolved.destination?.path ?? 'external',
+      : resolved.path ?? resolved.source?.path ?? resolved.destination?.path ?? resolved.destination ?? 'external',
     ...(process ? { workingDirectory: resolved.path ?? null } : {}),
     scope: process || outsideWorkspace ? 'host'
-      : (resolved.path || resolved.source?.path ? 'workspace' : 'external'),
+      : (resolved.path || resolved.source?.path || resolved.destination?.path ? 'workspace' : 'external'),
     caller: request.caller, mutationEvidence: safeMutationEvidence(resolved.mutationEvidence),
+    ...(typeof resolved.method === 'string' ? { method: resolved.method } : {}),
+    ...(destination ? { destination } : {}),
+  });
+}
+
+/** The destination as the reviewer sees it: scheme, host, and path, with any
+ * user info, query, and fragment left out so a credential in a URL is never
+ * copied into a review packet. */
+export function safeDestination(value) {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  let parsed;
+  try { parsed = new URL(value); } catch {
+    return value.length <= 2048 ? Object.freeze({ raw: value.slice(0, 2048) }) : null;
+  }
+  return Object.freeze({
+    origin: parsed.origin, path: parsed.pathname.slice(0, 2048),
+    ...(parsed.port ? { port: parsed.port } : {}),
   });
 }
 

@@ -4,7 +4,7 @@ import { requestDigest } from './persistence/reviewer-ledger.js';
 import { safeReviewDefinition, safeReviewRequest } from './reviewer-packet.js';
 import { EMPTY_CONVERSATION_TEXT_LANE } from './conversation-text-lane.js';
 import { externalBrowserGuidance } from './reliability/external-browser.js';
-import { workspaceTransitionClassification } from './reliability/workspace-scope.js';
+import { classify, resolvedOutsideWorkspace } from './reviewer-classification.js';
 import { recordAndSettleAuthorization } from './reviewer-delivery.js';
 import { elapsedMs } from './timing.js';
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
@@ -132,150 +132,6 @@ export class UnavailableSemanticReviewer {
   async review() {
     throw new ContractError('semantic_reviewer_unavailable', 'semantic reviewer is unavailable');
   }
-}
-function classify(request, definition) {
-  if (!definition || request.toolName !== definition.name) return definitionMismatchClassification();
-  if (definition.name === 'workspace_change') return workspaceTransitionClassification(resolvedOutsideWorkspace(request));
-  if (definition.name === 'fs_directory' && request.args?.action === 'list') {
-    return Object.freeze({
-      risk: 'safe', reason: resolvedOutsideWorkspace(request) ? 'host_read' : 'workspace_read',
-      effect: 'read_only', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity: 'simple',
-    });
-  }
-  if (definition.sideEffect === 'read_only' && definition.scope === 'workspace') {
-    return Object.freeze({
-      risk: 'safe', reason: resolvedOutsideWorkspace(request) ? 'host_read' : 'workspace_read',
-      effect: 'read_only', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity: 'simple',
-    });
-  }
-  if (definition.sideEffect === 'read_only' && definition.scope === 'product_guidance'
-    && ['nna_search_guidance', 'nna_read_guidance'].includes(definition.name)) {
-    return Object.freeze({ risk: 'safe', reason: 'packaged_product_guidance', effect: 'read_only', scope: 'product_guidance', complexity: 'simple' });
-  }
-  if (definition.sideEffect === 'read_only' && definition.scope === 'runtime_diagnostics'
-    && ['nna_list_sessions', 'nna_diagnose_turn'].includes(definition.name)) {
-    return Object.freeze({ risk: 'safe', reason: 'redacted_runtime_diagnostics', effect: 'read_only', scope: 'runtime_diagnostics', complexity: 'simple' });
-  }
-  if (definition.sideEffect === 'read_only' && definition.scope === 'runtime_info' && definition.name === 'system_time') return Object.freeze({ risk: 'safe', reason: 'host_clock_observation', effect: 'read_only', scope: 'runtime_info', complexity: 'simple' });
-  if (definition.sideEffect === 'read_only' && definition.scope === 'mcp_control'
-    && ['nna_mcp_status', 'nna_mcp_test'].includes(definition.name)) {
-    return Object.freeze({ risk: 'safe', reason: 'configured_mcp_inspection', effect: 'read_only', scope: 'mcp_control', complexity: 'simple' });
-  }
-  if (definition.sideEffect === 'read_only' && definition.scope === 'web_search' && definition.name === 'web_search') {
-    return Object.freeze({ risk: 'safe', reason: 'configured_web_search', effect: 'read_only', scope: 'web_search', complexity: 'simple' });
-  }
-  if (definition.sideEffect === 'read_only' && definition.name === 'web_fetch'
-    && ['public_network', 'trusted_private_origin'].includes(request.resolved?.destination)) {
-    const privateOrigin = request.resolved.destination === 'trusted_private_origin';
-    return Object.freeze({ risk: 'safe', reason: privateOrigin ? 'trusted_private_web_fetch' : 'validated_public_web_fetch', effect: 'read_only', scope: privateOrigin ? 'private_network' : 'public_network', complexity: 'simple' });
-  }
-  if (definition.name === 'web_browse') return browserClassification(request);
-  const localControl = localControlClassification(definition);
-  if (localControl) return localControl;
-  if (definition.scope === 'ephemeral_reference' && definition.name.startsWith('ref_')) return ephemeralReferenceClassification(definition);
-  // Why: sealed conversation_work scope—not provider-name punctuation—is this authority boundary.
-  if (definition.scope === 'conversation_work') {
-    return Object.freeze({ risk: 'safe', reason: 'bounded_conversation_work', effect: definition.sideEffect, scope: 'conversation_work', complexity: 'simple' });
-  }
-  const directoryRemoval = directoryRemovalClassification(request, definition);
-  if (directoryRemoval) return directoryRemoval;
-  if (definition.scope === 'workspace' && ['reversible', 'irreversible'].includes(definition.sideEffect)) {
-    const recovery = resolvedRecovery(request);
-    if (!resolvedOutsideWorkspace(request) && ['git_tracked', 'new_target'].includes(recovery)) {
-      return Object.freeze({ risk: 'reversible', reason: recovery, effect: 'reversible', scope: 'workspace', complexity: 'simple' });
-    }
-    return Object.freeze({
-      risk: 'review_required', reason: resolvedOutsideWorkspace(request) ? 'host_mutation' : 'unverified_recovery',
-      effect: definition.sideEffect, scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity: 'simple',
-    });
-  }
-  if (definition.name === 'system_elevate') return elevationClassification();
-  if (['process_run', 'shell_run'].includes(definition.name)) return processClassification(request);
-  return Object.freeze({ risk: 'review_required', reason: 'uncertain_effect', effect: definition.sideEffect, scope: definition.scope, complexity: 'unknown' });
-}
-
-function localControlClassification(definition) {
-  if (definition.sideEffect === 'read_only' && definition.scope === 'tool_catalog' && definition.name === 'tool_search') {
-    return Object.freeze({ risk: 'safe', reason: 'bounded_tool_catalog', effect: 'read_only', scope: 'tool_catalog', complexity: 'simple' });
-  }
-  // Why: a question is operator speech, not an effect. Review posture never
-  // gates it; escalation would put a permission prompt in front of the question.
-  if (definition.sideEffect === 'read_only' && definition.scope === 'conversation_control' && definition.name === 'question') {
-    return Object.freeze({ risk: 'safe', reason: 'operator_question', effect: 'read_only', scope: 'conversation_control', complexity: 'simple' });
-  }
-  // Why: turn_finish records an assertion for deterministic supervision; it does not grant
-  // authority or cause an external effect. Sending that assertion to semantic review would
-  // make terminal reliability depend circularly on another model response.
-  if (definition.sideEffect !== 'read_only' || definition.scope !== 'conversation_control'
-    || definition.name !== 'turn_finish') return null;
-  return Object.freeze({ risk: 'safe', reason: 'typed_terminal_declaration', effect: 'read_only', scope: 'conversation_control', complexity: 'simple' });
-}
-
-function processClassification(request) {
-  if (request.toolName === 'shell_run' && request.args.privilege === 'administrator') return elevationClassification();
-  const complexity = request.resolved.reviewComplexity ?? 'unknown';
-  if (request.resolved?.readOnly === true) return Object.freeze({ risk: 'safe',
-    reason: request.resolved.reviewPurpose ?? 'process_observation', effect: 'read_only',
-    scope: 'host', complexity });
-  const detached = request.resolved?.reliabilitySignals?.includes('detached_process');
-  const foregroundServer = request.resolved?.reliabilitySignals?.includes('long_running_foreground');
-  return Object.freeze({
-    risk: 'review_required',
-    reason: detached ? 'detached_process_request'
-      : foregroundServer ? 'long_running_foreground_request'
-      : ['simple_argv', 'simple_shell'].includes(complexity) ? 'process_execution' : 'opaque_process_request',
-    effect: 'unknown', scope: 'host', complexity,
-    purpose: request.resolved.reviewPurpose ?? 'general_process',
-  });
-}
-
-function definitionMismatchClassification() {
-  return Object.freeze({ risk: 'prohibited', reason: 'definition_mismatch', effect: 'unknown', scope: 'unknown', complexity: 'unknown' });
-}
-
-function directoryRemovalClassification(request, definition) {
-  if (definition.name !== 'fs_directory' || request.args?.action !== 'remove') return null;
-  return Object.freeze({
-    risk: 'review_required', reason: request.args?.recursive ? 'recursive_directory_removal' : 'directory_removal',
-    effect: 'irreversible', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity: 'simple',
-  });
-}
-
-function ephemeralReferenceClassification(definition) {
-  return Object.freeze({ risk: 'safe', reason: 'bounded_ephemeral_reference', effect: definition.sideEffect, scope: 'ephemeral_reference', complexity: 'simple' });
-}
-
-function elevationClassification() {
-  return Object.freeze({
-    risk: 'review_required', reason: 'privileged_execution', effect: 'unknown', scope: 'host',
-    complexity: 'privileged_execution', purpose: 'host_elevation',
-  });
-}
-
-function browserClassification(request) {
-  const destination = request.resolved?.destination ?? null;
-  if (request.resolved?.readOnly === true && destination === 'managed_workspace_origin') return Object.freeze({ risk: 'safe', reason: 'managed_workspace_browser_navigation', effect: 'read_only', scope: 'workspace', complexity: 'simple' });
-  if (request.resolved?.readOnly === true && destination === 'reviewable_loopback_origin') {
-    return Object.freeze({ risk: 'review_required', reason: 'loopback_browser_navigation', effect: 'read_only', scope: 'loopback', complexity: 'simple' });
-  }
-  if (request.resolved?.readOnly === true && [null, 'public_network', 'trusted_private_origin'].includes(destination)) {
-    return Object.freeze({ risk: 'safe', reason: 'bounded_browser_observation', effect: 'read_only', scope: destination === 'trusted_private_origin' ? 'private_network' : 'browser', complexity: 'simple' });
-  }
-  return Object.freeze({ risk: 'review_required', reason: 'interactive_browser_action', effect: 'unknown', scope: 'browser', complexity: 'simple' });
-}
-
-function resolvedRecovery(request) {
-  if (request.toolName === 'fs_copy_file') return request.resolved?.destination?.recovery ?? 'none';
-  if (request.toolName === 'fs_move_file') {
-    return request.resolved?.source?.recovery === 'git_tracked' && request.resolved?.destination?.recovery === 'new_target'
-      ? 'git_tracked' : 'none';
-  }
-  return request.resolved?.recovery ?? 'none';
-}
-
-function resolvedOutsideWorkspace(request) {
-  const targets = [request.resolved, request.resolved?.source, request.resolved?.destination].filter(Boolean);
-  return targets.some((target) => target.insideWorkspace === false);
 }
 
 async function boundedReview(component, input, timeoutMs, externalSignal, correlation) {
@@ -442,6 +298,8 @@ function authenticatedIntentRelation(request, authority, definition) {
   if (request.toolName === 'workspace_change') return 'uncertain';
   if (request.toolName === 'fs_directory' && request.args?.action === 'list') return 'covered';
   if (definition.sideEffect === 'read_only') return 'covered';
+  // Why a page open is not covered: the tool declares an unknown effect because a
+  // page can carry data outward, so the authenticated intent must speak to it.
   // Why: free-form authenticated language is authoritative evidence, but its
   // meaning is not a mechanical fact. Structured mission ceilings are checked
   // before this point; all other consequential intent reaches semantic review.

@@ -74,3 +74,22 @@ test('packet tolerates malformed direct helper inputs', () => {
   assert.deepEqual(review.args, {});
   assert.equal(review.resolvedTarget, 'external');
 });
+
+test('a page request carries its destination and method without URL credentials or query', () => {
+  // Security: the reviewer must judge where a page request goes and what it
+  // does there, and a credential or query value in the URL never reaches it.
+  const review = packet('desktop_browser', { action: 'open', url: 'https://user:pw@example.org/form?token=abc#top' },
+    { destination: 'https://user:pw@example.org/form?token=abc#top', method: 'GET' });
+  assert.equal(review.method, 'GET');
+  assert.deepEqual(review.destination, { origin: 'https://example.org', path: '/form' });
+  // The credential-looking URL is already replaced in the tool arguments, and the
+  // target field keeps the exact address the review must judge.
+  assert.equal(review.args.url, '[redacted]');
+  assert.equal(JSON.stringify(review.destination).includes('token=abc'), false);
+  assert.equal(JSON.stringify(review.destination).includes('pw@'), false);
+  // Why the raw target keeps the URL: the review decision must rest on the exact
+  // address the request will reach, and a redaction would hide a query that
+  // carries data out. The destination field is the sanitized view for display.
+  assert.equal(review.resolvedTarget, 'https://user:pw@example.org/form?token=abc#top');
+  assert.equal(review.scope, 'external');
+});

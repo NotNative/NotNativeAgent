@@ -51,13 +51,24 @@ test('governed browser tool validates narrow actions and forwards cancellation',
   assert.equal(definition.sideEffect, 'unknown');
   assert.deepEqual((await definition.validate({ action: 'snapshot' })).args, { action: 'snapshot' });
   await assert.rejects(definition.validate({ action: 'snapshot', url: 'https://example.com' }));
-  await assert.rejects(definition.validate({ action: 'open', url: 'http://example.com' }));
+  // Security: where a page request goes is judged by semantic review, which sees
+  // the destination and method, so an operator's own domain does not have to be
+  // loopback to be opened. A URL that carries credentials or a fragment is refused
+  // before review, because that is never what a page address means.
+  assert.deepEqual((await definition.validate({ action: 'open', url: 'http://gpt.local:8000/v1' })).args,
+    { action: 'open', url: 'http://gpt.local:8000/v1' });
+  await assert.rejects(definition.validate({ action: 'open', url: 'file:///C:/secrets.txt' }));
+  await assert.rejects(definition.validate({ action: 'open', url: 'https://example.com/#section' }));
   await assert.rejects(definition.validate({ action: 'open', url: 'https://user:pass@example.com' }));
   await assert.rejects(definition.validate({ action: 'inspect' }));
   await assert.rejects(definition.validate({ action: 'inspect', selector: '#send', url: 'https://example.com' }));
   assert.deepEqual((await definition.validate({ action: 'inspect', selector: '#send' })).args, { action: 'inspect', selector: '#send' });
   await assert.rejects(definition.validate({ action: 'click', selector: '#send' }));
-  await assert.rejects(definition.validate({ action: 'click', selector: '#send', expectedUrl: 'http://remote.example/' }));
+  // An observed URL is read back from the surface, so any host it reports stays
+  // observable; a URL carrying credentials is refused there too.
+  assert.deepEqual((await definition.validate({ action: 'click', selector: '#send', expectedUrl: 'http://remote.example/' })).args,
+    { action: 'click', selector: '#send', expectedUrl: 'http://remote.example/' });
+  await assert.rejects(definition.validate({ action: 'click', selector: '#send', expectedUrl: 'https://user:pass@remote.example/' }));
   await assert.rejects(definition.validate({ action: 'scroll', direction: 'down' }));
   await assert.rejects(definition.validate({ action: 'history', direction: 'back' }));
   await assert.rejects(definition.validate({ action: 'history', direction: 'up', expectedUrl: 'https://example.org/' }));
@@ -75,13 +86,13 @@ test('governed browser tool validates narrow actions and forwards cancellation',
   assert.deepEqual((await definition.validate({ action: 'click', selector: '#send', expectedUrl: 'https://example.org/' })).args,
     { action: 'click', selector: '#send', expectedUrl: 'https://example.org/' });
   const click = await definition.validate({ action: 'click', selector: '#send', expectedUrl: 'https://example.org/' });
-  await assert.rejects(definition.executor(click, new AbortController().signal), /fresh snapshot/u);
+  await assert.rejects(definition.executor(click, new AbortController().signal), /snapshot of the exact page URL|has no observation/u);
   const scroll = await definition.validate({ action: 'scroll', direction: 'down', expectedUrl: 'https://example.org/' });
-  await assert.rejects(definition.executor(scroll, new AbortController().signal), /fresh snapshot/u);
+  await assert.rejects(definition.executor(scroll, new AbortController().signal), /snapshot of the exact page URL|has no observation/u);
   const history = await definition.validate({ action: 'history', direction: 'back', expectedUrl: 'https://example.org/' });
-  await assert.rejects(definition.executor(history, new AbortController().signal), /fresh snapshot/u);
+  await assert.rejects(definition.executor(history, new AbortController().signal), /snapshot of the exact page URL|has no observation/u);
   const type = await definition.validate({ action: 'type', selector: '#query', expectedUrl: 'https://example.org/', text: 'hello' });
-  await assert.rejects(definition.executor(type, new AbortController().signal), /fresh snapshot/u);
+  await assert.rejects(definition.executor(type, new AbortController().signal), /snapshot of the exact page URL|has no observation/u);
   const request = await definition.validate({ action: 'open', url: 'https://example.com' });
   const signal = new AbortController().signal;
   const result = await definition.executor(request, signal);
@@ -95,24 +106,24 @@ test('governed browser tool validates narrow actions and forwards cancellation',
   await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
   await definition.executor(await definition.validate({ action: 'click', selector: '#send', expectedUrl: 'https://example.org/' }), signal);
   assert.deepEqual(JSON.parse(calls[3].options.body), { action: 'browser.click', parameters: { selector: '#send', expectedUrl: 'https://example.org/', observationRevision: 7, observationId } });
-  await assert.rejects(definition.executor(click, signal), /fresh snapshot/u);
+  await assert.rejects(definition.executor(click, signal), /snapshot of the exact page URL|has no observation/u);
   assert.equal(calls.length, 4);
   await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
   await definition.executor(scroll, signal);
   assert.deepEqual(JSON.parse(calls[5].options.body), { action: 'browser.scroll', parameters: { direction: 'down', expectedUrl: 'https://example.org/', observationRevision: 7, observationId } });
-  await assert.rejects(definition.executor(scroll, signal), /fresh snapshot/u);
+  await assert.rejects(definition.executor(scroll, signal), /snapshot of the exact page URL|has no observation/u);
   await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
   await definition.executor(history, signal);
   assert.deepEqual(JSON.parse(calls[7].options.body), { action: 'browser.history', parameters: {
     direction: 'back', expectedUrl: 'https://example.org/', observationRevision: 7, observationId,
   } });
-  await assert.rejects(definition.executor(history, signal), /fresh snapshot/u);
+  await assert.rejects(definition.executor(history, signal), /snapshot of the exact page URL|has no observation/u);
   await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
   await definition.executor(type, signal);
   assert.deepEqual(JSON.parse(calls[9].options.body), { action: 'browser.type', parameters: {
     selector: '#query', expectedUrl: 'https://example.org/', text: 'hello', observationRevision: 7, observationId,
   } });
-  await assert.rejects(definition.executor(type, signal), /fresh snapshot/u);
+  await assert.rejects(definition.executor(type, signal), /snapshot of the exact page URL|has no observation/u);
 });
 
 test('a later open consumes observation and an old snapshot cannot reauthorize a click', async () => {
@@ -132,7 +143,7 @@ test('a later open consumes observation and an old snapshot cannot reauthorize a
   finishSnapshot();
   await snapshot;
   await assert.rejects(definition.executor(await definition.validate({ action: 'click', selector: '#send',
-    expectedUrl: 'https://example.org/' }), signal), /fresh snapshot/u);
+    expectedUrl: 'https://example.org/' }), signal), /snapshot of the exact page URL|has no observation/u);
   assert.deepEqual(calls, ['browser.snapshot', 'browser.open']);
 });
 
@@ -157,7 +168,7 @@ test('a disconnected desktop after click dispatch remains an uncertain outcome',
   await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
   const click = await definition.validate({ action: 'click', selector: '#send', expectedUrl: 'https://example.org/' });
   await assert.rejects(definition.executor(click, signal), /outcome is uncertain/u);
-  await assert.rejects(definition.executor(click, signal), /fresh snapshot/u);
+  await assert.rejects(definition.executor(click, signal), /snapshot of the exact page URL|has no observation/u);
 });
 
 test('a timed-out scroll consumes its observation even when the desktop outcome is unknown', async () => {
@@ -174,7 +185,7 @@ test('a timed-out scroll consumes its observation even when the desktop outcome 
   const scroll = await definition.validate({ action: 'scroll', direction: 'down', expectedUrl: 'https://example.org/' });
   await definition.executor(snapshot, signal);
   await assert.rejects(definition.executor(scroll, signal), /outcome is uncertain/u);
-  await assert.rejects(definition.executor(scroll, signal), /fresh snapshot/u);
+  await assert.rejects(definition.executor(scroll, signal), /snapshot of the exact page URL|has no observation/u);
   assert.deepEqual(calls, ['browser.snapshot', 'browser.scroll']);
 });
 
@@ -191,7 +202,7 @@ test('a failed type dispatch consumes its observation and reports uncertainty', 
   const type = await definition.validate({ action: 'type', selector: '#query', expectedUrl: 'https://example.org/', text: 'hello' });
   await definition.executor(await definition.validate({ action: 'snapshot' }), signal);
   await assert.rejects(definition.executor(type, signal), /outcome is uncertain/u);
-  await assert.rejects(definition.executor(type, signal), /fresh snapshot/u);
+  await assert.rejects(definition.executor(type, signal), /snapshot of the exact page URL|has no observation/u);
   assert.deepEqual(calls, ['browser.snapshot', 'browser.type']);
 });
 
@@ -208,7 +219,7 @@ test('capture requires a single-use observation and saves only a validated bound
         : { url: 'https://example.org/', mime: 'image/jpeg', width: 800, height: 600, base64: jpeg.toString('base64') } }));
     } });
     const capture = await definition.validate({ action: 'capture', expectedUrl: 'https://example.org/' });
-    await assert.rejects(definition.executor(capture, new AbortController().signal), /fresh snapshot/u);
+    await assert.rejects(definition.executor(capture, new AbortController().signal), /snapshot of the exact page URL|has no observation/u);
     await assert.rejects(definition.validate({ action: 'capture', expectedUrl: 'https://example.org/', selector: '#x' }));
     await definition.executor(await definition.validate({ action: 'snapshot' }), new AbortController().signal);
     const receipt = await definition.executor(capture, new AbortController().signal);
@@ -218,7 +229,7 @@ test('capture requires a single-use observation and saves only a validated bound
     assert.deepEqual(calls.at(-1), { action: 'browser.capture', parameters: {
       expectedUrl: 'https://example.org/', observationRevision: 7, observationId,
     } });
-    await assert.rejects(definition.executor(capture, new AbortController().signal), /fresh snapshot/u);
+    await assert.rejects(definition.executor(capture, new AbortController().signal), /snapshot of the exact page URL|has no observation/u);
   } finally { await rm(captureRoot, { recursive: true, force: true }); }
 });
 

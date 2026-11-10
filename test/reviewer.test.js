@@ -1537,3 +1537,53 @@ test('AC-AUTH-05 semantic review receives authenticated intent before denying an
   assert.equal(decision.reasonCode, 'delete_not_authorized');
   assert.equal(semanticCalls, 1);
 });
+
+test('a page reading is deterministically safe while an open or a change is reviewed', async () => {
+  // Security: page text returns as untrusted data, so an injection into it can only
+  // propose an action — and every action that sends, navigates, or changes a page is
+  // reviewed against the operator's intent. An open is reviewed because the address
+  // is new and its query can carry data out.
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'hosted-browser' });
+  const inputs = [];
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
+    inputs.push(input);
+    return { outcome: 'approve', confidence: 1, reason_code: 'authorized', authority_anchors: [1] };
+  } } });
+  const definition = { name: 'desktop_browser', sideEffect: 'unknown', scope: 'browser' };
+  const request = (id, args, resolved) => ({
+    id, providerCallId: `provider-${id}`, toolName: 'desktop_browser', args,
+    resolved, authorityId: 'authority-1', authorityVersion: 1, policyVersion: 1,
+    definitionVersion: 1, caller: 'primary', expiresAt: Date.now() + 60_000,
+  });
+  const authority = { id: 'authority-1', intent: [{ content: 'Check the page renders', sequence: 1 }], mission: null };
+  const snapshot = await reviewer.review(request('snapshot-1', { action: 'snapshot' },
+    { method: 'POST', destination: 'https://example.org/upload', readOnly: true }), { ...context, authority, definition });
+  const inspect = await reviewer.review(request('inspect-1', { action: 'inspect', selector: '#upload' },
+    { method: 'POST', destination: 'https://example.org/upload', readOnly: true }), { ...context, authority, definition });
+  const capture = await reviewer.review(request('capture-1', { action: 'capture', expectedUrl: 'https://example.org/upload' },
+    { method: 'POST', destination: 'https://example.org/upload', readOnly: true }), { ...context, authority, definition });
+  assert.equal(snapshot.reasonCode, 'deterministic_safe');
+  assert.equal(inspect.reasonCode, 'deterministic_safe');
+  // A screenshot is information a page drew, not an instruction: it is safe to
+  // take, and the file lands in this surface's own bounded capture root.
+  assert.equal(capture.reasonCode, 'deterministic_safe');
+  assert.equal(inputs.length, 0);
+  const open = await reviewer.review(request('open-1', { action: 'open', url: 'https://example.org/upload?d=stolen' },
+    { method: 'GET', destination: 'https://example.org/upload?d=stolen' }), { ...context, authority, definition });
+  const click = await reviewer.review(request('click-1', { action: 'click', selector: '#upload', expectedUrl: 'https://example.org/upload' },
+    { method: 'POST', destination: 'https://example.org/upload' }), { ...context, authority, definition });
+  const type = await reviewer.review(request('type-1', { action: 'type', selector: '#q', expectedUrl: 'https://example.org/upload', text: 'x' },
+    { method: 'POST', destination: 'https://example.org/upload' }), { ...context, authority, definition });
+  assert.equal(open.outcome, 'approve');
+  assert.equal(click.outcome, 'approve');
+  assert.equal(type.outcome, 'approve');
+  assert.equal(inputs.length, 3);
+  assert.equal(inputs[0].classification.reason, 'hosted_surface_page_navigation');
+  assert.equal(inputs[1].classification.reason, 'interactive_browser_action');
+  assert.equal(inputs[2].classification.reason, 'interactive_browser_action');
+  for (const input of inputs) assert.equal(input.classification.risk, 'review_required');
+  // Why the open's destination keeps its query: the review must see what the
+  // address carries out, and the sanitized view strips it for display only.
+  assert.equal(inputs[0].request.resolvedTarget, 'https://example.org/upload?d=stolen');
+  assert.deepEqual(inputs[0].request.destination, { origin: 'https://example.org', path: '/upload' });
+});
