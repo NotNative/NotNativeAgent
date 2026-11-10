@@ -15,8 +15,9 @@
  * instance state. It is never read from a user or machine registry scope: a
  * binding that outlived its server would point at a dead port.
  */
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFile, readdir as readDirectory } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 
 const ROUTE = '/api/openchamber/nna/browser';
@@ -88,13 +89,55 @@ export async function resolveHostedBrowserBinding({ environment = process.env, c
 }
 
 /**
- * The OpenChamber instance's own capability file, beside the state it keeps for
- * itself. Why there: the binding is per-instance, so it lives where that
- * instance already writes, and it dies with the directory it wrote.
+ * Where OpenChamber publishes the binding.
+ *
+ * Why this shape: OpenChamber keeps one directory per running instance under its
+ * own data root, keyed by process id (`run/instances/<pid>`), and writes the
+ * binding beside that instance's other state. It is not NNA's data root — the two
+ * products keep separate data — so the path is derived from OpenChamber's own
+ * root, honouring `OPENCHAMBER_DATA_DIR` when the operator relocated it.
  */
-export function hostedBrowserCapabilityPath(dataRoot) {
-  return typeof dataRoot === 'string' && dataRoot.length > 0 ? join(dataRoot, 'nna-browser.json') : null;
+export function hostedBrowserCapabilityRoots(environment = process.env, home = homedir()) {
+  const configured = typeof environment.OPENCHAMBER_DATA_DIR === 'string' && environment.OPENCHAMBER_DATA_DIR.trim()
+    ? resolve(environment.OPENCHAMBER_DATA_DIR.trim()) : null;
+  const roots = [];
+  if (configured) roots.push(configured);
+  roots.push(join(home, '.config', 'openchamber'));
+  // Windows desktop builds keep their data under the roaming profile instead.
+  if (typeof environment.APPDATA === 'string' && environment.APPDATA) {
+    roots.push(join(environment.APPDATA, 'OpenChamber'));
+  }
+  return [...new Set(roots)];
 }
+
+/** The instance state directories under one OpenChamber data root. */
+async function instanceDirs(root, { readdir = readDirectory } = {}) {
+  const base = join(root, 'run', 'instances');
+  let entries;
+  try { entries = await readdir(base, { withFileTypes: true }); } catch { return []; }
+  return entries.filter((entry) => entry.isDirectory()).map((entry) => join(base, entry.name));
+}
+
+/**
+ * The published binding, from any live instance of either data root.
+ *
+ * Why every instance: a restart leaves the old directory behind for a moment, so
+ * reading them newest-first finds the process actually listening rather than one
+ * that has gone.
+ */
+export async function findHostedBrowserBinding({ environment = process.env, home = homedir(), readdir } = {}) {
+  const readOptions = readdir === undefined ? {} : { readdir };
+  for (const root of hostedBrowserCapabilityRoots(environment, home)) {
+    const directories = await instanceDirs(root, readOptions);
+    for (const directory of directories.reverse()) {
+      const binding = await readHostedBrowserBinding(join(directory, CAPABILITY_FILE));
+      if (binding) return binding;
+    }
+  }
+  return null;
+}
+
+const CAPABILITY_FILE = 'nna-browser.json';
 
 /**
  * Builds the transport a served conversation drives, or null when this host has
@@ -104,11 +147,17 @@ export function hostedBrowserCapabilityPath(dataRoot) {
  * OpenChamber at all, and a conversation with no page to show must get no
  * browser tool instead of one whose every call fails.
  */
-export async function openHostedBrowserTransport({ environment = process.env, dataRoot = null, ...rest } = {}) {
-  const binding = await resolveHostedBrowserBinding({
-    environment, capabilityPath: hostedBrowserCapabilityPath(dataRoot), ...rest,
-  }).catch(() => null);
+export async function openHostedBrowserTransport({ environment = process.env, ...rest } = {}) {
+  // Environment first: a launcher that started OpenChamber hands the binding
+  // down, and that names the instance it just launched rather than an older one.
+  const binding = await resolveBinding({ environment, ...rest });
   return binding ? createHostedBrowserTransport(binding, rest) : null;
+}
+
+async function resolveBinding({ environment, home, ...rest }) {
+  const fromEnvironment = hostedBrowserBindingFromEnvironment(environment);
+  if (fromEnvironment) return fromEnvironment;
+  return findHostedBrowserBinding({ environment, ...(home === undefined ? {} : { home }) });
 }
 
 function boundedBody(value) {

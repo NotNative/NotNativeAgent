@@ -11,11 +11,11 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
-import { createHostedBrowserTransport, hostedBrowserCapabilityPath } from '../src/hosted-browser-client.js';
+import { createHostedBrowserTransport, findHostedBrowserBinding } from '../src/hosted-browser-client.js';
 import { hostedBrowserDefinition } from '../src/hosted-browser-tool.js';
 import { answerPaneRequest, PANE_ROUTE } from './hosted-pane-standin.js';
 
@@ -109,7 +109,18 @@ test('a credential the pane no longer accepts is reported as such', async () => 
   } finally { server.close(); }
 });
 
-test('the capability file names the route the transport speaks', () => {
-  assert.equal(hostedBrowserCapabilityPath('C:/data').endsWith('nna-browser.json'), true);
-  assert.match(PANE_ROUTE, /^\/api\/openchamber\/nna\/browser$/u);
+test('the capability file is found where OpenChamber publishes it', async () => {
+  // Why this shape: OpenChamber keeps one directory per running instance under
+  // its own data root, so discovery must look there and not in NNA's data root.
+  const home = await mkdtemp(join(tmpdir(), 'oc-home-'));
+  try {
+    const instance = join(home, '.config', 'openchamber', 'run', 'instances', '4242');
+    await mkdir(instance, { recursive: true });
+    await writeFile(join(instance, 'nna-browser.json'),
+      JSON.stringify({ url: 'http://127.0.0.1:3000/api/openchamber/nna/browser', token: TOKEN }));
+    const found = await findHostedBrowserBinding({ environment: {}, home });
+    assert.equal(found.url, 'http://127.0.0.1:3000/api/openchamber/nna/browser');
+    // An instance directory with no binding is simply not the one.
+    assert.equal(await findHostedBrowserBinding({ environment: {}, home: join(home, 'empty') }), null);
+  } finally { await rm(home, { recursive: true, force: true }); }
 });
