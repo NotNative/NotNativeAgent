@@ -61,6 +61,7 @@ export const CONFIGURATION_METADATA = {
     credential: container('object', { default: inherited('credential_env'), intent: 'credential_binding', sensitivity: 'credential_reference' }),
     credential_env: field('string', absent, { classification: 'compatibility_alias', intent: 'credential_binding', sensitivity: 'credential_reference', acceptance: 'nonempty_environment_name_or_unset', logicalSuffix: 'credential' }),
     context_limit_bytes: numeric('validateProvider'), output_limit_tokens: numeric('validateProvider'),
+    concurrency_limit: numeric('validateProvider', { intent: 'declared_route_capacity_ceiling' }),
     tool_call_mode: field('enum', literal('single'), { enum: ['single', 'batch'] }),
     capabilities: container('object'),
   }),

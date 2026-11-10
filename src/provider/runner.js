@@ -3,19 +3,14 @@ import { ContractError } from '../ids.js';
 import { desktopProviderProfileFingerprint } from '../desktop-provider-affinity.js';
 import { FairScheduler } from './fair-scheduler.js';
 import { cancellableDelay } from './cancellable-delay.js';
-import {
-  fallbackAfterContentFreeCompletion, startProviderHealthMonitor, waitForProviderRecovery,
-} from './completion-recovery.js';
-import {
-  createProviderEventShape, isValidUnrecognizedDeltaEvent, observeProviderEventShape,
-} from './event-shape.js';
+import { fallbackAfterContentFreeCompletion, startProviderHealthMonitor, waitForProviderRecovery } from './completion-recovery.js';
+import { createProviderEventShape, isValidUnrecognizedDeltaEvent, observeProviderEventShape } from './event-shape.js';
 import { elapsedMs } from '../timing.js';
 
 const ITERATOR_CLOSE_TIMEOUT_MS = 25;
 const LOCAL_HEALTH_PROBE_INTERVAL_MS = 60_000;
 const LOCAL_HEALTH_PROBE_TIMEOUT_MS = 5_000;
 const TRUSTED_LOCAL_IDLE_WATCHDOG_MS = 120_000;
-
 export class ProviderRunner {
   constructor(options) {
     this.state = options.state;
@@ -60,11 +55,9 @@ export class ProviderRunner {
       // observation into capacity evidence — wait shows saturation; concurrency
       // at admission is the x-axis dream learns latency distributions from.
       const acquireStarted = process.hrtime.bigint();
-      const release = await this.scheduler.acquire(
-        active.providerResource, active.sessionId, active.controller.signal,
-        (position) => this.queueStatus(active, position),
-        active.runtimeModel?.parallelCapacity ?? null,
-      );
+      const release = await this.scheduler.acquire(active.providerResource, active.sessionId,
+        active.controller.signal, (position) => this.queueStatus(active, position),
+        active.runtimeModel?.parallelCapacity ?? null);
       const admitted = this.scheduler.snapshot().find((item) => item.resource === active.providerResource);
       active.attemptQueueWaitMs = elapsedMs(acquireStarted);
       active.attemptAdmittedConcurrency = admitted?.running ?? null;
@@ -140,7 +133,6 @@ export class ProviderRunner {
     if (active.attemptUsageAccounted) return;
     active.usage = mergeUsage(active.usage, active.attemptUsage); active.attemptUsageAccounted = true;
   }
-
   async #settleRetryableAttempt(active) {
     await this.settleAttempt(active, 'failed'); active.toolAssembler.reset();
   }
@@ -188,6 +180,11 @@ export class ProviderRunner {
       active.modelName = route.model;
       active.providerResource = route.profile.id;
       active.providerProfileFingerprint = desktopProviderProfileFingerprint(route.profile);
+      // Why here: a route's identity is known here, so the operator's declared ceiling
+      // joins the scheduler before any slot is acquired. Idempotent, never widening.
+      if (Number.isSafeInteger(route.profile.concurrencyLimit) && route.profile.concurrencyLimit > 0) {
+        this.scheduler.setDeclaredLimit(route.profile.id, route.profile.concurrencyLimit);
+      }
       if (this.runtimeResolver) active.runtimeModel = await this.runtimeResolver(route, active.controller.signal);
       try {
         const request = requestFactory(route);

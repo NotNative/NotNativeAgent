@@ -28,6 +28,9 @@ export const CONFIGURATION_RULES = Object.freeze(Object.fromEntries([
   integer('reviewer_ledger.retention_entries', 10_000, 1, 100_000),
   integer('providers[*].context_limit_bytes', null, 65_536, 16_777_216, { aliases: ['provider.context_limit_bytes'] }),
   integer('providers[*].output_limit_tokens', null, 1, 1_048_576, { aliases: ['provider.output_limit_tokens'] }),
+  // Why a per-provider ceiling: the operator's hard bound on a route's
+  // concurrency; the shared scheduler caps every other capacity source with it.
+  integer('providers[*].concurrency_limit', null, 1, 16, { aliases: ['provider.concurrency_limit'], null: 'unset', zero: 'reject' }),
   integer('model_selections[*].context_limit_bytes', null, 65_536, 16_777_216, { aliases: ['providers[*].context_limit_bytes'] }),
   integer('model_selections[*].output_limit_tokens', null, 1, 1_048_576, { aliases: ['providers[*].output_limit_tokens'] }),
   integer('routes.{role}.context_limit_bytes', null, 65_536, 16_777_216, { dependencies: ['providers[*].context_limit_bytes'] }),

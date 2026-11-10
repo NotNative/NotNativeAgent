@@ -222,6 +222,10 @@ function validateProvider(value) {
     credential, credentialEnv: credential?.source === 'environment' ? credential.name : undefined,
     contextLimitBytes: scalar('providers[*].context_limit_bytes', value.context_limit_bytes),
     outputLimitTokens: scalar('providers[*].output_limit_tokens', value.output_limit_tokens),
+    // Why a per-provider declared concurrency ceiling: the operator's hard bound
+    // on a route. The shared scheduler treats it as a cap over every other
+    // capacity source; a provider or measurement may go lower, never higher.
+    concurrencyLimit: scalar('providers[*].concurrency_limit', value.concurrency_limit),
     toolCallMode: providerToolCallMode(value.tool_call_mode),
     capabilities: Object.freeze({
       streaming: true,

@@ -55,8 +55,24 @@ export class FairScheduler {
   snapshot() {
     return Object.freeze([...this.#resources.entries()].map(([resource, state]) => Object.freeze({
       resource, running: state.running, limit: state.limit, discoveredLimit: state.discoveredLimit,
+      declaredLimit: state.declaredLimit,
       queued: state.queue.map((item, index) => ({ owner: item.owner, position: index + 1 })),
     })));
+  }
+
+  /** The operator-declared ceiling for a route. Why a separate value from the
+   *  discovered limit: discovery reflects what a provider claims or NNA infers
+   *  and may be wrong; a declared ceiling is the operator's hard bound and
+   *  caps every other source. It can be lowered later but never raised past
+   *  the operator's word. */
+  setDeclaredLimit(resource, limit) {
+    if (typeof resource !== 'string' || resource.length < 1
+      || (limit !== null && (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_PROVIDER_CONCURRENCY))) {
+      throw new ContractError('scheduler_resource_limit_invalid', 'declared provider capacity is invalid');
+    }
+    const state = this.#state(resource);
+    state.declaredLimit = limit;
+    this.#pump(state);
   }
 
   setDiscoveredLimit(resource, limit) {
@@ -100,6 +116,7 @@ export class FairScheduler {
 
   #refreshLimit(state) {
     let limit = effectiveLimit(this.limit, state.discoveredLimit, null);
+    if (Number.isSafeInteger(state.declaredLimit) && state.declaredLimit > 0) limit = Math.min(limit, state.declaredLimit);
     for (const grant of state.active) limit = Math.min(limit, grant.requestLimit);
     for (const item of state.queue) limit = Math.min(limit, item.requestLimit);
     state.limit = limit;
@@ -108,7 +125,8 @@ export class FairScheduler {
   #state(resource) {
     if (!this.#resources.has(resource)) {
       this.#resources.set(resource, {
-        running: 0, queue: [], active: new Set(), lastOwner: null, limit: this.limit, discoveredLimit: null,
+        running: 0, queue: [], active: new Set(), lastOwner: null, limit: this.limit,
+        discoveredLimit: null, declaredLimit: null,
       });
     }
     return this.#resources.get(resource);

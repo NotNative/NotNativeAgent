@@ -15,7 +15,7 @@ export const MANIFEST_KEYS = Object.freeze([
 
 export const CONFIGURATION_KEYS = Object.freeze({
   manifest: MANIFEST_KEYS,
-  provider: Object.freeze(['id', 'display_name', 'endpoint', 'model', 'trust_zone', 'credential', 'credential_env', 'context_limit_bytes', 'output_limit_tokens', 'tool_call_mode', 'capabilities']),
+  provider: Object.freeze(['id', 'display_name', 'endpoint', 'model', 'trust_zone', 'credential', 'credential_env', 'context_limit_bytes', 'output_limit_tokens', 'concurrency_limit', 'tool_call_mode', 'capabilities']),
   connection: Object.freeze(['id', 'display_name', 'endpoint', 'trust_zone', 'credential', 'credential_env']),
   modelSelection: Object.freeze(['id', 'connection_id', 'model', 'display_name', 'context_limit_bytes', 'output_limit_tokens', 'tool_call_mode', 'capabilities']),
   capabilities: Object.freeze(['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation']),

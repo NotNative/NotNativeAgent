@@ -11,7 +11,7 @@ import { validateDream } from '../src/dream-config.js';
 const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'model', trust_zone: 'loopback' };
 
 test('scalar descriptors are immutable static data with explicit unresolved default sources', () => {
-  assert.equal(Object.keys(CONFIGURATION_RULES).length, 46);
+  assert.equal(Object.keys(CONFIGURATION_RULES).length, 47);
   for (const [key, rule] of Object.entries(CONFIGURATION_RULES)) {
     assert.equal(rule.path, key);
     assert.ok(Object.isFrozen(rule) && Object.isFrozen(rule.default) && Object.isFrozen(rule.unset));
