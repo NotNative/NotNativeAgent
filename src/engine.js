@@ -6,7 +6,7 @@ import { EventHub, phaseIsCancelable } from './events.js';
 import { ContractError, newId } from './ids.js';
 import { acceptedRecord, assistantMessage, failure, normalizeFailure, submittedUserMessage, userMessage } from './engine/records.js';
 import { admissionFromRetry, createActiveTurn } from './engine/active.js';
-import { ConversationState } from './engine/conversation-state.js';
+import { ConversationRegistry } from './engine/conversation-state.js';
 import { HealthInspector } from './health.js';
 import { JournalStore } from './store.js';
 import { SessionLock } from './persistence/session-lock.js';
@@ -48,19 +48,26 @@ import { abandonOrphanedSteering } from './engine/steering-restore.js';
 import { primaryProviderRequest } from './engine/route-request.js';
 import { preparePrimaryRoutes } from './engine/primary-routes.js';
 export class SessionEngine {
-  // Why a ConversationState: per-conversation fields live in one swappable object so a future central engine
-  // can resolve a session id to this state; accessors keep existing call sites reading through the engine.
-  #conversation = new ConversationState();
+  // Why a registry: the central-engine destination resolves a session id to
+  // conversation state; the engine hosts its own conversation there so the
+  // accessors and the registry share one source of truth from the first slice.
+  #conversations = new ConversationRegistry();
+  #conversation = null;
+  get conversations() { return this.#conversations; }
   get state() { return this.#conversation.state; } get lifecycles() { return this.#conversation.lifecycles; } get authority() { return this.#conversation.authority; }
   get transcript() { return this.#conversation.transcript; } set transcript(v) { this.#conversation.transcript = v; }  get steering() { return this.#conversation.steering; } set steering(v) { this.#conversation.steering = v; }
   get latestTurnOutcome() { return this.#conversation.latestTurnOutcome; } set latestTurnOutcome(v) { this.#conversation.latestTurnOutcome = v; }
   get recoveryNotices() { return this.#conversation.recoveryNotices; } set recoveryNotices(v) { this.#conversation.recoveryNotices = v; }
   get active() { return this.#conversation.active; } set active(v) { this.#conversation.active = v; }
   constructor(options) {
+    // Why the engine attaches its own conversation: the registry is the session-id to
+    // state seam; the engine's primary conversation lives there, shared with this.sessionId.
+    const sessionId = options.sessionId ?? newId('session');
+    this.#conversation = this.#conversations.attach(sessionId);
     this.config = options.config;
     this.reviewPosture = options.reviewPosture ?? 'auto-review';
     this.runtimeId = options.runtimeId ?? newId('runtime');
-    this.sessionId = options.sessionId ?? newId('session');
+    this.sessionId = sessionId;
     this.sessionLineage = validateSessionLineage(options.sessionLineage, this.sessionId); this.forkIngest = forkIngestContract(options.forkIngest); this.consoleId = options.consoleId || null;
     // Compatibility: hosted, gateway, and headless surfaces pass no Console identity; they claim no tab-pool labels.
     this.desktopSessionRegistry = options.desktopSessionRegistry ?? null; this.dataPaths = resolveUserDataPaths(options.dataPaths); this.subagentDepth = options.subagentDepth ?? 0;
