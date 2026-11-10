@@ -74,6 +74,7 @@ export function subagentStatus(engine) {
       queued: scheduler?.queued.length ?? 0,
       active_limit: scheduler?.limit ?? engine.config.limits.providerConcurrency,
       discovered_capacity: scheduler?.discoveredLimit ?? null,
+      declared_capacity: scheduler?.declaredLimit ?? null,
       capacity_note: scheduler?.discoveredLimit === null || scheduler?.discoveredLimit === undefined
         ? CAPACITY_PENDING : CAPACITY_DISCOVERED,
     }),

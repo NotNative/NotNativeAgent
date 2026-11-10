@@ -34,6 +34,8 @@ export class OpenCodeCompatServer {
       directory: options.directory ?? process.cwd(),
       config: options.config,
       providerSettings: options.providerSettings,
+      // Why kept: diagnostics report the shared scheduler's per-route state.
+      scheduler: options.scheduler,
       logger: options.logger,
     });
   }
@@ -60,6 +62,10 @@ export class OpenCodeCompatServer {
       errors: this.#stats.errors,
       unauthorized: this.#stats.unauthorized,
       sessions: this.#options.registry?.count?.() ?? null,
+      // Why exposed: an operator seeing slow turns must be able to tell full
+      // provider routes apart from broken ones, so the shared admission
+      // scheduler's per-route held state is part of surface diagnostics.
+      scheduler: this.#options.scheduler?.snapshot?.() ?? null,
       ring: this.#ring.slice(),
     };
   }

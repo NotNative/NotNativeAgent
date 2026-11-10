@@ -148,3 +148,14 @@ test('conversations on one surface share one admission scheduler', { timeout: 30
   assert.equal(engines[0].scheduler, runtime.workspace.scheduler,
     'the surface scheduler must be the scheduler the engines carry');
 });
+
+test('surface diagnostics report the shared scheduler held state', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-diag-'));
+  const { runtime, request } = await durableServer(t, root);
+  await request('/api/session', 'POST', { title: 'Observed' });
+  const diagnostics = runtime.diagnostics();
+  assert.ok(diagnostics.scheduler, 'diagnostics must report the scheduler');
+  assert.ok(Array.isArray(diagnostics.scheduler), 'the report is a per-route snapshot');
+  const engineScheduler = [...runtime.workspace.registry.list()].map((record) => record.engine.scheduler)[0];
+  assert.equal(engineScheduler, runtime.workspace.scheduler, 'one scheduler serves the surface');
+});

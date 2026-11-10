@@ -385,14 +385,14 @@ test('sub-agent status exposes routing and capacity without leaking profile labe
     config: { executionManifest: null, limits: { providerConcurrency: 3 } },
     router: { resolve: () => ({ profile: { id: 'private-profile-label', endpoint: 'http://worker:1234/v1' }, model: 'worker-model' }) },
     tools: { definition: (name) => name === 'agent_run' ? {} : undefined },
-    scheduler: { snapshot: () => [{ resource: 'private-profile-label', running: 1, limit: 2, discoveredLimit: 2, queued: [{}] }] },
+    scheduler: { snapshot: () => [{ resource: 'private-profile-label', running: 1, limit: 2, discoveredLimit: 2, declaredLimit: null, queued: [{}] }] },
   };
   const status = subagentStatus(engine);
   assert.equal(status.available, true);
   assert.equal(status.endpoint, 'http://worker:1234/v1');
   assert.equal(status.model, 'worker-model');
   assert.deepEqual(status.scheduler, {
-    running: 1, queued: 1, active_limit: 2, discovered_capacity: 2,
+    running: 1, queued: 1, active_limit: 2, discovered_capacity: 2, declared_capacity: null,
     capacity_note: 'Capacity reported by the loaded worker-model runtime.',
   });
   assert.doesNotMatch(JSON.stringify(status), /private-profile-label/u);

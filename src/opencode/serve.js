@@ -51,6 +51,10 @@ export async function startOpencodeServe(options = {}) {
     operations: workspace.operations,
     bus: workspace.bus,
     v2: workspace.v2,
+    // Why passed: surface diagnostics must report the shared admission
+    // scheduler's per-route held state, so an operator can distinguish a
+    // saturated provider from a broken one.
+    scheduler,
     directory: options.directory ?? config.workspaceRoot ?? process.cwd(),
     config,
     providerSettings,
