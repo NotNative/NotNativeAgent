@@ -31,6 +31,10 @@ const PAGE_ACTIONS = Object.freeze(['click', 'scroll', 'type', 'select', 'captur
 /** Readings that leave the observation in place: a snapshot replaces it, and an
  *  inspect re-reads one element of it. Every other action spends it. */
 const REPLACING = Object.freeze(['snapshot', 'inspect']);
+/** Actions that do not touch the page, so they neither need a reading nor spend
+ *  one. Why resize belongs here: it changes how the page is laid out, not what
+ *  the page is, and the same rendered controls remain underneath. */
+const HARMLESS = Object.freeze(['resize']);
 
 /** Whether this action may only run on a reading the surface already reported. */
 export const requiresObservation = (action) => CONSEQUENTIAL.includes(action);
@@ -102,9 +106,10 @@ export function createObservation() {
     },
     /** Spends the receipt. A snapshot replaces it and an inspect re-reads one
      *  element without changing the page, so those keep it; a capture spends it
-     *  like any other action, because it is one use of one reading. */
+     *  like any other action, because it is one use of one reading. An action
+     *  that does not touch the page keeps it too. */
     consume(action) {
-      if (REPLACING.includes(action)) return revision;
+      if (REPLACING.includes(action) || HARMLESS.includes(action)) return revision;
       revision += 1;
       current = empty();
       return revision;
