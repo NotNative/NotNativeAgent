@@ -1,4 +1,4 @@
-﻿# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 [CmdletBinding()]
 param(
     [string]$SourceRoot,
@@ -122,10 +122,10 @@ function Sync-ExistingRuntimePin([string]$SelectedNode, [int]$SelectedMajor, [st
 function Stop-DesktopBeforePayloadReplacement([string]$SelectedNode, [string]$SelectedInstallRoot, [string]$SelectedDataRoot) {
     if (-not (Test-Path -LiteralPath (Join-Path $SelectedDataRoot 'config\desktop-package.json'))) { return $false }
     $SelectedCli = Join-Path $SelectedInstallRoot 'installed\src\cli.js'
-    # Why the registered root: the desktop tree is parked out of NNA's source
-    # (branch `desktop/parked`), so the helper no longer ships with this source.
-    # The registration record names the installed package that owns the service,
-    # and that package carries its own copy of the helper.
+    # Why the registered root: this source tree ships no desktop helper (the
+    # desktop component's source lives on its own branch), so the registration
+    # record names the installed package that owns the service, and that
+    # package carries its own copy of the helper.
     $RegisteredRoot = $null
     try {
         $Registration = Get-Content -LiteralPath (Join-Path $SelectedDataRoot 'config\desktop-package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -1117,22 +1117,14 @@ function Confirm-DesktopInstallation([bool]$Requested, [bool]$InputRedirected) {
     return $Answer -in @('y', 'Y', 'yes', 'Yes', 'YES')
 }
 Write-InstallerSection 'Desktop component'
-# Compatibility: the desktop tree is parked on branch `desktop/parked`, so this
-# source tree legitimately ships without `desktop\install.cmd`. That is a skip,
-# not a failure — NNA itself is complete without the GUI, and a registered
-# package keeps its last installed version until the branch is restored.
+# Why: the desktop tree ships without `desktop\install.cmd` while its source is
+# parked, so a missing script is the expected state of this source tree — a
+# registered package keeps serving its installed copy and the component returns
+# when its branch does. A quiet skip is the whole report; no branch guidance.
 $DesktopScript = Join-Path $SourceRoot 'desktop\install.cmd'
 $DesktopInstallFailed = $false
 if (-not (Test-Path -LiteralPath $DesktopScript)) {
-    if ($DesktopRegistered) {
-        Write-InstallerWarning 'A desktop package is registered, but the desktop source is parked (branch desktop/parked); its installed copy keeps serving as-is.'
-        Write-InstallerSkip 'Desktop component not upgraded; restore the branch to upgrade it.'
-    } elseif ($InstallDesktop) {
-        Write-InstallerWarning 'Desktop installation was requested but the desktop source is parked (branch desktop/parked).'
-        Write-InstallerSkip 'Restore the branch (git checkout desktop/parked -- desktop/) to install it.'
-    } else {
-        Write-InstallerSkip 'Desktop component not present in this source tree; skipped.'
-    }
+    Write-InstallerSkip 'Desktop component not present in this source tree; skipped.'
 } elseif ($DesktopRegistered) {
     Write-InstallerStep 'A desktop package is registered; upgrading it with this NNA install'
     $DesktopExit = Invoke-DesktopInstaller
