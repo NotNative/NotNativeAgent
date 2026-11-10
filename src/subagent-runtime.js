@@ -75,9 +75,10 @@ function createSubagentEngine(engine, input, sessionId, lineage, parent, relay, 
     sessionLineage: lineage, conversationId: engine.telemetry?.conversationId ?? engine.sessionId,
     surface: engine.surface === 'desktop' ? 'desktop_subagent' : 'subagent', reviewPosture: 'auto-review', dataPaths: engine.dataPaths,
     storeRoot: engine.storeRoot, scheduler: engine.scheduler, subagentDepth: engine.subagentDepth + 1,
-    // Why the parent's registries: skills and extensions are read-mostly and
-    // workspace-scoped, so a fan-out should reuse the parent's compiled
-    // instances instead of reconstructing them per launch.
+    // Why the parent's registries: skills, extensions, and conversations are
+    // workspace-scoped and outlive one launch, so a fan-out reuses the parent's
+    // compiled instances and joins the parent's conversation registry — the
+    // envelope seam: a child is resolvable by id in the family's registry.
     skillRegistry: engine.skills, extensionRegistry: engine.extensions,
     output: async (record) => {
       observeDesktop('output', () => engine.desktopSessionRegistry?.observeOutput?.(sessionId, record));

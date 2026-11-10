@@ -48,10 +48,7 @@ import { abandonOrphanedSteering } from './engine/steering-restore.js';
 import { primaryProviderRequest } from './engine/route-request.js';
 import { preparePrimaryRoutes } from './engine/primary-routes.js';
 export class SessionEngine {
-  // Why a registry: the central-engine destination resolves a session id to
-  // conversation state; the engine hosts its own conversation there so the
-  // accessors and the registry share one source of truth from the first slice.
-  #conversations = new ConversationRegistry();
+  #conversations = null;
   #conversation = null;
   get conversations() { return this.#conversations; }
   get state() { return this.#conversation.state; } get lifecycles() { return this.#conversation.lifecycles; } get authority() { return this.#conversation.authority; }
@@ -60,13 +57,13 @@ export class SessionEngine {
   get recoveryNotices() { return this.#conversation.recoveryNotices; } set recoveryNotices(v) { this.#conversation.recoveryNotices = v; }
   get active() { return this.#conversation.active; } set active(v) { this.#conversation.active = v; }
   constructor(options) {
-    // Why the engine attaches its own conversation: the registry is the session-id to
-    // state seam; the engine's primary conversation lives there, shared with this.sessionId.
+    // Why the engine attaches its own conversation: the registry is the session-id
+    // to state seam; a hosted child joins its parent's registry — one family, one map.
     const sessionId = options.sessionId ?? newId('session');
-    this.#conversation = this.#conversations.attach(sessionId);
+    this.#conversations = options.conversationRegistry ?? new ConversationRegistry();
+    this.#conversation = this.#conversations.attach(sessionId); this.hostedConversation = options.conversationRegistry != null;
     this.config = options.config;
-    this.reviewPosture = options.reviewPosture ?? 'auto-review';
-    this.runtimeId = options.runtimeId ?? newId('runtime');
+    this.reviewPosture = options.reviewPosture ?? 'auto-review'; this.runtimeId = options.runtimeId ?? newId('runtime');
     this.sessionId = sessionId;
     this.sessionLineage = validateSessionLineage(options.sessionLineage, this.sessionId); this.forkIngest = forkIngestContract(options.forkIngest); this.consoleId = options.consoleId || null;
     // Compatibility: hosted, gateway, and headless surfaces pass no Console identity; they claim no tab-pool labels.
@@ -74,6 +71,8 @@ export class SessionEngine {
     this.subagentOptions = {
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer, secretBroker: options.secretBroker,
       memoryAdapter: options.memoryAdapter, mcpTransportFactory: options.mcpTransportFactory,
+      // Why the parent registry: a fan-out child is a family conversation identity; children resolve by id without owning a runtime.
+      conversationRegistry: this.#conversations,
       hookRoot: options.hookRoot, hookRoots: options.hookRoots, skillRoots: options.skillRoots,
       webSearchConfigPath: options.webSearchConfigPath, webSearchClient: options.webSearchClient,
       webFetchConfigPath: options.webFetchConfigPath, lspConfigPath: options.lspConfigPath, lspSpawnProcess: options.lspSpawnProcess,
@@ -99,15 +98,13 @@ export class SessionEngine {
       executionContext: (active) => executionContext(this, active),
       acceptText: (text, active) => acceptEngineText(this, text, active),
       providerStatus: (semanticState, active) => emitEngineStatus(this, semanticState, active),
-      settleAttempt: (active, outcome) => settleEngineAttempt(
-        this, active, outcome, (...args) => this.#publish(...args),
-      ),
+      settleAttempt: (active, outcome) => settleEngineAttempt(this, active, outcome, (...args) => this.#publish(...args)),
       recordRecovery: (action, active) => this.#recordRecovery(action, active),
       scheduler: options.scheduler,
-      queueStatus: (active, position) => this.output({
-        version: '1.0', type: 'queue_status', session_id: this.sessionId,
-        turn_id: active.turnId, position,
-      }),
+      // Why the position hook exists: a held provider attempt must reach the
+      // client as queue status, so waiting is observable without polling.
+      queueStatus: (active, position) => this.output({ version: '1.0', type: 'queue_status',
+        session_id: this.sessionId, turn_id: active.turnId, position }),
     });
   } async initialize(options = {}) {
     return initializeEngine(this, {
