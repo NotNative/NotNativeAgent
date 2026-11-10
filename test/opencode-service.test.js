@@ -112,6 +112,26 @@ test('stop still clears a binding left by an older build while preserving auto-s
   assert.equal((await loadOpenCodeConfig(paths.opencodeConfig)).enabled, true);
 });
 
+test('stop clears the legacy binding that wrote the default username literally', async () => {
+  // Why: early wiring (and the manual setup that preceded enable writing
+  // anything) recorded `OPENCODE_SERVER_USERNAME=opencode`. A strict-equality
+  // check against the current minimal form treated that owned binding as
+  // foreign, so stop never removed it and OpenChamber kept pointing at a
+  // dead server with skip-start latched.
+  const paths = await servicePaths(); const password = generateOpencodePassword();
+  const env = environment({ OPENCODE_SKIP_START: 'true', OPENCODE_HOST: 'http://127.0.0.1:4095',
+    OPENCODE_SERVER_PASSWORD: password, OPENCODE_SERVER_USERNAME: 'opencode' });
+  await saveOpenCodeConfig(paths.opencodeConfig, { hostname: '127.0.0.1', port: 4095, username: 'opencode', password });
+  await writeFile(join(paths.opencode, 'opencode.pid'), JSON.stringify({ version: 2, pid: 44, process_identity: { version: 1, pid: 44, platform: 'fixture', start_id: 'fixture' } }));
+  const result = await stopOpencodeService({}, paths, { platform: 'win32', processIdentity: identity(), kill: () => undefined, userEnvironmentRead: env.read, userEnvironmentWrite: env.write });
+  assert.equal(result.stopped, true);
+  assert.deepEqual(env.writes[0], {
+    OPENCODE_SKIP_START: null, OPENCODE_HOST: null, OPENCODE_SERVER_PASSWORD: null, OPENCODE_SERVER_USERNAME: null,
+  });
+  assert.equal(result.environment.preserved, false);
+  assert.deepEqual(result.environment.removed, ['OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SERVER_USERNAME']);
+});
+
 test('stop preserves user environment when it no longer matches this install', async () => {
   const paths = await servicePaths(); const localPassword = generateOpencodePassword();
   const foreignPassword = generateOpencodePassword();
@@ -156,9 +176,9 @@ test('production environment cleanup compares ownership and clears under the sha
   assert.equal(result.environment.preserved, false);
   assert.match(script, /NotNativeAgent-OpenCodeEnvironment-/u);
   assert.match(script, /WaitOne\(30000\)/u);
-  assert.match(script, /\$Current -cne \$Expected\[\$Name\]/u);
-  assert.ok(script.indexOf('$Mutex.WaitOne') < script.indexOf('$Current -cne'));
-  assert.ok(script.indexOf('$Current -cne') < script.indexOf("SetEnvironmentVariable($Name, $null, 'User')"));
+  assert.match(script, /-cnotcontains \$Current/u);
+  assert.ok(script.indexOf('$Mutex.WaitOne') < script.indexOf('-cnotcontains'));
+  assert.ok(script.indexOf('-cnotcontains') < script.indexOf("SetEnvironmentVariable($Name, $null, 'User')"));
   assert.match(script, /catch \[Threading\.AbandonedMutexException\]/u);
   assert.match(script, /\$Mutex\.ReleaseMutex\(\)/u);
 });

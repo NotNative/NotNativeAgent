@@ -11,23 +11,35 @@ const USER_ENVIRONMENT_NAMES = [
   'OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SERVER_USERNAME',
 ];
 
+/** The user-scope values a binding NNA owns may carry.
+ *
+ *  Why two accepted username forms: early builds (and the manual wiring that
+ *  preceded `enable` writing anything) recorded the default username literally
+ *  as `opencode`, while the current minimal form omits it. A stop must clear
+ *  both, or the whole set is treated as foreign and the operator is left with
+ *  a binding that points OpenChamber at a dead server. */
+function ownedValues(config, bindUrl, defaultUsername) {
+  return {
+    OPENCODE_SKIP_START: ['true'],
+    OPENCODE_HOST: [bindUrl(config)],
+    OPENCODE_SERVER_PASSWORD: [config.password],
+    OPENCODE_SERVER_USERNAME: config.username === defaultUsername ? ['', defaultUsername] : [config.username],
+  };
+}
+
 export async function clearUserEnvironment(config, scope, bindUrl, defaultUsername) {
   try {
-    const expected = {
-      OPENCODE_SKIP_START: 'true', OPENCODE_HOST: bindUrl(config),
-      OPENCODE_SERVER_PASSWORD: config.password,
-      OPENCODE_SERVER_USERNAME: config.username === defaultUsername ? '' : config.username,
-    };
     if (!config.password) return preserved();
+    const owned = ownedValues(config, bindUrl, defaultUsername);
     if (!scope.userEnvironmentRead && !scope.userEnvironmentWrite) {
-      const result = await clearOwnedUserEnvironment(expected, scope);
+      const result = await clearOwnedUserEnvironment(owned, scope);
       return result === 'cleared'
         ? { supported: true, written: [], removed: [...USER_ENVIRONMENT_NAMES], preserved: false }
         : preserved();
     }
     const observed = await observedUserScopeValues(scope);
     if (observed === null || USER_ENVIRONMENT_NAMES.some((name) =>
-      (typeof observed[name] === 'string' ? observed[name] : '') !== expected[name])) return preserved();
+      !owned[name].includes(typeof observed[name] === 'string' ? observed[name] : ''))) return preserved();
     const write = scope.userEnvironmentWrite ?? writeUserEnvironment;
     await write(Object.fromEntries(USER_ENVIRONMENT_NAMES.map((name) => [name, null])), scope);
     return { supported: true, written: [], removed: [...USER_ENVIRONMENT_NAMES], preserved: false };
@@ -68,13 +80,15 @@ async function writeUserEnvironment(removals, scope) {
   await runPowershell(withUserEnvironmentMutex(writes), scope, POWERSHELL_WRITE_TIMEOUT_MS);
 }
 
-async function clearOwnedUserEnvironment(expected, scope) {
-  const pairs = Object.entries(expected).map(([name, value]) => `$Expected['${escapeSingle(name)}'] = '${escapeSingle(value)}'`).join('\n');
+async function clearOwnedUserEnvironment(owned, scope) {
+  const pairs = Object.entries(owned).map(([name, accepted]) =>
+    `$Accepted['${escapeSingle(name)}'] = @(${accepted.map((value) => `'${escapeSingle(value)}'`).join(', ')})`).join('\n');
   const names = USER_ENVIRONMENT_NAMES.map((name) => `'${escapeSingle(name)}'`).join(', ');
   const body = [
-    '$Expected = @{}', pairs, `$Names = @(${names})`, '$Matches = $true',
+    '$Accepted = @{}', pairs, `$Names = @(${names})`, '$Matches = $true',
     'foreach ($Name in $Names) {', "  $Current = [Environment]::GetEnvironmentVariable($Name, 'User')",
-    "  if ($null -eq $Current) { $Current = '' }", '  if ($Current -cne $Expected[$Name]) { $Matches = $false }', '}',
+    "  if ($null -eq $Current) { $Current = '' }",
+    "  if ($Accepted[$Name] -cnotcontains $Current) { $Matches = $false }", '}',
     'if ($Matches) {', "  foreach ($Name in $Names) { [Environment]::SetEnvironmentVariable($Name, $null, 'User') }",
     "  Write-Output 'cleared'", "} else { Write-Output 'preserved' }",
   ].join('\n');
