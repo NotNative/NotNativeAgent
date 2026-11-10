@@ -202,8 +202,9 @@ export async function runtimeStatus(paths, options = {}) {
   return { running: false, stale: true, pid: record.pid, reason: comparison };
 }
 
+/** Manual start needs a token and an authorized operator; the enabled flag is
+ *  the sign-in autostart choice only, never a gate on the operator's own act. */
 function assertRunnable(config, environment) {
-  if (!config.enabled) throw Object.assign(new Error('gateway is disabled'), { code: 'gateway_disabled' });
   if (!gatewayToken(config, environment).value) throw Object.assign(new Error('Telegram token is missing'), { code: 'telegram_token_missing' });
   if (config.authorized_user_ids.length === 0) throw Object.assign(new Error('no Telegram users are authorized'), { code: 'gateway_authorization_required' });
 }

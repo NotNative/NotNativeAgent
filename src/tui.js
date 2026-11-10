@@ -257,11 +257,11 @@ async function handleOverlayAction(action, workspace) {
       return;
     }
     else if (overlay.kind === 'gateway') { await handleGatewaySelection(selected.id, workspace); return; }
+    else if (overlay.kind === 'opencode') { await handleOpencodeSelection(selected.id, workspace); return; }
     else if (overlay.kind === 'workspace-trust') { await updateWorkspaceTrust(selected.id, workspace); return; }
     else if (overlay.kind === 'resume') { projection.closeOverlay(); await workspace.resume(selected.id); return; }
     projection.closeOverlay();
-    const notice = overlay.kind === 'model' ? modelNotice(workspace)
-      : overlay.kind === 'provider' && overlay.role !== 'primary'
+    const notice = overlay.kind === 'model' ? modelNotice(workspace)      : overlay.kind === 'provider' && overlay.role !== 'primary'
         ? `${overlay.role} profile ${selected.id === 'clear-role' ? 'cleared' : 'updated'} globally for all conversations.`
         : routeNotice(workspace);
     projection.showNotice('route', notice);
