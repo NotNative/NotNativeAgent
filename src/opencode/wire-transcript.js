@@ -7,11 +7,39 @@ import { newId } from '../ids.js';
 
 export const ZERO_TOKENS = Object.freeze({ total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } });
 
-/** The provider usage record reduced to the wire token shape. */
+// Why a shared reader: provider usage shapes vary. OpenAI-compatible servers
+// nest cache evidence in `prompt_tokens_details.cached_tokens` and reasoning in
+// `completion_tokens_details.reasoning_tokens`; Anthropic-style servers report
+// flat `cache_read_input_tokens`/`cache_creation_input_tokens`; some report
+// flat `cache_read_tokens`. The client's context meter computes the percentage
+// and cache hit rate from these fields, so dropping them renders a wrong pane.
+const firstPositiveInteger = (source, keys) => {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (Number.isSafeInteger(value) && value >= 0) return value;
+  }
+  return 0;
+};
+
+/** The provider usage record reduced to the wire token shape, carrying every
+ *  field the client's context meter reads. `total` stays as the provider
+ *  reported: it is the final round-trip's window, which the meter prefers over
+ *  any sum of the parts. */
 export function tokenView(usage = {}) {
-  const input = Number(usage?.prompt_tokens ?? 0);
-  const output = Number(usage?.completion_tokens ?? 0);
-  return { total: Number(usage?.total_tokens ?? input + output), input, output, reasoning: 0, cache: { read: 0, write: 0 } };
+  const input = Number(usage?.prompt_tokens ?? usage?.input_tokens ?? 0);
+  const output = Number(usage?.completion_tokens ?? usage?.output_tokens ?? 0);
+  const cacheRead = firstPositiveInteger(usage, ['cache_read_tokens', 'cacheReadTokens', 'prompt_cache_hit_tokens', 'cached_tokens'])
+    || firstPositiveInteger(usage?.prompt_tokens_details, ['cached_tokens'])
+    || firstPositiveInteger(usage, ['cache_read_input_tokens']);
+  const cacheWrite = firstPositiveInteger(usage, ['cache_write_tokens', 'cacheWriteTokens'])
+    || firstPositiveInteger(usage, ['cache_creation_input_tokens']);
+  const reasoning = firstPositiveInteger(usage, ['reasoning_tokens', 'reasoningTokens'])
+    || firstPositiveInteger(usage?.completion_tokens_details, ['reasoning_tokens']);
+  return {
+    total: Number(usage?.total_tokens ?? input + output),
+    input, output, reasoning,
+    cache: { read: cacheRead, write: cacheWrite },
+  };
 }
 
 export function publishDurable(state, type, properties) {

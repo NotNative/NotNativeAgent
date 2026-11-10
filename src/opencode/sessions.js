@@ -306,12 +306,24 @@ async function compactWireSession(session, body) {
   const id = wireId(body.id, 'msg');
   const delivery = body.delivery ?? 'steer';
   publishRevert(session, 'session.compaction.started', { sessionID: ocId, reason: 'manual', inputID: id });
+  // Why a compaction message: the client's context meter reads history for the
+  // newest message that can describe the window. A finished compaction makes it
+  // show a dash until the next response reports usage, instead of a misleading
+  // pre-compaction percentage. The record starts running and settles completed.
+  const compactionMessage = { id, sessionID: ocId, role: 'compaction', time: { created: Date.now() },
+    status: 'running', reason: 'manual', summary: '' };
+  session.wireSession.publishV2('message.updated', { info: compactionMessage });
   let result;
   try {
     result = await compactEngineConversation(session.engine);
   } catch (error) {
     // Security: only the code crosses the wire; provider text can contain secrets.
     const busy = error?.code === 'compaction_busy';
+    session.wireSession.publishV2('message.updated', { info: { ...compactionMessage, status: 'failed',
+      error: { type: busy ? 'compaction_busy' : 'nna_compaction_failed',
+        message: busy
+          ? 'The session became busy while compacting. Wait for the turn to finish and try again'
+          : 'NNA could not compact this conversation' } } });
     publishRevert(session, 'session.compaction.failed', {
       sessionID: ocId, reason: 'manual', inputID: id,
       error: { type: busy ? 'compaction_busy' : 'nna_compaction_failed',
@@ -323,6 +335,7 @@ async function compactWireSession(session, body) {
   }
   const text = String(result.fact?.summary ?? '');
   publishRevert(session, 'session.compaction.ended', { sessionID: ocId, reason: 'manual', inputID: id, text });
+  session.wireSession.publishV2('message.updated', { info: { ...compactionMessage, status: 'completed', summary: text } });
   const record = { id, sessionID: ocId, time: { created: Date.now() }, type: 'compaction', payload: {}, delivery };
   // The summary goes back alongside the record so the workspace can ledger the
   // finished compaction; the wire answer is the record alone.

@@ -12,6 +12,7 @@
 // Fail-closed: one broken session never blocks startup — it is skipped with a
 // logged reason, and the surface serves the sessions that did restore.
 import { discoverUnindexedSessions, readSessionIndex } from './session-index.js';
+import { tokenView } from './wire-transcript.js';
 import { randomUUID } from 'node:crypto';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -163,9 +164,10 @@ function settleTurn(turn, outcome) {
   turn.text = typeof outcome.text === 'string' ? outcome.text : (turn.text ?? '');
   turn.finish = outcome.outcome === 'completed' ? 'stop'
     : outcome.outcome === 'cancelled' ? 'abort' : 'error';
-  const usage = outcome.usage ?? {};
-  turn.tokens = { total: usage.total_tokens ?? 0, input: usage.prompt_tokens ?? 0,
-    output: usage.completion_tokens ?? 0, reasoning: 0, cache: { read: 0, write: 0 } };
+  // Why the shared reader: a restored turn's token payload must carry the same
+  // cache and reasoning evidence a live turn does, or the context meter renders
+  // a different (wrong) pane after a restart than it did before one.
+  turn.tokens = tokenView(outcome.usage ?? {});
   turn.completedAt = Date.now();
 }
 

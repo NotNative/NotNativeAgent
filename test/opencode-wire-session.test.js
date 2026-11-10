@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createWireSession, buildPromptCommand, snapshotValue } from '../src/opencode/wire-session.js';
+import { tokenView } from '../src/opencode/wire-transcript.js';
 
 function recordingBus() {
   const frames = [];
@@ -561,8 +562,28 @@ test('the held queue is bounded and answers as a capacity refusal', async () => 
   assert.equal(delivered.includes('one too many'), false);
 });
 
-test('context measurements publish as nna.context.usage for the client meter', () => {
-  const bus = recordingBus();
+test('the token view carries every field the client context meter reads', () => {
+  // Why these shapes: OpenChamber computes percentage = total / contextLimit and
+  // cache hit = cache.read / (input + cache.read + cache.write) from the wire
+  // payload; a zeroed cache or reasoning field renders a wrong pane.
+  assert.deepEqual(tokenView({
+    prompt_tokens: 500, completion_tokens: 200, total_tokens: 103_618,
+    prompt_tokens_details: { cached_tokens: 90_000 },
+    completion_tokens_details: { reasoning_tokens: 150 },
+  }), { total: 103_618, input: 500, output: 200, reasoning: 150, cache: { read: 90_000, write: 0 } });
+  // Anthropic-style flat fields.
+  assert.deepEqual(tokenView({
+    input_tokens: 400, output_tokens: 100, cache_read_input_tokens: 80_000, cache_creation_input_tokens: 2_500,
+  }), { total: 500, input: 400, output: 100, reasoning: 0, cache: { read: 80_000, write: 2_500 } });
+  // Flat cache keys some servers report.
+  assert.deepEqual(tokenView({
+    prompt_tokens: 300, completion_tokens: 50, cache_read_tokens: 70_000, reasoning_tokens: 40,
+  }), { total: 350, input: 300, output: 50, reasoning: 40, cache: { read: 70_000, write: 0 } });
+  // An absent breakdown reads as zeros without inventing fields.
+  assert.deepEqual(tokenView({}), { total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } });
+});
+
+test('context measurements publish as nna.context.usage for the client meter', () => {  const bus = recordingBus();
   const wireSession = freshWireSession(makeRecord(async () => ({ outcome: 'completed', text: '' })), bus);
   wireSession.observe({ type: 'context_status', turn_id: 'turn-1',
     estimated_tokens: 103_618, limit_tokens: 1_048_576, raw_estimated_tokens: 103_700,
