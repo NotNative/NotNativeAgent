@@ -127,6 +127,7 @@ test('sub-agent runtime forwards child lifecycle and output to the desktop regis
     // rather than reconstructing per-launch ones; the shared identity is pinned
     // on the produced options below.
     skills: { shared: true }, extensions: { shared: true },
+    reviewer: { semanticReviewer: { shared: true } },
     desktopSessionRegistry: {
       register(id, parentId, principal, child) {
         observed.push(['registered', id, parentId, principal.subjectId]);
@@ -156,6 +157,8 @@ test('sub-agent runtime forwards child lifecycle and output to the desktop regis
   assert.equal(result.outcome, 'completed');
   assert.equal(childOptions.skillRegistry, parent.skills, 'the child must reuse the parent skill registry');
   assert.equal(childOptions.extensionRegistry, parent.extensions, 'the child must reuse the parent extension registry');
+  assert.equal(childOptions.sharedSemanticReviewer, parent.reviewer.semanticReviewer,
+    'the child must reuse the parent transport reviewer');
   const id = childOptions.sessionId;
   assert.deepEqual(observed, [
     ['registered', id, 'parent', 'operator'], ['started', id],

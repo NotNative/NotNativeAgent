@@ -279,7 +279,11 @@ function installReview(engine, options) {
     ledger: engine.ledger,
     governance: engine.governance,
     telemetry: engine.telemetry,
-    semanticReviewer: options.semanticReviewer ?? new RoutedSemanticReviewer(engine.router, {
+    // Why a shared transport reviewer is accepted: a RoutedSemanticReviewer is
+    // bound to routes and scheduler slots, not to one conversation, so a hosted
+    // fan-out reuses the parent's instance instead of building a second one per
+    // launch. The ledger below stays per-conversation; only transport is shared.
+    semanticReviewer: options.semanticReviewer ?? options.sharedSemanticReviewer ?? new RoutedSemanticReviewer(engine.router, {
       scheduler: engine.scheduler, telemetry: engine.telemetry, modelRuntime: engine.modelRuntime,
       dialects: engine.reliability, sessionId: engine.sessionId,
       recordTokenReceipt: engine.recordProviderAttempt,

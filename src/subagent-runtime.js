@@ -80,6 +80,10 @@ function createSubagentEngine(engine, input, sessionId, lineage, parent, relay, 
     // compiled instances and joins the parent's conversation registry — the
     // envelope seam: a child is resolvable by id in the family's registry.
     skillRegistry: engine.skills, extensionRegistry: engine.extensions,
+    // Why the parent's transport reviewer: review transport (routes, scheduler
+    // slots, model runtime) is conversation-independent; the child's ledger and
+    // mandatory review policy stay per-conversation.
+    sharedSemanticReviewer: engine.reviewer?.semanticReviewer ?? null,
     output: async (record) => {
       observeDesktop('output', () => engine.desktopSessionRegistry?.observeOutput?.(sessionId, record));
       await relay.accept(record);
