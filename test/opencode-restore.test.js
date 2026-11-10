@@ -149,6 +149,27 @@ test('conversations on one surface share one admission scheduler', { timeout: 30
     'the surface scheduler must be the scheduler the engines carry');
 });
 
+test('conversations on one surface resolve in one conversation family', { timeout: 30_000 }, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-family-'));
+  const { runtime, request } = await durableServer(t, root);
+  await request('/api/session', 'POST', { title: 'Alpha' });
+  await request('/api/session', 'POST', { title: 'Beta' });
+  // Why this pins the central-engine shape: the surface is a client of one
+  // conversation registry; every wired engine joined it at construction, so
+  // the surface resolves any attached conversation's state by session id.
+  // Note the two id spaces: the wire uses ses_* ocIds, the registry uses the
+  // engines' session_* ids.
+  const family = runtime.workspace.conversations;
+  const engines = [...runtime.workspace.registry.list()].map((record) => record.engine);
+  assert.equal(engines.length, 2, 'two conversations are attached');
+  assert.equal(family.size(), 2, 'both engines joined the surface registry');
+  for (const engine of engines) {
+    assert.ok(family.has(engine.sessionId), `missing ${engine.sessionId}`);
+    assert.equal(family.resolve(engine.sessionId).transcript, engine.transcript,
+      'the surface registry and the owning engine agree on identity');
+  }
+});
+
 test('surface diagnostics report the shared scheduler held state', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'nna-diag-'));
   const { runtime, request } = await durableServer(t, root);

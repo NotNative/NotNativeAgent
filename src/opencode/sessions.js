@@ -4,6 +4,7 @@
 // ingress only), the per-session wire voice (cadence + prompt queue), and the
 // façade's route-level error vocabulary.
 import { SessionEngine } from '../engine.js';
+import { ConversationRegistry } from '../engine/conversation-state.js';
 import { CanonicalIngress } from '../ingress.js';
 import { newId, ContractError, requireExternalId } from '../ids.js';
 import { mkdirSync } from 'node:fs';
@@ -37,12 +38,19 @@ export function createOpenCodeSessionWorkspace(options = {}) {
   // Why exposed: the workspace owns the surface's shared admission scheduler;
   // status surfaces and tests read it to verify conversations share capacity.
   workspace.scheduler = options.scheduler;
+  // Why one surface-wide conversation registry: every engine the surface
+  // attaches joins it, so conversations and their subagents form one
+  // resolvable family — the central-engine shape with the surface as client.
+  workspace.conversations = new ConversationRegistry();
+  // Why merged here: engineOptions reads the caller's options object directly;
+  // the surface registry must ride along without every call site threading it.
+  options.conversations = workspace.conversations;
   const operations = defineWorkspaceOperations(workspace, options);
   const v2 = createV2Workspace(operations, { ...options, registry });
   workspace.v2 = v2;
   const publishSession = bus.publishSession;
   bus.publishSession = (event) => { v2.observe(event); return publishSession(event); };
-  return { workspace, registry, bus, operations, v2, scheduler: workspace.scheduler };
+  return { workspace, registry, bus, operations, v2, scheduler: workspace.scheduler, conversations: workspace.conversations };
 }
 
 function ensureStoreRoots(options) {
@@ -127,6 +135,9 @@ function engineOptions({ options, workspace, sessionId, ocId, sessionDirectory, 
     providerFactory: options.providerFactory,
     semanticReviewer: options.semanticReviewer,
     scheduler: options.scheduler,
+    // Why the surface registry: each wired engine joins the surface's
+    // conversation family, so engine-hosted subagents resolve in one map.
+    conversationRegistry: options.conversations,
     secretBroker: options.secretBroker,
   };
 }
