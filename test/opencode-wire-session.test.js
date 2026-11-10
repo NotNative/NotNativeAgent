@@ -23,8 +23,7 @@ function freshWireSession(record, bus) {
   });
 }
 
-test('prompt admits, runs, settles, and closes in the observed gold cadence', async () => {
-  let active;
+test('prompt admits, runs, settles, and closes in the observed gold cadence', async () => {  let active;
   const bus = recordingBus();
   const record = makeRecord(async (command) => {
     active.observe({ type: 'stream_delta', text: 'HE' });
@@ -560,4 +559,27 @@ test('the held queue is bounded and answers as a capacity refusal', async () => 
   const delivered = record.engine.transcript.map((item) => item.content);
   assert.equal(delivered.length, 16, 'only the 16 admitted briefings are ever delivered');
   assert.equal(delivered.includes('one too many'), false);
+});
+
+test('context measurements publish as nna.context.usage for the client meter', () => {
+  const bus = recordingBus();
+  const wireSession = freshWireSession(makeRecord(async () => ({ outcome: 'completed', text: '' })), bus);
+  wireSession.observe({ type: 'context_status', turn_id: 'turn-1',
+    estimated_tokens: 103_618, limit_tokens: 1_048_576, raw_estimated_tokens: 103_700,
+    pressure_tier: 'low', compaction_threshold_tokens: 786_432, measurement: 'estimated' });
+  const usage = bus.frames.filter((frame) => frame.type === 'nna.context.usage');
+  assert.equal(usage.length, 1, JSON.stringify(bus.frames.map((f) => f.type)));
+  assert.deepEqual(usage[0].properties, {
+    sessionID: 'ses_t', turnID: 'turn-1',
+    estimatedTokens: 103_618, limitTokens: 1_048_576, contextWindowTokens: 1_048_576,
+    rawEstimatedTokens: 103_700, pressureTier: 'low',
+    compactionThresholdTokens: 786_432, measurement: 'estimated',
+  });
+  // The per-step usage event carries the same shape from the same fields.
+  wireSession.observe({ type: 'context_usage', turn_id: 'turn-1',
+    current_estimated_tokens: 110_000, limit_tokens: 1_048_576, measurement: 'estimated' });
+  const second = bus.frames.filter((frame) => frame.type === 'nna.context.usage');
+  assert.equal(second.length, 2);
+  assert.equal(second[1].properties.estimatedTokens, 110_000);
+  assert.equal(second[1].properties.contextWindowTokens, 1_048_576);
 });

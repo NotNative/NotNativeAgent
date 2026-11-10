@@ -46,6 +46,13 @@ export function observeV1Event(state, event, events) {
     }
     return;
   }
+  if (type === 'nna.context.usage') {
+    // Why preserved: the client's context pane renders the live "X% used" meter
+    // from this. Why not mirrored into the transcript: it is a measurement, not
+    // a message; the same exclusion the compaction extension uses.
+    events.emit(state, type, { ...value }, false);
+    return;
+  }
   if (type.startsWith('question.')) return observeForm(state, type, value, events);
   if (type === 'message.updated') return observeMessage(state, value.info, events);
   if (type === 'message.part.updated') return observePart(state, value.part, events);

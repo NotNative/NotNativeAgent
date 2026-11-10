@@ -46,6 +46,20 @@ test('v2 announces only a settled compaction, and only during a turn', () => {
   assert.deepEqual(run('failed', true), ['nna.context.compaction', 'session.compaction.ended']);
 });
 
+test('v2 preserves the context usage meter event as a live extension', () => {
+  const emitted = [];
+  observeV1Event({ info: { id: 'ses_a' } }, { type: 'nna.context.usage', properties: {
+    sessionID: 'ses_a', turnID: 'turn_a', estimatedTokens: 103_618, limitTokens: 1_048_576,
+    contextWindowTokens: 1_048_576, rawEstimatedTokens: 103_700, pressureTier: 'low',
+    compactionThresholdTokens: 786_432, measurement: 'estimated',
+  } }, { emit: (_state, type, data, durable) => emitted.push({ type, data, durable }) });
+  assert.deepEqual(emitted, [{ type: 'nna.context.usage', data: {
+    sessionID: 'ses_a', turnID: 'turn_a', estimatedTokens: 103_618, limitTokens: 1_048_576,
+    contextWindowTokens: 1_048_576, rawEstimatedTokens: 103_700, pressureTier: 'low',
+    compactionThresholdTokens: 786_432, measurement: 'estimated',
+  }, durable: false }], 'the meter flows to the client stream without entering the transcript');
+});
+
 function schemaCheck(value, schema) {
   if (schema.$ref) return schemaCheck(value, fixture.components.schemas[schema.$ref.split('/').at(-1)]);
   if (schema.anyOf) return schema.anyOf.some((item) => schemaCheck(value, item));

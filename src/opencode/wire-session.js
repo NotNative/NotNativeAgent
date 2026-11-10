@@ -73,27 +73,43 @@ function applyModelRef(state, next) {
   if (typeof next?.modelID === 'string' && next.modelID) state.modelRef.modelID = next.modelID;
 }
 
+// Why published: the client's context pane renders a live "X% used" meter from
+// this; without it an operator compacting by hand has no per-turn visibility.
+function publishContextUsage(state, record) {
+  const perTurn = record.type === 'context_status';
+  publishBare(state, 'nna.context.usage', {
+    sessionID: state.sessionID, turnID: record.turn_id ?? null,
+    estimatedTokens: (perTurn ? record.estimated_tokens : record.current_estimated_tokens) ?? null,
+    limitTokens: record.limit_tokens ?? null, contextWindowTokens: record.limit_tokens ?? null,
+    rawEstimatedTokens: (perTurn ? record.raw_estimated_tokens : record.current_estimated_tokens) ?? null,
+    pressureTier: perTurn ? (record.pressure_tier ?? 'none') : null,
+    compactionThresholdTokens: perTurn ? (record.compaction_threshold_tokens ?? null) : null,
+    measurement: record.measurement ?? 'estimated',
+  });
+}
+
 function observeEngineRecord(state, record) {
   if (record?.type === 'context_compaction_status' && state.active) {
-    // Compatibility: OpenCode has no standard compaction part. Emit a scoped
-    // extension event without inserting diagnostic text into the assistant answer.
+    // Compatibility: OpenCode has no standard compaction part, and a v2 client
+    // announces a finished compaction from `session.compaction.ended` — it has
+    // no case for the extension below, so only a settled compaction is also
+    // announced there; a skipped or in-flight one did not compact.
     publishBare(state, 'nna.context.compaction', {
       sessionID: state.sessionID, turnID: record.turn_id ?? null,
-      status: record.status, trigger: record.trigger ?? null,
-      reasonCode: record.reason_code ?? null,
+      status: record.status, trigger: record.trigger ?? null, reasonCode: record.reason_code ?? null,
       beforeEstimatedTokens: record.before_estimated_tokens ?? null,
       afterEstimatedTokens: record.after_estimated_tokens ?? null,
       targetTokens: record.target_tokens ?? null,
       contextWindowTokens: record.context_window_tokens ?? null,
       inputGrowthTokens: record.input_growth_tokens ?? null,
     });
-    // Compatibility: a v2 client announces a finished compaction from
-    // `session.compaction.ended` and has no case for the NNA extension above, so
-    // a compaction would otherwise never reach the transcript. Only a settled
-    // compaction is announced; a skipped or in-flight one did not compact.
     if (record.status === 'completed' || record.status === 'failed') {
       publishBare(state, 'session.compaction.ended', { sessionID: state.sessionID });
     }
+    return;
+  }
+  if (record?.type === 'context_status' || record?.type === 'context_usage') {
+    publishContextUsage(state, record);
     return;
   }
   if (record?.type === 'stream_delta' && state.active) {
@@ -105,40 +121,35 @@ function observeEngineRecord(state, record) {
     return;
   }
   if (record?.type === 'tool_status' && state.active) observeToolStatus(state, record);
-  // Why: NNA waits out a provider outage before retrying. Without a wire signal
-  // the client shows a bare busy status with no explanation, so an operator
-  // cannot tell a stalled turn from a recovering one.
+  // Why: NNA waits out a provider outage before retrying. Without a wire signal the
+  // client shows a bare busy status, so an operator cannot tell a stalled turn
+  // from a recovering one.
   if (record?.type === 'state_status' && state.active && record.semantic_state === 'recovering'
     && state.active.retryAnnounced !== true) {
     state.active.retryAnnounced = true;
     publishBare(state, 'session.retry.scheduled', {
-      sessionID: state.sessionID,
-      attempt: null,
+      sessionID: state.sessionID, attempt: null,
       error: { message: 'The provider is unavailable. NNA is waiting before it retries.' },
     });
   }
 }
 
 // Why: a v2 transcript shows tool calls as parts of the assistant message. The
-// engine already reports each tool's name and lifecycle, so the wire projects
-// that into the tool state a client renders.
-//
-// Compatibility: the part is what a client rebuilds history from, but the live
-// transcript of the OpenChamber client is driven by the `session.tool.*`
-// lifecycle — it declares `message.part.updated` and dispatches no case for it.
-// Without the lifecycle events a tool-using turn runs with no tool row until it
-// is reloaded. See publishToolLifecycle for the order the client requires.
-//
-// Security: tool rows carry the tool name and its state only. Arguments and raw
-// results stay with the engine; a tool's input can contain a secret and its
+// Why: a v2 transcript shows tool calls as parts of the assistant message; the
+// engine reports each tool's name and lifecycle, and the wire projects it into
+// the tool state a client renders. Compatibility: the live OpenChamber transcript
+// is driven by the `session.tool.*` lifecycle — it dispatches no case for
+// `message.part.updated` — so without the lifecycle events a tool-using turn runs
+// with no tool row until it is reloaded. See publishToolLifecycle for the order.
+// Security: tool rows carry the tool name and its state only; arguments and raw
+// results stay with the engine, since a tool's input can contain a secret and its
 // output can contain retrieved content that must not gain authority.
 const RUNNING_TOOL_STATES = new Set(['review_pending', 'approved', 'running']);
 
 function observeToolStatus(state, record) {
   if (typeof record.tool !== 'string' || !record.tool) return;
-  // Why: a protocol tool declares turn control instead of doing visible work,
-  // and OpenCode has no call to show for it. Rendering it would invent a tool
-  // step the model never performed.
+  // Why: a protocol tool declares turn control instead of doing visible work, and
+  // OpenCode has no call to show for it; rendering it would invent a tool step.
   if (PROTOCOL_TOOL_NAMES.includes(record.tool)) return;
   const key = record.tool_request_id ?? record.provider_call_id ?? record.tool;
   const nowMs = Date.now();
@@ -150,8 +161,7 @@ function observeToolStatus(state, record) {
   }
   const previous = part.state;
   const status = record.status;
-  const terminal = status === 'succeeded' ? 'completed'
-    : RUNNING_TOOL_STATES.has(status) ? null : 'error';
+  const terminal = status === 'succeeded' ? 'completed' : RUNNING_TOOL_STATES.has(status) ? null : 'error';
   part.state = terminal === 'completed'
     ? { status: 'completed', input: {}, content: [{ type: 'text', text: '' }] }
     : terminal === 'error'
@@ -159,26 +169,24 @@ function observeToolStatus(state, record) {
         message: 'The tool did not complete. NNA records the reason in its own journal.' } }
       : { status: 'running', input: {}, metadata: {} };
   if (part.state.status === 'running') part.time.ran = nowMs; else part.time.completed = nowMs;
-  // Why publish the part: a surface that projects the transcript from events
-  // learns about a tool call only from a part update. Returning the part in the
-  // final response is not enough — the v2 workspace listens to the bus.
+  // Why publish the part: a surface projecting the transcript from events learns
+  // about a tool call only from a part update; returning the part in the final
+  // response is not enough — the v2 workspace listens to the bus.
   publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part, time: nowMs });
   publishToolLifecycle(state, part, previous, terminal);
   // Compatibility: the part is projected on the assistant message so a client
-  // that rebuilds the transcript from parts renders the call in place.
+  // rebuilding the transcript from parts renders the call in place.
   const assistant = state.active.assistantParts ?? [];
   const existing = assistant.findIndex((item) => item.id === part.id);
   if (existing >= 0) assistant[existing] = part; else assistant.push(part);
 }
 
 /** Announce one tool transition in the vocabulary the live transcript reads.
- *
  *  Why the prelude: the client opens a tool row only on `input.started`, moves it
  *  out of `streaming` only on `called`, and drops `success` unless the row is
  *  already `running` and `failed` unless it is `streaming` or `running`. The
- *  engine's own lifecycle can be a single terminal record, so a terminal event
- *  for a row the client never saw opened is preceded by the events that open it.
- *
+ *  engine's lifecycle can be a single terminal record, so a terminal event for a
+ *  row the client never saw opened is preceded by the events that open it.
  *  Why empty input: a tool's arguments can carry a secret, and the client's row
  *  renders them. `executed` is what NNA actually observed — a tool that reached
  *  running ran, and one stopped by review before it never did. */
@@ -186,9 +194,7 @@ function publishToolLifecycle(state, part, previous, terminal) {
   const base = { sessionID: state.sessionID, assistantMessageID: state.active.assistantId, id: part.id };
   if (!previous) publishDurable(state, 'session.tool.input.started', { ...base, name: part.name });
   if (previous?.status !== 'running') {
-    publishDurable(state, 'session.tool.called', {
-      ...base, input: {}, executed: Boolean(part.time.ran) || terminal === 'completed',
-    });
+    publishDurable(state, 'session.tool.called', { ...base, input: {}, executed: Boolean(part.time.ran) || terminal === 'completed' });
   }
   if (terminal === 'completed') {
     publishDurable(state, 'session.tool.success', { ...base, content: [{ type: 'text', text: '' }], executed: true });
@@ -238,16 +244,15 @@ function admit(state, parts, input = {}) {
 
 /** Admit a synthetic input without scheduling a turn.
  *
- *  Why no assistant row or idle marker: a held entry is not a turn. Gold OC
- *  publishes the `session.synthetic` row itself for this case and opens no
- *  assistant turn, so no run state, status frame, or turn boundary appears —
- *  a client would otherwise show a session running with nothing in it.
- *
- *  Compatibility: no `session.inbox.enqueued` either. The OpenChamber reducer
- *  inserts an enqueued item into its pending queue and removes it on delivery
- *  or cancellation, so an item that is never steered and never cancelled sits
- *  in the composer queue indefinitely. `session.synthetic` is the event the
- *  client renders this row from, both live and (via history) after a reload. */
+ *  Why no assistant row or idle marker: a held entry is not a turn. Gold OC publishes
+ *  the `session.synthetic` row itself for this case and opens no assistant turn, so no
+ *  run state, status frame, or turn boundary appears — a client would otherwise show a
+ *  session running with nothing in it.
+ *  Compatibility: no `session.inbox.enqueued` either. The OpenChamber reducer inserts
+ *  an enqueued item into its pending queue and removes it on delivery or cancellation,
+ *  so an item that is never steered and never cancelled sits in the composer queue
+ *  indefinitely. `session.synthetic` is the event the client renders this row from,
+ *  both live and (via history) after a reload. */
 function holdEntry(state, entry, input) {
   if (heldPending(state) >= HELD_LIMIT) {
     state.ledger.splice(state.ledger.indexOf(entry), 1);
@@ -283,12 +288,10 @@ function pendingCount(state) {
   return state.ledger.reduce((count, entry) => count + Number(entry.response === null && !entry.held), 0);
 }
 
-/** Withdraw one pending entry by engine request id.
- *
- *  Why this exists: the scheduler can hold an admitted prompt for capacity, and
- *  a revert targeting that turn must take it back before it reaches the
- *  provider — a queue withdrawal never contacts the provider, unlike a stream
- *  cancel. Returns whether the entry was found and withdrawn. */
+/** Withdraw one pending entry by engine request id: the scheduler can hold an
+ *  admitted prompt for capacity, and a revert targeting that turn must take it
+ *  back before it reaches the provider — a queue withdrawal never contacts the
+ *  provider, unlike a stream cancel. Returns whether the entry was withdrawn. */
 function withdrawPending(state, requestId) {
   if (!requestId) return false;
   const entry = state.ledger.find((item) => item.requestId === requestId
@@ -417,18 +420,15 @@ function messagesFromLedger(state) {
 }
 
 /** Enter replayed turns into the wire ledger as settled entries.
- *
- *  Why a settled entry rather than a fresh admission: a restored turn already
- *  ran in a previous process. It must render in history and answer a revert
- *  join by its engine request id, but it must not count as pending or re-emit
- *  its events, so each entry lands fully settled with its replayed idle marker.
- *  The queue capacity counts `response === null` entries only, so settled
- *  history never consumes live-prompt capacity, and eviction of the oldest
- *  settled entry (`admit`) works unchanged.
- *
+ *  Why a settled entry rather than a fresh admission: a restored turn already ran
+ *  in a previous process. It must render in history and answer a revert join by
+ *  its engine request id, but it must not count as pending or re-emit its events,
+ *  so each entry lands fully settled with its replayed idle marker. The queue
+ *  capacity counts `response === null` entries only, so settled history never
+ *  consumes live-prompt capacity, and eviction of the oldest settled entry works.
  *  Security: the seeded text is the operator prompt and the settled answer the
- *  engine's own journal carries. Tool rows enter through the same projection
- *  live turns use, which records names and states only. */
+ *  engine's own journal carries. Tool rows enter through the same projection live
+ *  turns use, which records names and states only. */
 function seedHistory(state, turns) {
   if (!Array.isArray(turns)) return 0;
   let seeded = 0;
