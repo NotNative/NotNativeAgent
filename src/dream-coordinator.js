@@ -11,6 +11,7 @@ import { NnmHygieneReceipts } from './nnm-hygiene-receipts.js';
 import { admitHygieneReceipt, admitNnmReceipt } from './dream-governance-admission.js';
 import { settleUnavailableEvidence } from './dream-evidence-settlement.js';
 import { reliabilityCandidate, candidateSummary } from './dream-candidate-projection.js';
+import { observeCapacityCandidates } from './dream-capacity.js';
 import { observeSkillRequests } from './skill-opportunity.js';
 import {
   explicitProjectKnowledge, ProjectMemoryReconciler, projectMemoryCandidate,
@@ -49,16 +50,12 @@ export class DreamCoordinator {
     return {
       enabled: this.config.dream.enabled, state: this.state.state, reason: this.state.reason,
       workspace: this.config.workspaceRoot, watermark: this.store.watermark(this.runtimeKey),
-      pending: pending ? {
-        id: pending.id, stage: pending.stage, created_at: pending.created_at,
-        updated_at: pending.updated_at, result_code: pending.result_code,
-      } : null,
+      pending: pending ? { id: pending.id, stage: pending.stage, created_at: pending.created_at,
+        updated_at: pending.updated_at, result_code: pending.result_code } : null,
       store: this.store.status(), recent: this.store.recent(10),
     };
   }
-  candidates(limit = 50) {
-    return this.store.candidates({ limit }).map(candidateSummary);
-  }
+  candidates(limit = 50) { return this.store.candidates({ limit }).map(candidateSummary); }
   candidate(id) {
     const candidate = this.store.candidate(id);
     if (!candidate) throw Object.assign(new Error('learning candidate does not exist'), { code: 'dream_candidate_missing' });
@@ -165,6 +162,7 @@ export class DreamCoordinator {
         scope: { kind: 'workspace', fingerprint: governanceFingerprint(this.config.workspaceRoot) }, signal,
       });
       candidates.push(...skillCandidates);
+      candidates.push(...await this.#capacityCandidates(registry, packet));
       this.#commitStage(run, started, () => {
         this.store.advancePacket(packet.id, 2, 'operational_diagnosis_complete');
         this.store.finish(run.id, 'completed', {
@@ -191,6 +189,10 @@ export class DreamCoordinator {
       });
       throw error;
     }
+  }
+  /** Capacity candidates from the scheduler's own instrumentation: routes with sustained queued-and-succeeded traffic earn a learned operating point. */
+  #capacityCandidates(registry, packet) {
+    return observeCapacityCandidates({ engine: this.#engine(false), registry, evidenceId: packet.governance_evidence_id });
   }
   async #projectMemory(packet, { trigger, signal }) {
     const started = performance.now();
@@ -435,9 +437,8 @@ export class DreamCoordinator {
     if (!telemetry) return;
     const run = event.run, terminal = event.phase === 'finished';
     telemetry.record('maintenance.stage', terminal ? telemetryStatus(run.state) : 'running', {
-      run_id: run.id, stage: run.stage, trigger: run.trigger,
-      result_code: run.result_code, duration_ms: run.duration_ms,
-      input_fingerprint: run.input_fingerprint, output_fingerprint: run.output_fingerprint,
+      run_id: run.id, stage: run.stage, trigger: run.trigger, result_code: run.result_code,
+      duration_ms: run.duration_ms, input_fingerprint: run.input_fingerprint, output_fingerprint: run.output_fingerprint,
     }, { reasonCode: run.result_code ?? `stage_${event.phase}` });
   }
   #transcriptRecords() {
@@ -447,9 +448,7 @@ export class DreamCoordinator {
 function terminalEvidence(row) {
   return ['succeeded', 'failed', 'cancelled', 'timed_out', 'denied', 'skipped', 'unknown_effect'].includes(row.status);
 }
-function telemetryStatus(state) {
-  return state === 'completed' ? 'succeeded' : state;
-}
+function telemetryStatus(state) { return state === 'completed' ? 'succeeded' : state; }
 function evidencePacket(rows) {
   const counts = {}, reasons = {}, turns = new Set(), sessions = new Set();
   for (const row of rows) {

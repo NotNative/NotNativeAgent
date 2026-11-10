@@ -16,6 +16,33 @@ export function reliabilityCandidate(issue, evidenceId) {
   };
 }
 
+/** A per-route operating point learned from the scheduler's own evidence.
+ *
+ *  Why a candidate and not a direct limit: learned capacity bounds scheduling
+ *  and never permission, so it enters through the same governed lifecycle as
+ *  every other learned fact — observed, validated, proposed, operator-approved
+ *  before anything constrains admission. The payload cites the route, the
+ *  concurrency it was measured at, and the queue-wait evidence behind it. */
+export function capacityCandidate({ route, concurrency, samples, medianQueueWaitMs, p95QueueWaitMs, evidenceId }) {
+  const condition = governanceFingerprint({ route, concurrency });
+  return {
+    id: `candidate-capacity-${condition.slice(0, 24)}`,
+    kind: 'capacity.route_operating_point', confidence: Math.min(0.9, 0.4 + samples * 0.02),
+    recurrenceCount: samples, evidenceRefs: [evidenceId],
+    expectedBenefit: `Bound admission on ${route} at concurrency ${concurrency} before queue waits grow, so held turns surface honestly instead of overflowing the provider.`,
+    successCriteria: [
+      `At concurrency ${concurrency + 1} the route's p95 queue wait exceeds the measured median at ${concurrency}.`,
+      'A declared ceiling still caps the learned value; the operator bound is never widened.',
+    ],
+    riskClass: 'diagnostic',
+    payload: {
+      route, measured_concurrency: concurrency, samples,
+      median_queue_wait_ms: medianQueueWaitMs, p95_queue_wait_ms: p95QueueWaitMs,
+      proposed_action: 'propose_declared_ceiling',
+    },
+  };
+}
+
 export function candidateSummary(candidate, detail = false) {
   const summary = {
     id: candidate.id, kind: candidate.kind, state: candidate.state,
