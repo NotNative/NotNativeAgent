@@ -1,63 +1,66 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { resolve } from 'node:path';
 import { createHostedBrowserTransport, hostedBrowserBindingFrom, hostedBrowserBindingFromEnvironment,
-  readHostedBrowserBinding, resolveHostedBrowserBinding } from '../src/hosted-browser-client.js';
+  hostedBrowserStateRoots, probeHostedBrowser, readHostedBrowserBinding } from '../src/hosted-browser-client.js';
 
 const token = 't'.repeat(43);
-const url = 'http://127.0.0.1:4豆/api/openchamber/nna/browser';
-const good = `http://127.0.0.1:4172/api/openchamber/nna/browser`;
+const route = '/api/openchamber/control';
+const good = `http://127.0.0.1:4172${route}`;
 
-test('a binding is accepted only on the pane route at a loopback address', () => {
-  assert.deepEqual(hostedBrowserBindingFrom({ url: good, token }), { url: good, token });
+test('a binding is accepted only on the control route at a loopback address', () => {
+  assert.equal(hostedBrowserBindingFrom({ url: good })?.url, good);
+  // A local control route needs no credential; one that was issued is kept.
+  assert.equal(hostedBrowserBindingFrom({ url: good, token })?.token, token);
+  assert.equal(hostedBrowserBindingFrom({ url: good })?.token, null);
   // Why loopback only: the pane runs pages with the operator's live logins.
-  assert.equal(hostedBrowserBindingFrom({ url: 'http://10.0.0.5:4172/api/openchamber/nna/browser', token }), null);
-  assert.equal(hostedBrowserBindingFrom({ url: 'https://127.0.0.1:4172/api/openchamber/nna/browser', token }), null);
-  assert.equal(hostedBrowserBindingFrom({ url: 'http://127.0.0.1:4172/api/other', token }), null);
-  assert.equal(hostedBrowserBindingFrom({ url: `${good}?x=1`, token }), null);
+  assert.equal(hostedBrowserBindingFrom({ url: `http://10.0.0.5:4172${route}` }), null);
+  assert.equal(hostedBrowserBindingFrom({ url: `https://127.0.0.1:4172${route}` }), null);
+  assert.equal(hostedBrowserBindingFrom({ url: 'http://127.0.0.1:4172/api/other' }), null);
+  assert.equal(hostedBrowserBindingFrom({ url: `${good}?x=1` }), null);
   assert.equal(hostedBrowserBindingFrom({ url: good, token: 'short' }), null);
-  assert.equal(hostedBrowserBindingFrom({ url: good, token, extra: true }).token, token);
   assert.equal(hostedBrowserBindingFrom(null), null);
 });
 
 test('the environment binding is absent by default and refused when malformed', () => {
   assert.equal(hostedBrowserBindingFromEnvironment({}), null);
-  assert.throws(() => hostedBrowserBindingFromEnvironment({ NNA_OPENCHAMBER_BROWSER_URL: 'http://evil.example/x', NNA_OPENCHAMBER_BROWSER_TOKEN: token }),
+  assert.throws(() => hostedBrowserBindingFromEnvironment({ NNA_OPENCHAMBER_BROWSER_URL: 'http://evil.example/x' }),
     { code: 'hosted_browser_binding_invalid' });
-  assert.deepEqual(hostedBrowserBindingFromEnvironment({ NNA_OPENCHAMBER_BROWSER_URL: good, NNA_OPENCHAMBER_BROWSER_TOKEN: token }),
-    { url: good, token });
+  assert.equal(hostedBrowserBindingFromEnvironment({ NNA_OPENCHAMBER_BROWSER_URL: good }).url, good);
 });
 
-test('the capability file is optional: a missing or broken file means no pane here', async () => {
+test('state roots come from OpenChamber convention, not NNA data', () => {
+  const roots = hostedBrowserStateRoots({ APPDATA: 'C:/Roaming' }, 'C:/home');
+  assert.equal(roots.length, 2);
+  assert.ok(roots[0].endsWith('openchamber'));
+  assert.ok(roots[1].endsWith('OpenChamber'));
+  // A relocated data root wins, and is honoured as given.
+  const configured = hostedBrowserStateRoots({ OPENCHAMBER_DATA_DIR: 'D:/oc-data' }, 'C:/home');
+  assert.equal(configured[0], resolve('D:/oc-data'));
+});
+
+test('a capability file is optional, and a broken one is simply absent', async () => {
   assert.equal(await readHostedBrowserBinding('/nowhere/nna-browser.json'), null);
   assert.equal(await readHostedBrowserBinding('/x', { read: async () => 'not json' }), null);
-  assert.equal(await readHostedBrowserBinding('/x', { read: async () => JSON.stringify({ url: good }) }), null);
-  assert.deepEqual(await readHostedBrowserBinding('/x', { read: async () => JSON.stringify({ url: good, token }) }),
-    { url: good, token });
+  assert.equal(await readHostedBrowserBinding('/x', { read: async () => JSON.stringify({ url: 'https://e.org' }) }), null);
+  assert.equal((await readHostedBrowserBinding('/x', { read: async () => JSON.stringify({ url: good }) })).url, good);
 });
 
-test('resolution prefers the launched binding over the published file', async () => {
-  let readCalls = 0;
-  const fromFile = await resolveHostedBrowserBinding({
-    environment: { NNA_OPENCHAMBER_BROWSER_URL: good, NNA_OPENCHAMBER_BROWSER_TOKEN: token },
-    capabilityPath: '/x',
-    read: async () => { readCalls += 1; return JSON.stringify({ url: good, token: 'u'.repeat(43) }); },
-  });
-  assert.equal(fromFile.token, token);
-  // Why: a launcher that handed the binding down is authoritative, and reading the
-  // file as well would let a stale instance win over the one NNA just started.
-  assert.equal(readCalls, 0);
-  const onlyFile = await resolveHostedBrowserBinding({
-    environment: {}, capabilityPath: '/x',
-    read: async () => { readCalls += 1; return JSON.stringify({ url: good, token }); },
-  });
-  assert.deepEqual(onlyFile, { url: good, token });
-  assert.equal(readCalls, 1);
+test('a port that answers the control route is usable, and a silent one is not', async () => {
+  const answered = await probeHostedBrowser({ ports: [1234], fetcher: async (url) => {
+    assert.match(url, /127\.0\.0\.1:1234\/api\/openchamber\/control$/u);
+    return new Response('{"defaultModel":null}', { status: 200 });
+  } });
+  assert.equal(answered.url, `http://127.0.0.1:1234${route}`);
+  assert.equal(answered.token, null);
+  const silent = await probeHostedBrowser({ ports: [1234], fetcher: async () => { throw new Error('ECONNREFUSED'); } });
+  assert.equal(silent, null);
+  assert.equal(await probeHostedBrowser({ ports: [] }), null);
 });
 
 function transportWith(reply, capture = []) {
-  return createHostedBrowserTransport({ url: good, token }, {
-    createId: () => 'req-1',
+  return createHostedBrowserTransport({ url: good, token: null }, {
     fetcher: async (target, options) => {
       capture.push({ target, options });
       return typeof reply === 'function' ? reply(target, options) : reply;
@@ -67,28 +70,27 @@ function transportWith(reply, capture = []) {
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-test('an action sends its bearer, its parameters and the calling scope', async () => {
+test('an action carries its inputs and the calling scope in one body', async () => {
   const calls = [];
-  const transport = transportWith(json({ ok: true, data: { clicked: '#save', label: 'Save', url: 'https://example.org/' } }), calls);
-  const data = await transport.send('browser.click', { selector: '#save', tabId: 'tab-2' },
+  const transport = transportWith(json({ clicked: 'html > body > a', label: 'Learn more', url: 'https://example.com/' }), calls);
+  const data = await transport.send('browser.click', { selector: 'a', tabId: 'tab-2' },
     { context: { directory: 'D:/repo', sessionId: 'ses_1' } });
-  assert.deepEqual(data, { clicked: '#save', label: 'Save', url: 'https://example.org/' });
+  assert.deepEqual(data, { clicked: 'html > body > a', label: 'Learn more', url: 'https://example.com/' });
   assert.equal(calls[0].target, good);
   assert.equal(calls[0].options.method, 'POST');
-  assert.equal(calls[0].options.headers.authorization, `Bearer ${token}`);
   const body = JSON.parse(calls[0].options.body);
-  assert.equal(body.requestId, 'req-1');
   assert.equal(body.action, 'browser.click');
-  assert.deepEqual(body.parameters, { selector: '#save', tabId: 'tab-2' });
-  // Why the session travels: the pane scopes tabs to the chat, so another
-  // session's page is never acted on by accident.
-  assert.deepEqual(body.context, { directory: 'D:/repo', sessionId: 'ses_1' });
+  assert.deepEqual(body.input, { selector: 'a', tabId: 'tab-2', action: 'browser.click' });
+  // Why the session travels: the pane scopes tabs to the chat.
+  assert.equal(body.contextSessionId, 'ses_1');
+  assert.equal(body.contextDirectory, 'D:/repo');
 });
 
 test('an action outside the pane list is refused before any request', async () => {
   const calls = [];
-  const transport = transportWith(json({ ok: true, data: {} }), calls);
+  const transport = transportWith(json({}), calls);
   await assert.rejects(transport.send('browser.explode', {}), { code: 'hosted_browser_action_unsupported' });
+  await assert.rejects(transport.send('secret.run', {}), { code: 'hosted_browser_action_unsupported' });
   assert.equal(calls.length, 0);
 });
 
@@ -102,27 +104,29 @@ test('an unauthenticated or unreachable pane is reported as such', async () => {
 test('a cancelled action is a cancellation, not a pane failure', async () => {
   const controller = new AbortController();
   controller.abort();
-  await assert.rejects(transportWith(json({ ok: true, data: {} })).send('browser.click', {}, { signal: controller.signal }),
+  await assert.rejects(transportWith(json({})).send('browser.click', {}, { signal: controller.signal }),
     { code: 'tool_cancelled' });
 });
 
 test('a refused action carries the pane message, and a malformed reply is refused', async () => {
-  await assert.rejects(transportWith(json({ ok: false, error: 'No element matches #x' })).send('browser.click', { selector: '#x' }),
+  // The pane answers a refusal with `{ error }`, sometimes with a status and
+  // sometimes, as the host route does, in a 200 body. Both must read as refusals.
+  await assert.rejects(transportWith(json({ error: 'No element matches #x' }, 400)).send('browser.click', { selector: '#x' }),
     (error) => error.code === 'hosted_browser_failed' && /No element matches #x/u.test(error.message));
+  await assert.rejects(transportWith(json({ error: 'This browser.close did not come from a session' })).send('browser.close', {}),
+    (error) => error.code === 'hosted_browser_failed' && /did not come from a session/u.test(error.message));
   await assert.rejects(transportWith(new Response('not json', { status: 200 })).send('browser.snapshot', {}),
-    { code: 'hosted_browser_reply_invalid' });
-  await assert.rejects(transportWith(json({ data: {} })).send('browser.snapshot', {}),
     { code: 'hosted_browser_reply_invalid' });
 });
 
 test('an oversized reply is refused instead of buffered', async () => {
-  const huge = new Response('x'.repeat(12_000_001), { status: 200 });
-  await assert.rejects(transportWith(huge).send('browser.snapshot', {}), { code: 'hosted_browser_reply_large' });
+  await assert.rejects(transportWith(new Response('x'.repeat(12_000_001), { status: 200 })).send('browser.snapshot', {}),
+    { code: 'hosted_browser_reply_large' });
 });
 
 test('an oversized request is refused before it is sent', async () => {
   const calls = [];
-  const transport = transportWith(json({ ok: true, data: {} }), calls);
+  const transport = transportWith(json({}), calls);
   await assert.rejects(transport.send('browser.type', { selector: '#q', value: 'x'.repeat(70_000) }),
     { code: 'hosted_browser_request_large' });
   assert.equal(calls.length, 0);

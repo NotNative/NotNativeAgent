@@ -15,6 +15,18 @@ import {
 
 const RUNTIME_LOG_FILE = 'runtime.ndjson';
 
+/**
+ * Ports a desktop OpenChamber may be listening on.
+ *
+ * Why a fixed list: the desktop application binds an ephemeral port for its own
+ * UI, and it does not write that port anywhere NNA can read. The well-known ports
+ * cover a daemon or CLI install, and a caller that knows the port passes it
+ * through the environment instead. Probing is bounded — one cheap control call
+ * per candidate, 2.5 s each — so a machine with no OpenChamber pays a few seconds
+ * once per service start rather than a hang.
+ */
+const OPENCHAMBER_CANDIDATE_PORTS = Object.freeze([3000, 3001, 5173, 4096]);
+
 export async function runOpencodeCommand(options, paths, scope = {}) {
   const diagnostics = scope.diagnostics ?? { write: () => undefined };
   switch (options.serveAction) {
@@ -41,8 +53,14 @@ async function runManagedService(options, paths, scope, diagnostics) {
   // belongs to this process's run. A missing binding is an ordinary state — an
   // operator may run NNA without OpenChamber — so the surface serves without a
   // browser tool rather than refusing to start.
+  //
+  // Why the port probe: OpenChamber does not publish the port it listens on where
+  // NNA can read it, so a binding is not always discoverable. Probing the ports a
+  // desktop install uses is what finds the instance actually running, and it is
+  // bounded: each candidate gets one cheap control call and a short timeout.
   const hostedBrowserTransport = await openHostedBrowserTransport({
-    environment: scope.environment ?? process.env, dataRoot: paths.root,
+    environment: scope.environment ?? process.env,
+    ports: OPENCHAMBER_CANDIDATE_PORTS,
     ...(scope.fetcher ? { fetcher: scope.fetcher } : {}),
   }).catch(() => null);
   const runtime = await startOpencodeServe({
