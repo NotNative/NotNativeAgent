@@ -263,12 +263,17 @@ async function stageWireRevert(session, body) {
   const messageID = body?.messageID;
   const requestId = session.wireSession.requestIdFor(messageID);
   if (!requestId) throw apiError(404, 'MessageNotFoundError', 'Message was not found', { messageID });
+  // Why withdraw first: a boundary whose turn is still pending must be taken
+  // back before the marker lands, so the journal never attributes records to a
+  // turn the operator reverted. A pending entry never reached the provider, so
+  // this is a queue withdrawal, not a provider cancellation.
+  const withdrawn = session.wireSession.withdrawPending(requestId);
   const result = await runDesktopSessionRevert(session.timeline, { messageID: requestId });
   publishRevert(session, 'session.revert.staged', { sessionID: session.ocId, revert: { messageID } });
   // Compatibility: the response is a `Session.Revert`, whose only required field
   // is `messageID`. The client reads `value.data`, so this must be that shape and
   // not an internal summary.
-  return { messageID, revertedTurns: result.reverted_turn_ids.length };
+  return { messageID, revertedTurns: result.reverted_turn_ids.length, withdrawn };
 }
 
 /** Announce a timeline mutation on the stream the client renders from.

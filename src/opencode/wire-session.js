@@ -12,7 +12,7 @@ import { physicalWireAllowance } from '../reliability/context-budget.js';
 import { PROTOCOL_TOOL_NAMES } from '../tools/core-names.js';
 import {
   ZERO_TOKENS, assistantInfo, buildAssistantResponse, closeTurn, abortPending, currentInfo, idleInfo, publishBare, publishDurable,
-  settleEntry, settleFailure, stepStartPart, textPartOpen, closedUserInfo, userPart, userInfo, tokenView,
+  settleAbandoned, settleEntry, settleFailure, stepStartPart, textPartOpen, closedUserInfo, userPart, userInfo, tokenView,
 } from './wire-transcript.js';
 
 const QUEUE_LIMIT = 64;
@@ -58,8 +58,10 @@ export function createWireSession({ record, bus, info, version, publishV2 = null
     prompt(parts) { return admit(state, parts).response; },
     admit(parts, input = {}) { return admit(state, parts, input); },
     abort() { return abortPending(state); },
-    messages() { return messagesFromLedger(state); },
-    pendingCount() { return pendingCount(state); },
+    // Why a per-entry withdraw: a revert targeting a pending turn removes it from the
+    // queue before the marker lands, so the journal never records a taken-back turn.
+    withdrawPending(requestId) { return withdrawPending(state, requestId); },
+    messages() { return messagesFromLedger(state); }, pendingCount() { return pendingCount(state); },
     // Compatibility: a restored session's replayed turns enter the same ledger
     // live turns use, so history, revert joins, and eviction stay uniform.
     seedHistory(turns) { return seedHistory(state, turns); },
@@ -281,6 +283,20 @@ function pendingCount(state) {
   return state.ledger.reduce((count, entry) => count + Number(entry.response === null && !entry.held), 0);
 }
 
+/** Withdraw one pending entry by engine request id.
+ *
+ *  Why this exists: the scheduler can hold an admitted prompt for capacity, and
+ *  a revert targeting that turn must take it back before it reaches the
+ *  provider — a queue withdrawal never contacts the provider, unlike a stream
+ *  cancel. Returns whether the entry was found and withdrawn. */
+function withdrawPending(state, requestId) {
+  if (!requestId) return false;
+  const entry = state.ledger.find((item) => item.requestId === requestId
+    && item.response === null && !item.held && item !== state.active);
+  if (!entry) return false;
+  settleAbandoned(state, entry);
+  return true;
+}
 async function runEntry(state, entry) {
   // Why: an aborted queued entry was settled by the wire abort path; its
   // chained turn must not submit a fresh prompt after the operator's stop.

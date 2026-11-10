@@ -142,18 +142,7 @@ export function abortPending(state) {
   const drained = [];
   for (const entry of state.ledger) {
     if (entry.response !== null || entry === state.active) continue;
-    entry.aborted = true;
-    entry.finish = 'abort';
-    entry.textEnded = Date.now();
-    entry.assistantCompleted = entry.textEnded;
-    publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: entry.textEnded });
-    publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: entry.textEnded });
-    entry.response = buildAssistantResponse(state, entry);
-    publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: entry.response.info });
-    // Why: a drained prompt settled without ever running, so it still needs the
-    // idle marker that bounds its turn. Without it a newest-first history walk
-    // reads the abandoned turn as the one still running.
-    entry.idle = idleInfo(state, entry);
+    settleAbandoned(state, entry);
     drained.push(entry);
   }
   if (drained.length > 0 && state.active === null) {
@@ -161,4 +150,22 @@ export function abortPending(state) {
     publishBare(state, 'session.idle', { sessionID: state.sessionID });
   }
   return drained.length;
+}
+
+/** Settle one never-ran entry: aborted, final parts, an idle marker bounding it
+ *  in history. Why shared: the stop drain and a revert's withdrawal both take
+ *  back queued work that never reached the provider, and both must settle the
+ *  row the same honest way. */
+export function settleAbandoned(state, entry) {
+  entry.aborted = true;
+  entry.finish = 'abort';
+  entry.textEnded = Date.now();
+  entry.assistantCompleted = entry.textEnded;
+  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: entry.textEnded });
+  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: entry.textEnded });
+  entry.response = buildAssistantResponse(state, entry);
+  publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: entry.response.info });
+  // Why: an entry settled without running still needs the idle marker that
+  // bounds its turn in a newest-first history walk.
+  entry.idle = idleInfo(state, entry);
 }
