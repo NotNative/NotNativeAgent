@@ -6,7 +6,7 @@ import { EventHub, phaseIsCancelable } from './events.js';
 import { ContractError, newId } from './ids.js';
 import { acceptedRecord, assistantMessage, failure, normalizeFailure, submittedUserMessage, userMessage } from './engine/records.js';
 import { admissionFromRetry, createActiveTurn } from './engine/active.js';
-import { LifecycleRegistry, StateAuthority } from './lifecycle.js';
+import { ConversationState } from './engine/conversation-state.js';
 import { HealthInspector } from './health.js';
 import { JournalStore } from './store.js';
 import { SessionLock } from './persistence/session-lock.js';
@@ -48,11 +48,14 @@ import { abandonOrphanedSteering } from './engine/steering-restore.js';
 import { primaryProviderRequest } from './engine/route-request.js';
 import { preparePrimaryRoutes } from './engine/primary-routes.js';
 export class SessionEngine {
-  state = new StateAuthority(); lifecycles = new LifecycleRegistry();
-  authority = new AuthorityRecord();
-  transcript = []; steering = []; latestTurnOutcome = null;
-  recoveryNotices = [];
-  active = null;
+  // Why a ConversationState: per-conversation fields live in one swappable object so a future central engine
+  // can resolve a session id to this state; accessors keep existing call sites reading through the engine.
+  #conversation = new ConversationState();
+  get state() { return this.#conversation.state; } get lifecycles() { return this.#conversation.lifecycles; } get authority() { return this.#conversation.authority; }
+  get transcript() { return this.#conversation.transcript; } set transcript(v) { this.#conversation.transcript = v; }  get steering() { return this.#conversation.steering; } set steering(v) { this.#conversation.steering = v; }
+  get latestTurnOutcome() { return this.#conversation.latestTurnOutcome; } set latestTurnOutcome(v) { this.#conversation.latestTurnOutcome = v; }
+  get recoveryNotices() { return this.#conversation.recoveryNotices; } set recoveryNotices(v) { this.#conversation.recoveryNotices = v; }
+  get active() { return this.#conversation.active; } set active(v) { this.#conversation.active = v; }
   constructor(options) {
     this.config = options.config;
     this.reviewPosture = options.reviewPosture ?? 'auto-review';
@@ -191,9 +194,7 @@ export class SessionEngine {
   saveMemory(content, options) {
     return this.memory.saveExplicit(content, this.config.workspaceRoot, options);
   }
-  inspectMemory() {
-    return this.memory.inspect(this.config.workspaceRoot);
-  }
+  inspectMemory() { return this.memory.inspect(this.config.workspaceRoot); }
   workStatus() { return this.work.snapshot(); }
   setGoal(objective) { return this.work.setGoal(objective); }
   completeGoal(evidence) { return this.work.completeGoal(evidence); }
@@ -201,18 +202,10 @@ export class SessionEngine {
   reopenGoal() { return this.work.reopenGoal(); }
   addTask(title) { return this.work.addTask(title); } updateTask(id, status, detail) { return this.work.updateTask(id, status, detail); }
   clearWork() { return this.work.clear(); }
-  deleteMemory(id, expectedVersion) {
-    return this.memory.delete(id, this.config.workspaceRoot, expectedVersion);
-  }
-  async compactConversation() {
-    return compactEngineConversation(this);
-  }
-  async handoffConversation() {
-    return handoffEngineConversation(this);
-  }
-  async clearConversation() {
-    return clearEngineConversation(this);
-  }
+  deleteMemory(id, expectedVersion) { return this.memory.delete(id, this.config.workspaceRoot, expectedVersion); }
+  async compactConversation() { return compactEngineConversation(this); }
+  async handoffConversation() { return handoffEngineConversation(this); }
+  async clearConversation() { return clearEngineConversation(this); }
   async runSubagent(input, signal, launch) { return runEngineSubagent(this, input, signal, (options) => new SessionEngine(options), launch); }
   async changeWorkspace(target) { return changeEngineWorkspace(this, target, { persist: (type, payload) => this.#persist(type, payload) }); }
   subagentParallelLimit(group, signal) { return subagentParallelLimit(this, group, signal); }
