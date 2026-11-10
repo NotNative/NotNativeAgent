@@ -2,6 +2,7 @@
 import { promisify } from 'node:util';
 import { execFile as execFileCallback } from 'node:child_process';
 import { ContractError } from '../ids.js';
+import { openchamberEnvironment } from './openchamber.js';
 
 const execFile = promisify(execFileCallback);
 const POWERSHELL_TIMEOUT_MS = 20_000;
@@ -78,6 +79,37 @@ async function writeUserEnvironment(removals, scope) {
     .map(([name, value]) => `  [Environment]::SetEnvironmentVariable('${escapeSingle(name)}', ${value === null ? '$null' : `'${escapeSingle(value)}'`}, 'User')`)
     .join('\n');
   await runPowershell(withUserEnvironmentMutex(writes), scope, POWERSHELL_WRITE_TIMEOUT_MS);
+}
+
+/** Apply the user-scope binding a running server owns.
+ *
+ *  Why a start-side write exists: the agreed lifecycle is start writes, stop
+ *  clears. OpenChamber reads the user-scope `OPENCODE_*` variables at its own
+ *  launch, hours after the server started, so a child-only binding cannot reach
+ *  it — the variables must persist in the user profile while the server runs.
+ *  The ownership invariant is preserved differently than on stop: the write is
+ *  unconditional for a verified server start because `start` provisions the
+ *  credential it writes, and `stop` clears the same names it can prove NNA
+ *  owns. A hand-edited foreign value is overwritten by the server the operator
+ *  just started, which is the operator's own act. */
+export async function applyUserEnvironment(config, scope, bindUrl, defaultUsername) {
+  if ((scope.platform ?? process.platform) !== 'win32') return { supported: false };
+  try {
+    if (!config.password) return { supported: true, written: [], reason: 'unauthenticated' };
+    const binding = openchamberEnvironment(config, bindUrl(config));
+    const values = { ...binding };
+    // Why the minimal username stays absent: OpenChamber keeps its own default
+    // unless the configuration names one, matching the child binding's shape.
+    if (!values.OPENCODE_SERVER_USERNAME && config.username !== defaultUsername) {
+      values.OPENCODE_SERVER_USERNAME = config.username;
+    }
+    const written = Object.keys(values);
+    const write = scope.userEnvironmentWrite ?? writeUserEnvironment;
+    await write(Object.fromEntries(written.map((name) => [name, values[name]])), scope);
+    return { supported: true, written };
+  } catch (error) {
+    throw wiringFailure(error, 'opencode_user_environment_failed', 'the OpenChamber user environment could not be applied');
+  }
 }
 
 async function clearOwnedUserEnvironment(owned, scope) {

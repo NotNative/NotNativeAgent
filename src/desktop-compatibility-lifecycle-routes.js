@@ -159,17 +159,19 @@ function projectStatus(value) {
 }
 
 /** startOpencodeService returns {started:true,pid,port,url,environment,
- * openchamber} (a fresh detached runtime), {started:false,reason,runtime}
- * after a lock loss, or {started:false,reason:'already_running',runtime,
- * environment,openchamber}; the receipt normalizes reason/pid/port/url and
- * carries runtime only when the domain observed one. `environment` names the
- * binding handed to the launch (no `written`/`removed`, because nothing is
- * written to the user profile), and `openchamber` reports the launch outcome. */
+ * environment_applied,openchamber} (a fresh detached runtime), {started:false,
+ * reason,runtime} after a lock loss, or {started:false,reason:'already_running',
+ * runtime,environment,environment_applied,openchamber}; the receipt normalizes
+ * reason/pid/port/url and carries runtime only when the domain observed one.
+ * `environment` names the binding handed to the launch, and
+ * `environment_applied` reports the user-scope write start performs under the
+ * agreed start-writes/stop-clears lifecycle. `openchamber` reports the launch
+ * outcome. */
 function projectStart(value) {
   const keys = new Set(Object.keys(value));
   if (value.started !== true && value.started !== false) throw projection();
   if (value.started === true) {
-    if (keys.size !== 6 || !['environment', 'openchamber', 'pid', 'port', 'started', 'url'].every(key => keys.has(key))) {
+    if (keys.size !== 7 || !['environment', 'environment_applied', 'openchamber', 'pid', 'port', 'started', 'url'].every(key => keys.has(key))) {
       throw projection();
     }
     if (!Number.isSafeInteger(value.pid) || value.pid <= 0 || !Number.isSafeInteger(value.port)
@@ -177,14 +179,17 @@ function projectStart(value) {
       || value.url.length < 1 || value.url.length > 320 || CONTROL.test(value.url)) throw projection();
     return { started: true, reason: null, pid: value.pid, port: value.port, url: value.url,
       runtime: null, environment: projectLaunchEnvironment(value.environment),
+      environment_applied: projectAppliedEnvironment(value.environment_applied),
       openchamber: projectLaunch(value.openchamber) };
   }
-  if ((keys.size !== 5 && keys.size !== 3) || !['reason', 'runtime', 'started'].every(key => keys.has(key))
-    || (keys.size === 5 && (!keys.has('environment') || !keys.has('openchamber')))) throw throwProjectionHelp(keys);
+  if ((keys.size !== 6 && keys.size !== 3) || !['reason', 'runtime', 'started'].every(key => keys.has(key))
+    || (keys.size === 6 && (!keys.has('environment') || !keys.has('environment_applied') || !keys.has('openchamber')))) throw throwProjectionHelp(keys);
   if (value.reason !== 'already_starting' && value.reason !== 'already_running') throw throwProjectionHelp(keys);
   return { started: false, reason: value.reason, pid: null, port: null, url: null,
     runtime: projectRuntime(value.runtime), environment:
       keys.has('environment') ? projectLaunchEnvironment(value.environment) : null,
+    environment_applied:
+      keys.has('environment_applied') ? projectAppliedEnvironment(value.environment_applied) : null,
     openchamber: keys.has('openchamber') ? projectLaunch(value.openchamber) : null };
 }
 
@@ -202,6 +207,19 @@ function projectLaunchEnvironment(value) {
   if (keys.length > 4 || !keys.every(key => typeof value[key] === 'string'
     && value[key].length >= 1 && value[key].length <= 2000 && !CONTROL.test(value[key]))) throw projection();
   return { supported: true, names: keys.sort() };
+}
+
+/** The user-scope write start applied: the names written, or the reason none
+ *  were. Why reported: the desktop surface shows the operator whether the
+ *  binding OpenChamber reads at launch is current with the running server. */
+function projectAppliedEnvironment(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw projection();
+  const keys = [...new Set(Object.keys(value))];
+  if (value.supported === false && keys.length === 1) return { supported: false };
+  if (!keys.includes('written') || keys.length > 2
+    || !Array.isArray(value.written) || value.written.length > 4
+    || value.written.some((name) => typeof name !== 'string' || name.length < 1 || name.length > 64)) throw projection();
+  return { supported: true, written: value.written.slice().sort() };
 }
 
 /** The binding outcome: `environment` describes the binding an operator may hand

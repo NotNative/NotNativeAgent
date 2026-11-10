@@ -124,13 +124,15 @@ test('start launches no OpenChamber child even when a launcher is resolvable', a
   });
   assert.equal(started.started, true);
   // Invariant: the login script runs `opencode start`, so start must not open
-  // the GUI. The binding is described, never handed to a child.
+  // the GUI. It does apply the user-scope binding the client reads at launch.
   assert.deepEqual(started.openchamber, { launched: false, reason: 'manual_launch_required' });
   assert.equal(recorder.launches.length, 0);
   assert.deepEqual(started.environment, { OPENCODE_SKIP_START: 'true',
     OPENCODE_HOST: 'http://127.0.0.1:4095',
     OPENCODE_SERVER_PASSWORD: (await loadOpenCodeConfig(paths.opencodeConfig)).password });
-  assert.deepEqual(environmentWrites, []);
+  assert.deepEqual(environmentWrites, [{ OPENCODE_SKIP_START: 'true',
+    OPENCODE_HOST: 'http://127.0.0.1:4095',
+    OPENCODE_SERVER_PASSWORD: (await loadOpenCodeConfig(paths.opencodeConfig)).password }]);
 });
 
 test('a missing launcher leaves the binding described and the server started', async () => {
@@ -157,7 +159,7 @@ test('a launcher failure cannot affect a start that never launches', async () =>
   assert.deepEqual(started.openchamber, { launched: false, reason: 'manual_launch_required' });
 });
 
-test('start on an already-running surface also launches nothing and writes nothing', async () => {
+test('start on an already-running surface launches nothing and re-applies the binding', async () => {
   const paths = await servicePaths();
   const environmentWrites = [];
   const recorder = launcherRecorder();
@@ -171,7 +173,9 @@ test('start on an already-running surface also launches nothing and writes nothi
   assert.equal(again.reason, 'already_running');
   assert.deepEqual(again.openchamber, { launched: false, reason: 'manual_launch_required' });
   assert.equal(recorder.launches.length, 0);
-  assert.deepEqual(environmentWrites, []);
+  // Why two writes: the second start re-applies the binding, healing a stale
+  // one a crashed previous serve process may have left behind.
+  assert.equal(environmentWrites.length, 2);
 });
 
 test('stop clears nothing it did not write, and a foreign user environment stays', async () => {
@@ -193,20 +197,21 @@ test('stop clears nothing it did not write, and a foreign user environment stays
   assert.deepEqual(removed.slice(1), []);
 });
 
-test('start writes no user environment, so a stale binding is never produced', async () => {
+test('start applies the binding and stop clears it, so nothing outlives the server', async () => {
   const paths = await servicePaths();
   const persisted = [];
   const recorder = launcherRecorder();
   const launcher = join(paths.root, 'openchamber.cmd');
   await writeFile(launcher, '', 'utf8');
-  // The only writer double the scope exposes records attempted writes.
+  // The only writer the scope exposes records attempted writes.
   const scope = { platform: 'win32', processIdentity: identity(), spawnProcess: () => fakeChild(3210),
     openchamberPath: launcher, launchProcess: recorder.launchProcess, environment: {},
     userEnvironmentWrite: async (pairs) => { persisted.push(pairs); } };
   await startOpencodeService({}, paths, scope);
+  assert.equal(persisted.length, 1, 'start applies the binding the client reads');
   await stopOpencodeService({}, paths, scope);
   // Invariant: after a full start/stop the user profile holds no OpenCode binding,
   // so nothing outlives the server the operator started by hand.
-  assert.deepEqual(persisted, []);
+  assert.equal(persisted.length, 1, 'stop clears rather than writing again');
   assert.equal(recorder.launches.length, 0);
 });

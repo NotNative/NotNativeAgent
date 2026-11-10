@@ -170,11 +170,14 @@ test('enable installs the login script verbatim; start applies the OpenChamber e
     assert.equal(start.value.pid, 777);
     const startReceipt = projectAction(start, 'start', 'start_service', true);
     assert.equal(startReceipt.runtime, null);
-    // Invariant: start describes the binding no command acts on and reports no
-    // user-scope write, because none happened.
+    // Invariant: the agreed lifecycle is start writes, stop clears. The start
+    // receipt reports the applied write; the password stays out of the output.
     assert.deepEqual(startReceipt.environment, { supported: true, names: [
       'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SKIP_START'] });
+    assert.deepEqual(startReceipt.environment_applied, { supported: true, written: [
+      'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SKIP_START'] });
     assert.deepEqual(startReceipt.openchamber, { launched: false, reason: 'manual_launch_required' });
+    assert.equal(written.length, 3);
     assert.ok(!JSON.stringify(startReceipt).includes(start.value.environment.OPENCODE_SERVER_PASSWORD));
     assert.ok(!JSON.stringify(receipt).includes('disabled-value-never-present-x'));
     const disabled = await winService.disable();

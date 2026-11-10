@@ -14,7 +14,7 @@ import { SessionLock } from '../persistence/session-lock.js';
 import { persistAtomicJson } from '../persistence/atomic-json.js';
 import { ProcessIdentity, validIdentity } from '../reliability/process-identity.js';
 import { loadOpenCodeConfig, openCodeConfigExists, opencodePublicStatus, saveOpenCodeConfig, bindUrl, generateOpencodePassword } from './config.js';
-import { clearUserEnvironment, observeUserEnvironment, runPowershell } from './user-environment.js';
+import { applyUserEnvironment, clearUserEnvironment, observeUserEnvironment, runPowershell } from './user-environment.js';
 import { openchamberEnvironment } from './openchamber.js';
 
 const STARTUP_SCRIPT_NAME = 'NotNativeAgent-OpenCode.vbs';
@@ -107,12 +107,21 @@ export async function startOpencodeService(options, paths, scope = {}) {
   }
   try {
     const status = await opencodeRuntimeStatus(paths, scope);
-    if (status.running) return {
-      started: false, reason: 'already_running', runtime: status, ...bindingOutcome(config),
-    };
+    if (status.running) {
+      // Why apply here too: a crash of a previous serve process left the binding
+      // pointing at a dead server, and this start owns the running one — the
+      // binding must name this configuration regardless of who started it.
+      const applied = await applyUserEnvironment(config, scope, bindUrl, DEFAULT_BASIC_USERNAME);
+      return { started: false, reason: 'already_running', runtime: status, ...bindingOutcome(config), environment_applied: applied };
+    }
     if (status.stale) await preserveStaleRuntimePid(paths);
     const started = await spawnDetachedOpencodeServe(config, paths, scope);
-    return { ...started, ...bindingOutcome(config) };
+    // Why the user-scope write here: the agreed lifecycle is start writes, stop
+    // clears. OpenChamber reads the binding at its own launch, long after this
+    // process exits, so the variables must persist in the user profile while
+    // the server runs; stop removes them under the same ownership rule.
+    const applied = await applyUserEnvironment(config, scope, bindUrl, DEFAULT_BASIC_USERNAME);
+    return { ...started, ...bindingOutcome(config), environment_applied: applied };
   } finally {
     await startLock.release();
   }

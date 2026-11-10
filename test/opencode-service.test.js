@@ -8,6 +8,7 @@ import { Buffer } from 'node:buffer';
 import { join } from 'node:path';
 import { SessionLock } from '../src/persistence/session-lock.js';
 import { DEFAULT_OPENCODE_CONFIG, generateOpencodePassword, loadOpenCodeConfig, normalizeOpenCodeConfig, opencodePublicStatus, saveOpenCodeConfig } from '../src/opencode/config.js';
+import { observeUserEnvironment } from '../src/opencode/user-environment.js';
 import { disableOpencodeService, enableOpencodeService, opencodeRuntimeStatus, opencodeServiceStatus, requireServiceRuntime, startOpencodeService, stopOpencodeService } from '../src/opencode/service.js';
 
 const STARTUP_SCRIPT_NAME = 'NotNativeAgent-OpenCode.vbs';
@@ -65,6 +66,7 @@ test('start provisions a runtime identity without login auto-start', async () =>
   assert.deepEqual(result, { started: true, pid: 3210, port: 4095, url: 'http://127.0.0.1:4095',
     environment: { OPENCODE_SKIP_START: 'true', OPENCODE_HOST: 'http://127.0.0.1:4095',
       OPENCODE_SERVER_PASSWORD: (await loadOpenCodeConfig(paths.opencodeConfig)).password },
+    environment_applied: { supported: false },
     openchamber: { launched: false, reason: 'manual_launch_required' } });
   const config = await loadOpenCodeConfig(paths.opencodeConfig);
   assert.equal(config.enabled, false);
@@ -72,19 +74,28 @@ test('start provisions a runtime identity without login auto-start', async () =>
   assert.equal((await opencodeRuntimeStatus(paths, { processIdentity: identity() })).running, true);
 });
 
-test('start describes the binding and writes no user environment', async () => {
+test('start applies the user-scope binding and reports it; stop clears it', async () => {
   const paths = await servicePaths(); const env = environment();
   const scope = { platform: 'win32', processIdentity: identity(), spawnProcess: spawn(child()),
     userEnvironmentRead: env.read, userEnvironmentWrite: env.write, environment: {} };
   const started = await startOpencodeService({}, paths, scope);
-  // Invariant: the binding is a description of one environment, so no write
-  // reaches the user profile and nothing can outlive the server it names.
-  assert.deepEqual(env.writes, []);
+  // Invariant: the agreed lifecycle is start writes, stop clears. OpenChamber
+  // reads the user profile at its own launch, so the binding must persist while
+  // the server runs and must not outlive it.
+  assert.deepEqual(env.writes.map((write) => Object.keys(write).sort()), [
+    ['OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SKIP_START'],
+  ]);
   assert.equal(started.environment.OPENCODE_HOST, 'http://127.0.0.1:4095');
+  assert.deepEqual(started.environment_applied?.written, ['OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD']);
+  const observed = await observeUserEnvironment({ platform: 'win32', userEnvironmentRead: env.read });
+  assert.equal(observed.host, 'http://127.0.0.1:4095');
+  assert.equal(observed.password_present, true);
+  // A re-start while running re-applies the binding (a crashed previous serve
+  // may have left it stale), so the operator's restart heals the binding.
   const again = await startOpencodeService({}, paths, scope);
   assert.equal(again.reason, 'already_running');
-  assert.deepEqual(env.writes, []);
-  assert.equal(again.environment.OPENCODE_HOST, 'http://127.0.0.1:4095');
+  assert.deepEqual(again.environment_applied?.written, ['OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD']);
+  assert.equal(env.writes.length, 2);
 });
 
 test('start never launches OpenChamber, because the login script runs it too', async () => {
