@@ -8,6 +8,7 @@ import { OpenCodeCompatServer } from './server.js';
 import { bindUrl } from './config.js';
 import { OpenCodeProviderSettings } from './provider-settings.js';
 import { FairScheduler } from '../provider/fair-scheduler.js';
+import { LegacyArchive } from './legacy-archive.js';
 import { resolveManifest } from '../config.js';
 import { userDataPaths } from '../product.js';
 import { watchProviderSettings } from './provider-watch.js';
@@ -35,22 +36,18 @@ export async function startOpencodeServe(options = {}) {
     limit: config.limits.providerConcurrency, maxQueued: config.limits.providerQueueLimit,
   });
   const workspace = createOpenCodeSessionWorkspace({
-    config, wiredVersion,
-    logger: options.logger ?? null,
-    storeRoot: options.storeRoot, reviewerRoot: options.reviewerRoot,
-    directory: options.directory,
+    config, wiredVersion, logger: options.logger ?? null,
+    storeRoot: options.storeRoot, reviewerRoot: options.reviewerRoot, directory: options.directory,
     ...(options.skillRoots ? { skillRoots: options.skillRoots } : {}),
     scheduler, secretBroker: providerSettings?.secretBroker ?? options.secretBroker, providerSettings,
     providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
+    // Why opt-in: the legacy store belongs to the standalone product, and serving it
+    // is an operator decision — an explicit archive in options, never a silent default.
+    archive: options.archive ?? null,
   });
   const server = new OpenCodeCompatServer({
-    port: options.port ?? DEFAULT_SERVE_PORT,
-    hostname: options.hostname ?? DEFAULT_SERVE_HOSTNAME,
-    wiredVersion,
-    registry: workspace.registry,
-    operations: workspace.operations,
-    bus: workspace.bus,
-    v2: workspace.v2,
+    port: options.port ?? DEFAULT_SERVE_PORT, hostname: options.hostname ?? DEFAULT_SERVE_HOSTNAME, wiredVersion,
+    registry: workspace.registry, operations: workspace.operations, bus: workspace.bus, v2: workspace.v2,
     // Why passed: surface diagnostics must report the shared admission
     // scheduler's per-route held state, so an operator can distinguish a
     // saturated provider from a broken one.
@@ -77,6 +74,7 @@ export async function startOpencodeServe(options = {}) {
   return new OpencodeServeRuntime({
     server, workspace, config, url, port: bound.port, wiredVersion, stdout: options.stdout ?? null, stopWatching,
     restoreSummary: { restored: restored.length, skipped: skipped.length },
+    archive: workspace.archive ?? options.archive ?? null,
   });
 }
 
@@ -96,7 +94,7 @@ async function resolveScenarioConfiguration(options) {
 }
 
 export class OpencodeServeRuntime {
-  constructor({ server, workspace, config, url, port, wiredVersion, stdout, stopWatching, restoreSummary }) {
+  constructor({ server, workspace, config, url, port, wiredVersion, stdout, stopWatching, restoreSummary, archive }) {
     this.server = server;
     this.workspace = workspace;
     this.config = config;

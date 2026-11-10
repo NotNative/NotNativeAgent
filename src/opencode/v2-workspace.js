@@ -11,15 +11,47 @@ import { resolve } from 'node:path';
 import { newId } from '../ids.js';
 import { manifestFromConfig } from '../provider/route-configuration.js';
 import { physicalWireAllowance } from '../reliability/context-budget.js';
+import { archiveMutationRefusal } from './legacy-archive.js';
+
+/** Archived conversation helpers. Why module-level: the archive is optional —
+ *  a surface without one serves only live sessions, and every helper degrades
+ *  to empty/refuse rather than opening the store. */
+function archiveList(archive) {
+  try { return archive?.list?.() ?? []; }
+  catch (error) {
+    if (error?.code === 'legacy_store_missing') return [];
+    throw error;
+  }
+}
+function isArchived(archive, id) {
+  try { return archive?.get?.(id)?.archived === true; }
+  catch (error) {
+    if (error?.code === 'legacy_store_missing') return false;
+    throw error;
+  }
+}
+/** The typed refusal for a live-state lookup that missed: archived ids answer
+ *  the read-only conflict; everything else is an ordinary missing session. */
+function requireArchivedOrMissing(archive, id) {
+  if (isArchived(archive, id)) {
+    throw apiError(409, 'ArchiveReadOnlyError', archiveMutationRefusal('mutate').message);
+  }
+  throw apiError(404, 'SessionNotFoundError', 'Session was not found', { sessionID: id });
+}
+function archiveMessages(archive, id) {
+  if (!isArchived(archive, id)) throw apiError(404, 'SessionNotFoundError', 'Session was not found', { sessionID: id });
+  return { data: archive.messages(id).map((message) => ({
+    id: message.id, type: message.type, seq: message.seq,
+    time: { created: message.createdAt }, text: message.text,
+  })) };
+}
 
 export function createV2Workspace(operations, options) {
   const states = new Map(); const creating = new Set();
   const events = createV2Events(); const model = modelReference(options.config);
-  const requireState = (id) => {
-    const state = states.get(id);
-    if (!state) throw apiError(404, 'SessionNotFoundError', 'Session was not found', { sessionID: id });
-    return state;
-  };
+  // Why the archive refusal inside requireState: an archived id is unknown to the live map,
+  // so every mutating route refuses with the same typed conflict, not a 404.
+  const requireState = (id) => states.get(id) ?? requireArchivedOrMissing(options.archive, id);
   const context = { states, creating, events, model, requireState, operations, options };
   const api = {
     events, model, states, requireState,
@@ -31,9 +63,17 @@ export function createV2Workspace(operations, options) {
     observe(event) { observeEvent(states, event, events); },
     captureFailure(id, code) { const state = states.get(id); if (state) state.failureCode = code; },
     create(body, directory) { return createSession(context, body, directory); },
-    list(query) { return listSessions(states, query); },
-    read(id) { return sessionView(requireState(id)); },
-    messages(id, query) { return historyPage(requireState(id), id, query); },
+    // Why merged at the page level: archived conversations list alongside live ones but are marked archived.
+    list(query) {
+      const page = listSessions(states, query);
+      return { ...page, data: [...page.data, ...archiveList(options.archive)] };
+    },
+    read(id) { return requireState(id) && sessionView(requireState(id)); },
+    // Why the archive check comes first: an archived conversation is unknown to the live map; history serves read-only.
+    messages(id, query) {
+      if (!states.has(id) && isArchived(options.archive, id)) return archiveMessages(options.archive, id);
+      return historyPage(requireState(id), id, query);
+    },
     async prompt(id, body) { return admitWithModel(context, requireState(id), body); },
     // Compatibility: OpenCode 2 continues an interrupted turn with a synthetic
     // prompt. It is the same admission path, tagged so the transcript can tell

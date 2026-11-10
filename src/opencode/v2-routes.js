@@ -97,7 +97,11 @@ async function dispatch(ctx) {
 async function sessionRoute(ctx, segments) {
   const { req, res, options, target } = ctx; const api = options.v2;
   const [id, action, itemID, subaction] = segments; const method = req.method;
-  const state = api.requireState(id);
+  // Why the deferred require: an archived conversation is unknown to the live
+  // state map, but its read-only history still serves; only read routes may
+  // defer the live-state requirement, and every mutation still requires it.
+  const state = segments.length === 2 && method === 'GET' && action === 'message' && !api.states.has(id)
+    ? null : api.requireState(id);
   if (segments.length === 1) {
     if (method === 'GET') return sendJson(res, 200, { data: api.read(id) });
     if (method === 'DELETE') { await api.remove(id); return sendNoContent(res); }
@@ -105,6 +109,7 @@ async function sessionRoute(ctx, segments) {
   }
   if (segments.length === 2 && method === 'GET') {
     if (action === 'message') return sendJson(res, 200, api.messages(id, target.query));
+    if (state === null) throw apiError(404, 'SessionNotFoundError', 'Session was not found', { sessionID: id });
     if (action === 'inbox') return sendJson(res, 200, { data: [...state.inbox.values()] });
     if (action === 'form') return sendJson(res, 200, { data: api.forms(id) });
     if (action === 'permission') return sendJson(res, 200, { data: [] });
