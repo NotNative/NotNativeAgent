@@ -50,17 +50,24 @@ export class ProviderRunner {
       const attemptId = lifecycle.id;
       this.state.transition('invoking_model', { trigger: 'provider_attempt', turnId: active.turnId });
       await this.publish('provider_attempt.started', 'provider_attempt', 'active', active);
-      const release = await this.scheduler.acquire(
-        active.providerResource, active.sessionId, active.controller.signal,
-        (position) => this.queueStatus(active, position),
-        active.runtimeModel?.parallelCapacity ?? null,
-      );
       let retryDelay = null;
       let attemptOutcome = 'failed';
       let attemptReason = null;
       const requestSpan = `provider-request:${active.attemptId}`;
       const requestStarted = process.hrtime.bigint();
       initializeAttempt(active, request.maxOutputTokens);
+      // Why captured here: queue wait and admission concurrency turn scheduler
+      // observation into capacity evidence — wait shows saturation; concurrency
+      // at admission is the x-axis dream learns latency distributions from.
+      const acquireStarted = process.hrtime.bigint();
+      const release = await this.scheduler.acquire(
+        active.providerResource, active.sessionId, active.controller.signal,
+        (position) => this.queueStatus(active, position),
+        active.runtimeModel?.parallelCapacity ?? null,
+      );
+      const admitted = this.scheduler.snapshot().find((item) => item.resource === active.providerResource);
+      active.attemptQueueWaitMs = elapsedMs(acquireStarted);
+      active.attemptAdmittedConcurrency = admitted?.running ?? null;
       try {
         await this.verifyRequest?.(request, manifest, route, active, context);
         this.telemetry?.record('provider.request', 'started', {
@@ -131,13 +138,11 @@ export class ProviderRunner {
 
   #accountAttemptUsage(active) {
     if (active.attemptUsageAccounted) return;
-    active.usage = mergeUsage(active.usage, active.attemptUsage);
-    active.attemptUsageAccounted = true;
+    active.usage = mergeUsage(active.usage, active.attemptUsage); active.attemptUsageAccounted = true;
   }
 
   async #settleRetryableAttempt(active) {
-    await this.settleAttempt(active, 'failed');
-    active.toolAssembler.reset();
+    await this.settleAttempt(active, 'failed'); active.toolAssembler.reset();
   }
 
   #recordSucceeded(active, requestSpan, requestStarted) {
@@ -147,6 +152,7 @@ export class ProviderRunner {
       response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
       step_reasoning_bytes: active.stepReasoningBytes,
       transport_bytes: active.attemptTransportBytes,
+      queue_wait_ms: active.attemptQueueWaitMs, admitted_concurrency: active.attemptAdmittedConcurrency,
     }, { ...providerCorrelation(active, requestSpan), durationMs: elapsedMs(requestStarted), outcome: 'completed' });
     this.dialects?.observe({ profile: { id: active.providerResource }, model: active.modelName }, { status: 'succeeded' });
   }
@@ -158,6 +164,7 @@ export class ProviderRunner {
       partial_response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
       step_reasoning_bytes: active.stepReasoningBytes,
       transport_bytes: active.attemptTransportBytes,
+      queue_wait_ms: active.attemptQueueWaitMs, admitted_concurrency: active.attemptAdmittedConcurrency,
       failure: { code: error?.code ?? 'provider_failed', retryable: error?.retryable === true },
     }, { ...providerCorrelation(active, requestSpan), durationMs: elapsedMs(requestStarted), reasonCode: error?.code });
     this.dialects?.observe(
