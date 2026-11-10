@@ -296,6 +296,50 @@ test('slow Telegram compaction notice does not block the governed turn', async (
   finally { releaseNotice(); await gateway.shutdown(); await running; }
 });
 
+test('gateway conversations join one resolvable surface family', async t => {
+  const root = createScratchSync('nna-gateway-family-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const constructed = [];
+  let polls = 0; let answered; const answer = new Promise((resolve) => { answered = resolve; });
+  const api = {
+    async getMe() { return { id: 1 }; },
+    async getUpdates(_offset, _timeout, signal) {
+      polls += 1;
+      if (polls === 1) {
+        return [
+          { update_id: 1, message: { text: 'one', from: { id: 42 }, chat: { id: 42 } } },
+          { update_id: 2, message: { text: 'two', from: { id: 42 }, chat: { id: 43 } } },
+        ];
+      }
+      return pendingUntilAbort(signal);
+    },
+    async sendMessage(_chatId, text) { if (text === 'done') answered(); },
+  };
+  const gateway = new TelegramGateway({
+    api,
+    paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer') },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineFactory: (options) => {
+      constructed.push(options);
+      return { config: { executionManifest: null }, initialize: async () => undefined,
+        submit: async () => { answered(); return { outcome: 'completed', text: 'done' }; },
+        shutdown: async () => ({ complete: true }) };
+    },
+  });
+  const running = gateway.run();
+  try {
+    await Promise.race([answer, new Promise((resolve) => setTimeout(resolve, 4000))]);
+    assert.equal(constructed.length, 2, 'two chats produced two engines');
+    // Why this pins the client shape: the gateway handed the same registry to
+    // every engine it created, so its family resolves both conversations.
+    assert.ok(gateway.conversations, 'the gateway owns a family registry');
+    assert.equal(constructed[0].conversationRegistry, constructed[1].conversationRegistry,
+      'every gateway engine receives the same conversation registry');
+    assert.equal(constructed[0].conversationRegistry, gateway.conversations);
+  } finally { await gateway.shutdown(); await running; }
+});
+
 test('gateway config is absent-safe, bounded, durable, and redacted', async t => {
   const root = createScratchSync('nna-gateway-');
   t.after(() => rm(root, { recursive: true, force: true }));

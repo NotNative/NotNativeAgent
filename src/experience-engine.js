@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { SessionEngine } from './engine.js';
+import { ConversationRegistry } from './engine/conversation-state.js';
 import { ContractError, newId } from './ids.js';
 import { TuiProjection } from './experience/projection.js';
 import { FairScheduler } from './provider/fair-scheduler.js';
@@ -64,6 +65,9 @@ export class ExperienceEngine {
     this.scheduler = options.scheduler ?? new FairScheduler({
       limit: this.config.limits.providerConcurrency, maxQueued: this.config.limits.providerQueueLimit,
     });
+    // Why a surface-wide family registry: every console conversation joins one
+    // map, so the desktop is a client of a resolvable conversation family.
+    this.conversations = options.conversations ?? new ConversationRegistry();
     this.webSearchConfigPath = options.webSearchConfigPath ?? this.dataPaths.webSearchConfig ?? defaults.webSearchConfig;
     this.gatewayConfigPath = options.gatewayConfigPath ?? this.dataPaths.gatewayConfig ?? defaults.gatewayConfig;
     this.secretBroker = options.secretBroker ?? new SecretBroker({
@@ -128,6 +132,7 @@ export class ExperienceEngine {
       hookRoots: options.hookRoots ?? this.options.hookRoots,
       skillRoots: options.skillRoots ?? this.options.skillRoots,
       scheduler: this.scheduler, secretBroker: this.secretBroker,
+      conversationRegistry: this.conversations,
       webSearchConfigPath: this.webSearchConfigPath, webSearchClient: this.webSearchClient,
       workspaceChanged: (event) => observeWorkspaceChange(this, sessionId, event),
       mcpControl: {

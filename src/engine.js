@@ -187,11 +187,15 @@ export class SessionEngine {
   }
 
   async steer(command, principal) { return steerEngineTurn(this, command, principal); }
+  // Why detach after shutdown: a hosted conversation's registry entry is the host's fact about a live engine; shutdown ends that liveness, so the id can re-attach.
   async shutdown(command) {
-    return boundedShutdown(this, () => performEngineShutdown(this, command));
+    return boundedShutdown(this, async () => {
+      const result = await performEngineShutdown(this, command);
+      if (this.hostedConversation) this.#conversations.detach(this.sessionId);
+      return result;
+    });
   }
-  reviewerAudit(limit = 100) { return this.ledger.audit(limit); }
-  governanceAudit(limit = 100) { return this.governance.audit(limit); }
+  reviewerAudit(limit = 100) { return this.ledger.audit(limit); } governanceAudit(limit = 100) { return this.governance.audit(limit); }
   health() {
     return new HealthInspector(this).inspect();
   }
@@ -199,8 +203,7 @@ export class SessionEngine {
     return this.memory.saveExplicit(content, this.config.workspaceRoot, options);
   }
   inspectMemory() { return this.memory.inspect(this.config.workspaceRoot); }
-  workStatus() { return this.work.snapshot(); }
-  setGoal(objective) { return this.work.setGoal(objective); }
+  workStatus() { return this.work.snapshot(); } setGoal(objective) { return this.work.setGoal(objective); }
   completeGoal(evidence) { return this.work.completeGoal(evidence); }
   blockGoal(reason) { return this.work.blockGoal(reason); }
   reopenGoal() { return this.work.reopenGoal(); }

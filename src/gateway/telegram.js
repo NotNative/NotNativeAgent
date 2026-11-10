@@ -4,6 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { CanonicalIngress } from '../ingress.js';
 import { SessionEngine } from '../engine.js';
+import { ConversationRegistry } from '../engine/conversation-state.js';
 import { newId } from '../ids.js';
 import { StructuredLog } from '../structured-log.js';
 import { FairScheduler } from '../provider/fair-scheduler.js';
@@ -50,6 +51,10 @@ export class TelegramGateway {
     this.scheduler = options.scheduler ?? new FairScheduler({
       limit: this.engineConfig.limits.providerConcurrency, maxQueued: this.engineConfig.limits.providerQueueLimit,
     });
+    // Why a surface-wide family registry: every gateway conversation joins one
+    // map, so the gateway is a client of a resolvable conversation family
+    // rather than a set of disjoint engines.
+    this.conversations = options.conversations ?? new ConversationRegistry();
     this.sessionDirectory = options.sessionDirectory ?? new ConsoleSessionDirectory(this.paths.sessionBrokers ?? join(this.paths.gateway, 'session-brokers'));
     this.replay = new AttachedReplayState({
       api: this.api, controller: this.controller, config: this.config, logger: this.logger,
@@ -453,7 +458,8 @@ export class TelegramGateway {
       if (message) this.#queueCompactionNotice(chatId, sessionId, message);
     };
     const engine = this.engineFactory({
-      ...this.engineOptions, config: this.engineConfig, sessionId, surface: 'telegram_gateway', output, scheduler: this.scheduler,
+      ...this.engineOptions, config: this.engineConfig, sessionId, surface: 'telegram_gateway', output,
+      scheduler: this.scheduler, conversationRegistry: this.conversations,
       storeRoot: this.paths.sessions, reviewerRoot: this.paths.reviewerLedger,
     });
     await engine.initialize();
