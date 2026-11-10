@@ -7,6 +7,7 @@ import { restorePersistedSessions } from './session-restore.js';
 import { OpenCodeCompatServer } from './server.js';
 import { bindUrl } from './config.js';
 import { OpenCodeProviderSettings } from './provider-settings.js';
+import { FairScheduler } from '../provider/fair-scheduler.js';
 import { resolveManifest } from '../config.js';
 import { userDataPaths } from '../product.js';
 import { watchProviderSettings } from './provider-watch.js';
@@ -25,13 +26,21 @@ export async function startOpencodeServe(options = {}) {
   const config = providerSettings ? options.config ?? resolveManifest({ provider: {
     id: 'unconfigured', endpoint: 'http://127.0.0.1:9/v1', model: 'unconfigured', trust_zone: 'loopback',
   } }) : await resolveScenarioConfiguration(options);
+  // Why one scheduler for the whole surface: conversations on the same provider
+  // route must share admission capacity, or three conversations prompted
+  // together produce three simultaneous provider requests and the queueing
+  // happens at the provider, invisibly. Every wired session receives this one
+  // instance; a caller that supplies its own scheduler keeps ownership.
+  const scheduler = options.scheduler ?? new FairScheduler({
+    limit: config.limits.providerConcurrency, maxQueued: config.limits.providerQueueLimit,
+  });
   const workspace = createOpenCodeSessionWorkspace({
     config, wiredVersion,
     logger: options.logger ?? null,
     storeRoot: options.storeRoot, reviewerRoot: options.reviewerRoot,
     directory: options.directory,
     ...(options.skillRoots ? { skillRoots: options.skillRoots } : {}),
-    scheduler: options.scheduler, secretBroker: providerSettings?.secretBroker ?? options.secretBroker, providerSettings,
+    scheduler, secretBroker: providerSettings?.secretBroker ?? options.secretBroker, providerSettings,
     providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
   });
   const server = new OpenCodeCompatServer({

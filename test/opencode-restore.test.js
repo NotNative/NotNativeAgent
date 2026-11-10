@@ -130,3 +130,21 @@ test('a discovered pre-index journal restores under a fresh wire id', { timeout:
   const index = await readSessionIndex(join(root, 's'));
   assert.equal(index.length, 1);
 });
+
+test('conversations on one surface share one admission scheduler', { timeout: 30_000 }, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-scheduler-'));
+  const { runtime, request } = await durableServer(t, root);
+  const first = (await (await request('/api/session', 'POST', { title: 'One' })).json()).data;
+  const second = (await (await request('/api/session', 'POST', { title: 'Two' })).json()).data;
+  // Why identity, not behaviour: a behavioural serialization test would need a
+  // concurrency-counting provider and a config whose provider concurrency is
+  // 1; the scheduler identity is the contract this slice places, and the
+  // FairScheduler's own tests already pin queueing and fairness behaviour.
+  const engines = [...runtime.workspace.registry.list()].map((record) => record.engine);
+  assert.equal(engines.length, 2, 'two conversations must be attached');
+  assert.ok(engines[0].scheduler, 'a wired engine must carry a scheduler');
+  assert.equal(engines[0].scheduler, engines[1].scheduler,
+    'conversations on one surface must share the admission scheduler');
+  assert.equal(engines[0].scheduler, runtime.workspace.scheduler,
+    'the surface scheduler must be the scheduler the engines carry');
+});
