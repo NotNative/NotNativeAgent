@@ -123,6 +123,10 @@ test('sub-agent runtime forwards child lifecycle and output to the desktop regis
     subagentDepth: 0, sessionId: 'parent', active: { turnId: 'turn_parent', stepId: 'step_parent',
       principal: { subjectId: 'operator', workspaceIds: ['workspace'] } },
     output: async () => undefined,
+    // Why present: a fan-out child must reuse the parent's compiled registries
+    // rather than reconstructing per-launch ones; the shared identity is pinned
+    // on the produced options below.
+    skills: { shared: true }, extensions: { shared: true },
     desktopSessionRegistry: {
       register(id, parentId, principal, child) {
         observed.push(['registered', id, parentId, principal.subjectId]);
@@ -150,6 +154,8 @@ test('sub-agent runtime forwards child lifecycle and output to the desktop regis
   const result = await runEngineSubagent(parent, { type: 'general', task: 'Inspect.' },
     new AbortController().signal, createEngine);
   assert.equal(result.outcome, 'completed');
+  assert.equal(childOptions.skillRegistry, parent.skills, 'the child must reuse the parent skill registry');
+  assert.equal(childOptions.extensionRegistry, parent.extensions, 'the child must reuse the parent extension registry');
   const id = childOptions.sessionId;
   assert.deepEqual(observed, [
     ['registered', id, 'parent', 'operator'], ['started', id],
