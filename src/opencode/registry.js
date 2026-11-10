@@ -23,6 +23,19 @@ export class OpenCodeSessionRegistry {
   remove(ocId) { return this.#sessions.delete(ocId); }
   count() { return this.#sessions.size; }
 
+  /** Mark a session evicted: its engine is gone but its identity and history
+   *  remain listed. Why a flag rather than removal: the client still lists and
+   *  reads the conversation; only an arriving turn must re-attach first. */
+  evict(ocId) {
+    const record = this.#sessions.get(ocId);
+    if (!record) return null;
+    const dormant = Object.freeze({ ...record, engine: null, ingress: null, wireSession: null, evicted: true });
+    this.#sessions.set(ocId, dormant);
+    return dormant;
+  }
+
+  isEvicted(ocId) { return this.#sessions.get(ocId)?.evicted === true; }
+
   describe(record, wiredVersion) {
     return {
       id: record.ocId,

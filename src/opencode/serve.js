@@ -9,6 +9,7 @@ import { bindUrl } from './config.js';
 import { OpenCodeProviderSettings } from './provider-settings.js';
 import { FairScheduler } from '../provider/fair-scheduler.js';
 import { LegacyArchive } from './legacy-archive.js';
+import { configureEviction, reattachEvictedSession, stopEviction } from './session-eviction.js';
 import { resolveManifest } from '../config.js';
 import { userDataPaths } from '../product.js';
 import { watchProviderSettings } from './provider-watch.js';
@@ -27,11 +28,9 @@ export async function startOpencodeServe(options = {}) {
   const config = providerSettings ? options.config ?? resolveManifest({ provider: {
     id: 'unconfigured', endpoint: 'http://127.0.0.1:9/v1', model: 'unconfigured', trust_zone: 'loopback',
   } }) : await resolveScenarioConfiguration(options);
-  // Why one scheduler for the whole surface: conversations on the same provider
-  // route must share admission capacity, or three conversations prompted
-  // together produce three simultaneous provider requests and the queueing
-  // happens at the provider, invisibly. Every wired session receives this one
-  // instance; a caller that supplies its own scheduler keeps ownership.
+  // Why one scheduler for the whole surface: conversations on the same provider route
+  // must share admission capacity, or three prompted conversations queue at the
+  // provider invisibly. A caller that supplies its own scheduler keeps ownership.
   const scheduler = options.scheduler ?? new FairScheduler({
     limit: config.limits.providerConcurrency, maxQueued: config.limits.providerQueueLimit,
   });
@@ -44,30 +43,35 @@ export async function startOpencodeServe(options = {}) {
     // Why opt-in: the legacy store belongs to the standalone product, and serving it
     // is an operator decision — an explicit archive in options, never a silent default.
     archive: options.archive ?? null,
+    // Why an injected callback: the v2 workspace resolves demand re-attach without
+    // importing the eviction module; the bundle carries operations and store root.
+    reattachEvicted: (id) => reattachEvictedSession(
+      workspace.core, { storeRoot: options.storeRoot, operations: workspace.operations }, id),
   });
+  // Why eviction: an idle conversation should not hold three durable file handles;
+  // the sweep shuts idle engines down while the durable index and the registry's
+  // dormant record keep the conversation listed and re-attachable.
+  configureEviction(workspace.core, { idleMs: options.idleEvictionMs ?? 0 });
   const server = new OpenCodeCompatServer({
     port: options.port ?? DEFAULT_SERVE_PORT, hostname: options.hostname ?? DEFAULT_SERVE_HOSTNAME, wiredVersion,
     registry: workspace.registry, operations: workspace.operations, bus: workspace.bus, v2: workspace.v2,
-    // Why passed: surface diagnostics must report the shared admission
-    // scheduler's per-route held state, so an operator can distinguish a
-    // saturated provider from a broken one.
+    // Why passed: surface diagnostics report the shared scheduler's per-route held
+    // state, so a saturated provider is distinguishable from a broken one.
     scheduler,
     directory: options.directory ?? config.workspaceRoot ?? process.cwd(),
-    config,
-    providerSettings,
+    config, providerSettings,
     logger: options.logger ?? null,
     password: options.password ?? null,
     username: options.username ?? DEFAULT_BASIC_USERNAME,
   });
   const bound = await server.start();
-  // Why restore before the handshake: OpenChamber starts, lists sessions, and
-  // only then may a client open one, so the restored history must exist by the
-  // time the launcher hands the URL over. A skipped session never blocks boot.
+  // Why restore before the handshake: OpenChamber starts, lists sessions, and only
+  // then may a client open one, so restored history must exist by the time the
+  // launcher hands the URL over. A skipped session never blocks boot.
   const { restored, skipped } = await restorePersistedSessions(workspace, options);
   const stopWatching = providerSettings ? watchProviderSettings(providerSettings, workspace.v2.events,
     options.directory ?? config.workspaceRoot, options.logger) : () => {};
-  const hostname = options.hostname ?? DEFAULT_SERVE_HOSTNAME;
-  const url = bindUrl({ hostname, port: bound.port });
+  const url = bindUrl({ hostname: options.hostname ?? DEFAULT_SERVE_HOSTNAME, port: bound.port });
   const line = `${HANDSHAKE_LINE_PREFIX}${url}`;
   (options.stdout ?? process.stdout).write(`${line}\n`);
   if (options.handshakeSink) await options.handshakeSink(line);
@@ -115,6 +119,7 @@ export class OpencodeServeRuntime {
     if (this.closed) return;
     this.closed = true;
     this.stopWatching();
+    stopEviction(this.workspace.core);
     for (const record of [...this.workspace.registry.list()]) {
       // Invariant: stored sessions are keyed by ocId; the wire Session shape's id
       // never reaches removal, and a failed removal would leak the engine's

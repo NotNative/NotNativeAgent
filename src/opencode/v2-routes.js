@@ -100,8 +100,11 @@ async function sessionRoute(ctx, segments) {
   // Why the deferred require: an archived conversation is unknown to the live
   // state map, but its read-only history still serves; only read routes may
   // defer the live-state requirement, and every mutation still requires it.
+  // Why ensureLive: an evicted conversation re-attaches on demand before its
+  // operation resolves, so a prompt after idle eviction pays one journal
+  // replay instead of a 404.
   const state = segments.length === 2 && method === 'GET' && action === 'message' && !api.states.has(id)
-    ? null : api.requireState(id);
+    ? null : await api.ensureLive(id);
   if (segments.length === 1) {
     if (method === 'GET') return sendJson(res, 200, { data: api.read(id) });
     if (method === 'DELETE') { await api.remove(id); return sendNoContent(res); }

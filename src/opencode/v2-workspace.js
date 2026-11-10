@@ -50,15 +50,19 @@ export function createV2Workspace(operations, options) {
   const states = new Map(); const creating = new Set();
   const events = createV2Events(); const model = modelReference(options.config);
   // Why the archive refusal inside requireState: an archived id is unknown to the live map,
-  // so every mutating route refuses with the same typed conflict, not a 404.
+  // so every mutating route refuses with the same typed conflict, not a 404. Why demand
+  // re-attach in ensureLive: an evicted conversation is listed but has no live state; an
+  // arriving envelope re-attaches it through the boot-restore path first. Archived ids
+  // are read-only by contract and refuse as before, never re-attached.
   const requireState = (id) => states.get(id) ?? requireArchivedOrMissing(options.archive, id);
+  const ensureLive = async (id) => { if (options.reattachEvicted) await options.reattachEvicted(id); return requireState(id); };
   const context = { states, creating, events, model, requireState, operations, options };
   const api = {
-    events, model, states, requireState,
+    events, model, states, requireState, ensureLive,
     attach(info, metadata, reference) { attachState(states, info, reference ?? model, events, options.wiredVersion, metadata); },
     inherit(id, inherited) { inheritState(requireState(id), inherited); },
-    // Compatibility: a restored session's replayed turns enter the same
-    // projection live turns use, so a reload renders them like any other turn.
+    // Compatibility: a restored session's replayed turns enter the same projection
+    // live turns use, so a reload renders them like any other turn.
     seed(id, turns) { return seedState(requireState(id), turns, events, options.wiredVersion); },
     observe(event) { observeEvent(states, event, events); },
     captureFailure(id, code) { const state = states.get(id); if (state) state.failureCode = code; },
@@ -84,17 +88,7 @@ export function createV2Workspace(operations, options) {
     ...forkApi(requireState, operations),
     ...compactApi(requireState, operations),
     select(id, reference) { return selectModel(context, requireState(id), reference); },
-    async interrupt(id) {
-      const state = requireState(id);
-      // Why: `running` is projected from the bus `session.status busy` frame,
-      // which arrives after admission. An interrupt issued between admission and
-      // that frame still stops real work, so admitted-but-not-yet-busy prompts
-      // count as interrupted instead of reporting a no-op to the operator.
-      const interrupted = state.running || state.pending.size > 0;
-      cancelQueued(state, events);
-      if (interrupted) await operations.cancel(id);
-      return { interrupted };
-    },
+    async interrupt(id) { return interruptSession(requireState(id), operations, events); },
     async wait(id) { await Promise.all([...requireState(id).pending]); },
     async remove(id) { return removeWorkspaceSession(operations, states, events, id, () => requireState(id)); },
     update(id, body) { updateSession(requireState(id), body, events); },
@@ -116,6 +110,17 @@ async function removeWorkspaceSession(operations, states, events, id, require) {
     states.delete(id);
     events.emit(state, 'session.deleted', { sessionID: id });
   }
+}
+
+/** An operator interrupt: cancel queued work, then stop live work if any.
+ *  Why the pending check: `running` is projected from the bus `session.status
+ *  busy` frame, which arrives after admission, so an interrupt issued between
+ *  admission and that frame still stops real work instead of reporting a no-op. */
+async function interruptSession(state, operations, events) {
+  const interrupted = state.running || state.pending.size > 0;
+  cancelQueued(state, events);
+  if (interrupted) await operations.cancel(state.info.id);
+  return { interrupted };
 }
 
 function observeEvent(states, event, events) {  const state = states.get(event.properties?.sessionID);

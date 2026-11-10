@@ -50,7 +50,7 @@ export function createOpenCodeSessionWorkspace(options = {}) {
   workspace.v2 = v2;
   const publishSession = bus.publishSession;
   bus.publishSession = (event) => { v2.observe(event); return publishSession(event); };
-  return { workspace, registry, bus, operations, v2, scheduler: workspace.scheduler, conversations: workspace.conversations };
+  return { workspace, registry, bus, operations, v2, scheduler: workspace.scheduler, conversations: workspace.conversations, core: workspace };
 }
 
 function ensureStoreRoots(options) {
