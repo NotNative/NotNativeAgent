@@ -165,7 +165,6 @@ function hostedBrowserClassification(request) {
     effect: 'unknown', scope: 'browser', method, complexity: 'simple',
     destination: typeof resolved.destination === 'string' ? safeDestination(resolved.destination) : null });
 }
-
 function browserClassification(request) {
   const resolved = request.resolved ?? {};
   const destination = resolved.destination ?? null;

@@ -40,7 +40,8 @@ import { advanceFromAuthoredState, mutationEvidence, transactionalSnapshot,
 import { telegramNotificationDefinition } from './notifications/telegram.js';
 import { sessionHistoryDefinitions } from './session-history-tools.js';
 import { systemTimeDefinition } from './tools/system-time.js';
-import { desktopBrowserDefinition } from './desktop-browser-tool.js'; import { desktopMemoryDefinition } from './desktop-memory-tool.js';
+import { desktopMemoryDefinition } from './desktop-memory-tool.js';
+import { installBrowserTool } from './browser-tool-selection.js';
 import { workspaceChangeDefinition } from './tools/workspace.js';
 import { turnFinishDefinition } from './tools/turn-completion.js';
 import { questionDefinition } from './tools/question.js';
@@ -88,19 +89,21 @@ export class ToolRegistry {
     this.terminalControl = options.terminalControl;
     this.questionBroker = options.questionBroker ?? null;
     this.desktopBrowserCallback = options.desktopBrowserCallback ?? null; this.desktopAgentToolCallback = options.desktopAgentToolCallback ?? null;
+    // Separate from the desktop callback: a hosting surface shows the page through
+    // its own router, so it needs a transport rather than a callback URL, and a
+    // conversation may have both a local browser and a hosted pane.
+    this.hostedBrowserTransport = options.hostedBrowserTransport ?? null;
+    this.hostedBrowserContext = options.hostedBrowserContext ?? null;
     this.administrator = options.administrator ?? null;
   }
   async initialize() {
-    await this.paths.initialize();
-    await this.guidance.initialize();
+    await this.paths.initialize(); await this.guidance.initialize();
     if (!this.enabled) return;
     for (const definition of referenceDefinitions(this.#references, this.paths)) this.#install(definition);
     const legacyFilesystem = [
-      ...filesystemReadDefinitions(this.paths, this.#readReceipts, this.#references),
-      ...filesystemDiscoveryDefinitions(this.paths),
+      ...filesystemReadDefinitions(this.paths, this.#readReceipts, this.#references), ...filesystemDiscoveryDefinitions(this.paths),
     ];
-    for (const definition of legacyFilesystem) this.#install(definition);
-    this.#install(writeDefinition(this.paths, this.#changes, this.#readReceipts));
+    for (const definition of legacyFilesystem) this.#install(definition);    this.#install(writeDefinition(this.paths, this.#changes, this.#readReceipts));
     this.#install(filesystemEditDefinition(this.paths, this.#changes, this.#readReceipts, atomicWrite, verifyExpectedState));
     this.#install(editLinesDefinition(this.paths, this.#changes, this.#readReceipts));
     this.#install(deleteDefinition(this.paths, this.#changes, this.#readReceipts));
@@ -124,12 +127,14 @@ export class ToolRegistry {
     if (this.skills) for (const definition of skillToolDefinitions(this.skills)) this.#install(definition);
     if (this.subagentControl && !this.hosted) this.#install(subagentDefinition(this.subagentControl));
     if (this.conversationWork) for (const definition of conversationWorkDefinitions(this.conversationWork)) this.#install(definition);
-    const turnFinish = turnFinishDefinition(this.terminalControl); if (turnFinish) this.#install(turnFinish);
-    if (this.questionBroker) this.#install(questionDefinition(this.questionBroker));
+    const turnFinish = turnFinishDefinition(this.terminalControl); if (turnFinish) this.#install(turnFinish);    if (this.questionBroker) this.#install(questionDefinition(this.questionBroker));
     if (this.telegramNotifications) this.#install(telegramNotificationDefinition(this.telegramNotifications, this.activeTurnId));
     for (const definition of sessionHistoryDefinitions(this.sessionHistory)) this.#install(definition);
     this.#install(systemTimeDefinition());
-    if (this.browserSurface === 'desktop' && this.desktopBrowserCallback && !this.hosted) this.#install(desktopBrowserDefinition(this.desktopBrowserCallback, { captureRoot: join(dirname(this.browserRoot), 'desktop-captures', this.sessionId ?? 'standalone') })); if (this.browserSurface === 'desktop' && this.desktopAgentToolCallback && !this.hosted) this.#install(desktopMemoryDefinition(this.desktopAgentToolCallback, { contextDirectory: () => this.paths.root }));
+    if (this.browserSurface === 'desktop' && this.desktopAgentToolCallback && !this.hosted) this.#install(desktopMemoryDefinition(this.desktopAgentToolCallback, { contextDirectory: () => this.paths.root }));
+    installBrowserTool({ install: (definition) => this.#install(definition), browserRoot: this.browserRoot, sessionId: this.sessionId ?? null,
+      surface: this.browserSurface, hosted: this.hosted, hostedTransport: this.hostedBrowserTransport,
+      hostedContext: this.hostedBrowserContext, desktopCallback: this.browserSurface === 'desktop' ? this.desktopBrowserCallback : null });
     if (!this.hosted && this.workspaceControl) this.#install(workspaceChangeDefinition(this.paths, this.workspaceControl));
   }
   async close() { await this.definition('web_browse')?.manager?.close?.(); }

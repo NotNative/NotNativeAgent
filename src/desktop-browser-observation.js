@@ -20,8 +20,14 @@
 
 /** One element step of a selector: a type, class, id, or quoted attribute. */
 const STEP = /^[a-z][a-z0-9-]*(?:[.#][A-Za-z0-9_-]+|\[[A-Za-z0-9_-]+="[^"\\]*"\])*$/iu;
-/** Actions that change or leave the page, and so need a reading to stand on. */
-const CONSEQUENTIAL = Object.freeze(['click', 'scroll', 'history', 'type', 'capture']);
+/** Actions that change or leave the page, and so need a reading to stand on.
+ *  Why back and forward are here: navigating leaves the page the receipt
+ *  describes, so acting on one without a fresh reading would rest on a document
+ *  that is no longer shown. `history` is the desktop surface's name for the same
+ *  pair, and it takes an expected URL, so it is judged like one. */
+const CONSEQUENTIAL = Object.freeze(['click', 'scroll', 'back', 'forward', 'history', 'type', 'select', 'capture']);
+/** Actions that act on the page the reading describes, confirming it by URL. */
+const PAGE_ACTIONS = Object.freeze(['click', 'scroll', 'type', 'select', 'capture', 'history']);
 /** Readings that leave the observation in place: a snapshot replaces it, and an
  *  inspect re-reads one element of it. Every other action spends it. */
 const REPLACING = Object.freeze(['snapshot', 'inspect']);
@@ -82,10 +88,17 @@ export function createObservation() {
     /** Whether this action may proceed on what was read; a reason when it may not. */
     check(args) {
       if (!requiresObservation(args.action)) return null;
-      if (!namesUrl(args.expectedUrl)) return `${args.action} requires a snapshot of the exact page URL`;
-      const selector = args.selector ?? null;
-      if (coversSelector(selector)) return null;
-      return `${args.action} has no observation of ${selector ?? 'that page element'}; snapshot it first and act on a selector the snapshot returned`;
+      // Why two shapes: an action on the current page confirms it by URL, while a
+      // back or a forward leaves that page by definition and so only needs proof
+      // that a reading was taken and the session is not blind.
+      if (PAGE_ACTIONS.includes(args.action)) {
+        if (!namesUrl(args.expectedUrl)) return `${args.action} requires a snapshot of the exact page URL`;
+        const selector = args.selector ?? null;
+        if (coversSelector(selector)) return null;
+        return `${args.action} has no observation of ${selector ?? 'that page element'}; snapshot it first and act on a selector the snapshot returned`;
+      }
+      if (current.revision === null || current.id === null) return `${args.action} requires a snapshot first`;
+      return null;
     },
     /** Spends the receipt. A snapshot replaces it and an inspect re-reads one
      *  element without changing the page, so those keep it; a capture spends it

@@ -124,15 +124,14 @@ function boundedToolSurface(engine, options) {
 function installCapabilities(engine, options, storeRoot, hooks) {
   installNotifications(engine, options); const imageObserver = createImageObserver(engine);
   installConversationWork(engine, options, hooks);
-  engine.skills = options.skillRegistry ?? new SkillRegistry({
-    hosted: engine.config.executionManifest !== null,
-    hostSkills: engine.config.skills,
-    roots: options.skillRoots ?? (engine.dataPaths.skills ? [{ scope: 'user', path: engine.dataPaths.skills }] : []),
-    allowedTools: engine.config.executionManifest?.allowedTools,
-  });
+  engine.skills = options.skillRegistry ?? new SkillRegistry({ hosted: engine.config.executionManifest !== null,
+    hostSkills: engine.config.skills, allowedTools: engine.config.executionManifest?.allowedTools,
+    roots: options.skillRoots ?? (engine.dataPaths.skills ? [{ scope: 'user', path: engine.dataPaths.skills }] : []) });
   engine.tools = new ToolRegistry(engine.config.workspaceRoot, {
     workspaceIdentityCheck: desktopToolWorkspaceIdentityCheck(engine, options.workspaceBinding, options.workspaceBindingResolver),
     browserSurface: options.surface === 'desktop' || options.surface === 'desktop_subagent' ? 'desktop' : 'playwright',
+    hostedBrowserTransport: options.hostedBrowserTransport ?? null,
+    ...(options.hostedBrowserContext ? { hostedBrowserContext: options.hostedBrowserContext } : {}),
     hosted: engine.config.executionManifest !== null, boundedToWorkspace: boundedToolSurface(engine, options),
     administrator: administratorAdapter(engine, options),
     enabled: toolsAllowed(engine.config.executionManifest),

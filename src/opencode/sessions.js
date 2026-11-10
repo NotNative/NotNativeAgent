@@ -139,6 +139,14 @@ function engineOptions({ options, workspace, sessionId, ocId, sessionDirectory, 
     // conversation family, so engine-hosted subagents resolve in one map.
     conversationRegistry: options.conversations,
     secretBroker: options.secretBroker,
+    // Why the hosted pane: a conversation on this surface is shown by
+    // OpenChamber, so its browser actions belong to that pane rather than to a
+    // browser of NNA's own. The scope travels with every action so the pane keeps
+    // this chat's tabs apart from another's.
+    ...(options.hostedBrowserTransport ? {
+      hostedBrowserTransport: options.hostedBrowserTransport,
+      hostedBrowserContext: () => ({ directory: sessionDirectory || null, sessionId: ocId }),
+    } : {}),
   };
 }
 
