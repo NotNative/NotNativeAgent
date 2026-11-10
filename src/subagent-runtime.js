@@ -84,6 +84,11 @@ function createSubagentEngine(engine, input, sessionId, lineage, parent, relay, 
     // slots, model runtime) is conversation-independent; the child's ledger and
     // mandatory review policy stay per-conversation.
     sharedSemanticReviewer: engine.reviewer?.semanticReviewer ?? null,
+    // Why the resident telemetry: the worker is bound to a database path, not a
+    // conversation, and rows carry per-record identity — so the child borrows
+    // the parent's worker through an identity handle instead of spawning
+    // another worker thread per launch.
+    sharedTelemetry: engine.telemetry,
     output: async (record) => {
       observeDesktop('output', () => engine.desktopSessionRegistry?.observeOutput?.(sessionId, record));
       await relay.accept(record);

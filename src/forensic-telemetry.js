@@ -311,6 +311,79 @@ export function createForensicTelemetry(options) {
   return new ForensicTelemetry(options);
 }
 
+/** A telemetry identity view over a resident ForensicTelemetry. Why this class:
+ *  the worker is bound to a database path, not to a conversation, and row
+ *  stamping already takes session identity from per-record correlation — so a
+ *  hosted fan-out can share one worker and one write queue while every row
+ *  still carries its own conversation identity. Lifecycle stays explicit: the
+ *  borrower never closes the resident telemetry it borrowed. */
+export class SharedTelemetryHandle {
+  #resident;
+  #identity;
+  constructor(resident, identity = {}) {
+    if (!resident || typeof resident.record !== 'function') {
+      throw new ContractError('telemetry_handle_invalid', 'a telemetry handle requires a resident telemetry');
+    }
+    this.#resident = resident;
+    this.#identity = Object.freeze({ ...identity });
+  }
+  record(eventName, status, payload = {}, correlation = {}) {
+    return this.#resident.record(eventName, status, payload, { ...correlation, ...this.#identity });
+  }
+  eventObserver() {
+    const record = (eventName, status, payload, correlation) => this.record(eventName, status, payload, correlation);
+    return Object.freeze({
+      dispatchStarted: (event) => record('engine.phase', 'started', event, eventCorrelation(event)),
+      dispatchFinished: (event, result, durationMs) => record(
+        'engine.phase', terminalStatus(result?.decision), { event, dispatch: result },
+        { ...eventCorrelation(event), durationMs, outcome: result?.decision ?? event.outcome },
+      ),
+      dispatchFailed: (event, error, durationMs) => record(
+        'engine.phase', 'failed', { event, failure: failureShape(error) },
+        { ...eventCorrelation(event), durationMs, reasonCode: error?.code },
+      ),
+      subscriberStarted: (event, subscription, spanId) => record(
+        'engine.subscriber', 'started', { event_name: event.event_name, subscription },
+        { ...eventCorrelation(event), spanId, parentSpanId: event.event_id },
+      ),
+      subscriberFinished: (event, subscription, spanId, result, durationMs) => record(
+        'engine.subscriber', subscriberStatus(result), { event_name: event.event_name, subscription, result },
+        { ...eventCorrelation(event), spanId, parentSpanId: event.event_id, durationMs,
+          outcome: result?.decision, reasonCode: subscriberReason(result) },
+      ),
+      subscriberFailed: (event, error, durationMs) => record(
+        'engine.subscriber', 'failed', { event_name: event.event_name, subscription, failure: failureShape(error) },
+        { ...eventCorrelation(event), spanId, parentSpanId: event.event_id, durationMs, reasonCode: error?.code },
+      ),
+    });
+  }
+  stateObserver() {
+    return Object.freeze({
+      transitionStarted: (fact) => this.record('state.transition', 'started', fact, transitionCorrelation(fact)),
+      transitionFinished: (fact, status) => this.record('state.transition', status, fact, {
+        ...transitionCorrelation(fact), outcome: fact.to,
+      }),
+      transitionFailed: (fact, error) => this.record('state.transition', 'failed', {
+        ...fact, failure: failureShape(error),
+      }, { ...transitionCorrelation(fact), reasonCode: error?.code }),
+    });
+  }
+  lifecycleObserver() {
+    return Object.freeze({
+      lifecycleStarted: (record) => this.record('lifecycle.record', 'started', record, lifecycleCorrelation(record)),
+      lifecycleFinished: (record) => this.record(
+        'lifecycle.record', terminalStatus(record.outcome), record,
+        { ...lifecycleCorrelation(record), outcome: record.outcome },
+      ),
+    });
+  }
+  // Why passthroughs, not full delegation: a borrower must never close or query
+  // the resident as itself, but initialization is idempotent and health is
+  // read-only, so both are safe to borrow.
+  async initialize() { return this.#resident.initialize(); }
+  async health() { return this.#resident.health(); }
+}
+
 function rowFrom(owner, eventName, status, payload, correlation, sequence) {
   return Object.freeze({
     timestamp: new Date().toISOString(), monotonic_ns: process.hrtime.bigint().toString(),

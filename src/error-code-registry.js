@@ -283,7 +283,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'telegram_response_invalid', 'telegram_response_too_large', 'telegram_timeout',
     'telegram_timeout_invalid', 'telegram_token_invalid', 'telegram_token_missing',
     'telegram_unavailable', 'telegram_user_id_invalid', 'telemetry_destination_invalid',
-    'telemetry_destination_required', 'telemetry_identity_invalid', 'telemetry_options_invalid',
+    'telemetry_destination_required', 'telemetry_handle_invalid', 'telemetry_identity_invalid', 'telemetry_options_invalid',
     'telemetry_row_invalid', 'terminal_parent', 'trace_command_invalid',
     'transcript_invalid', 'transcript_record_invalid', 'tty_required',
     'tui_command_invalid', 'tui_editor_unavailable', 'tui_options_invalid',

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ForensicTelemetry } from '../src/forensic-telemetry.js';
+import { ForensicTelemetry, SharedTelemetryHandle } from '../src/forensic-telemetry.js';
 import { sanitizeTelemetry, supportTelemetryProjection } from '../src/forensic-telemetry-sanitize.js';
 import { LifecycleRegistry, StateAuthority } from '../src/lifecycle.js';
 import { DatabaseSync } from 'node:sqlite';
@@ -30,6 +30,30 @@ test('local forensic telemetry persists correlated rich evidence with secret red
   assert.equal(JSON.stringify(rows).includes('do-not-store'), false);
   await telemetry.close();
   assert.ok((await readFile(join(root, 'events.db'))).length > 0);
+});
+
+test('a shared handle stamps its own conversation identity onto borrowed rows', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-forensic-shared-'));
+  const resident = telemetryAt(root, { sessionId: 'session_parent' });
+  await resident.initialize();
+  const child = new SharedTelemetryHandle(resident, {
+    sessionId: 'session_child', conversationId: 'session_child',
+  });
+  resident.record('probe.event', 'succeeded', { origin: 'parent' });
+  child.record('probe.event', 'succeeded', { origin: 'child' });
+  await resident.flush();
+  // Why the child filter is the assertion: the worker keeps its active session
+  // in query results, so the parent row count is not a stable discriminator;
+  // the child row's stamped identity is.
+  const childRows = await resident.query({ sessionId: 'session_child' });
+  assert.equal(childRows.length, 1);
+  assert.equal(childRows[0].payload.origin, 'child');
+  assert.equal(childRows[0].session_id, 'session_child');
+  // A borrower initializes idempotently and reads health, but has no close.
+  await child.initialize();
+  assert.equal((await child.health()).status, 'ready');
+  assert.equal(typeof child.close, 'undefined', 'a borrower never closes the resident');
+  await resident.close();
 });
 
 test('open span query reports operations without a terminal disposition', async () => {
