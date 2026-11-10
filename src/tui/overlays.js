@@ -144,6 +144,7 @@ export function configOverlay(engine, options = {}) {
     { id: 'websearch', label: 'WebSearch', detail: 'Configure, test, or locally deploy SearXNG' },
     { id: 'webfetch', label: 'WebFetch destinations', detail: 'Trust exact private-network origins for bounded fetching' },
     { id: 'gateway', label: 'Telegram gateway', detail: 'Configure authorized remote access and runtime status' },
+    { id: 'opencode', label: 'OpenCode service', detail: 'Start, stop, and sign-in enable the OpenChamber surface' },
     { id: 'context', label: 'Context management', detail: `${contextPercentText(limits.contextCompressionThreshold ?? 0.40)} / ${contextPercentText(limits.contextCompressionLevel2Threshold ?? 0.55)} / ${contextPercentText(limits.contextCompressionLevel3Threshold ?? 0.70)} compression · ${contextPercentText(limits.contextCompactionThreshold ?? 0.75)} full compaction` },
     { id: 'workspace-trust', label: 'Workspace trust', detail: 'Control project configuration and hook discovery on restart' },
     { id: 'hooks', label: 'Hook bundles', detail: 'Inspect discovered event subscriptions and registration health' },
@@ -203,8 +204,40 @@ export function gatewayOverlay(status, options = {}) {
   ];
   return menuOverlay('gateway', 'Telegram gateway', lines, items, options.selectedId ?? items[0].id);
 }
-export function workspaceTrustOverlay(workspaceRoot) {
-  return menuOverlay('workspace-trust', 'Workspace trust', [
+/** The OpenCode service overlay: the same operator surface the Telegram gateway
+ *  gets, for the OpenChamber wiring service. Lifecycle is start applies the
+ *  user-scope binding, stop clears it, enable/disable own the sign-in script. */
+export function opencodeOverlay(status, options = {}) {
+  status = status ?? {};
+  const service = status.service ?? {};
+  const runtime = status.runtime ?? { running: false };
+  const login = status.login ?? { installed: false };
+  const environment = status.environment ?? {};
+  const lines = [
+    'OpenCode is the OpenChamber-compatible surface: durable conversations over Basic auth on loopback.',
+    '',
+    `Service      ${service.autostart_enabled ? 'enabled at sign-in' : 'manual start'}`,
+    `Runtime      ${runtime.running ? `running (PID ${runtime.pid}) at ${runtime.url ?? '--'}` : 'stopped'}`,
+    `Binding      ${environment.host ?? 'not applied to this operator profile'}`
+      + `${status.stale_binding ? ' (stale)' : ''}`,
+    `Sign-in      ${login.installed ? `installed (${login.script_path})` : 'not installed'}`,
+  ];
+  if (options.message) lines.push('', options.message);
+  const items = [
+    runtime.running
+      ? { id: 'stop', label: 'Stop OpenCode service', detail: 'Stop the surface and clear the OpenChamber binding' }
+      : { id: 'start', label: 'Start OpenCode service', detail: 'Start the surface and apply the OpenChamber binding' },
+    service.autostart_enabled
+      ? { id: 'disable', label: 'Disable at sign-in', detail: 'Remove the login startup script' }
+      : { id: 'enable', label: 'Enable at sign-in', detail: 'Install the login startup script' },
+  ];
+  return Object.freeze({
+    ...menuOverlay('opencode', 'OpenCode service', lines, items, options.selectedId ?? items[0].id),
+    actionLabel: 'Up/Down choose · Enter select · Esc back',
+  });
+}
+
+export function workspaceTrustOverlay(workspaceRoot) {  return menuOverlay('workspace-trust', 'Workspace trust', [
     `Workspace: ${workspaceRoot}`,
     'Trust controls whether project configuration and hooks are loaded after restart.',
   ], [

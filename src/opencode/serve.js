@@ -15,6 +15,7 @@ import { userDataPaths } from '../product.js';
 import { watchProviderSettings } from './provider-watch.js';
 import {
   WIRED_OPENCODE_VERSION, HANDSHAKE_LINE_PREFIX, DEFAULT_SERVE_HOSTNAME, DEFAULT_SERVE_PORT, DEFAULT_BASIC_USERNAME,
+  resolveWiredOpenCodeVersion,
 } from './version.js';
 
 const NON_INTERACTIVE_INPUT = Object.freeze({
@@ -22,7 +23,9 @@ const NON_INTERACTIVE_INPUT = Object.freeze({
 });
 
 export async function startOpencodeServe(options = {}) {
-  const wiredVersion = options.wiredVersion ?? WIRED_OPENCODE_VERSION;
+  // Why resolved per boot: the reported target must stay at or above npm's latest
+  // published OpenCode contract, or OpenChamber's toast announces the server forever.
+  const wiredVersion = options.wiredVersion ?? await resolveWiredOpenCodeVersion();
   const providerSettings = options.providerSettings ?? (!options.config && !options.manifestPath
     ? new OpenCodeProviderSettings({ root: (options.paths ?? userDataPaths()).opencode }) : null);
   const config = providerSettings ? options.config ?? resolveManifest({ provider: {
@@ -47,8 +50,7 @@ export async function startOpencodeServe(options = {}) {
     // importing the eviction module; the bundle carries operations and store root.
     reattachEvicted: (id) => reattachEvictedSession(
       workspace.core, { storeRoot: options.storeRoot, operations: workspace.operations }, id),
-  });
-  // Why eviction: an idle conversation should not hold three durable file handles;
+  });  // Why eviction: an idle conversation should not hold three durable file handles;
   // the sweep shuts idle engines down while the durable index and the registry's
   // dormant record keep the conversation listed and re-attachable.
   configureEviction(workspace.core, { idleMs: options.idleEvictionMs ?? 0 });
@@ -70,8 +72,7 @@ export async function startOpencodeServe(options = {}) {
   // launcher hands the URL over. A skipped session never blocks boot.
   const { restored, skipped } = await restorePersistedSessions(workspace, options);
   const stopWatching = providerSettings ? watchProviderSettings(providerSettings, workspace.v2.events,
-    options.directory ?? config.workspaceRoot, options.logger) : () => {};
-  const url = bindUrl({ hostname: options.hostname ?? DEFAULT_SERVE_HOSTNAME, port: bound.port });
+    options.directory ?? config.workspaceRoot, options.logger) : () => {};  const url = bindUrl({ hostname: options.hostname ?? DEFAULT_SERVE_HOSTNAME, port: bound.port });
   const line = `${HANDSHAKE_LINE_PREFIX}${url}`;
   (options.stdout ?? process.stdout).write(`${line}\n`);
   if (options.handshakeSink) await options.handshakeSink(line);

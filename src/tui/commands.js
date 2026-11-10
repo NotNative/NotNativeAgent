@@ -25,6 +25,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/gateway authorize|revoke USER_ID', 'Manage authorized Telegram operators', 'configuration'),
   command('/gateway token-env NAME', 'Use a Telegram token from an environment variable', 'configuration'),
   command('/gateway workspace PATH', 'Set the Telegram gateway working directory', 'configuration'),
+  command('/opencode [status|start|stop|enable|disable]', 'Manage the OpenCode (OpenChamber) service', 'configuration'),
   command('/confirm close', 'Confirm closing the active conversation', 'sessions'),
   command('/context', 'Inspect context usage, reductions, and thresholds', 'conversation'),
   command('/context level1 PERCENT', 'Set the receipt-compression threshold', 'configuration'),
@@ -154,6 +155,7 @@ function requiredCapability(usage) {
   if (usage.startsWith('/secrets')) return 'local secret broker';
   if (usage.startsWith('/provider')) return 'provider configuration';
   if (usage.startsWith('/gateway')) return 'Telegram gateway configuration';
+  if (usage.startsWith('/opencode')) return 'OpenCode service configuration';
   if (usage.startsWith('/attach') || usage.startsWith('/detach')) return 'attachment admission';
   if (usage.startsWith('/copy')) return 'terminal clipboard capability';
   if (usage.startsWith('/support')) return 'local diagnostic storage';

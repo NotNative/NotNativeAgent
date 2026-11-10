@@ -66,6 +66,7 @@ function ownerOf(path) {
   if (path === 'experience-engine.js' || path.startsWith('experience/')) return 'experience';
   if (path === 'tui.js' || path.startsWith('tui/')) return 'tui';
   if (path === 'gateway-cli.js') return 'gateway-control';
+  if (path === 'opencode-cli.js') return 'opencode-control';
   if (path.startsWith('gateway/')) return 'gateway';
   if (path.startsWith('opencode/')) return 'opencode';
   return 'shared';

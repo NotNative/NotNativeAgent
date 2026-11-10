@@ -6,7 +6,7 @@ import { validateKeyBindings } from './experience/key-bindings.js';
 import { RetainedTerminalScreen } from './tui/terminal-screen.js';
 import { createRenderLoop } from './tui/render-loop.js';
 import { commandDefinition } from './tui/commands.js';
-import { auditOverlay, configOverlay, gatewayOverlay, overlayCommandDraft, valueOverlay, skillsOverlay, webFetchOverlay, workspaceTrustOverlay } from './tui/overlays.js';
+import { auditOverlay, configOverlay, gatewayOverlay, opencodeOverlay, overlayCommandDraft, valueOverlay, skillsOverlay, webFetchOverlay, workspaceTrustOverlay } from './tui/overlays.js';
 import { webSearchOverlay } from './tui/websearch-overlay.js';
 import { runContextCommand } from './tui/context.js';
 import { handleCommandPickerAction, resetCommandPicker } from './tui/command-picker.js';
@@ -27,6 +27,7 @@ import { createTuiWorkspace } from './tui/runtime-workspace.js';
 import { handleEditorAction } from './tui/editor-actions.js';
 import { handlePendingQuestion } from './tui/question-input.js';
 import { handleGatewayCommand, handleGatewaySelection } from './tui/gateway-command.js';
+import { handleOpencodeCommand, handleOpencodeSelection } from './tui/opencode-command.js';
 import { handleWebFetchCommand } from './tui/webfetch-command.js'; import { beginWebFetchManagementSelection, handleWebFetchSetupAction } from './tui/webfetch-setup.js'; import { beginWebSearchManagementSelection, handleWebSearchSetupAction } from './tui/websearch-setup.js';
 import { beginProviderManagementSelection, handleProviderRoleNavigation, handleProviderSetupAction } from './tui/provider-setup.js'; import { beginProviderRouteSettingsSelection, handleProviderRouteSettingsAction } from './tui/provider-route-settings.js';
 import { beginMcpManagementSelection, handleMcpSetupAction } from './tui/mcp-setup.js';
@@ -298,6 +299,7 @@ async function openConfigurationSection(section, workspace) {
   else if (section === 'websearch') workspace.projection.openOverlay(webSearchOverlay(await workspace.webSearchStatus(false)));
   else if (section === 'webfetch') workspace.projection.openOverlay(webFetchOverlay((await workspace.webFetchCommand(['status'])).config));
   else if (section === 'gateway') workspace.projection.openOverlay(gatewayOverlay(await workspace.gatewayCommand(['status'])));
+  else if (section === 'opencode') workspace.projection.openOverlay(opencodeOverlay(await workspace.opencodeCommand(['status'])));
   else if (section === 'context') await runContextCommand('', workspace);
   else if (['hooks', 'extensions'].includes(section)) await openRuntimeInspection(section, workspace);
   else if (section === 'workspace-trust') workspace.projection.openOverlay(workspaceTrustOverlay(workspace.activeConfig().workspaceRoot));
@@ -390,6 +392,7 @@ async function command(value, workspace, stop) {
   else if (['/websearch', '/search-config', '/search_config'].includes(name)) await webSearchCommand(argument, workspace);
   else if (name === '/webfetch') await handleWebFetchCommand(argument, workspace);
   else if (name === '/gateway') await handleGatewayCommand(argument, workspace);
+  else if (name === '/opencode') await handleOpencodeCommand(argument, workspace);
   else if (name === '/context') await runContextCommand(argument, workspace);
   else if (['/plan', '/tasks', '/goal', '/task'].includes(name)) await handleWorkCommand(name, argument, workspace);
   else if (name === '/diff') workspace.projection.openOverlay(valueOverlay('diff', argument ? `Changes · ${argument}` : 'Conversation changes', workspace.activeEngine().tools.diff(argument || null)));
@@ -494,7 +497,4 @@ async function configCommand(argument, workspace) {
   }
   throw new ContractError('config_read_only', 'Use /config without arguments; provider, model, MCP, and WebSearch have dedicated managers.');
 }
-function moveOrNavigate(editor, direction) {
-  if (editor.text.length === 0) editor.navigateHistory(direction);
-  else editor.moveVertical(direction);
-}
+function moveOrNavigate(editor, direction) { if (editor.text.length === 0) editor.navigateHistory(direction); else editor.moveVertical(direction); }

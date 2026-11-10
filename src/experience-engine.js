@@ -35,6 +35,7 @@ import { configurationIntent } from './experience/configuration-intents.js';
 import { providerAdditionPlan, providerCatalogEntries, routePresentation, specialistRouteEntries } from './experience/provider-catalog.js';
 import { clearWorkspaceProviderRole, configureWorkspaceProviderRoute, deleteWorkspaceProvider, selectWorkspaceModel, selectWorkspaceProviderRole } from './experience/provider-routing.js';
 import { runGatewayCommand } from './gateway-cli.js';
+import { runOpencodeServiceCommand } from './opencode-cli.js';
 import { runWebFetchCommand } from './web-fetch-cli.js';
 import { discoverWorkspaceProviderModels, qualifyWorkspaceProvider } from './experience/provider-discovery.js';
 import { listManagedMcpCredentials, saveManagedMcpCredential } from './mcp-credentials.js';
@@ -52,8 +53,7 @@ export class ExperienceEngine {
   #creatingSessions = new Map();
   #closing = false;
   constructor(options) {
-    this.config = options.config;
-    this.dataPaths = resolveUserDataPaths(options.dataPaths);
+    this.config = options.config; this.dataPaths = resolveUserDataPaths(options.dataPaths);
     this.options = options.dataPaths?.root ? { ...options, dataPaths: this.dataPaths } : options;
     const defaults = this.dataPaths.root ? this.dataPaths : userDataPaths();
     this.projection = options.projection ?? new TuiProjection();
@@ -65,8 +65,7 @@ export class ExperienceEngine {
     this.scheduler = options.scheduler ?? new FairScheduler({
       limit: this.config.limits.providerConcurrency, maxQueued: this.config.limits.providerQueueLimit,
     });
-    // Why a surface-wide family registry: every console conversation joins one
-    // map, so the desktop is a client of a resolvable conversation family.
+    // Why a surface-wide family registry: every console conversation joins one map.
     this.conversations = options.conversations ?? new ConversationRegistry();
     this.webSearchConfigPath = options.webSearchConfigPath ?? this.dataPaths.webSearchConfig ?? defaults.webSearchConfig;
     this.gatewayConfigPath = options.gatewayConfigPath ?? this.dataPaths.gatewayConfig ?? defaults.gatewayConfig;
@@ -420,7 +419,8 @@ export class ExperienceEngine {
   async deployWebSearch() { return deployWebSearch(this.#webSearchState()); }
   async removeWebSearchDeployment() { return removeWebSearchDeployment(this.#webSearchState()); }
   manageWebSearch(action) { return manageWebSearch(this.#webSearchState(), action); }
-  gatewayCommand(args) { return runGatewayCommand(args, this.dataPaths); } listSecrets() { this.#requirePrimarySecretManagement(); return listSecretsWithReferences(this.secretBroker, this.config); }
+  gatewayCommand(args) { return runGatewayCommand(args, this.dataPaths); }
+  opencodeCommand(args) { return runOpencodeServiceCommand(args, this.dataPaths); } listSecrets() { this.#requirePrimarySecretManagement(); return listSecretsWithReferences(this.secretBroker, this.config); }
   createSecret(input) { this.#requirePrimarySecretManagement(); return this.secretBroker.create(input); } renameSecret(id, label) { this.#requirePrimarySecretManagement(); return this.secretBroker.update(id, { label }); }
   rotateSecret(id, fields) { this.#requirePrimarySecretManagement(); return this.secretBroker.rotate(id, fields); }
   setSecretEnabled(id, enabled) { this.#requirePrimarySecretManagement(); return this.secretBroker.setEnabled(id, enabled); }

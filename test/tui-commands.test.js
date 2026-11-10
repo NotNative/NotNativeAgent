@@ -41,8 +41,9 @@ test('TUI_COMMANDS is a non-empty frozen array whose entries carry the documente
 test('TUI_COMMANDS capability requirements and binding actions stay internally consistent', () => {
   const knownCapabilities = new Set([
     'Console', 'configured memory adapter', 'configured MCP capability', 'local secret broker',
-    'provider configuration', 'Telegram gateway configuration', 'attachment admission',
-    'terminal clipboard capability', 'local diagnostic storage', 'local forensic telemetry',
+    'provider configuration', 'Telegram gateway configuration', 'OpenCode service configuration',
+    'attachment admission', 'terminal clipboard capability', 'local diagnostic storage',
+    'local forensic telemetry',
   ]);
   for (const item of TUI_COMMANDS) {
     assert.ok(knownCapabilities.has(item.requiredCapability),
