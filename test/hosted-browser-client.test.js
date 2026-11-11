@@ -2,8 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
-import { createHostedBrowserTransport, hostedBrowserBindingFrom, hostedBrowserBindingFromEnvironment,
-  hostedBrowserStateRoots, probeHostedBrowser, readHostedBrowserBinding } from '../src/hosted-browser-client.js';
+import { createHostedBrowserTransport, findHostedBrowserOrigin, hostedBrowserBindingFrom, hostedBrowserBindingFromEnvironment,
+  hostedBrowserStateRoots, originAnswers, probeHostedBrowser, readHostedBrowserBinding } from '../src/hosted-browser-client.js';
 
 const token = 't'.repeat(43);
 const route = '/api/openchamber/control';
@@ -57,6 +57,44 @@ test('a port that answers the control route is usable, and a silent one is not',
   const silent = await probeHostedBrowser({ ports: [1234], fetcher: async () => { throw new Error('ECONNREFUSED'); } });
   assert.equal(silent, null);
   assert.equal(await probeHostedBrowser({ ports: [] }), null);
+});
+
+test('the running origin is read from the files OpenChamber writes', async () => {
+  // Why this matters: a desktop install binds an ephemeral port. A live instance
+  // was listening on 57123 while every well-known port was closed, so a probe list
+  // alone handed the model NNA's own Playwright browser instead of the open pane.
+  const root = 'C:/oc';
+  const read = (path) => {
+    if (path.endsWith('git-credential-endpoint.json')) {
+      return Promise.resolve(JSON.stringify({ url: 'http://127.0.0.1:57123/api/git/repository-credential', secret: 's' }));
+    }
+    return Promise.reject(new Error('ENOENT'));
+  };
+  const origin = await findHostedBrowserOrigin({ environment: { OPENCHAMBER_DATA_DIR: root }, read });
+  assert.equal(origin, 'http://127.0.0.1:57123');
+});
+
+test('a stale or foreign origin file is not trusted', async () => {
+  const rejected = async (body) => findHostedBrowserOrigin({
+    environment: { OPENCHAMBER_DATA_DIR: 'C:/oc' },
+    read: () => Promise.resolve(body),
+  });
+  assert.equal(await rejected('not json'), null);
+  assert.equal(await rejected(JSON.stringify({ url: 'http://10.1.2.3:57123/x' })), null);
+  assert.equal(await rejected(JSON.stringify({ url: 'https://127.0.0.1:57123/x' })), null);
+  assert.equal(await rejected(JSON.stringify({})), null);
+});
+
+test('a discovered origin is used only when it actually answers', async () => {
+  // Why: the file names the last process that wrote it. If that process is gone the
+  // binding would install a browser tool whose every call fails.
+  assert.equal(await originAnswers({ origin: 'http://127.0.0.1:1', fetcher: async () => { throw new Error('ECONNREFUSED'); } }), null);
+  assert.equal(await originAnswers({ origin: '', fetcher: async () => new Response('{}') }), null);
+  const live = await originAnswers({ origin: 'http://127.0.0.1:57123', fetcher: async (url) => {
+    assert.equal(url, `http://127.0.0.1:57123${route}`);
+    return new Response('{}', { status: 200 });
+  } });
+  assert.equal(live.url, `http://127.0.0.1:57123${route}`);
 });
 
 function transportWith(reply, capture = []) {

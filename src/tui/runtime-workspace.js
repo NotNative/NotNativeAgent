@@ -27,6 +27,10 @@ export async function createTuiWorkspace(options, output, onChange) {
       ? ((path, maxBytes) => systemClipboard.readContent(path, maxBytes)) : undefined),
     clipboardClose: options.clipboardClose ?? (() => systemClipboard.close?.()),
   });
+  // Why the projection carries the repaint: an action that takes seconds — starting
+  // the OpenCode service, stopping it — would otherwise show nothing until it
+  // finished, so the operator cannot tell work from a dropped keypress.
+  workspace.projection.requestRender = typeof onChange === 'function' ? onChange : () => {};
   // Update discovery is optional and never affects Console readiness.
   launchTuiUpdateCheck(workspace.projection, options, onChange)
     .catch((error) => recordOptionalFailure(logger, 'update_check_failed', error));

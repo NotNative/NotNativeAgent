@@ -6,24 +6,47 @@ const GATEWAY_ACTIONS = Object.freeze({
   status: 'status', test: 'test', start: 'start', stop: 'stop', authorize: 'authorize', revoke: 'revoke',
 });
 
+/** What to say while an action waits on the network or a process. */
+const GATEWAY_PENDING = Object.freeze({
+  start: 'Starting the gateway...',
+  stop: 'Stopping the gateway...',
+  test: 'Testing the gateway connection...',
+  authorize: 'Authorizing the operator...',
+  revoke: 'Revoking the operator...',
+});
+
 export async function handleGatewayCommand(argument, workspace) {
   const normalized = typeof argument === 'string' ? argument.trim() : '';
   const values = normalized ? normalized.split(/\s+/u) : [GATEWAY_ACTIONS.status];
   validateGatewayArguments(values);
+  if (values[0] === GATEWAY_ACTIONS.status) {
+    workspace.projection.openOverlay(gatewayOverlay(await workspace.gatewayCommand(values)));
+    return;
+  }
+  // Why painted first: these actions wait on a process or the network, and a menu
+  // that shows nothing until they finish reads as a dropped keypress.
+  await paintGateway(workspace, values[0], await workspace.gatewayCommand([GATEWAY_ACTIONS.status]).catch(() => null),
+    GATEWAY_PENDING[values[0]]);
   const result = await workspace.gatewayCommand(values);
-  const status = values[0] === GATEWAY_ACTIONS.status ? result : await workspace.gatewayCommand([GATEWAY_ACTIONS.status]);
-  workspace.projection.openOverlay(gatewayOverlay(status, {
-    message: values[0] === GATEWAY_ACTIONS.status ? null : gatewayMessage(values[0], result),
-  }));
+  await paintGateway(workspace, values[0], await workspace.gatewayCommand([GATEWAY_ACTIONS.status]).catch(() => null),
+    null, gatewayMessage(values[0], result));
 }
 
 export async function handleGatewaySelection(selectedId, workspace) {
   validateGatewayArguments([selectedId]);
+  await paintGateway(workspace, selectedId, await workspace.gatewayCommand([GATEWAY_ACTIONS.status]).catch(() => null),
+    GATEWAY_PENDING[selectedId]);
   const result = await workspace.gatewayCommand([selectedId]);
-  const current = await workspace.gatewayCommand([GATEWAY_ACTIONS.status]);
-  workspace.projection.openOverlay(gatewayOverlay(current, {
-    selectedId, message: gatewayMessage(selectedId, result),
+  await paintGateway(workspace, selectedId, await workspace.gatewayCommand([GATEWAY_ACTIONS.status]).catch(() => null),
+    null, gatewayMessage(selectedId, result));
+}
+
+/** Paints one overlay state and repaints it, so a pending action is visible. */
+async function paintGateway(workspace, selectedId, status, pending, message = null) {
+  workspace.projection.openOverlay(gatewayOverlay(status, {
+    selectedId, ...(pending ? { pending } : {}), ...(message ? { message } : {}),
   }));
+  workspace.projection.requestRender?.();
 }
 
 function validateGatewayArguments(values) {

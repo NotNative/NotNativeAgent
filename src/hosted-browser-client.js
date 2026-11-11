@@ -129,6 +129,53 @@ export async function findHostedBrowserBinding({ environment = process.env, home
 }
 
 /**
+ * Files OpenChamber rewrites on every start that carry its own origin.
+ *
+ * Why this is the primary source: a desktop install binds an ephemeral port and
+ * publishes it nowhere obvious, but it does write these on each launch — the git
+ * credential helper endpoint names the listener, and the instance marker records
+ * the port beside it. Reading them is exact, where probing a guessed list is not:
+ * a live instance on 57123 was invisible to a probe of 3000/3001/5173/4096, so the
+ * model was handed NNA's own Playwright browser instead of the pane in front of it.
+ */
+const ORIGIN_SOURCES = Object.freeze([
+  { file: 'git-credential-endpoint.json', pick: (value) => value?.url },
+  { file: 'run/openchamber-3000.json', pick: (value) => (value?.port ? `http://127.0.0.1:${value.port}/` : null) },
+]);
+
+/** The origin one JSON file names, or null when it names none. */
+async function originFromFile(root, source, read) {
+  let text;
+  try { text = await read(join(root, source.file), 'utf8'); } catch { return null; }
+  let value;
+  try { value = JSON.parse(text); } catch { return null; }
+  const named = source.pick(value);
+  if (typeof named !== 'string') return null;
+  let parsed;
+  try { parsed = new URL(named); } catch { return null; }
+  // Only a loopback origin is usable, for the same reason a binding must be.
+  if (parsed.protocol !== 'http:' || parsed.hostname !== '127.0.0.1' || !parsed.port) return null;
+  return `http://127.0.0.1:${parsed.port}`;
+}
+
+/**
+ * The origin of a running OpenChamber, found in the files it writes.
+ *
+ * Why several roots and files: a user may relocate the data root, and a daemon
+ * and a desktop install record their port in different places. Any one of them
+ * naming a loopback origin is enough; the caller then verifies it answers.
+ */
+export async function findHostedBrowserOrigin({ environment = process.env, home = homedir(), read = readFile } = {}) {
+  for (const root of hostedBrowserStateRoots(environment, home)) {
+    for (const source of ORIGIN_SOURCES) {
+      const origin = await originFromFile(root, source, read);
+      if (origin) return origin;
+    }
+  }
+  return null;
+}
+
+/**
  * Probes a candidate port for a live control route.
  *
  * Why a probe: a running OpenChamber does not publish its port where NNA can read
@@ -154,19 +201,49 @@ export async function probeHostedBrowser({ ports = [], fetcher = fetch } = {}) {
 }
 
 /**
+ * Whether an origin actually answers the control route.
+ *
+ * Why verify: an origin read from a file describes the last process that wrote
+ * it, which may have exited. Trusting it would install a browser tool whose every
+ * call fails, so a discovered origin is treated as a candidate until it answers.
+ */
+export async function originAnswers({ origin, fetcher = fetch, timeoutMs = 2_500 } = {}) {
+  if (typeof origin !== 'string' || !origin) return null;
+  try {
+    const response = await fetcher(`${origin}${ROUTE}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'models.list', input: {} }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return response.ok ? Object.freeze({ url: `${origin}${ROUTE}`, token: null }) : null;
+  } catch { return null; }
+}
+
+/**
  * Builds the transport a served conversation drives, or null when this host has
  * no pane to drive.
  *
  * Why null rather than an error: an operator may run NNA's surface without
  * OpenChamber at all, and a conversation with no page to show must get no browser
  * tool instead of one whose every call fails.
+ *
+ * Why this order: an explicit binding wins, then a file OpenChamber wrote for
+ * itself (verified before use, because a stale file names a dead process), then a
+ * probe of the usual ports for an install that publishes nothing readable.
  */
 export async function openHostedBrowserTransport({ environment = process.env, ports = [], fetcher, ...rest } = {}) {
-  const fromEnvironment = hostedBrowserBindingFromEnvironment(environment);
-  const binding = fromEnvironment
-    ?? await findHostedBrowserBinding({ environment, ...(rest.home === undefined ? {} : { home: rest.home }) })
-    ?? await probeHostedBrowser({ ports, ...(fetcher === undefined ? {} : { fetcher }) });
-  return binding ? createHostedBrowserTransport(binding, rest) : null;
+  const fetchImpl = fetcher ?? fetch;
+  const home = rest.home === undefined ? {} : { home: rest.home };
+  const explicit = hostedBrowserBindingFromEnvironment(environment)
+    ?? await findHostedBrowserBinding({ environment, ...home });
+  if (explicit) return createHostedBrowserTransport(explicit, rest);
+  const published = await findHostedBrowserOrigin({ environment, ...home })
+    .then((origin) => originAnswers({ origin, fetcher: fetchImpl }))
+    .catch(() => null);
+  if (published) return createHostedBrowserTransport(published, rest);
+  const probed = await probeHostedBrowser({ ports, fetcher: fetchImpl });
+  return probed ? createHostedBrowserTransport(probed, rest) : null;
 }
 
 function boundedBody(value) {

@@ -529,7 +529,9 @@ test('TUI gateway commands exclude secret and foreground actions and enforce ari
     await assert.rejects(handleGatewayCommand(command, workspace), { code: 'gateway_tui_command_invalid' });
   }
   await handleGatewayCommand('authorize 42', workspace);
-  assert.deepEqual(calls[0], ['authorize', '42']);
+  // Why not calls[0]: the handler now reads status first so it can show a pending
+  // line while the action runs, so the first call is that read, not the action.
+  assert.deepEqual(calls.filter((args) => args[0] !== 'status'), [['authorize', '42']]);
 });
 
 test('gateway start failure is reported without publishing a false pid', async t => {

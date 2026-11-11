@@ -222,6 +222,9 @@ export function opencodeOverlay(status, options = {}) {
       + `${status.stale_binding ? ' (stale)' : ''}`,
     `Sign-in      ${login.installed ? `installed (${login.script_path})` : 'not installed'}`,
   ];
+  // Why before the message: a pending action must say so where the eye already is,
+  // above the options, and it must be visible while the work is still running.
+  if (options.pending) lines.push('', options.pending);
   if (options.message) lines.push('', options.message);
   const items = [
     runtime.running
