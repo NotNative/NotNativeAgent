@@ -56,9 +56,28 @@ test('exactly one browser tool is ever installed', () => {
     { surface: 'desktop', desktopCallback, playwright },
     { surface: 'playwright', hosted: true, playwright },
     { surface: 'desktop' },
+    { surface: 'none', hostedTransport: transport, playwright },
+    { surface: 'none', playwright },
   ];
   for (const options of surfaces) {
     const { installed } = choose(options);
     assert.ok(installed.length <= 1, `installed ${installed.join(', ')} for ${JSON.stringify(options)}`);
   }
+});
+
+test('a surface declaring no local browser drives the pane and nothing else', () => {
+  // Why: the OpenChamber surface shows the page in its own panel. Playwright is the
+  // TUI's browser, and handing one to a hosted conversation is what made the agent
+  // read a headless shell instead of the window the operator was looking at.
+  const withPane = choose({ surface: 'none', hostedTransport: transport, playwright });
+  assert.equal(withPane.kind, 'hosted');
+  assert.deepEqual(withPane.installed, ['desktop_browser']);
+});
+
+test('a surface declaring no local browser gets nothing when the pane is absent', () => {
+  // The point of the separation: no pane means no browser, not "fall back to
+  // Playwright". A silent fallback is the defect, not the recovery.
+  const withoutPane = choose({ surface: 'none', playwright });
+  assert.equal(withoutPane.kind, null);
+  assert.deepEqual(withoutPane.installed, []);
 });

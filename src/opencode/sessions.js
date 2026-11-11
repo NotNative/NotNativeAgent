@@ -114,6 +114,11 @@ function engineOptions({ options, workspace, sessionId, ocId, sessionDirectory, 
     config: runtimeConfig ?? (runtimeDirectory ? Object.freeze({ ...options.config, workspaceRoot: runtimeDirectory }) : options.config),
     sessionId,
     surface: SURFACE_NAME,
+    // Why: this surface is driven by OpenChamber, whose panel shows the page. It
+    // gets no local browser of its own — Playwright belongs to the TUI, which has
+    // no pane to look at. Naming it here rather than inferring it from `surface`
+    // is what keeps the pane the only browser a hosted conversation can reach.
+    browserSurface: 'none',
     // Why: a forked child starts from a validated parent prefix. The engine
     // replays it as its own history, so the child continues from that turn.
     ...(forkIngest ? { forkIngest } : {}),

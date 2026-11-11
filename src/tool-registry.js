@@ -52,10 +52,8 @@ import { deepFreeze } from './values.js';
 import { sha256Hex } from './digests.js';
 const MAX_TEXT_BYTES = 1_048_576;
 const MAX_MODEL_AUTHORED_TEXT_BYTES = 32_768;
-/** What the managed browser needs, as one value the selection passes through. */
 const registryPlaywrightOptions = (registry) => ({ manager: registry.browserManager, root: registry.browserRoot, paths: registry.paths,
-  managedPlaywrightRoot: registry.managedPlaywrightRoot, configPath: registry.webFetchConfigPath,
-  secretBroker: registry.secretBroker, sessionId: registry.sessionId });
+  managedPlaywrightRoot: registry.managedPlaywrightRoot, configPath: registry.webFetchConfigPath, secretBroker: registry.secretBroker, sessionId: registry.sessionId });
 export class ToolRegistry {
   #workspaceIdentityGuard;
   #definitions = new Map();
@@ -67,7 +65,9 @@ export class ToolRegistry {
   #changes;
   constructor(workspaceRoot, options = {}) {
     this.enabled = options.enabled !== false;
-    this.hosted = options.hosted === true; this.browserSurface = options.browserSurface === 'desktop' ? 'desktop' : 'playwright';
+    this.hosted = options.hosted === true;
+    // `none` is real: the OpenChamber surface drives the pane, not a local browser.
+    this.browserSurface = ['desktop', 'none'].includes(options.browserSurface) ? options.browserSurface : 'playwright';
     this.allowedTools = Array.isArray(options.allowedTools) ? new Set(options.allowedTools) : null;
     this.#workspaceIdentityGuard = workspaceIdentityGuard(options.workspaceIdentityCheck);
     this.paths = new PathPolicy(workspaceRoot, { boundedToWorkspace: options.boundedToWorkspace, protectedRoots: [userDataPaths().root] });

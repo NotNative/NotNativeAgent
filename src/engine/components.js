@@ -129,7 +129,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     roots: options.skillRoots ?? (engine.dataPaths.skills ? [{ scope: 'user', path: engine.dataPaths.skills }] : []) });
   engine.tools = new ToolRegistry(engine.config.workspaceRoot, {
     workspaceIdentityCheck: desktopToolWorkspaceIdentityCheck(engine, options.workspaceBinding, options.workspaceBindingResolver),
-    browserSurface: options.surface === 'desktop' || options.surface === 'desktop_subagent' ? 'desktop' : 'playwright',
+    browserSurface: browserSurfaceFor(options),
     hostedBrowserTransport: options.hostedBrowserTransport ?? null,
     ...(options.hostedBrowserContext ? { hostedBrowserContext: options.hostedBrowserContext } : {}),
     hosted: engine.config.executionManifest !== null, boundedToWorkspace: boundedToolSurface(engine, options),
@@ -249,6 +249,19 @@ function installNotifications(engine, options) {
 
 function sameRecoveryRoot(left, right) {
   return pathIdentity(left, right);
+}
+
+/** Which browser this conversation drives.
+ *
+ *  Why explicit rather than derived from `surface`: they answer different
+ *  questions. `surface` describes how the conversation talks to the operator — a
+ *  hosted chat still takes mid-turn questions, so it reports interactive_tui —
+ *  while this says which browser it drives. Conflating them gave the OpenChamber
+ *  surface the TUI's headless browser beside the pane already on screen.
+ */
+function browserSurfaceFor(options) {
+  if (options.browserSurface) return options.browserSurface;
+  return ['desktop', 'desktop_subagent'].includes(options.surface) ? 'desktop' : 'playwright';
 }
 
 function browserToolOptions(engine, options, imageObserver) {

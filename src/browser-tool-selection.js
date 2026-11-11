@@ -40,9 +40,9 @@ import { webBrowseDefinition } from './web-browse-tool.js';
  */
 export function installBrowserTool({ install, browserRoot, sessionId, surface, hosted,
   desktopCallback, hostedTransport, hostedContext, playwright }) {
-  const captureRoot = join(dirname(browserRoot), 'desktop-captures', sessionId ?? 'standalone');
-  // A hosted pane wins: it is the page the operator sees, and its router applies
-  // the claim race and tab scoping that the pane already enforces.
+  // The pane comes first, and `none` does not exclude it: `none` means this surface
+  // has no browser *of its own*, which is exactly why the hosted pane is the one it
+  // drives. It excludes every local browser below.
   if (hostedTransport) {
     install(hostedBrowserDefinition(hostedTransport, {
       captureRoot: join(dirname(browserRoot), 'hosted-browser-captures', sessionId ?? 'standalone'),
@@ -50,6 +50,11 @@ export function installBrowserTool({ install, browserRoot, sessionId, surface, h
     }));
     return 'hosted';
   }
+  // Why: a surface that declares no local browser gets none, whatever else is
+  // available. Playwright exists for the TUI; a surface driven by a hosting pane
+  // must never quietly acquire one of its own when that pane is absent.
+  if (surface === 'none') return null;
+  const captureRoot = join(dirname(browserRoot), 'desktop-captures', sessionId ?? 'standalone');
   // Security: a hosted conversation must not fall back to a local browser it was
   // not asked for; the surface chose not to offer one here.
   if (hosted) return null;

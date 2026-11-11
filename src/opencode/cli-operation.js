@@ -71,6 +71,12 @@ async function runManagedService(options, paths, scope, diagnostics) {
     password: config.password,
     logger,
     ...(hostedBrowserTransport ? { hostedBrowserTransport } : {}),
+    // Why a dedicated store root: sessions must be listed after a restart, and the
+    // list comes from an index written into the store root. Sharing the product's
+    // session directory would also make this surface discover — and offer to open —
+    // every journal NNA has ever written for the TUI, the gateway and Telegram,
+    // because they all use the same `session_` prefix and carry no surface marker.
+    storeRoot: join(paths.opencode, 'sessions'),
   });
   await writeRuntimePid(paths, process.pid, { port: runtime.port, url: runtime.url }, scope);
   diagnostics.write(`nna opencode: managed surface ready at ${runtime.url}\n`);
