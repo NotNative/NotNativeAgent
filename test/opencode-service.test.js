@@ -189,7 +189,14 @@ test('production environment cleanup compares ownership and clears under the sha
   assert.match(script, /WaitOne\(30000\)/u);
   assert.match(script, /-cnotcontains \$Current/u);
   assert.ok(script.indexOf('$Mutex.WaitOne') < script.indexOf('-cnotcontains'));
-  assert.ok(script.indexOf('-cnotcontains') < script.indexOf("SetEnvironmentVariable($Name, $null, 'User')"));
+  // Why the registry rather than SetEnvironmentVariable: that call broadcasts
+  // WM_SETTINGCHANGE per variable and blocks on every top-level window — about
+  // 7.4 s each, 29 s for the four a binding names. The registry write costs about
+  // 0.2 s, and one bounded broadcast keeps Explorer's cached block honest.
+  assert.ok(script.indexOf('-cnotcontains') < script.indexOf('$Key.DeleteValue'));
+  assert.match(script, /OpenSubKey\('Environment', \$true\)/u);
+  assert.match(script, /SendMessageTimeout/u);
+  assert.doesNotMatch(script, /SetEnvironmentVariable\(\$Name, \$null, 'User'\)/u);
   assert.match(script, /catch \[Threading\.AbandonedMutexException\]/u);
   assert.match(script, /\$Mutex\.ReleaseMutex\(\)/u);
 });
