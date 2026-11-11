@@ -14,7 +14,8 @@ import { SessionLock } from '../persistence/session-lock.js';
 import { persistAtomicJson } from '../persistence/atomic-json.js';
 import { ProcessIdentity, validIdentity } from '../reliability/process-identity.js';
 import { loadOpenCodeConfig, openCodeConfigExists, opencodePublicStatus, saveOpenCodeConfig, bindUrl, generateOpencodePassword } from './config.js';
-import { applyUserEnvironment, clearUserEnvironment, observeUserEnvironment, runPowershell } from './user-environment.js';
+import { applySpawnEnvironment, applyUserEnvironment, clearSpawnEnvironment, clearUserEnvironment, observeUserEnvironment, runPowershell } from './user-environment.js';
+import { installedLauncherPath } from './launcher-path.js';
 import { openchamberEnvironment } from './openchamber.js';
 
 const STARTUP_SCRIPT_NAME = 'NotNativeAgent-OpenCode.vbs';
@@ -32,6 +33,19 @@ export async function enableOpencodeService(options, paths, scope = {}) {
     password: prior.password ?? generateOpencodePassword(),
     updated_at: new Date().toISOString(),
   }, { preserveUnsupportedUsername: true });
+  // Why the spawn switch is part of enable: `enable` is the operator saying "this
+  // surface should come up when I open the host". Under the spawn contract that means
+  // pointing the host at NNA instead of its own OpenCode, so the pointer is written
+  // here rather than by a separate verb nobody would remember to run.
+  //
+  // Why a missing launcher does not fail enable: a source checkout has no launcher,
+  // and the login wiring is still meaningful there. The outcome is reported so the
+  // operator learns the host will keep spawning its own OpenCode until NNA is
+  // installed, rather than being told the whole command failed.
+  const launcher = installedLauncherPath(scope);
+  const spawn = launcher
+    ? await applySpawnEnvironment(launcher, scope)
+    : { supported: false, written: [], reason: 'launcher_unavailable' };
   let login;
   try {
     login = await installLoginStartup(saved, paths, scope);
@@ -40,12 +54,13 @@ export async function enableOpencodeService(options, paths, scope = {}) {
     // an auto-start record behind, but it must not alter a running surface's
     // environment; start and stop own that independent lifecycle.
     await removeLoginStartup(scope).catch(() => undefined);
+    if (launcher) await clearSpawnEnvironment(scope).catch(() => undefined);
     await restoreOpenCodeConfig(paths.opencodeConfig, prior, priorExisted).catch(() => undefined);
     throw error;
   }
   const runtime = await opencodeRuntimeStatus(paths, scope);
   // Why: the generated credential stays in restricted configuration and never enters command output.
-  return { config: opencodePublicStatus(saved, scope.environment ?? process.env), login, runtime };
+  return { config: opencodePublicStatus(saved, scope.environment ?? process.env), login, runtime, spawn };
 }
 
 async function restoreOpenCodeConfig(path, prior, priorExisted) {
@@ -66,9 +81,13 @@ export async function disableOpencodeService(options, paths, scope = {}) {
   const config = await loadOpenCodeConfig(paths.opencodeConfig);
   const saved = await saveOpenCodeConfig(paths.opencodeConfig,
     { ...config, enabled: false, updated_at: new Date().toISOString() }, { preserveUnsupportedUsername: true });
+  // Why before the login removal: clearing the pointer is what returns the host to
+  // its own OpenCode. Left behind, it would keep spawning NNA after the operator
+  // asked for it to stop.
+  const spawn = await clearSpawnEnvironment(scope);
   const login = await removeLoginStartup(scope);
   const runtime = await opencodeRuntimeStatus(paths, scope);
-  return { config: opencodePublicStatus(saved, scope.environment ?? process.env), login, runtime };
+  return { config: opencodePublicStatus(saved, scope.environment ?? process.env), login, runtime, spawn };
 }
 
 export async function opencodeServiceStatus(options, paths, scope = {}) {

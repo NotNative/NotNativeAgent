@@ -14,6 +14,7 @@ import { execFileSync } from 'node:child_process';
 import { parseCli } from '../src/cli-options.js';
 import { VERSION } from '../src/product.js';
 import { HANDSHAKE_LINE_PREFIX, MINIMUM_OPENCODE_VERSION, WIRED_OPENCODE_VERSION } from '../src/opencode/version.js';
+import { spawnCredentialFor } from '../src/opencode/spawn-credential.js';
 
 const binary = process.execPath;
 const argv = ['--disable-warning=ExperimentalWarning', 'src/cli.js'];
@@ -89,4 +90,17 @@ test('a daemon invocation keeps its own lifecycle', () => {
   assert.equal(daemon.serveStdioLease, false);
   assert.equal(daemon.servePort, null);
   assert.equal(daemon.serveHostname, null);
+});
+
+test('a spawned child takes the host credential, and a daemon keeps its own', () => {
+  // Why: a host generates its own Basic-auth password and passes it in the child
+  // environment. Serving with the stored config password instead answers every host
+  // request with 401, which looks like a broken child rather than a mismatch — so
+  // the override is asserted directly rather than inferred from a green run.
+  assert.equal(spawnCredentialFor({ serveStdioLease: true }, { environment: { OPENCODE_PASSWORD: 'host-pw' } }), 'host-pw');
+  // The legacy name is the fallback, in the order OpenCode 2 itself reads them.
+  assert.equal(spawnCredentialFor({ serveStdioLease: true }, { environment: { OPENCODE_SERVER_PASSWORD: 'legacy-pw' } }), 'legacy-pw');
+  assert.equal(spawnCredentialFor({ serveStdioLease: true }, { environment: {} }), null);
+  // A daemon owns its credential through config; the host's value must not leak in.
+  assert.equal(spawnCredentialFor({ serveStdioLease: false }, { environment: { OPENCODE_PASSWORD: 'host-pw' } }), null);
 });

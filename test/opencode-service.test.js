@@ -256,14 +256,46 @@ test('POSIX stop rejects unverifiable ownership without signaling or hiding the 
   assert.equal((await opencodeRuntimeStatus(paths, scope)).running, true);
 });
 
-test('enable and disable own only the login startup script', async () => {
+test('enable writes the spawn switch beside the login script, and disable removes it', async () => {
   const paths = await servicePaths(); const startup = await mkdtemp(join(tmpdir(), 'nna-opencode-startup-')); const env = environment({ OPENCODE_HOST: 'http://127.0.0.1:4095' });
-  const scope = { platform: 'win32', startupFolder: () => startup, userEnvironmentRead: env.read, userEnvironmentWrite: env.write };
+  // Why this shape: the launcher is discovered from the running script's own path,
+  // which an install puts at `<root>/installed/src/cli.js` with the launcher at
+  // `<root>/bin/nna.cmd`. The fixture mirrors that or the discovery correctly finds
+  // nothing — which is what the next test covers.
+  const install = await mkdtemp(join(tmpdir(), 'nna-install-'));
+  await mkdir(join(install, 'bin'), { recursive: true });
+  await mkdir(join(install, 'installed', 'src'), { recursive: true });
+  const launcher = join(install, 'bin', 'nna.cmd');
+  await writeFile(launcher, '@echo off\n');
+  const scope = { platform: 'win32', startupFolder: () => startup, userEnvironmentRead: env.read, userEnvironmentWrite: env.write,
+    scriptPath: join(install, 'installed', 'src', 'cli.js') };
   const enabled = await enableOpencodeService({}, paths, scope);
-  assert.equal(enabled.config.autostart_enabled, true); assert.equal(enabled.login.installed, true); assert.equal(env.writes.length, 0);
+  assert.equal(enabled.config.autostart_enabled, true); assert.equal(enabled.login.installed, true);
+  // Why enable writes: under the spawn contract, `enable` is what points the host at
+  // NNA instead of its own OpenCode. It is not only a login script any more.
+  assert.deepEqual(enabled.spawn.written, ['OPENCODE_BINARY']);
+  assert.equal(env.writes.length, 1);
   assert.match(Buffer.from(await readFile(join(startup, STARTUP_SCRIPT_NAME))).toString('utf16le'), /opencode start/u);
   const disabled = await disableOpencodeService({}, paths, scope);
-  assert.equal(disabled.config.autostart_enabled, false); assert.equal(disabled.login.installed, false); assert.equal(env.writes.length, 0);
+  assert.equal(disabled.config.autostart_enabled, false); assert.equal(disabled.login.installed, false);
+  // Why disable clears only the pointer: it returns the host to its own OpenCode and
+  // leaves every other name the operator or `start` owns untouched.
+  assert.deepEqual(disabled.spawn.removed, ['OPENCODE_BINARY']);
+  assert.equal(env.writes.length, 2);
+});
+
+test('enable still installs the login script when no launcher exists', async () => {
+  // Why: a source checkout has no launcher beside it. The login wiring is still
+  // meaningful, so enable reports the missing switch instead of failing outright —
+  // otherwise a developer could not exercise enable at all.
+  const paths = await servicePaths(); const startup = await mkdtemp(join(tmpdir(), 'nna-opencode-startup-')); const env = environment();
+  const scope = { platform: 'win32', startupFolder: () => startup, userEnvironmentRead: env.read, userEnvironmentWrite: env.write,
+    scriptPath: join(startup, 'nowhere', 'src', 'cli.js') };
+  const enabled = await enableOpencodeService({}, paths, scope);
+  assert.equal(enabled.login.installed, true);
+  assert.equal(enabled.spawn.supported, false);
+  assert.equal(enabled.spawn.reason, 'launcher_unavailable');
+  assert.equal(env.writes.length, 0);
 });
 
 test('status reports auto-start, runtime, and environment independently', async () => {

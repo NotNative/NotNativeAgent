@@ -8,6 +8,7 @@ import { startOpencodeServe } from './serve.js';
 import { StructuredLog } from '../structured-log.js';
 import { loadOpenCodeConfig } from './config.js';
 import { openHostedBrowserTransport } from '../hosted-browser-client.js';
+import { spawnCredentialFor } from './spawn-credential.js';
 import {
   disableOpencodeService, enableOpencodeService, opencodeServiceStatus, removeRuntimePid, requireServiceRuntime,
   startOpencodeService, stopOpencodeService, writeRuntimePid,
@@ -75,7 +76,11 @@ async function runManagedService(options, paths, scope, diagnostics) {
     hostname: options.serveHostname ?? config.hostname,
     port: options.servePort ?? config.port,
     username: config.username,
-    password: config.password,
+    // Why the host's credential wins: a host that spawns this binary generates its
+    // own Basic-auth password and sends it in the child environment. Serving with the
+    // password from NNA's config instead would answer every request the host makes
+    // with 401, which reads as a broken child rather than a credential mismatch.
+    password: spawnCredentialFor(options, scope) ?? config.password,
     logger,
     ...(hostedBrowserTransport ? { hostedBrowserTransport } : {}),
     // Why a dedicated store root: sessions must be listed after a restart, and the

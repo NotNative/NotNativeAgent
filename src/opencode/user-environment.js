@@ -8,9 +8,21 @@ const execFile = promisify(execFileCallback);
 const POWERSHELL_TIMEOUT_MS = 20_000;
 const POWERSHELL_WRITE_TIMEOUT_MS = 120_000;
 const USER_ENVIRONMENT_MUTEX_WAIT_MS = 30_000;
+/**
+ * The names a running server's binding owns.
+ *
+ * Why `OPENCODE_BINARY` is not here: it is not part of a binding. `start` writes the
+ * attach-mode set and `stop` clears it; the pointer that makes a host spawn NNA is
+ * owned by `enable` and `disable`, a different command with a different posture.
+ * Mixing them would let `stop` delete a switch it never set, and would leave
+ * `clearUserEnvironment` checking ownership of a name it has no value for.
+ */
 const USER_ENVIRONMENT_NAMES = [
   'OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SERVER_USERNAME',
 ];
+
+/** The pointer a host reads to decide what to spawn. Owned by enable/disable. */
+const SPAWN_ENVIRONMENT_NAME = 'OPENCODE_BINARY';
 
 /** Declares the Win32 call the write needs; re-declaring is harmless. */
 const ADD_SENDMESSAGE_TYPE = [
@@ -152,6 +164,50 @@ export async function applyUserEnvironment(config, scope, bindUrl, defaultUserna
     return { supported: true, written };
   } catch (error) {
     throw wiringFailure(error, 'opencode_user_environment_failed', 'the OpenChamber user environment could not be applied');
+  }
+}
+
+/**
+ * Points the host at NNA, so it spawns this binary instead of its own OpenCode.
+ *
+ * Why this replaces the attach-mode set rather than adding to it: the two are
+ * opposite postures. Attach mode tells the host a server already exists
+ * (`OPENCODE_SKIP_START=1` plus a host and credential); spawn mode tells it to
+ * start one, so those three names must go. A stale `OPENCODE_HOST` would also point
+ * the host at a port nothing is bound to.
+ */
+export async function applySpawnEnvironment(launcherPath, scope) {
+  if ((scope.platform ?? process.platform) !== 'win32') return { supported: false };
+  try {
+    if (typeof launcherPath !== 'string' || !launcherPath) {
+      throw new ContractError('opencode_launcher_unavailable', 'the NNA launcher path is unavailable');
+    }
+    const write = scope.userEnvironmentWrite ?? writeUserEnvironment;
+    await write({
+      [SPAWN_ENVIRONMENT_NAME]: launcherPath,
+      OPENCODE_SKIP_START: null, OPENCODE_HOST: null,
+      OPENCODE_SERVER_PASSWORD: null, OPENCODE_SERVER_USERNAME: null,
+    }, scope);
+    return { supported: true, written: [SPAWN_ENVIRONMENT_NAME], removed: [...USER_ENVIRONMENT_NAMES] };
+  } catch (error) {
+    throw wiringFailure(error, 'opencode_user_environment_failed', 'the OpenChamber spawn environment could not be applied');
+  }
+}
+
+/**
+ * Removes the spawn switch, so the host falls back to its own OpenCode.
+ *
+ * Why only the switch: the attach-mode names are not this command's to invent, so it
+ * clears `OPENCODE_BINARY` and leaves anything else the operator or `start` wrote.
+ */
+export async function clearSpawnEnvironment(scope) {
+  if ((scope.platform ?? process.platform) !== 'win32') return { supported: false };
+  try {
+    const write = scope.userEnvironmentWrite ?? writeUserEnvironment;
+    await write({ [SPAWN_ENVIRONMENT_NAME]: null }, scope);
+    return { supported: true, removed: [SPAWN_ENVIRONMENT_NAME] };
+  } catch (error) {
+    throw wiringFailure(error, 'opencode_user_environment_failed', 'the OpenChamber spawn environment could not be cleared');
   }
 }
 

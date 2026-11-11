@@ -244,7 +244,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'opencode_bind_exposed_requires_password', 'opencode_bind_port_invalid', 'opencode_config_invalid',
     'opencode_config_too_large', 'opencode_config_version_unsupported', 'opencode_hostname_invalid', 'opencode_login_wiring_unsupported',
     'opencode_openchamber_unavailable', 'opencode_openchamber_launch_failed',
-    'opencode_password_invalid', 'opencode_service_unauthenticated',
+    'opencode_password_invalid', 'opencode_launcher_unavailable', 'opencode_service_unauthenticated',
     'opencode_session_missing', 'opencode_tui_command_invalid', 'opencode_username_invalid', 'opencode_username_unsupported',
     'operator_decision_unexpected',
     'option_value_missing', 'permissions_command_invalid', 'permissions_unavailable',
