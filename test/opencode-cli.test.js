@@ -56,10 +56,23 @@ test('unchanged modes keep their parse behavior', () => {
   assert.equal(parsed.servePort, null);
 });
 
-test('opencode serve is no longer an available action', () => {
+test('opencode serve is the spawn-target name for the managed runtime', () => {
+  // Why reversed: `serve` was once removed as a synonym for `run`. A host that
+  // spawns NNA as its OpenCode passes exactly `serve --stdio --hostname --port`,
+  // so the contract now requires the name. It maps to the same operation, so a
+  // spawned child and a detached daemon cannot diverge.
   const parsed = parseCli(['opencode', 'serve']);
-  assert.equal(parsed.serveAction, null);
-  assert.deepEqual(parsed.prompt, ['serve']);
+  assert.equal(parsed.serveAction, 'serve');
+  assert.deepEqual(parsed.prompt, []);
+});
+
+test('opencode accepts the stdio lease and the host-chosen bind address', () => {
+  const parsed = parseCli(['opencode', 'serve', '--stdio', '--hostname', '127.0.0.1', '--port', '4137']);
+  assert.equal(parsed.serveStdioLease, true);
+  assert.equal(parsed.serveHostname, '127.0.0.1');
+  assert.equal(parsed.servePort, 4137);
+  // A daemon invocation stays lease-free, so it still runs until a signal.
+  assert.equal(parseCli(['opencode', 'run']).serveStdioLease, false);
 });
 
 test('runOpencodeCommand rejects a missing or unknown action with exit code 2', async () => {

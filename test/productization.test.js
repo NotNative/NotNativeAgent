@@ -49,7 +49,9 @@ test('launch options support prompt, host, and config aliases without breaking l
   const baseFields = {
     manifestPath: null, sessionId: null, providerProfile: null,
     providerEndpoint: null, model: null, providerCredentialEnv: null,
-    serveAction: null, serveHostname: null, servePort: null,
+    // Why serveStdioLease: a host that spawns NNA as its OpenCode stops it by
+    // closing stdin, because a detached Windows child has no signal to receive.
+    serveAction: null, serveHostname: null, servePort: null, serveStdioLease: false,
   };
   assert.deepEqual(parseCli(['-p', 'hello']), {
     ...baseFields, mode: 'text', prompt: ['hello'],

@@ -12,7 +12,7 @@ export function parseCli(argv) {
   const options = {
     mode, manifestPath: null, sessionId: null, prompt: [], providerProfile: null,
     providerEndpoint: null, model: null, providerCredentialEnv: null,
-    serveAction: null, serveHostname: null, servePort: null,
+    serveAction: null, serveHostname: null, servePort: null, serveStdioLease: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
@@ -42,6 +42,10 @@ export function parseCli(argv) {
       options.servePort = parseServePort(requiredValue(argv[++index], value));
     }
     else if (mode === 'opencode' && value === '--preserve-environment') options.preserveEnvironment = true;
+    // Why: a host that spawns NNA as its OpenCode passes --stdio and closes stdin
+    // to stop it (OpenChamber does exactly this on Windows, where it has no signal
+    // to send). Accepting the flag is what lets that stop reach us.
+    else if (mode === 'opencode' && value === '--stdio') options.serveStdioLease = true;
     else if (mode === 'opencode' && OPENCODE_ACTIONS.has(value)) {
       if (options.serveAction) throw new ContractError('invalid_option', 'opencode accepts exactly one action');
       options.serveAction = value;
@@ -68,8 +72,11 @@ const MODES = new Set([
 ]);
 
 // Why: `run` is the managed runtime entry point used by the wiring service's
-// detached start and the login startup script; it is not a documented command.
-const OPENCODE_ACTIONS = new Set(['status', 'start', 'stop', 'enable', 'disable', 'run']);
+// Why: `run` is the managed runtime entry point used by the wiring service's
+// detached start and the login startup script; `serve` is the same operation under
+// the name an OpenChamber-shaped spawn uses. One implementation, two names, so a
+// daemon and a spawned child cannot drift apart.
+const OPENCODE_ACTIONS = new Set(['status', 'start', 'stop', 'enable', 'disable', 'run', 'serve']);
 
 /** The operator invocation vocabulary the 20261006-15 census pinned as the
  * 23 `invocation:*` operator_action rows (validator parseCli). One row per

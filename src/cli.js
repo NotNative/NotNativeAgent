@@ -24,6 +24,7 @@ import { runWebBrowseCommand } from './web-browse-cli.js';
 import { runUpdateCommand } from './update-cli.js';
 import { runIntegrationCommand, runDesktopIntegrationCommand } from './integration-cli.js';
 import { runOpencodeCommand } from './opencode/cli-operation.js';
+import { WIRED_OPENCODE_VERSION } from './opencode/version.js';
 import { installProcessFatalBoundary } from './process-fatal-boundary.js';
 import { cliErrorCode } from './cli-error-code.js';
 
@@ -36,7 +37,7 @@ const TAB_POOL_FILE = 'pool.json';
 try {
   const options = parseCli(process.argv.slice(2));
   if (['help', '--help', '-h'].includes(options.mode)) process.stdout.write(help());
-  else if (['version', '--version', '-v'].includes(options.mode)) process.stdout.write(`${VERSION}\n`);
+  else if (['version', '--version', '-v'].includes(options.mode)) process.stdout.write(`${contractVersion()}\n`);
   else if (options.mode === 'headless') {
     const paths = await runtimePaths();
     let operatorConfig;
@@ -156,6 +157,24 @@ try {
   process.exitCode = 2;
 } finally {
   fatalBoundary.dispose();
+}
+
+/**
+ * The version this binary reports.
+ *
+ * Why not the product version alone: a host that spawns NNA as its OpenCode asks
+ * `--version` and requires a semantic version at OpenCode's contract level — it
+ * rejects `20261111-4` because it cannot compare a date to `2.2.4`. So the answer
+ * is the OpenCode API contract NNA implements, with the product build as metadata.
+ *
+ * Why that is honest rather than a lie: NNA does implement the 2.2.7 surface it
+ * advertises on `/api/info`, and semver build metadata is exactly the place for
+ * "which build of that contract is this". OpenChamber strips metadata before
+ * comparing, so the floor check sees `2.2.7`, and the installer still finds the
+ * product version in the line, so one string serves both readers.
+ */
+function contractVersion() {
+  return `${WIRED_OPENCODE_VERSION}+nna.${VERSION}`;
 }
 
 function help() {
