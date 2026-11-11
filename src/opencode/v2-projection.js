@@ -72,8 +72,13 @@ function observeMessage(state, info, events) {
     return;
   }
   if (!state.messages.has(info.id)) {
-    state.messages.set(info.id, { id: info.id, type: 'assistant', agent: 'build', model: state.info.model,
-      time: { created: info.time.created ?? Date.now() }, content: [] });
+    // Why non-enumerable: the message object is serialized straight to a client that
+    // validates against a closed schema, so the ordering bookkeeping must live beside
+    // the payload rather than inside it.
+    const message = { id: info.id, type: 'assistant', agent: 'build', model: state.info.model,
+      time: { created: info.time.created ?? Date.now() }, content: [] };
+    Object.defineProperty(message, 'textEntries', { value: new Map(), enumerable: false });
+    state.messages.set(info.id, message);
     events.emit(state, 'session.step.started', { sessionID: state.info.id, assistantMessageID: info.id,
       agent: 'build', model: state.info.model, started: info.time.created ?? Date.now() });
     const inbox = state.inbox.get(info.parentID);
@@ -121,12 +126,24 @@ function observePart(state, part, events) {
       item: { type: 'user', payload: item.payload, delivery: item.delivery } });
     return;
   }
-  // Why replace only the text entries: a text part is rewritten several times as
-  // it streams, but tool parts sit beside it in the same assistant message. A
-  // wholesale assignment erased every tool call the moment the answer landed,
-  // which is why a turn that read a file showed no tool row.
-  const kept = message.content.filter((item) => item.type !== 'text');
-  message.content = [...kept, { type: 'text', text: part.text }];
+  // Why mutate rather than rebuild: a text part is rewritten on every stream tick
+  // while tool parts accumulate beside it in the same assistant message. Rebuilding
+  // the array moved the prose behind every tool the turn had called, so a long turn
+  // showed all its prose above a pile of tool rows instead of interleaved. Updating
+  // the entry where it already sits keeps arrival order, which is what a transcript
+  // reader expects.
+  //
+  // Why not key by part id: the v2 text part schema is closed —
+  // `additionalProperties: false` — so an `id` on the payload is rejected by a
+  // client that validates. The identity is tracked out of band instead.
+  const entries = message.textEntries;
+  const entry = entries?.get(part.id);
+  if (entry) { entry.text = part.text; }
+  else {
+    const created = { type: 'text', text: part.text };
+    message.content.push(created);
+    entries?.set(part.id, created);
+  }
   events.emit(state, part.time?.end == null ? 'session.text.started' : 'session.text.ended', {
     sessionID: state.info.id, assistantMessageID: message.id, ordinal: 0,
     ...(part.time?.end == null ? {} : { text: part.text }),

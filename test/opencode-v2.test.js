@@ -863,8 +863,35 @@ test('a tool part survives the text part that follows it', () => {
   assert.equal('error' in content[0].state, false);
 });
 
-test('a tool part updates in place rather than appending a row per record', () => {
-  const emitted = [];
+test('streaming prose keeps its place among the tool calls it was written between', () => {
+  // Why: a text part is rewritten on every stream tick while tool parts accumulate
+  // beside it. Appending the text each time pushed a turn's prose behind every tool
+  // it had called, so the transcript drifted: prose rose to the top, tools piled up
+  // below it, and the reader lost the interleaving the model actually produced.
+  const state = { info: { id: 'ses_a', model: { id: 'm', providerID: 'p' } }, messages: new Map(),
+    inputs: new Map(), inbox: new Map(), cancelled: new Set(), forms: new Map() };
+  const events = { emit: () => undefined };
+  const part = (value) => observeV1Event(state, { type: 'message.part.updated', properties: { part: value } }, events);
+  observeV1Event(state, { type: 'message.updated', properties: {
+    info: { id: 'msg_a', sessionID: 'ses_a', role: 'assistant', time: { created: 1 } } } }, events);
+
+  part({ type: 'text', id: 'prt_1', messageID: 'msg_a', text: 'Reading it.', time: { start: 1 } });
+  part({ type: 'tool', id: 'prt_2', messageID: 'msg_a', name: 'fs_read', state: { status: 'running' }, time: {} });
+  part({ type: 'text', id: 'prt_1', messageID: 'msg_a', text: 'Reading it now.', time: { start: 1 } });
+  part({ type: 'tool', id: 'prt_3', messageID: 'msg_a', name: 'shell_run', state: { status: 'running' }, time: {} });
+  part({ type: 'text', id: 'prt_4', messageID: 'msg_a', text: 'Tests pass.', time: { start: 5 } });
+
+  const content = state.messages.get('msg_a').content;
+  // Interleaving preserved: prose, tool, tool, prose — the order the turn produced.
+  assert.deepEqual(content.map((item) => item.type), ['text', 'tool', 'tool', 'text']);
+  // The rewrite updated the prose where it stood, and did not move it.
+  assert.equal(content[0].text, 'Reading it now.');
+  assert.equal(content[3].text, 'Tests pass.');
+  // The v2 text schema is closed, so no identity field rides on the payload.
+  assert.deepEqual(Object.keys(content[0]).sort(), ['text', 'type']);
+});
+
+test('a tool part updates in place rather than appending a row per record', () => {  const emitted = [];
   const state = { info: { id: 'ses_a', model: { id: 'm', providerID: 'p' } }, messages: new Map(),
     inputs: new Map(), inbox: new Map(), cancelled: new Set(), forms: new Map() };
   const events = { emit: () => undefined };

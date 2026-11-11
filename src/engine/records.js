@@ -7,6 +7,8 @@ import { isAbsolute, relative, sep } from 'node:path';
 import { durableToolResultState, toolChildState } from '../tools/tool-result-contract.js';
 
 const MAX_TARGET_LENGTH = 512;
+/** How much of a result a transcript row may hold for display. */
+const MAX_DISPLAY_CONTENT = 4_096;
 const MAX_TASK_LENGTH = 180;
 const MAX_EXECUTABLE_LENGTH = 128;
 const MAX_ARG_COUNT = 64;
@@ -129,7 +131,22 @@ export function toolStatus(engine, active, item, status) {
     diagnostic_visibility: diagnosticVisibility(item.result?.metadata?.diagnosticVisibility),
     reason_code: failed ? item.result?.reason_code ?? null : null,
     failure_reason: failed && !completedNonzero && !processSignalExit ? boundedFailureReason(item.result?.content) : null,
+    // Why a bounded display excerpt: a transcript row is what the operator reads to
+    // see what a call did. The excerpt is redacted here — the same credential
+    // scrubbing the journal applies — so no consumer downstream can receive the
+    // unredacted text, and capped so a large result cannot bloat the event stream.
+    // It is display-only: the model's context is built from the journal text
+    // pipeline, which does not read this field.
+    display_content: displayExcerpt(item.result?.content),
   };
+}
+
+/** The redacted, capped excerpt a transcript row may show when expanded. */
+function displayExcerpt(value) {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  const redacted = redactText(value).replace(/\s+/gu, ' ').trim();
+  if (!redacted) return null;
+  return redacted.length > MAX_DISPLAY_CONTENT ? `${redacted.slice(0, MAX_DISPLAY_CONTENT - 1)}…` : redacted;
 }
 
 const REVIEWABLE_FILE_TOOLS = new Set(['fs_write_text', 'fs_edit_text', 'fs_edit_lines', 'fs_delete_file']);

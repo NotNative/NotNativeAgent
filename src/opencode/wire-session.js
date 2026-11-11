@@ -10,6 +10,7 @@ import { persistEngineRecord } from '../engine/persistence.js';
 import { createHash } from 'node:crypto';
 import { physicalWireAllowance } from '../reliability/context-budget.js';
 import { PROTOCOL_TOOL_NAMES } from '../tools/core-names.js';
+import { toolSummary, toolDisplayOutput, toolPartState } from './tool-summary.js';
 import {
   ZERO_TOKENS, assistantInfo, buildAssistantResponse, closeTurn, abortPending, currentInfo, idleInfo, publishBare, publishDurable,
   settleAbandoned, settleEntry, settleFailure, stepStartPart, textPartOpen, closedUserInfo, userPart, userInfo, tokenView,
@@ -162,12 +163,7 @@ function observeToolStatus(state, record) {
   const previous = part.state;
   const status = record.status;
   const terminal = status === 'succeeded' ? 'completed' : RUNNING_TOOL_STATES.has(status) ? null : 'error';
-  part.state = terminal === 'completed'
-    ? { status: 'completed', input: {}, content: [{ type: 'text', text: '' }] }
-    : terminal === 'error'
-      ? { status: 'error', input: {}, error: { type: 'nna_tool_failed',
-        message: 'The tool did not complete. NNA records the reason in its own journal.' } }
-      : { status: 'running', input: {}, metadata: {} };
+  part.state = toolPartState(record, terminal);
   if (part.state.status === 'running') part.time.ran = nowMs; else part.time.completed = nowMs;
   // Why publish the part: a surface projecting the transcript from events learns
   // about a tool call only from a part update; returning the part in the final
@@ -187,17 +183,21 @@ function observeToolStatus(state, record) {
  *  already `running` and `failed` unless it is `streaming` or `running`. The
  *  engine's lifecycle can be a single terminal record, so a terminal event for a
  *  row the client never saw opened is preceded by the events that open it.
- *  Why empty input: a tool's arguments can carry a secret, and the client's row
- *  renders them. `executed` is what NNA actually observed — a tool that reached
- *  running ran, and one stopped by review before it never did. */
+ *  Why a summary rather than empty input: a client labels a row from the call's
+ *  input, so an empty object is what rendered a turn as a column of bare tool
+ *  names. The summary carries the journal's redacted target, never raw arguments.
+ *  `executed` is what NNA actually observed — a tool that reached running ran, and
+ *  one stopped by review before it never did. */
 function publishToolLifecycle(state, part, previous, terminal) {
   const base = { sessionID: state.sessionID, assistantMessageID: state.active.assistantId, id: part.id };
+  const input = part.state?.input ?? {};
   if (!previous) publishDurable(state, 'session.tool.input.started', { ...base, name: part.name });
   if (previous?.status !== 'running') {
-    publishDurable(state, 'session.tool.called', { ...base, input: {}, executed: Boolean(part.time.ran) || terminal === 'completed' });
+    publishDurable(state, 'session.tool.called', { ...base, input, executed: Boolean(part.time.ran) || terminal === 'completed' });
   }
+  const contentText = typeof part.state?.metadata?.outcome === 'string' ? part.state.metadata.outcome : '';
   if (terminal === 'completed') {
-    publishDurable(state, 'session.tool.success', { ...base, content: [{ type: 'text', text: '' }], executed: true });
+    publishDurable(state, 'session.tool.success', { ...base, content: [{ type: 'text', text: contentText }], executed: true });
   }
   if (terminal === 'error') {
     publishDurable(state, 'session.tool.failed', { ...base, error: part.state.error, executed: Boolean(part.time.ran) });
