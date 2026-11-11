@@ -17,7 +17,7 @@ export function parseCli(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     if (!modeSelected && MODES.has(value)) {
-      mode = value === 'host' ? 'headless' : value === 'session' ? 'sessions' : value;
+      mode = selectedMode(value, options);
       modeSelected = true;
     }
     else if (value === '-p' || value === '--prompt') {
@@ -46,6 +46,9 @@ export function parseCli(argv) {
     // to stop it (OpenChamber does exactly this on Windows, where it has no signal
     // to send). Accepting the flag is what lets that stop reach us.
     else if (mode === 'opencode' && value === '--stdio') options.serveStdioLease = true;
+    // Why the actions guard excludes an action already chosen by the mode itself: a
+    // bare `serve` sets serveAction, and a later word that names an action is a
+    // second action — still an error, never silently ignored.
     else if (mode === 'opencode' && OPENCODE_ACTIONS.has(value)) {
       if (options.serveAction) throw new ContractError('invalid_option', 'opencode accepts exactly one action');
       options.serveAction = value;
@@ -59,16 +62,39 @@ export function parseCli(argv) {
   if (mode === 'headless' && [options.providerEndpoint, options.model, options.providerCredentialEnv].some(Boolean)) {
     throw new ContractError('host_override_requires_manifest', 'host endpoint, model, and credential overrides must be supplied by its authenticated initialization manifest');
   }
+  assertModeOptions(options, mode);
+  return Object.freeze({ ...options, mode });
+}
+
+/** Mode-bound options that are meaningless anywhere else. */
+function assertModeOptions(options, mode) {
   if (options.preserveEnvironment && (mode !== 'opencode' || options.serveAction !== 'stop')) {
     throw new ContractError('invalid_option', '--preserve-environment is only valid with opencode stop');
   }
-  return Object.freeze({ ...options, mode });
+}
+
+/**
+ * The mode a leading word selects, and any action that word already implies.
+ *
+ * Why `serve` maps onto opencode: a host that spawns this binary in place of
+ * opencode.exe passes the argv it would give that binary — `serve --hostname H
+ * --port P` — with no product prefix. Adopting the spelling is what makes NNA
+ * droppable where the host expects an OpenCode, and it selects the same runtime
+ * the wiring service calls `nna opencode run`, so the two cannot diverge.
+ */
+function selectedMode(value, options) {
+  if (value === 'serve') { options.serveAction = 'serve'; return 'opencode'; }
+  if (value === 'host') return 'headless';
+  if (value === 'session') return 'sessions';
+  return value;
 }
 
 const MODES = new Set([
   'tui', 'text', 'headless', 'host', 'session', 'sessions', 'websearch', 'skills', 'gateway',
   'webfetch', 'webbrowse', 'provider', 'secrets', 'uninstall', 'help', 'version', '--help', '-h', '--version', '-v',
-  'update', 'integration', 'desktop', 'opencode',
+  // Why `serve` is a mode: it is the argv a host uses when it spawns this binary in
+  // place of opencode.exe, so it has to be accepted with no product prefix.
+  'update', 'integration', 'desktop', 'opencode', 'serve',
 ]);
 
 // Why: `run` is the managed runtime entry point used by the wiring service's

@@ -51,13 +51,26 @@ test('the reported version still names the product build, so one string serves b
 });
 
 test('the spawn argv a host uses parses into the managed runtime', () => {
-  // Exactly what OpenChamber builds on Windows: serve, --stdio, host, port.
-  const parsed = parseCli(['opencode', 'serve', '--stdio', '--hostname', '127.0.0.1', '--port', '4137']);
+  // Exactly what OpenChamber builds on Windows: bare `serve`, --stdio, host, port,
+  // with no product prefix — so this binary can stand where opencode.exe is expected.
+  const parsed = parseCli(['serve', '--stdio', '--hostname', '127.0.0.1', '--port', '4137']);
   assert.equal(parsed.mode, 'opencode');
   assert.equal(parsed.serveAction, 'serve');
   assert.equal(parsed.serveStdioLease, true);
   assert.equal(parsed.serveHostname, '127.0.0.1');
   assert.equal(parsed.servePort, 4137);
+});
+
+test('the product-prefixed spelling still parses to the same operation', () => {
+  // Why keep both: the wiring service and login script call `nna opencode run`, and
+  // an operator may type `nna opencode serve`. One runtime, three spellings.
+  const prefixed = parseCli(['opencode', 'serve', '--stdio']);
+  assert.equal(prefixed.mode, 'opencode');
+  assert.equal(prefixed.serveAction, 'serve');
+  assert.equal(prefixed.serveStdioLease, true);
+  assert.equal(parseCli(['opencode', 'run']).serveAction, 'run');
+  // A bare `serve` and a prefixed one must not differ in what they run.
+  assert.equal(parseCli(['serve']).serveAction, parseCli(['opencode', 'serve']).serveAction);
 });
 
 test('the handshake line is one the host matches', () => {
