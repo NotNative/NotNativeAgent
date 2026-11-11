@@ -9,7 +9,6 @@ import { PathPolicy } from './path-policy.js';
 import { userDataPaths } from './product.js';
 import { webSearchDefinition } from './web-search-tool.js';
 import { webFetchDefinition } from './web-fetch-tool.js';
-import { webBrowseDefinition } from './web-browse-tool.js';
 import { rankToolDefinitions, toolSearchDefinition } from './tools/search.js';
 import { processRunDefinition, shellRunDefinition } from './tools/process.js';
 import { projectVerifyDefinition } from './tools/project-verification.js';
@@ -53,6 +52,10 @@ import { deepFreeze } from './values.js';
 import { sha256Hex } from './digests.js';
 const MAX_TEXT_BYTES = 1_048_576;
 const MAX_MODEL_AUTHORED_TEXT_BYTES = 32_768;
+/** What the managed browser needs, as one value the selection passes through. */
+const registryPlaywrightOptions = (registry) => ({ manager: registry.browserManager, root: registry.browserRoot, paths: registry.paths,
+  managedPlaywrightRoot: registry.managedPlaywrightRoot, configPath: registry.webFetchConfigPath,
+  secretBroker: registry.secretBroker, sessionId: registry.sessionId });
 export class ToolRegistry {
   #workspaceIdentityGuard;
   #definitions = new Map();
@@ -110,31 +113,28 @@ export class ToolRegistry {
     const filesystemExtras = filesystemExtraDefinitions(this.paths, this.#changes, this.#readReceipts);
     for (const definition of filesystemExtras) this.#install(definition);
     const legacyFilesystemMap = new Map([...legacyFilesystem, ...filesystemExtras].map((definition) => [definition.name, definition]));
-    for (const definition of canonicalFilesystemDefinitions(this.paths, legacyFilesystemMap)) this.#install(definition);
-    for (const definition of guidanceDefinitions(this.guidance)) this.#install(definition);
+    for (const definition of canonicalFilesystemDefinitions(this.paths, legacyFilesystemMap)) this.#install(definition);    for (const definition of guidanceDefinitions(this.guidance)) this.#install(definition);
     for (const definition of selfDiagnosticsDefinitions(this.diagnosticContext)) this.#install(definition);
     for (const definition of mcpControlDefinitions(this.mcpControl)) this.#install(definition);
     this.#install(webSearchDefinition({ configPath: this.webSearchConfigPath, client: this.webSearchClient, references: this.#references }));
     this.#install(webFetchDefinition({ configPath: this.webFetchConfigPath, references: this.#references }));
-    if (!this.hosted && this.browserSurface === 'playwright') this.#install(webBrowseDefinition({ manager: this.browserManager, root: this.browserRoot, paths: this.paths,
-      managedPlaywrightRoot: this.managedPlaywrightRoot, configPath: this.webFetchConfigPath,
-      secretBroker: this.secretBroker, sessionId: this.sessionId }));
-    this.#install(imageInspectDefinition(this.paths, this.observeImage, { maxBytes: this.imageMaxBytes })); this.#install(toolSearchDefinition(this));
-    this.#install(processRunDefinition(this.paths, this.#references)); if (!this.hosted) this.#install(shellRunDefinition(this.paths, this.#references, process.platform, this.administrator));
+    this.#install(imageInspectDefinition(this.paths, this.observeImage, { maxBytes: this.imageMaxBytes })); this.#install(toolSearchDefinition(this));    this.#install(processRunDefinition(this.paths, this.#references)); if (!this.hosted) this.#install(shellRunDefinition(this.paths, this.#references, process.platform, this.administrator));
     this.#install(projectVerifyDefinition(this.paths));
     this.#install(gitInspectionDefinition(this.paths));
     this.#install(lspDiagnosticsDefinition(this.paths, { configPath: this.lspConfigPath, spawnProcess: this.lspSpawnProcess }));
     if (this.skills) for (const definition of skillToolDefinitions(this.skills)) this.#install(definition);
     if (this.subagentControl && !this.hosted) this.#install(subagentDefinition(this.subagentControl));
     if (this.conversationWork) for (const definition of conversationWorkDefinitions(this.conversationWork)) this.#install(definition);
-    const turnFinish = turnFinishDefinition(this.terminalControl); if (turnFinish) this.#install(turnFinish);    if (this.questionBroker) this.#install(questionDefinition(this.questionBroker));
+    const turnFinish = turnFinishDefinition(this.terminalControl); if (turnFinish) this.#install(turnFinish);
+    if (this.questionBroker) this.#install(questionDefinition(this.questionBroker));
     if (this.telegramNotifications) this.#install(telegramNotificationDefinition(this.telegramNotifications, this.activeTurnId));
     for (const definition of sessionHistoryDefinitions(this.sessionHistory)) this.#install(definition);
     this.#install(systemTimeDefinition());
     if (this.browserSurface === 'desktop' && this.desktopAgentToolCallback && !this.hosted) this.#install(desktopMemoryDefinition(this.desktopAgentToolCallback, { contextDirectory: () => this.paths.root }));
     installBrowserTool({ install: (definition) => this.#install(definition), browserRoot: this.browserRoot, sessionId: this.sessionId ?? null,
       surface: this.browserSurface, hosted: this.hosted, hostedTransport: this.hostedBrowserTransport,
-      hostedContext: this.hostedBrowserContext, desktopCallback: this.browserSurface === 'desktop' ? this.desktopBrowserCallback : null });
+      hostedContext: this.hostedBrowserContext, desktopCallback: this.browserSurface === 'desktop' ? this.desktopBrowserCallback : null,
+      playwright: !this.hosted && this.browserSurface === 'playwright' ? registryPlaywrightOptions(this) : null });
     if (!this.hosted && this.workspaceControl) this.#install(workspaceChangeDefinition(this.paths, this.workspaceControl));
   }
   async close() { await this.definition('web_browse')?.manager?.close?.(); }
