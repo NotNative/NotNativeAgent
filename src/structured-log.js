@@ -9,6 +9,10 @@ const SAFE_KEYS = new Set([
   'attempt_id', 'logical_request_id',
   'decision_id', 'attachment_id', 'state', 'sequence', 'command_type',
   'configuration_key', 'configuration_source',
+  // Why a route's identity and its refusal text are safe: a client-facing HTTP
+  // status alone names nothing, and the refusal message is the operator-facing
+  // guidance the surface already chose to send over the wire - never a secret.
+  'url', 'message',
 ]);
 
 export class StructuredLog {
