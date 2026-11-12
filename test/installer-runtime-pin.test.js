@@ -25,7 +25,7 @@ async function seed(root, data, value = descriptorFor(root, data)) {
   return path;
 }
 
-test('installer refreshes only a stale runtime pin of its own installation before desktop inspection', {
+test('installer refreshes only a stale runtime pin of its own installation before payload replacement', {
   skip: process.platform !== 'win32', timeout: 60_000,
 }, async (t) => {
   const fixture = await mkdtemp(join(tmpdir(), 'nna-runtime-pin-'));
@@ -81,11 +81,10 @@ foreach ($case in (Get-Content -LiteralPath ${literal(casesPath)} -Raw -Encoding
   }
 });
 
-test('installer refreshes the runtime pin before it inspects or stops the desktop service', async () => {
+test('installer refreshes the runtime pin before it replaces the payload', async () => {
   const source = await readFile('install.ps1', 'utf8');
   const sync = source.indexOf('Sync-ExistingRuntimePin $NodePath $NodeMajor $InstallRoot $DataRoot');
-  const stop = source.indexOf('$DesktopStoppedForUpgrade = Stop-DesktopBeforePayloadReplacement');
   const remove = source.indexOf('Remove-Item -LiteralPath $Target -Recurse -Force');
   assert.ok(sync > 0, 'the payload replacement must refresh a stale runtime pin');
-  assert.ok(sync < stop && stop < remove, 'the pin is refreshed before inspection, and removal last');
+  assert.ok(sync < remove, 'the pin is refreshed before removal');
 });

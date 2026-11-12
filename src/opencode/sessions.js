@@ -343,17 +343,13 @@ async function compactWireSession(session, body) {
   } catch (error) {
     // Security: only the code crosses the wire; provider text can contain secrets.
     const busy = error?.code === 'compaction_busy';
-    session.wireSession.publishV2('message.updated', { info: { ...compactionMessage, status: 'failed',
-      error: { type: busy ? 'compaction_busy' : 'nna_compaction_failed',
-        message: busy
-          ? 'The session became busy while compacting. Wait for the turn to finish and try again'
-          : 'NNA could not compact this conversation' } } });
+    const guidance = { type: busy ? 'compaction_busy' : 'nna_compaction_failed',
+      message: busy
+        ? 'The session became busy while compacting. Wait for the turn to finish and try again'
+        : 'NNA could not compact this conversation' };
+    session.wireSession.publishV2('message.updated', { info: { ...compactionMessage, status: 'failed', error: guidance } });
     publishRevert(session, 'session.compaction.failed', {
-      sessionID: ocId, reason: 'manual', inputID: id,
-      error: { type: busy ? 'compaction_busy' : 'nna_compaction_failed',
-        message: busy
-          ? 'The session became busy while compacting. Wait for the turn to finish and try again'
-          : 'NNA could not compact this conversation' },
+      sessionID: ocId, reason: 'manual', inputID: id, error: guidance,
     });
     throw error;
   }

@@ -17,8 +17,8 @@ param(
     [string]$TelegramBotToken,
     [string]$TelegramUserId,
     [switch]$StartGateway,
-    [string]$NodeDownloadBase = 'https://nodejs.org/dist/latest-v24.x',
-    [switch]$InstallDesktop
+    [string]$NodeDownloadBase = 'https://nodejs.org/dist/latest-v24.x'
+
 )
 
 $ErrorActionPreference = 'Stop'
@@ -98,8 +98,8 @@ function Stop-OpencodeServiceBeforePayloadReplacement([string]$SelectedNode, [st
 
 function Sync-ExistingRuntimePin([string]$SelectedNode, [int]$SelectedMajor, [string]$SelectedInstallRoot, [string]$SelectedDataRoot) {
     # Why: an operator-side Node upgrade changes the runtime behind the descriptor's node path.
-    # The existing release validates that pin before it can inspect or stop its desktop service,
-    # so the installer refreshes only the runtime fields it records again after payload
+    # The existing release validates that pin before it starts, so the installer
+    # refreshes only the runtime fields it records again after payload
     # replacement. Every other descriptor field remains for the existing release to verify.
     $DescriptorPath = Join-Path $SelectedInstallRoot 'install.json'
     if (-not (Test-Path -LiteralPath $DescriptorPath -PathType Leaf)) { return $false }
@@ -115,75 +115,15 @@ function Sync-ExistingRuntimePin([string]$SelectedNode, [int]$SelectedMajor, [st
     $Descriptor.node = $SelectedNode
     $Descriptor.node_major = $SelectedMajor
     [IO.File]::WriteAllText($DescriptorPath, ($Descriptor | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
-    Write-InstallerStep "Refreshed the existing installation's Node.js runtime pin to v$SelectedMajor before desktop inspection" | Out-Host
+    Write-InstallerStep "Refreshed the existing installation's Node.js runtime pin to v$SelectedMajor" | Out-Host
     return $true
 }
 
-function Stop-DesktopBeforePayloadReplacement([string]$SelectedNode, [string]$SelectedInstallRoot, [string]$SelectedDataRoot) {
-    if (-not (Test-Path -LiteralPath (Join-Path $SelectedDataRoot 'config\desktop-package.json'))) { return $false }
-    $SelectedCli = Join-Path $SelectedInstallRoot 'installed\src\cli.js'
-    # Why the registered root: this source tree ships no desktop helper (the
-    # desktop component's source lives on its own branch), so the registration
-    # record names the installed package that owns the service, and that
-    # package carries its own copy of the helper.
-    $RegisteredRoot = $null
-    try {
-        $Registration = Get-Content -LiteralPath (Join-Path $SelectedDataRoot 'config\desktop-package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($Registration -and [string]$Registration.root) {
-            $Candidate = [IO.Path]::GetFullPath([string]$Registration.root)
-            if (Test-Path -LiteralPath (Join-Path $Candidate 'scripts\installer-wait-stopped.mjs') -PathType Leaf) { $RegisteredRoot = $Candidate }
-        }
-    } catch { $RegisteredRoot = $null }
-    if (-not $RegisteredRoot) {
-        $Fallback = Join-Path $SelectedInstallRoot 'installed\desktop\scripts\installer-wait-stopped.mjs'
-        if (Test-Path -LiteralPath $Fallback -PathType Leaf) { $RegisteredRoot = $SelectedInstallRoot }
-    }
-    if (-not $RegisteredRoot) { throw 'A desktop package is registered but no installed copy carries the stop verification helper; existing runtime files were preserved.' }
-    $WaitHelper = Join-Path $RegisteredRoot 'scripts\installer-wait-stopped.mjs'
-    $PriorNnaHome = $env:NNA_HOME
-    $env:NNA_HOME = $SelectedDataRoot
-    try {
-        $StatusText = & $SelectedNode --disable-warning=ExperimentalWarning $SelectedCli desktop status
-        if ($LASTEXITCODE -ne 0) { throw 'Existing NNA could not inspect the desktop service; runtime files were preserved.' }
-        $Status = $StatusText | ConvertFrom-Json
-        if ($Status.running -isnot [bool]) { throw 'Desktop service state is unknown; runtime files were preserved.' }
-        if (-not $Status.running) {
-            & $SelectedNode --disable-warning=ExperimentalWarning $WaitHelper $SelectedInstallRoot $SelectedDataRoot | Out-Null
-            if ($LASTEXITCODE -ne 0) { throw 'Desktop service ownership is not quiescent; existing runtime files were preserved.' }
-            Write-InstallerStep 'Desktop service already stopped; it will remain stopped' | Out-Host
-            return $false
-        }
-        Write-InstallerStep 'Desktop service running - stopping service before replacing NNA runtime files' | Out-Host
-        & $SelectedNode --disable-warning=ExperimentalWarning $SelectedCli desktop service stop $SelectedInstallRoot | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw 'Desktop service stop failed; existing runtime files were preserved.' }
-        & $SelectedNode --disable-warning=ExperimentalWarning $WaitHelper $SelectedInstallRoot $SelectedDataRoot | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw 'Desktop service shutdown was not verified; existing runtime files were preserved.' }
-        return $true
-    } finally { $env:NNA_HOME = $PriorNnaHome }
-}
+# Why these are gone: the desktop surface is retired from this tree. An old
+# data root can still carry a desktop-package registration, but no desktop
+# service exists to stop or restart around a payload swap; the registration
+# record itself is the only residue and the uninstaller's cleanup removes it.
 
-function Restore-DesktopAfterPayloadReplacement([string]$SelectedNode, [string]$SelectedInstallRoot, [string]$SelectedDataRoot, [string]$ExpectedVersion) {
-    $PriorNnaHome = $env:NNA_HOME
-    $env:NNA_HOME = $SelectedDataRoot
-    try {
-        Write-InstallerStep 'Starting previously running desktop service on the updated NNA and desktop packages' | Out-Host
-        $ResultText = & $SelectedNode --disable-warning=ExperimentalWarning (Join-Path $SelectedInstallRoot 'installed\src\cli.js') desktop service start $SelectedInstallRoot
-        if ($LASTEXITCODE -ne 0) { throw 'Updated desktop service failed to start.' }
-        $Deadline = [DateTime]::UtcNow.AddSeconds(120)
-        do {
-            $Result = $ResultText | ConvertFrom-Json
-            if ($Result.service_state -in @('ready', 'setup_required') -and $Result.package_version -ceq $ExpectedVersion) {
-                Write-InstallerOk 'Desktop service ready on updated NNA and desktop packages' | Out-Host
-                return
-            }
-            if ($Result.service_state -notin @('starting', 'ready', 'setup_required')) { break }
-            Start-Sleep -Milliseconds 500
-            $ResultText = & $SelectedNode --disable-warning=ExperimentalWarning (Join-Path $SelectedInstallRoot 'installed\src\cli.js') desktop service status $SelectedInstallRoot
-            if ($LASTEXITCODE -ne 0) { throw 'Updated desktop service status could not be verified.' }
-        } while ([DateTime]::UtcNow -lt $Deadline)
-        throw "Updated desktop service did not confirm the expected package (state=$($Result.service_state), version=$($Result.package_version), expected=$ExpectedVersion)."
-    } finally { $env:NNA_HOME = $PriorNnaHome }
-}
 
 function Find-Ripgrep {
     $Command = Get-Command rg -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -586,7 +526,6 @@ if ($ManifestCode) {
 }
 $GatewayStoppedForUpgrade = $false
 $OpencodeStoppedForUpgrade = $false
-$DesktopStoppedForUpgrade = $false
 
 Write-InstallerSection 'Application payload'
 Write-InstallerStep "Staging version $Version"
@@ -614,7 +553,6 @@ try {
         $ExistingPackage = Get-Content -LiteralPath $ExistingPackagePath -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($ExistingPackage.name -ne 'not-native-agent') { throw 'Refusing to replace a foreign version directory.' }
         Sync-ExistingRuntimePin $NodePath $NodeMajor $InstallRoot $DataRoot | Out-Null
-        $DesktopStoppedForUpgrade = Stop-DesktopBeforePayloadReplacement $NodePath $InstallRoot $DataRoot
         $GatewayStoppedForUpgrade = Stop-GatewayBeforePayloadReplacement $NodePath (Join-Path $SourceRoot 'src\cli.js') $DataRoot
         $OpencodeStoppedForUpgrade = Stop-OpencodeServiceBeforePayloadReplacement $NodePath (Join-Path $SourceRoot 'src\cli.js') $DataRoot
         Remove-Item -LiteralPath $Target -Recurse -Force
@@ -950,218 +888,6 @@ Write-InstallerStep 'Launching the installed CLI and checking its canonical vers
 $InstalledVersion = (& $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') --version | Out-String).Trim()
 if ($InstalledVersion -notmatch [Regex]::Escape($Version)) { throw 'Installed CLI version verification failed.' }
 Write-InstallerOk $InstalledVersion
-
-# Desktop component (one product): ONE dedicated section performs every
-# desktop-related operation. A registered desktop package is upgraded with
-# this NNA install (a stale desktop package under a new NNA runtime is exactly
-# the desktop_service_crashed failure observed live); an unregistered one is
-# offered as an optional install (default No, [y/N] convention;
-# -InstallDesktop answers Yes for unattended runs). The section runs after
-# Verification so the desktop installer's NNA selection pins the verified
-# install. Once selected or registered, desktop installation is part of the
-# platform result: failure makes the installer exit nonzero.
-# Invariant: the desktop installer's stderr (node/pnpm chatter) routes to a
-# log FILE, never the PowerShell error stream - with $ErrorActionPreference
-# Stop a piped stderr record becomes a terminating error (the desktop
-# installer's own header documents this proven failure mode; reproduced
-# here 2026-10-14).
-$DesktopRegistrationPath = Join-Path $DataRoot 'config\desktop-package.json'
-$DesktopRegistered = Test-Path -LiteralPath $DesktopRegistrationPath
-function New-DesktopInstallLogPath([string]$Root) {
-    # Invariant: the restarted service may retain the previous installer log
-    # handle. Each attempt must use a new file for status, build, and handoff.
-    return Join-Path (Join-Path $Root 'logs') ('nna-desktop-install-{0}.log' -f [Guid]::NewGuid().ToString('N'))
-}
-$DesktopInstallLog = New-DesktopInstallLogPath $DataRoot
-$DesktopInstallErrorLog = [IO.Path]::ChangeExtension($DesktopInstallLog, '.errors.log')
-$DesktopHandoffLog = [IO.Path]::ChangeExtension($DesktopInstallLog, '.handoff.log')
-function Invoke-DesktopInstaller {
-    # Invariant: the component must register against this install's verified
-    # NNA identity, including custom install and data roots.
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $DesktopInstallLog) | Out-Null
-    $desktopErrorLog = [IO.Path]::ChangeExtension($DesktopInstallLog, '.errors.log')
-    $handoffLog = [IO.Path]::ChangeExtension($DesktopInstallLog, '.handoff.log')
-    Remove-Item -LiteralPath $handoffLog -Force -ErrorAction SilentlyContinue
-    $previous = $ErrorActionPreference
-    $priorPath = $env:PATH
-    $ErrorActionPreference = 'Continue'
-    try {
-        # The root installer can download Node without changing this process's
-        # PATH. The desktop source build needs that selected runtime and pnpm.
-        $env:PATH = "$(Split-Path -Parent $NodePath);$env:PATH"
-        $desktopArguments = @('-NnaInstallRoot', $InstallRoot, '-NnaDataRoot', $DataRoot)
-        if ($DesktopRegistered) {
-            # Invariant: a registered custom desktop root is upgraded in place.
-            $priorNnaHome = $env:NNA_HOME
-            $env:NNA_HOME = $DataRoot
-            try {
-                $statusText = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') desktop package status 2>$DesktopInstallLog
-                if ($LASTEXITCODE -ne 0) { throw 'The registered desktop package could not be inspected.' }
-                $status = $statusText | ConvertFrom-Json
-                if ($status.registered -ne $true -or $status.root -isnot [string] -or
-                    ![IO.Path]::IsPathRooted($status.root)) { throw 'The registered desktop package root is invalid.' }
-                $desktopArguments += @('-InstallDir', $status.root)
-            } finally { $env:NNA_HOME = $priorNnaHome }
-        }
-        if (!(Get-Command pnpm -CommandType Application -ErrorAction SilentlyContinue)) {
-            if ($SkipDependencyInstall) { throw 'pnpm is missing and dependency installation was disabled.' }
-            $npm = Find-CompatibleNpm $NodePath
-            if (!$npm) { throw 'npm is unavailable for the desktop build tool setup.' }
-            $buildTools = Join-Path $InstallRoot 'build-tools'
-            & $npm install --prefix $buildTools --no-audit --no-fund --loglevel=error 'pnpm@10.28.2' 1>$DesktopInstallLog 2>&1
-            if ($LASTEXITCODE -ne 0) { throw "Desktop pnpm setup failed (exit $LASTEXITCODE); see $DesktopInstallLog" }
-            $env:PATH = "$(Join-Path $buildTools 'node_modules\.bin');$env:PATH"
-        }
-        # Invariant: wait for install.cmd itself, not EOF on a PowerShell
-        # redirection pipe. The restarted service may inherit a write handle
-        # and keep that pipe open after the installer has exited.
-        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $startInfo.FileName = Join-Path $env:SystemRoot 'System32\cmd.exe'
-        $startInfo.UseShellExecute = $false
-        $startInfo.CreateNoWindow = $true
-        # CMD opens ordinary files rather than a PowerShell pipeline. Values
-        # enter as environment data so spaces and CMD metacharacters in a
-        # custom installation path cannot become command syntax.
-        $startInfo.EnvironmentVariables['NNA_DESKTOP_SCRIPT'] = $DesktopScript
-        $startInfo.EnvironmentVariables['NNA_DESKTOP_NNA_INSTALL'] = $InstallRoot
-        $startInfo.EnvironmentVariables['NNA_DESKTOP_NNA_DATA'] = $DataRoot
-        $startInfo.EnvironmentVariables['NNA_DESKTOP_LOG'] = $DesktopInstallLog
-        $startInfo.EnvironmentVariables['NNA_DESKTOP_ERRORS'] = $desktopErrorLog
-        $command = '""%NNA_DESKTOP_SCRIPT%" -NnaInstallRoot "%NNA_DESKTOP_NNA_INSTALL%" -NnaDataRoot "%NNA_DESKTOP_NNA_DATA%"'
-        if ($DesktopRegistered) {
-            $startInfo.EnvironmentVariables['NNA_DESKTOP_TARGET'] = $status.root
-            $command += ' -InstallDir "%NNA_DESKTOP_TARGET%"'
-        }
-        $startInfo.Arguments = '/d /v:off /s /c ' + $command + ' 1>"%NNA_DESKTOP_LOG%" 2>"%NNA_DESKTOP_ERRORS%""'
-        $desktopProcess = [System.Diagnostics.Process]::Start($startInfo)
-        Write-Host "  Desktop installer started; detailed log: $DesktopInstallLog"
-        $milestones = @(
-            @{ Pattern = 'service is running; stopping it'; Message = 'Service running - stopping service' },
-            @{ Pattern = 'service is not running and will remain stopped'; Message = 'Service already stopped' },
-            @{ Pattern = 'Copying source'; Message = 'Copying desktop files' },
-            @{ Pattern = 'source copied'; Message = 'New desktop files copied' },
-            @{ Pattern = 'Installing dependencies|Dependencies already installed'; Message = 'Checking desktop dependencies' },
-            @{ Pattern = 'Building shell artifacts'; Message = 'Building desktop app' },
-            @{ Pattern = 'build green|verified build reused'; Message = 'Desktop build ready' },
-            @{ Pattern = 'Registering desktop package with NNA'; Message = 'Registering desktop package' },
-            @{ Pattern = 'Creating shortcuts'; Message = 'Creating desktop shortcuts' },
-            @{ Pattern = 'Starting previously running desktop service'; Message = 'Starting service' },
-            @{ Pattern = 'Previously running desktop service restarted'; Message = 'Service ready on updated package' },
-            @{ Pattern = 'Desktop installed'; Message = 'Desktop script finished; verifying installed package' }
-        )
-        $reported = @{}
-        $startedAt = Get-Date
-        $lastReport = $startedAt
-        do {
-            $exited = $desktopProcess.WaitForExit(1000)
-            $logText = if (Test-Path -LiteralPath $DesktopInstallLog) {
-                try { (Get-Content -LiteralPath $DesktopInstallLog -Tail 120 -ErrorAction Stop) -join "`n" } catch { '' }
-            } else { '' }
-            foreach ($milestone in $milestones) {
-                if (!$reported.ContainsKey($milestone.Message) -and $logText -match $milestone.Pattern) {
-                    Write-Host "  $($milestone.Message)"
-                    $reported[$milestone.Message] = $true
-                    $lastReport = Get-Date
-                }
-            }
-            if (!$exited -and ((Get-Date) - $lastReport).TotalSeconds -ge 30) {
-                $elapsed = [int]((Get-Date) - $startedAt).TotalSeconds
-                Write-Host "  Desktop installer still working (${elapsed}s elapsed); log: $DesktopInstallLog"
-                $lastReport = Get-Date
-            }
-        } while (!$exited)
-        if ($desktopProcess.ExitCode -ne 0) { return $desktopProcess.ExitCode }
-        # Invariant: an installer exit alone cannot prove the selected desktop package was registered at this release.
-        $priorNnaHome = $env:NNA_HOME
-        $env:NNA_HOME = $DataRoot
-        try {
-            # The restarted service may still hold the installer log open.
-            # Verification must not append to either inherited file handle.
-            $statusText = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') desktop package status 2>$null
-            if ($LASTEXITCODE -ne 0) { throw 'The installed desktop package could not be inspected.' }
-            $status = $statusText | ConvertFrom-Json
-            if ($status.registered -ne $true -or $status.valid -ne $true -or $status.version -cne $Version -or
-                $status.root -isnot [string] -or !(Test-Path -LiteralPath (Join-Path $status.root 'VERSION') -PathType Leaf) -or
-                (Get-Content -LiteralPath (Join-Path $status.root 'VERSION') -Raw).Trim() -cne $Version) {
-                throw "Desktop package did not register the expected version $Version."
-            }
-        } finally { $env:NNA_HOME = $priorNnaHome }
-        return 0
-    } catch {
-        Add-Content -LiteralPath $handoffLog -Value $_.Exception.Message
-        return 1
-    } finally { $env:PATH = $priorPath; $ErrorActionPreference = $previous }
-}
-function Show-DesktopInstallTail([int]$Lines = 12) {
-    if (Test-Path -LiteralPath $DesktopInstallLog) {
-        Get-Content -LiteralPath $DesktopInstallLog -Tail $Lines -ErrorAction SilentlyContinue |
-            ForEach-Object { Write-InstallerLine "  $_" DarkGray }
-        Write-InstallerLine "  full log: $DesktopInstallLog" DarkGray
-    }
-    if (Test-Path -LiteralPath $DesktopInstallErrorLog) {
-        Get-Content -LiteralPath $DesktopInstallErrorLog -Tail $Lines -ErrorAction SilentlyContinue |
-            ForEach-Object { Write-InstallerLine "  $_" DarkGray }
-        Write-InstallerLine "  error log: $DesktopInstallErrorLog" DarkGray
-    }
-    if (Test-Path -LiteralPath $DesktopHandoffLog) {
-        Get-Content -LiteralPath $DesktopHandoffLog -Tail $Lines -ErrorAction SilentlyContinue |
-            ForEach-Object { Write-InstallerLine "  $_" DarkGray }
-        Write-InstallerLine "  handoff log: $DesktopHandoffLog" DarkGray
-    }
-}
-function Confirm-DesktopInstallation([bool]$Requested, [bool]$InputRedirected) {
-    if ($Requested) { return $true }
-    if ($InputRedirected) { return $false }
-    # Why: update skips unrelated provider setup, but an interactive operator still chooses whether to add desktop.
-    $Answer = (Read-Host 'Install the NotNativeAgent desktop component now? [y/N]').Trim()
-    return $Answer -in @('y', 'Y', 'yes', 'Yes', 'YES')
-}
-Write-InstallerSection 'Desktop component'
-# Why: the desktop tree ships without `desktop\install.cmd` while its source is
-# parked, so a missing script is the expected state of this source tree — a
-# registered package keeps serving its installed copy and the component returns
-# when its branch does. A quiet skip is the whole report; no branch guidance.
-$DesktopScript = Join-Path $SourceRoot 'desktop\install.cmd'
-$DesktopInstallFailed = $false
-if (-not (Test-Path -LiteralPath $DesktopScript)) {
-    Write-InstallerSkip 'Desktop component not present in this source tree; skipped.'
-} elseif ($DesktopRegistered) {
-    Write-InstallerStep 'A desktop package is registered; upgrading it with this NNA install'
-    $DesktopExit = Invoke-DesktopInstaller
-    if ($DesktopExit -eq 0) {
-        if ($DesktopStoppedForUpgrade) { Restore-DesktopAfterPayloadReplacement $NodePath $InstallRoot $DataRoot $Version }
-        Write-InstallerOk 'Desktop component upgraded with this NNA install'
-        Show-DesktopInstallTail 6
-    } else {
-        Write-InstallerWarning "Desktop component upgrade failed (exit $DesktopExit). NNA itself is ready."
-        Write-InstallerWarning "The previous desktop package may remain registered; repair with: desktop\install.cmd"
-        Show-DesktopInstallTail 20
-        $DesktopInstallFailed = $true
-    }
-} else {
-    $InstallDesktopNow = Confirm-DesktopInstallation ([bool]$InstallDesktop) ([Console]::IsInputRedirected)
-    if ($InstallDesktopNow) {
-        Write-InstallerStep 'Installing and registering the desktop package (this builds the shell and can take several minutes)'
-        $DesktopExit = Invoke-DesktopInstaller
-        if ($DesktopExit -eq 0) {
-            Write-InstallerOk 'Desktop component installed and registered'
-            Show-DesktopInstallTail 8
-            Write-InstallerLine ' Start it with: nna desktop start   (or the NotNativeAgent desktop shortcut)' DarkGray
-        } else {
-            Write-InstallerWarning "Desktop component installation failed (exit $DesktopExit). NNA itself is ready."
-            Write-InstallerWarning "You can retry later with: desktop\install.cmd"
-            Show-DesktopInstallTail 20
-            $DesktopInstallFailed = $true
-        }
-    } else {
-        Write-InstallerSkip 'Desktop component not installed (optional). Install later with: desktop\install.cmd'
-    }
-}
-
-if ($DesktopInstallFailed) {
-    Write-InstallerWarning 'Platform installation is incomplete because the desktop component did not install.'
-    exit 1
-}
 
 Write-Output ''
 Write-InstallerLine ' INSTALL COMPLETE' Magenta

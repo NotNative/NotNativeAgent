@@ -14,7 +14,7 @@ import { physicalWireAllowance } from '../reliability/context-budget.js';
 import { archiveMutationRefusal } from './legacy-archive.js';
 import { updateSessionIndex } from './session-index.js';
 
-/** Archived conversation helpers. Why module-level: the archive is optional â€”
+/** Archived conversation helpers. Why module-level: the archive is optional,
  *  a surface without one serves only live sessions, and every helper degrades
  *  to empty/refuse rather than opening the store. */
 function archiveList(archive) {
@@ -53,8 +53,7 @@ export function createV2Workspace(operations, options) {
   // Why the archive refusal inside requireState: an archived id is unknown to the live map,
   // so every mutating route refuses with the same typed conflict, not a 404. Why demand
   // re-attach in ensureLive: an evicted conversation is listed but has no live state; an
-  // arriving envelope re-attaches it through the boot-restore path first. Archived ids
-  // are read-only by contract and refuse as before, never re-attached.
+  // arriving envelope re-attaches it through the boot-restore path first.
   const requireState = (id) => states.get(id) ?? requireArchivedOrMissing(options.archive, id);
   const ensureLive = async (id) => { if (options.reattachEvicted) await options.reattachEvicted(id); return requireState(id); };
   const context = { states, creating, events, model, requireState, operations, options };
@@ -177,12 +176,10 @@ function seedState(state, turns) {
  *  prompt keeps the binding it was admitted under. */
 async function admitWithModel(context, state, body) {
   const { options, operations } = context;
-  // Why the serialized rebind: this runs before every prompt, and it briefly
-  // marks the session as selecting a model. Two prompts arriving in the same tick
-  // â€” two tabs, or the desktop and a phone â€” made the loser fail with "Wait for
-  // the session to become idle before changing its model", a selection it never
-  // asked for. The admissions now take turns, which costs an await and keeps the
-  // queue-never-reject contract.
+  // Why the serialized rebind: two prompts arriving in the same tick made the
+  // loser fail with "Wait for the session to become idle before changing its
+  // model", a selection it never asked for. The admissions take turns, which
+  // costs an await and keeps the queue-never-reject contract.
   if (options.providerSettings && !state.pending.size) {
     const previous = state.rebinding ?? Promise.resolve();
     const rebind = previous.catch(() => undefined).then(
@@ -218,9 +215,8 @@ function admitPrompt(state, body, operations, options) {
  *  admission is deliberately absent from `state.inbox`. The client reconciles
  *  its composer queue from `session.inbox.list`, and an item that is never
  *  steered and never cancelled would sit in the composer forever. The receipt
- *  keeps the shape an admitted item has; `description` rides only the synthetic
- *  payload, which is the one the client declares it â€” a user payload is strict
- *  without it. */
+ *  keeps the shape an admitted item has; `description` rides only the
+ *  synthetic payload, which is the one the client declares. */
 function heldReceipt(state, id, body, synthetic) {
   return { id, sessionID: state.info.id, time: { created: Date.now() }, type: synthetic ? 'synthetic' : 'user',
     payload: { text: body.text,
@@ -292,9 +288,7 @@ async function runRevert(state, step, run) {
  *  record it gets back must be a `SessionInbox.Compaction`; the operations
  *  layer builds it and announces the lifecycle events. The completed
  *  compaction is also kept in history, the way a model switch is, so a client
- *  that reloads still sees why the transcript shrank. The engine refuses a
- *  session that turned busy underneath this check with `compaction_busy`,
- *  which the route layer maps to a conflict. */
+ *  that reloads still sees why the transcript shrank. */
 function compactApi(requireState, operations) {
   return {
     async compact(id, body) {
@@ -342,7 +336,7 @@ function historyPage(state, id, query) {
  *
  *  Compatibility: the client's history builder reads `session.revert.messageID`
  *  from `GET /api/session/:id` and cuts every read past that boundary's
- *  timestamp â€” live, on reconnect, and on a fresh load. Without the field a
+ *  timestamp, live, on reconnect, and on a fresh load. Without the field a
  *  committed revert survives only in the reducer's memory: the server hid the
  *  tail, the GUI un-hid it on the next sync, and a reload showed turns the
  *  operator took back. A missing field and an absent boundary are the same
@@ -422,8 +416,8 @@ async function updateSession(state, body, events, options) {
   // Security: `permissions` is a real field on this route, and it is refused by
   // name rather than as an unknown one. Permission rules belong to NNA's
   // reviewer governance; accepting a ruleset here would let a caller widen what
-  // the surface may do. The client omits the field unless a caller sets it, so a
-  // title or archive update still works.
+  // the surface may do. The client omits the field unless a caller sets it, so
+  // a title or archive update still works.
   if (body.permissions !== undefined) throw invalid('Session permissions are owned by NNA reviewer governance and cannot be set through this surface');
   objectInput(body, ['title', 'metadata', 'archived']);
   validateMetadata(body.metadata);
@@ -434,9 +428,8 @@ async function updateSession(state, body, events, options) {
     state.info.title = body.title;
     patch.title = body.title;
     events.emit(state, 'session.renamed', { sessionID: state.info.id, title: body.title });
-    // Why the index write: the durable index is what a restart lists and re-opens
-    // with. A rename that stayed in memory reverted to "New session" on the next
-    // boot, which is what the operator saw: the title never stuck.
+    // Why the index write: the durable index is what a restart lists from; a
+    // rename that stayed in memory reverted to "New session" on the next boot.
     await updateSessionIndex(options.storeRoot, state.info.id, { title: body.title });
   }
   if (body.metadata != null) {
