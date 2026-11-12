@@ -242,10 +242,13 @@ export function settleEntry(state, entry, result) {
   // the current context fill. The turn's cumulative usage bills every step's
   // re-sent prompt, so it overstates the fill; the final round-trip is the fill.
   entry.tokens = contextFillView(result);
-  // Why: a cancelled turn settles distinctly from an engine failure; the wire
-  // voice labels operator-stopped turns `abort` so OpenChamber can render it.
-  entry.finish = result?.outcome === 'completed' ? 'stop'
-    : result?.outcome === 'cancelled' ? 'abort' : 'error';
+  // Why the split: `cancelled` is an operator stop, which the wire labels
+  // `abort`. Every other settled outcome is a finished turn: `needs_input`,
+  // `blocked`, and `incomplete` are the model ending with a question or a
+  // report, not failures, and mapping them to `error` made the client render a
+  // successful question-asking turn as "OpenCode stopped this reply".
+  entry.finish = result?.outcome === 'cancelled' ? 'abort'
+    : result?.outcome === 'failed' ? 'error' : 'stop';
   for (const segment of finalTextSegments(state, entry)) publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: segment, time: nowMs });
   publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: nowMs });
   const response = buildAssistantResponse(state, entry);

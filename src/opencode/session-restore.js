@@ -200,8 +200,11 @@ function seedLedger(records, outcomes) {
 
 function settleTurn(turn, outcome, sequence) {
   turn.text = typeof outcome.text === 'string' ? outcome.text : (turn.text ?? '');
-  turn.finish = outcome.outcome === 'completed' ? 'stop'
-    : outcome.outcome === 'cancelled' ? 'abort' : 'error';
+  // Why the split matches the wire's settleEntry: `cancelled` is an operator
+  // stop (`abort`), `failed` is a failure, and outcomes like `needs_input` are
+  // the model ending with a question - a finished turn, never an error.
+  turn.finish = outcome.outcome === 'cancelled' ? 'abort'
+    : outcome.outcome === 'failed' ? 'error' : 'stop';
   // Why the shared reader: a restored turn's token payload must carry the same
   // cache and reasoning evidence a live turn does, or the context meter renders
   // a different (wrong) pane after a restart than it did before one.
