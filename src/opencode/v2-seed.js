@@ -13,12 +13,23 @@ import { tokenUsage } from './v2-contract.js';
 
 export function seedProjectionState(state, turns) {
   if (!Array.isArray(turns)) return 0;
+  // Why a sequence-derived clock: journal records carry no wall-clock time, so
+  // every restored turn would otherwise share the session's creation timestamp
+  // and a renderer that orders rows by time could show a reply before the
+  // question that caused it. Each row gets a distinct, monotonic stamp derived
+  // from the journal sequence: stable across boots, ordered like the
+  // conversation ran, and always after the session's own creation time.
+  const base = state.info.time.created ?? Date.now();
   let seeded = 0;
   for (const turn of turns) {
     if (!turn || typeof turn.text !== 'string') continue;
-    const created = Number.isFinite(turn.createdAt) ? turn.createdAt : state.info.time.created ?? Date.now();
-    const completed = Number.isFinite(turn.completedAt) ? turn.completedAt : created;
-    const user = { id: `msg_${turn.userKey}`, sessionID: state.info.id, type: 'user', time: { created }, text: turn.userText ?? '' };
+    const first = Number.isFinite(turn.firstSequence) ? turn.firstSequence : seeded;
+    const last = Number.isFinite(turn.completedSequence) && turn.completedSequence >= first
+      ? turn.completedSequence : first + 1;
+    const userCreated = base + first * 2;
+    const assistantCreated = base + last * 2 + 1;
+    const completed = base + last * 2 + 2;
+    const user = { id: `msg_${turn.userKey}`, sessionID: state.info.id, type: 'user', time: { created: userCreated }, text: turn.userText ?? '' };
     // Why an interleaved order, and why prose arrives as several parts: the journal
     // records one assistant text per model step, and a multi-step turn writes prose
     // between its tool calls. Each tool and each prose segment carries an arrival
@@ -35,7 +46,7 @@ export function seedProjectionState(state, turns) {
       .map(({ order, ...part }) => part);
     const assistant = {
       id: `msg_${turn.assistantKey}`, sessionID: state.info.id, type: 'assistant', agent: 'build', model: state.info.model,
-      time: { created, completed }, content: parts,
+      time: { created: assistantCreated, completed }, content: parts,
       finish: turn.finish ?? 'stop', tokens: turn.tokens ?? tokenUsage(), cost: 0,
     };
     const idle = { id: `msg_${turn.idleKey}`, sessionID: state.info.id, type: 'idle',

@@ -166,16 +166,27 @@ export function finalTextSegments(state, entry) {
  * as pending or re-emit its events.
  */
 export function seededEntry(state, turn) {
+  // Why the sequence-derived clock: journal records carry no wall-clock time,
+  // so the restored rows would all share the session's creation timestamp, and
+  // a client ordering by time could tie-break the answer before the question.
+  // The same synthetic stamps v2-seed derives from the journal sequence apply
+  // here, keeping both history paths in one order.
+  const userCreated = Number.isFinite(turn.createdAt) ? turn.createdAt
+    : Number.isFinite(turn.firstSequence) ? (state.info?.time?.created ?? Date.now()) + turn.firstSequence * 2 : Date.now();
+  const assistantCreated = Number.isFinite(turn.completedSequence)
+    ? userCreated + (turn.completedSequence - (turn.firstSequence ?? 0)) * 2 + 1
+    : userCreated;
+  const assistantCompleted = Number.isFinite(turn.completedSequence) ? assistantCreated + 1 : assistantCreated;
   const entry = {
     requestId: turn.requestId ?? newId('oc_prompt'),
     userMessageId: newId('msg'), userPartId: newId('prt'),
     assistantId: newId('msg'), stepStartId: newId('prt'), textPartId: newId('prt'), stepFinishId: newId('prt'),
-    createdAt: Number.isFinite(turn.createdAt) ? turn.createdAt : Date.now(),
-    assistantCreated: Number.isFinite(turn.createdAt) ? turn.createdAt : Date.now(),
-    assistantCompleted: Number.isFinite(turn.completedAt) ? turn.completedAt : Date.now(),
-    textStart: Number.isFinite(turn.createdAt) ? turn.createdAt : Date.now(),
-    textEnded: Number.isFinite(turn.completedAt) ? turn.completedAt : Date.now(),
-    deltaStart: null, closedAt: Number.isFinite(turn.completedAt) ? turn.completedAt : Date.now(),
+    createdAt: userCreated,
+    assistantCreated,
+    assistantCompleted,
+    textStart: userCreated,
+    textEnded: assistantCompleted,
+    deltaStart: null, closedAt: assistantCompleted,
     assistantContent: turn.text, finish: turn.finish ?? 'stop',
     tokens: turn.tokens ?? ZERO_TOKENS, response: null, aborted: false,
     toolParts: new Map(), assistantParts: [], retryAnnounced: false, textSegments: [], textClosed: false,

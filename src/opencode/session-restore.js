@@ -155,6 +155,13 @@ function seedLedger(records, outcomes) {
           userText: typeof record.content === 'string' ? record.content : '',
           text: null, requestId: typeof record.requestId === 'string' ? record.requestId : null,
           createdAt: record.createdAt ?? null, finish: null, tokens: null, tools: new Map(),
+          // Why the sequence: journal records carry no wall-clock time, so a
+          // restore cannot recover when a turn ran. The monotonic sequence is a
+          // durable ordering clock, and the seeded rows derive their synthetic
+          // timestamps from it so a renderer that orders by time restores the
+          // original question-before-answer order instead of a tie.
+          firstSequence: Number.isFinite(record.sequence) ? record.sequence : null,
+          lastSequence: Number.isFinite(record.sequence) ? record.sequence : null,
           userKey: randomUUID(), assistantKey: randomUUID(), idleKey: randomUUID(),
         };
       } else if (current && typeof record.content === 'string' && record.content.length > 0) {
@@ -171,16 +178,17 @@ function seedLedger(records, outcomes) {
     } else if (record?.type === 'tool_result' && current) {
       restoreToolResult(current, record);
     } else if (record?.type === 'turn_outcome' && current) {
-      settleTurn(current, record.payload ?? record);
+      settleTurn(current, record.payload ?? record, record.sequence);
       turns.push(current);
       current = null;
     }
+    if (current && Number.isFinite(record?.sequence)) current.lastSequence = record.sequence;
   }
   // Why the joined outcome: a restored transcript carries the turn's messages
   // but not its boundary record, so the outcome is looked up by turn id.
   if (current) {
     const outcome = turnId ? outcomes.get(turnId) : null;
-    if (outcome) settleTurn(current, outcome);
+    if (outcome) settleTurn(current, outcome, null);
     else if (current.text !== null) {
       current.finish = 'stop';
       current.tokens = { total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } };
@@ -190,7 +198,7 @@ function seedLedger(records, outcomes) {
   return turns;
 }
 
-function settleTurn(turn, outcome) {
+function settleTurn(turn, outcome, sequence) {
   turn.text = typeof outcome.text === 'string' ? outcome.text : (turn.text ?? '');
   turn.finish = outcome.outcome === 'completed' ? 'stop'
     : outcome.outcome === 'cancelled' ? 'abort' : 'error';
@@ -201,7 +209,10 @@ function settleTurn(turn, outcome) {
   // as the current context fill; the cumulative usage bills every step's re-sent
   // prompt and overstates the fill. See contextFillView.
   turn.tokens = contextFillView(outcome ?? {});
-  turn.completedAt = Date.now();
+  // Why the outcome sequence and not the clock: the journal has no wall-clock
+  // time, and a seed-time Date.now() would stamp every turn with the boot
+  // moment, ordering rows by seed order rather than conversation order.
+  turn.completedSequence = Number.isFinite(sequence) ? sequence : turn.lastSequence ?? null;
 }
 
 function seedWireLedger(session, turns) {

@@ -85,6 +85,28 @@ test('a restored turn without ordinals still renders, answer last', () => {
   assert.deepEqual(assistant.content.map((part) => part.type), ['tool', 'text']);
 });
 
+test('a restored turn stamps the reply after the question that caused it', () => {
+  // Why: journal records carry no wall-clock time, so every seeded row shared
+  // the session's creation timestamp. A renderer ordering rows by time could
+  // tie-break the reply before the question that caused it. The journal
+  // sequence is the durable ordering clock, and the seeded times follow it.
+  const state = baseState();
+  seedProjectionState(state, [
+    { userText: 'first', text: 'one', firstSequence: 10, completedSequence: 20,
+      finish: 'stop', tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+      userKey: 'u1', assistantKey: 'a1', idleKey: 'i1' },
+    { userText: 'second', text: 'two', firstSequence: 30, completedSequence: 40,
+      finish: 'stop', tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+      userKey: 'u2', assistantKey: 'a2', idleKey: 'i2' },
+  ]);
+  const byId = (id) => [...state.messages.values()].find((message) => message.id === `msg_${id}`);
+  // Within one turn: question before answer before idle.
+  assert.ok(byId('u1').time.created < byId('a1').time.created, 'question precedes its answer');
+  assert.ok(byId('a1').time.created < byId('i1').time.created, 'answer precedes its idle marker');
+  // Across turns: the later conversation turn stamps later than the earlier one.
+  assert.ok(byId('i1').time.created < byId('u2').time.created, 'turns keep conversation order');
+});
+
 
 test('a live multi-segment turn interleaves prose and calls as they arrived', () => {
   // The live flow: a segment opens at step start, a tool call closes it, the next
