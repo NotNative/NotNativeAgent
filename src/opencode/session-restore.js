@@ -12,7 +12,7 @@
 // Fail-closed: one broken session never blocks startup — it is skipped with a
 // logged reason, and the surface serves the sessions that did restore.
 import { discoverUnindexedSessions, readSessionIndex } from './session-index.js';
-import { tokenView } from './wire-transcript.js';
+import { tokenView, contextFillView } from './wire-transcript.js';
 import { toolSummary, toolDisplayOutput } from './tool-summary.js';
 import { presentedToolTarget } from '../engine/records.js';
 import { randomUUID } from 'node:crypto';
@@ -194,7 +194,10 @@ function settleTurn(turn, outcome) {
   // Why the shared reader: a restored turn's token payload must carry the same
   // cache and reasoning evidence a live turn does, or the context meter renders
   // a different (wrong) pane after a restart than it did before one.
-  turn.tokens = tokenView(outcome.usage ?? {});
+  // Why the step window first: a transcript meter reads the newest reply's total
+  // as the current context fill; the cumulative usage bills every step's re-sent
+  // prompt and overstates the fill. See contextFillView.
+  turn.tokens = contextFillView(outcome ?? {});
   turn.completedAt = Date.now();
 }
 

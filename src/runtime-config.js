@@ -87,8 +87,14 @@ function assertConfigurationDependencies(engine, active) {
 }
 
 export function assertRuntimeConfigurationCompatible(current, next) {
-  if (current.workspaceRoot !== next.workspaceRoot || current.persistence !== next.persistence) {
-    throw new ContractError('configuration_scope_change', 'workspace and persistence changes require a new session');
+  // Why per-field detail: a refused configuration update used to name no field, so a
+  // restored session that failed its first prompt was undiagnosable from the log -
+  // one of four scope fields differed and nothing said which.
+  const differing = [];
+  if (current.workspaceRoot !== next.workspaceRoot) differing.push(`workspaceRoot: ${current.workspaceRoot} -> ${next.workspaceRoot}`);
+  if (current.persistence !== next.persistence) differing.push(`persistence: ${current.persistence} -> ${next.persistence}`);
+  if (differing.length > 0) {
+    throw new ContractError('configuration_scope_change', `workspace and persistence changes require a new session (${differing.join('; ')})`);
   }
   if (!isDeepStrictEqual(current.mcpServers, next.mcpServers)) {
     throw new ContractError('configuration_mcp_change', 'MCP changes require a new session');

@@ -76,7 +76,13 @@ export function terminalRecord(engine, active, outcome, text, detail, secondaryF
   return {
     version: '1.0', type: 'turn_result', session_id: engine.sessionId,
     turn_id: active.turnId, request_id: active.requestId, outcome,
-    text, usage: active.usage, reasoning_bytes: active.reasoningBytes, partial: detail?.partial_data ?? false,
+    text, usage: active.usage,
+    // Why a step-window reading rides beside the cumulative one: a transcript meter
+    // reads the newest reply's total as the current context fill. The cumulative
+    // usage is the turn's billing truth, but a multi-step turn re-sends the whole
+    // prompt each step, so its sum overstates the fill many times over.
+    context_usage: active.stepUsage ?? null,
+    reasoning_bytes: active.reasoningBytes, partial: detail?.partial_data ?? false,
     token_accounting: engine.reliability?.combineTokenAccounting?.([
       active.tokenAccounting, active.delegatedTokenAccounting,
     ]) ?? active.tokenAccounting,

@@ -52,7 +52,7 @@ export class ProviderRunner {
       const requestStarted = process.hrtime.bigint();
       initializeAttempt(active, request.maxOutputTokens);
       // Why captured here: queue wait and admission concurrency turn scheduler
-      // observation into capacity evidence — wait shows saturation; concurrency
+      // observation into capacity evidence â€” wait shows saturation; concurrency
       // at admission is the x-axis dream learns latency distributions from.
       const acquireStarted = process.hrtime.bigint();
       const release = await this.scheduler.acquire(active.providerResource, active.sessionId,
@@ -138,6 +138,9 @@ export class ProviderRunner {
   }
 
   #recordSucceeded(active, requestSpan, requestStarted) {
+    // Snapshot the final round-trip's window: the meter reads the newest reply's
+    // total as the current context fill; the cumulative total overstates it.
+    active.stepUsage = active.attemptUsage;
     this.telemetry?.record('provider.request', 'succeeded', {
       model: active.modelName, provider_profile: active.providerResource,
       finish_reason: active.finishReason, usage: active.attemptUsage,

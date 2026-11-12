@@ -33,7 +33,7 @@ export async function handleV2Request(ctx) {
  *
  *  Why a 409 for all of them: the engine raises plain contract codes with no HTTP
  *  status, so each reached the client as an opaque 500 "NNA could not complete the
- *  request". A refused timeline mutation is a conflict, not an internal failure —
+ *  request". A refused timeline mutation is a conflict, not an internal failure â€”
  *  the model switch already answers 409, and a client renders these as guidance.
  *
  *  Why `desktop_fork_invalid` is here: a session with no settled turn has no
@@ -108,7 +108,7 @@ async function sessionRoute(ctx, segments) {
   if (segments.length === 1) {
     if (method === 'GET') return sendJson(res, 200, { data: api.read(id) });
     if (method === 'DELETE') { await api.remove(id); return sendNoContent(res); }
-    if (method === 'PATCH') { api.update(id, await body(ctx)); return sendNoContent(res); }
+    if (method === 'PATCH') { await api.update(id, await body(ctx)); return sendNoContent(res); }
   }
   if (segments.length === 2 && method === 'GET') {
     if (action === 'message') return sendJson(res, 200, api.messages(id, target.query));
@@ -156,7 +156,7 @@ async function sessionPost(ctx, state, action) {
   // text is an operator task; the skill it names reaches the model through the
   // engine's own skill journaling, never through this payload.
   if (action === 'command') { await api.command(id, await body(ctx)); return sendNoContent(res); }
-  // Compatibility: a fork answers the new session record. `before` is optional —
+  // Compatibility: a fork answers the new session record. `before` is optional â€”
   // omitting it carries the whole settled timeline over.
   if (action === 'fork') return sendJson(res, 200, { data: await api.fork(id, await body(ctx)) });
   // Compatibility: the client sends `{ id, delivery }`, where `id` names the

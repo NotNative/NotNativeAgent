@@ -21,6 +21,16 @@ const MAX_INDEX_BYTES = 1_048_576;
 const MAX_INDEX_ENTRIES = 512;
 
 export async function appendSessionIndex(storeRoot, record) {
+  // Why a dedupe instead of a blind append: a session re-attaches through the same
+  // creation path at boot restore, so a blind append wrote the same identity twice
+  // per restore. The reader already compacts to newest-per-id, but a file that grows
+  // by two lines per boot misstates what it holds; write the identity once.
+  const records = await readSessionIndex(storeRoot);
+  const existing = records.findIndex((entry) => entry.ocId === record.ocId);
+  if (existing >= 0) {
+    await rewriteIndex(storeRoot, records.map((entry, index) => index === existing ? { ...entry, ...record } : entry));
+    return;
+  }
   await appendFile(join(storeRoot, INDEX_FILE), `${JSON.stringify({ schema: SCHEMA, ...record })}\n`, { encoding: 'utf8' });
 }
 

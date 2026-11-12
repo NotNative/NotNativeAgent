@@ -12,8 +12,9 @@ import { newId } from '../ids.js';
 import { manifestFromConfig } from '../provider/route-configuration.js';
 import { physicalWireAllowance } from '../reliability/context-budget.js';
 import { archiveMutationRefusal } from './legacy-archive.js';
+import { updateSessionIndex } from './session-index.js';
 
-/** Archived conversation helpers. Why module-level: the archive is optional —
+/** Archived conversation helpers. Why module-level: the archive is optional â€”
  *  a surface without one serves only live sessions, and every helper degrades
  *  to empty/refuse rather than opening the store. */
 function archiveList(archive) {
@@ -91,7 +92,7 @@ export function createV2Workspace(operations, options) {
     async interrupt(id) { return interruptSession(requireState(id), operations, events); },
     async wait(id) { await Promise.all([...requireState(id).pending]); },
     async remove(id) { return removeWorkspaceSession(operations, states, events, id, () => requireState(id)); },
-    update(id, body) { updateSession(requireState(id), body, events); },
+    async update(id, body) { await updateSession(requireState(id), body, events, options); },
     forms(id) { return pendingForms(requireState(id)); },
     form(id, formID) { const form = getForm(requireState(id), formID); return { ...form.info, state: form.state }; },
     settleForm(id, formID, body, cancel) { return settleForm(requireState(id), formID, body, operations, cancel); },
@@ -175,7 +176,7 @@ async function admitWithModel(context, state, body) {
   const { options, operations } = context;
   // Why the serialized rebind: this runs before every prompt, and it briefly
   // marks the session as selecting a model. Two prompts arriving in the same tick
-  // — two tabs, or the desktop and a phone — made the loser fail with "Wait for
+  // â€” two tabs, or the desktop and a phone â€” made the loser fail with "Wait for
   // the session to become idle before changing its model", a selection it never
   // asked for. The admissions now take turns, which costs an await and keeps the
   // queue-never-reject contract.
@@ -215,7 +216,7 @@ function admitPrompt(state, body, operations, options) {
  *  its composer queue from `session.inbox.list`, and an item that is never
  *  steered and never cancelled would sit in the composer forever. The receipt
  *  keeps the shape an admitted item has; `description` rides only the synthetic
- *  payload, which is the one the client declares it — a user payload is strict
+ *  payload, which is the one the client declares it â€” a user payload is strict
  *  without it. */
 function heldReceipt(state, id, body, synthetic) {
   return { id, sessionID: state.info.id, time: { created: Date.now() }, type: synthetic ? 'synthetic' : 'user',
@@ -228,7 +229,7 @@ function heldReceipt(state, id, body, synthetic) {
  *
  *  Why: a fork replays the parent prefix into the engine silently, so no events
  *  describe those turns. Without this the child's message list was empty even
- *  though its engine held the transcript — a fork looked like a blank session.
+ *  though its engine held the transcript â€” a fork looked like a blank session.
  *  `parentID` travels the same way, so the client can nest the child. */
 function inheritState(state, inherited) {
   if (inherited.parentID) state.info.parentID = inherited.parentID;
@@ -271,7 +272,7 @@ function revertApi(requireState, operations) {
 /** Run one revert step and keep the session's boundary in step with it.
  *
  *  A stage records the boundary so a later commit can name it without the client
- *  repeating it; a clear ends it; a commit keeps it — the taken-back turns stay
+ *  repeating it; a clear ends it; a commit keeps it â€” the taken-back turns stay
  *  hidden after the commit, and the client's history builder reads this exact
  *  field on every reload to keep them hidden on its side too. */
 async function runRevert(state, step, run) {
@@ -338,7 +339,7 @@ function historyPage(state, id, query) {
  *
  *  Compatibility: the client's history builder reads `session.revert.messageID`
  *  from `GET /api/session/:id` and cuts every read past that boundary's
- *  timestamp — live, on reconnect, and on a fresh load. Without the field a
+ *  timestamp â€” live, on reconnect, and on a fresh load. Without the field a
  *  committed revert survives only in the reducer's memory: the server hid the
  *  tail, the GUI un-hid it on the next sync, and a reload showed turns the
  *  operator took back. A missing field and an absent boundary are the same
@@ -414,7 +415,7 @@ function validateMetadata(value) {
   if (typeof value !== 'object' || Array.isArray(value) || Buffer.byteLength(JSON.stringify(value)) > 16_384) throw invalid('metadata must be an object of at most 16384 bytes');
 }
 
-function updateSession(state, body, events) {
+async function updateSession(state, body, events, options) {
   // Security: `permissions` is a real field on this route, and it is refused by
   // name rather than as an unknown one. Permission rules belong to NNA's
   // reviewer governance; accepting a ruleset here would let a caller widen what
@@ -430,6 +431,10 @@ function updateSession(state, body, events) {
     state.info.title = body.title;
     patch.title = body.title;
     events.emit(state, 'session.renamed', { sessionID: state.info.id, title: body.title });
+    // Why the index write: the durable index is what a restart lists and re-opens
+    // with. A rename that stayed in memory reverted to "New session" on the next
+    // boot, which is what the operator saw: the title never stuck.
+    await updateSessionIndex(options.storeRoot, state.info.id, { title: body.title });
   }
   if (body.metadata != null) {
     state.info.metadata = body.metadata;
@@ -485,7 +490,7 @@ function listSessions(states, query) {
     (!query.directory || info.location.directory === query.directory) && (!query.project || info.projectID === query.project)
     && (!query.search || info.title?.toLowerCase().includes(query.search.toLowerCase()))
     // Compatibility: the client's lineage walk selects by `parentID`. The literal
-    // `'null'` selects roots — a session with no parent — and a concrete id selects
+    // `'null'` selects roots â€” a session with no parent â€” and a concrete id selects
     // that parent's children, so a fork tree is walkable either way.
     && (!query.parentID || (query.parentID === 'null' ? !info.parentID : info.parentID === query.parentID))
     && !query.subpath);

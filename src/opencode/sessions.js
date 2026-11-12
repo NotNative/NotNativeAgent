@@ -2,7 +2,7 @@
 // Session operations for the OpenCode surface: one live SessionEngine per
 // OpenChamber session, wired like the headless/plain-text surfaces (canonical
 // ingress only), the per-session wire voice (cadence + prompt queue), and the
-// façade's route-level error vocabulary.
+// faÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ade's route-level error vocabulary.
 import { SessionEngine } from '../engine.js';
 import { ConversationRegistry } from '../engine/conversation-state.js';
 import { CanonicalIngress } from '../ingress.js';
@@ -19,6 +19,7 @@ import { runDesktopSessionRevert, runDesktopSessionUnrevert } from '../desktop-s
 import { runDesktopSessionFork } from '../desktop-session-fork.js';
 import { compactEngineConversation } from '../engine/context-controls.js';
 import { appendSessionIndex } from './session-index.js';
+import { withSessionScope } from './scope-pin.js';
 import { closeSession, removeSession, restoreSession } from './session-lifecycle.js';
 
 // Why: the opencode surface is an authenticated operator surface whose only
@@ -40,7 +41,7 @@ export function createOpenCodeSessionWorkspace(options = {}) {
   workspace.scheduler = options.scheduler;
   // Why one surface-wide conversation registry: every engine the surface
   // attaches joins it, so conversations and their subagents form one
-  // resolvable family — the central-engine shape with the surface as client.
+  // resolvable family ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â the central-engine shape with the surface as client.
   workspace.conversations = new ConversationRegistry();
   // Why merged here: engineOptions reads the caller's options object directly;
   // the surface registry must ride along without every call site threading it.
@@ -106,7 +107,7 @@ function defineWorkspaceOperations(workspace, options) {
 
 /** The engine options one wired session runs with.
  *
- *  Why a builder: these are the surface's engine policy — auto-review with no
+ *  Why a builder: these are the surface's engine policy ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â auto-review with no
  *  permission-card transport, canonical ingress only, and workspace scope fixed
  *  at creation. Keeping them in one place makes that policy readable. */
 function engineOptions({ options, workspace, sessionId, ocId, sessionDirectory, projectID, runtimeDirectory, runtimeConfig, forkIngest = null, observe }) {
@@ -115,7 +116,7 @@ function engineOptions({ options, workspace, sessionId, ocId, sessionDirectory, 
     sessionId,
     surface: SURFACE_NAME,
     // Why: this surface is driven by OpenChamber, whose panel shows the page. It
-    // gets no local browser of its own — Playwright belongs to the TUI, which has
+    // gets no local browser of its own ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Playwright belongs to the TUI, which has
     // no pane to look at. Naming it here rather than inferring it from `surface`
     // is what keeps the pane the only browser a hosted conversation can reach.
     browserSurface: 'none',
@@ -212,7 +213,7 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
   // this is the mutable side the timeline mutation operates on; `sessionId` is
   // the engine identity the journal resolves a boundary against.
   // Why the descriptive fields: the engine's timeline operations (revert, fork)
-  // read the context they are handed — a fork titles its child and places it in
+  // read the context they are handed ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â a fork titles its child and places it in
   // the parent's directory from here, so an absent title produced "undefined-fork"
   // and an absent directory lost the parent's location.
   const timeline = { engine, sessionId, closing: false, liveTurn: null,
@@ -305,7 +306,7 @@ function publishRevert(session, type, properties) {
  *  carry the same id, or its bubble never leaves `status: running`.
  *
  *  Compatibility: `session.compaction.started` / `ended` / `failed` are what
- *  the client's store renders a compaction from — `session.compacted` is only
+ *  the client's store renders a compaction from ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â `session.compacted` is only
  *  the client's own translation of `ended`, and the engine's operator
  *  compaction publishes nothing on any event stream. The summary travels as
  *  `ended`'s `text`, which is what the completed record keeps.
@@ -430,7 +431,8 @@ function turnOperations(workspace, options) {
   return {
     async configure(ocId, manifest, model) {
       const session = requireSession(workspace, ocId);
-      const result = await session.ingress.submit({ version: '1.0', type: 'configuration_update', request_id: newId('oc_config'), manifest }, 'opencode-wire');
+      const update = { version: '1.0', type: 'configuration_update', request_id: newId('oc_config'), manifest: withSessionScope(manifest, session.engine.config) };
+      const result = await session.ingress.submit(update, 'opencode-wire');
       session.wireSession.setModelRef({ providerID: model.providerID, modelID: model.id });
       return result;
     },
@@ -458,18 +460,9 @@ function turnOperations(workspace, options) {
       const session = requireSession(workspace, ocId);
       publishRevert(session, 'session.revert.committed', { sessionID: session.ocId, to: messageID });
     },
-    async messages(ocId) {
-      const session = requireSession(workspace, ocId);
-      return session.wireSession.messages();
-    },
-    prompt(ocId, parts) {
-      const session = requireSession(workspace, ocId);
-      return session.wireSession.prompt(parts);
-    },
-    promptAsync(ocId, parts) {
-      const session = requireSession(workspace, ocId);
-      return session.wireSession.prompt(parts);
-    },
+    async messages(ocId) { return requireSession(workspace, ocId).wireSession.messages(); },
+    prompt(ocId, parts) { return requireSession(workspace, ocId).wireSession.prompt(parts); },
+    promptAsync(ocId, parts) { return requireSession(workspace, ocId).wireSession.prompt(parts); },
     // Why: the operator's stop must release both the active turn (authenticated
     // cancel through the engine ingress) and never-run queued prompts (wire drain).
     cancel(ocId, body = {}) {

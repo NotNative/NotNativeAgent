@@ -42,6 +42,19 @@ export function tokenView(usage = {}) {
   };
 }
 
+/**
+ * The context fill a turn leaves behind: the final model step's window when the
+ * engine reported one, else the turn's cumulative usage as before.
+ *
+ * Why not always the cumulative total: a transcript meter reads the newest reply's
+ * token total as the current context fill. The cumulative usage bills every step's
+ * re-sent prompt, so a multi-step tool-heavy turn reports several times the real
+ * fill, which rendered as a context meter above 100 percent.
+ */
+export function contextFillView(result) {
+  return tokenView(result?.context_usage ?? result?.usage ?? {});
+}
+
 export function publishDurable(state, type, properties) {
   state.seq += 1;
   state.bus.publishSession({ directory: state.directory, project: state.project, sessionID: state.sessionID, type, properties, mirror: true, seq: state.seq });
@@ -132,7 +145,10 @@ export function settleEntry(state, entry, result) {
   entry.assistantContent = typeof result?.text === 'string' ? result.text : '';
   entry.textEnded = nowMs;
   entry.assistantCompleted = nowMs;
-  entry.tokens = tokenView(result?.usage);
+  // Why the step window first: a transcript meter reads the newest reply's total as
+  // the current context fill. The turn's cumulative usage bills every step's
+  // re-sent prompt, so it overstates the fill; the final round-trip is the fill.
+  entry.tokens = contextFillView(result);
   // Why: a cancelled turn settles distinctly from an engine failure; the wire
   // voice labels operator-stopped turns `abort` so OpenChamber can render it.
   entry.finish = result?.outcome === 'completed' ? 'stop'
