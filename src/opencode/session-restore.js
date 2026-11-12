@@ -155,13 +155,14 @@ function seedLedger(records, outcomes) {
           createdAt: record.createdAt ?? null, finish: null, tokens: null, tools: new Map(),
           userKey: randomUUID(), assistantKey: randomUUID(), idleKey: randomUUID(),
         };
-      } else if (current && current.text === null && typeof record.content === 'string') {
-        // Why an ordinal here too: the assistant text arrives as its own journal
-        // record, between the tool records it was written around. Recording its
-        // arrival position is what lets the seed place it between them.
-        current.text = record.content;
-        current.textOrder = current.nextOrder ?? 0;
+      } else if (current && typeof record.content === 'string' && record.content.length > 0) {
+        // Why a segment per record: the journal writes one assistant text per model
+        // step, and a multi-step turn writes prose between its tool calls. Each
+        // record carries an arrival ordinal, which is what the seed interleaves by.
+        current.textSegments = current.textSegments ?? [];
+        current.textSegments.push({ text: record.content, order: current.nextOrder ?? 0 });
         current.nextOrder = (current.nextOrder ?? 0) + 1;
+        if (current.text === null) current.text = record.content;
       }
     } else if (record?.type === 'tool_request' && current) {
       restoreToolRequest(current, record);

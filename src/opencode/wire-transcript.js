@@ -2,7 +2,7 @@
 // Wire transcript synthesis for one session: the message and part shapes a
 // turn is published in, and the settlement frames that close it. Split from
 // `wire-session.js`, which owns the queue, so each file reads as one contract
-// — the events a turn looks like versus the ordering of turns.
+// â€” the events a turn looks like versus the ordering of turns.
 import { newId } from '../ids.js';
 
 export const ZERO_TOKENS = Object.freeze({ total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } });
@@ -92,7 +92,7 @@ export function assistantInfo(state, entry, extra = {}) {
 }
 
 export function userPart(state, entry) {
-  // Compatibility: the v1 vocabulary has no synthetic message type — a
+  // Compatibility: the v1 vocabulary has no synthetic message type â€” a
   // client-supplied briefing rides as a text part flagged `synthetic: true`,
   // which is how gold OpenCode marked one. Without the flag a legacy reader
   // would render a held briefing as operator speech.
@@ -108,8 +108,84 @@ export function textPartOpen(state, entry) {
   return { id: entry.textPartId, messageID: entry.assistantId, sessionID: state.sessionID, type: 'text', text: '', time: { start: entry.textStart } };
 }
 
+/**
+ * One prose segment of a turn: a text part the model wrote before the next tool
+ * call. A multi-step turn writes prose between its calls, so the turn owns several.
+ *
+ * Why segments rather than one accumulated part: the client renders parts in
+ * arrival order, so a single part that grows with every step's prose renders ALL
+ * the prose first and every tool call after it - the pile-up an operator sees. A
+ * part per segment keeps each prose block beside the calls it introduced.
+ */
+export function textSegmentOpen(state, entry, segment) {
+  return { id: segment.id, messageID: entry.assistantId, sessionID: state.sessionID, type: 'text', text: segment.text, time: { start: segment.startedAt } };
+}
+
+export function textSegmentFinal(state, entry, segment) {
+  return { id: segment.id, messageID: entry.assistantId, sessionID: state.sessionID, type: 'text', text: segment.text, time: { start: segment.startedAt, end: segment.endedAt ?? segment.startedAt } };
+}
+
+/**
+ * Open one prose segment of the turn and publish it.
+ *
+ * Why the first segment opens at step start: a turn usually opens with prose, and
+ * the empty part is what the first stream deltas grow. Later segments open when a
+ * delta follows tool activity. Each segment is its own text part, so the client
+ * renders prose blocks beside the tool calls they introduced.
+ */
+export function openTextSegment(state, entry, nowMs = Date.now()) {
+  const segment = { id: newId('prt'), text: '', startedAt: nowMs };
+  entry.textSegments = entry.textSegments ?? [];
+  entry.textSegments.push(segment);
+  entry.textPartId = segment.id;
+  entry.textClosed = false;
+  entry.textStart = entry.textStart ?? nowMs;
+  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textSegmentOpen(state, entry, segment), time: nowMs });
+}
+
 export function textPartFinal(state, entry) {
   return { id: entry.textPartId, messageID: entry.assistantId, sessionID: state.sessionID, type: 'text', text: entry.assistantContent, time: { start: entry.textStart, end: entry.textEnded ?? entry.textStart } };
+}
+
+/**
+ * The final text parts a settled turn publishes: one per prose segment when the
+ * live turn tracked them, else the single accumulated answer as before.
+ */
+export function finalTextSegments(state, entry) {
+  const segments = (entry.textSegments ?? []).filter((segment) => segment.text.length > 0);
+  if (segments.length === 0) return [textPartFinal(state, entry)];
+  return segments.map((segment) => textSegmentFinal(state, entry, segment));
+}
+
+/**
+ * The settled ledger entry a restored turn seeds.
+ *
+ * Why re-stamp here: the seeded tool parts carry only their lifecycle; the wire
+ * identity (assistant message, session) is minted in this entry. The response and
+ * idle marker are built now, so the entry lands fully settled - it must not count
+ * as pending or re-emit its events.
+ */
+export function seededEntry(state, turn) {
+  const entry = {
+    requestId: turn.requestId ?? newId('oc_prompt'),
+    userMessageId: newId('msg'), userPartId: newId('prt'),
+    assistantId: newId('msg'), stepStartId: newId('prt'), textPartId: newId('prt'), stepFinishId: newId('prt'),
+    createdAt: Number.isFinite(turn.createdAt) ? turn.createdAt : Date.now(),
+    assistantCreated: Number.isFinite(turn.createdAt) ? turn.createdAt : Date.now(),
+    assistantCompleted: Number.isFinite(turn.completedAt) ? turn.completedAt : Date.now(),
+    textStart: Number.isFinite(turn.createdAt) ? turn.createdAt : Date.now(),
+    textEnded: Number.isFinite(turn.completedAt) ? turn.completedAt : Date.now(),
+    deltaStart: null, closedAt: Number.isFinite(turn.completedAt) ? turn.completedAt : Date.now(),
+    assistantContent: turn.text, finish: turn.finish ?? 'stop',
+    tokens: turn.tokens ?? ZERO_TOKENS, response: null, aborted: false,
+    toolParts: new Map(), assistantParts: [], retryAnnounced: false, textSegments: [], textClosed: false,
+  };
+  for (const part of turn.tools?.values() ?? []) {
+    entry.assistantParts.push({ ...part, id: `${entry.assistantId}:${part.id}`, messageID: entry.assistantId, sessionID: state.sessionID });
+  }
+  entry.response = buildAssistantResponse(state, entry);
+  entry.idle = idleInfo(state, entry);
+  return entry;
 }
 
 export function stepFinishPart(state, entry) {
@@ -128,11 +204,17 @@ export function buildAssistantResponse(state, entry) {
   // Why an interleaved order rather than tools-then-text: the settle message is
   // what a client renders as the turn's final shape, so a parts array that appends
   // the answer after every call reorders the turn - prose the model wrote between
-  // two calls lands after all of them. Tool parts carry their creation time and the
-  // text carries its start, so the model's own ordering is recoverable from the
-  // parts themselves.
-  const answer = textPartFinal(state, entry);
-  const ordered = [...(entry.assistantParts ?? []), answer].sort((left, right) =>
+  // two calls lands after all of them.
+  //
+  // Why one part per prose segment: a multi-step turn writes prose between its
+  // tool calls, and the client orders parts by arrival. The segments carry their
+  // own start times, so sorting them among the tool parts rebuilds the order the
+  // model produced. A turn whose segments were never tracked (older paths) keeps
+  // the single-part answer as before.
+  const segments = (entry.textSegments ?? []).filter((segment) => segment.text.length > 0)
+    .map((segment) => textSegmentFinal(state, entry, segment));
+  const prose = segments.length > 0 ? segments : [textPartFinal(state, entry)];
+  const ordered = [...(entry.assistantParts ?? []), ...prose].sort((left, right) =>
     (left.time?.start ?? left.time?.created ?? 0) - (right.time?.start ?? right.time?.created ?? 0));
   return {
     info: assistantInfo(state, entry, { completed: entry.assistantCompleted, finish: entry.finish ?? 'error' }),
@@ -153,7 +235,7 @@ export function settleEntry(state, entry, result) {
   // voice labels operator-stopped turns `abort` so OpenChamber can render it.
   entry.finish = result?.outcome === 'completed' ? 'stop'
     : result?.outcome === 'cancelled' ? 'abort' : 'error';
-  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: nowMs });
+  for (const segment of finalTextSegments(state, entry)) publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: segment, time: nowMs });
   publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: nowMs });
   const response = buildAssistantResponse(state, entry);
   publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: response.info });
@@ -167,7 +249,7 @@ export function settleFailure(state, entry) {
   entry.assistantCompleted = nowMs;
   entry.tokens = ZERO_TOKENS;
   entry.finish = 'error';
-  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: nowMs });
+  for (const segment of finalTextSegments(state, entry)) publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: segment, time: nowMs });
   publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: nowMs });
   const response = buildAssistantResponse(state, entry);
   publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: response.info });
@@ -212,7 +294,7 @@ export function settleAbandoned(state, entry) {
   entry.finish = 'abort';
   entry.textEnded = Date.now();
   entry.assistantCompleted = entry.textEnded;
-  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: entry.textEnded });
+  for (const segment of finalTextSegments(state, entry)) publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: segment, time: entry.textEnded });
   publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: entry.textEnded });
   entry.response = buildAssistantResponse(state, entry);
   publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: entry.response.info });

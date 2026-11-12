@@ -19,13 +19,19 @@ export function seedProjectionState(state, turns) {
     const created = Number.isFinite(turn.createdAt) ? turn.createdAt : state.info.time.created ?? Date.now();
     const completed = Number.isFinite(turn.completedAt) ? turn.completedAt : created;
     const user = { id: `msg_${turn.userKey}`, sessionID: state.info.id, type: 'user', time: { created }, text: turn.userText ?? '' };
-    // Why an interleaved order: the journal records the order the model actually
-    // produced - prose between calls, not all calls then all prose. Tools carry an
-    // arrival ordinal from the journal walk, and the answer carries where it landed
-    // among them, so a restored transcript shows the shape the live one did.
-    const answer = { type: 'text', text: turn.text, order: turn.textOrder ?? Number.MAX_SAFE_INTEGER };
-    const parts = [...[...turn.tools?.values() ?? []].map((tool) => ({ ...tool, order: tool.order ?? Number.MAX_SAFE_INTEGER })), answer]
-      .sort((left, right) => left.order - right.order)
+    // Why an interleaved order, and why prose arrives as several parts: the journal
+    // records one assistant text per model step, and a multi-step turn writes prose
+    // between its tool calls. Each tool and each prose segment carries an arrival
+    // ordinal from the journal walk, so a restored transcript shows the shape the
+    // live one did - prose blocks beside the calls they introduced.
+    const prose = (turn.textSegments ?? [])
+      .map((segment) => ({ type: 'text', text: segment.text, order: segment.order }));
+    const legacyAnswer = prose.length === 0 && typeof turn.text === 'string'
+      ? [{ type: 'text', text: turn.text, order: turn.textOrder ?? Number.MAX_SAFE_INTEGER }] : [];
+    const parts = [
+      ...[...turn.tools?.values() ?? []].map((tool) => ({ ...tool, order: tool.order ?? Number.MAX_SAFE_INTEGER })),
+      ...prose, ...legacyAnswer,
+    ].sort((left, right) => left.order - right.order)
       .map(({ order, ...part }) => part);
     const assistant = {
       id: `msg_${turn.assistantKey}`, sessionID: state.info.id, type: 'assistant', agent: 'build', model: state.info.model,

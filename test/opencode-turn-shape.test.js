@@ -84,3 +84,25 @@ test('a restored turn without ordinals still renders, answer last', () => {
   const assistant = [...state.messages.values()].find((message) => message.type === 'assistant');
   assert.deepEqual(assistant.content.map((part) => part.type), ['tool', 'text']);
 });
+
+
+test('a live multi-segment turn interleaves prose and calls as they arrived', () => {
+  // The live flow: a segment opens at step start, a tool call closes it, the next
+  // delta opens a fresh segment. The settle synthesis must keep that shape rather
+  // than collapsing everything into one answer after all calls.
+  const state = baseState();
+  const entry = {
+    assistantId: 'msg_a', stepStartId: 'ss', stepFinishId: 'sf', textPartId: 'tp',
+    textStart: 100, textEnded: 400, assistantCompleted: 400, finish: 'stop', tokens: null,
+    textSegments: [
+      { id: 'seg_1', text: 'Let me read the file.', startedAt: 100 },
+      { id: 'seg_2', text: 'Now the test.', startedAt: 300 },
+    ],
+    assistantParts: [
+      { type: 'tool', id: 'tool_1', name: 'fs_read', time: { created: 200 }, state: { status: 'completed', input: {} } },
+      { type: 'tool', id: 'tool_2', name: 'shell_run', time: { created: 350 }, state: { status: 'completed', input: {} } },
+    ],
+  };
+  const types = buildAssistantResponse(state, entry).parts.map((part) => part.type);
+  assert.deepEqual(types, ['step-start', 'text', 'tool', 'text', 'tool', 'step-finish']);
+});

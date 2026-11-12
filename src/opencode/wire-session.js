@@ -13,7 +13,7 @@ import { PROTOCOL_TOOL_NAMES } from '../tools/core-names.js';
 import { toolSummary, toolDisplayOutput, toolPartState } from './tool-summary.js';
 import {
   ZERO_TOKENS, assistantInfo, buildAssistantResponse, closeTurn, abortPending, currentInfo, idleInfo, publishBare, publishDurable,
-  settleAbandoned, settleEntry, settleFailure, stepStartPart, textPartOpen, closedUserInfo, userPart, userInfo, tokenView,
+  settleAbandoned, settleEntry, settleFailure, stepStartPart, textSegmentOpen, openTextSegment, closedUserInfo, userPart, userInfo, tokenView, seededEntry,
 } from './wire-transcript.js';
 
 const QUEUE_LIMIT = 64;
@@ -114,10 +114,16 @@ function observeEngineRecord(state, record) {
     return;
   }
   if (record?.type === 'stream_delta' && state.active) {
+    // Why a segment here: prose that follows tool calls is a new block. One text
+    // part for the whole turn renders every prose block first and all the tool
+    // calls after it, because the client orders parts by arrival.
+    if (state.active.textClosed === true) openTextSegment(state, state.active);
     publishBare(state, 'message.part.delta', {
       sessionID: state.sessionID, messageID: state.active.assistantId, partID: state.active.textPartId,
       field: 'text', delta: record.text ?? '',
     });
+    const segment = state.active.textSegments?.at(-1);
+    if (segment) segment.text += record.text ?? '';
     if (state.active.deltaStart === null) state.active.deltaStart = Date.now();
     return;
   }
@@ -159,6 +165,10 @@ function observeToolStatus(state, record) {
     part = { id: newId('prt'), messageID: state.active.assistantId, sessionID: state.sessionID,
       type: 'tool', name: record.tool, time: { created: nowMs }, state: null };
     state.active.toolParts.set(key, part);
+    // Why the close here: a tool call ends the prose block the model wrote before
+    // it. The next stream delta opens a fresh text segment, so the transcript keeps
+    // prose and calls in the order the model produced them.
+    state.active.textClosed = true;
   }
   const previous = part.state;
   const status = record.status;
@@ -389,8 +399,9 @@ function emitTurnStarted(state, entry) {
   publishDurable(state, 'session.updated', { sessionID: state.sessionID, info: currentInfo(state) });
   publishBare(state, 'session.diff', { sessionID: state.sessionID, diff: [] });
   publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepStartPart(state, entry), time: nowMs });
-  publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartOpen(state, entry), time: nowMs });
+  openTextSegment(state, entry, nowMs);
 }
+
 
 function createEntry(state, text) {
   return {
@@ -401,6 +412,7 @@ function createEntry(state, text) {
     textStart: null, textEnded: null, deltaStart: null, closedAt: null,
     assistantContent: '', finish: null, tokens: ZERO_TOKENS, response: null, aborted: false,
     toolParts: new Map(), assistantParts: [], retryAnnounced: false,
+    textSegments: [], textClosed: false,
   };
 }
 
@@ -434,27 +446,7 @@ function seedHistory(state, turns) {
   let seeded = 0;
   for (const turn of turns.slice(-HISTORY_LIMIT)) {
     if (!turn || typeof turn.text !== 'string') continue;
-    const entry = {
-      requestId: turn.requestId ?? newId('oc_prompt'),
-      userMessageId: newId('msg'), userPartId: newId('prt'),
-      assistantId: newId('msg'), stepStartId: newId('prt'), textPartId: newId('prt'), stepFinishId: newId('prt'),
-      createdAt: Number.isFinite(turn.createdAt) ? turn.createdAt : Date.now(),
-      assistantCreated: Number.isFinite(turn.createdAt) ? turn.createdAt : Date.now(),
-      assistantCompleted: Number.isFinite(turn.completedAt) ? turn.completedAt : Date.now(),
-      textStart: Number.isFinite(turn.createdAt) ? turn.createdAt : Date.now(),
-      textEnded: Number.isFinite(turn.completedAt) ? turn.completedAt : Date.now(),
-      deltaStart: null, closedAt: Number.isFinite(turn.completedAt) ? turn.completedAt : Date.now(),
-      assistantContent: turn.text, finish: turn.finish ?? 'stop',
-      tokens: turn.tokens ?? ZERO_TOKENS, response: null, aborted: false,
-      toolParts: new Map(), assistantParts: [], retryAnnounced: false,
-    };
-    // Why re-stamp here: the seeded tool parts carry only their lifecycle; the
-    // wire identity (assistant message, session) is minted in this entry.
-    for (const part of turn.tools?.values() ?? []) {
-      entry.assistantParts.push({ ...part, id: `${entry.assistantId}:${part.id}`, messageID: entry.assistantId, sessionID: state.sessionID });
-    }
-    entry.response = buildAssistantResponse(state, entry);
-    entry.idle = idleInfo(state, entry);
+    const entry = seededEntry(state, turn);
     if (entry.requestId) state.requestIdByMessage.set(entry.userMessageId, entry.requestId);
     state.ledger.push(entry);
     seeded += 1;
