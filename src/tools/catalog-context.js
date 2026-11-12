@@ -6,9 +6,24 @@ import { FOUNDATIONAL_TOOL_NAMES, INTERNAL_TOOL_NAMES, LEGACY_PROVIDER_TOOL_NAME
 const MAX_NAMES = 512;
 const MAX_BYTES = 15 * 1024;
 
-export function toolCatalogContext(registrySnapshot, providerDefinitions) {
-  const loaded = new Set(providerDefinitions.map((item) => item.function?.name).filter(Boolean));
-  const available = [...new Set(registrySnapshot.map((item) => item.name).filter((name) => name && !loaded.has(name)))]
+/**
+ * The discovery catalog a step shows.
+ *
+ * Why the catalog no longer subtracts the loaded surface: it used to list "names
+ * whose schemas are not loaded in this step", so every `tool_search` moved a name
+ * from the catalog into the loaded set and rewrote the text mid-turn. The catalog
+ * sits before the transcript, so each rewrite invalidated the provider's prefix
+ * cache from that point - a tool-heavy turn re-billed its whole context at full
+ * price every step (a measured turn billed 860k input tokens with a 0.0% cache hit).
+ * The catalog is now the full installed list, stable for a turn; the loaded surface
+ * is visible to the model in its `tools` array, and `tool_search` stays the loader.
+ *
+ * Why a caller-supplied snapshot instead of reading the registry live: the text must
+ * be byte-identical across every step of a turn. Taking it once at turn start makes
+ * "the catalog changed mid-turn" impossible by construction rather than by discipline.
+ */
+export function toolCatalogContext(registrySnapshot, _providerDefinitions = []) {
+  const available = [...new Set(registrySnapshot.map((item) => item.name).filter(Boolean))]
     .sort(compareNames);
   if (available.length === 0) return null;
   const names = boundedNames(available);
@@ -16,10 +31,10 @@ export function toolCatalogContext(registrySnapshot, providerDefinitions) {
   const omitted = available.length - names.length;
   const suffix = omitted > 0 ? `\n${omitted} additional installed tool names were omitted from this bounded catalog.` : '';
   return [
-    'Additional installed tool names whose schemas are not loaded in this step:',
+    'Installed tool names. A name whose schema is already in this step\'s tools needs no loading:',
     JSON.stringify(names),
     `Catalog tiers (classification only; no tier grants authority): ${JSON.stringify(tiers)}`,
-    'Use tool_search with an exact name to load or renew its schema. A workflow lease controls schema visibility; every call still requires mandatory review.',
+    'Use tool_search with an exact name to load a schema not in this step\'s tools. A workflow lease controls schema visibility; every call still requires mandatory review.',
   ].join('\n') + suffix;
 }
 

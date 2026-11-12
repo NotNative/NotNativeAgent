@@ -46,6 +46,8 @@ import { turnFinishDefinition } from './tools/turn-completion.js';
 import { questionDefinition } from './tools/question.js';
 import { logicalLines, replaceLineRange } from './tools/text-edit-helpers.js';
 import { planProviderToolNames } from './tools/provider-surface-planner.js';
+import { sessionRankedToolNames } from './tools/tool-rank.js';
+import { FOUNDATIONAL_TOOL_NAMES } from './tools/core-names.js';
 import { consumeWorkflowLease, grantWorkflowLeases } from './tools/workflow-leases.js';
 import { objectSchema } from './tools/schema.js';
 import { deepFreeze } from './values.js';
@@ -62,6 +64,7 @@ export class ToolRegistry {
   #workflowLeases = new Map();
   #readReceipts = new ReadReceiptLedger();
   #references = new ReferenceStore();
+  #sessionRankedNames = [];
   #changes;
   constructor(workspaceRoot, options = {}) {
     this.enabled = options.enabled !== false;
@@ -69,6 +72,8 @@ export class ToolRegistry {
     // `none` is real: the OpenChamber surface drives the pane, not a local browser.
     this.browserSurface = ['desktop', 'none'].includes(options.browserSurface) ? options.browserSurface : 'playwright';
     this.allowedTools = Array.isArray(options.allowedTools) ? new Set(options.allowedTools) : null;
+    // Ranked specialists from ledger evidence, frozen for the session; discovery priority only.
+    this.#sessionRankedNames = Object.freeze(sessionRankedToolNames({ ...options.sessionRankedOptions, root: options.sessionRankedOptions?.root ?? null, exclude: FOUNDATIONAL_TOOL_NAMES }));
     this.#workspaceIdentityGuard = workspaceIdentityGuard(options.workspaceIdentityCheck);
     this.paths = new PathPolicy(workspaceRoot, { boundedToWorkspace: options.boundedToWorkspace, protectedRoots: [userDataPaths().root] });
     this.#changes = new FileChangeLedger(this.paths.inputRoot);
@@ -79,8 +84,7 @@ export class ToolRegistry {
     this.browserManager = options.browserManager; this.secretBroker = options.secretBroker; this.sessionId = options.sessionId;
     this.observeImage = options.observeImage; this.imageMaxBytes = options.imageMaxBytes;
     this.browserRoot = options.browserRoot ?? join(userDataPaths().root, 'runtime', 'browser', options.sessionId ?? 'standalone');
-    this.managedPlaywrightRoot = options.managedPlaywrightRoot ?? userDataPaths().managedPlaywright;
-    this.lspConfigPath = options.lspConfigPath ?? join(userDataPaths().config, 'lsp.json');
+    this.managedPlaywrightRoot = options.managedPlaywrightRoot ?? userDataPaths().managedPlaywright; this.lspConfigPath = options.lspConfigPath ?? join(userDataPaths().config, 'lsp.json');
     this.lspSpawnProcess = options.lspSpawnProcess;
     this.skills = options.skillRegistry;
     this.diagnosticContext = options.diagnosticContext;
@@ -164,7 +168,7 @@ export class ToolRegistry {
     }]));
     const plan = planProviderToolNames({
       availableNames: callable.map((item) => item.name), workflowLeaseNames: this.#workflowLeases.keys(),
-      allowedNames: this.allowedTools,
+      allowedNames: this.allowedTools, sessionRankedNames: this.#sessionRankedNames,
       encodedDefinition: (name) => Buffer.byteLength(JSON.stringify(projected.get(name)), 'utf8'),
     });
     const definitions = Object.freeze(plan.names.map((name) => Object.freeze(projected.get(name))));
@@ -175,11 +179,8 @@ export class ToolRegistry {
       selectionContextBytes: Buffer.byteLength(selectionContext, 'utf8'),
       selectionContextFingerprint: createHash('sha256').update(selectionContext).digest('hex'),
     };
-    return Object.freeze({
-      definitions,
-      receipt: Object.freeze({ ...receiptCore, fingerprint: createHash('sha256')
-        .update(JSON.stringify(receiptCore)).digest('hex') }),
-    });
+    return Object.freeze({ definitions,
+      receipt: Object.freeze({ ...receiptCore, fingerprint: createHash('sha256').update(JSON.stringify(receiptCore)).digest('hex') }) });
   }
   search(query, limit = 12) {
     return rankToolDefinitions(this.snapshot(), query, limit);
@@ -189,8 +190,7 @@ export class ToolRegistry {
   changeSnapshot() { return this.#changes.snapshot(); }
   prepareWorkspaceRoot(root) { return this.paths.prepareWorkspaceRoot(root); }
   commitWorkspaceRoot(prepared) {
-    this.paths.commitWorkspaceRoot(prepared);
-    this.#changes.rebase(prepared.root);
+    this.paths.commitWorkspaceRoot(prepared); this.#changes.rebase(prepared.root);
     if (this.subagentControl) this.subagentControl.workspaceRoot = prepared.root;
   }
   grantWorkflowLease(names, options = {}) {

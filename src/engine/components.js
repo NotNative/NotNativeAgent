@@ -136,6 +136,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     administrator: administratorAdapter(engine, options),
     enabled: toolsAllowed(engine.config.executionManifest),
     allowedTools: engine.config.executionManifest?.allowedTools,
+    sessionRankedOptions: rankedSessionOptions(engine),
     webSearchConfigPath: options.webSearchConfigPath ?? engine.dataPaths.webSearchConfig ?? userDataPaths().webSearchConfig,
     webSearchClient: options.webSearchClient,
     webFetchConfigPath: options.webFetchConfigPath ?? engine.dataPaths.webFetchConfig ?? userDataPaths().webFetchConfig,
@@ -254,8 +255,8 @@ function sameRecoveryRoot(left, right) {
 /** Which browser this conversation drives.
  *
  *  Why explicit rather than derived from `surface`: they answer different
- *  questions. `surface` describes how the conversation talks to the operator — a
- *  hosted chat still takes mid-turn questions, so it reports interactive_tui —
+ *  questions. `surface` describes how the conversation talks to the operator â€” a
+ *  hosted chat still takes mid-turn questions, so it reports interactive_tui â€”
  *  while this says which browser it drives. Conflating them gave the OpenChamber
  *  surface the TUI's headless browser beside the pane already on screen.
  */
@@ -264,8 +265,12 @@ function browserSurfaceFor(options) {
   return ['desktop', 'desktop_subagent'].includes(options.surface) ? 'desktop' : 'playwright';
 }
 
-function browserToolOptions(engine, options, imageObserver) {
-  const defaults = engine.dataPaths.root ? engine.dataPaths : userDataPaths();
+/** The reviewer-ledger root the session rank reads; one directory scan at start. */
+function rankedSessionOptions(engine) {
+  return { root: engine.dataPaths.reviewerLedger ?? userDataPaths().reviewerLedger };
+}
+
+function browserToolOptions(engine, options, imageObserver) {  const defaults = engine.dataPaths.root ? engine.dataPaths : userDataPaths();
   return {
     browserManager: options.browserManager,
     browserRoot: join(engine.dataPaths.root ?? defaults.root, 'runtime', 'browser', engine.sessionId),

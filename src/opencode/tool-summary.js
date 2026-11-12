@@ -7,7 +7,7 @@
  * produced" under each. The information a reader wants is what was touched and how
  * it went, and the engine already computes that for its own journal.
  *
- * Security: this publishes *derived* facts — a safe target, a status, an exit code,
+ * Security: this publishes *derived* facts - a safe target, a status, an exit code,
  * a duration, a count. It never publishes a tool's arguments or its result text.
  * Those can carry a credential or retrieved page content, and a transcript is fed
  * back to the model on the next turn, so echoing them there would let retrieval
@@ -27,8 +27,8 @@ const MAX_OUTPUT_LENGTH = 4_096;
  *
  * Security: this is display-only by construction. The wire transcript is a display
  * surface; the model's context is built from the engine journal (`buildPromptCommand`),
- * which never reads these parts. The text passes `redactText` — the same credential
- * scrubbing the journal applies — so a secret that appeared in a command's output
+ * which never reads these parts. The text passes `redactText` - the same credential
+ * scrubbing the journal applies - so a secret that appeared in a command's output
  * does not reach the operator's screen or a client's persisted session copy either.
  * A client may show it on request; nothing feeds it back to a model.
  *
@@ -90,7 +90,7 @@ const RUNNING = new Set(['review_pending', 'approved', 'running']);
  * Why the summary lives in `input`: a client labels the row from the call's input
  * and metadata, so an empty input is what rendered a turn as a column of bare tool
  * names with "No output produced" under each. `target` is the journal's already
- * redacted description of what was touched — a path or a command — never the
+ * redacted description of what was touched - a path or a command - never the
  * arguments themselves.
  *
  * Why output under `metadata.output`: the v2 tool-state schema is closed at the top

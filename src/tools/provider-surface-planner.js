@@ -6,7 +6,7 @@ export const PROVIDER_TOOL_LIMITS = Object.freeze({ count: 32, bytes: 64 * 1024 
 
 export function planProviderToolNames({
   availableNames = [], workflowLeaseNames = [], allowedNames = null,
-  encodedDefinition,
+  sessionRankedNames = [], encodedDefinition,
 }) {
   const available = new Set(availableNames);
   if (allowedNames) {
@@ -22,6 +22,11 @@ export function planProviderToolNames({
     if (protect) protectedNames.add(name);
   };
   for (const name of FOUNDATIONAL_BASELINE) add(name, 'foundational', true);
+  // Why before leases: the ranked set is this session's opening hand, computed once
+  // from ledger evidence. It loads alongside the baseline and is as protected as it -
+  // a session's loaded surface is static, so nothing added here can be displaced
+  // mid-session by capacity pressure from later selections.
+  for (const name of sessionRankedNames) add(name, 'session_ranked', true);
   // Why: a committed workflow lease is a provider-surface guarantee. Capacity is checked
   // before the lease is committed, so silently dropping it here would violate that contract.
   for (const name of workflowLeaseNames) add(name, 'workflow_lease', true);
