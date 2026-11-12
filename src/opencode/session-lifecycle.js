@@ -5,8 +5,10 @@
 // is the one `createOpenCodeSessionWorkspace` builds.
 import { ContractError, newId, requireExternalId } from '../ids.js';
 import { projectIdentifier } from './registry.js';
-import { removeSessionIndex } from './session-index.js';
+import { removeSessionIndex, tombstoneJournalName } from './session-index.js';
 import { seedSessionHistory } from './session-restore.js';
+import { rename } from 'node:fs/promises';
+import { join } from 'node:path';
 
 /** Surface-stop close: shuts the engine down and releases its lock without
  *  deleting anything.
@@ -31,9 +33,13 @@ export async function removeSession(workspace, options, ocId) {
   const directory = session.directory ?? '';
   const result = await closeSession(workspace, ocId);
   // Why: a client delete must remove the durable identity too, or the next
-  // boot would restore the deleted conversation. The journal stays — deletion
-  // of the transcript is the engine's own recovery semantics.
+  // boot would restore the deleted conversation. The journal stays but is
+  // tombstoned (renamed out of the discovery pattern) — deletion of the
+  // transcript is the engine's own recovery semantics, while discovery must
+  // never re-adopt a conversation the operator explicitly deleted.
   await removeSessionIndex(options.storeRoot, ocId).catch(() => undefined);
+  await tombstoneSessionJournal(options, session).catch((error) =>
+    options.logger?.record({ type: 'opencode_session_tombstone_failed', ocId, code: error.code ?? 'tombstone_failed' }));
   workspace.bus.publishSession({
     directory,
     project: projectIdentifier(directory),
@@ -42,6 +48,23 @@ export async function removeSession(workspace, options, ocId) {
     properties: { sessionID: ocId },
   });
   return result;
+}
+
+/** Rename a deleted session's journal out of the discovery pattern.
+ *
+ *  Why a rename and not a delete: the engine's recovery semantics keep journal
+ *  content on disk; a tombstone keeps that while making discovery skip it. Why
+ *  the sessionId is read from the timeline: the session record is already
+ *  closed and removed from the registry by the time this runs, so the engine
+ *  identity only exists on the timeline snapshot taken at close. */
+async function tombstoneSessionJournal(options, session) {
+  if (!options.storeRoot) return;
+  const sessionId = session?.timeline?.sessionId;
+  if (typeof sessionId !== 'string' || !sessionId.startsWith('session_')) return;
+  await rename(
+    join(options.storeRoot, `${sessionId}.journal.ndjson`),
+    join(options.storeRoot, tombstoneJournalName(sessionId)),
+  );
 }
 
 /** Re-open a durable journal under its recorded wire identity.

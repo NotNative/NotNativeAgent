@@ -9,10 +9,10 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { appendSessionIndex, readSessionIndex, updateSessionIndex, removeSessionIndex } from '../src/opencode/session-index.js';
+import { appendSessionIndex, readSessionIndex, updateSessionIndex, removeSessionIndex, discoverUnindexedSessions, tombstoneJournalName } from '../src/opencode/session-index.js';
 
 const identity = (ocId, title = 'New session') => ({ ocId, sessionId: `session_${ocId}`, title, directory: 'D:\\x', createdAt: 1 });
 
@@ -59,5 +59,17 @@ test('a removal takes the whole identity with it', async () => {
   await removeSessionIndex(root, 'ses_a');
   const records = await readSessionIndex(root);
   assert.deepEqual(records.map((record) => record.ocId), ['ses_b']);
+  await rm(root, { recursive: true, force: true });
+});
+
+test('a tombstoned journal is never rediscovered as a live session', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-index-'));
+  // A deleted session's journal: index entry removed, journal tombstoned.
+  await writeFile(join(root, `${tombstoneJournalName('session_dead')}`), '{}\n', 'utf8');
+  // An orphaned live journal with no index entry: discovery must adopt it.
+  await writeFile(join(root, 'session_live.journal.ndjson'),
+    `${JSON.stringify({ type: 'session_created', payload: { workspaceRoot: 'D:\\x' } })}\n`, 'utf8');
+  const discovered = await discoverUnindexedSessions(root, []);
+  assert.deepEqual(discovered.map((entry) => entry.sessionId), ['session_live']);
   await rm(root, { recursive: true, force: true });
 });

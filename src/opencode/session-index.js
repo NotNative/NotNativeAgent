@@ -102,6 +102,13 @@ function validRecord(record) {
     && typeof record.sessionId === 'string' && record.sessionId.startsWith('session_');
 }
 
+/** The name a deleted session's journal takes. Why a rename and not a delete:
+ *  the engine's recovery semantics keep journal content on disk; discovery just
+ *  must never re-adopt a conversation the operator explicitly deleted. */
+export function tombstoneJournalName(sessionId) {
+  return `${sessionId}.journal.deleted`;
+}
+
 /** Journals in the store root that no index entry claims.
  *
  *  Why discovery: sessions created before the index existed left durable
