@@ -1,6 +1,6 @@
 # OpenCode protocol compatibility
 
-NNA's `nna opencode` service targets the OpenCode **2.2.5** client contract used
+NNA's `nna opencode` service targets the OpenCode **2.x** client contract used
 by OpenChamber. NNA implements an independent compatibility surface over its own
 session engine. The reported version identifies that protocol target, not an
 installed OpenCode runtime. NNA's product version remains separate.
@@ -11,13 +11,13 @@ The installed OpenChamber desktop build gates the surface on one rule: the
 reported version must be a `2.x` release at or above its
 `MINIMUM_OPENCODE_VERSION` of `2.2.4`. A future major is refused outright, so
 `3.x` is not an option, and a lower version makes the whole surface unreachable.
-The desktop build pins `@opencode/client` and `@opencode/schema` at `2.2.5`, so
-that is the version NNA reports; `2.2.4` is the floor it must never report
-below. `src/opencode/version.js` holds both numbers and
-`test/opencode-v2.test.js` asserts the rule rather than a literal, so a future
-bump cannot silently make the surface unreachable.
 
-Reporting the target is not a claim that every 2.2.5 operation is implemented.
+The reported version is resolved per serve boot from npm's `@opencode/cli`
+`latest` dist-tag and falls back to `2.2.7` when the registry cannot answer;
+`src/opencode/version.js` holds the rule and
+`test/opencode-v2.test.js` asserts it rather than a literal, so a future bump cannot silently make the surface unreachable.
+
+Reporting the target is not a claim that every 2.x operation is implemented.
 Unsupported operations fail explicitly with a tagged error, as recorded under
 Boundaries below.
 
@@ -31,8 +31,9 @@ Research and contract capture date: 2026-10-02.
 - [Official JavaScript client](https://opencode.ai/v2/docs/planning/client), tested with
   the published `@opencode/client@2.2.5` package.
 - [OpenChamber v2 announcement](https://openchamber.dev/blog/opencode-v2/).
-- The installed OpenChamber desktop build (2.6.1), whose bundled
-  `compatibility.js` defines the accepted version range read above.
+- The installed OpenChamber desktop build (2.7.0 as of 2026-11-12), whose bundled
+  `compatibility.js` defines the accepted version range read above and whose
+  `packages/web/server/lib/opencode/` defines the spawn contract below.
 
 The `agustif/opencode-v2` repository is an older third-party fork, not the
 reference for this migration. No external agent implementation code was copied.
@@ -109,7 +110,7 @@ A caller that needs an operation outside this list receives a tagged
 `InvalidRequestError`, never a silent success or an empty result that reads as
 "nothing happened".
 
-Implemented at the 2.2.5 target: discovery, location, projects, configuration,
+Implemented at the 2.x target: discovery, location, projects, configuration,
 the model/provider/integration catalogs, session create/list/get/patch/delete
 including archive and restore, text prompts with client IDs and queued
 admission, synthetic continuation prompts, inbox reads, wait, interrupt, viewed
@@ -512,7 +513,7 @@ which `normalizeProvider` refused as an unknown key. `/api/model`, `/api/agent`,
 `/api/config` and `/api/provider` all failed, so the composer would have had no
 models, agents or provider at all, while the whole suite was green.
 
-Verified live after the fix: `/api/info` 200 with `version: 2.2.5`, and
+Verified live after the fix: `/api/info` 200 with the resolved protocol version, and
 `/api/model`, `/api/agent`, `/api/config`, `/api/provider`, `/api/project` all 200.
 Session creation returns 200 with a `ses_` id.
 
@@ -647,25 +648,16 @@ settings are rejected. OpenChamber controls which edit/reset buttons it renders.
 Its current Disconnect action removes credentials and retains profile
 configuration; implementing a removal route does not add a new UI control.
 
-The existing wire-session lifetime is retained: projections and queued inputs are
-process-local. Engine journals follow NNA's persistence configuration, but this
-adapter does not reopen its session catalog or replay queued prompts after service
-restart. Event sequence metadata follows the v2 wire shape; it does not add a
-crash-replay guarantee. The v2 event stream is live-only. Reconnects must fetch
-session, message, active-session and pending-form snapshots.
-
-Measured across an actual restart on the same data roots: a session that had
-`user, assistant, idle` before the stop listed zero sessions afterwards, and its
-id answered `404 SessionNotFoundError`. A new session on the same roots then
-prompted normally, so the store is healthy and only the catalog is not reopened.
-
-This is a deliberate boundary, not a hidden absence: NNA itself can rehydrate a
-transcript (`restoreSessionRecords` feeds the engine's own restore path), and
-`SessionDataManager` lists stored sessions for the console. Reopening them here
-would be a feature with its own questions — which sessions a GUI should adopt,
-and what an adopted session's wire history contains — so it is left out rather
-than half-built. An operator who needs earlier work creates a session and reuses
-the transcripts NNA already keeps.
+The wire-session lifetime is durable. Engine journals persist under the
+surface's dedicated session store, and a boot-time restore re-opens every
+journaled conversation: the session list, its titles, its archive decisions, and
+its seeded transcripts survive a restart. Deleting a session in OpenChamber
+removes it permanently, including its journal; a deleted session's journal is
+tombstoned so session discovery never re-adopts it. The v2 event stream itself
+is live-only. Reconnects must fetch session, message, active-session and
+pending-form snapshots; an earlier design that listed zero sessions after a
+restart was replaced by the durable index, and the historical measurement below
+describes that superseded behaviour.
 
 Verified against a live service with a real provider:
 
@@ -687,6 +679,32 @@ prompt does not consume a queue slot. The legacy message endpoint exposes only
 that recent in-process history.
 Slow event consumers are disconnected rather than accumulating an unbounded queue.
 
+## Spawn contract: OpenChamber runs NNA as its OpenCode
+
+Beyond the detached service, OpenChamber can spawn NNA directly, the way it
+spawns its own `opencode.exe`. The contract NNA satisfies:
+
+1. **Version preflight.** `nna --version` answers the resolved protocol version
+   (a `2.x` semver at or above `2.2.4`), not the product version, whenever the
+   binary is addressed as a spawn target.
+2. **Spawn argv.** OpenChamber runs `nna.cmd serve --stdio --hostname H --port P`
+   on Windows. Bare `serve` is the foreground runtime; `--stdio` holds stdin as
+   a stop lease.
+3. **Stdout handshake.** One line `opencode server listening on <url>`.
+4. **Stdin lease.** Closing stdin stops the child cleanly, including removing
+   its runtime PID record.
+5. **Host credential.** A spawned child serves with the password OpenChamber
+   generated (`OPENCODE_PASSWORD` or `OPENCODE_SERVER_PASSWORD`), never the
+   stored config password, or the host would answer every request with 401.
+
+The switch is `nna opencode enable`: it records the NNA launcher in the host's
+spawn environment (`OPENCODE_BINARY`) and clears the attach-mode variables
+(`OPENCODE_SKIP_START`, `OPENCODE_HOST`, `OPENCODE_SERVER_PASSWORD`,
+`OPENCODE_SERVER_USERNAME`) so the host spawns rather than attaches.
+`nna opencode disable` removes the switch. `start`/`stop` continue to exist for
+the detached service mode; a spawned child writes no PID record because its
+lifetime belongs to the host.
+
 ## Verification and activation
 
 Run `node --test test/opencode-v2.test.js` for local schema, lifecycle, invalid-input,
@@ -703,7 +721,9 @@ of its `dist/promise/index.js`, then run the same test command. This enables the
 official-client discovery, directory-header, event, prompt, history and deletion
 test without adding a production dependency or downloading code during tests.
 
-After installing the updated NNA build, restart the compatibility service with
-`nna opencode stop` followed by `nna opencode start`, then reconnect OpenChamber.
+After installing the updated NNA build, restart the surface: in spawn mode,
+close and relaunch OpenChamber (it spawns the new binary itself); in detached
+mode, run `nna opencode stop` followed by `nna opencode start`, then reconnect
+OpenChamber.
 Repository tests do not establish that an already-running installed service was
 updated, or that every OpenChamber UI feature is supported.

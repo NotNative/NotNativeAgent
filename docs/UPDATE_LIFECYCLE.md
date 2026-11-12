@@ -49,8 +49,11 @@ The OpenChamber binding is never stored in the user profile and never acted on b
 start is the service alone. `start` reports the binding (`OPENCODE_HOST`,
 `OPENCODE_SKIP_START`, and the generated credential) only as a description of what
 an operator may hand to a client they launch themselves, alongside
-`openchamber: { launched: false, reason: 'manual_launch_required' }`. `enable`
-installs only the login script that runs `opencode start` again. An upgraded
+`openchamber: { launched: false, reason: 'manual_launch_required' }`. In spawn
+mode, `enable` also records the NNA launcher as the host's OpenCode
+(`OPENCODE_BINARY`) and clears the attach-mode binding names, so OpenChamber
+spawns NNA instead of attaching; the login script and that switch are removed
+together by `disable`. An upgraded
 installation whose profile still carries a binding written by an earlier build
 clears it on the next `opencode stop`, and the ownership comparison keeps a
 binding that another product has changed.

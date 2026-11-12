@@ -124,8 +124,8 @@ deactivate ROOT` removes only a matching registered root. The desktop installers
 require an installed NNA before copying the GUI package, activate it after
 building, and deactivate it before uninstalling when NNA remains available.
 During source development, they can first offer to run this repository's own
-NNA installer (the desktop GUI is parked on branch `desktop/parked`, so a
-revived tree must be restored there first); unattended
+NNA installer (the desktop GUI subtree is retired from the working tree, so a
+revived tree must be rebuilt from repository history first); unattended
 bootstrap requires explicit opt-in.
 A desktop service process may run separately for NNA supervision, but the desktop is not
 an independently installed agent runtime.

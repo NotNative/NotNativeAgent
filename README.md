@@ -21,14 +21,11 @@ The desktop GUI is one of NNA's own surfaces. It has no separate product name an
 no separate release identity. See
 [ADR 0073](docs/architecture/0073-desktop-surface-identity.md).
 
-**Parked.** The `desktop/` subtree is removed from the working tree and preserved
-on branch [`desktop/parked`](/desktop/parked); every file is intact there, and the
-root backend (`src/desktop-*.js`), its suites, and the payload contract remain on
-main and stay tested. Restore it with
-`git checkout desktop/parked -- desktop/` (and re-run `npm run graph:build` +
-`node scripts/quality-gates.js`), or merge the branch back to resume the effort.
-`scripts/bump-version.js` stamps the desktop mirrors again automatically once
-`desktop/VERSION` and `desktop/package.json` exist.
+**Parked.** The `desktop/` subtree has been removed from the working tree and its
+former preservation branch is retired; the root backend (`src/desktop-*.js`), its
+suites, and the payload contract remain on main and stay tested. The retired
+branch was fully merged before deletion, so no desktop GUI subtree exists to
+restore without rebuilding it from history.
 
 ## Getting started
 
@@ -89,6 +86,51 @@ managed runtimes and all home-scoped session/configuration data.
 Remove NNA with `nna uninstall`. A directly attached operator must complete a randomized
 confirmation challenge; agents, scripts, redirected input, and flags cannot authorize
 removal. The operator can retain or permanently delete `~/.nna`.
+
+## Using NNA as OpenChamber's OpenCode
+
+NNA can serve as the OpenCode runtime behind
+[OpenChamber](https://openchamber.dev/), presenting NNA's session engine through
+the OpenCode 2.x API that OpenChamber drives. See
+[the protocol document](docs/OPENCODE_PROTOCOL.md) for the full compatibility
+contract.
+
+Two integration modes exist:
+
+**Spawned (recommended).** OpenChamber starts and stops NNA itself, the way it
+starts its own OpenCode. Run once to point the host at NNA:
+
+```sh
+nna opencode enable
+```
+
+This records the NNA launcher in the host's spawn environment and clears any
+attach-mode variables from an earlier setup. After that, simply start
+OpenChamber: it runs `nna opencode serve --stdio --hostname <host> --port <port>`
+as its OpenCode child, and closing OpenChamber stops NNA with it. To return
+OpenChamber to its bundled OpenCode, run `nna opencode disable`.
+
+**Detached service.** NNA runs on its own and OpenChamber attaches to it:
+
+```sh
+nna opencode start    # detached managed service
+nna opencode stop     # stop it
+nna opencode status   # runtime and wiring state
+```
+
+In this mode NNA publishes the OpenChamber binding (`OPENCODE_HOST`,
+`OPENCODE_SERVER_PASSWORD`, `OPENCODE_SKIP_START`) so a launch of OpenChamber
+attaches to the running service. `enable` also installs a sign-in script that
+starts the detached service at login; `disable` removes it.
+
+Sessions persist across restarts in both modes: the conversation list, titles,
+archive state, and transcripts are stored durably and restored at the next boot.
+Deleting a session in OpenChamber removes it permanently, including its journal.
+
+Provider setup for this surface is separate from the Console's provider
+configuration: connect API keys in OpenChamber's own provider settings, which
+writes an OpenCode-format configuration NNA reads. Credentials are stored in an
+isolated encrypted vault and bound to the endpoint where they were connected.
 
 ## Operator responsibility
 
