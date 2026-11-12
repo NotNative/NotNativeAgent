@@ -112,11 +112,18 @@ export function idleInfo(state, entry) {
 }
 
 export function buildAssistantResponse(state, entry) {
+  // Why an interleaved order rather than tools-then-text: the settle message is
+  // what a client renders as the turn's final shape, so a parts array that appends
+  // the answer after every call reorders the turn - prose the model wrote between
+  // two calls lands after all of them. Tool parts carry their creation time and the
+  // text carries its start, so the model's own ordering is recoverable from the
+  // parts themselves.
+  const answer = textPartFinal(state, entry);
+  const ordered = [...(entry.assistantParts ?? []), answer].sort((left, right) =>
+    (left.time?.start ?? left.time?.created ?? 0) - (right.time?.start ?? right.time?.created ?? 0));
   return {
     info: assistantInfo(state, entry, { completed: entry.assistantCompleted, finish: entry.finish ?? 'error' }),
-    // Why: tool parts sit between the step's opening and its finish, so a client
-    // renders each call where the model made it rather than after the answer.
-    parts: [stepStartPart(state, entry), ...(entry.assistantParts ?? []), textPartFinal(state, entry), stepFinishPart(state, entry)],
+    parts: [stepStartPart(state, entry), ...ordered, stepFinishPart(state, entry)],
   };
 }
 

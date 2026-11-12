@@ -13,6 +13,8 @@
 // logged reason, and the surface serves the sessions that did restore.
 import { discoverUnindexedSessions, readSessionIndex } from './session-index.js';
 import { tokenView } from './wire-transcript.js';
+import { toolSummary, toolDisplayOutput } from './tool-summary.js';
+import { presentedToolTarget } from '../engine/records.js';
 import { randomUUID } from 'node:crypto';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -107,6 +109,37 @@ function turnOutcomes(engine) {
   return outcomes;
 }
 
+/** One call row, with the arrival ordinal the seed interleaves by and the
+ *  journal's redacted target, so a restored row reads like a live one. */
+function restoreToolRequest(current, record) {
+  const key = record.requestId ?? record.providerCallId ?? record.toolName;
+  if (typeof record.toolName !== 'string' || !record.toolName || current.tools.has(key)) return;
+  const target = presentedToolTarget(record.toolName, record.args);
+  current.tools.set(key, { type: 'tool', id: key, name: record.toolName, order: current.nextOrder ?? 0,
+    time: { created: Date.now() },
+    state: { status: 'running', input: target ? { target } : {}, metadata: {} } });
+  current.nextOrder = (current.nextOrder ?? 0) + 1;
+}
+
+/** A settled row: outcome summary and the display excerpt, as a live turn publishes. */
+function restoreToolResult(current, record) {
+  const part = current.tools.get(record.requestId ?? record.providerCallId);
+  if (!part) return;
+  const failed = record.toolLifecycleStatus !== 'succeeded';
+  const summary = toolSummary({
+    status: failed ? 'failed' : 'succeeded', elapsedMs: record.elapsedMs ?? null,
+    failureReason: failed ? (record.reasonCode ?? null) : null,
+  });
+  const output = toolDisplayOutput(record.content);
+  const metadata = { ...(summary.outcome ? { outcome: summary.outcome } : {}), ...(output ? { output } : {}) };
+  part.state = failed
+    ? { status: 'error', input: part.state.input, metadata,
+      error: { type: 'nna_tool_failed',
+        message: 'The tool did not complete. NNA records the reason in its own journal.' } }
+    : { status: 'completed', input: part.state.input, metadata,
+      content: [{ type: 'text', text: summary.outcome ?? '' }] };
+}
+
 function seedLedger(records, outcomes) {
   const turns = [];
   let current = null;
@@ -123,23 +156,17 @@ function seedLedger(records, outcomes) {
           userKey: randomUUID(), assistantKey: randomUUID(), idleKey: randomUUID(),
         };
       } else if (current && current.text === null && typeof record.content === 'string') {
+        // Why an ordinal here too: the assistant text arrives as its own journal
+        // record, between the tool records it was written around. Recording its
+        // arrival position is what lets the seed place it between them.
         current.text = record.content;
+        current.textOrder = current.nextOrder ?? 0;
+        current.nextOrder = (current.nextOrder ?? 0) + 1;
       }
     } else if (record?.type === 'tool_request' && current) {
-      const key = record.requestId ?? record.providerCallId ?? record.toolName;
-      if (typeof record.toolName === 'string' && record.toolName && !current.tools.has(key)) {
-        current.tools.set(key, { type: 'tool', id: key, name: record.toolName, time: { created: Date.now() },
-          state: { status: 'running', input: {}, metadata: {} } });
-      }
+      restoreToolRequest(current, record);
     } else if (record?.type === 'tool_result' && current) {
-      const part = current.tools.get(record.requestId ?? record.providerCallId);
-      if (part) {
-        const failed = record.toolLifecycleStatus !== 'succeeded';
-        part.state = failed
-          ? { status: 'error', input: {}, error: { type: 'nna_tool_failed',
-            message: 'The tool did not complete. NNA records the reason in its own journal.' } }
-          : { status: 'completed', input: {}, content: [{ type: 'text', text: '' }] };
-      }
+      restoreToolResult(current, record);
     } else if (record?.type === 'turn_outcome' && current) {
       settleTurn(current, record.payload ?? record);
       turns.push(current);
