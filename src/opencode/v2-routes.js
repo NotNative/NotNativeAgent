@@ -9,7 +9,19 @@ export async function handleV2Request(ctx) {
   try { await dispatch(ctx); }
   catch (error) {
     if (error instanceof URIError) return sendJson(ctx.res, 400, { _tag: 'InvalidRequestError', message: 'Invalid URL encoding' });
-    if (error.body && error.httpStatus) return sendJson(ctx.res, error.httpStatus, error.body);
+    // Why typed refusals log too: an admission refused with a status reached the
+    // client and left no trace on the server, so an operator's diagnostic
+    // timeline showed a bare 400 with no reason and no record to trace. The
+    // refusal is the operator's answer; it must be legible where the service
+    // logs live.
+    if (error.body && error.httpStatus) {
+      if (error.httpStatus >= 400) {
+        ctx.options.logger?.record({ type: 'opencode_route_failure',
+          code: error.code ?? 'api_refused', status: error.httpStatus,
+          url: ctx.target.pathname, message: error.message ?? null });
+      }
+      return sendJson(ctx.res, error.httpStatus, error.body);
+    }
     // Why status-preserving: a full queue is a capacity refusal the caller can
     // retry, and the legacy prompt surface already answers it 429. Flattening
     // every `opencode_prompt_*` code to a 400 told the client its admitted

@@ -137,6 +137,22 @@ test('v2 prompt accepts text beyond the old 65536-character ceiling', async (t) 
   assert.equal((await json(`/api/session/${session.id}`)).data.outcome, 'succeeded');
 });
 
+test('a refused v2 request records its reason where the service logs live', async (t) => {
+  // Why: a typed admission refusal reached the client with a status and left no
+  // server-side trace, so an operator's diagnostic timeline showed a bare 400
+  // with nothing to trace. The refusal must be legible in the runtime log.
+  const records = [];
+  const logger = { record: (record) => records.push(record) };
+  const { request } = await fixtureServer(t, { logger });
+  const session = (await request('/api/session', 'POST', { title: 'probe' }).then((r) => r.json())).data;
+  const refused = await request(`/api/session/${session.id}/prompt`, 'POST', { text: 'x', files: [{ uri: 'data:image/png;base64,AA' }] });
+  assert.equal(refused.status, 400);
+  const failure = records.find((record) => record.type === 'opencode_route_failure' && record.status === 400);
+  assert.ok(failure, 'the refusal is logged');
+  assert.match(failure.message, /files are not supported/u);
+  assert.match(failure.url, /\/prompt$/u);
+});
+
 test('every v2 event carries the flat envelope the client reads', { timeout: 20_000 }, async (t) => {
   // Why: the client's translateWireEvent reads payload.type / payload.created /
   // payload.data. A nested `properties` envelope (the v1 shape) would parse as an
