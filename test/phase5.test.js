@@ -901,8 +901,11 @@ test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and c
   assert.equal(request.enableThinking, true);
   assert.match(request.messages[0].content, /NotNativeAgent/u);
   const catalog = request.messages.find((item) => /Use tool_search/u.test(item.content));
-  assert.match(catalog.content, /\["git_inspect","mcp_memory_search"\]/u);
-  assert.doesNotMatch(catalog.content, /fs_read_text/u);
+  // Why loaded names stay listed: the static catalog keeps its text stable so
+  // the provider's prompt prefix stays cacheable; loaded names are marked
+  // "needs no loading" rather than dropped from the list.
+  assert.match(catalog.content, /\["fs_read_text","git_inspect","mcp_memory_search"\]/u);
+  assert.match(catalog.content, /needs no loading/u);
   assert.doesNotMatch(JSON.stringify(request), /credential|api.?key|secret-reference/iu);
 });
 

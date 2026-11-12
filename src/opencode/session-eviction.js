@@ -93,6 +93,7 @@ export async function reattachEvictedSession(workspace, options, ocId) {
   const described = await operations.restore({
     ocId: entry.ocId, engineSessionId: entry.sessionId, title: entry.title ?? 'Restored session',
     directory: entry.directory ?? '', createdAt: entry.createdAt ?? null, parentID: entry.parentID ?? null,
+    ...(Number.isFinite(entry.archivedAt) ? { archivedAt: entry.archivedAt } : {}),
   });
   return described;
 }

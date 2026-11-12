@@ -73,3 +73,18 @@ test('a tombstoned journal is never rediscovered as a live session', async () =>
   assert.deepEqual(discovered.map((entry) => entry.sessionId), ['session_live']);
   await rm(root, { recursive: true, force: true });
 });
+
+test('an archive decision survives the index round-trip', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-index-'));
+  await appendSessionIndex(root, identity('ses_a'));
+  const archivedAt = 1_700_000_000_000;
+  await updateSessionIndex(root, 'ses_a', { archivedAt });
+  let records = await readSessionIndex(root);
+  assert.equal(records[0].archivedAt, archivedAt);
+  // Why the unarchive shape: a restore writes `null`, which must clear the
+  // stamp rather than preserve a stale one.
+  await updateSessionIndex(root, 'ses_a', { archivedAt: null });
+  records = await readSessionIndex(root);
+  assert.ok(!('archivedAt' in records[0]) || records[0].archivedAt === null);
+  await rm(root, { recursive: true, force: true });
+});

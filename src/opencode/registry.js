@@ -50,7 +50,11 @@ export class OpenCodeSessionRegistry {
       // Compatibility: a forked session names the session it came from, which the
       // client uses to place it in the tree rather than the top-level list.
       ...(record.parentID ? { parentID: record.parentID } : {}),
-      time: { created: record.createdAt, updated: record.updatedAt },
+      // Why the archived stamp here: the client reads `time.archived` from the
+      // session record, so a durable archive flag must ride the same shape or a
+      // restored session reappears unarchived after a restart.
+      time: { created: record.createdAt, updated: record.updatedAt,
+        ...(Number.isFinite(record.archivedAt) ? { archived: record.archivedAt } : {}) },
     };
   }
 

@@ -5,7 +5,7 @@ import { newId } from './ids.js';
 import { titleOf } from './desktop-session-description.js';
 import { modelRouteFromBody } from './desktop-session-model-route.js';
 import { forkPrefixRecords, resolveForkBoundary } from './persistence/fork-records.js';
-import { beginDesktopTimelineMutation, endDesktopTimelineMutation } from './desktop-timeline-mutation.js';
+import { beginDesktopTimelineMutation, endDesktopTimelineMutation } from './timeline-mutation.js';
 
 export async function runDesktopSessionFork(context, callbacks, body) {
   const store = beginDesktopTimelineMutation(context, 'fork');

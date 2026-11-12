@@ -9,8 +9,8 @@
 import { ContractError } from './ids.js';
 import { resolveForkBoundary } from './persistence/fork-records.js';
 import { restoreSessionRecords } from './persistence/session-history.js';
-import { beginDesktopTimelineMutation, endDesktopTimelineMutation } from './desktop-timeline-mutation.js';
-export { settleDesktopTimelinesForShutdown } from './desktop-timeline-mutation.js';
+import { beginDesktopTimelineMutation, endDesktopTimelineMutation } from './timeline-mutation.js';
+export { settleDesktopTimelinesForShutdown } from './timeline-mutation.js';
 
 const LIVE_RECORD_TYPES = new Set(['message', 'tool_request', 'tool_result', 'compaction', 'attachment_fact']);
 

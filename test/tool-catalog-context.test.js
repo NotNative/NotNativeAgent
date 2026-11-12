@@ -8,20 +8,25 @@ test('compact tool catalog lists unloaded installed names in deterministic order
     { name: 'mcp_memory_store' }, { name: 'fs_read_text' },
     { name: 'mcp_memory_search' }, { name: 'mcp_memory_store' },
   ], [{ type: 'function', function: { name: 'fs_read_text' } }]);
-  assert.match(content, /\["mcp_memory_search","mcp_memory_store"\]/u);
+  assert.match(content, /\["fs_read_text","mcp_memory_search","mcp_memory_store"\]/u);
   assert.doesNotMatch(content, /\[.*fs\.read_text/u);
-  assert.match(content, /schemas are not loaded/u);
+  assert.match(content, /needs no loading/u);
   assert.match(content, /"specialist":\["mcp_memory_search","mcp_memory_store"\]/u);
   assert.match(content, /no tier grants authority/u);
   assert.match(content, /every call still requires mandatory review/u);
 });
 
-test('compact tool catalog is absent when every installed schema is loaded', () => {
+test('compact tool catalog lists loaded names instead of omitting itself', () => {
+  // Why the loaded names stay listed: the static catalog never subtracts the
+  // loaded surface, so its text stays stable across a turn and the provider's
+  // prompt prefix stays cacheable. A loaded name carries a "needs no loading"
+  // marker rather than disappearing from the catalog.
   const content = toolCatalogContext(
     [{ name: 'fs_read_text' }],
     [{ type: 'function', function: { name: 'fs_read_text' } }],
   );
-  assert.equal(content, null);
+  assert.match(content, /\["fs_read_text"\]/u);
+  assert.match(content, /needs no loading/u);
 });
 
 test('compact tool catalog remains bounded for a large dynamic registry', () => {

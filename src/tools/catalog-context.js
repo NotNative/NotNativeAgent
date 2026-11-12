@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// A model step receives at most 512 discovery names and 32 KiB of exact compact JSON,
+// A model step receives at most 512 discovery names and 15 KiB of exact compact JSON,
 // leaving the bulk of its context budget for task evidence and loaded schemas.
 import { FOUNDATIONAL_TOOL_NAMES, INTERNAL_TOOL_NAMES, LEGACY_PROVIDER_TOOL_NAMES } from './core-names.js';
 

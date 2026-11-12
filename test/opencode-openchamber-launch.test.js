@@ -203,9 +203,12 @@ test('start applies the binding and stop clears it, so nothing outlives the serv
   const recorder = launcherRecorder();
   const launcher = join(paths.root, 'openchamber.cmd');
   await writeFile(launcher, '', 'utf8');
-  // The only writer the scope exposes records attempted writes.
+  // The only writer the scope exposes records attempted writes. Why the kill
+  // double: the runtime stop signals a fabricated pid; a real process.kill on
+  // Windows answers EPERM for a pid the shell does not own, which is a sandbox
+  // artifact, not the stop contract under test.
   const scope = { platform: 'win32', processIdentity: identity(), spawnProcess: () => fakeChild(3210),
-    openchamberPath: launcher, launchProcess: recorder.launchProcess, environment: {},
+    openchamberPath: launcher, launchProcess: recorder.launchProcess, environment: {}, kill: () => undefined,
     userEnvironmentWrite: async (pairs) => { persisted.push(pairs); } };
   await startOpencodeService({}, paths, scope);
   assert.equal(persisted.length, 1, 'start applies the binding the client reads');

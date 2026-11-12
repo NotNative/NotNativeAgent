@@ -84,6 +84,10 @@ export async function restoreSession(workspace, options, input, attach) {
     engineSessionId: requireExternalId(input.engineSessionId, 'session_id'),
     createdAt: input.createdAt,
     parentID: input.parentID,
+    // Why the archived stamp rides restore: the index records the operator's
+    // archive decision, so a boot restore must re-apply it or an archived
+    // conversation reappears unarchived after a restart.
+    ...(Number.isFinite(input.archivedAt) ? { archivedAt: input.archivedAt } : {}),
   });
   seedSessionHistory(workspace.registry.get(described.id), workspace);
   return described;

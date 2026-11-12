@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveManifest } from '../src/config.js';
 import { recoverJournal } from '../src/store.js';
-import { runDesktopSessionRevert, runDesktopSessionUnrevert, settleDesktopTimelinesForShutdown } from '../src/desktop-session-revert.js';
+import { runDesktopSessionRevert, runDesktopSessionUnrevert, settleDesktopTimelinesForShutdown } from '../src/session-revert.js';
 import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 
 const principal = { subjectId: 'u_test', platformRole: 'operator', permissions: ['desktop.session.submit'], workspaceIds: [],

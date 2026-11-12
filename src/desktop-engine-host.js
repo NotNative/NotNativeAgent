@@ -27,7 +27,7 @@ import { runDesktopGoalAudit } from './desktop-goal-audit.js';
 import { runDesktopWalkthrough } from './desktop-walkthrough.js';
 import { runDesktopAssist } from './desktop-assist.js';
 import { runDesktopSessionFork } from './desktop-session-fork.js';
-import { runDesktopSessionRevert, runDesktopSessionUnrevert } from './desktop-session-revert.js';
+import { runDesktopSessionRevert, runDesktopSessionUnrevert } from './session-revert.js';
 import { DesktopHostLifecycle, shutdownDesktopContext, shutdownDesktopHost } from './desktop-host-lifecycle.js';
 import { runDesktopNotification } from './desktop-notification.js';
 import { publishDesktopProjection } from './desktop-projection.js';

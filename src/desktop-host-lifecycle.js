@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
 import { drainActivityWrites } from './desktop-activity-snapshot.js';
-import { settleDesktopTimelinesForShutdown } from './desktop-timeline-mutation.js';
+import { settleDesktopTimelinesForShutdown } from './timeline-mutation.js';
 
 /** A shutdown closes admission synchronously, then waits for admitted work. */
 export class DesktopHostLifecycle {

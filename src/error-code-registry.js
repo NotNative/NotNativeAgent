@@ -449,7 +449,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'tool_revalidation_drift', 'tool_schema_invalid', 'tool_scope_denied',
     'tool_search_invalid', 'tool_target_exists', 'tool_target_invalid',
     'tool_target_not_found', 'tool_target_too_large', 'tool_target_unavailable',
-    'tool_timeout', 'verification_checks_invalid', 'verification_checks_unavailable',
+    'tool_tally_path_required', 'tool_timeout', 'verification_checks_invalid', 'verification_checks_unavailable',
     'verification_manifest_invalid', 'verification_paths_invalid', 'verification_plan_drift',
     'verification_request_invalid', 'verification_result_invalid', 'verification_runtime_unavailable',
     'verification_scope_invalid', 'verification_scripts_exceeded', 'verification_timeout_invalid',

@@ -137,10 +137,14 @@ export function projectAction(value, action, application, withOperationId = fals
   if (action === 'start') return { ...common, ...projectStart(value.value) };
   if (action === 'stop') return { ...common, ...projectStop(value.value) };
   if (action !== 'enable' && action !== 'disable') throw projection();
+  // Why `spawn` is projected: the OpenChamber spawn slice gave enable and
+  // disable a launcher-environment outcome; the receipt must carry it or the
+  // operator cannot see that the host spawn switch was applied or cleared.
   const body = new Set(Object.keys(value.value));
-  if (body.size !== 3 || !['config', 'login', 'runtime'].every(key => body.has(key))) throw projection();
+  if (body.size !== 4 || !['config', 'login', 'runtime', 'spawn'].every(key => body.has(key))) throw projection();
   return { ...common, service: projectService(value.value.config),
-    login: projectLogin(value.value.login), runtime: projectRuntime(value.value.runtime) };
+    login: projectLogin(value.value.login), runtime: projectRuntime(value.value.runtime),
+    spawn: projectSpawnOutcome(value.value.spawn) };
 }
 
 /** The domain's status action returns {service, runtime, login, environment,
@@ -334,6 +338,28 @@ function projectLogin(value) {
   if (value.error === undefined && value.supported === true && value.installed === null) throw projection();
   return { supported: value.supported, installed: value.installed,
     script_path: value.script_path ?? null, ...(value.error !== undefined ? { error: value.error } : {}) };
+}
+
+/** The spawn-environment outcome from applySpawnEnvironment / clearSpawnEnvironment:
+ *  unsupported, a write report naming the switch applied, or a clear report naming
+ *  the switch removed. The value written is the launcher path and never appears. */
+function projectSpawnOutcome(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw projection();
+  const keys = [...new Set(Object.keys(value))];
+  if (value.supported === false && keys.length === 1) return { supported: false };
+  if (keys.includes('written') && keys.length <= 3
+    && Array.isArray(value.written) && value.written.length <= 4
+    && value.written.every((name) => typeof name === 'string' && name.length >= 1 && name.length <= 64)) {
+    if (keys.includes('removed') && (!Array.isArray(value.removed)
+      || value.removed.some((name) => typeof name !== 'string' || name.length < 1 || name.length > 64))) throw projection();
+    return { supported: true, written: value.written.slice().sort(),
+      ...(value.removed ? { removed: value.removed.slice().sort() } : {}) };
+  }
+  if (keys.includes('removed') && keys.length <= 2 && Array.isArray(value.removed)
+    && value.removed.every((name) => typeof name === 'string' && name.length >= 1 && name.length <= 64)) {
+    return { supported: true, removed: value.removed.slice().sort() };
+  }
+  throw projection();
 }
 
 /** The applied view from applyUserEnvironment ({supported, written, removed,

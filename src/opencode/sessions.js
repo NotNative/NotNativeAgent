@@ -15,7 +15,7 @@ import { createWireSession } from './wire-session.js';
 import { questionOperations, attachQuestionVoice } from './question-voice.js';
 import { createV2Workspace } from './v2-workspace.js';
 import { apiError, invalid, objectInput, wireId } from './v2-contract.js';
-import { runDesktopSessionRevert, runDesktopSessionUnrevert } from '../desktop-session-revert.js';
+import { runDesktopSessionRevert, runDesktopSessionUnrevert } from '../session-revert.js';
 import { runDesktopSessionFork } from '../desktop-session-fork.js';
 import { compactEngineConversation } from '../engine/context-controls.js';
 import { appendSessionIndex } from './session-index.js';
@@ -125,7 +125,15 @@ function engineOptions({ options, workspace, sessionId, ocId, sessionDirectory, 
     ...(forkIngest ? { forkIngest } : {}),
     output: async (record) => {
       if (record.type === 'turn_result') workspace.v2?.captureFailure(ocId, record.failure?.code);
-      observe(record);
+      // Why the guard: a throw inside the wire projection used to starve the
+      // event pump silently, no deltas, no tool rows, empty history, and it
+      // read as a downstream defect twice in one session. The projection must
+      // never take the engine's record lane down with it.
+      try { observe(record); }
+      catch (error) {
+        options.logger?.record({ type: 'opencode_wire_projection_failed',
+          sessionId, recordType: record?.type ?? null, code: error?.code ?? 'internal_failure' });
+      }
       options.logger?.record(record, { sessionId });
     },
     questionBroker: attachQuestionVoice(workspace, { ocId, sessionId, directory: sessionDirectory, projectID },
@@ -169,7 +177,7 @@ function v2Publisher(workspace, ocId) {
   };
 }
 
-async function attachSession(workspace, options, { title, directory, ocId: requestedId, engineSessionId, createdAt, runtimeDirectory, metadata, runtimeConfig, runtimeRef, forkIngest, parentID, slugSeed }) {
+async function attachSession(workspace, options, { title, directory, ocId: requestedId, engineSessionId, createdAt, archivedAt, runtimeDirectory, metadata, runtimeConfig, runtimeRef, forkIngest, parentID, slugSeed }) {
   const { registry, bus, wiredVersion } = workspace;
   // Why the durable id can be caller-supplied: boot-time restore re-opens the
   // journal a previous process journaled, which is the engine's own resume
@@ -196,6 +204,7 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
     path: '',
     createdAt: createdAtMs,
     ...(parentID ? { parentID } : {}),
+    ...(Number.isFinite(archivedAt) ? { archivedAt } : {}),
   };
   wireSession = createWireSession({
     record, bus, version: wiredVersion,
@@ -233,7 +242,8 @@ async function publishAttach(workspace, options, { stored, sessionId, ocId, crea
   const { registry, wiredVersion } = workspace;
   workspace.v2?.attach(registry.describe(stored, wiredVersion), metadata, runtimeRef);
   if (options.storeRoot) {
-    const entry = { ocId, sessionId, title: stored.title, directory: stored.directory, createdAt: createdAtMs, ...(parentID ? { parentID } : {}) };
+    const entry = { ocId, sessionId, title: stored.title, directory: stored.directory, createdAt: createdAtMs, ...(parentID ? { parentID } : {}),
+      ...(Number.isFinite(stored.archivedAt) ? { archivedAt: stored.archivedAt } : {}) };
     await appendSessionIndex(options.storeRoot, entry)
       .catch((error) => options.logger?.record({ type: 'opencode_session_index_failed', ocId, code: error.code ?? 'index_write_failed' }));
   }

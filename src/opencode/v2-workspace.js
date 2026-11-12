@@ -157,6 +157,9 @@ function attachState(states, info, model, events, version, metadata) {
   const state = { info: { id: info.id, projectID: info.projectID, title: info.title,
     agent: 'build', model, location: { directory: info.directory }, cost: 0, tokens: tokenUsage(), time: { ...info.time },
     ...(metadata == null ? {} : { metadata }) },
+  // Why the flag from the stamp: the list filter reads `state.archived`, and a
+  // boot-restored session carries its archive decision in `time.archived`.
+  archived: info.time?.archived != null,
   sequence: 0, running: false, messages: new Map(), inputs: new Map(), inbox: new Map(), forms: new Map(), pending: new Set(), cancelled: new Set() };
   states.set(info.id, state);
   events.emit(state, 'session.created', { sessionID: info.id, projectID: info.projectID, location: state.info.location,
@@ -450,6 +453,11 @@ async function updateSession(state, body, events, options) {
     if (archivedAt === null) delete state.info.time.archived; else state.info.time.archived = archivedAt;
     state.archived = archivedAt !== null;
     patch.time = { archived: archivedAt };
+    // Why the index write: the archive decision is operator intent about the
+    // conversation's place in the list, so it must survive a restart the same
+    // way a rename does; a boot restore re-applies the recorded stamp.
+    await updateSessionIndex(options.storeRoot, state.info.id,
+      { archivedAt: archivedAt === null ? null : archivedAt });
     // Compatibility: the client translates `session.unarchived` to a restore on
     // a session the live list dropped, and has no case for a restore expressed
     // only as a patch. Archiving stays a patch because that is how a client

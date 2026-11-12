@@ -36,6 +36,7 @@ export async function restorePersistedSessions(workspace, options) {
   const candidates = [...index.map((entry) => ({
     ocId: entry.ocId, sessionId: entry.sessionId, title: entry.title ?? 'Restored session',
     directory: entry.directory ?? '', createdAt: entry.createdAt ?? null, parentID: entry.parentID ?? null,
+    ...(Number.isFinite(entry.archivedAt) ? { archivedAt: entry.archivedAt } : {}),
   })), ...discovered.map((entry) => ({
     ocId: null, sessionId: entry.sessionId, title: 'Restored session',
     directory: entry.workspaceRoot ?? '', createdAt: entry.createdAt ?? null, parentID: null,
@@ -51,6 +52,7 @@ export async function restorePersistedSessions(workspace, options) {
       const described = await workspace.operations.restore({
         ocId: candidate.ocId, engineSessionId: candidate.sessionId, title: candidate.title,
         directory: candidate.directory, createdAt: candidate.createdAt, parentID: candidate.parentID,
+        ...(candidate.archivedAt !== undefined ? { archivedAt: candidate.archivedAt } : {}),
       });
       if (described) {
         restored.push(described);

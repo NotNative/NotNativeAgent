@@ -386,7 +386,7 @@ message admission, not a turn that ran against a removed session.
 ## Revert, and the identifier join it needed
 
 Revert is wired to the engine's journal-backed timeline
-(`src/desktop-session-revert.js`): `POST /api/session/:id/revert/stage` hides the
+(`src/session-revert.js`): `POST /api/session/:id/revert/stage` hides the
 turns at or after a boundary message, and `DELETE /api/session/:id/revert` clears
 the marker and brings them back. The turns are hidden, never destroyed.
 
