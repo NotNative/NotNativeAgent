@@ -126,11 +126,16 @@ starts the detached service at login; `disable` removes it.
 `disable` clears **both** wirings, because either one alone keeps OpenChamber off
 its own OpenCode: the spawn pointer (`OPENCODE_BINARY`) and any attach binding
 `start` left behind (`OPENCODE_SKIP_START` and its companions). The attach names
-are removed only when NNA can prove it wrote them, so a hand-written binding of
-your own is preserved rather than clobbered. This matters in practice because
-`enable` followed by `start` leaves both postures set, and OpenChamber treats
-`OPENCODE_SKIP_START` as authoritative — it would attach to a fixed port and
-ignore the pointer, hanging once that service stopped.
+are cleared when NNA can prove the binding is its own — either because every value
+matches this install's configuration, or because `OPENCODE_SKIP_START` is `true`
+and `OPENCODE_HOST` names this install's own bind address. That second proof
+matters: a credential that rotated, or a binding written by a different build or
+data root, still pins OpenChamber to a port nothing listens on, and the strict
+value-for-value proof cannot see it. A binding at any *other* address is treated
+as the operator's own and preserved.
+
+`stop` keeps the strict proof, because stopping a runtime says nothing about what
+the host should do next.
 
 Sessions persist across restarts in both modes: the conversation list, titles,
 archive state, and transcripts are stored durably and restored at the next boot.

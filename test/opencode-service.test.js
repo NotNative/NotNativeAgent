@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { Buffer } from 'node:buffer';
 import { join } from 'node:path';
 import { SessionLock } from '../src/persistence/session-lock.js';
-import { DEFAULT_OPENCODE_CONFIG, generateOpencodePassword, loadOpenCodeConfig, normalizeOpenCodeConfig, opencodePublicStatus, saveOpenCodeConfig } from '../src/opencode/config.js';
+import { bindUrl, DEFAULT_OPENCODE_CONFIG, generateOpencodePassword, loadOpenCodeConfig, normalizeOpenCodeConfig, opencodePublicStatus, saveOpenCodeConfig } from '../src/opencode/config.js';
 import { observeUserEnvironment } from '../src/opencode/user-environment.js';
 import { disableOpencodeService, enableOpencodeService, opencodeRuntimeStatus, opencodeServiceStatus, requireServiceRuntime, startOpencodeService, stopOpencodeService } from '../src/opencode/service.js';
 
@@ -201,6 +201,66 @@ test('production environment cleanup compares ownership and clears under the sha
   assert.match(script, /\$Mutex\.ReleaseMutex\(\)/u);
 });
 
+test('disable proves the bind address inside the privileged script, not in JavaScript', async () => {
+  // Why this asserts the generated script: production takes the branch that reads
+  // and writes the registry in one PowerShell process, so a proof evaluated in
+  // JavaScript never runs there. An earlier version of this fix added the proof
+  // to the JavaScript path only; its unit tests passed while a real `disable` kept
+  // reporting `ownership_unverified` and left the binding in place.
+  const paths = await servicePaths();
+  const config = await saveOpenCodeConfig(paths.opencodeConfig,
+    { enabled: true, password: generateOpencodePassword() });
+  let script = '';
+  const disabled = await disableOpencodeService({}, paths, {
+    platform: 'win32',
+    // Why the stub emulates the script instead of answering a fixed word: a stub
+    // that always says `nna_bind_address` passes whether or not the generated
+    // script contains the proof. This one only answers that way when the script it
+    // received actually carries both conditions, so deleting either one makes the
+    // test fail.
+    powershell: async (value) => {
+      if (value.includes('OPENCODE_')) {
+        script = value;
+        const evaluatesProof = value.includes("$Skip -eq 'true'")
+          && value.includes('$HostValue -ceq') && value.includes(bindUrl(config));
+        return evaluatesProof ? 'nna_bind_address\n' : 'preserved\n';
+      }
+      // The login-removal helper asks PowerShell for the Startup folder; answering
+      // with nothing makes it fail closed and masks what this test is checking.
+      return `${join(tmpdir(), 'nna-startup-folder')}\n`;
+    },
+  });
+  assert.equal(disabled.environment.preserved, false);
+  assert.equal(disabled.environment.proof, 'nna_bind_address');
+  // Why these markers: the accepted-values map already names both variables, so
+  // matching on the names proves nothing. `$BindProof` and the host comparison are
+  // what only the second proof emits — the assertion this replaced passed even
+  // with the proof deleted, which is how the JavaScript-only version looked fixed.
+  assert.match(script, /\$BindProof/u);
+  assert.match(script, /\$HostValue -ceq/u);
+  assert.ok(script.includes(bindUrl(config)), 'the script must compare against the configured bind address');
+  // And it must still delete through the registry, under the shared mutex.
+  assert.match(script, /NotNativeAgent-OpenCodeEnvironment-/u);
+  assert.match(script, /DeleteValue/u);
+});
+
+test('a multi-line script result is still read as the outcome it reports', async () => {
+  // Why: the cleanup script's own broadcast helper prints a word of its own, so the
+  // output can hold more than the single token the caller looks for. Comparing the
+  // whole trimmed output against one word made a successful delete report
+  // `preserved`, which is worse than a wrong status: the operator is told nothing
+  // was removed after it was.
+  const paths = await servicePaths();
+  await saveOpenCodeConfig(paths.opencodeConfig, { enabled: true, password: generateOpencodePassword() });
+  const disabled = await disableOpencodeService({}, paths, {
+    platform: 'win32',
+    powershell: async () => "written\ncleared\n",
+  });
+  assert.equal(disabled.environment.preserved, false);
+  assert.deepEqual(disabled.environment.removed,
+    ['OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SERVER_USERNAME']);
+});
+
 test('stop does not clear shared environment while the same instance is starting', async () => {
   const paths = await servicePaths(); const password = generateOpencodePassword();
   await saveOpenCodeConfig(paths.opencodeConfig, { password });
@@ -338,6 +398,46 @@ test('disable preserves an attach binding NNA cannot prove it wrote', async () =
   assert.equal(disabled.environment.reason, 'ownership_unverified');
   // The foreign values survive untouched.
   assert.equal(env.state.OPENCODE_HOST, 'http://192.168.1.50:9999');
+  assert.equal(env.state.OPENCODE_SKIP_START, 'true');
+});
+
+test('disable clears a stale binding at NNA own address, which the strict proof cannot', async () => {
+  // Why this case matters more than the matching one: an operator who switches
+  // between an installed copy and a source checkout, or who lets the credential
+  // rotate, ends up with a binding whose password no longer matches. The strict
+  // ownership proof cannot clear that, and the leftover binding then wins over
+  // the spawn pointer — OpenChamber attaches to a dead port instead of launching
+  // its own OpenCode. `disable` is an explicit instruction about the host, so the
+  // bind address is enough.
+  const paths = await servicePaths(); const startup = await mkdtemp(join(tmpdir(), 'nna-opencode-startup-'));
+  const config = await saveOpenCodeConfig(paths.opencodeConfig,
+    { enabled: true, password: generateOpencodePassword() });
+  const env = environment({ OPENCODE_SKIP_START: 'true', OPENCODE_HOST: bindUrl(config),
+    OPENCODE_SERVER_PASSWORD: 'a-credential-from-an-older-build' });
+  const scope = { platform: 'win32', startupFolder: () => startup,
+    userEnvironmentRead: env.read, userEnvironmentWrite: env.write, environment: {} };
+
+  const disabled = await disableOpencodeService({}, paths, scope);
+  assert.equal(disabled.environment.preserved, false);
+  assert.equal(disabled.environment.proof, 'nna_bind_address');
+  assert.equal(env.state.OPENCODE_SKIP_START ?? null, null);
+  assert.equal(env.state.OPENCODE_HOST ?? null, null);
+});
+
+test('stop keeps the strict proof and preserves a stale binding', async () => {
+  // Why stop differs: stopping a runtime says nothing about what the operator
+  // wants the host to do next, so it must not delete wiring it cannot account
+  // for. Only `disable` carries the operator's instruction to return the host.
+  const paths = await servicePaths();
+  const config = await saveOpenCodeConfig(paths.opencodeConfig,
+    { enabled: true, password: generateOpencodePassword() });
+  const env = environment({ OPENCODE_SKIP_START: 'true', OPENCODE_HOST: bindUrl(config),
+    OPENCODE_SERVER_PASSWORD: 'a-credential-from-an-older-build' });
+  const scope = { platform: 'win32', processIdentity: identity(), kill: () => undefined,
+    userEnvironmentRead: env.read, userEnvironmentWrite: env.write, environment: {} };
+
+  const stopped = await stopOpencodeService({}, paths, scope);
+  assert.equal(stopped.environment.preserved, true);
   assert.equal(env.state.OPENCODE_SKIP_START, 'true');
 });
 

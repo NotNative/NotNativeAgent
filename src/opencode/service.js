@@ -90,10 +90,16 @@ export async function disableOpencodeService(options, paths, scope = {}) {
   // `OPENCODE_SKIP_START` as authoritative over every spawn path, so a binding
   // left by an earlier `start` makes the host attach to a fixed port instead of
   // launching anything — and once that service stops, the host hangs on a port
-  // nothing listens on rather than falling back to its bundled OpenCode. The
-  // names are cleared with `stop`'s ownership proof, so a binding NNA cannot
-  // prove it wrote is preserved rather than clobbered.
-  const environment = await clearUserEnvironment(config, scope, bindUrl, DEFAULT_BASIC_USERNAME);
+  // nothing listens on rather than falling back to its bundled OpenCode.
+  //
+  // Why the bind-address proof: the full ownership proof cannot clear a binding
+  // whose credential has since rotated, or one written by another build or data
+  // root — which is the shape an operator actually ends up with after switching
+  // between an installed copy and a source checkout. `disable` is an explicit
+  // instruction about the host, so a binding at NNA's own bind URL is cleared
+  // even when its password no longer matches. `stop` keeps the strict proof.
+  const environment = await clearUserEnvironment(config, scope, bindUrl, DEFAULT_BASIC_USERNAME,
+    { nnaBindAddressProof: true });
   const login = await removeLoginStartup(scope);
   const runtime = await opencodeRuntimeStatus(paths, scope);
   return { config: opencodePublicStatus(saved, scope.environment ?? process.env), login, runtime, spawn, environment };

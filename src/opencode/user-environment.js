@@ -57,25 +57,56 @@ function ownedValues(config, bindUrl, defaultUsername) {
   };
 }
 
-export async function clearUserEnvironment(config, scope, bindUrl, defaultUsername) {
+export async function clearUserEnvironment(config, scope, bindUrl, defaultUsername, options = {}) {
   try {
     if (!config.password) return preserved();
     const owned = ownedValues(config, bindUrl, defaultUsername);
     if (!scope.userEnvironmentRead && !scope.userEnvironmentWrite) {
-      const result = await clearOwnedUserEnvironment(owned, scope);
-      return result === 'cleared'
-        ? { supported: true, written: [], removed: [...USER_ENVIRONMENT_NAMES], preserved: false }
-        : preserved();
+      const result = await clearOwnedUserEnvironment(owned, scope, options);
+      if (result === 'cleared') {
+        return { supported: true, written: [], removed: [...USER_ENVIRONMENT_NAMES], preserved: false };
+      }
+      if (result === 'nna_bind_address') {
+        return { supported: true, written: [], removed: [...USER_ENVIRONMENT_NAMES], preserved: false,
+          proof: 'nna_bind_address' };
+      }
+      return preserved();
     }
     const observed = await observedUserScopeValues(scope);
-    if (observed === null || USER_ENVIRONMENT_NAMES.some((name) =>
-      !owned[name].includes(typeof observed[name] === 'string' ? observed[name] : ''))) return preserved();
-    const write = scope.userEnvironmentWrite ?? writeUserEnvironment;
-    await write(Object.fromEntries(USER_ENVIRONMENT_NAMES.map((name) => [name, null])), scope);
-    return { supported: true, written: [], removed: [...USER_ENVIRONMENT_NAMES], preserved: false };
+    if (observed !== null) {
+      const value = (name) => (typeof observed[name] === 'string' ? observed[name] : '');
+      if (USER_ENVIRONMENT_NAMES.every((name) => owned[name].includes(value(name)))) {
+        return await remove(scope);
+      }
+      // Why a second proof for `disable` only: a binding whose password no longer
+      // matches is what an operator is left with after a credential rotation, a
+      // different build writing the same names, or a `start` run against another
+      // data root. It is still NNA's address, and the exact-match proof cannot see
+      // that. `disable` is the operator saying "return OpenChamber to its own
+      // OpenCode", so a binding at NNA's own bind URL is cleared even when its
+      // credential is stale — otherwise the stale binding wins and OpenChamber
+      // keeps attaching to a port nothing listens on.
+      //
+      // Why not for `stop`: stopping a runtime says nothing about the operator's
+      // intent for the host, so it keeps the strict proof and preserves anything
+      // it cannot fully account for.
+      if (options.nnaBindAddressProof === true
+        && value('OPENCODE_SKIP_START') === 'true'
+        && value('OPENCODE_HOST') === owned.OPENCODE_HOST[0]) {
+        return { ...(await remove(scope)), proof: 'nna_bind_address' };
+      }
+    }
+    return preserved();
   } catch (error) {
     throw wiringFailure(error, 'opencode_user_environment_failed', 'the OpenChamber user environment could not be cleared');
   }
+}
+
+/** Delete the owned names and report the removal. */
+async function remove(scope) {
+  const write = scope.userEnvironmentWrite ?? writeUserEnvironment;
+  await write(Object.fromEntries(USER_ENVIRONMENT_NAMES.map((name) => [name, null])), scope);
+  return { supported: true, written: [], removed: [...USER_ENVIRONMENT_NAMES], preserved: false };
 }
 
 export async function observeUserEnvironment(scope) {
@@ -222,25 +253,52 @@ export async function clearSpawnEnvironment(scope) {
  * name whose value NNA does not own makes the whole set foreign, and a foreign set
  * is preserved rather than clobbered.
  */
-async function clearOwnedUserEnvironment(owned, scope) {
+async function clearOwnedUserEnvironment(owned, scope, options = {}) {
   const pairs = Object.entries(owned).map(([name, accepted]) =>
     `$Accepted['${escapeSingle(name)}'] = @(${accepted.map((value) => `'${escapeSingle(value)}'`).join(', ')})`).join('\n');
   const names = USER_ENVIRONMENT_NAMES.map((name) => `'${escapeSingle(name)}'`).join(', ');
   const removals = USER_ENVIRONMENT_NAMES.map((name) => `  $Key.DeleteValue('${escapeSingle(name)}', $false)`).join('\n');
+  // Why the second proof is scripted rather than read in JavaScript: production
+  // takes this branch, which reads and writes the registry in one privileged
+  // process. A proof evaluated in JavaScript would never run here — the reason an
+  // earlier version of this fix passed its unit tests and still left the binding
+  // in place on a real machine.
+  const bindAddressProof = options.nnaBindAddressProof === true
+    ? [
+      "if ($Matches -eq $false) {",
+      "  $Skip = [Environment]::GetEnvironmentVariable('OPENCODE_SKIP_START', 'User')",
+      "  $HostValue = [Environment]::GetEnvironmentVariable('OPENCODE_HOST', 'User')",
+      `  if ($Skip -eq 'true' -and $HostValue -ceq '${escapeSingle(owned.OPENCODE_HOST[0])}') { $Matches = $true; $BindProof = $true }`,
+      '}',
+    ]
+    : [];
   const body = [
     ADD_SENDMESSAGE_TYPE,
-    '$Accepted = @{}', pairs, `$Names = @(${names})`, '$Matches = $true',
+    '$Accepted = @{}', pairs, `$Names = @(${names})`, '$Matches = $true', '$BindProof = $false',
     'foreach ($Name in $Names) {', "  $Current = [Environment]::GetEnvironmentVariable($Name, 'User')",
     "  if ($null -eq $Current) { $Current = '' }",
     "  if ($Accepted[$Name] -cnotcontains $Current) { $Matches = $false }", '}',
+    ...bindAddressProof,
     'if ($Matches) {',
     "  $Key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $true)",
     '  if ($Key) {', '    try {', removals, '    } finally { $Key.Close() }', '  }',
-    BROADCAST_ENVIRONMENT.replace("'written'", "'cleared'"),
+    // Why the broadcast no longer prints its own token: it ends with
+    // `Write-Output 'written'`, and leaving that in made the script print two
+    // lines. The caller compared the trimmed result against a single word, missed
+    // both, and reported `preserved` for a binding it had just deleted.
+    BROADCAST_ENVIRONMENT.replace("Write-Output 'written'", ''),
+    "  if ($BindProof) { Write-Output 'nna_bind_address' } else { Write-Output 'cleared' }",
     "} else { Write-Output 'preserved' }",
   ].join('\n');
-  const result = (await runPowershell(withUserEnvironmentMutex(body), scope, POWERSHELL_WRITE_TIMEOUT_MS)).trim();
-  return result === 'cleared' ? 'cleared' : 'preserved';
+  const stdout = (await runPowershell(withUserEnvironmentMutex(body), scope, POWERSHELL_WRITE_TIMEOUT_MS)).trim();
+  // Why token matching rather than an equality compare: the script's own helpers
+  // emit words of their own, and comparing the whole trimmed output against one
+  // expected word made a successful delete report `preserved`. Reading the tokens
+  // the script actually promised is tolerant of anything else it prints.
+  const tokens = new Set(stdout.split(/\s+/u).filter(Boolean));
+  if (tokens.has('nna_bind_address')) return 'nna_bind_address';
+  if (tokens.has('cleared')) return 'cleared';
+  return 'preserved';
 }
 
 function withUserEnvironmentMutex(body) {
