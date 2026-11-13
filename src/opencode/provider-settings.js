@@ -103,6 +103,15 @@ export class OpenCodeProviderSettings {
     // that chose one is not silently downgraded to the model's default.
     return { config: resolveManifest(manifest),
       reference: selected.variant ? { ...selected.reference, variant: selected.variant } : selected.reference,
+      // Why the broker and the endpoint-bound credential travel on the selection:
+      // a caller that needs one nested inference over this same route (the
+      // generate-text route a client runs for session titles) must read the
+      // credential through the store that bound it to this endpoint. Handing it
+      // both keeps one credential path instead of a second one that could read a
+      // different key or skip the endpoint binding.
+      broker: this.secretBroker,
+      credential: selected.credential ?? null,
+      ...(selected.reasoningEffort ? { reasoningEffort: selected.reasoningEffort } : {}),
       ...(selected.variant ? { reasoningEffortVariant: selected.variant } : {}),
       ...(selected.credentialEndpoints ? { credentialEndpoints: selected.credentialEndpoints } : {}) };
   }

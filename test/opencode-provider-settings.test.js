@@ -476,6 +476,99 @@ test('provider source metadata does not return unsafe settings, and unconfigured
   assert.equal(response.status, 400); assert.equal((await response.text()).includes('must-not-expose'), false);
 });
 
+test('generate/text answers one nested completion for a client that titles sessions', async (t) => {
+  const seen = [];
+  // Why a mutable transport on the surface: this route makes one non-streaming
+  // call to the provider, and the assertion that matters is the request it builds
+  // plus the answer it returns in the `{data:{text}}` envelope the client
+  // unwraps. The stub is installed before any request so no real endpoint is hit.
+  const transport = { current: async () => new Response('{}') };
+  const { add, connect, json } = await setup(t, { providerFetch: (url, init) => transport.current(url, init) });
+  await add(); await connect();
+  transport.current = async (url, init) => {
+    seen.push({ url, headers: init.headers, body: JSON.parse(init.body) });
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'Alpha chat' } }] }),
+      { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  const answer = await json('/api/experimental/generate/text', 'POST', {
+    prompt: 'Name this conversation', model: { id: 'alpha', providerID: 'test' },
+  });
+  // Compatibility: the client reads `value.data`, so the envelope is the contract.
+  assert.deepEqual(answer, { data: { text: 'Alpha chat' } });
+  assert.equal(seen.length, 1);
+  assert.match(seen[0].url, /\/chat\/completions$/u);
+  // Why the provider's own model id: the catalog key (`alpha`) is OpenChamber's
+  // name for it, and a request sent with the catalog key asks for a model the
+  // endpoint does not serve.
+  assert.equal(seen[0].body.model, 'actual-alpha');
+  assert.equal(seen[0].body.stream, false);
+  // Security: the key reaches the provider as a bearer, and never the response.
+  assert.equal(seen[0].headers.authorization, 'Bearer secret-test-key');
+  assert.equal(JSON.stringify(answer).includes('secret-test-key'), false);
+});
+
+test('generate/text refuses a bad request without calling the provider', async (t) => {
+  let called = 0;
+  const { add, connect, request } = await setup(t, {
+    providerFetch: async () => { called += 1; return new Response('{}'); },
+  });
+  await add(); await connect();
+  const cases = [
+    [{}, 400],                                             // no prompt
+    [{ prompt: '' }, 400],                                 // empty prompt
+    [{ prompt: '   ' }, 400],                              // whitespace only
+    [{ prompt: 'x', model: { id: 'alpha' } }, 400],        // providerID missing
+    [{ prompt: 'x', model: { id: 'nope', providerID: 'test' } }, 400],  // unknown model
+    [{ prompt: 'x', unknown: true }, 400],                 // unsupported field
+  ];
+  for (const [body, status] of cases) {
+    const response = await request('/api/experimental/generate/text', 'POST', body);
+    assert.equal(response.status, status, `${JSON.stringify(body)} answered ${response.status}`);
+    // Why the tagged body: the client shows this message, and an empty body
+    // reads as a server defect rather than a request it can correct.
+    const payload = await response.json();
+    assert.equal(typeof payload._tag, 'string', JSON.stringify(payload));
+    assert.equal(typeof payload.message, 'string');
+  }
+  assert.equal(called, 0, 'a refused request must not reach the provider');
+});
+
+test('generate/text reports a provider failure as a bounded answer, not a leaked body', async (t) => {
+  const transport = { current: async () => new Response('{}') };
+  const { add, connect, request } = await setup(t, { providerFetch: (url, init) => transport.current(url, init) });
+  await add(); await connect();
+  transport.current = async () => new Response(
+    JSON.stringify({ error: { message: 'upstream said: secret-test-key is invalid' } }),
+    { status: 500, headers: { 'content-type': 'application/json' } });
+  const response = await request('/api/experimental/generate/text', 'POST', { prompt: 'title this' });
+  assert.equal(response.status, 502);
+  const text = await response.text();
+  assert.equal(text.includes('secret-test-key'), false);
+  assert.equal(JSON.parse(text)._tag, 'GenerateUnavailableError');
+
+  // An answer with no text at all is a refusal too, not an empty string that
+  // reads as a blank title.
+  transport.current = async () => new Response(JSON.stringify({ choices: [] }),
+    { status: 200, headers: { 'content-type': 'application/json' } });
+  const empty = await request('/api/experimental/generate/text', 'POST', { prompt: 'title this' });
+  assert.equal(empty.status, 502);
+  assert.equal(JSON.parse(await empty.text())._tag, 'GenerateUnavailableError');
+});
+
+test('generate/text refuses without a connected credential and never reaches the provider', async (t) => {
+  let called = 0;
+  const { add, request } = await setup(t, {
+    providerFetch: async () => { called += 1; return new Response('{}'); },
+  });
+  await add();
+  const response = await request('/api/experimental/generate/text', 'POST', { prompt: 'title this' });
+  assert.equal(response.status, 400);
+  // Why this wording: the operator has to be told where to connect the key, and
+  // the same sentence the prompt route uses keeps the two from drifting.
+  assert.match((await response.json()).message, /Connect an API key/u);
+  assert.equal(called, 0);
+});
+
 test('OpenCode JSONC parser preserves URL and quoted commas, and config paths match the settings client', () => {
   assert.deepEqual(parseJsonc('{"url":"http://host/a,}",/* comment */"items":[1,],}'), { url: 'http://host/a,}', items: [1] });
   assert.throws(() => parseJsonc('{/* never closed'), /Malformed/);

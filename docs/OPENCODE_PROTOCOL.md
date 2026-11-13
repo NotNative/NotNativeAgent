@@ -116,7 +116,8 @@ including archive and restore, text prompts with client IDs and queued
 admission, synthetic continuation prompts, inbox reads, wait, interrupt, viewed
 state, paginated message reads, native session/inbox/step/text/usage/form
 events, `idle` turn markers in history, tool parts with name and lifecycle state,
-form settlement, and the isolated provider and credential routes.
+form settlement, one-shot text generation, and the isolated provider and
+credential routes.
 
 Tool parts carry the tool's name and its state, never its arguments or raw
 result: a tool's input can contain a secret and its output can contain retrieved
@@ -135,10 +136,57 @@ published with the correct message id — the loss was one assignment later.
 Not implemented, and refused explicitly: attachments, deferred execution,
 active-turn steering, agents beyond build, permission mutations, shell
 execution, filesystem and VCS APIs, session move,
-generated-text routes, tool-call lifecycle events, `session.diff` (NNA keeps no
-file snapshots, so it cannot answer truthfully), OAuth and command-based
-provider connection, and plugin management. Reviewer escalation remains
-fail-closed.
+generated-image and generated-decision routes, tool-call lifecycle events,
+`session.diff` (NNA keeps no file snapshots, so it cannot answer truthfully),
+OAuth and command-based provider connection, and plugin management. Reviewer
+escalation remains fail-closed.
+
+## One-shot text generation, for a client's titles and recaps
+
+`POST /api/experimental/generate/text` takes `{ prompt, model? }` and answers
+`{ data: { text } }`. It exists because OpenChamber runs its session titles and
+its per-turn recap through it (`server/lib/small-model/index.js`, which calls the
+published client's `experimental.generate.text`). Refusing it was not silent:
+the host logged `[session-assist] generation failed …` after every turn, so a
+conversation never got a name and the "what happened" line above it never
+appeared.
+
+This is a nested inference call, not an operator turn: it carries no tools, no
+conversation history and no retrieved content, and its output is a string
+returned to the caller. It enters no transcript and grants no authority. The key
+is read through the surface's own endpoint-bound credential store, so a
+GUI-connected key works and a Console key is still never touched; the broker's
+audit records the read as `opencode.generate.text` rather than borrowing a turn's
+identity.
+
+The request is the smallest thing an OpenAI-compatible endpoint accepts, with
+`stream: false` stated explicitly — a host that defaults an omitted `stream` to
+true would otherwise answer with a stream this route cannot read. A provider
+failure answers a fixed `GenerateUnavailableError` rather than the upstream body,
+because a provider's error text can quote the prompt.
+
+`model` is optional because the host's own fallback chain calls this route
+without one. A caller that names a model gets exactly that model or a refusal,
+never a silent switch: it picked that model for a reason.
+
+## A session's model is durable
+
+A session created through this surface records the model it runs at, including a
+chosen thinking level, in the durable index beside its wire identity. A restore
+replays it, and a model switch re-writes it.
+
+Why: a real OpenCode keeps `model` on a session across a restart, and a client
+renders it beside the title. Without the field, every restored conversation
+reopened on whatever route the surface happened to be configured with at that
+boot — a model the conversation never ran on, and one the operator never chose
+for it. The failure only appears on the *second* boot, and only when the
+configuration changed between them, which is why it survived a suite where both
+boots shared one config.
+
+A session created without naming a model still persists the effective route,
+because that is the model its transcript was produced by. An index entry written
+before the field existed still restores, on the configured route — refusing it
+would strand every conversation an operator already had.
 
 ## Session move: refused, and why the refusal is structural
 
@@ -192,7 +240,40 @@ a future change does not silently break the GUI.
 **The event envelope is flat.** The client's `translateWireEvent(payload)` reads
 `payload.type`, `payload.created` and `payload.data`; it does not read a nested
 `properties` object. `data.sessionID` and `data.location.directory` are how a
-session and its directory are identified on every event.
+session and its directory are identified on every event. The reader also requires
+`payload.id`: an event missing `id` or `type` is **dropped silently**, so a frame
+that renders in a test can still vanish in the client. The full translator maps
+129 upstream type strings and ends with `default: return []`.
+
+**A short history page silently truncates a transcript.** The client stops
+paginating when a page carries fewer records than the `limit` it asked for,
+regardless of `cursor.next`; and it **throws**
+`Session history pagination made no progress` on an empty page with
+`complete: false` or an echoed cursor. A page that returns exactly `limit`
+records must therefore supply a distinct `next`, and a final page must not claim
+there is more. History reads on the open path send `limit` only — `order` travels
+only when there is no cursor.
+
+**`GET /api/session/active` must be an object map.** The client parses
+`{"<sessionID>": {"type": "running"}}`; the value's `type` must literally be
+`"running"`, and any parse failure makes the call answer `null` and abort the
+bootstrap step. It then discards entries whose id is not already in the loaded
+session list. NNA's own answer already matches this shape.
+
+**`time.busy` is not part of this contract.** Across all 1,347 client assets the
+string does not appear once. A session's busy state comes from the active map
+and from `session.execution.started`, and clears only on a terminal event
+(`session.idle`, `session.error`, `session.execution.succeeded|failed|
+interrupted`). `session.execution.interrupted` with `reason: "shutdown"` emits
+**nothing at all**, so it neither starts nor ends a spinner. There is no client
+timeout, which is why a started turn with no terminal event is a permanent one.
+
+**A message `type` outside the declared set breaks the whole page.** The reader
+switches on ten values (`user`, `assistant`, `synthetic`, `system`, `skill`,
+`shell`, `compaction`, `agent-switched`, `model-switched`, `location-switched`,
+`idle`) and destructures the result, so an unlisted type throws rather than
+rendering an unknown row. An assistant record must carry `model.providerID` and
+`model.id`, and its `content[]` may hold only `text`, `reasoning` and `tool`.
 
 **The translator is not the only consumer.** It maps 29 event types and ends with
 `default: return []`, but two further paths read events the switch ignores: a

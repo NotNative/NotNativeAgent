@@ -11,26 +11,10 @@ import { resolve } from 'node:path';
 import { newId } from '../ids.js';
 import { manifestFromConfig } from '../provider/route-configuration.js';
 import { physicalWireAllowance } from '../reliability/context-budget.js';
-import { archiveMutationRefusal } from './legacy-archive.js';
+import { archiveMutationRefusal, archiveList, isArchived, archiveMessages } from './legacy-archive.js';
 import { updateSessionIndex } from './session-index.js';
+import { boundedSelection } from './model-reference.js';
 
-/** Archived conversation helpers. Why module-level: the archive is optional,
- *  a surface without one serves only live sessions, and every helper degrades
- *  to empty/refuse rather than opening the store. */
-function archiveList(archive) {
-  try { return archive?.list?.() ?? []; }
-  catch (error) {
-    if (error?.code === 'legacy_store_missing') return [];
-    throw error;
-  }
-}
-function isArchived(archive, id) {
-  try { return archive?.get?.(id)?.archived === true; }
-  catch (error) {
-    if (error?.code === 'legacy_store_missing') return false;
-    throw error;
-  }
-}
 /** The typed refusal for a live-state lookup that missed: archived ids answer
  *  the read-only conflict; everything else is an ordinary missing session. */
 function requireArchivedOrMissing(archive, id) {
@@ -39,12 +23,13 @@ function requireArchivedOrMissing(archive, id) {
   }
   throw apiError(404, 'SessionNotFoundError', 'Session was not found', { sessionID: id });
 }
-function archiveMessages(archive, id) {
-  if (!isArchived(archive, id)) throw apiError(404, 'SessionNotFoundError', 'Session was not found', { sessionID: id });
-  return { data: archive.messages(id).map((message) => ({
-    id: message.id, type: message.type, seq: message.seq,
-    time: { created: message.createdAt }, text: message.text,
-  })) };
+
+/** This module's archive read: the shared helper answers null for an unknown id,
+ *  which every route here treats as a missing session rather than an empty page. */
+function archivedHistory(archive, id) {
+  const page = archiveMessages(archive, id);
+  if (!page) throw apiError(404, 'SessionNotFoundError', 'Session was not found', { sessionID: id });
+  return page;
 }
 
 export function createV2Workspace(operations, options) {
@@ -363,6 +348,16 @@ async function selectModel(context, state, reference, requireCredential = false)
     const next = selected.reference;
     state.info.model = next;
     if (previous.id !== next.id || previous.providerID !== next.providerID || previous.variant !== next.variant) {
+      // Compatibility: a model switch is durable. Real OpenCode keeps the model
+      // on the session across a restart, and a switch the operator made is the
+      // model the conversation ran at from then on; recording it only in memory
+      // made the next boot reopen the session on the surface default, which is
+      // a model this conversation never used.
+      if (context.options.storeRoot) {
+        await updateSessionIndex(context.options.storeRoot, state.info.id, { model: boundedSelection(next) })
+          .catch((error) => context.options.logger?.record({ type: 'opencode_session_index_failed',
+            ocId: state.info.id, code: error.code ?? 'index_write_failed' }));
+      }
       context.events.emit(state, 'session.model.selected', { sessionID: state.info.id, model: next, previous });
       // Compatibility: OpenCode 2 records a `model-switched` history entry the
       // way it records `idle`, and a client reading history expects to see the

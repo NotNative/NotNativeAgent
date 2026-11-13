@@ -18,7 +18,8 @@ import { apiError, invalid, objectInput, wireId } from './v2-contract.js';
 import { runDesktopSessionRevert, runDesktopSessionUnrevert } from '../session-revert.js';
 import { runDesktopSessionFork } from '../desktop-session-fork.js';
 import { compactEngineConversation } from '../engine/context-controls.js';
-import { appendSessionIndex } from './session-index.js';
+import { boundedSelection, configModelRef } from './model-reference.js';
+import { publishAttach } from './session-publish.js';
 import { withSessionScope } from './scope-pin.js';
 import { closeSession, removeSession, restoreSession } from './session-lifecycle.js';
 
@@ -177,7 +178,7 @@ function v2Publisher(workspace, ocId) {
   };
 }
 
-async function attachSession(workspace, options, { title, directory, ocId: requestedId, engineSessionId, createdAt, archivedAt, runtimeDirectory, metadata, runtimeConfig, runtimeRef, forkIngest, parentID, slugSeed }) {
+async function attachSession(workspace, options, { title, directory, ocId: requestedId, engineSessionId, createdAt, archivedAt, runtimeDirectory, metadata, runtimeConfig, runtimeRef, restoredRef, forkIngest, parentID, slugSeed }) {
   const { registry, bus, wiredVersion } = workspace;
   // Why the durable id can be caller-supplied: boot-time restore re-opens the
   // journal a previous process journaled, which is the engine's own resume
@@ -193,7 +194,50 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
     observe: (record) => wireSession?.observe(record),
   }));
   await engine.initialize({ deferMcp: true });
-  const record = {
+  const record = sessionRecord({ ocId, engine, title, sessionDirectory, projectID, createdAtMs, parentID, archivedAt, slugSeed });
+  wireSession = createWireSession({
+    record, bus, version: wiredVersion,
+    publishV2: v2Publisher(workspace, ocId),
+    info: () => {
+      const stored = registry.get(ocId);
+      const touched = registry.touch(ocId) ?? stored;
+      return registry.describe(touched ?? stored, wiredVersion);
+    },
+  });
+  // Compatibility: a restored session keeps the model it ran at. The durable
+  // index records the selection the operator admitted, and replaying it here is
+  // what makes a reopened conversation report the model it was actually using
+  // instead of whatever route the surface is configured with at this boot.
+  const modelRef = selectionFor({ runtimeRef, restoredRef, config: runtimeConfig ?? options.config });
+  if (modelRef) wireSession.setModelRef(modelRef);
+  // Why: the engine's revert mutates a context it owns (it guards against a busy
+  // or closing session and holds the journal). The registry record is frozen, so
+  // this is the mutable side the timeline mutation operates on; `sessionId` is
+  // the engine identity the journal resolves a boundary against.
+  // Why the descriptive fields: the engine's timeline operations (revert, fork)
+  // read the context they are handed - a fork titles its child and places it in
+  // the parent's directory from here, so an absent title produced "undefined-fork"
+  // and an absent directory lost the parent's location.
+  const timeline = { engine, sessionId, closing: false, liveTurn: null,
+    title, directory: sessionDirectory, modelRoute: undefined,
+    ...(parentID ? { parentID } : {}) };
+  const stored = registry.attach({ ...record, wireSession, timeline });
+  await publishAttach(workspace, options, { stored, sessionId, ocId, createdAtMs, parentID, metadata,
+    // Why the resolved selection: a restore re-enters this path with no fresh
+    // selection, and a create may name none at all. Persisting what the session
+    // actually runs at keeps one index entry stable across boots instead of
+    // erasing the model on the first restart after it was set.
+    runtimeRef: modelRef });
+  return registry.describe(stored, wiredVersion);
+}
+
+/** The immutable record one attached conversation is addressed by.
+ *
+ *  Why the ingress is built here: the surface's only operator voice over the wire
+ *  is the question reply route, so each conversation owns an interactive ingress
+ *  bound to its own engine rather than sharing one at the surface. */
+function sessionRecord({ ocId, engine, title, sessionDirectory, projectID, createdAtMs, parentID, archivedAt, slugSeed }) {
+  return {
     ocId,
     engine,
     ingress: new CanonicalIngress(engine, { interactive: true }),
@@ -206,66 +250,23 @@ async function attachSession(workspace, options, { title, directory, ocId: reque
     ...(parentID ? { parentID } : {}),
     ...(Number.isFinite(archivedAt) ? { archivedAt } : {}),
   };
-  wireSession = createWireSession({
-    record, bus, version: wiredVersion,
-    publishV2: v2Publisher(workspace, ocId),
-    info: () => {
-      const stored = registry.get(ocId);
-      const touched = registry.touch(ocId) ?? stored;
-      return registry.describe(touched ?? stored, wiredVersion);
-    },
-  });
-  const modelRef = configModelRef(runtimeConfig ?? options.config);
-  if (modelRef) wireSession.setModelRef(modelRef);
-  // Why: the engine's revert mutates a context it owns (it guards against a busy
-  // or closing session and holds the journal). The registry record is frozen, so
-  // this is the mutable side the timeline mutation operates on; `sessionId` is
-  // the engine identity the journal resolves a boundary against.
-  // Why the descriptive fields: the engine's timeline operations (revert, fork)
-  // read the context they are handed ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â a fork titles its child and places it in
-  // the parent's directory from here, so an absent title produced "undefined-fork"
-  // and an absent directory lost the parent's location.
-  const timeline = { engine, sessionId, closing: false, liveTurn: null,
-    title, directory: sessionDirectory, modelRoute: undefined,
-    ...(parentID ? { parentID } : {}) };
-  const stored = registry.attach({ ...record, wireSession, timeline });
-  await publishAttach(workspace, options, { stored, sessionId, ocId, createdAtMs, parentID, metadata, runtimeRef });
-  return registry.describe(stored, wiredVersion);
 }
 
-/** Wire the attached session to the v2 stream, the durable index, and the log.
+/** The model a session runs at, and the one its durable record keeps.
  *
- *  Why the index write: the wire identity is the only link between what the
- *  client sees (`ses_*`) and the journal the engine will re-open on the next
- *  boot (`session_*`). Without it a restart loses the GUI's history again. */
-async function publishAttach(workspace, options, { stored, sessionId, ocId, createdAtMs, parentID, metadata, runtimeRef }) {
-  const { registry, wiredVersion } = workspace;
-  workspace.v2?.attach(registry.describe(stored, wiredVersion), metadata, runtimeRef);
-  if (options.storeRoot) {
-    const entry = { ocId, sessionId, title: stored.title, directory: stored.directory, createdAt: createdAtMs, ...(parentID ? { parentID } : {}),
-      ...(Number.isFinite(stored.archivedAt) ? { archivedAt: stored.archivedAt } : {}) };
-    await appendSessionIndex(options.storeRoot, entry)
-      .catch((error) => options.logger?.record({ type: 'opencode_session_index_failed', ocId, code: error.code ?? 'index_write_failed' }));
-  }
-  options.logger?.record({ type: 'opencode_session_created', ocId: stored.ocId, sessionId, title: stored.title }, { sessionId });
-  options.logger?.record({ type: 'opencode_session_started', ocId: stored.ocId, sessionId, title: stored.title, directory: stored.directory }, { sessionId });
-}
-
-function configModelRef(config) {
-  const primary = boundedRef(config?.routes?.primary);
-  if (primary) return primary;
-  const provider = config?.provider;
-  if (!provider || typeof provider !== 'object') return null;
-  return boundedRef(provider);
-}
-
-function boundedRef(source) {
-  if (!source || typeof source !== 'object') return null;
-  const providerID = typeof source.providerId === 'string' && source.providerId ? source.providerId
-    : typeof source.id === 'string' && source.id ? source.id : null;
-  const modelID = typeof source.model === 'string' && source.model ? source.model : null;
-  if (!providerID && !modelID) return null;
-  return { providerID: providerID ?? 'nna', modelID: modelID ?? 'nna' };
+ *  Why one decision: three callers reach this — a create that named a model, a
+ *  create that named none, and a boot restore. Giving each its own fallback is
+ *  how a restored conversation came back on a model it never ran.
+ *
+ *  Order: an explicit selection the caller admitted, then the selection the
+ *  durable index restored, then the surface's configured route. The last is a
+ *  real answer only because a session created without naming a model still runs
+ *  at one, and that is the model its transcript was produced by — recording it
+ *  is what stops a later boot on a different configuration re-pointing a
+ *  conversation that already has history. */
+function selectionFor({ runtimeRef, restoredRef, config }) {
+  return boundedSelection(runtimeRef) ?? boundedSelection(restoredRef)
+    ?? boundedSelection(configModelRef(config));
 }
 
 function requireSession(workspace, ocId) {

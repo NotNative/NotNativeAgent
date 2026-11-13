@@ -37,22 +37,7 @@ export async function startOpencodeServe(options = {}) {
   const scheduler = options.scheduler ?? new FairScheduler({
     limit: config.limits.providerConcurrency, maxQueued: config.limits.providerQueueLimit,
   });
-  const workspace = createOpenCodeSessionWorkspace({
-    config, wiredVersion, logger: options.logger ?? null,
-    storeRoot: options.storeRoot, reviewerRoot: options.reviewerRoot, directory: options.directory,
-    ...(options.skillRoots ? { skillRoots: options.skillRoots } : {}),
-    scheduler, secretBroker: providerSettings?.secretBroker ?? options.secretBroker, providerSettings,
-    providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
-    // Why threaded here: a conversation shown by a hosting surface drives that
-    // pane, resolved once per surface so every conversation shares one binding.
-    ...(options.hostedBrowserTransport ? { hostedBrowserTransport: options.hostedBrowserTransport } : {}),
-    archive: options.archive ?? null,
-    reattachEvicted: (id) => reattachEvictedSession(
-      workspace.core, { storeRoot: options.storeRoot, operations: workspace.operations }, id),
-  });  // Why eviction: an idle conversation should not hold three durable file handles;
-  // the sweep shuts idle engines down while the durable index and the registry's
-  // dormant record keep the conversation listed and re-attachable.
-  configureEviction(workspace.core, { idleMs: options.idleEvictionMs ?? 0 });
+  const workspace = createWorkspace(options, { config, wiredVersion, providerSettings, scheduler });
   const server = new OpenCodeCompatServer({
     port: options.port ?? DEFAULT_SERVE_PORT, hostname: options.hostname ?? DEFAULT_SERVE_HOSTNAME, wiredVersion,
     registry: workspace.registry, operations: workspace.operations, bus: workspace.bus, v2: workspace.v2,
@@ -61,6 +46,12 @@ export async function startOpencodeServe(options = {}) {
     scheduler,
     directory: options.directory ?? config.workspaceRoot ?? process.cwd(),
     config, providerSettings,
+    // Why threaded here: the nested generate-text route (a client's session
+    // titles and recaps) makes one non-streaming provider call, and a test or a
+    // host that supplies its own transport must reach it the same way the
+    // engine's provider does.
+    ...(options.providerFetch ? { providerFetch: options.providerFetch } : {}),
+    ...(Number.isFinite(options.generateTimeoutMs) ? { generateTimeoutMs: options.generateTimeoutMs } : {}),
     logger: options.logger ?? null,
     password: options.password ?? null,
     username: options.username ?? DEFAULT_BASIC_USERNAME,
@@ -80,6 +71,34 @@ export async function startOpencodeServe(options = {}) {
     restoreSummary: { restored: restored.length, skipped: skipped.length },
     archive: workspace.archive ?? options.archive ?? null,
   });
+}
+
+/** The live session workspace one surface serves every conversation from.
+ *
+ *  Why extracted: the wiring list is long and each entry carries a reason, so it
+ *  read as one unbroken block inside `startOpencodeServe` and pushed that
+ *  function past its size budget. Kept here with the same comments, it is one
+ *  readable unit: what a surface hands its conversations.
+ */
+function createWorkspace(options, { config, wiredVersion, providerSettings, scheduler }) {
+  const workspace = createOpenCodeSessionWorkspace({
+    config, wiredVersion, logger: options.logger ?? null,
+    storeRoot: options.storeRoot, reviewerRoot: options.reviewerRoot, directory: options.directory,
+    ...(options.skillRoots ? { skillRoots: options.skillRoots } : {}),
+    scheduler, secretBroker: providerSettings?.secretBroker ?? options.secretBroker, providerSettings,
+    providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
+    // Why threaded here: a conversation shown by a hosting surface drives that
+    // pane, resolved once per surface so every conversation shares one binding.
+    ...(options.hostedBrowserTransport ? { hostedBrowserTransport: options.hostedBrowserTransport } : {}),
+    archive: options.archive ?? null,
+    reattachEvicted: (id) => reattachEvictedSession(
+      workspace.core, { storeRoot: options.storeRoot, operations: workspace.operations }, id),
+  });
+  // Why eviction: an idle conversation should not hold three durable file handles;
+  // the sweep shuts idle engines down while the durable index and the registry's
+  // dormant record keep the conversation listed and re-attachable.
+  configureEviction(workspace.core, { idleMs: options.idleEvictionMs ?? 0 });
+  return workspace;
 }
 
 async function resolveScenarioConfiguration(options) {

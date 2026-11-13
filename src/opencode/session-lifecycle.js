@@ -88,6 +88,12 @@ export async function restoreSession(workspace, options, input, attach) {
     // archive decision, so a boot restore must re-apply it or an archived
     // conversation reappears unarchived after a restart.
     ...(Number.isFinite(input.archivedAt) ? { archivedAt: input.archivedAt } : {}),
+    // Compatibility: the model a session ran at is restored with it. The index
+    // carries the selection the operator admitted; without it every restored
+    // session reopened on the surface's configured route, which is a model the
+    // conversation never chose. Absent means "this index entry predates the
+    // field", and the configured route is the only truthful answer left.
+    ...(input.model ? { restoredRef: input.model } : {}),
   });
   seedSessionHistory(workspace.registry.get(described.id), workspace);
   return described;

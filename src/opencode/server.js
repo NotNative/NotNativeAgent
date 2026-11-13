@@ -34,6 +34,11 @@ export class OpenCodeCompatServer {
       directory: options.directory ?? process.cwd(),
       config: options.config,
       providerSettings: options.providerSettings,
+      // Why kept: the nested generate-text route is one non-streaming provider
+      // call, and a host or test that supplies its own transport must be able to
+      // reach it rather than being forced onto the global fetch.
+      ...(options.providerFetch ? { providerFetch: options.providerFetch } : {}),
+      ...(Number.isFinite(options.generateTimeoutMs) ? { generateTimeoutMs: options.generateTimeoutMs } : {}),
       // Why kept: diagnostics report the shared scheduler's per-route state.
       scheduler: options.scheduler,
       logger: options.logger,

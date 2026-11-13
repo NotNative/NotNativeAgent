@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 import { physicalWireAllowance } from '../reliability/context-budget.js';
 import { PROTOCOL_TOOL_NAMES } from '../tools/core-names.js';
 import { toolSummary, toolDisplayOutput, toolPartState } from './tool-summary.js';
+import { buildPromptCommand as composePromptText } from './prompt-parts.js';
 import {
   ZERO_TOKENS, assistantInfo, buildAssistantResponse, closeTurn, abortPending, currentInfo, idleInfo, publishBare, publishDurable,
   settleAbandoned, settleEntry, settleFailure, stepStartPart, textSegmentOpen, openTextSegment, closedUserInfo, userPart, userInfo, tokenView, seededEntry,
@@ -71,7 +72,17 @@ export function createWireSession({ record, bus, info, version, publishV2 = null
 
 function applyModelRef(state, next) {
   if (typeof next?.providerID === 'string' && next.providerID) state.modelRef.providerID = next.providerID;
-  if (typeof next?.modelID === 'string' && next.modelID) state.modelRef.modelID = next.modelID;
+  // Why `id` as well as `modelID`: a `Provider.Model.Ref` names its model `id`,
+  // and that is the shape the durable index stores and a restore replays. The
+  // `modelID` spelling stays for the internal selection objects that carry it.
+  const modelID = typeof next?.modelID === 'string' && next.modelID ? next.modelID
+    : typeof next?.id === 'string' && next.id ? next.id : null;
+  if (modelID) state.modelRef.modelID = modelID;
+  // Compatibility: `variant` is the thinking level the operator chose. A client
+  // shows it beside the model, so a restored session has to report the level it
+  // ran at rather than silently dropping to the model's default.
+  if (typeof next?.variant === 'string' && next.variant) state.modelRef.variant = next.variant;
+  else delete state.modelRef.variant;
 }
 
 // Why published: the client's context pane renders a live "X% used" meter from
@@ -454,37 +465,13 @@ function seedHistory(state, turns) {
   return seeded;
 }
 
+/** Compatibility: this module's bounds are the surface's policy, so the call
+ *  site supplies them; the rules themselves live in `prompt-parts.js`. */
 export function buildPromptCommand(parts, limits = {}) {
-  return composePromptText(parts, limits);
-}
-
-function composePromptText(parts, limits) {
-  const maxParts = limits.maxParts ?? MAX_PROMPT_PARTS;
-  const maxText = limits.maxText ?? DEFAULT_PART_TEXT_ALLOWANCE;
-  if (!Array.isArray(parts) || parts.length === 0) {
-    throw new ContractError('opencode_prompt_parts_invalid', 'prompt requires at least one text part');
-  }
-  if (parts.length > maxParts) throw new ContractError('opencode_prompt_parts_invalid', 'prompt exceeds part bounds');
-  const texts = [];
-  let totalBytes = 0;
-  for (const part of parts) {
-    const text = requireTextPart(part, maxText);
-    totalBytes += Buffer.byteLength(text, 'utf8') + Number(texts.length > 0);
-    if (totalBytes > maxText) throw new ContractError('opencode_prompt_parts_invalid', 'combined prompt text exceeds bounds');
-    texts.push(text);
-  }
-  return texts.join('\n');
-}
-
-function requireTextPart(part, maxText) {
-  if (!part || typeof part !== 'object' || part.type !== 'text') {
-    throw new ContractError('opencode_prompt_parts_unsupported', 'only text prompt parts are accepted');
-  }
-  if (typeof part.text !== 'string' || part.text.length === 0) {
-    throw new ContractError('opencode_prompt_parts_invalid', 'text prompt parts require text');
-  }
-  if (part.text.length > maxText) throw new ContractError('opencode_prompt_parts_invalid', 'prompt text exceeds bounds');
-  return part.text;
+  return composePromptText(parts, {
+    maxParts: limits.maxParts ?? MAX_PROMPT_PARTS,
+    maxText: limits.maxText ?? DEFAULT_PART_TEXT_ALLOWANCE,
+  });
 }
 
 export function snapshotValue(directory) {

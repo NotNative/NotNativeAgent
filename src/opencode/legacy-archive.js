@@ -90,3 +90,35 @@ export async function adoptArchivedSession(archive, ocId, construct) {
   const messages = archive.messages(ocId);
   return construct({ entry, messages });
 }
+
+/** Archived conversation reads for the v2 workspace.
+ *
+ *  Why here: the archive is optional, and a surface without one serves only live
+ *  sessions. These degrade to empty or refuse rather than opening a store that
+ *  does not exist, and they belong beside the archive they read instead of at the
+ *  top of the workspace that calls them. */
+export function archiveList(archive) {
+  try { return archive?.list?.() ?? []; }
+  catch (error) {
+    if (error?.code === 'legacy_store_missing') return [];
+    throw error;
+  }
+}
+
+export function isArchived(archive, id) {
+  try { return archive?.get?.(id)?.archived === true; }
+  catch (error) {
+    if (error?.code === 'legacy_store_missing') return false;
+    throw error;
+  }
+}
+
+/** A listed archived conversation's read-only history in message-page shape,
+ *  or null when the id is not an archived conversation. */
+export function archiveMessages(archive, id) {
+  if (!isArchived(archive, id)) return null;
+  return { data: archive.messages(id).map((message) => ({
+    id: message.id, type: message.type, seq: message.seq,
+    time: { created: message.createdAt }, text: message.text,
+  })) };
+}

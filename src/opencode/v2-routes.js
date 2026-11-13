@@ -4,6 +4,7 @@ import { readJsonBody, contextRequestBodyLimit, sendJson, sendNoContent } from '
 import { apiError, invalid, objectInput, validateSelection } from './v2-contract.js';
 import { catalogResponse, requestDirectory } from './v2-catalog.js';
 import { providerCatalog, providerMutation } from './provider-api.js';
+import { generateText } from './v2-generate.js';
 
 export async function handleV2Request(ctx) {
   try { await dispatch(ctx); }
@@ -85,6 +86,13 @@ async function dispatch(ctx) {
   }
   const segments = path.split('/').slice(2).map(decodeURIComponent);
   if (segments[0] === 'session' && segments.length >= 2) return sessionRoute(ctx, segments.slice(1));
+  if (method === 'POST' && segments[0] === 'experimental' && segments[1] === 'generate' && segments[2] === 'text' && segments.length === 3) {
+    // Compatibility: OpenChamber runs its session titles and per-turn recaps
+    // through this route. It answers `{ data: { text } }`, which is the shape the
+    // client's `generate.text` helper unwraps (`.then((value) => value.data)`).
+    return sendJson(res, 200, { data: await generateText({ options, body: await body(ctx),
+      directory: requestDirectory(target, req, options.directory) }) });
+  }
   if (method === 'POST' && segments[0] === 'experimental' && segments[1] === 'session' && segments[3] === 'wait' && segments.length === 4) {
     await api.wait(segments[2]); return sendNoContent(res);
   }

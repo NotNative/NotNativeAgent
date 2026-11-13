@@ -131,6 +131,78 @@ test('a discovered pre-index journal restores under a fresh wire id', { timeout:
   assert.equal(index.length, 1);
 });
 
+test('a restored session reports the model it ran at, not the surface default', { timeout: 30_000 }, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-restore-model-'));
+  const first = await durableServer(t, root);
+  const session = (await (await first.request('/api/session', 'POST', { title: 'Model identity' })).json()).data;
+  assert.equal(session.model.id, 'fixture-model', JSON.stringify(session.model));
+  const prompt = await first.request(`/api/session/${session.id}/prompt`, 'POST', { text: 'remember the model' });
+  assert.equal(prompt.status, 200, await prompt.text());
+  await first.request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  await first.runtime.stop();
+
+  // Why a *different* configured route on the second boot: this is the failure
+  // being pinned. A restore that reads the configured route reports a model the
+  // conversation never used, so an operator reopening it sees the conversation
+  // silently re-pointed at whatever the surface is configured with now.
+  const second = await durableServer(t, root, { config: resolveManifest({ persistence: 'durable', provider: {
+    id: 'rotated', endpoint: 'http://127.0.0.1:9999/v1', model: 'rotated-model', trust_zone: 'loopback' } }) });
+  const restored = (await (await second.request('/api/session')).json()).data
+    .find((entry) => entry.id === session.id);
+  assert.ok(restored, 'the session must restore');
+  assert.equal(restored.model.id, 'fixture-model',
+    `a restored session must keep its model, got ${JSON.stringify(restored.model)}`);
+  assert.equal(restored.model.providerID, 'test');
+  // And the record read agrees with the list, which is what the client uses when
+  // it opens a conversation rather than scrolling the sidebar.
+  const single = (await (await second.request(`/api/session/${session.id}`)).json()).data;
+  assert.equal(single.model.id, 'fixture-model');
+});
+
+test('a model switch is durable across a restart', { timeout: 30_000 }, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-restore-switch-'));
+  const first = await durableServer(t, root);
+  const session = (await (await first.request('/api/session', 'POST', { title: 'Switched' })).json()).data;
+  // Why the index rather than the API: this surface exposes one selectable model
+  // in the fixed-provider case, so a switch is recorded through the same durable
+  // write the selection path uses. The failure being pinned is that the write
+  // did not happen at all, so a restart lost the choice.
+  const { updateSessionIndex } = await import('../src/opencode/session-index.js');
+  await updateSessionIndex(join(root, 's'), session.id,
+    { model: { id: 'switched-model', providerID: 'test', variant: 'high' } });
+  await first.runtime.stop();
+
+  const second = await durableServer(t, root);
+  const restored = (await (await second.request(`/api/session/${session.id}`)).json()).data;
+  assert.equal(restored.model.id, 'switched-model', JSON.stringify(restored.model));
+  // Compatibility: the thinking level travels with the model, because a client
+  // renders them together and a restored session that dropped the level would
+  // show a level the next prompt does not use.
+  assert.equal(restored.model.variant, 'high');
+});
+
+test('an index entry with no model restores on the configured route', { timeout: 30_000 }, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-restore-legacy-'));
+  const first = await durableServer(t, root);
+  const session = (await (await first.request('/api/session', 'POST', { title: 'Pre-model' })).json()).data;
+  await first.request(`/api/session/${session.id}/prompt`, 'POST', { text: 'older entry' });
+  await first.request(`/api/experimental/session/${session.id}/wait`, 'POST');
+  await first.runtime.stop();
+  // Why strip the field: an index written by a build before the model was
+  // recorded must still restore. Refusing it, or reporting an undefined model,
+  // would strand every conversation an operator already had.
+  const indexPath = join(root, 's', 'opencode-sessions.ndjson');
+  const lines = (await readFile(indexPath, 'utf8')).split('\n').filter(Boolean);
+  await writeFile(indexPath, `${lines.map((line) => {
+    const record = JSON.parse(line); delete record.model; return JSON.stringify(record);
+  }).join('\n')}\n`);
+
+  const second = await durableServer(t, root);
+  const restored = (await (await second.request(`/api/session/${session.id}`)).json()).data;
+  assert.equal(restored.model.id, 'fixture-model', JSON.stringify(restored.model));
+  assert.equal(restored.model.providerID, 'test');
+});
+
 test('conversations on one surface share one admission scheduler', { timeout: 30_000 }, async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'nna-scheduler-'));
   const { runtime, request } = await durableServer(t, root);
