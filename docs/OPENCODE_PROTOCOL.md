@@ -305,6 +305,18 @@ switches on ten values (`user`, `assistant`, `synthetic`, `system`, `skill`,
 rendering an unknown row. An assistant record must carry `model.providerID` and
 `model.id`, and its `content[]` may hold only `text`, `reasoning` and `tool`.
 
+**A prose block's identity on the wire is its ordinal, not its part id.** For
+text the client builds its own part identity as `` `${assistantMessageID}:text:${ordinal}` ``
+and ignores whatever id the surface stored. Two prose blocks emitted with the
+same ordinal therefore render as one, and the second overwrites the first: a turn
+that writes prose between tool calls collapsed into a single block above every
+tool row, which is the pile-up an operator reads as "the transcript order is
+broken". The ordinal must be the segment's index within the assistant message,
+and `session.text.delta` must name the segment it continues — appending a delta
+to the message's first text part puts a later step's streaming prose in the block
+the turn opened with. `reasoning` follows the same rule with its own prefix, and
+`session.tool.*` shares the tool part id directly.
+
 **The translator is not the only consumer.** It maps 29 event types and ends with
 `default: return []`, but two further paths read events the switch ignores: a
 delta hub for `session.text.delta` / `session.reasoning.delta` /

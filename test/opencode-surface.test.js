@@ -20,7 +20,13 @@ function fixtureRoot() { return mkdtemp(join(tmpdir(), 'nna-opencode-')); }
 
 async function serveDuring(options, run) {
   const handshake = [];
-  const runtime = await startOpencodeServe({ ...options, stdout: { write: () => undefined }, handshakeSink: async (line) => handshake.push(line) });
+  // Why the version is pinned: a serve boot otherwise resolves the reported
+  // target from npm's `@opencode/cli` latest and compares it to the constant
+  // asserted below, so the suite measured the registry rather than the surface —
+  // it passed on 2.2.7 and broke the day 2.3.0 shipped. The gate's rule is
+  // asserted separately; this only fixes which version the fixture reports.
+  const runtime = await startOpencodeServe({ ...options, wiredVersion: WIRED_OPENCODE_VERSION,
+    stdout: { write: () => undefined }, handshakeSink: async (line) => handshake.push(line) });
   try { return await run({ runtime, url: runtime.url, handshake }); }
   finally { await runtime.stop(); }
 }

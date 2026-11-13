@@ -107,8 +107,13 @@ async function fixtureServer(t, extra = {}) {
   const config = resolveManifest({ persistence: 'ephemeral', provider: {
     id: 'test', endpoint: 'http://127.0.0.1:9999/v1', model: 'fixture-model', trust_zone: 'loopback',
   } });
+  // Why the version is pinned: a serve boot resolves the reported target from
+  // npm's `@opencode/cli` latest unless one is supplied. Without this the tests
+  // would assert against whatever the registry published that day — they passed
+  // on 2.2.7 and failed the moment 2.3.0 shipped, which is a test that measures
+  // the network rather than the surface. The gate's *rule* is asserted separately.
   const runtime = await startOpencodeServe({ config, directory: root, storeRoot: join(root, 's'), reviewerRoot: join(root, 'r'),
-    providerFactory: () => new Provider(), stdout: { write() {} }, ...extra });
+    providerFactory: () => new Provider(), stdout: { write() {} }, wiredVersion: WIRED_OPENCODE_VERSION, ...extra });
   t.after(async () => { await runtime.stop(); await rm(root, { recursive: true, force: true }); });
   const request = (path, method = 'GET', value, headers = {}) => fetch(`${runtime.url}${path}`, {
     method, headers: { connection: 'close', 'content-type': 'application/json', ...headers },

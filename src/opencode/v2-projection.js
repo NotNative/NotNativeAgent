@@ -136,28 +136,62 @@ function observePart(state, part, events) {
   // Why not key by part id: the v2 text part schema is closed —
   // `additionalProperties: false` — so an `id` on the payload is rejected by a
   // client that validates. The identity is tracked out of band instead.
+  // Why the ordinal decides identity: the client does not read a part's `id` off
+  // these events. It builds one as `${messageID}:text:${ordinal}`, so every prose
+  // block sent with the same ordinal lands in the same rendered part. A turn that
+  // writes prose between tool calls collapsed into one block above every tool row,
+  // which is exactly the pile-up this projection already tries to avoid by giving
+  // each segment its own stored part. The ordinal is the index of that segment in
+  // the message, so a reload and the live stream agree on which block is which.
   const entries = message.textEntries;
   const entry = entries?.get(part.id);
-  if (entry) { entry.text = part.text; }
-  else {
+  let ordinal;
+  if (entry) {
+    entry.text = part.text;
+    ordinal = entry.ordinal;
+  } else {
     const created = { type: 'text', text: part.text };
+    // Why non-enumerable: the payload is validated against a closed schema, so the
+    // bookkeeping must sit beside it rather than inside it.
+    Object.defineProperty(created, 'ordinal', { value: entries?.size ?? 0, enumerable: false });
+    ordinal = created.ordinal;
     message.content.push(created);
     entries?.set(part.id, created);
   }
   events.emit(state, part.time?.end == null ? 'session.text.started' : 'session.text.ended', {
-    sessionID: state.info.id, assistantMessageID: message.id, ordinal: 0,
+    sessionID: state.info.id, assistantMessageID: message.id, ordinal,
     ...(part.time?.end == null ? {} : { text: part.text }),
   });
 }
 
+/** Grow the prose segment a delta belongs to.
+ *
+ *  Why by `partID`: a delta names the segment it continues, and a turn has
+ *  several. Appending to the message's first text part put every later segment's
+ *  streaming text into the block the turn opened with, so a long turn streamed one
+ *  growing paragraph while its later prose segments stayed empty. */
 function observeDelta(state, value, events) {
   const message = state.messages.get(value.messageID);
   if (message?.type === 'assistant') {
-    if (!message.content.length) message.content.push({ type: 'text', text: '' });
-    message.content[0].text += value.delta;
+    const entry = message.textEntries?.get(value.partID) ?? lastTextPart(message);
+    if (entry) entry.text += value.delta;
+    else {
+      const created = { type: 'text', text: value.delta };
+      Object.defineProperty(created, 'ordinal', { value: message.textEntries?.size ?? 0, enumerable: false });
+      message.content.push(created);
+      message.textEntries?.set(value.partID, created);
+    }
   }
+  const entry = message?.type === 'assistant' ? message.textEntries?.get(value.partID) : null;
   events.emit(state, 'session.text.delta', { sessionID: state.info.id, assistantMessageID: value.messageID,
-    ordinal: 0, delta: value.delta }, false);
+    ordinal: entry?.ordinal ?? 0, delta: value.delta }, false);
+}
+
+function lastTextPart(message) {
+  for (let index = message.content.length - 1; index >= 0; index -= 1) {
+    if (message.content[index]?.type === 'text') return message.content[index];
+  }
+  return null;
 }
 
 /** Keep a tool part on its assistant message, in call order.
