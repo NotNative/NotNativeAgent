@@ -197,8 +197,11 @@ export async function applySpawnEnvironment(launcherPath, scope) {
 /**
  * Removes the spawn switch, so the host falls back to its own OpenCode.
  *
- * Why only the switch: the attach-mode names are not this command's to invent, so it
- * clears `OPENCODE_BINARY` and leaves anything else the operator or `start` wrote.
+ * Why only the switch here: the attach-mode names are not this function's to
+ * invent, so it clears `OPENCODE_BINARY` and leaves anything else the operator or
+ * `start` wrote. `disable` then clears an attach binding separately, through the
+ * same ownership proof `stop` uses, because a surviving `OPENCODE_SKIP_START`
+ * overrides this pointer in the host and would pin it to a fixed port.
  */
 export async function clearSpawnEnvironment(scope) {
   if ((scope.platform ?? process.platform) !== 'win32') return { supported: false };

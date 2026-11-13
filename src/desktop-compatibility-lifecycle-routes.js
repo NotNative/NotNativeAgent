@@ -140,8 +140,13 @@ export function projectAction(value, action, application, withOperationId = fals
   // Why `spawn` is projected: the OpenChamber spawn slice gave enable and
   // disable a launcher-environment outcome; the receipt must carry it or the
   // operator cannot see that the host spawn switch was applied or cleared.
+  // Why the key count is not pinned: `disable` also reports the attach-binding
+  // cleanup it performs, and pinning the count made a legitimate added field
+  // throw here as a projection failure. The four required keys are what the
+  // receipt promises; anything else the domain returns is ignored rather than
+  // treated as malformed.
   const body = new Set(Object.keys(value.value));
-  if (body.size !== 4 || !['config', 'login', 'runtime', 'spawn'].every(key => body.has(key))) throw projection();
+  if (!['config', 'login', 'runtime', 'spawn'].every(key => body.has(key))) throw projection();
   return { ...common, service: projectService(value.value.config),
     login: projectLogin(value.value.login), runtime: projectRuntime(value.value.runtime),
     spawn: projectSpawnOutcome(value.value.spawn) };

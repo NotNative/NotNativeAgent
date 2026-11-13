@@ -188,6 +188,15 @@ test('enable installs the login script verbatim; start applies the OpenChamber e
     assert.deepEqual(disabled.value.runtime, { running: true, verified: true, pid: 777,
       port: 4095, url: 'http://127.0.0.1:4095' });
     assert.deepEqual(removed, [scripts[0].destination]);
+    // Why the receipt is projected here too: `disable` now also reports the
+    // attach-binding cleanup it performs, and the receipt guard once pinned the
+    // result to exactly four keys. That threw on the richer result while these
+    // assertions passed, because they read the domain value and never the
+    // projected receipt the desktop route actually returns.
+    const disabledReceipt = projectAction(disabled, 'disable', 'next_service_stop', true);
+    assert.equal(disabledReceipt.application, 'next_service_stop');
+    assert.deepEqual(disabledReceipt.spawn, { supported: true, removed: ['OPENCODE_BINARY'] });
+    assert.ok(!JSON.stringify(disabledReceipt).includes('disabled-value-never-present-x'));
     void [enabled.value.operationId, disabled.value.operationId];
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });

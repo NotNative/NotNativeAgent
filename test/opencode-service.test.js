@@ -281,7 +281,64 @@ test('enable writes the spawn switch beside the login script, and disable remove
   // Why disable clears only the pointer: it returns the host to its own OpenCode and
   // leaves every other name the operator or `start` owns untouched.
   assert.deepEqual(disabled.spawn.removed, ['OPENCODE_BINARY']);
-  assert.equal(env.writes.length, 2);
+  // Compatibility: it also clears an attach binding it can prove NNA wrote, because
+  // a surviving `OPENCODE_SKIP_START` overrides the spawn pointer in the host and
+  // pins it to a port nothing may be listening on. Here nothing was written by
+  // `start`, so there is nothing to own and nothing is removed.
+  assert.deepEqual(disabled.environment.removed, []);
+  assert.equal(disabled.environment.preserved, true);
+});
+
+test('disable clears an attach binding an earlier start left behind', async () => {
+  // Why this is the reachable trap: `enable` then `start` leaves BOTH postures set.
+  // OpenChamber treats `OPENCODE_SKIP_START` as authoritative over every spawn path,
+  // so the pointer `enable` wrote is ignored and the host attaches to a fixed port.
+  // Disabling only the pointer returned the operator to a host that still would not
+  // launch its own OpenCode, and hung on a dead port once the service stopped.
+  const paths = await servicePaths(); const startup = await mkdtemp(join(tmpdir(), 'nna-opencode-startup-'));
+  const env = environment();
+  const install = await mkdtemp(join(tmpdir(), 'nna-install-'));
+  await mkdir(join(install, 'bin'), { recursive: true });
+  await mkdir(join(install, 'installed', 'src'), { recursive: true });
+  await writeFile(join(install, 'bin', 'nna.cmd'), '@echo off\n');
+  const scope = { platform: 'win32', startupFolder: () => startup, processIdentity: identity(),
+    spawnProcess: spawn(child()), userEnvironmentRead: env.read, userEnvironmentWrite: env.write,
+    environment: {}, scriptPath: join(install, 'installed', 'src', 'cli.js') };
+
+  const enabled = await enableOpencodeService({}, paths, scope);
+  assert.deepEqual(enabled.spawn.written, ['OPENCODE_BINARY']);
+  // `start` writes the attach set beside the pointer it never touches.
+  await startOpencodeService({}, paths, scope);
+  assert.equal(env.state.OPENCODE_SKIP_START, 'true');
+  assert.match(env.state.OPENCODE_HOST ?? '', /^http:\/\/127\.0\.0\.1:4095$/u);
+
+  const disabled = await disableOpencodeService({}, paths, scope);
+  assert.deepEqual(disabled.spawn.removed, ['OPENCODE_BINARY']);
+  // Both postures are gone, so the host falls back to its own OpenCode.
+  assert.equal(env.state.OPENCODE_BINARY ?? null, null);
+  assert.equal(env.state.OPENCODE_SKIP_START ?? null, null);
+  assert.equal(env.state.OPENCODE_HOST ?? null, null);
+  assert.equal(env.state.OPENCODE_SERVER_PASSWORD ?? null, null);
+  assert.equal(disabled.environment.preserved, false);
+});
+
+test('disable preserves an attach binding NNA cannot prove it wrote', async () => {
+  // Security: the ownership proof is what keeps disable from deleting an operator's
+  // own hand-written wiring. A value NNA did not write makes the whole set foreign.
+  const paths = await servicePaths(); const startup = await mkdtemp(join(tmpdir(), 'nna-opencode-startup-'));
+  await saveOpenCodeConfig(paths.opencodeConfig, { enabled: true, password: generateOpencodePassword() });
+  const env = environment({ OPENCODE_SKIP_START: 'true', OPENCODE_HOST: 'http://192.168.1.50:9999',
+    OPENCODE_SERVER_PASSWORD: 'foreign-operator-secret' });
+  const scope = { platform: 'win32', startupFolder: () => startup,
+    userEnvironmentRead: env.read, userEnvironmentWrite: env.write, environment: {} };
+
+  const disabled = await disableOpencodeService({}, paths, scope);
+  assert.deepEqual(disabled.environment.removed, []);
+  assert.equal(disabled.environment.preserved, true);
+  assert.equal(disabled.environment.reason, 'ownership_unverified');
+  // The foreign values survive untouched.
+  assert.equal(env.state.OPENCODE_HOST, 'http://192.168.1.50:9999');
+  assert.equal(env.state.OPENCODE_SKIP_START, 'true');
 });
 
 test('enable still installs the login script when no launcher exists', async () => {

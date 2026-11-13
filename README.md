@@ -123,6 +123,15 @@ In this mode NNA publishes the OpenChamber binding (`OPENCODE_HOST`,
 attaches to the running service. `enable` also installs a sign-in script that
 starts the detached service at login; `disable` removes it.
 
+`disable` clears **both** wirings, because either one alone keeps OpenChamber off
+its own OpenCode: the spawn pointer (`OPENCODE_BINARY`) and any attach binding
+`start` left behind (`OPENCODE_SKIP_START` and its companions). The attach names
+are removed only when NNA can prove it wrote them, so a hand-written binding of
+your own is preserved rather than clobbered. This matters in practice because
+`enable` followed by `start` leaves both postures set, and OpenChamber treats
+`OPENCODE_SKIP_START` as authoritative — it would attach to a fixed port and
+ignore the pointer, hanging once that service stopped.
+
 Sessions persist across restarts in both modes: the conversation list, titles,
 archive state, and transcripts are stored durably and restored at the next boot.
 Deleting a session in OpenChamber removes it permanently, including its journal.

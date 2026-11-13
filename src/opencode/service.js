@@ -85,9 +85,18 @@ export async function disableOpencodeService(options, paths, scope = {}) {
   // its own OpenCode. Left behind, it would keep spawning NNA after the operator
   // asked for it to stop.
   const spawn = await clearSpawnEnvironment(scope);
+  // Compatibility: `disable` promises to return the host to its own OpenCode, and
+  // a surviving attach binding defeats that. OpenChamber treats
+  // `OPENCODE_SKIP_START` as authoritative over every spawn path, so a binding
+  // left by an earlier `start` makes the host attach to a fixed port instead of
+  // launching anything — and once that service stops, the host hangs on a port
+  // nothing listens on rather than falling back to its bundled OpenCode. The
+  // names are cleared with `stop`'s ownership proof, so a binding NNA cannot
+  // prove it wrote is preserved rather than clobbered.
+  const environment = await clearUserEnvironment(config, scope, bindUrl, DEFAULT_BASIC_USERNAME);
   const login = await removeLoginStartup(scope);
   const runtime = await opencodeRuntimeStatus(paths, scope);
-  return { config: opencodePublicStatus(saved, scope.environment ?? process.env), login, runtime, spawn };
+  return { config: opencodePublicStatus(saved, scope.environment ?? process.env), login, runtime, spawn, environment };
 }
 
 export async function opencodeServiceStatus(options, paths, scope = {}) {
