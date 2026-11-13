@@ -118,6 +118,36 @@ async function fixtureServer(t, extra = {}) {
   return { runtime, request, json, root };
 }
 
+test('an unserved route answers a bare 404 while a missing record answers a tagged one', async (t) => {
+  const { request, json } = await fixtureServer(t);
+  // Compatibility: a client tells "this server has no such route" from "that
+  // record is gone" by the body, not the status. OpenChamber probes optional
+  // routes and reads a bodyless 404 as unsupported so it keeps its older reads;
+  // its goal runtime answers a *failed* probe by re-arming a timer and returning,
+  // so a tagged refusal here left a goal auditing a turn that never settled.
+  const unserved = [
+    ['GET', '/api/experimental/job?sessionID=x&descendants=true&status=running'],
+    ['GET', '/api/totally-unknown-path'],
+    ['GET', '/api/session/ses_absent/not-a-real-action'],
+    ['POST', '/api/session/ses_absent/not-a-real-action'],
+  ];
+  for (const [method, path] of unserved) {
+    const response = await request(path, method, method === 'POST' ? {} : undefined);
+    assert.equal(response.status, 404, `${method} ${path}`);
+    // Why the byte count: a client that checks `_tag` on an empty object must not
+    // be handed one, and `null`/`{}` would each read as a tagged refusal.
+    assert.equal((await response.text()).length, 0, `${method} ${path} must have no body`);
+  }
+  // The other half of the contract: a route that exists but names a record that
+  // does not is a typed refusal, because the client renders that message.
+  const session = await json('/session', 'POST', { title: 'Shaped' });
+  // Why a schema-valid id: a malformed one is refused before the lookup, so it
+  // would test the identifier check rather than the missing-record answer.
+  const missing = await request(`/api/session/${session.id}/message/msg_1c777c515001DqIzLZdZLsX31Z`);
+  assert.equal(missing.status, 404);
+  assert.equal((await missing.json())._tag, 'MessageNotFoundError');
+});
+
 test('legacy creation cannot supply internal v2 session authority fields', async (t) => {
   const { json, runtime } = await fixtureServer(t);
   const session = await json('/session', 'POST', {

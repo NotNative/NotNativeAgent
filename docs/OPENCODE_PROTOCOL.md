@@ -141,6 +141,36 @@ generated-image and generated-decision routes, tool-call lifecycle events,
 OAuth and command-based provider connection, and plugin management. Reviewer
 escalation remains fail-closed.
 
+## An unserved route is a bare 404, and the route resolves before the record
+
+A path this surface does not serve — and an operation it does not serve under a
+path it does — answers `404` with a **zero-byte body**. A route that exists but
+names a record that does not (an unknown session, message or form) answers a
+*tagged* 404. Both facts were measured against the reference server.
+
+The distinction is not cosmetic. A client tells "this server has no such route"
+from "that record is gone" by the body, and the two lead to different behaviour:
+OpenChamber probes `GET /api/experimental/job`, a route added in OpenCode 2.2.6,
+and reads `404` without a `_tag` as "unsupported, keep the older reads" while a
+tagged `404` reads as a failure. Its goal runtime answers a failed probe by
+re-arming its timer and returning, so a tagged refusal left a goal waiting on an
+audit that never ran.
+
+The route shape is therefore resolved *before* the session is loaded, which is
+what the reference does:
+
+| Request | Answer |
+| --- | --- |
+| an unserved operation on a session that does not exist | bare `404` |
+| an unserved operation on a session that does exist | bare `404` |
+| `inbox`/`form`/`permission` on a session that does not exist | tagged `SessionNotFoundError` |
+| a message id that session never held | tagged `MessageNotFoundError` |
+
+A tagged 404 is what a client renders as a message, so it stays where a record is
+genuinely missing. Answering `404` for an unserved path is also what a missing-route
+probe expects; answering it with a typed refusal makes an unsupported optional
+feature look like a broken one.
+
 ## One-shot text generation, for a client's titles and recaps
 
 `POST /api/experimental/generate/text` takes `{ prompt, model? }` and answers

@@ -111,34 +111,55 @@ async function dispatch(ctx) {
     const result = await catalogResponse(path, requestDirectory(target, req, options.directory), api, options.config);
     if (result !== undefined) return sendJson(res, 200, result);
   }
-  throw apiError(404, 'InvalidRequestError', 'This operation is not supported by the NNA OpenCode surface');
+  // Compatibility: a route this surface does not serve answers a *bare* 404 with
+  // no body, which is what a real OpenCode does for any path it does not route —
+  // measured on 2.2.6 for an unknown `/api/*` path and for an unserved session
+  // sub-path alike. The distinction is load-bearing: OpenChamber probes optional
+  // routes (`GET /api/experimental/job`, added in 2.2.6) and reads `404` with no
+  // `_tag` as "this server has no such route", falling back to its older reads,
+  // while a tagged 404 reads as a failure. One of those probes gates the goal
+  // runtime, which answers a failed probe by re-arming its timer and returning —
+  // so a tagged refusal here left a goal waiting on an audit that never ran.
+  // A tagged 404 stays where the route exists and the *record* does not (an
+  // unknown session, message or form), which is the distinction the wire draws.
+  ctx.res.writeHead(404, { 'content-length': '0' });
+  ctx.res.end();
 }
 
 async function sessionRoute(ctx, segments) {
   const { req, res, options, target } = ctx; const api = options.v2;
   const [id, action, itemID, subaction] = segments; const method = req.method;
-  // Why the deferred require: an archived conversation is unknown to the live
-  // state map, but its read-only history still serves; only read routes may
-  // defer the live-state requirement, and every mutation still requires it.
-  // Why ensureLive: an evicted conversation re-attaches on demand before its
-  // operation resolves, so a prompt after idle eviction pays one journal
-  // replay instead of a 404.
-  const state = segments.length === 2 && method === 'GET' && action === 'message' && !api.states.has(id)
-    ? null : await api.ensureLive(id);
+  // Why lazy: a route this surface does not serve must be told apart from a
+  // served route naming a missing record, and a real OpenCode resolves the route
+  // first — an unserved action on a missing session is a bare 404, while a served
+  // action on one is a tagged `SessionNotFoundError` (measured on 2.2.6). Loading
+  // the session eagerly made the second answer stand in for the first, which a
+  // client reads as a failed probe rather than as "no such route".
+  let loaded;
+  const stateFor = async () => {
+    if (loaded !== undefined) return loaded;
+    // Why the deferred require: an archived conversation is unknown to the live
+    // state map, but its read-only history still serves; only read routes may
+    // defer the live-state requirement, and every mutation still requires it.
+    // Why ensureLive: an evicted conversation re-attaches on demand before its
+    // operation resolves, so a prompt after idle eviction pays one journal
+    // replay instead of a 404.
+    loaded = segments.length === 2 && method === 'GET' && action === 'message' && !api.states.has(id)
+      ? null : await api.ensureLive(id);
+    return loaded;
+  };
   if (segments.length === 1) {
     if (method === 'GET') return sendJson(res, 200, { data: api.read(id) });
     if (method === 'DELETE') { await api.remove(id); return sendNoContent(res); }
     if (method === 'PATCH') { await api.update(id, await body(ctx)); return sendNoContent(res); }
   }
-  if (segments.length === 2 && method === 'GET') {
-    if (action === 'message') return sendJson(res, 200, api.messages(id, target.query));
-    if (state === null) throw apiError(404, 'SessionNotFoundError', 'Session was not found', { sessionID: id });
-    if (action === 'inbox') return sendJson(res, 200, { data: [...state.inbox.values()] });
-    if (action === 'form') return sendJson(res, 200, { data: api.forms(id) });
-    if (action === 'permission') return sendJson(res, 200, { data: [] });
+  if (segments.length === 2 && method === 'GET') return sessionRead(ctx, id, action, stateFor);
+  if (segments.length === 2 && method === 'POST') {
+    if (!SESSION_POST_ACTIONS.has(action)) return unserved(res);
+    return sessionPost(ctx, await stateFor(), action);
   }
-  if (segments.length === 2 && method === 'POST') return sessionPost(ctx, state, action);
   if (action === 'form' && segments.length <= 4) {
+    await stateFor();
     if (segments.length === 3 && method === 'GET') return sendJson(res, 200, { data: api.form(id, itemID) });
     if (segments.length === 3 && method === 'DELETE') { await api.settleForm(id, itemID, {}, true); return sendNoContent(res); }
     if (segments.length === 4 && subaction === 'reply' && method === 'POST') {
@@ -146,7 +167,7 @@ async function sessionRoute(ctx, segments) {
     }
   }
   if (action === 'message' && segments.length === 3 && method === 'GET') {
-    const message = state.messages.get(itemID);
+    const message = (await stateFor()).messages.get(itemID);
     if (!message) throw apiError(404, 'MessageNotFoundError', 'Message was not found', { messageID: itemID });
     return sendJson(res, 200, { data: message });
   }
@@ -162,8 +183,44 @@ async function sessionRoute(ctx, segments) {
   if (action === 'revert' && segments.length === 3 && segments[2] === 'commit' && method === 'POST') {
     await api.commitRevert(id); return sendNoContent(res);
   }
-  throw apiError(404, 'InvalidRequestError', 'This session operation is not supported');
+  return unserved(res);
 }
+
+/** A read on one session: its history, pending inbox, pending forms, permissions.
+ *
+ *  Why `message` is answered before the session is loaded: history serves an
+ *  archived or evicted conversation, which has no live state to require. The
+ *  other three need the live state, and a session this surface does not have is a
+ *  tagged `SessionNotFoundError` — the answer a client renders, as distinct from
+ *  the bare 404 an unserved action gets. */
+async function sessionRead(ctx, id, action, stateFor) {
+  const { res, options, target } = ctx; const api = options.v2;
+  if (action === 'message') return sendJson(res, 200, api.messages(id, target.query));
+  if (!['inbox', 'form', 'permission'].includes(action)) return unserved(res);
+  const state = await stateFor();
+  if (state === null) throw apiError(404, 'SessionNotFoundError', 'Session was not found', { sessionID: id });
+  if (action === 'inbox') return sendJson(res, 200, { data: [...state.inbox.values()] });
+  if (action === 'form') return sendJson(res, 200, { data: api.forms(id) });
+  return sendJson(res, 200, { data: [] });
+}
+
+/** A bodyless 404: the answer for a route this surface does not serve.
+ *
+ *  Why one helper: the shape is a contract a client reads, not a decoration. A
+ *  real OpenCode answers every unrouted path and every unserved operation this
+ *  way, and a tagged body in its place reads as a failure rather than as "this
+ *  server has no such route". Keeping one function means the two bail-outs
+ *  cannot drift. */
+function unserved(res) {
+  res.writeHead(404, { 'content-length': '0' });
+  res.end();
+}
+
+/** The actions a POST on a session serves. Why declared here: `sessionRoute`
+ *  resolves the route before it loads the session, so an unserved action on a
+ *  missing session is the bare 404 a client reads as "no such route" rather than
+ *  the tagged not-found it would read as a failure. */
+const SESSION_POST_ACTIONS = new Set(['prompt', 'synthetic', 'command', 'fork', 'compact', 'interrupt', 'agent', 'model', 'view']);
 
 async function sessionPost(ctx, state, action) {
   const { res, options, target } = ctx; const api = options.v2; const id = state.info.id;
@@ -202,7 +259,7 @@ async function sessionPost(ctx, state, action) {
     }
     return sendNoContent(res);
   }
-  throw apiError(404, 'InvalidRequestError', 'This session operation is not supported');
+  return unserved(res);
 }
 
 async function body(ctx) {
